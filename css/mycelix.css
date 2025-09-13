@@ -1,0 +1,448 @@
+/**
+ * Mycelix Network Styles
+ * Consciousness-first design for P2P communication
+ * Version: 1.0.0
+ * Author: Luminous Dynamics
+ */
+
+/* =============================================
+   1. CSS Variables & Custom Properties
+   ============================================= */
+
+:root {
+    /* Color Palette */
+    --void-black: #0a0a0f;
+    --deep-void: #050507;
+    --mycelium-blue: #00a8cc;
+    --network-purple: #7c3aed;
+    --growth-green: #10b981;
+    --connection-gold: #ffd700;
+    --warning-red: #ef4444;
+    --success-green: #22c55e;
+    --info-blue: #3b82f6;
+    
+    /* Sacred Geometry & Mathematical Constants */
+    --phi: 1.618033988749;
+    --phi-inverse: 0.618033988749;
+    --fibonacci-1: 1;
+    --fibonacci-2: 1;
+    --fibonacci-3: 2;
+    --fibonacci-5: 5;
+    --fibonacci-8: 8;
+    --fibonacci-13: 13;
+    --fibonacci-21: 21;
+    
+    /* Typography System */
+    --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-technical: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Courier New', monospace;
+    --font-display: 'Inter', var(--font-main);
+    
+    /* Font Sizes (Type Scale) */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    --text-4xl: 2.25rem;
+    --text-5xl: 3rem;
+    --text-6xl: 3.75rem;
+    
+    /* Spacing System (Golden Ratio Based) */
+    --space-xs: calc(0.5rem * var(--phi));
+    --space-sm: calc(1rem * var(--phi));
+    --space-md: calc(1.5rem * var(--phi));
+    --space-lg: calc(2rem * var(--phi));
+    --space-xl: calc(3rem * var(--phi));
+    --space-2xl: calc(4rem * var(--phi));
+    
+    /* Animation Durations */
+    --transition-fast: 150ms;
+    --transition-base: 300ms;
+    --transition-slow: 500ms;
+    --transition-slower: 1000ms;
+    
+    /* Z-index Layers */
+    --z-background: -1;
+    --z-base: 0;
+    --z-elevated: 10;
+    --z-overlay: 100;
+    --z-modal: 1000;
+    --z-notification: 2000;
+}
+
+/* =============================================
+   2. Reset & Base Styles
+   ============================================= */
+
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    background: var(--void-black);
+    color: rgba(255, 255, 255, 0.95);
+    font-family: var(--font-main);
+    font-size: var(--text-base);
+    line-height: var(--phi);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Consciousness Field Background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 168, 204, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -2;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: var(--space-sm);
+}
+
+h1 {
+    font-size: calc(3rem * var(--phi));
+    background: linear-gradient(135deg, var(--mycelium-blue), var(--network-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+h2 {
+    font-size: calc(2rem * var(--phi));
+    color: var(--mycelium-blue);
+}
+
+h3 {
+    font-size: calc(1.5rem * var(--phi));
+    color: var(--growth-green);
+}
+
+p {
+    margin-bottom: var(--space-sm);
+    opacity: 0.95;
+}
+
+a {
+    color: var(--mycelium-blue);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    color: var(--connection-gold);
+    text-shadow: 0 0 10px currentColor;
+}
+
+code {
+    font-family: var(--font-technical);
+    background: rgba(124, 58, 237, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+
+pre {
+    background: var(--deep-void);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: var(--space-sm);
+    overflow-x: auto;
+    margin: var(--space-sm) 0;
+}
+
+/* Buttons */
+.btn-spore,
+.btn-path,
+.btn-consciousness {
+    display: inline-block;
+    padding: calc(0.75rem * var(--phi)) calc(1.5rem * var(--phi));
+    border-radius: 50px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-spore {
+    background: linear-gradient(135deg, var(--mycelium-blue), var(--network-purple));
+    color: white;
+    box-shadow: 0 4px 20px rgba(0, 168, 204, 0.3);
+}
+
+.btn-spore:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 30px rgba(0, 168, 204, 0.5);
+}
+
+.btn-spore::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-spore:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-path {
+    background: transparent;
+    color: var(--growth-green);
+    border: 2px solid var(--growth-green);
+}
+
+.btn-path:hover {
+    background: var(--growth-green);
+    color: var(--void-black);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+}
+
+/* Cards and Containers */
+.consciousness-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: calc(1rem * var(--phi));
+    padding: var(--space-md);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.consciousness-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes rotate {
+    to { transform: rotate(360deg); }
+}
+
+.consciousness-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--mycelium-blue);
+    box-shadow: 0 10px 40px rgba(0, 168, 204, 0.2);
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px currentColor; }
+    50% { box-shadow: 0 0 20px currentColor, 0 0 40px currentColor; }
+}
+
+@keyframes consciousness-wave {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Mycelium Network Canvas */
+#mycelium-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.connected {
+    background: var(--growth-green);
+    box-shadow: 0 0 10px var(--growth-green);
+}
+
+.status-indicator.connecting {
+    background: var(--connection-gold);
+    animation: pulse 1s infinite;
+}
+
+.status-indicator.disconnected {
+    background: var(--warning-red);
+    animation: none;
+}
+
+/* HIPI Protocol Display */
+.hipi-display {
+    font-family: var(--font-technical);
+    background: var(--deep-void);
+    border: 1px solid var(--network-purple);
+    border-radius: 0.5rem;
+    padding: var(--space-sm);
+    color: var(--connection-gold);
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+/* Consciousness Meter */
+.consciousness-meter {
+    width: 100%;
+    height: 30px;
+    background: linear-gradient(90deg, 
+        var(--deep-void) 0%, 
+        rgba(124, 58, 237, 0.1) 50%, 
+        var(--deep-void) 100%);
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.consciousness-level {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        var(--network-purple) 0%, 
+        var(--mycelium-blue) 50%, 
+        var(--growth-green) 100%);
+    width: 50%;
+    transition: width 0.5s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.consciousness-level::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: white;
+    box-shadow: 0 0 10px white;
+    animation: pulse 1s infinite;
+}
+
+/* Loading States */
+.loading-consciousness {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--mycelium-blue);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    :root {
+        font-size: 14px;
+    }
+    
+    h1 {
+        font-size: calc(2rem * var(--phi));
+    }
+    
+    h2 {
+        font-size: calc(1.5rem * var(--phi));
+    }
+    
+    .consciousness-card {
+        padding: var(--space-sm);
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    /* Light mode adjustments if needed */
+    body {
+        background: #f0f0f5;
+        color: var(--void-black);
+    }
+    
+    .consciousness-card {
+        background: rgba(0, 0, 0, 0.02);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .mycelium-network,
+    #mycelium-canvas {
+        display: none;
+    }
+}

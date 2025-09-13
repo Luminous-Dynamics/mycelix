@@ -1,0 +1,29 @@
+{
+  "name": "mycelix-network",
+  "version": "0.1.0",
+  "description": "P2P consciousness network for humans and AI",
+  "main": "signaling-server.js",
+  "scripts": {
+    "start": "node signaling-server.js",
+    "dev": "python3 -m http.server 8000",
+    "signal": "node signaling-server.js"
+  },
+  "keywords": [
+    "p2p",
+    "webrtc",
+    "consciousness",
+    "decentralized",
+    "ai",
+    "human-ai-communication"
+  ],
+  "author": "Luminous Dynamics",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Luminous-Dynamics/mycelix.git"
+  }
+}

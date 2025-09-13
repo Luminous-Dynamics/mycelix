@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Mycelium Network Icon -->
+  <defs>
+    <linearGradient id="mycelixGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00a8cc;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#7c3aed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="45" fill="#0a0a0f"/>
+  
+  <!-- Mycelium nodes -->
+  <circle cx="50" cy="20" r="8" fill="url(#mycelixGrad)" opacity="0.9"/>
+  <circle cx="25" cy="50" r="6" fill="url(#mycelixGrad)" opacity="0.8"/>
+  <circle cx="75" cy="50" r="6" fill="url(#mycelixGrad)" opacity="0.8"/>
+  <circle cx="35" cy="75" r="5" fill="url(#mycelixGrad)" opacity="0.7"/>
+  <circle cx="65" cy="75" r="5" fill="url(#mycelixGrad)" opacity="0.7"/>
+  
+  <!-- Connections -->
+  <path d="M50,20 L25,50 L35,75 L65,75 L75,50 L50,20" 
+        stroke="url(#mycelixGrad)" 
+        stroke-width="1.5" 
+        fill="none" 
+        opacity="0.5"/>
+  
+  <!-- Central glow -->
+  <circle cx="50" cy="50" r="3" fill="#fbbf24"/>
+</svg>

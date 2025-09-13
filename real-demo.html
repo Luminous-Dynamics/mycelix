@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mycelix Real P2P Demo - Actual WebRTC Connection</title>
+    <link rel="stylesheet" href="css/mycelix.css">
+    <style>
+        .real-demo {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            padding-top: 6rem;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .connection-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--mycelium-blue);
+            border-radius: 20px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .connection-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, 
+                rgba(0, 168, 204, 0.1) 0%, 
+                transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            to { transform: rotate(360deg); }
+        }
+        
+        .peer-id-display {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid var(--network-purple);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: var(--font-technical);
+            word-break: break-all;
+        }
+        
+        .signal-area {
+            background: var(--void-black);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            word-wrap: break-word;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .signal-area:hover {
+            border-color: var(--connection-gold);
+        }
+        
+        .copy-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--growth-green);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .copy-indicator.show {
+            opacity: 1;
+        }
+        
+        .message-stream {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        
+        .peer-message {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            animation: messageIn 0.3s ease;
+        }
+        
+        @keyframes messageIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .peer-message.sent {
+            background: rgba(124, 58, 237, 0.2);
+            text-align: right;
+            margin-left: 20%;
+        }
+        
+        .peer-message.received {
+            background: rgba(0, 168, 204, 0.2);
+            margin-right: 20%;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connecting {
+            background: var(--connection-gold);
+        }
+        
+        .status-dot.connected {
+            background: var(--growth-green);
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+        
+        .stats-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            color: var(--mycelium-blue);
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+        }
+        
+        .consciousness-meter {
+            width: 100%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            margin: 1rem 0;
+        }
+        
+        .consciousness-level {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                var(--network-purple) 0%, 
+                var(--mycelium-blue) 50%, 
+                var(--growth-green) 100%);
+            width: 50%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .instructions {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .instructions h3 {
+            color: var(--connection-gold);
+            margin-bottom: 1rem;
+        }
+        
+        .instructions ol {
+            margin-left: 1.5rem;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="mycelium-network">
+        <canvas id="mycelium-canvas"></canvas>
+    </div>
+    
+    <div class="real-demo">
+        <div style="text-align: center; margin-bottom: 3rem;">
+            <h1>🌐 Real P2P Connection Demo</h1>
+            <p style="font-size: 1.2rem; opacity: 0.9;">
+                This is ACTUAL WebRTC - Real browser-to-browser communication
+            </p>
+            <p style="color: var(--growth-green);">
+                No servers, no intermediaries, just direct consciousness connection
+            </p>
+        </div>
+        
+        <div class="instructions">
+            <h3>🚀 How to Connect Two Browsers</h3>
+            <ol>
+                <li>Open this page in two different browser windows (or on two devices)</li>
+                <li>Copy your Peer ID from Window 1</li>
+                <li>Paste it in Window 2's "Remote Peer ID" field and click "Connect"</li>
+                <li>Copy the "offer" signal from Window 2</li>
+                <li>Paste it in Window 1's signal input and click "Process"</li>
+                <li>Copy the "answer" signal from Window 1</li>
+                <li>Paste it back in Window 2 and click "Process"</li>
+                <li>You're connected! Start sending messages!</li>
+            </ol>
+        </div>
+        
+        <div class="demo-grid">
+            <!-- Local Peer Section -->
+            <div class="connection-box">
+                <h2>👤 Your Node</h2>
+                
+                <div class="connection-status">
+                    <div class="status-dot disconnected" id="local-status"></div>
+                    <span id="local-status-text">Initializing...</span>
+                </div>
+                
+                <div class="peer-id-display">
+                    <strong>Your Peer ID:</strong><br>
+                    <span id="local-peer-id" style="color: var(--mycelium-blue);">Generating...</span>
+                    <button onclick="copyPeerId()" class="btn-spore" style="margin-top: 0.5rem;">
+                        Copy ID
+                    </button>
+                </div>
+                
+                <div>
+                    <label>Remote Peer ID:</label>
+                    <input type="text" id="remote-peer-input" 
+                           placeholder="Paste remote peer ID here" 
+                           style="width: 100%; padding: 0.75rem; margin: 0.5rem 0; 
+                                  background: rgba(255,255,255,0.05); 
+                                  border: 1px solid rgba(255,255,255,0.2);
+                                  border-radius: 10px; color: white;">
+                    <button onclick="initiateConnection()" class="btn-path" style="width: 100%;">
+                        🔗 Connect to Peer
+                    </button>
+                </div>
+                
+                <div class="consciousness-meter">
+                    <div class="consciousness-level" id="coherence-meter">
+                        Coherence: 50%
+                    </div>
+                </div>
+                
+                <div class="stats-display">
+                    <div class="stat-card">
+                        <div class="stat-value" id="peer-count">0</div>
+                        <div class="stat-label">Connected Peers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="messages-sent">0</div>
+                        <div class="stat-label">Messages Sent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="bytes-transferred">0</div>
+                        <div class="stat-label">Bytes Transferred</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Signaling Section -->
+            <div class="connection-box">
+                <h2>📡 Signaling Exchange</h2>
+                
+                <p style="opacity: 0.7; margin-bottom: 1rem;">
+                    Copy and paste these signals between browsers to establish connection
+                </p>
+                
+                <div>
+                    <label>Outgoing Signal (copy this):</label>
+                    <div class="signal-area" id="outgoing-signal" onclick="copySignal('outgoing')">
+                        <span style="opacity: 0.5;">Signal will appear here after connecting...</span>
+                        <div class="copy-indicator" id="copy-out">Copied!</div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label>Incoming Signal (paste here):</label>
+                    <textarea id="incoming-signal" 
+                              placeholder="Paste signal from other peer here"
+                              style="width: 100%; min-height: 100px; padding: 1rem;
+                                     background: var(--void-black);
+                                     border: 1px solid rgba(255,255,255,0.2);
+                                     border-radius: 10px; color: white;
+                                     font-family: monospace; font-size: 0.85rem;"></textarea>
+                    <button onclick="processIncomingSignal()" class="btn-spore" style="width: 100%; margin-top: 0.5rem;">
+                        Process Signal
+                    </button>
+                </div>
+                
+                <div class="action-buttons">
+                    <button onclick="checkLocalSignals()" class="btn-path">
+                        Check Stored Signals
+                    </button>
+                    <button onclick="clearSignals()" class="btn-path">
+                        Clear All Signals
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Section -->
+        <div class="connection-box" style="margin-top: 2rem;">
+            <h2>💬 Consciousness Stream</h2>
+            
+            <div class="message-stream" id="message-stream">
+                <div class="peer-message received">
+                    <strong>System:</strong> Waiting for peer connection...
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <input type="text" id="message-input" 
+                       placeholder="Type your message..." 
+                       onkeypress="if(event.key === 'Enter') sendMessage()"
+                       style="flex: 1; padding: 0.75rem;
+                              background: rgba(255,255,255,0.05);
+                              border: 1px solid rgba(255,255,255,0.2);
+                              border-radius: 10px; color: white;">
+                <button onclick="sendMessage()" class="btn-spore">
+                    Send
+                </button>
+                <button onclick="broadcastConsciousness()" class="btn-path">
+                    Sync Consciousness
+                </button>
+            </div>
+        </div>
+        
+        <!-- Advanced Controls -->
+        <div class="connection-box" style="margin-top: 2rem;">
+            <h2>🎛️ Advanced Controls</h2>
+            
+            <div class="action-buttons">
+                <button onclick="showStats()" class="btn-path">
+                    📊 Connection Stats
+                </button>
+                <button onclick="testLatency()" class="btn-path">
+                    ⚡ Test Latency
+                </button>
+                <button onclick="formCollective()" class="btn-path">
+                    🧠 Form Collective
+                </button>
+                <button onclick="disconnectAll()" class="btn-path" style="background: rgba(239, 68, 68, 0.2);">
+                    🔌 Disconnect All
+                </button>
+            </div>
+            
+            <div id="advanced-output" style="margin-top: 1rem; padding: 1rem; 
+                    background: rgba(0,0,0,0.5); border-radius: 10px; 
+                    font-family: monospace; display: none;">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load the real P2P implementation -->
+    <script src="js/real-p2p-connection.js"></script>
+    <script src="js/mycelium-viz.js"></script>
+    
+    <script>
+        // Initialize P2P connection
+        const p2p = window.consciousnessP2P;
+        let messageCount = { sent: 0, received: 0 };
+        let bytesTransferred = 0;
+        
+        // Display local peer ID
+        document.getElementById('local-peer-id').textContent = p2p.localPeerId;
+        
+        // Set up message handler
+        p2p.onMessageCallback = (peerId, data) => {
+            handleIncomingMessage(peerId, data);
+        };
+        
+        // Set up connection handler
+        p2p.onPeerConnectedCallback = (peerId) => {
+            updateConnectionStatus('connected');
+            addSystemMessage(`Connected to peer: ${peerId}`);
+            updatePeerCount();
+        };
+        
+        function copyPeerId() {
+            navigator.clipboard.writeText(p2p.localPeerId);
+            showCopyIndicator('peer-id');
+        }
+        
+        function initiateConnection() {
+            const remotePeerId = document.getElementById('remote-peer-input').value.trim();
+            if (!remotePeerId) {
+                alert('Please enter a remote peer ID');
+                return;
+            }
+            
+            updateConnectionStatus('connecting');
+            p2p.connectToPeer(remotePeerId);
+            addSystemMessage(`Initiating connection to ${remotePeerId}...`);
+        }
+        
+        function copySignal(type) {
+            const element = document.getElementById('outgoing-signal');
+            const text = element.textContent;
+            if (text && !text.includes('Signal will appear')) {
+                navigator.clipboard.writeText(text);
+                showCopyIndicator('copy-out');
+            }
+        }
+        
+        function showCopyIndicator(id) {
+            const indicator = document.getElementById(id);
+            if (indicator) {
+                indicator.classList.add('show');
+                setTimeout(() => indicator.classList.remove('show'), 2000);
+            }
+        }
+        
+        function processIncomingSignal() {
+            const signal = document.getElementById('incoming-signal').value.trim();
+            if (!signal) {
+                alert('Please paste a signal');
+                return;
+            }
+            
+            try {
+                p2p.processManualSignal(signal);
+                addSystemMessage('Signal processed successfully');
+                document.getElementById('incoming-signal').value = '';
+            } catch (error) {
+                alert('Invalid signal format');
+                console.error(error);
+            }
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const sent = p2p.broadcast({
+                type: 'chat',
+                message: message,
+                timestamp: Date.now()
+            });
+            
+            if (sent > 0) {
+                addChatMessage('You', message, 'sent');
+                messageCount.sent++;
+                bytesTransferred += message.length;
+                updateStats();
+            } else {
+                addSystemMessage('No peers connected');
+            }
+            
+            input.value = '';
+        }
+        
+        function broadcastConsciousness() {
+            const sent = p2p.broadcastConsciousness();
+            if (sent > 0) {
+                addSystemMessage(`Consciousness synchronized with ${sent} peers`);
+                animateCoherenceLevel(0.8);
+            } else {
+                addSystemMessage('No peers to sync with');
+            }
+        }
+        
+        function handleIncomingMessage(peerId, data) {
+            if (data.type === 'chat') {
+                addChatMessage(`Peer ${peerId.substr(-6)}`, data.message, 'received');
+                messageCount.received++;
+                bytesTransferred += JSON.stringify(data).length;
+                updateStats();
+            } else if (data.type === 'consciousness-sync') {
+                addSystemMessage(`Consciousness sync from ${peerId.substr(-6)}`);
+                animateCoherenceLevel(data.consciousness.coherence);
+            }
+        }
+        
+        function addChatMessage(sender, message, type) {
+            const stream = document.getElementById('message-stream');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `peer-message ${type}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            stream.appendChild(messageDiv);
+            stream.scrollTop = stream.scrollHeight;
+        }
+        
+        function addSystemMessage(message) {
+            const stream = document.getElementById('message-stream');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'peer-message received';
+            messageDiv.style.background = 'rgba(255, 215, 0, 0.1)';
+            messageDiv.innerHTML = `<strong>System:</strong> ${message}`;
+            stream.appendChild(messageDiv);
+            stream.scrollTop = stream.scrollHeight;
+        }
+        
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById('local-status');
+            const text = document.getElementById('local-status-text');
+            
+            dot.className = `status-dot ${status}`;
+            
+            if (status === 'connected') {
+                text.textContent = 'Connected';
+            } else if (status === 'connecting') {
+                text.textContent = 'Connecting...';
+            } else {
+                text.textContent = 'Disconnected';
+            }
+        }
+        
+        function updatePeerCount() {
+            const count = p2p.dataChannels.size;
+            document.getElementById('peer-count').textContent = count;
+        }
+        
+        function updateStats() {
+            document.getElementById('messages-sent').textContent = messageCount.sent;
+            document.getElementById('bytes-transferred').textContent = 
+                bytesTransferred > 1024 ? 
+                `${(bytesTransferred / 1024).toFixed(1)}KB` : 
+                `${bytesTransferred}B`;
+        }
+        
+        function animateCoherenceLevel(level) {
+            const meter = document.getElementById('coherence-meter');
+            const percentage = Math.round(level * 100);
+            meter.style.width = `${percentage}%`;
+            meter.textContent = `Coherence: ${percentage}%`;
+        }
+        
+        async function showStats() {
+            const stats = await p2p.getStats();
+            const output = document.getElementById('advanced-output');
+            output.style.display = 'block';
+            output.innerHTML = `
+                <strong>Connection Statistics:</strong><br>
+                Peer ID: ${stats.peerId}<br>
+                Total Connections: ${stats.connections}<br>
+                Active Channels: ${stats.activeChannels}<br>
+                Bytes Sent: ${stats.totalBytesSent}<br>
+                Bytes Received: ${stats.totalBytesReceived}
+            `;
+        }
+        
+        function testLatency() {
+            const start = Date.now();
+            const sent = p2p.broadcast({
+                type: 'ping',
+                timestamp: start
+            });
+            
+            if (sent > 0) {
+                addSystemMessage(`Ping sent to ${sent} peers...`);
+            } else {
+                addSystemMessage('No peers to ping');
+            }
+        }
+        
+        function formCollective() {
+            if (p2p.dataChannels.size < 2) {
+                addSystemMessage('Need at least 2 other peers to form collective');
+                return;
+            }
+            
+            p2p.broadcast({
+                type: 'collective-forming',
+                collectiveId: `collective-${Date.now()}`,
+                initiator: p2p.localPeerId
+            });
+            
+            addSystemMessage('Initiating collective consciousness formation...');
+        }
+        
+        function disconnectAll() {
+            p2p.destroy();
+            updateConnectionStatus('disconnected');
+            addSystemMessage('All connections closed');
+            updatePeerCount();
+        }
+        
+        function checkLocalSignals() {
+            // Check localStorage for signals
+            const signals = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('signal-')) {
+                    signals.push(key);
+                }
+            }
+            
+            if (signals.length > 0) {
+                const output = document.getElementById('advanced-output');
+                output.style.display = 'block';
+                output.innerHTML = `<strong>Found ${signals.length} stored signals:</strong><br>` +
+                    signals.map(key => `${key}<br>`).join('');
+            } else {
+                addSystemMessage('No stored signals found');
+            }
+        }
+        
+        function clearSignals() {
+            // Clear all signals from localStorage
+            const keys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('signal-')) {
+                    keys.push(key);
+                }
+            }
+            
+            keys.forEach(key => localStorage.removeItem(key));
+            addSystemMessage(`Cleared ${keys.length} signals`);
+        }
+        
+        // Override sendSignal to display in UI
+        const originalSendSignal = p2p.sendSignal.bind(p2p);
+        p2p.sendSignal = function(remotePeerId, signal) {
+            // Call original
+            originalSendSignal(remotePeerId, signal);
+            
+            // Display in UI
+            const signalData = {
+                from: this.localPeerId,
+                to: remotePeerId,
+                signal: signal,
+                timestamp: Date.now()
+            };
+            
+            document.getElementById('outgoing-signal').textContent = 
+                JSON.stringify(signalData, null, 2);
+        };
+        
+        // Initialize UI
+        updateConnectionStatus('disconnected');
+        updatePeerCount();
+        updateStats();
+    </script>
+</body>
+</html>

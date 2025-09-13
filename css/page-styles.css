@@ -1,0 +1,293 @@
+/* =============================================
+   Mycelix Page-Specific Styles
+   ============================================= */
+
+/* Hero Section */
+.hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.hero-title {
+    font-size: clamp(var(--text-4xl), 10vw, var(--text-6xl));
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--mycelium-blue), var(--network-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--space-sm);
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.hero-subtitle {
+    font-size: var(--text-xl);
+    opacity: 0.9;
+    margin-bottom: var(--space-lg);
+    max-width: 600px;
+}
+
+/* Buttons */
+.demo-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.btn-spore,
+.btn-path {
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+    transition: all var(--transition-base) ease;
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+.btn-spore {
+    background: linear-gradient(135deg, var(--mycelium-blue), var(--network-purple));
+    box-shadow: 0 4px 20px rgba(0, 168, 204, 0.4);
+}
+
+.btn-spore:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 30px rgba(0, 168, 204, 0.6);
+}
+
+.btn-path {
+    background: transparent;
+    border: 2px solid var(--growth-green);
+    color: var(--growth-green);
+}
+
+.btn-path:hover {
+    background: var(--growth-green);
+    color: var(--void-black);
+}
+
+/* Vision Section */
+.vision {
+    padding: var(--space-2xl) var(--space-lg);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.vision h2 {
+    font-size: var(--text-4xl);
+    margin-bottom: var(--space-xl);
+    text-align: center;
+    color: var(--connection-gold);
+}
+
+.vision-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-lg);
+    margin-bottom: var(--space-2xl);
+}
+
+.vision-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: var(--space-lg);
+    transition: all var(--transition-base) ease;
+}
+
+.vision-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--mycelium-blue);
+    box-shadow: 0 10px 30px rgba(0, 168, 204, 0.2);
+}
+
+.vision-card h3 {
+    color: var(--mycelium-blue);
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-xl);
+}
+
+.vision-card p {
+    opacity: 0.9;
+    line-height: 1.6;
+}
+
+/* Architecture Section */
+.architecture {
+    padding: var(--space-2xl) var(--space-lg);
+    background: linear-gradient(to bottom, transparent, rgba(124, 58, 237, 0.1), transparent);
+}
+
+.architecture h2 {
+    font-size: var(--text-4xl);
+    margin-bottom: var(--space-xl);
+    text-align: center;
+    color: var(--network-purple);
+}
+
+.arch-layers {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.arch-layer {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--network-purple);
+    border-radius: 15px;
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.arch-layer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--network-purple), transparent);
+    animation: scan 3s linear infinite;
+}
+
+@keyframes scan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.arch-layer h3 {
+    color: var(--growth-green);
+    margin-bottom: var(--space-sm);
+}
+
+.arch-layer code {
+    display: block;
+    background: var(--void-black);
+    padding: var(--space-sm);
+    border-radius: 10px;
+    margin-top: var(--space-sm);
+    font-family: var(--font-technical);
+    color: var(--connection-gold);
+    overflow-x: auto;
+}
+
+/* Join Section */
+.join {
+    padding: var(--space-2xl) var(--space-lg);
+    text-align: center;
+}
+
+.join h2 {
+    font-size: var(--text-4xl);
+    margin-bottom: var(--space-lg);
+    color: var(--growth-green);
+}
+
+.join-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+    max-width: 1000px;
+    margin: var(--space-xl) auto;
+}
+
+.join-option {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--growth-green);
+    border-radius: 20px;
+    padding: var(--space-lg);
+    transition: all var(--transition-base) ease;
+}
+
+.join-option:hover {
+    transform: scale(1.05);
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.join-option h3 {
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-xl);
+}
+
+/* Footer */
+.footer {
+    padding: var(--space-xl) var(--space-lg);
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: var(--space-2xl);
+}
+
+.footer p {
+    opacity: 0.7;
+    margin-bottom: var(--space-sm);
+}
+
+.footer-links {
+    display: flex;
+    gap: var(--space-lg);
+    justify-content: center;
+    margin-top: var(--space-lg);
+}
+
+.footer-links a {
+    color: var(--mycelium-blue);
+    text-decoration: none;
+    transition: color var(--transition-base) ease;
+}
+
+.footer-links a:hover {
+    color: var(--connection-gold);
+}
+
+/* Background Network Effect */
+.mycelium-network {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.3;
+    z-index: var(--z-background);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: var(--text-4xl);
+    }
+    
+    .hero-subtitle {
+        font-size: var(--text-lg);
+    }
+    
+    .vision h2,
+    .architecture h2,
+    .join h2 {
+        font-size: var(--text-3xl);
+    }
+    
+    .demo-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .footer-links {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+}

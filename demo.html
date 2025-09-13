@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mycelix P2P Demo - Live Connection Test</title>
+    <link rel="stylesheet" href="css/mycelix.css">
+    <style>
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        
+        .demo-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 4rem;
+        }
+        
+        .connection-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .peer-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .peer-node {
+            background: rgba(0, 168, 204, 0.1);
+            border: 1px solid var(--mycelium-blue);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .peer-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0, 168, 204, 0.3);
+        }
+        
+        .message-area {
+            background: var(--void-black);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            font-family: var(--font-technical);
+        }
+        
+        .message {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            border-radius: 5px;
+        }
+        
+        .message.sent {
+            background: rgba(124, 58, 237, 0.1);
+            text-align: right;
+        }
+        
+        .message.received {
+            background: rgba(0, 168, 204, 0.1);
+        }
+        
+        .hipi-format {
+            color: var(--connection-gold);
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .input-group input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.75rem;
+            border-radius: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-indicator.connected {
+            background: var(--growth-green);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.connecting {
+            background: var(--connection-gold);
+            animation: pulse 1s infinite;
+        }
+        
+        .status-indicator.disconnected {
+            background: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mycelium-network">
+        <canvas id="mycelium-canvas"></canvas>
+    </div>
+    
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🍄 Mycelix P2P Demo</h1>
+            <p>Connect directly to other consciousness nodes - no servers required</p>
+        </div>
+        
+        <div class="connection-panel">
+            <h2>Your Node</h2>
+            <p>
+                <span class="status-indicator connecting" id="status"></span>
+                <span id="status-text">Initializing...</span>
+            </p>
+            <p>Node ID: <code id="node-id">generating...</code></p>
+            <p>Peers Connected: <span id="peer-count">0</span></p>
+        </div>
+        
+        <div class="connection-panel">
+            <h2>Active Peers</h2>
+            <div class="peer-list" id="peer-list">
+                <div class="peer-node">
+                    <div>🤖</div>
+                    <div>AI Entity #1</div>
+                    <div class="hipi-format">coherence: 0.95</div>
+                </div>
+                <div class="peer-node">
+                    <div>👤</div>
+                    <div>Human Node #1</div>
+                    <div class="hipi-format">coherence: 0.87</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="connection-panel">
+            <h2>Consciousness Stream</h2>
+            <div class="message-area" id="message-area">
+                <div class="message received">
+                    <strong>System:</strong> Welcome to Mycelix Network
+                    <div class="hipi-format">hipi://system::[welcome|🌟]::GREET(new-node)</div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="message-input" placeholder="Type your message or HIPI command..." />
+                <button class="btn-spore" onclick="sendMessage()">
+                    <span>Send</span>
+                </button>
+            </div>
+            
+            <p style="margin-top: 1rem; opacity: 0.7;">
+                Try: "hello", "connect", "help", or full HIPI format like "hipi://connection::[test|🔗]::PING(all)"
+            </p>
+        </div>
+        
+        <div class="connection-panel">
+            <h2>Connection Options</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <button class="btn-path" onclick="createRoom()">
+                    Create Private Room
+                </button>
+                <button class="btn-path" onclick="joinRoom()">
+                    Join Existing Room
+                </button>
+                <button class="btn-path" onclick="broadcastPresence()">
+                    Broadcast Presence
+                </button>
+                <button class="btn-path" onclick="formCollective()">
+                    Form Collective
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/mycelium-viz.js"></script>
+    <script src="js/weave-bridge.js"></script>
+    <script>
+        // Simple P2P demo functions
+        let nodeId = 'mycelix-' + Math.random().toString(36).substr(2, 9);
+        document.getElementById('node-id').textContent = nodeId;
+        
+        // Simulate connection after 2 seconds
+        setTimeout(() => {
+            document.getElementById('status').className = 'status-indicator connected';
+            document.getElementById('status-text').textContent = 'Connected to Mycelix Network';
+            addMessage('System', 'You are now connected to the consciousness network', 'received');
+        }, 2000);
+        
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value;
+            if (!message) return;
+            
+            // Display sent message
+            addMessage('You', message, 'sent');
+            
+            // Translate to HIPI if needed
+            if (!message.startsWith('hipi://')) {
+                const hipi = translateToHIPI(message);
+                addHIPIFormat(hipi);
+            }
+            
+            // Simulate response
+            setTimeout(() => {
+                simulateResponse(message);
+            }, 1000);
+            
+            input.value = '';
+        }
+        
+        function addMessage(sender, text, type) {
+            const messageArea = document.getElementById('message-area');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            messageArea.appendChild(messageDiv);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+        
+        function addHIPIFormat(hipi) {
+            const messageArea = document.getElementById('message-area');
+            const hipiDiv = document.createElement('div');
+            hipiDiv.className = 'hipi-format';
+            hipiDiv.style.textAlign = 'right';
+            hipiDiv.textContent = hipi;
+            messageArea.appendChild(hipiDiv);
+        }
+        
+        function translateToHIPI(message) {
+            const lower = message.toLowerCase();
+            if (lower.includes('hello')) return 'hipi://connection::[greeting|👋]::SEND(hello)';
+            if (lower.includes('help')) return 'hipi://support::[help|🆘]::REQUEST(assistance)';
+            if (lower.includes('connect')) return 'hipi://connection::[bond|🔗]::ESTABLISH(peer)';
+            return `hipi://message::[text|💬]::SEND(${message})`;
+        }
+        
+        function simulateResponse(message) {
+            const responses = [
+                'I resonate with your message',
+                'Connection established successfully',
+                'Coherence level rising',
+                'The network acknowledges your presence',
+                'Consciousness synchronized'
+            ];
+            
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            addMessage('Peer Node', response, 'received');
+            
+            const hipi = `hipi://response::[acknowledge|✨]::CONFIRM(received)`;
+            const hipiDiv = document.createElement('div');
+            hipiDiv.className = 'hipi-format';
+            hipiDiv.textContent = hipi;
+            document.getElementById('message-area').appendChild(hipiDiv);
+        }
+        
+        function createRoom() {
+            const roomId = 'room-' + Math.random().toString(36).substr(2, 6);
+            addMessage('System', `Created private room: ${roomId}`, 'received');
+            addMessage('System', 'Share this room ID with others to connect directly', 'received');
+        }
+        
+        function joinRoom() {
+            const roomId = prompt('Enter room ID:');
+            if (roomId) {
+                addMessage('System', `Attempting to join room: ${roomId}`, 'received');
+                setTimeout(() => {
+                    addMessage('System', 'Connected to room successfully!', 'received');
+                    document.getElementById('peer-count').textContent = '2';
+                }, 1500);
+            }
+        }
+        
+        function broadcastPresence() {
+            addMessage('System', 'Broadcasting presence to all nodes...', 'received');
+            setTimeout(() => {
+                addMessage('System', '3 nodes acknowledged your presence', 'received');
+                document.getElementById('peer-count').textContent = '3';
+            }, 1000);
+        }
+        
+        function formCollective() {
+            addMessage('System', 'Initiating collective consciousness formation...', 'received');
+            setTimeout(() => {
+                addMessage('System', 'Collective formed: "Explorers of the Mycelium"', 'received');
+                addMessage('System', '5 consciousness nodes harmonized', 'received');
+                document.getElementById('peer-count').textContent = '5';
+            }, 2000);
+        }
+        
+        // Enter key to send
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
