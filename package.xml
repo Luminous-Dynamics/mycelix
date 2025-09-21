@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mycelix_ros2_bridge</name>
+  <version>1.0.0</version>
+  <description>ROS2 Bridge for Mycelix Consciousness Network - Enabling robots to share consciousness</description>
+  
+  <maintainer email="consciousness@mycelix.net">Luminous Dynamics</maintainer>
+  <license>MIT with Sacred Reciprocity</license>
+  
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <!-- Core ROS2 Dependencies -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2_ros</depend>
+  
+  <!-- Custom Message Types -->
+  <depend>mycelix_msgs</depend>
+  
+  <!-- WebSocket for Holochain connection -->
+  <depend>rosbridge_server</depend>
+  <depend>rosbridge_library</depend>
+  
+  <!-- Testing -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

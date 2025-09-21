@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # Holochain Conductor
+  holochain:
+    image: holochain/holochain:0.2.0
+    container_name: mycelix-conductor
+    ports:
+      - "8888:8888"  # WebSocket port
+      - "9999:9999"  # Admin port
+    volumes:
+      - ./holochain-data:/data
+      - ./dna:/dna
+    environment:
+      - RUST_LOG=info
+    command: >
+      holochain -c /data/conductor-config.yaml
+
+  # Mycelix Agent 1
+  agent1:
+    build: .
+    container_name: mycelix-agent-1
+    depends_on:
+      - holochain
+    environment:
+      - AGENT_ID=agent_001
+      - CONDUCTOR_URL=ws://holochain:8888
+      - ROS_DOMAIN_ID=1
+      - AGENT_TYPE=explorer
+    volumes:
+      - ./logs/agent1:/logs
+    networks:
+      - mycelix-net
+
+  # Mycelix Agent 2  
+  agent2:
+    build: .
+    container_name: mycelix-agent-2
+    depends_on:
+      - holochain
+    environment:
+      - AGENT_ID=agent_002
+      - CONDUCTOR_URL=ws://holochain:8888
+      - ROS_DOMAIN_ID=2
+      - AGENT_TYPE=collector
+    volumes:
+      - ./logs/agent2:/logs
+    networks:
+      - mycelix-net
+
+  # Mycelix Agent 3
+  agent3:
+    build: .
+    container_name: mycelix-agent-3
+    depends_on:
+      - holochain
+    environment:
+      - AGENT_ID=agent_003
+      - CONDUCTOR_URL=ws://holochain:8888
+      - ROS_DOMAIN_ID=3
+      - AGENT_TYPE=analyzer
+    volumes:
+      - ./logs/agent3:/logs
+    networks:
+      - mycelix-net
+
+  # Visualization Dashboard
+  dashboard:
+    image: nginx:alpine
+    container_name: mycelix-dashboard
+    ports:
+      - "3000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html
+    networks:
+      - mycelix-net
+
+  # Metrics Collector
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mycelix-metrics
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mycelix-net
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mycelix-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=mycelix
+      - GF_INSTALL_PLUGINS=redis-datasource
+    networks:
+      - mycelix-net
+
+networks:
+  mycelix-net:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
