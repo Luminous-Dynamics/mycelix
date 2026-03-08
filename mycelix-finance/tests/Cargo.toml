@@ -1,0 +1,121 @@
+[package]
+name = "mycelix-finance-tests"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics <dev@luminous-dynamics.com>"]
+license = "Apache-2.0"
+description = "Integration tests for Mycelix Finance Holochain zomes"
+autotests = false
+
+# Keep this crate out of the parent workspace
+[workspace]
+
+[dependencies]
+# Shared types
+mycelix_finance_types = { path = "../types" }
+
+# Payments zome dependencies
+payments_integrity = { path = "../zomes/payments/integrity" }
+payments = { path = "../zomes/payments/coordinator" }
+
+# Treasury zome dependencies
+treasury_integrity = { path = "../zomes/treasury/integrity" }
+treasury = { path = "../zomes/treasury/coordinator" }
+
+# Bridge zome dependencies
+finance_bridge_integrity = { path = "../zomes/bridge/integrity" }
+finance_bridge = { path = "../zomes/bridge/coordinator" }
+
+# Staking zome dependencies
+staking_integrity = { path = "../zomes/staking/integrity" }
+staking_coordinator = { path = "../zomes/staking/coordinator" }
+
+# TEND (Time Exchange) zome dependencies
+tend_integrity = { path = "../zomes/tend/integrity" }
+tend = { path = "../zomes/tend/coordinator" }
+
+# Recognition zome dependencies
+recognition_integrity = { path = "../zomes/recognition/integrity" }
+recognition = { path = "../zomes/recognition/coordinator" }
+
+# Currency Mint zome dependencies
+currency_mint_integrity = { path = "../zomes/currency-mint/integrity" }
+currency_mint = { path = "../zomes/currency-mint/coordinator" }
+
+# Holochain dependencies (0.6 compatible)
+hdk = "0.6"
+hdi = "0.7"
+
+# Holochain testing dependencies
+holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
+holochain_types = "0.6"
+
+# Async runtime for tests
+tokio = { version = "1.35", features = ["full", "test-util"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Serialization (msgpack for Holochain entry deserialization)
+rmp-serde = "1.1"
+
+# Utilities
+chrono = "0.4"
+uuid = { version = "1.6", features = ["v4"] }
+
+# Cryptographic hashing (used by staking tests for Blake2b evidence hashes)
+blake2b_simd = "1.0"
+
+[lib]
+name = "test_fixtures"
+path = "fixtures/mod.rs"
+
+# Payments Integration Tests
+[[test]]
+name = "payments_test"
+path = "payments_test.rs"
+
+# TEND (Time Exchange) Tests
+[[test]]
+name = "tend_test"
+path = "tend_test.rs"
+
+# Bridge (Collateral Deposit + Rate Limiting) Tests
+[[test]]
+name = "bridge_test"
+path = "bridge_test.rs"
+
+# Recognition (MYCEL, Apprentice, Fees, Ratings) Tests
+[[test]]
+name = "recognition_test"
+path = "recognition_test.rs"
+
+# Staking (Collateral, Slashing, Escrow) Tests
+[[test]]
+name = "staking_test"
+path = "staking_test.rs"
+
+# Treasury (Allocation Governance, Commons Pool, Savings) Tests
+[[test]]
+name = "treasury_test"
+path = "treasury_test.rs"
+
+# Sweettest Integration Tests (conductor-based)
+[[test]]
+name = "sweettest_integration"
+path = "sweettest_integration.rs"
+
+# Currency Mint (Currency Factory) Tests — 56 sweettests across 7 modules
+[[test]]
+name = "currency_mint_test"
+path = "currency_mint_test/main.rs"
+
+# Consciousness Gating Sweettest (DID identity + MYCEL tier gates)
+[[test]]
+name = "sweettest_consciousness_gating"
+path = "sweettest_consciousness_gating.rs"
+
+# NOTE: economics_stress_test has been moved to types/tests/ where it compiles
+# without the heavy Holochain dependency. Run with:
+#   cargo test -p mycelix_finance_types --test economics_stress_test

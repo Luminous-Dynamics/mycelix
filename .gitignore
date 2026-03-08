@@ -1,0 +1,32 @@
+# Build artifacts
+target/
+target-*/
+*.wasm
+*.dna
+*.happ
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Holochain conductor
+.conductor/
+.hc_live_*
+
+# Environment
+.env
+.env.local
+
+# Credentials
+credentials.json
+*.pem
+*.key

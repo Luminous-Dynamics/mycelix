@@ -1,0 +1,304 @@
+name: Mycelix CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  # Detect which clusters changed
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      commons: ${{ steps.filter.outputs.commons }}
+      civic: ${{ steps.filter.outputs.civic }}
+      hearth: ${{ steps.filter.outputs.hearth }}
+      finance: ${{ steps.filter.outputs.finance }}
+      governance: ${{ steps.filter.outputs.governance }}
+      identity: ${{ steps.filter.outputs.identity }}
+      personal: ${{ steps.filter.outputs.personal }}
+      attribution: ${{ steps.filter.outputs.attribution }}
+      bridge: ${{ steps.filter.outputs.bridge }}
+      sdk: ${{ steps.filter.outputs.sdk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            commons:
+              - 'mycelix-commons/**'
+              - 'crates/mycelix-bridge-*/**'
+            civic:
+              - 'mycelix-civic/**'
+              - 'crates/mycelix-bridge-*/**'
+            hearth:
+              - 'mycelix-hearth/**'
+              - 'crates/mycelix-bridge-*/**'
+            finance:
+              - 'mycelix-finance/**'
+              - 'crates/mycelix-bridge-*/**'
+            governance:
+              - 'mycelix-governance/**'
+              - 'crates/mycelix-bridge-*/**'
+            identity:
+              - 'mycelix-identity/**'
+              - 'crates/mycelix-bridge-*/**'
+            personal:
+              - 'mycelix-personal/**'
+              - 'crates/mycelix-bridge-*/**'
+            attribution:
+              - 'mycelix-attribution/**'
+              - 'crates/mycelix-bridge-*/**'
+            bridge:
+              - 'crates/mycelix-bridge-*/**'
+            sdk:
+              - 'mycelix-workspace/sdk/**'
+              - 'mycelix-workspace/sdk-ts/**'
+
+  # Format check (always runs)
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: |
+          for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
+            echo "=== Checking $dir ==="
+            cd $dir && cargo fmt --all --check && cd ..
+          done
+          cd crates/mycelix-bridge-common && cargo fmt --all --check && cd ../..
+          cd crates/mycelix-bridge-entry-types && cargo fmt --all --check && cd ../..
+
+  # Per-cluster test jobs
+  test-commons:
+    needs: changes
+    if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-commons
+      - name: Test commons
+        run: cd mycelix-commons && cargo test --workspace
+
+  test-civic:
+    needs: changes
+    if: needs.changes.outputs.civic == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-civic
+      - name: Test civic
+        run: cd mycelix-civic && cargo test --workspace
+
+  test-hearth:
+    needs: changes
+    if: needs.changes.outputs.hearth == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-hearth
+      - name: Test hearth
+        run: cd mycelix-hearth && cargo test --workspace
+
+  test-finance:
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance
+      - name: Test finance
+        run: cd mycelix-finance && cargo test --workspace
+
+  test-governance:
+    needs: changes
+    if: needs.changes.outputs.governance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-governance
+      - name: Test governance
+        run: cd mycelix-governance && cargo test --workspace
+
+  test-identity:
+    needs: changes
+    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-identity
+      - name: Test identity
+        run: cd mycelix-identity && cargo test --workspace
+
+  test-personal:
+    needs: changes
+    if: needs.changes.outputs.personal == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-personal
+      - name: Test personal
+        run: cd mycelix-personal && cargo test --workspace
+
+  test-attribution:
+    needs: changes
+    if: needs.changes.outputs.attribution == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-attribution
+      - name: Test attribution
+        run: cd mycelix-attribution && cargo test --workspace
+
+  test-bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-bridge-common
+      - name: Test bridge-common
+        run: cd crates/mycelix-bridge-common && cargo test --workspace
+      - name: Test bridge-entry-types
+        run: cd crates/mycelix-bridge-entry-types && cargo test --workspace
+
+  test-sdk:
+    needs: changes
+    if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/sdk
+      - name: Test Rust SDK
+        run: cd mycelix-workspace/sdk && cargo test --workspace
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test TypeScript SDK
+        run: cd mycelix-workspace/sdk-ts && npm ci && npm test
+
+  # Summary gate
+  ci-pass:
+    if: always()
+    needs:
+      - format
+      - test-commons
+      - test-civic
+      - test-hearth
+      - test-finance
+      - test-governance
+      - test-identity
+      - test-personal
+      - test-attribution
+      - test-bridge
+      - test-sdk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "Format: ${{ needs.format.result }}"
+          echo "Commons: ${{ needs.test-commons.result }}"
+          echo "Civic: ${{ needs.test-civic.result }}"
+          echo "Hearth: ${{ needs.test-hearth.result }}"
+          echo "Finance: ${{ needs.test-finance.result }}"
+          echo "Governance: ${{ needs.test-governance.result }}"
+          echo "Identity: ${{ needs.test-identity.result }}"
+          echo "Personal: ${{ needs.test-personal.result }}"
+          echo "Attribution: ${{ needs.test-attribution.result }}"
+          echo "Bridge: ${{ needs.test-bridge.result }}"
+          echo "SDK: ${{ needs.test-sdk.result }}"
+          if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
+          # Skipped jobs are OK (path filter didn't match)
+          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}"; do
+            if [ "$result" = "failure" ]; then exit 1; fi
+          done
+          echo "All checks passed!"

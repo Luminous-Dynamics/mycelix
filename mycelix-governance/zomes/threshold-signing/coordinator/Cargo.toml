@@ -1,0 +1,26 @@
+[package]
+name = "threshold_signing_coordinator"
+version = "0.1.0"
+edition = "2021"
+description = "Threshold signing coordinator zome for DKG-based collective signatures"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+threshold_signing_integrity = { path = "../integrity" }
+governance-utils = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+feldman-dkg = { workspace = true }
+k256 = { workspace = true }
+getrandom_03 = { workspace = true }
+
+[dev-dependencies]
+rand = "0.8"
+
+[features]
+default = []

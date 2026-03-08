@@ -1,0 +1,48 @@
+# Mycelix Production Conductor Configuration
+# Holochain 0.6.x
+#
+# Key differences from development config:
+#   - Uses lair_server keystore (not in-proc or test keystore)
+#   - Data persisted to /data/holochain/databases (Docker volume)
+#   - Both admin and app WebSocket interfaces enabled
+#   - Production bootstrap and signal servers
+#
+# Reference: https://developer.holochain.org/references/conductor-config/
+---
+
+# Lair keystore configuration.
+# In Docker, lair runs as a separate process and reads its passphrase from LAIR_PASSPHRASE env var.
+# The socket file lives in the persistent volume so keys survive container restarts.
+# IMPORTANT: The lair binary version must match the one used during `lair-keystore init`.
+keystore:
+  type: lair_server
+  connection_url: "unix:///data/holochain/lair/socket"
+
+# Admin WebSocket interface — used for hApp installation and agent management.
+# In production, this should be firewalled to internal networks only.
+# The nginx reverse proxy does NOT expose this to the public internet.
+admin_interfaces:
+  - driver:
+      type: websocket
+      port: 4444
+      allowed_origins: "*"
+
+# Network configuration — how this conductor discovers and communicates with peers.
+# Updated for Holochain 0.6.x format (bootstrap_url/signal_url/relay_url replace
+# the old bootstrap_service/transport_pool format).
+network:
+  bootstrap_url: https://bootstrap.holo.host
+  signal_url: wss://signal.holo.host
+  relay_url: wss://signal.holo.host
+  target_arc_factor: 1
+  advanced:
+    tx5Transport:
+      signalAllowPlainText: false
+
+# Persistent storage for all Holochain databases (source chain, DHT, cache).
+# This MUST be on a Docker volume for data to survive container restarts.
+data_root_path: /data/holochain/databases
+
+# Database sync strategy.
+# "Resilient" flushes more often (safer, slightly slower).
+db_sync_strategy: Resilient

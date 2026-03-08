@@ -1,0 +1,149 @@
+[package]
+name = "mycelix-sweettest"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Sweettest integration tests for Mycelix ecosystem hApps"
+autotests = false
+
+# Note: These tests require:
+# 1. WASM zomes built: cargo build --release --target wasm32-unknown-unknown
+# 2. DNA bundles packed: hc dna pack <dna-dir>
+# 3. hApp bundles packed: hc app pack <happ-dir>
+# Tests are #[ignore] by default - run with: cargo test -- --ignored
+
+[dev-dependencies]
+# Holochain sweettest framework
+holochain = { version = "0.6", features = ["test_utils"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full", "test-util"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Prevent nonce expiration from parallel test resource contention
+serial_test = "3"
+
+# PQC crypto for constructing test data off-chain
+mycelix-crypto = { path = "../../../mycelix-identity/crates/mycelix-crypto", features = ["native"] }
+
+# Needed for SerializedBytes derive macro (proc macro references crate by name)
+holochain_serialized_bytes = "0.0.56"
+
+[[test]]
+name = "identity_workflow"
+path = "tests/identity_workflow.rs"
+
+[[test]]
+name = "governance_workflow"
+path = "tests/governance_workflow.rs"
+
+[[test]]
+name = "cross_happ_bridge"
+path = "tests/cross_happ_bridge.rs"
+
+[[test]]
+name = "privacy_zk_attestation"
+path = "tests/privacy_zk_attestation.rs"
+
+[[test]]
+name = "fl_bridge_e2e"
+path = "tests/fl_bridge_e2e.rs"
+
+[[test]]
+name = "identity_pqc_workflow"
+path = "tests/identity_pqc_workflow.rs"
+
+[[test]]
+name = "cross_cluster_dispatch"
+path = "tests/cross_cluster_dispatch.rs"
+
+[[test]]
+name = "identity_revocation"
+path = "tests/identity_revocation.rs"
+
+[[test]]
+name = "identity_recovery"
+path = "tests/identity_recovery.rs"
+
+[[test]]
+name = "identity_trust_credential"
+path = "tests/identity_trust_credential.rs"
+
+[[test]]
+name = "identity_verifiable_credential"
+path = "tests/identity_verifiable_credential.rs"
+
+[[test]]
+name = "health_workflow"
+path = "tests/health_workflow.rs"
+
+[[test]]
+name = "marketplace_workflow"
+path = "tests/marketplace_workflow.rs"
+
+[[test]]
+name = "climate_workflow"
+path = "tests/climate_workflow.rs"
+
+[[test]]
+name = "edunet_workflow"
+path = "tests/edunet_workflow.rs"
+
+[[test]]
+name = "supplychain_workflow"
+path = "tests/supplychain_workflow.rs"
+
+[[test]]
+name = "personal_workflow"
+path = "tests/personal_workflow.rs"
+
+[[test]]
+name = "phi_attestation_e2e"
+path = "tests/phi_attestation_e2e.rs"
+
+[[test]]
+name = "conductor_e2e"
+path = "tests/conductor_e2e.rs"
+
+[[test]]
+name = "cross_cluster_bridge"
+path = "tests/cross_cluster_bridge.rs"
+
+[[test]]
+name = "phi_attestation_security"
+path = "tests/phi_attestation_security.rs"
+
+[[test]]
+name = "housing_workflow"
+path = "tests/housing_workflow.rs"
+
+[[test]]
+name = "mutualaid_workflow"
+path = "tests/mutualaid_workflow.rs"
+
+[[test]]
+name = "cross_cluster_workflows"
+path = "tests/cross_cluster_workflows.rs"
+
+[[test]]
+name = "cross_cluster_consciousness"
+path = "tests/cross_cluster_consciousness.rs"
+
+[[test]]
+name = "food_transport_workflow"
+path = "tests/food_transport_workflow.rs"
+
+[[test]]
+name = "health_sweettest"
+path = "tests/health_sweettest.rs"
+
+[[test]]
+name = "finance_cross_cluster"
+path = "tests/finance_cross_cluster.rs"
+
+[[test]]
+name = "sweettest_cross_cluster_consciousness"
+path = "../../tests/sweettest_cross_cluster_consciousness.rs"
