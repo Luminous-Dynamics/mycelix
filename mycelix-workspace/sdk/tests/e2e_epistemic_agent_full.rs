@@ -17,11 +17,11 @@ use mycelix_sdk::agentic::coherence_bridge::{
     CoherenceMeasurementConfig, CoherenceState,
 };
 use mycelix_sdk::agentic::epistemic_classifier::{
-    calculate_epistemic_weight, classify_output, create_classified_output, AgentOutput,
+    calculate_epistemic_weight, create_classified_output, AgentOutput,
     AgreementScope, ClassificationHints, EpistemicStats, OutputContent, RelevanceDuration,
 };
 use mycelix_sdk::agentic::kvector_bridge::{
-    analyze_behavior, calculate_kredit_from_trust, compute_kvector_update, record_and_maybe_update,
+    analyze_behavior, calculate_kredit_from_trust, compute_kvector_update,
     KVectorBridgeConfig,
 };
 use mycelix_sdk::agentic::uncertainty::{
@@ -37,7 +37,7 @@ use mycelix_sdk::epistemic::{
 };
 use mycelix_sdk::matl::{GovernanceTier, KVector};
 use mycelix_sdk::storage::{
-    EpistemicStorage, MutabilityMode, SchemaIdentity, StorageBackend, StoreOptions,
+    EpistemicStorage, MutabilityMode, StorageBackend,
 };
 
 use std::time::{SystemTime, UNIX_EPOCH};

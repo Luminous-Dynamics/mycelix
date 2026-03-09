@@ -762,7 +762,7 @@ fn compute_trust_score(kvector: &KVector) -> f64 {
 mod tests {
     use super::*;
 
-    fn create_test_kvector(trust: f32) -> KVector {
+    fn _create_test_kvector(trust: f32) -> KVector {
         KVector::new(
             trust, trust, trust, trust, trust, trust, trust, trust, trust, trust,
         )

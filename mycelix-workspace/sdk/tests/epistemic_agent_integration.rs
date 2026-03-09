@@ -11,16 +11,10 @@
 //! 7. Full epistemic fingerprint evolution tracked
 
 use mycelix_sdk::agentic::{
-    analyze_behavior,
-    calculate_epistemic_weight,
     calculate_kredit_from_trust,
 
     check_coherence_for_action,
-    classify_output,
-    coherence_to_kvector_dimension,
 
-    compute_kvector_update,
-    compute_trust_score,
     maybe_escalate,
     measure_coherence,
     should_proceed,
@@ -32,11 +26,8 @@ use mycelix_sdk::agentic::{
     AgentId,
     // Phase 2: Epistemic Classification
     AgentOutput,
-    AgentOutputBuilder,
     AgentStatus,
-    AgreementScope,
     BehaviorLogEntry,
-    ClassificationHints,
     CoherenceHistory,
     CoherenceMeasurementConfig,
     // Phase 3: Phi Measurement
@@ -48,9 +39,7 @@ use mycelix_sdk::agentic::{
     // Phase 4: GIS Integration
     MoralUncertainty,
     OutputContent,
-    RelevanceDuration,
 
-    UncertainOutput,
     UncertaintyCalibration,
 };
 

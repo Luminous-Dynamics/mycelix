@@ -1114,7 +1114,7 @@ mod tests {
     fn test_poisoned_lock_returns_error() {
         // Test that poisoned locks in AgentRepository return PersistenceError::LockPoisoned
         use std::panic;
-        use std::sync::{Arc, RwLock};
+        use std::sync::Arc;
 
         let backend = MemoryStorageBackend::new();
         let repo = AgentRepository::new(backend);

@@ -672,7 +672,8 @@ mod tests {
         let _receipt: GenericReceipt<TestStatement> = backend.prove(&statement, &witness).unwrap();
 
         let stats = backend.get_last_stats().unwrap();
-        assert!(stats.generation_time_ms >= 0);
+        // generation_time_ms is unsigned, so always >= 0; just verify it's accessible
+        let _ = stats.generation_time_ms;
         assert!(stats.proof_size_bytes > 0);
         assert_eq!(stats.backend, "simulation");
         assert!(stats.is_simulation);

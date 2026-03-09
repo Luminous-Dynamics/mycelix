@@ -538,7 +538,7 @@ mod tests {
         });
 
         let mut results = Vec::new();
-        for (id, agent) in agents.iter_mut() {
+        for (_id, agent) in agents.iter_mut() {
             if let Some(result) = bridge.apply_feedback(agent, &feedback, 0.8) {
                 results.push(result);
             }

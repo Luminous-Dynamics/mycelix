@@ -15,7 +15,7 @@
 
 #[cfg(all(test, feature = "simulation"))]
 mod tests {
-    use mycelix_sdk::fl::prover_integration::{ProverBackend, ProverIntegration, ProverStats};
+    use mycelix_sdk::fl::prover_integration::{ProverBackend, ProverIntegration};
 
     // ========================================================================
     // Unit Tests (no external service required)

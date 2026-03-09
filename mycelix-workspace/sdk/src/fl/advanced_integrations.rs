@@ -1183,7 +1183,6 @@ pub fn verify_merkle_proof(
 
 #[cfg(test)]
 mod tests {
-    use super::super::types::GradientMetadata;
     use super::*;
 
     #[test]

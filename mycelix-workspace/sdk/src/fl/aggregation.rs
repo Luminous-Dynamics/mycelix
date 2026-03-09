@@ -2180,7 +2180,7 @@ mod tests {
             GradientUpdate::new("subtle".to_string(), 1, vec![0.5, 1.5], 100, 0.5),
         ];
 
-        let result = aggregator.aggregate(&updates).expect("Should succeed");
+        let _result = aggregator.aggregate(&updates).expect("Should succeed");
 
         // High security mode should be more sensitive
         assert!(aggregator.config.threat_threshold < 0.15);

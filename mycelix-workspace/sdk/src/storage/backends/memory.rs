@@ -597,7 +597,7 @@ mod tests {
         // by returning None/empty results instead of panicking.
 
         use std::panic;
-        use std::sync::{Arc, RwLock};
+        use std::sync::Arc;
 
         let backend = MemoryBackend::default_backend();
 
@@ -655,7 +655,7 @@ mod tests {
 
         // set() returns Some(metadata) but doesn't actually store (bug: returns metadata before lock)
         // We'll verify it doesn't actually get stored by trying to retrieve it
-        let result = backend.set(
+        let _result = backend.set(
             "key2",
             &"new".to_string(),
             test_classification(),

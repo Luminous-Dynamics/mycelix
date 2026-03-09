@@ -1243,7 +1243,7 @@ mod tests {
         let storage = EpistemicStorage::default_storage();
 
         // Store some data
-        let receipt = storage
+        let _receipt = storage
             .store(
                 "key1",
                 &"test data".to_string(),

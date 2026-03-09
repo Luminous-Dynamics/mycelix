@@ -598,8 +598,8 @@ mod tests {
     // ========================================================================
 
     use crate::agentic::dashboard::{
-        AlertPanel, AlertSeverity, AlertStatus, ChartType, Dashboard, DashboardAlert,
-        DashboardConfig, DashboardEventType, EventPriority, EventStream, LiveMetrics,
+        AlertPanel, AlertSeverity, ChartType,
+        DashboardConfig, DashboardEventType, EventPriority, EventStream,
         MetricsAggregator, MetricsInput, TimeSeries,
     };
 
@@ -680,9 +680,9 @@ mod tests {
         let mut panel = AlertPanel::new(config);
 
         let mut expected_critical = 0usize;
-        let mut expected_high = 0usize;
-        let mut expected_medium = 0usize;
-        let mut expected_low = 0usize;
+        let mut _expected_high = 0usize;
+        let mut _expected_medium = 0usize;
+        let mut _expected_low = 0usize;
 
         let mut rng = TestRng::new(300);
 
@@ -693,15 +693,15 @@ mod tests {
                     AlertSeverity::Critical
                 }
                 1 => {
-                    expected_high += 1;
+                    _expected_high += 1;
                     AlertSeverity::High
                 }
                 2 => {
-                    expected_medium += 1;
+                    _expected_medium += 1;
                     AlertSeverity::Medium
                 }
                 _ => {
-                    expected_low += 1;
+                    _expected_low += 1;
                     AlertSeverity::Low
                 }
             };
@@ -798,8 +798,7 @@ mod tests {
     // ========================================================================
 
     use crate::agentic::verification::{
-        AtomicPredicate, CompareOp, Invariant, InvariantType, PropertyFormula, PropertyKind,
-        PropertySpec, SystemState, VerificationEngine, ViolationSeverity as VerifViolationSeverity,
+        CompareOp, SystemState, VerificationEngine,
     };
 
     /// Property: Trust bounds invariant detects violations
