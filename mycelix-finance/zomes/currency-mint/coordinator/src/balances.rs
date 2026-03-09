@@ -2,7 +2,6 @@
 
 use currency_mint_integrity::*;
 use hdk::prelude::*;
-use mycelix_finance_shared::anchor_hash;
 use mycelix_finance_types::CurrencyStatus;
 
 use crate::helpers::*;
@@ -58,27 +57,12 @@ pub fn get_member_portfolio(member_did: String) -> ExternResult<Vec<MintedBalanc
     let mut seen_currencies = std::collections::HashSet::new();
 
     // Primary: use the member-currencies index (populated on first balance creation)
-    let member_currency_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&format!("member-currencies:{}", member_did))?,
-            LinkTypes::AnchorLinks,
-        )?,
-        GetStrategy::default(),
+    let entries = collect_linked_entries::<CurrencyDefinition>(
+        &format!("member-currencies:{}", member_did),
+        LinkTypes::AnchorLinks,
     )?;
-
-    for link in member_currency_links {
-        if let Some(action_hash) = link.target.into_action_hash() {
-            if let Ok(record) = follow_update_chain(action_hash) {
-                if let Some(def) = record
-                    .entry()
-                    .to_app_option::<CurrencyDefinition>()
-                    .ok()
-                    .flatten()
-                {
-                    seen_currencies.insert(def.id);
-                }
-            }
-        }
+    for (def, _) in entries {
+        seen_currencies.insert(def.id);
     }
 
     // Get balance info for each known currency
