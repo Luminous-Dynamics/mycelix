@@ -159,6 +159,28 @@ info "=== Syncing mycelix-workspace ==="
 sync_dir "${MONOREPO_ROOT}/mycelix-workspace" "${STANDALONE_REPO}/mycelix-workspace"
 echo
 
+# --- Rewrite path dependencies for standalone layout -------------------------
+#
+# In the monorepo, some shared crates live at mycelix-core/libs/*.
+# In the standalone repo, they live at crates/*.
+# Clusters that depend on these need their Cargo.toml paths rewritten.
+
+if ! $DRY_RUN; then
+    info "=== Rewriting path dependencies for standalone layout ==="
+
+    # Map: monorepo path → standalone path (relative from cluster root)
+    # ../mycelix-core/libs/mycelix-core-types → ../crates/mycelix-core-types
+    # ../mycelix-core/libs/feldman-dkg        → ../crates/feldman-dkg
+    while IFS= read -r toml_file; do
+        if grep -q 'mycelix-core/libs/' "$toml_file" 2>/dev/null; then
+            sed -i 's|mycelix-core/libs/mycelix-core-types|crates/mycelix-core-types|g' "$toml_file"
+            sed -i 's|mycelix-core/libs/feldman-dkg|crates/feldman-dkg|g' "$toml_file"
+            ok "Rewrote paths in $(basename "$(dirname "$(dirname "$toml_file")")")/...Cargo.toml"
+        fi
+    done < <(find "${STANDALONE_REPO}" -name "Cargo.toml" -not -path "*/target/*" 2>/dev/null)
+fi
+echo
+
 # --- Copy individual files that live at the standalone root ------------------
 # Note: Do NOT overwrite CLAUDE.md, README.md, .github/, .gitmodules — these
 # are standalone-specific and maintained there.
