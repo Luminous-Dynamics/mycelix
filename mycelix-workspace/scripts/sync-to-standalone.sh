@@ -78,6 +78,10 @@ RSYNC_EXCLUDE=(
     --exclude='.DS_Store'
     --exclude='__pycache__/'
     --exclude='node_modules/'
+    --exclude='corpus/'
+    --exclude='artifacts/'
+    --exclude='coverage/'
+    --exclude='.conductor/'
 )
 RSYNC_OPTS=(-a --delete "${RSYNC_EXCLUDE[@]}")
 if $DRY_RUN; then

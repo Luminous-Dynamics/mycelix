@@ -1078,8 +1078,7 @@ mod tests {
         let mut prev = 0u64;
         for rate_bps in [10, 50, 100, 200, 500] {
             let rate = rate_bps as f64 / 10_000.0;
-            let d =
-                compute_demurrage_deduction(10_000_000_000, 1_000_000_000, rate, 31_536_000);
+            let d = compute_demurrage_deduction(10_000_000_000, 1_000_000_000, rate, 31_536_000);
             assert!(d >= prev, "rate {}: {} < {}", rate, d, prev);
             prev = d;
         }
