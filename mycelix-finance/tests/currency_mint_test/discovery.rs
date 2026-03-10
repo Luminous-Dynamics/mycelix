@@ -8,9 +8,24 @@ use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 
 /// Test 10.1: Active currencies appear in list and search; suspended/retired don't
-#[tokio::test(flavor = "multi_thread")]
+#[test]
 #[ignore]
-async fn test_discovery_active_only() {
+fn test_discovery_active_only() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_discovery_active_only_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_discovery_active_only_inner() {
     println!("Test 10.1: Discovery — Active Only");
 
     let (conductor, _agents, apps) = setup_finance_conductor(1).await;
@@ -18,17 +33,17 @@ async fn test_discovery_active_only() {
     let zome = cell.zome("currency_mint");
 
     // Create two currencies
-    let def_a: CurrencyDefinition = conductor
-        .call(
-            &zome,
-            "create_currency",
-            CreateCurrencyInput {
-                dao_did: "did:mycelix:dao:discovery".into(),
-                params: test_params("AlphaCoin", "AC"),
-                governance_proposal_id: None,
-            },
-        )
-        .await;
+    let def_a: CurrencyDefinition = call_with_retry(
+        &conductor,
+        &zome,
+        "create_currency",
+        CreateCurrencyInput {
+            dao_did: "did:mycelix:dao:discovery".into(),
+            params: test_params("AlphaCoin", "AC"),
+            governance_proposal_id: None,
+        },
+    )
+    .await;
 
     let def_b: CurrencyDefinition = conductor
         .call(

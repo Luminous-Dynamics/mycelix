@@ -93,8 +93,11 @@ pub struct IdentityBridgeHealth {
 pub struct DidDocument {
     pub id: String,
     pub controller: ::holochain::prelude::AgentPubKey,
+    #[serde(rename = "verificationMethod", alias = "verification_method")]
     pub verification_method: Vec<VerificationMethod>,
     pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", alias = "key_agreement", default)]
+    pub key_agreement: Vec<String>,
     pub service: Vec<ServiceEndpoint>,
     pub created: ::holochain::prelude::Timestamp,
     pub updated: ::holochain::prelude::Timestamp,
@@ -104,15 +107,21 @@ pub struct DidDocument {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct VerificationMethod {
     pub id: String,
+    #[serde(rename = "type", alias = "type_")]
     pub type_: String,
     pub controller: String,
+    #[serde(rename = "publicKeyMultibase", alias = "public_key_multibase")]
     pub public_key_multibase: String,
+    #[serde(default)]
+    pub algorithm: Option<u16>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ServiceEndpoint {
     pub id: String,
+    #[serde(rename = "type", alias = "type_")]
     pub type_: String,
+    #[serde(rename = "serviceEndpoint", alias = "service_endpoint")]
     pub service_endpoint: String,
 }
 
@@ -180,18 +189,25 @@ pub struct CreateMfaStateInput {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ReportReputationInput {
-    pub subject_did: String,
+    pub did: String,
     pub source_happ: String,
     pub score: f64,
-    pub context: String,
+    pub interactions: u64,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ReputationSource {
+    pub source_happ: String,
+    pub score: f64,
+    pub interactions: u64,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AggregatedReputation {
     pub did: String,
     pub aggregate_score: f64,
-    pub report_count: u32,
-    pub sources: Vec<String>,
+    pub sources: Vec<ReputationSource>,
+    pub total_interactions: u64,
 }
 
 // ============================================================================
@@ -1003,10 +1019,10 @@ async fn test_reputation_affects_consciousness_credential() {
 
     // Report positive reputation
     let rep_input = ReportReputationInput {
-        subject_did: did.clone(),
+        did: did.clone(),
         source_happ: "test-happ".to_string(),
         score: 0.9,
-        context: "Excellent contribution for consciousness gating test".to_string(),
+        interactions: 50,
     };
 
     let _rep_record: ::holochain::prelude::Record = conductor

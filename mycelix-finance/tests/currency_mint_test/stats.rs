@@ -8,9 +8,24 @@
 use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test]
 #[ignore]
-async fn test_stats_all() {
+fn test_stats_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_stats_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_stats_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(2).await;
     let cell_a = &apps[0].cells()[0];
     let zome_a = cell_a.zome("currency_mint");
@@ -24,7 +39,8 @@ async fn test_stats_all() {
             params: test_params("Stats Coin", "ST"),
             governance_proposal_id: None,
         };
-        let def: CurrencyDefinition = conductor.call(&zome_a, "create_currency", input).await;
+        let def: CurrencyDefinition =
+            call_with_retry(&conductor, &zome_a, "create_currency", input).await;
         let _: CurrencyDefinition = conductor
             .call(
                 &zome_a,

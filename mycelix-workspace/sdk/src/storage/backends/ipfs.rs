@@ -982,7 +982,7 @@ mod tests {
         assert_eq!(current_cid, meta2.cid);
 
         // But old CID data is still accessible if we have it
-        let _old_data: Option<StoredData<String>> = backend.get_by_cid(&meta1.cid);
+        let old_data: Option<StoredData<String>> = backend.get_by_cid(&meta1.cid);
         // Old data might not be accessible depending on cache eviction
         // but the CID is still valid if content exists
     }

@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Mycelix Finance Shared Types
 //!
 //! Canonical type definitions for the Mycelix three-currency economic system.
@@ -227,19 +228,19 @@ pub fn compute_demurrage_deduction(
     rate: f64,
     seconds_elapsed: u64,
 ) -> u64 {
-    if balance <= exempt_floor || seconds_elapsed == 0 {
+    if balance <= exempt_floor || seconds_elapsed == 0 || rate <= 0.0 || !rate.is_finite() {
         return 0;
     }
-    let eligible = (balance - exempt_floor) as f64;
+    let eligible_int = balance - exempt_floor;
+    let eligible = eligible_int as f64;
     let years = seconds_elapsed as f64 / 31_536_000.0;
     let decay = 1.0 - (-rate * years).exp();
     let deduction = eligible * decay;
-    if deduction < 0.0 {
+    if deduction <= 0.0 || deduction.is_nan() {
         0
-    } else if deduction > eligible {
-        eligible as u64
     } else {
-        deduction as u64
+        // Clamp to integer eligible to avoid f64 rounding exceeding the true value
+        (deduction as u64).min(eligible_int)
     }
 }
 
@@ -259,7 +260,8 @@ pub fn compute_minted_demurrage(balance: i32, rate: f64, seconds_elapsed: u64) -
     if deduction < 1.0 {
         0 // Sub-hour amounts round down (no deduction)
     } else {
-        deduction.floor() as i32
+        // Clamp to balance to prevent f64 rounding from exceeding the original value
+        (deduction.floor() as i32).min(balance)
     }
 }
 
@@ -292,6 +294,20 @@ pub enum CurrencyStatus {
     Suspended,
     /// Permanently retired — no new exchanges, balances frozen
     Retired,
+}
+
+impl CurrencyStatus {
+    /// Valid status transitions. Retired is terminal and cannot be reversed.
+    pub fn can_transition_to(&self, new: &CurrencyStatus) -> bool {
+        matches!(
+            (self, new),
+            (CurrencyStatus::Draft, CurrencyStatus::Active)
+                | (CurrencyStatus::Active, CurrencyStatus::Suspended)
+                | (CurrencyStatus::Active, CurrencyStatus::Retired)
+                | (CurrencyStatus::Suspended, CurrencyStatus::Active) // reactivation
+                | (CurrencyStatus::Suspended, CurrencyStatus::Retired)
+        )
+    }
 }
 
 /// Parameters for a community-minted mutual credit currency.
@@ -940,5 +956,423 @@ mod tests {
         let d = compute_minted_demurrage(i32::MAX, 0.02, 31_536_000);
         assert!(d > 0);
         assert!(d < i32::MAX);
+    }
+
+    // =========================================================================
+    // SAP demurrage (compute_demurrage_deduction) edge cases
+    // =========================================================================
+
+    #[test]
+    fn test_sap_demurrage_nan_rate() {
+        // NaN rate: decay = 1 - exp(NaN) = NaN, deduction = NaN → clamped to 0
+        let d = compute_demurrage_deduction(10_000_000_000, 1_000_000_000, f64::NAN, 31_536_000);
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_sap_demurrage_infinity_rate() {
+        let d =
+            compute_demurrage_deduction(10_000_000_000, 1_000_000_000, f64::INFINITY, 31_536_000);
+        // Non-finite rates return 0 (invalid input)
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_sap_demurrage_neg_infinity_rate() {
+        let d = compute_demurrage_deduction(
+            10_000_000_000,
+            1_000_000_000,
+            f64::NEG_INFINITY,
+            31_536_000,
+        );
+        // exp(+Inf) = Inf, decay = 1 - Inf = -Inf, deduction < 0 → clamped to 0
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_sap_demurrage_negative_rate() {
+        // Negative rate: exp(+years) > 1, decay < 0 → deduction < 0 → clamped to 0
+        let d = compute_demurrage_deduction(10_000_000_000, 1_000_000_000, -0.05, 31_536_000);
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_sap_demurrage_max_u64_balance() {
+        // Should not panic or overflow
+        let d = compute_demurrage_deduction(u64::MAX, 0, 0.02, 31_536_000);
+        // u64::MAX - 0 = u64::MAX eligible, ~1.98% decay
+        assert!(d > 0);
+        assert!(d < u64::MAX);
+    }
+
+    #[test]
+    fn test_sap_demurrage_exempt_equals_balance() {
+        // Balance == floor → no eligible amount → 0
+        assert_eq!(
+            compute_demurrage_deduction(5_000, 5_000, 0.02, 31_536_000),
+            0
+        );
+    }
+
+    #[test]
+    fn test_sap_demurrage_one_micro_above_floor() {
+        // 1 micro-SAP above floor, 2% for 1 year: deduction = 1 * 0.0198 → floors to 0
+        assert_eq!(
+            compute_demurrage_deduction(1_001, 1_000, 0.02, 31_536_000),
+            0
+        );
+    }
+
+    #[test]
+    fn test_sap_demurrage_multi_year_never_exceeds_eligible() {
+        // After 100 years at 5%, deduction should approach but never exceed eligible
+        let balance = 10_000_000_000u64;
+        let floor = 1_000_000_000u64;
+        let d = compute_demurrage_deduction(balance, floor, 0.05, 100 * 31_536_000);
+        let eligible = balance - floor;
+        assert!(d <= eligible);
+        // Should be very close to eligible (>99.9%)
+        assert!(d as f64 / eligible as f64 > 0.99);
+    }
+
+    #[test]
+    fn test_sap_demurrage_zero_rate() {
+        // Zero rate: exp(0) = 1, decay = 0 → no deduction
+        let d = compute_demurrage_deduction(10_000_000_000, 1_000_000_000, 0.0, 31_536_000);
+        assert_eq!(d, 0);
+    }
+
+    // =========================================================================
+    // Cross-function invariants
+    // =========================================================================
+
+    #[test]
+    fn test_demurrage_monotonicity_in_time() {
+        // Deduction must increase (or stay same) as time increases
+        let mut prev = 0u64;
+        for years in 1..=20 {
+            let d = compute_demurrage_deduction(
+                10_000_000_000,
+                1_000_000_000,
+                0.02,
+                years * 31_536_000,
+            );
+            assert!(d >= prev, "year {}: {} < {}", years, d, prev);
+            prev = d;
+        }
+    }
+
+    #[test]
+    fn test_minted_demurrage_monotonicity_in_time() {
+        let mut prev = 0i32;
+        for years in 1..=20u64 {
+            let d = compute_minted_demurrage(1000, 0.02, years * 31_536_000);
+            assert!(d >= prev, "year {}: {} < {}", years, d, prev);
+            prev = d;
+        }
+    }
+
+    #[test]
+    fn test_demurrage_monotonicity_in_rate() {
+        // Higher rate → more deduction
+        let mut prev = 0u64;
+        for rate_bps in [10, 50, 100, 200, 500] {
+            let rate = rate_bps as f64 / 10_000.0;
+            let d =
+                compute_demurrage_deduction(10_000_000_000, 1_000_000_000, rate, 31_536_000);
+            assert!(d >= prev, "rate {}: {} < {}", rate, d, prev);
+            prev = d;
+        }
+    }
+
+    #[test]
+    fn test_minted_demurrage_monotonicity_in_rate() {
+        let mut prev = 0i32;
+        for rate_bps in [10, 50, 100, 200, 500] {
+            let rate = rate_bps as f64 / 10_000.0;
+            let d = compute_minted_demurrage(10_000, rate, 31_536_000);
+            assert!(d >= prev, "rate {}: {} < {}", rate, d, prev);
+            prev = d;
+        }
+    }
+
+    // =========================================================================
+    // Compost redistribution rounding edge cases
+    // =========================================================================
+
+    #[test]
+    fn test_compost_redistribution_rounding_101() {
+        // 101 SAP split among 70/20/10 percentages
+        let total: u64 = 101;
+        let local = total * COMPOST_LOCAL_PCT / 100;
+        let regional = total * COMPOST_REGIONAL_PCT / 100;
+        let global = total - local - regional; // remainder to global
+        assert_eq!(
+            local + regional + global,
+            total,
+            "No rounding loss for 101: local={}, regional={}, global={}",
+            local,
+            regional,
+            global
+        );
+    }
+
+    #[test]
+    fn test_compost_redistribution_rounding_257() {
+        let total: u64 = 257;
+        let local = total * COMPOST_LOCAL_PCT / 100;
+        let regional = total * COMPOST_REGIONAL_PCT / 100;
+        let global = total - local - regional;
+        assert_eq!(
+            local + regional + global,
+            total,
+            "No rounding loss for 257: local={}, regional={}, global={}",
+            local,
+            regional,
+            global
+        );
+    }
+
+    #[test]
+    fn test_compost_redistribution_rounding_999() {
+        let total: u64 = 999;
+        let local = total * COMPOST_LOCAL_PCT / 100;
+        let regional = total * COMPOST_REGIONAL_PCT / 100;
+        let global = total - local - regional;
+        assert_eq!(
+            local + regional + global,
+            total,
+            "No rounding loss for 999: local={}, regional={}, global={}",
+            local,
+            regional,
+            global
+        );
+    }
+
+    #[test]
+    fn test_compost_redistribution_rounding_1() {
+        // Edge case: smallest possible amount
+        let total: u64 = 1;
+        let local = total * COMPOST_LOCAL_PCT / 100;
+        let regional = total * COMPOST_REGIONAL_PCT / 100;
+        let global = total - local - regional;
+        assert_eq!(
+            local + regional + global,
+            total,
+            "No rounding loss for 1: local={}, regional={}, global={}",
+            local,
+            regional,
+            global
+        );
+    }
+
+    #[test]
+    fn test_compost_redistribution_rounding_individual_values() {
+        // Verify the floor-division behavior for non-evenly-divisible amounts
+        // 101: 70% = 70, 20% = 20, remainder = 11 (not 10.1)
+        let total: u64 = 101;
+        let local = total * COMPOST_LOCAL_PCT / 100;
+        let regional = total * COMPOST_REGIONAL_PCT / 100;
+        let global = total - local - regional;
+        assert_eq!(local, 70);
+        assert_eq!(regional, 20);
+        assert_eq!(global, 11); // gets the remainder
+
+        // 999: 70% = 699, 20% = 199, remainder = 101
+        let total2: u64 = 999;
+        let local2 = total2 * COMPOST_LOCAL_PCT / 100;
+        let regional2 = total2 * COMPOST_REGIONAL_PCT / 100;
+        let global2 = total2 - local2 - regional2;
+        assert_eq!(local2, 699);
+        assert_eq!(regional2, 199);
+        assert_eq!(global2, 101);
+    }
+
+    // =========================================================================
+    // CurrencyStatus state machine transitions
+    // =========================================================================
+
+    #[test]
+    fn test_currency_status_valid_transitions() {
+        use CurrencyStatus::*;
+        // Forward transitions
+        assert!(Draft.can_transition_to(&Active));
+        assert!(Active.can_transition_to(&Suspended));
+        assert!(Active.can_transition_to(&Retired));
+        assert!(Suspended.can_transition_to(&Active)); // reactivation
+        assert!(Suspended.can_transition_to(&Retired));
+    }
+
+    #[test]
+    fn test_currency_status_invalid_transitions() {
+        use CurrencyStatus::*;
+        // Retired is terminal
+        assert!(!Retired.can_transition_to(&Active));
+        assert!(!Retired.can_transition_to(&Draft));
+        assert!(!Retired.can_transition_to(&Suspended));
+        // Draft can only go to Active
+        assert!(!Draft.can_transition_to(&Suspended));
+        assert!(!Draft.can_transition_to(&Retired));
+        // No self-transitions
+        assert!(!Active.can_transition_to(&Active));
+        assert!(!Draft.can_transition_to(&Draft));
+    }
+
+    // =========================================================================
+    // Property-based tests (proptest)
+    // =========================================================================
+
+    mod proptests {
+        use super::super::*;
+        use proptest::prelude::*;
+
+        // Property: fork resolution via `min_by_key` is deterministic.
+        // Given any permutation of the same set of byte arrays (simulating
+        // ActionHashes in `follow_update_chain`), `min_by_key` always selects
+        // the same winner.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn fork_resolution_is_deterministic(
+                hashes in prop::collection::hash_set(
+                    prop::collection::vec(any::<u8>(), 32..=32),
+                    2..10
+                )
+            ) {
+                let hashes_vec: Vec<Vec<u8>> = hashes.into_iter().collect();
+
+                // The canonical winner is the lexicographic minimum
+                let winner = hashes_vec.iter().min().unwrap().clone();
+
+                // Reversed order must yield the same winner
+                let mut shuffled = hashes_vec.clone();
+                shuffled.reverse();
+                let winner2 = shuffled.iter().min().unwrap().clone();
+                prop_assert_eq!(&winner, &winner2);
+
+                // Rotated order must yield the same winner
+                let mut rotated = hashes_vec.clone();
+                rotated.rotate_left(1);
+                let winner3 = rotated.iter().min().unwrap().clone();
+                prop_assert_eq!(&winner, &winner3);
+            }
+        }
+
+        // Property: `CurrencyStatus::can_transition_to` is anti-symmetric.
+        // If A can transition to B, then B cannot transition to A,
+        // except for the Suspended <-> Active pair.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn currency_status_transition_antisymmetric(
+                a_idx in 0usize..4,
+                b_idx in 0usize..4,
+            ) {
+                let statuses = [
+                    CurrencyStatus::Draft,
+                    CurrencyStatus::Active,
+                    CurrencyStatus::Suspended,
+                    CurrencyStatus::Retired,
+                ];
+                let a = &statuses[a_idx];
+                let b = &statuses[b_idx];
+
+                if a == b {
+                    // Self-transitions are always invalid
+                    prop_assert!(!a.can_transition_to(b));
+                } else if a.can_transition_to(b) {
+                    let is_suspended_active = matches!(
+                        (a, b),
+                        (CurrencyStatus::Suspended, CurrencyStatus::Active)
+                            | (CurrencyStatus::Active, CurrencyStatus::Suspended)
+                    );
+                    if !is_suspended_active {
+                        prop_assert!(
+                            !b.can_transition_to(a),
+                            "Anti-symmetry violated: {:?} -> {:?} and {:?} -> {:?}",
+                            a, b, b, a
+                        );
+                    }
+                }
+            }
+        }
+
+        // Property: balance mutations preserve `is_finite`.
+        // If input balance is finite and mutation amount is finite, result is finite.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn balance_mutation_preserves_finite(
+                balance in 0.0f64..1e15,
+                mutation in -1e12f64..1e12,
+            ) {
+                let sum = balance + mutation;
+                prop_assert!(
+                    sum.is_finite(),
+                    "finite + finite must be finite: {} + {} = {}",
+                    balance, mutation, sum
+                );
+
+                let product = balance * mutation;
+                prop_assert!(
+                    product.is_finite(),
+                    "finite * finite must be finite: {} * {} = {}",
+                    balance, mutation, product
+                );
+            }
+        }
+
+        // Property: demurrage deduction is monotonic in time.
+        // For any valid rate and balance, longer elapsed time means
+        // equal or greater deduction.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn demurrage_monotonic_in_time(
+                balance in (DEMURRAGE_EXEMPT_FLOOR + 1)..=(u64::MAX / 2),
+                rate in 0.001f64..0.05,
+                t1_secs in 1u64..=(100 * 31_536_000u64),
+                extra_secs in 1u64..=31_536_000u64,
+            ) {
+                let t2_secs = t1_secs.saturating_add(extra_secs);
+                let d1 = compute_demurrage_deduction(balance, DEMURRAGE_EXEMPT_FLOOR, rate, t1_secs);
+                let d2 = compute_demurrage_deduction(balance, DEMURRAGE_EXEMPT_FLOOR, rate, t2_secs);
+                prop_assert!(
+                    d2 >= d1,
+                    "Demurrage must be monotonic: d({})={} should be >= d({})={} for balance={}, rate={}",
+                    t2_secs, d2, t1_secs, d1, balance, rate
+                );
+            }
+        }
+
+        // Property: demurrage deduction is bounded -- never exceeds eligible balance.
+        // For reasonable durations (< 100 years) and valid rates.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn demurrage_bounded_by_balance(
+                balance in (DEMURRAGE_EXEMPT_FLOOR + 1)..=(u64::MAX / 2),
+                rate in 0.001f64..0.05,
+                seconds in 1u64..=(100 * 31_536_000u64),
+            ) {
+                let eligible = balance - DEMURRAGE_EXEMPT_FLOOR;
+                let deduction = compute_demurrage_deduction(
+                    balance,
+                    DEMURRAGE_EXEMPT_FLOOR,
+                    rate,
+                    seconds,
+                );
+                prop_assert!(
+                    deduction <= eligible,
+                    "Deduction {} exceeds eligible {} (balance={}, rate={}, secs={})",
+                    deduction, eligible, balance, rate, seconds
+                );
+            }
+        }
     }
 }

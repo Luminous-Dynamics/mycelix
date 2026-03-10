@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Finance Bridge Coordinator Zome
 //!
 //! Cross-hApp communication for payment processing, collateral management,
@@ -5,10 +6,25 @@
 
 use finance_bridge_integrity::*;
 use hdk::prelude::*;
-use mycelix_finance_shared::{anchor_hash, verify_caller_is_did};
+use mycelix_finance_shared::{anchor_hash, follow_update_chain, verify_caller_is_did};
 use mycelix_finance_types::{FeeTier, TendLimitTier};
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
+
+/// When true, cross-cluster bridge calls that fail to reach the governance
+/// cluster will return errors instead of permissive defaults.
+///
+/// **Security tradeoff**:
+/// - `false` (default): Operations proceed when governance is unreachable
+///   (bootstrap, standalone, network partition). This prioritizes availability
+///   — the integrity zome still enforces zero-sum and constitutional limits.
+/// - `true`: All governance-dependent operations fail-closed when the governance
+///   cluster is unreachable. This is stricter but can block legitimate operations
+///   during network partitions or bootstrapping.
+///
+/// Set to `true` for high-security deployments where governance availability
+/// is guaranteed and any gap in oversight is unacceptable.
+const STRICT_GOVERNANCE_MODE: bool = false;
 
 /// Maximum percentage of vault that any single member can deposit/redeem per day
 const DAILY_RATE_LIMIT_PCT: f64 = 0.05; // 5%
@@ -344,9 +360,7 @@ pub fn confirm_deposit(deposit_id: String) -> ExternResult<Record> {
     )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = get(hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Deposit not found".into())
-    ))?;
+    let record = follow_update_chain(hash)?;
     let deposit = record
         .entry()
         .to_app_option::<CollateralBridgeDeposit>()
@@ -400,9 +414,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
     )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = get(hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Deposit not found".into())
-    ))?;
+    let record = follow_update_chain(hash)?;
     let deposit = record
         .entry()
         .to_app_option::<CollateralBridgeDeposit>()
@@ -446,7 +458,7 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         amount: u64,
         reason: String,
     }
-    if let Err(e) = call(
+    match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
         FunctionName::from("debit_sap"),
@@ -457,10 +469,19 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
             reason: format!("Collateral bridge redemption: {}", deposit.collateral_type),
         },
     ) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot redeem: failed to debit SAP — {:?}",
-            e
-        ))));
+        Ok(ZomeCallResponse::Ok(_)) => {}
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot redeem: failed to debit SAP — unexpected response {:?}",
+                other
+            ))));
+        }
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot redeem: failed to debit SAP — {:?}",
+                e
+            ))));
+        }
     }
 
     // Broadcast the redemption event
@@ -552,10 +573,24 @@ fn fetch_mycel_score(member_did: &str) -> f64 {
             }
             match result.decode::<MycelState>() {
                 Ok(state) if state.mycel_score.is_finite() => state.mycel_score,
-                _ => 0.0,
+                Ok(state) => {
+                    debug!("fetch_mycel_score: non-finite MYCEL score {:?} for {}, defaulting to 0.0", state.mycel_score, member_did);
+                    0.0
+                }
+                Err(e) => {
+                    debug!("fetch_mycel_score: decode error for {}: {:?}, defaulting to 0.0", member_did, e);
+                    0.0
+                }
             }
         }
-        _ => 0.0,
+        Ok(other) => {
+            debug!("fetch_mycel_score: recognition zome returned {:?} for {}, defaulting to 0.0", other, member_did);
+            0.0
+        }
+        Err(e) => {
+            debug!("fetch_mycel_score: recognition zome unreachable for {}: {:?}, defaulting to 0.0", member_did, e);
+            0.0
+        }
     }
 }
 
@@ -576,10 +611,20 @@ fn fetch_oracle_vitality() -> u32 {
             }
             match result.decode::<OracleResp>() {
                 Ok(state) => state.vitality,
-                _ => 50,
+                Err(e) => {
+                    debug!("fetch_oracle_vitality: decode error: {:?}, defaulting to 50 (Normal tier)", e);
+                    50
+                }
             }
         }
-        _ => 50,
+        Ok(other) => {
+            debug!("fetch_oracle_vitality: tend zome returned {:?}, defaulting to 50 (Normal tier)", other);
+            50
+        }
+        Err(e) => {
+            debug!("fetch_oracle_vitality: tend zome unreachable: {:?}, defaulting to 50 (Normal tier)", e);
+            50
+        }
     }
 }
 
@@ -603,9 +648,87 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
         dao_did.clone(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => Ok(result.decode::<u32>().unwrap_or(0)),
-        _ => {
-            // Governance cluster unreachable — return 0 (permissive)
+        Ok(other) => {
+            // SECURITY NOTE: Returning 0 members is PERMISSIVE — it means the governance
+            // proposal requirement (>10 members) will be skipped. This is deliberate:
+            // when the governance cluster is unreachable (bootstrap, standalone, or network
+            // partition), we allow small-community operations to proceed rather than blocking
+            // all currency creation/amendment. The integrity zome still enforces zero-sum
+            // and constitutional limits regardless of governance gate.
+            //
+            // When STRICT_GOVERNANCE_MODE is true, this returns an error instead,
+            // blocking the operation until governance is reachable.
+            if STRICT_GOVERNANCE_MODE {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance cluster returned non-Ok response for {}: {:?}. Strict mode requires governance availability.",
+                    dao_did, other
+                ))));
+            }
+            debug!("get_community_member_count: governance returned {:?} for {}, defaulting to 0 (permissive)", other, dao_did);
             Ok(0)
+        }
+        Err(e) => {
+            // SECURITY NOTE: Same permissive default as above — see comment.
+            // When STRICT_GOVERNANCE_MODE is true, fail-closed instead.
+            if STRICT_GOVERNANCE_MODE {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Governance cluster unreachable for {}: {:?}. Strict mode requires governance availability.",
+                    dao_did, e
+                ))));
+            }
+            debug!("get_community_member_count: governance unreachable for {}: {:?}, defaulting to 0 (permissive)", dao_did, e);
+            Ok(0)
+        }
+    }
+}
+
+/// Verify that a governance proposal exists and is in Approved/Executed state.
+///
+/// Used by currency-mint to validate that governance_proposal_id references a real
+/// proposal before creating/amending currencies. Returns true if the proposal is
+/// valid, false if not found or not approved.
+///
+/// **Fallback behavior** depends on `STRICT_GOVERNANCE_MODE`:
+/// - `false` (default): Returns `true` when governance is unreachable (permissive).
+/// - `true`: Returns `false` when governance is unreachable (fail-closed),
+///   blocking any operation that requires a governance proposal until the
+///   governance cluster is available.
+#[hdk_extern]
+pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
+    match call(
+        CallTargetCell::OtherRole("governance".into()),
+        ZomeName::from("governance_bridge"),
+        FunctionName::from("get_proposal_status"),
+        None,
+        proposal_id.clone(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            // Expect a string status like "Approved", "Executed", "Pending", "Rejected"
+            let status = result.decode::<String>().unwrap_or_default();
+            Ok(status == "Approved" || status == "Executed")
+        }
+        Ok(_other) => {
+            // Governance returned non-Ok — proposal likely doesn't exist
+            Ok(false)
+        }
+        Err(_e) => {
+            // SECURITY NOTE: When governance cluster is unreachable, behavior depends
+            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return false),
+            // blocking operations that need governance approval. In permissive mode
+            // we return true, relying on local verify_governance_agent as a fallback.
+            if STRICT_GOVERNANCE_MODE {
+                debug!(
+                    "verify_governance_proposal: governance unreachable for {}, strict mode returning false (fail-closed)",
+                    proposal_id
+                );
+                Ok(false)
+            } else {
+                debug!(
+                    "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive)",
+                    proposal_id
+                );
+                Ok(true)
+            }
         }
     }
 }
@@ -643,12 +766,24 @@ pub fn query_sap_balance(member_did: String) -> ExternResult<BalanceResponse> {
                 available: true,
             })
         }
-        _ => Ok(BalanceResponse {
-            member_did,
-            currency: "SAP".into(),
-            balance: 0,
-            available: false,
-        }),
+        Ok(other) => {
+            debug!("query_sap_balance: payments zome returned {:?} for {}, reporting unavailable", other, member_did);
+            Ok(BalanceResponse {
+                member_did,
+                currency: "SAP".into(),
+                balance: 0,
+                available: false,
+            })
+        }
+        Err(e) => {
+            debug!("query_sap_balance: payments zome unreachable for {}: {:?}, reporting unavailable", member_did, e);
+            Ok(BalanceResponse {
+                member_did,
+                currency: "SAP".into(),
+                balance: 0,
+                available: false,
+            })
+        }
     }
 }
 
@@ -681,12 +816,24 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
                 available: true,
             })
         }
-        _ => Ok(TendBalanceResponse {
-            member_did,
-            balance: 0,
-            mycel_score: 0.0,
-            available: false,
-        }),
+        Ok(other) => {
+            debug!("query_tend_balance: tend zome returned {:?} for {}, reporting unavailable", other, member_did);
+            Ok(TendBalanceResponse {
+                member_did,
+                balance: 0,
+                mycel_score: 0.0,
+                available: false,
+            })
+        }
+        Err(e) => {
+            debug!("query_tend_balance: tend zome unreachable for {}: {:?}, reporting unavailable", member_did, e);
+            Ok(TendBalanceResponse {
+                member_did,
+                balance: 0,
+                mycel_score: 0.0,
+                available: false,
+            })
+        }
     }
 }
 
@@ -788,10 +935,13 @@ fn enforce_rate_limit(member_did: &str, new_amount: u64, now: Timestamp) -> Exte
     let deposits: Vec<CollateralBridgeDeposit> = query(filter)?
         .into_iter()
         .filter_map(|r| {
-            r.entry()
-                .to_app_option::<CollateralBridgeDeposit>()
-                .ok()
-                .flatten()
+            match r.entry().to_app_option::<CollateralBridgeDeposit>() {
+                Ok(opt) => opt,
+                Err(e) => {
+                    debug!("enforce_rate_limit: deposit deserialization error: {:?}", e);
+                    None
+                }
+            }
         })
         .collect();
 

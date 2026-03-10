@@ -11,14 +11,14 @@ use mycelix_sdk::epistemic::{
     EmpiricalLevel, EpistemicClassification, MaterialityLevel, NormativeLevel,
 };
 use mycelix_sdk::fl::{
-    VerifiedAggregationMethod,
+    AggregationMethod, GradientMetadata, GradientUpdate, VerifiedAggregationMethod, ZKFLError,
     ZKProofFLBridge,
 };
 use mycelix_sdk::storage::{
-    EpistemicStorage, MutabilityMode, SchemaIdentity, StorageBackend,
-    StoreOptions,
+    AccessControlMode, EpistemicStorage, MutabilityMode, SchemaIdentity, StorageBackend,
+    StorageConfig, StoreOptions,
 };
-// ProverMode used implicitly via ZKProofFLBridge
+use mycelix_sdk::zkproof::{GradientProver, ProverMode};
 
 /// Test the full ZK-FL pipeline
 #[test]

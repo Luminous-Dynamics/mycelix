@@ -720,8 +720,7 @@ mod tests {
         assert_eq!(stats.total_proofs, 3);
         assert_eq!(stats.successful_proofs, 3);
         // Note: avg_time_ms may be 0 in simulation mode due to fast execution
-        // total_time_ms is unsigned, so always >= 0; just verify it's accessible
-        let _ = stats.total_time_ms;
+        assert!(stats.total_time_ms >= 0); // Just verify it's tracked
     }
 
     #[test]

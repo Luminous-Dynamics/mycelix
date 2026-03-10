@@ -15,19 +15,24 @@
 use hdk::prelude::*;
 use voting_integrity::*;
 
-/// Minimal proposal fields for voting-period verification.
+/// Full proposal mirror for voting-period verification.
+/// Must match Proposal field order exactly (msgpack positional deserialization).
 /// Avoids linking proposals_integrity which causes duplicate HDI symbols in WASM.
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-struct ProposalVotingPeriod {
+struct ProposalMirror {
+    id: String,
+    title: String,
+    description: String,
+    proposal_type: String,
+    author: String,
+    status: String,
+    actions: String,
+    discussion_url: Option<String>,
     voting_starts: Timestamp,
     voting_ends: Timestamp,
-}
-
-/// Minimal proposal mirror for fetching actions on approval.
-/// Same rationale as ProposalVotingPeriod — avoids proposals_integrity link.
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-struct ProposalActions {
-    actions: String,
+    created: Timestamp,
+    updated: Timestamp,
+    version: u32,
 }
 
 // ============================================================================
@@ -187,38 +192,47 @@ fn verify_record_author(record: &Record) -> ExternResult<AgentPubKey> {
 /// This prevents manipulation during network partitions where an attacker
 /// could vote on expired proposals.
 fn verify_voting_period(proposal_id: &str) -> ExternResult<()> {
-    if let Some(extern_io) = governance_utils::call_local_best_effort(
+    // Use call_local (not best_effort) so errors propagate with diagnostics
+    let extern_io = governance_utils::call_local(
         "proposals",
         "get_proposal",
         proposal_id.to_string(),
-    )? {
-        if let Ok(Some(record)) = extern_io.decode::<Option<Record>>() {
-            if let Some(proposal) = record
-                .entry()
-                .to_app_option::<ProposalVotingPeriod>()
-                .ok()
-                .flatten()
-            {
-                let now = sys_time()?;
-                if now < proposal.voting_starts {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Voting has not started yet for this proposal".into()
-                    )));
-                }
-                if now > proposal.voting_ends {
-                    return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Voting period has ended for this proposal".into()
-                    )));
-                }
-                return Ok(());
-            }
-        }
+    ).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Cannot verify voting period: cross-zome call to proposals::get_proposal failed: {}", e
+    ))))?;
+
+    let record: Option<Record> = extern_io.decode().map_err(|e| wasm_error!(
+        WasmErrorInner::Guest(format!(
+            "Cannot verify voting period: failed to decode proposal response: {}", e
+        ))
+    ))?;
+
+    let record = record.ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!(
+        "Cannot verify voting period: proposal '{}' not found", proposal_id
+    ))))?;
+
+    let proposal: ProposalMirror = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Cannot verify voting period: failed to deserialize proposal: {}", e
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Cannot verify voting period: proposal entry has no data".into()
+        )))?;
+
+    let now = sys_time()?;
+    if now < proposal.voting_starts {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Voting has not started yet for this proposal".into()
+        )));
     }
-    // Proposals zome unavailable or returned unparseable data — fail closed
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "Cannot verify voting period: proposals zome unavailable. Voting rejected (fail-closed)."
-            .into()
-    )))
+    if now > proposal.voting_ends {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Voting period has ended for this proposal".into()
+        )));
+    }
+    Ok(())
 }
 
 // ============================================================================
@@ -1909,7 +1923,7 @@ pub fn tally_phi_votes(input: TallyPhiVotesInput) -> ExternResult<Record> {
                 if let Ok(Some(record)) = io.decode::<Option<Record>>() {
                     record
                         .entry()
-                        .to_app_option::<ProposalActions>()
+                        .to_app_option::<ProposalMirror>()
                         .ok()
                         .flatten()
                         .map(|p| p.actions)

@@ -41,6 +41,10 @@ pub struct MintedBalanceInfo {
     pub currency_id: String,
     pub currency_name: String,
     pub currency_symbol: String,
+    pub raw_balance: i32,
+    pub effective_balance: i32,
+    pub pending_demurrage: i32,
+    pub last_activity: Timestamp,
     pub balance: i32,
     pub credit_limit: i32,
     pub can_provide: bool,
@@ -203,6 +207,51 @@ pub fn test_params_with_confirmation(name: &str, symbol: &str) -> MintedCurrency
     p
 }
 
+// ── Retry helper for flaky BadNonce errors ────────────────────────────────
+
+/// Call a zome function with automatic retry on BadNonce("Expired") errors.
+///
+/// Holochain's nonce validation can spuriously fail under load (the conductor's
+/// SQLite nonce witness check races with nonce generation). This wrapper retries
+/// up to 2 times with a 2-second delay between attempts.
+pub async fn call_with_retry<I, O>(
+    conductor: &holochain::sweettest::SweetConductor,
+    zome: &holochain::sweettest::SweetZome,
+    fn_name: &str,
+    payload: I,
+) -> O
+where
+    I: serde::Serialize + std::fmt::Debug + Clone,
+    O: serde::de::DeserializeOwned + std::fmt::Debug,
+{
+    let max_retries = 2;
+    for attempt in 0..=max_retries {
+        match conductor.call_fallible(zome, fn_name, payload.clone()).await {
+            Ok(result) => return result,
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                if err_str.contains("BadNonce") && attempt < max_retries {
+                    eprintln!(
+                        "  [retry] BadNonce on {}() attempt {}/{}, retrying in 2s...",
+                        fn_name,
+                        attempt + 1,
+                        max_retries
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    continue;
+                }
+                panic!(
+                    "Zome call {}() failed after {} attempt(s): {:?}",
+                    fn_name,
+                    attempt + 1,
+                    e
+                );
+            }
+        }
+    }
+    unreachable!()
+}
+
 // ── Conductor setup helper ────────────────────────────────────────────────
 
 /// Set up a SweetConductor with `agent_count` agents and the finance DNA installed.
@@ -221,5 +270,19 @@ pub async fn setup_finance_conductor(
         .setup_app_for_agents("mycelix-finance", &agents, &[dna])
         .await
         .expect("Install app");
+
+    // Warmup probe: issue a no-op read call with retry to ensure the
+    // conductor's nonce witness database is ready. Under system load the
+    // first zome call often hits BadNonce("Expired") because SQLite isn't
+    // fully initialised yet. This absorbs that transient failure here
+    // rather than in the first test scenario.
+    let warmup_zome = apps[0].cells()[0].zome("currency_mint");
+    let _: Result<Vec<String>, _> = conductor
+        .call_fallible(&warmup_zome, "list_currency_members", "warmup-probe".to_string())
+        .await;
+    // Ignore the result — the call itself is enough to prime the nonce store.
+    // A short pause gives the conductor time to settle.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
     (conductor, agents, apps.into())
 }

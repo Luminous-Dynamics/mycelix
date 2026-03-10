@@ -816,7 +816,7 @@ mod tests {
 
         let output_analysis = analyze_outputs(&low_quality_history);
 
-        let _updated = compute_epistemic_weighted_kvector_update(
+        let updated = compute_epistemic_weighted_kvector_update(
             &initial,
             &behavior_analysis,
             &output_analysis,

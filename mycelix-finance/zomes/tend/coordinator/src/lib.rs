@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! TEND (Time Exchange) Coordinator Zome
 //!
 //! Implements Commons Charter Article II, Section 2 - Time Exchange Module
@@ -14,7 +15,11 @@
 //! This radical equality is the foundation of time banking.
 
 use hdk::prelude::*;
-use mycelix_finance_shared::anchor_hash;
+use mycelix_finance_shared::{
+    anchor_hash, follow_update_chain, pick_race_winner, rate_limit_anchor_key,
+    verify_governance_or_bootstrap_from_links, DEFAULT_RATE_LIMIT_PER_MINUTE,
+    GOVERNANCE_AGENTS_ANCHOR,
+};
 
 // Re-export integrity types for external use
 pub use tend_integrity::*;
@@ -23,12 +28,7 @@ pub use tend_integrity::*;
 // GOVERNANCE AGENT AUTHORIZATION
 // =============================================================================
 
-const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
-
-/// Check if the calling agent is a registered governance agent.
-/// If no governance agents are registered yet (bootstrap), allow any agent.
 fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let caller = agent_info()?.agent_initial_pubkey;
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -36,24 +36,7 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
         )?,
         GetStrategy::default(),
     )?;
-
-    // Bootstrap: if no governance agents registered yet, allow anyone
-    if gov_links.is_empty() {
-        return Ok(());
-    }
-
-    // Check if caller is in the governance list
-    for link in gov_links {
-        if let Ok(agent) = AgentPubKey::try_from(link.target) {
-            if agent == caller {
-                return Ok(());
-            }
-        }
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "Caller is not an authorized governance agent".into()
-    )))
+    verify_governance_or_bootstrap_from_links(gov_links)
 }
 
 /// Register a governance agent. Only existing governance agents can register
@@ -186,6 +169,7 @@ pub fn get_current_tend_limit(tier: TendLimitTier) -> ExternResult<i32> {
 }
 
 const ORACLE_STATE_ANCHOR: &str = "tend:oracle_state";
+const MAX_VITALITY: u32 = 100;
 
 /// Update the oracle state (sets current vitality and limit tier).
 ///
@@ -194,10 +178,10 @@ const ORACLE_STATE_ANCHOR: &str = "tend:oracle_state";
 #[hdk_extern]
 pub fn update_oracle_state(vitality: u32) -> ExternResult<OracleState> {
     verify_governance_or_bootstrap()?;
-    if vitality > 100 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Vitality must be 0-100".into()
-        )));
+    if vitality > MAX_VITALITY {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Vitality must be 0-{}", MAX_VITALITY
+        ))));
     }
 
     let now = sys_time()?;
@@ -216,9 +200,7 @@ pub fn update_oracle_state(vitality: u32) -> ExternResult<OracleState> {
 
     if let Some(link) = links.first() {
         if let Some(link_hash) = link.target.clone().into_action_hash() {
-            let record = get(link_hash, GetOptions::default())?.ok_or(wasm_error!(
-                WasmErrorInner::Guest("Oracle state record not found".into())
-            ))?;
+            let record = follow_update_chain(link_hash)?;
             update_entry(
                 record.action_address().clone(),
                 &EntryTypes::OracleState(state.clone()),
@@ -248,7 +230,8 @@ pub fn get_dynamic_tend_limit(_: ()) -> ExternResult<i32> {
     Ok(read_current_tier()?.limit())
 }
 
-/// Internal: read the current tier from oracle state
+/// Internal: read the current tier from oracle state.
+/// Follows the update chain to get the latest oracle state.
 fn read_current_tier() -> ExternResult<TendLimitTier> {
     let links = get_links(
         LinkQuery::try_new(anchor_hash(ORACLE_STATE_ANCHOR)?, LinkTypes::AnchorLinks)?,
@@ -257,10 +240,18 @@ fn read_current_tier() -> ExternResult<TendLimitTier> {
 
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                    return Ok(state.tier);
-                }
+            let record = follow_update_chain(action_hash)?;
+            let state = record
+                .entry()
+                .to_app_option::<OracleState>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "OracleState deserialization error: {:?}",
+                        e
+                    )))
+                })?;
+            if let Some(state) = state {
+                return Ok(state.tier);
             }
         }
     }
@@ -279,14 +270,22 @@ pub fn get_oracle_state(_: ()) -> ExternResult<OracleStateResponse> {
     )?;
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                if let Some(state) = record.entry().to_app_option::<OracleState>().ok().flatten() {
-                    return Ok(OracleStateResponse {
-                        vitality: state.vitality,
-                        tier_name: format!("{:?}", state.tier),
-                        limit: state.tier.limit(),
-                    });
-                }
+            let record = follow_update_chain(action_hash)?;
+            let state = record
+                .entry()
+                .to_app_option::<OracleState>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "OracleState deserialization error: {:?}",
+                        e
+                    )))
+                })?;
+            if let Some(state) = state {
+                return Ok(OracleStateResponse {
+                    vitality: state.vitality,
+                    tier_name: format!("{:?}", state.tier),
+                    limit: state.tier.limit(),
+                });
             }
         }
     }
@@ -447,18 +446,25 @@ fn get_or_create_hearth_balance(
         LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthToBalances)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                if let Some(bal) = record
-                    .entry()
-                    .to_app_option::<HearthTendBalance>()
-                    .ok()
-                    .flatten()
-                {
-                    return Ok(bal);
-                }
-            }
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-14).
+    if let Some(action_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    {
+        let record = follow_update_chain(action_hash)?;
+        let bal = record
+            .entry()
+            .to_app_option::<HearthTendBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthTendBalance deserialization error: {:?}",
+                    e
+                )))
+            })?;
+        if let Some(bal) = bal {
+            return Ok(bal);
         }
     }
     // Create new zero balance
@@ -473,18 +479,51 @@ fn get_or_create_hearth_balance(
         last_activity: now,
     };
     let hash = create_entry(&EntryTypes::HearthTendBalance(bal.clone()))?;
+    let anchor = anchor_hash(&anchor_key)?;
     create_link(
-        anchor_hash(&anchor_key)?,
+        anchor.clone(),
         hash.clone(),
         LinkTypes::HearthToBalances,
         (),
     )?;
     create_link(
         anchor_hash(&format!("my-hearths:{}", member_did))?,
-        hash,
+        hash.clone(),
         LinkTypes::MemberToHearthBalance,
         (),
     )?;
+
+    // RC-14: Race condition guard — re-read links to detect concurrent creators.
+    let recheck_links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::HearthToBalances)?,
+        GetStrategy::default(),
+    )?;
+    if recheck_links.len() > 1 {
+        if let Some(winner_hash) = recheck_links
+            .iter()
+            .filter_map(|l| l.target.clone().into_action_hash())
+            .min()
+        {
+            if winner_hash != hash {
+                // We lost the race — return the winner's entry instead
+                let record = follow_update_chain(winner_hash)?;
+                let winner_bal = record
+                    .entry()
+                    .to_app_option::<HearthTendBalance>()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "HearthTendBalance deserialization error: {:?}",
+                            e
+                        )))
+                    })?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Winner hearth balance entry missing".into()
+                    )))?;
+                return Ok(winner_bal);
+            }
+        }
+    }
+
     Ok(bal)
 }
 
@@ -514,11 +553,24 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
                     "{} is not a member of hearth {}",
                     member_did, hearth_did
                 )))),
-                Err(_) => Ok(()), // Decode error → fall through
+                Err(e) => {
+                    // SECURITY NOTE: Decode error falls through permissively to support
+                    // bootstrap/standalone mode where hearth zome schema may differ.
+                    debug!("verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)", member_did, hearth_did, e);
+                    Ok(())
+                }
             }
         }
-        // Hearth zome unreachable → allow (bootstrap/standalone mode)
-        _ => Ok(()),
+        Ok(other) => {
+            // SECURITY NOTE: Hearth zome unreachable/unauthorized — allow in bootstrap/standalone mode.
+            debug!("verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)", other, member_did, hearth_did);
+            Ok(())
+        }
+        Err(e) => {
+            // SECURITY NOTE: Hearth zome unreachable — allow in bootstrap/standalone mode.
+            debug!("verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)", member_did, hearth_did, e);
+            Ok(())
+        }
     }
 }
 
@@ -533,30 +585,70 @@ fn update_hearth_balance(
         LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthToBalances)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(link_hash, GetOptions::default())? {
-                if let Some(mut bal) = record
-                    .entry()
-                    .to_app_option::<HearthTendBalance>()
-                    .ok()
-                    .flatten()
-                {
-                    let now = sys_time()?;
-                    if is_provider {
-                        bal.balance += hours.round() as i32;
-                        bal.total_provided += hours;
-                    } else {
-                        bal.balance -= hours.round() as i32;
-                        bal.total_received += hours;
-                    }
-                    bal.exchange_count += 1;
-                    bal.last_activity = now;
-                    update_entry(record.action_address().clone(), &bal)?;
-                }
+
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-14).
+    let Some(original_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    else {
+        return Ok(());
+    };
+
+    for attempt in 0..MAX_BALANCE_RETRIES {
+        let record = follow_update_chain(original_hash.clone())?;
+        let mut bal = record
+            .entry()
+            .to_app_option::<HearthTendBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthTendBalance deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "HearthTendBalance entry missing".into()
+            )))?;
+
+        let now = sys_time()?;
+        if is_provider {
+            bal.balance += hours.round() as i32;
+            bal.total_provided += hours;
+        } else {
+            bal.balance -= hours.round() as i32;
+            bal.total_received += hours;
+        }
+        bal.exchange_count += 1;
+        bal.last_activity = now;
+
+        let expected_balance = bal.balance;
+        let expected_count = bal.exchange_count;
+        update_entry(record.action_address().clone(), &bal)?;
+
+        // Verify our update won: re-read from the original link target
+        let verify_record = follow_update_chain(original_hash.clone())?;
+        if let Ok(Some(actual)) = verify_record.entry().to_app_option::<HearthTendBalance>() {
+            if actual.balance == expected_balance
+                && actual.exchange_count == expected_count
+            {
+                return Ok(());
             }
         }
+
+        // Concurrent update detected — retry unless exhausted
+        if attempt == MAX_BALANCE_RETRIES - 1 {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Hearth balance update for {}:{} failed after {} retries due to concurrent modifications",
+                hearth_did, member_did, MAX_BALANCE_RETRIES
+            ))));
+        }
+        debug!(
+            "update_hearth_balance: concurrent update detected for {}:{}, retry {}/{}",
+            hearth_did, member_did, attempt + 1, MAX_BALANCE_RETRIES
+        );
     }
+
     Ok(())
 }
 
@@ -627,11 +719,15 @@ pub fn get_currency_alias(dao_did: String) -> ExternResult<Option<CurrencyAliasE
     if let Some(link) = links.last() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(action_hash, GetOptions::default())? {
-                return Ok(record
+                return record
                     .entry()
                     .to_app_option::<CurrencyAliasEntry>()
-                    .ok()
-                    .flatten());
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "CurrencyAliasEntry deserialization error: {:?}",
+                            e
+                        )))
+                    });
             }
         }
     }
@@ -689,6 +785,30 @@ pub fn record_exchange(input: RecordExchangeInput) -> ExternResult<ExchangeRecor
     let caller = agent_info()?.agent_initial_pubkey;
     let provider_did = format!("did:mycelix:{}", caller);
     let now = sys_time()?;
+
+    // Per-agent rate limit: reject if this agent has exceeded the exchange
+    // recording limit within the current 60-second window.
+    {
+        let key = rate_limit_anchor_key("tend_exchange", &caller, now.as_micros());
+        let anchor = anchor_hash(&key)?;
+        let recent_links = get_links(
+            LinkQuery::try_new(anchor.clone(), LinkTypes::DaoToExchanges)?,
+            GetStrategy::default(),
+        )?;
+        if recent_links.len() >= DEFAULT_RATE_LIMIT_PER_MINUTE {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Rate limit exceeded: max {} TEND exchanges per minute",
+                DEFAULT_RATE_LIMIT_PER_MINUTE
+            ))));
+        }
+        // Record this operation in the rate-limit bucket
+        create_link(
+            anchor,
+            AnyLinkableHash::from(caller.clone()),
+            LinkTypes::DaoToExchanges,
+            (),
+        )?;
+    }
 
     // Validate not exchanging with self
     if provider_did == input.receiver_did {
@@ -825,7 +945,74 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
         )));
     }
 
-    // Re-check balance limits at confirmation time (balances may have changed)
+    // RC-19 fix: Create confirmation guard link FIRST, then verify we won
+    // the race. This prevents duplicate balance updates from concurrent calls.
+    let confirm_anchor = format!("tend-confirm:{}", exchange_id);
+    let confirm_anchor_hash = anchor_hash(&confirm_anchor)?;
+
+    // Quick pre-check: if confirmation already happened, return idempotently
+    let pre_existing = get_links(
+        LinkQuery::try_new(confirm_anchor_hash.clone(), LinkTypes::AnchorLinks)?,
+        GetStrategy::default(),
+    )?;
+    if !pre_existing.is_empty() {
+        // Already confirmed by a prior call — re-fetch to get current status
+        let confirmed_ex = find_exchange_by_id(&exchange_id)?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Exchange not found".into())
+        ))?;
+        return Ok(ExchangeRecord {
+            id: confirmed_ex.id,
+            provider_did: confirmed_ex.provider_did,
+            receiver_did: confirmed_ex.receiver_did,
+            hours: confirmed_ex.hours,
+            service_description: confirmed_ex.service_description,
+            service_category: confirmed_ex.service_category,
+            status: ExchangeStatus::Confirmed,
+            timestamp: confirmed_ex.timestamp,
+        });
+    }
+
+    // Create the guard link BEFORE balance updates (claim our intent)
+    let our_link_hash = create_link(
+        confirm_anchor_hash.clone(),
+        AnyLinkableHash::from(agent_info()?.agent_initial_pubkey),
+        LinkTypes::AnchorLinks,
+        (),
+    )?;
+
+    // Re-read links to detect concurrent confirmations (create-then-verify)
+    let all_confirm_links = get_links(
+        LinkQuery::try_new(confirm_anchor_hash, LinkTypes::AnchorLinks)?,
+        GetStrategy::default(),
+    )?;
+
+    if all_confirm_links.len() > 1 {
+        // Race detected — winner is lowest ActionHash (deterministic)
+        let winner = pick_race_winner(&all_confirm_links)?;
+
+        if winner.create_link_hash != our_link_hash {
+            // We lost the race — clean up and return idempotently
+            delete_link(our_link_hash, GetOptions::default())?;
+            return Ok(ExchangeRecord {
+                id: exchange.id,
+                provider_did: exchange.provider_did,
+                receiver_did: exchange.receiver_did,
+                hours: exchange.hours,
+                service_description: exchange.service_description,
+                service_category: exchange.service_category,
+                status: ExchangeStatus::Confirmed,
+                timestamp: exchange.timestamp,
+            });
+        }
+        // We won — best-effort cleanup of loser links
+        for link in &all_confirm_links {
+            if link.create_link_hash != our_link_hash {
+                let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
+            }
+        }
+    }
+
+    // Only the race winner reaches here — re-check balance limits
     let provider_limit = get_effective_limit_for_member(&exchange.provider_did)?;
     let receiver_limit = get_effective_limit_for_member(&exchange.receiver_did)?;
 
@@ -849,7 +1036,32 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
         ))));
     }
 
-    // Update balances
+    // Create a PendingBalanceAdjustment BEFORE balance updates for crash recovery.
+    // If a crash occurs between the two updates, recover_pending_adjustments can
+    // complete the interrupted operation and restore the zero-sum invariant.
+    let now_ts = sys_time()?;
+    let pending_adj = PendingBalanceAdjustment {
+        exchange_id: exchange.id.clone(),
+        provider_did: exchange.provider_did.clone(),
+        receiver_did: exchange.receiver_did.clone(),
+        hours: exchange.hours as f64,
+        currency_id: exchange.dao_did.clone(),
+        provider_completed: false,
+        receiver_completed: false,
+        created_at: now_ts,
+    };
+    let pending_adj_hash = create_entry(&EntryTypes::PendingBalanceAdjustment(pending_adj))?;
+
+    // Link from a well-known anchor so recover_pending_adjustments can find them
+    let pending_anchor = anchor_hash("pending-balance-adjustments")?;
+    create_link(
+        pending_anchor,
+        pending_adj_hash.clone(),
+        LinkTypes::PendingAdjustmentToExchange,
+        (),
+    )?;
+
+    // Update balances — provider first
     update_balance_after_exchange(
         &exchange.provider_did,
         &exchange.dao_did,
@@ -857,11 +1069,44 @@ pub fn confirm_exchange(exchange_id: String) -> ExternResult<ExchangeRecord> {
         true, // provider gains
     )?;
 
+    // Mark provider side as completed
+    let pending_adj_provider_done = PendingBalanceAdjustment {
+        exchange_id: exchange.id.clone(),
+        provider_did: exchange.provider_did.clone(),
+        receiver_did: exchange.receiver_did.clone(),
+        hours: exchange.hours as f64,
+        currency_id: exchange.dao_did.clone(),
+        provider_completed: true,
+        receiver_completed: false,
+        created_at: now_ts,
+    };
+    update_entry(
+        pending_adj_hash.clone(),
+        &EntryTypes::PendingBalanceAdjustment(pending_adj_provider_done),
+    )?;
+
+    // Update balances — receiver second
     update_balance_after_exchange(
         &exchange.receiver_did,
         &exchange.dao_did,
         exchange.hours,
         false, // receiver pays
+    )?;
+
+    // Mark both sides as completed
+    let pending_adj_all_done = PendingBalanceAdjustment {
+        exchange_id: exchange.id.clone(),
+        provider_did: exchange.provider_did.clone(),
+        receiver_did: exchange.receiver_did.clone(),
+        hours: exchange.hours as f64,
+        currency_id: exchange.dao_did.clone(),
+        provider_completed: true,
+        receiver_completed: true,
+        created_at: now_ts,
+    };
+    update_entry(
+        pending_adj_hash,
+        &EntryTypes::PendingBalanceAdjustment(pending_adj_all_done),
     )?;
 
     // Update exchange status
@@ -1028,15 +1273,18 @@ pub fn rate_exchange(input: RateExchangeInput) -> ExternResult<Record> {
         )));
     }
 
-    // Check for duplicate rating via ExchangeToRating link
-    let existing_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&format!("rating:{}", input.exchange_id))?,
-            LinkTypes::ExchangeToRating,
-        )?,
+    // RC-19 fix: Create-then-verify pattern to prevent duplicate ratings
+    // from concurrent calls. We create the rating link first, then check if
+    // we won the race.
+    let rating_anchor = format!("rating:{}", input.exchange_id);
+    let rating_anchor_hash = anchor_hash(&rating_anchor)?;
+
+    // Quick pre-check: if rating already exists, reject
+    let pre_existing = get_links(
+        LinkQuery::try_new(rating_anchor_hash.clone(), LinkTypes::ExchangeToRating)?,
         GetStrategy::default(),
     )?;
-    if !existing_links.is_empty() {
+    if !pre_existing.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "This exchange has already been rated".into()
         )));
@@ -1056,13 +1304,38 @@ pub fn rate_exchange(input: RateExchangeInput) -> ExternResult<Record> {
     // Store as a proper QualityRating entry type
     let rating_hash = create_entry(&EntryTypes::QualityRating(quality_rating))?;
 
-    // Link from exchange to rating
-    create_link(
-        anchor_hash(&format!("rating:{}", input.exchange_id))?,
+    // Link from exchange to rating — create BEFORE verifying uniqueness
+    let our_link_hash = create_link(
+        rating_anchor_hash.clone(),
         rating_hash.clone(),
         LinkTypes::ExchangeToRating,
         (),
     )?;
+
+    // Re-read to detect concurrent rating creation
+    let all_rating_links = get_links(
+        LinkQuery::try_new(rating_anchor_hash, LinkTypes::ExchangeToRating)?,
+        GetStrategy::default(),
+    )?;
+
+    if all_rating_links.len() > 1 {
+        // Race detected — winner is lowest ActionHash (deterministic)
+        let winner = pick_race_winner(&all_rating_links)?;
+
+        if winner.create_link_hash != our_link_hash {
+            // We lost the race — clean up and error
+            delete_link(our_link_hash, GetOptions::default())?;
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "This exchange has already been rated".into()
+            )));
+        }
+        // We won — best-effort cleanup of loser links
+        for link in &all_rating_links {
+            if link.create_link_hash != our_link_hash {
+                let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
+            }
+        }
+    }
 
     // Link from rated member (provider) to rating for aggregation
     create_link(
@@ -1118,15 +1391,18 @@ pub fn open_dispute(input: OpenDisputeInput) -> ExternResult<Record> {
         )));
     }
 
-    // Check for existing dispute on this exchange via ExchangeToDispute link
-    let existing_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&format!("dispute_for_exchange:{}", input.exchange_id))?,
-            LinkTypes::ExchangeToDispute,
-        )?,
+    // RC-19 fix: Create-then-verify pattern to prevent duplicate disputes
+    // from concurrent calls. We create the dispute link first, then check if
+    // we won the race.
+    let dispute_anchor = format!("dispute_for_exchange:{}", input.exchange_id);
+    let dispute_anchor_hash = anchor_hash(&dispute_anchor)?;
+
+    // Quick pre-check: if dispute already exists, reject
+    let pre_existing = get_links(
+        LinkQuery::try_new(dispute_anchor_hash.clone(), LinkTypes::ExchangeToDispute)?,
         GetStrategy::default(),
     )?;
-    if !existing_links.is_empty() {
+    if !pre_existing.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "A dispute already exists for this exchange".into()
         )));
@@ -1159,13 +1435,38 @@ pub fn open_dispute(input: OpenDisputeInput) -> ExternResult<Record> {
     // Store as a proper DisputeCase entry type
     let dispute_hash = create_entry(&EntryTypes::DisputeCase(dispute_case))?;
 
-    // Link from exchange to dispute
-    create_link(
-        anchor_hash(&format!("dispute_for_exchange:{}", input.exchange_id))?,
+    // Link from exchange to dispute — create BEFORE verifying uniqueness
+    let our_link_hash = create_link(
+        dispute_anchor_hash.clone(),
         dispute_hash.clone(),
         LinkTypes::ExchangeToDispute,
         (),
     )?;
+
+    // Re-read to detect concurrent dispute creation
+    let all_dispute_links = get_links(
+        LinkQuery::try_new(dispute_anchor_hash, LinkTypes::ExchangeToDispute)?,
+        GetStrategy::default(),
+    )?;
+
+    if all_dispute_links.len() > 1 {
+        // Race detected — winner is lowest ActionHash (deterministic)
+        let winner = pick_race_winner(&all_dispute_links)?;
+
+        if winner.create_link_hash != our_link_hash {
+            // We lost the race — clean up and error
+            delete_link(our_link_hash, GetOptions::default())?;
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "A dispute already exists for this exchange".into()
+            )));
+        }
+        // We won — best-effort cleanup of loser links
+        for link in &all_dispute_links {
+            if link.create_link_hash != our_link_hash {
+                let _ = delete_link(link.create_link_hash.clone(), GetOptions::default());
+            }
+        }
+    }
 
     // Link from dispute ID for direct lookup
     create_link(
@@ -1316,7 +1617,8 @@ pub fn escalate_dispute(input: EscalateDisputeInput) -> ExternResult<Record> {
     // Update the entry in place
     update_entry(action_hash, &updated_dispute)?;
 
-    // Re-fetch the updated record via the link
+    // Re-fetch the updated record via follow_update_chain
+    // (the link points to the original create action, not the latest update)
     let links = get_links(
         LinkQuery::try_new(
             anchor_hash(&format!("dispute:{}", dispute_id))?,
@@ -1336,9 +1638,7 @@ pub fn escalate_dispute(input: EscalateDisputeInput) -> ExternResult<Record> {
             "Invalid dispute link target".into()
         )))?;
 
-    let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to retrieve updated dispute record".into()
-    )))?;
+    let record = follow_update_chain(hash)?;
 
     Ok(record)
 }
@@ -1405,7 +1705,8 @@ pub fn resolve_dispute(input: ResolveDisputeInput) -> ExternResult<Record> {
         }
     }
 
-    // Re-fetch the updated record via the link
+    // Re-fetch the updated record via follow_update_chain
+    // (the link points to the original create action, not the latest update)
     let links = get_links(
         LinkQuery::try_new(
             anchor_hash(&format!("dispute:{}", input.dispute_id))?,
@@ -1425,9 +1726,7 @@ pub fn resolve_dispute(input: ResolveDisputeInput) -> ExternResult<Record> {
             "Invalid dispute link target".into()
         )))?;
 
-    let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to retrieve resolved dispute record".into()
-    )))?;
+    let record = follow_update_chain(hash)?;
 
     Ok(record)
 }
@@ -1458,12 +1757,42 @@ fn get_or_create_balance(member_did: String, dao_did: String) -> ExternResult<Ba
 
     let action_hash = create_entry(&EntryTypes::TendBalance(balance.clone()))?;
 
-    create_link(
-        anchor_hash(&format!("balance:{}:{}", dao_did, member_did))?,
-        action_hash,
-        LinkTypes::MemberToBalance,
-        (),
+    let anchor = anchor_hash(&format!("balance:{}:{}", dao_did, member_did))?;
+    create_link(anchor.clone(), action_hash.clone(), LinkTypes::MemberToBalance, ())?;
+
+    // RC-13: Race condition guard — re-read links to detect concurrent creators.
+    // If multiple links exist, deterministically pick the one with the lowest
+    // target ActionHash. If we're not the winner, return the winner's entry.
+    let recheck_links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::MemberToBalance)?,
+        GetStrategy::default(),
     )?;
+    if recheck_links.len() > 1 {
+        if let Some(winner_hash) = recheck_links
+            .iter()
+            .filter_map(|l| l.target.clone().into_action_hash())
+            .min()
+        {
+            if winner_hash != action_hash {
+                // We lost the race — return the winner's entry instead
+                let record = follow_update_chain(winner_hash)?;
+                let winner_bal = record
+                    .entry()
+                    .to_app_option::<TendBalance>()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "TendBalance deserialization error: {:?}",
+                            e
+                        )))
+                    })?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Winner balance entry missing".into()
+                    )))?;
+                let limit = get_effective_limit_for_member(&member_did)?;
+                return Ok(balance_to_info(&winner_bal, limit));
+            }
+        }
+    }
 
     let limit = get_effective_limit_for_member(&member_did)?;
     Ok(balance_to_info(&balance, limit))
@@ -1485,14 +1814,15 @@ pub fn get_balance(input: GetBalanceInput) -> ExternResult<BalanceInfo> {
     get_or_create_balance(input.member_did, input.dao_did)
 }
 
-/// Get all exchanges for a member in a DAO
+/// Get all exchanges for a member in a DAO (paginated, default limit 100)
 #[hdk_extern]
-pub fn get_my_exchanges(dao_did: String) -> ExternResult<Vec<ExchangeRecord>> {
-    if dao_did.is_empty() || dao_did.len() > 256 {
+pub fn get_my_exchanges(input: PaginatedDaoInput) -> ExternResult<Vec<ExchangeRecord>> {
+    if input.dao_did.is_empty() || input.dao_did.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "DAO DID must be 1-256 characters".into()
         )));
     }
+    let limit = input.limit.unwrap_or(100);
     let caller = agent_info()?.agent_initial_pubkey;
     let member_did = format!("did:mycelix:{}", caller);
 
@@ -1501,62 +1831,65 @@ pub fn get_my_exchanges(dao_did: String) -> ExternResult<Vec<ExchangeRecord>> {
     // Get exchanges where member was provider
     let provider_links = get_links(
         LinkQuery::try_new(
-            anchor_hash(&format!("provider:{}:{}", dao_did, member_did))?,
+            anchor_hash(&format!("provider:{}:{}", input.dao_did, member_did))?,
             LinkTypes::ProviderToExchanges,
         )?,
         GetStrategy::default(),
     )?;
 
     for link in provider_links {
-        if let Some(record) = get(
-            link.target.into_action_hash().ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
-            })?,
-            GetOptions::default(),
-        )? {
-            if let Some(exchange) = record
-                .entry()
-                .to_app_option::<TendExchange>()
-                .ok()
-                .flatten()
-            {
-                exchanges.push(exchange_to_record(&exchange));
-            }
+        let action_hash = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
+        })?;
+        let record = follow_update_chain(action_hash)?;
+        if let Some(exchange) = record
+            .entry()
+            .to_app_option::<TendExchange>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TendExchange deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            exchanges.push(exchange_to_record(&exchange));
         }
     }
 
     // Get exchanges where member was receiver
     let receiver_links = get_links(
         LinkQuery::try_new(
-            anchor_hash(&format!("receiver:{}:{}", dao_did, member_did))?,
+            anchor_hash(&format!("receiver:{}:{}", input.dao_did, member_did))?,
             LinkTypes::ReceiverToExchanges,
         )?,
         GetStrategy::default(),
     )?;
 
     for link in receiver_links {
-        if let Some(record) = get(
-            link.target.into_action_hash().ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
-            })?,
-            GetOptions::default(),
-        )? {
-            if let Some(exchange) = record
-                .entry()
-                .to_app_option::<TendExchange>()
-                .ok()
-                .flatten()
-            {
-                // Avoid duplicates (shouldn't happen, but safety)
-                if !exchanges.iter().any(|e| e.id == exchange.id) {
-                    exchanges.push(exchange_to_record(&exchange));
-                }
+        let action_hash = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
+        })?;
+        let record = follow_update_chain(action_hash)?;
+        if let Some(exchange) = record
+            .entry()
+            .to_app_option::<TendExchange>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TendExchange deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            // Avoid duplicates (shouldn't happen, but safety)
+            if !exchanges.iter().any(|e| e.id == exchange.id) {
+                exchanges.push(exchange_to_record(&exchange));
             }
         }
     }
 
     // Sort by timestamp (newest first)
     exchanges.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    exchanges.truncate(limit);
 
     Ok(exchanges)
 }
@@ -1584,9 +1917,9 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ServiceListing>
         )));
     }
     if let Some(hours) = input.estimated_hours {
-        if hours <= 0.0 || hours > 168.0 {
+        if !hours.is_finite() || hours <= 0.0 || hours > 168.0 {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Estimated hours must be between 0 and 168".into()
+                "Estimated hours must be a finite number between 0 and 168".into()
             )));
         }
     }
@@ -1670,23 +2003,24 @@ pub fn get_dao_listings(input: PaginatedDaoInput) -> ExternResult<Vec<ServiceLis
 
     let mut listings = Vec::new();
     for link in links {
-        if let Some(record) = get(
-            link.target.into_action_hash().ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
-            })?,
-            GetOptions::default(),
-        )? {
-            if let Some(listing) = record
-                .entry()
-                .to_app_option::<ServiceListing>()
-                .ok()
-                .flatten()
-            {
-                if listing.active {
-                    listings.push(listing);
-                    if listings.len() >= limit {
-                        break;
-                    }
+        let action_hash = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
+        })?;
+        let record = follow_update_chain(action_hash)?;
+        if let Some(listing) = record
+            .entry()
+            .to_app_option::<ServiceListing>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "ServiceListing deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            if listing.active {
+                listings.push(listing);
+                if listings.len() >= limit {
+                    break;
                 }
             }
         }
@@ -1714,9 +2048,9 @@ pub fn create_request(input: CreateRequestInput) -> ExternResult<ServiceRequest>
         )));
     }
     if let Some(hours) = input.estimated_hours {
-        if hours <= 0.0 || hours > 168.0 {
+        if !hours.is_finite() || hours <= 0.0 || hours > 168.0 {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Estimated hours must be between 0 and 168".into()
+                "Estimated hours must be a finite number between 0 and 168".into()
             )));
         }
     }
@@ -1770,23 +2104,24 @@ pub fn get_dao_requests(input: PaginatedDaoInput) -> ExternResult<Vec<ServiceReq
 
     let mut requests = Vec::new();
     for link in links {
-        if let Some(record) = get(
-            link.target.into_action_hash().ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
-            })?,
-            GetOptions::default(),
-        )? {
-            if let Some(request) = record
-                .entry()
-                .to_app_option::<ServiceRequest>()
-                .ok()
-                .flatten()
-            {
-                if request.open {
-                    requests.push(request);
-                    if requests.len() >= limit {
-                        break;
-                    }
+        let action_hash = link.target.into_action_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
+        })?;
+        let record = follow_update_chain(action_hash)?;
+        if let Some(request) = record
+            .entry()
+            .to_app_option::<ServiceRequest>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "ServiceRequest deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            if request.open {
+                requests.push(request);
+                if requests.len() >= limit {
+                    break;
                 }
             }
         }
@@ -1839,12 +2174,17 @@ pub fn get_validation_score(input: GetValidationScoreInput) -> ExternResult<f64>
 
     for link in links.into_iter().take(limit) {
         if let Some(action_hash) = link.target.into_action_hash() {
+            // QualityRatings are immutable — plain get() is safe here
             if let Some(record) = get(action_hash, GetOptions::default())? {
                 if let Some(rating) = record
                     .entry()
                     .to_app_option::<QualityRating>()
-                    .ok()
-                    .flatten()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "QualityRating deserialization error: {:?}",
+                            e
+                        )))
+                    })?
                 {
                     total += rating.rating as f64;
                     count += 1;
@@ -1877,19 +2217,30 @@ fn find_balance(member_did: &str, dao_did: &str) -> ExternResult<Option<TendBala
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        let action_hash = link.target.clone().into_action_hash().ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Invalid link target: expected ActionHash".into()
-            ))
-        })?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
-            return Ok(record.entry().to_app_option::<TendBalance>().ok().flatten());
-        }
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-13).
+    if let Some(action_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    {
+        let record = follow_update_chain(action_hash)?;
+        return record
+            .entry()
+            .to_app_option::<TendBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TendBalance deserialization error: {:?}",
+                    e
+                )))
+            });
     }
 
     Ok(None)
 }
+
+/// Maximum retries for optimistic-locking balance mutations.
+const MAX_BALANCE_RETRIES: usize = 3;
 
 fn update_balance_after_exchange(
     member_did: &str,
@@ -1897,43 +2248,84 @@ fn update_balance_after_exchange(
     hours: f32,
     is_provider: bool,
 ) -> ExternResult<()> {
+    let anchor_key = format!("balance:{}:{}", dao_did, member_did);
     let links = get_links(
         LinkQuery::try_new(
-            anchor_hash(&format!("balance:{}:{}", dao_did, member_did))?,
+            anchor_hash(&anchor_key)?,
             LinkTypes::MemberToBalance,
         )?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        let link_hash =
-            link.target.clone().into_action_hash().ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Invalid link target".to_string()))
-            })?;
-        if let Some(record) = get(link_hash, GetOptions::default())? {
-            if let Some(mut balance) = record.entry().to_app_option::<TendBalance>().ok().flatten()
-            {
-                let now = sys_time()?;
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-13).
+    let Some(original_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    else {
+        return Ok(());
+    };
 
-                if is_provider {
-                    balance.balance += hours.round() as i32;
-                    balance.total_provided += hours;
-                } else {
-                    balance.balance -= hours.round() as i32;
-                    balance.total_received += hours;
-                }
-                balance.exchange_count += 1;
-                balance.last_activity = now;
+    for attempt in 0..MAX_BALANCE_RETRIES {
+        let record = follow_update_chain(original_hash.clone())?;
+        if let Some(mut balance) = record
+            .entry()
+            .to_app_option::<TendBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "TendBalance deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            let now = sys_time()?;
 
-                update_entry(record.action_address().clone(), &balance)?;
+            if is_provider {
+                balance.balance += hours.round() as i32;
+                balance.total_provided += hours;
+            } else {
+                balance.balance -= hours.round() as i32;
+                balance.total_received += hours;
             }
+            balance.exchange_count += 1;
+            balance.last_activity = now;
+
+            let expected_balance = balance.balance;
+            let expected_count = balance.exchange_count;
+            update_entry(record.action_address().clone(), &balance)?;
+
+            // Verify our update won: re-read from the original link target
+            let verify_record = follow_update_chain(original_hash.clone())?;
+            if let Ok(Some(actual)) = verify_record.entry().to_app_option::<TendBalance>() {
+                if actual.balance == expected_balance
+                    && actual.exchange_count == expected_count
+                {
+                    return Ok(());
+                }
+            }
+
+            // Concurrent update detected — retry unless exhausted
+            if attempt == MAX_BALANCE_RETRIES - 1 {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Balance update for {}:{} failed after {} retries due to concurrent modifications",
+                    dao_did, member_did, MAX_BALANCE_RETRIES
+                ))));
+            }
+            debug!(
+                "update_balance_after_exchange: concurrent update detected for {}:{}, retry {}/{}",
+                dao_did, member_did, attempt + 1, MAX_BALANCE_RETRIES
+            );
+        } else {
+            return Ok(());
         }
     }
 
     Ok(())
 }
 
-/// Find an exchange by its ID using the ExchangeIdToExchange index
+/// Find an exchange by its ID using the ExchangeIdToExchange index.
+/// Follows the update chain to get the latest version (exchanges are mutable — status changes).
 fn find_exchange_by_id(exchange_id: &str) -> ExternResult<Option<TendExchange>> {
     let links = get_links(
         LinkQuery::try_new(
@@ -1945,20 +2337,24 @@ fn find_exchange_by_id(exchange_id: &str) -> ExternResult<Option<TendExchange>> 
 
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                return Ok(record
-                    .entry()
-                    .to_app_option::<TendExchange>()
-                    .ok()
-                    .flatten());
-            }
+            let record = follow_update_chain(action_hash)?;
+            return record
+                .entry()
+                .to_app_option::<TendExchange>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "TendExchange deserialization error: {:?}",
+                        e
+                    )))
+                });
         }
     }
 
     Ok(None)
 }
 
-/// Update an exchange entry by finding it via ID index and updating in place
+/// Update an exchange entry by finding it via ID index and updating in place.
+/// Follows the update chain to ensure we update the latest version (prevents fork).
 fn update_exchange_entry(exchange_id: &str, exchange: &TendExchange) -> ExternResult<()> {
     let links = get_links(
         LinkQuery::try_new(
@@ -1970,9 +2366,7 @@ fn update_exchange_entry(exchange_id: &str, exchange: &TendExchange) -> ExternRe
 
     if let Some(link) = links.first() {
         if let Some(link_hash) = link.target.clone().into_action_hash() {
-            let record = get(link_hash, GetOptions::default())?.ok_or(wasm_error!(
-                WasmErrorInner::Guest("Exchange record not found".into())
-            ))?;
+            let record = follow_update_chain(link_hash)?;
             update_entry(record.action_address().clone(), exchange)?;
             return Ok(());
         }
@@ -2007,7 +2401,8 @@ fn check_mediator_eligible(mediator_did: &str) -> ExternResult<bool> {
     }
 }
 
-/// Find a dispute case by its ID, returning both the deserialized case and the action hash
+/// Find a dispute case by its ID, returning both the deserialized case and the action hash.
+/// Follows the update chain to get the latest version.
 fn find_dispute_by_id(dispute_id: &str) -> ExternResult<Option<(DisputeCase, ActionHash)>> {
     let links = get_links(
         LinkQuery::try_new(
@@ -2019,12 +2414,18 @@ fn find_dispute_by_id(dispute_id: &str) -> ExternResult<Option<(DisputeCase, Act
 
     if let Some(link) = links.first() {
         if let Some(link_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(link_hash, GetOptions::default())? {
-                if let Some(dispute_case) =
-                    record.entry().to_app_option::<DisputeCase>().ok().flatten()
-                {
-                    return Ok(Some((dispute_case, record.action_address().clone())));
-                }
+            let record = follow_update_chain(link_hash)?;
+            let dispute_case = record
+                .entry()
+                .to_app_option::<DisputeCase>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "DisputeCase deserialization error: {:?}",
+                        e
+                    )))
+                })?;
+            if let Some(dispute_case) = dispute_case {
+                return Ok(Some((dispute_case, record.action_address().clone())));
             }
         }
     }
@@ -2112,9 +2513,9 @@ pub fn record_cross_dao_exchange(
             "Cross-DAO exchange requires two different DAOs".into()
         )));
     }
-    if input.hours <= 0.0 || input.hours > 168.0 {
+    if !input.hours.is_finite() || input.hours <= 0.0 || input.hours > 168.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Hours must be between 0 and 168".into()
+            "Hours must be a finite number between 0 and 168".into()
         )));
     }
 
@@ -2137,19 +2538,22 @@ pub fn record_cross_dao_exchange(
 
     if let Some(link) = links.first() {
         if let Some(link_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(link_hash, GetOptions::default())? {
-                if let Some(mut bal) = record
-                    .entry()
-                    .to_app_option::<BilateralBalance>()
-                    .ok()
-                    .flatten()
-                {
-                    bal.net_balance += delta;
-                    bal.total_exchanges += 1;
-                    bal.last_updated_at = now;
-                    update_entry(record.action_address().clone(), &bal)?;
-                    return Ok(bal);
-                }
+            let record = follow_update_chain(link_hash)?;
+            if let Some(mut bal) = record
+                .entry()
+                .to_app_option::<BilateralBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "BilateralBalance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+            {
+                bal.net_balance += delta;
+                bal.total_exchanges += 1;
+                bal.last_updated_at = now;
+                update_entry(record.action_address().clone(), &bal)?;
+                return Ok(bal);
             }
         }
     }
@@ -2192,13 +2596,16 @@ pub fn get_bilateral_balance(input: GetBilateralInput) -> ExternResult<Option<Bi
 
     if let Some(link) = links.first() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                return Ok(record
-                    .entry()
-                    .to_app_option::<BilateralBalance>()
-                    .ok()
-                    .flatten());
-            }
+            let record = follow_update_chain(action_hash)?;
+            return record
+                .entry()
+                .to_app_option::<BilateralBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "BilateralBalance deserialization error: {:?}",
+                        e
+                    )))
+                });
         }
     }
     Ok(None)
@@ -2268,21 +2675,23 @@ pub fn settle_bilateral_balance(input: SettleBilateralInput) -> ExternResult<Rec
             let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
                 "No bilateral balance found between these DAOs".into()
             )))?;
-            let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+            let link_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
                 WasmErrorInner::Guest("Invalid bilateral balance link target".into())
             ))?;
-            let record = get(action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-                WasmErrorInner::Guest("Bilateral balance record not found".into())
-            ))?;
+            let record = follow_update_chain(link_hash)?;
             let bal = record
                 .entry()
                 .to_app_option::<BilateralBalance>()
-                .ok()
-                .flatten()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "BilateralBalance deserialization error: {:?}",
+                        e
+                    )))
+                })?
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Failed to deserialize bilateral balance".into()
+                    "Bilateral balance entry missing".into()
                 )))?;
-            (action_hash, bal)
+            (record.action_address().clone(), bal)
         };
 
     if bal.net_balance == 0 {
@@ -2437,7 +2846,16 @@ pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
 
     let mut forgiven = Vec::new();
 
-    // Query all TendBalance entries to find ones for this member
+    // NOTE: query() only searches the CALLING AGENT's source chain.
+    // TendBalance entries are authored by the agent who triggered the exchange
+    // (the receiver in confirm_exchange), NOT the governance agent calling this.
+    // This means query() will only find balances if the governance agent also
+    // happened to participate in exchanges. For a proper implementation, we would
+    // need a "member → DAO memberships" link index and use find_balance() per DAO.
+    //
+    // For now, this works when the same agent that created the balances also
+    // calls forgive_balance (e.g., in single-agent test scenarios or when the
+    // member themselves initiates exit via the payments zome).
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TendBalance,
@@ -2445,7 +2863,9 @@ pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
         .include_entries(true);
 
     for record in query(filter)? {
-        if let Some(balance) = record.entry().to_app_option::<TendBalance>().ok().flatten() {
+        if let Some(balance) = record.entry().to_app_option::<TendBalance>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!("TendBalance deserialization error: {:?}", e)))
+        })? {
             if balance.member_did == member_did && balance.balance != 0 {
                 let forgiven_amount = balance.balance;
                 let now = sys_time()?;
@@ -2464,4 +2884,119 @@ pub fn forgive_balance(member_did: String) -> ExternResult<Vec<(String, i32)>> {
     }
 
     Ok(forgiven)
+}
+
+// =============================================================================
+// PENDING BALANCE ADJUSTMENT RECOVERY
+// =============================================================================
+
+/// Recover incomplete balance adjustments from interrupted confirm_exchange calls.
+///
+/// When confirm_exchange crashes between the provider and receiver balance updates,
+/// the zero-sum invariant is broken. This function finds all PendingBalanceAdjustment
+/// entries that are not fully completed and retries the missing balance updates.
+///
+/// Only callable by a governance agent (or during bootstrap when no agents exist).
+///
+/// Returns the number of adjustments that were recovered.
+#[hdk_extern]
+pub fn recover_pending_adjustments(currency_id: String) -> ExternResult<u32> {
+    verify_governance_or_bootstrap()?;
+
+    if currency_id.is_empty() || currency_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Currency ID must be 1-256 characters".into()
+        )));
+    }
+
+    let pending_anchor = anchor_hash("pending-balance-adjustments")?;
+    let links = get_links(
+        LinkQuery::try_new(pending_anchor, LinkTypes::PendingAdjustmentToExchange)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut recovered: u32 = 0;
+
+    for link in links {
+        let Some(target_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+
+        // Follow the update chain to get the latest version of this entry
+        let record = match follow_update_chain(target_hash) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        let Some(adj) = record
+            .entry()
+            .to_app_option::<PendingBalanceAdjustment>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "PendingBalanceAdjustment deserialization error: {:?}",
+                    e
+                )))
+            })?
+        else {
+            continue;
+        };
+
+        // Skip entries not matching the requested currency
+        if adj.currency_id != currency_id {
+            continue;
+        }
+
+        // Skip fully completed adjustments
+        if adj.provider_completed && adj.receiver_completed {
+            continue;
+        }
+
+        let hours = adj.hours as f32;
+        let mut current_action = record.action_address().clone();
+
+        // Retry missing balance updates
+        if !adj.provider_completed {
+            // Neither side completed — retry provider first
+            update_balance_after_exchange(
+                &adj.provider_did,
+                &adj.currency_id,
+                hours,
+                true, // provider gains
+            )?;
+
+            // Mark provider done
+            let updated = PendingBalanceAdjustment {
+                provider_completed: true,
+                ..adj.clone()
+            };
+            current_action = update_entry(
+                current_action,
+                &EntryTypes::PendingBalanceAdjustment(updated),
+            )?;
+        }
+
+        if !adj.receiver_completed {
+            update_balance_after_exchange(
+                &adj.receiver_did,
+                &adj.currency_id,
+                hours,
+                false, // receiver pays
+            )?;
+
+            // Mark both sides done
+            let updated = PendingBalanceAdjustment {
+                provider_completed: true,
+                receiver_completed: true,
+                ..adj.clone()
+            };
+            update_entry(
+                current_action,
+                &EntryTypes::PendingBalanceAdjustment(updated),
+            )?;
+        }
+
+        recovered += 1;
+    }
+
+    Ok(recovered)
 }

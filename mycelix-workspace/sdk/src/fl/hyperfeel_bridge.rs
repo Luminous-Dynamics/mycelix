@@ -839,7 +839,7 @@ mod tests {
         // Use random-looking values that are very different from sine waves
         (0..size)
             .map(|i| {
-                let _x = i as f32;
+                let x = i as f32;
                 // Mix of very different patterns: random-ish alternating high/low
                 if i % 2 == 0 {
                     1000.0

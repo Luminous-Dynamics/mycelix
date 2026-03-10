@@ -16,9 +16,24 @@ use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 use mycelix_finance_types::CurrencyStatus;
 
-#[tokio::test(flavor = "multi_thread")]
+#[test]
 #[ignore]
-async fn test_lifecycle_all() {
+fn test_lifecycle_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_lifecycle_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_lifecycle_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(2).await;
     let cell_a = &apps[0].cells()[0];
     let zome_a = cell_a.zome("currency_mint");
@@ -33,7 +48,8 @@ async fn test_lifecycle_all() {
             governance_proposal_id: None,
         };
 
-        let def: CurrencyDefinition = conductor.call(&zome_a, "create_currency", input).await;
+        let def: CurrencyDefinition =
+            call_with_retry(&conductor, &zome_a, "create_currency", input).await;
         assert_eq!(def.status, CurrencyStatus::Draft);
         assert_eq!(def.params.symbol, "GH");
         println!("  - Created draft: {} ({})", def.params.name, def.id);

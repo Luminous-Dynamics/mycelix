@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! TEND (Time Exchange) Integrity Zome
 //!
 //! Implements Commons Charter Article II, Section 2 - Time Exchange Module
@@ -145,6 +146,20 @@ pub enum ExchangeStatus {
     Cancelled,
     /// Resolved after dispute
     Resolved,
+}
+
+impl ExchangeStatus {
+    /// Valid status transitions. Terminal states (Confirmed, Cancelled, Resolved) cannot revert.
+    pub fn can_transition_to(&self, new: &ExchangeStatus) -> bool {
+        matches!(
+            (self, new),
+            (ExchangeStatus::Proposed, ExchangeStatus::Confirmed)
+                | (ExchangeStatus::Proposed, ExchangeStatus::Disputed)
+                | (ExchangeStatus::Proposed, ExchangeStatus::Cancelled)
+                | (ExchangeStatus::Disputed, ExchangeStatus::Resolved)
+                | (ExchangeStatus::Disputed, ExchangeStatus::Cancelled)
+        )
+    }
 }
 
 /// Member's TEND balance within a DAO
@@ -427,6 +442,33 @@ pub struct CurrencyAliasEntry {
     pub created_at: Timestamp,
 }
 
+/// A pending balance adjustment for crash recovery in confirm_exchange.
+///
+/// Written BEFORE the two balance updates so that if a crash occurs between
+/// the provider update and the receiver update, a governance agent can call
+/// `recover_pending_adjustments` to complete the interrupted operation and
+/// restore the zero-sum invariant.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct PendingBalanceAdjustment {
+    /// The exchange this adjustment belongs to
+    pub exchange_id: String,
+    /// DID of the service provider (gains hours)
+    pub provider_did: String,
+    /// DID of the service receiver (spends hours)
+    pub receiver_did: String,
+    /// Amount of TEND-hours being exchanged
+    pub hours: f64,
+    /// The currency/DAO scope
+    pub currency_id: String,
+    /// Whether the provider's balance has been updated
+    pub provider_completed: bool,
+    /// Whether the receiver's balance has been updated
+    pub receiver_completed: bool,
+    /// When this pending adjustment was created
+    pub created_at: Timestamp,
+}
+
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -513,6 +555,7 @@ pub enum EntryTypes {
     BilateralSettlement(BilateralSettlement),
     HearthTendBalance(HearthTendBalance),
     CurrencyAliasEntry(CurrencyAliasEntry),
+    PendingBalanceAdjustment(PendingBalanceAdjustment),
 }
 
 #[hdk_link_types]
@@ -555,6 +598,8 @@ pub enum LinkTypes {
     MemberToHearthBalance,
     /// Link from DAO to its registered currency alias
     DaoToAlias,
+    /// Link from pending balance adjustment to its exchange entry
+    PendingAdjustmentToExchange,
 }
 
 // =============================================================================
@@ -623,6 +668,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     EntryTypes::HearthTendBalance(bal) => validate_create_hearth_balance(bal),
                     EntryTypes::CurrencyAliasEntry(alias) => validate_create_currency_alias(alias),
+                    EntryTypes::PendingBalanceAdjustment(adj) => {
+                        validate_create_pending_balance_adjustment(adj)
+                    }
                     // Anchors are always valid (just hash placeholders)
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 }
@@ -664,6 +712,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         // Aliases can be updated (e.g., change display name)
                         Ok(ValidateCallbackResult::Valid)
                     }
+                    EntryTypes::PendingBalanceAdjustment(adj) => {
+                        // Only completed flags can change; hours must stay valid
+                        if !adj.hours.is_finite() || adj.hours <= 0.0 {
+                            Ok(ValidateCallbackResult::Invalid(
+                                "PendingBalanceAdjustment hours must be finite and positive".into(),
+                            ))
+                        } else {
+                            Ok(ValidateCallbackResult::Valid)
+                        }
+                    }
                     // Anchors cannot be updated
                     EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                         "Anchors cannot be updated".into(),
@@ -692,6 +750,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::HearthToBalances => Ok(ValidateCallbackResult::Valid),
             LinkTypes::MemberToHearthBalance => Ok(ValidateCallbackResult::Valid),
             LinkTypes::DaoToAlias => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::PendingAdjustmentToExchange => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
@@ -751,10 +810,10 @@ fn validate_create_exchange(
         ));
     }
 
-    // Hours must be positive and within limits
-    if exchange.hours <= 0.0 {
+    // Hours must be finite, positive, and within limits
+    if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Hours must be positive".into(),
+            "Hours must be a finite positive number".into(),
         ));
     }
 
@@ -788,16 +847,41 @@ fn validate_create_exchange(
 }
 
 fn validate_update_exchange(
-    _action: Update,
+    action: Update,
     exchange: TendExchange,
 ) -> ExternResult<ValidateCallbackResult> {
     // Only status can change (Proposed -> Confirmed/Disputed/Cancelled)
     // Core data (provider, receiver, hours) cannot change
-    if exchange.hours <= 0.0 {
+    if !exchange.hours.is_finite() || exchange.hours <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Hours must be positive".into(),
+            "Hours must be a finite positive number".into(),
         ));
     }
+
+    // Enforce status transition rules and immutable field invariants
+    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
+        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
+            // Status transitions must follow the state machine
+            if original.status != exchange.status
+                && !original.status.can_transition_to(&exchange.status)
+            {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "Invalid exchange status transition: {:?} → {:?}",
+                    original.status, exchange.status
+                )));
+            }
+            // Core fields are immutable after creation
+            if original.provider_did != exchange.provider_did
+                || original.receiver_did != exchange.receiver_did
+                || original.hours != exchange.hours
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
+                ));
+            }
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -823,6 +907,13 @@ fn validate_create_balance(
         ));
     }
 
+    // Float fields must be finite
+    if !balance.total_provided.is_finite() || !balance.total_received.is_finite() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "total_provided and total_received must be finite numbers".into(),
+        ));
+    }
+
     // Balance must be within the constitutional maximum (Emergency tier ±120).
     // The coordinator enforces the tighter dynamic limit based on oracle state.
     if balance.balance.abs() > BALANCE_LIMIT_EMERGENCY {
@@ -839,6 +930,12 @@ fn validate_update_balance(
     _action: Update,
     balance: TendBalance,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Float fields must be finite
+    if !balance.total_provided.is_finite() || !balance.total_received.is_finite() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "total_provided and total_received must be finite numbers".into(),
+        ));
+    }
     // Constitutional maximum — coordinator enforces dynamic limit
     if balance.balance.abs() > BALANCE_LIMIT_EMERGENCY {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -1273,6 +1370,48 @@ fn validate_create_currency_alias(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_pending_balance_adjustment(
+    adj: PendingBalanceAdjustment,
+) -> ExternResult<ValidateCallbackResult> {
+    // Hours must be finite and positive
+    if !adj.hours.is_finite() || adj.hours <= 0.0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PendingBalanceAdjustment hours must be finite and positive".into(),
+        ));
+    }
+
+    // DID length checks
+    if adj.provider_did.len() > MAX_DID_LEN || adj.receiver_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID exceeds maximum length".into(),
+        ));
+    }
+    if adj.exchange_id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exchange ID exceeds maximum length".into(),
+        ));
+    }
+    if adj.currency_id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency ID exceeds maximum length".into(),
+        ));
+    }
+
+    // DIDs must be valid
+    if !adj.provider_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Provider must be a valid DID".into(),
+        ));
+    }
+    if !adj.receiver_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receiver must be a valid DID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_update_dispute_case(
     _action: Update,
     dispute: DisputeCase,
@@ -1313,4 +1452,699 @@ fn validate_update_dispute_case(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ts(micros: i64) -> Timestamp {
+        Timestamp::from_micros(micros)
+    }
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn make_update() -> Update {
+        Update {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(2_000_000),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn valid_exchange() -> TendExchange {
+        TendExchange {
+            id: "exch:001".into(),
+            provider_did: "did:mycelix:alice".into(),
+            receiver_did: "did:mycelix:bob".into(),
+            hours: 2.0,
+            service_description: "Tutoring session".into(),
+            service_category: ServiceCategory::Education,
+            cultural_alias: None,
+            dao_did: "did:mycelix:dao1".into(),
+            timestamp: ts(1_000_000),
+            status: ExchangeStatus::Proposed,
+            service_date: None,
+        }
+    }
+
+    fn valid_balance() -> TendBalance {
+        TendBalance {
+            member_did: "did:mycelix:alice".into(),
+            dao_did: "did:mycelix:dao1".into(),
+            balance: 5,
+            total_provided: 10.0,
+            total_received: 5.0,
+            exchange_count: 3,
+            last_activity: ts(1_000_000),
+        }
+    }
+
+    fn valid_rating() -> QualityRating {
+        QualityRating {
+            exchange_id: "exch:001".into(),
+            rater_did: "did:mycelix:bob".into(),
+            provider_did: "did:mycelix:alice".into(),
+            rating: 4,
+            comment: None,
+            timestamp: ts(2_000_000),
+        }
+    }
+
+    fn valid_dispute() -> DisputeCase {
+        DisputeCase {
+            id: "dispute:001".into(),
+            exchange_id: "exch:001".into(),
+            complainant_did: "did:mycelix:bob".into(),
+            respondent_did: "did:mycelix:alice".into(),
+            stage: DisputeStage::DirectNegotiation,
+            description: "Service not as described".into(),
+            mediator_dids: vec![],
+            resolution: None,
+            opened_at: ts(2_000_000),
+            escalated_at: None,
+            resolved_at: None,
+        }
+    }
+
+    fn valid_hearth_balance() -> HearthTendBalance {
+        HearthTendBalance {
+            member_did: "did:mycelix:alice".into(),
+            hearth_did: "did:mycelix:hearth1".into(),
+            balance: 5,
+            total_provided: 10.0,
+            total_received: 5.0,
+            exchange_count: 2,
+            last_activity: ts(1_000_000),
+        }
+    }
+
+    fn valid_settlement() -> BilateralSettlement {
+        BilateralSettlement {
+            id: "settle:001".into(),
+            debtor_dao_did: "did:mycelix:dao_a".into(),
+            creditor_dao_did: "did:mycelix:dao_b".into(),
+            amount: 10,
+            status: SettlementStatus::Pending,
+            created_at: ts(1_000_000),
+            completed_at: None,
+        }
+    }
+
+    fn valid_alias() -> CurrencyAliasEntry {
+        CurrencyAliasEntry {
+            dao_did: "did:mycelix:dao1".into(),
+            alias_name: "CARE".into(),
+            base_currency: Currency::Tend,
+            display_symbol: Some("C".into()),
+            description: Some("Community care hours".into()),
+            created_at: ts(1_000_000),
+        }
+    }
+
+    // ---- Exchange creation ----
+
+    #[test]
+    fn test_exchange_create_valid() {
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            valid_exchange(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_exchange_rejects_invalid_provider_did() {
+        let mut ex = valid_exchange();
+        ex.provider_did = "not-a-did".into();
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_invalid_receiver_did() {
+        let mut ex = valid_exchange();
+        ex.receiver_did = "bad".into();
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_self_exchange() {
+        let mut ex = valid_exchange();
+        ex.receiver_did = ex.provider_did.clone();
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_nan_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = f32::NAN;
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_zero_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = 0.0;
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_negative_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = -1.0;
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_infinity_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = f32::INFINITY;
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_exceeding_max_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = 9.0; // MAX_SERVICE_HOURS is 8
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_below_min_minutes() {
+        let mut ex = valid_exchange();
+        ex.hours = 0.1; // 6 minutes, MIN_SERVICE_MINUTES is 15
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_empty_description() {
+        let mut ex = valid_exchange();
+        ex.service_description = "".into();
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_overlong_description() {
+        let mut ex = valid_exchange();
+        ex.service_description = "x".repeat(2001);
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_exchange_rejects_overlong_cultural_alias() {
+        let mut ex = valid_exchange();
+        ex.cultural_alias = Some("x".repeat(65)); // MAX_CULTURAL_ALIAS_LEN is 64
+        let result = validate_create_exchange(
+            EntryCreationAction::Create(make_create()),
+            ex,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Exchange update ----
+
+    #[test]
+    fn test_exchange_update_rejects_nan_hours() {
+        let mut ex = valid_exchange();
+        ex.hours = f32::NAN;
+        let result = validate_update_exchange(make_update(), ex).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Balance creation ----
+
+    #[test]
+    fn test_balance_create_valid() {
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            valid_balance(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_balance_rejects_invalid_member_did() {
+        let mut bal = valid_balance();
+        bal.member_did = "nope".into();
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_rejects_invalid_dao_did() {
+        let mut bal = valid_balance();
+        bal.dao_did = "nope".into();
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_rejects_nan_total_provided() {
+        let mut bal = valid_balance();
+        bal.total_provided = f32::NAN;
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_rejects_inf_total_received() {
+        let mut bal = valid_balance();
+        bal.total_received = f32::INFINITY;
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_rejects_exceeding_emergency_limit() {
+        let mut bal = valid_balance();
+        bal.balance = 121; // BALANCE_LIMIT_EMERGENCY is 120
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_rejects_negative_exceeding_emergency_limit() {
+        let mut bal = valid_balance();
+        bal.balance = -121;
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_allows_emergency_limit_exactly() {
+        let mut bal = valid_balance();
+        bal.balance = 120;
+        let result = validate_create_balance(
+            EntryCreationAction::Create(make_create()),
+            bal,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- Balance update ----
+
+    #[test]
+    fn test_balance_update_rejects_nan_provided() {
+        let mut bal = valid_balance();
+        bal.total_provided = f32::NAN;
+        let result = validate_update_balance(make_update(), bal).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_balance_update_rejects_over_limit() {
+        let mut bal = valid_balance();
+        bal.balance = 121;
+        let result = validate_update_balance(make_update(), bal).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Quality rating ----
+
+    #[test]
+    fn test_rating_create_valid() {
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            valid_rating(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_rating_rejects_self_rating() {
+        let mut r = valid_rating();
+        r.provider_did = r.rater_did.clone();
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            r,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_rating_rejects_zero_score() {
+        let mut r = valid_rating();
+        r.rating = 0;
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            r,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_rating_rejects_above_five() {
+        let mut r = valid_rating();
+        r.rating = 6;
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            r,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_rating_rejects_empty_exchange_id() {
+        let mut r = valid_rating();
+        r.exchange_id = "".into();
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            r,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_rating_rejects_invalid_rater_did() {
+        let mut r = valid_rating();
+        r.rater_did = "bad".into();
+        let result = validate_create_quality_rating(
+            EntryCreationAction::Create(make_create()),
+            r,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Dispute creation ----
+
+    #[test]
+    fn test_dispute_create_valid() {
+        let result = validate_create_dispute_case(
+            EntryCreationAction::Create(make_create()),
+            valid_dispute(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_dispute_rejects_self_dispute() {
+        let mut d = valid_dispute();
+        d.respondent_did = d.complainant_did.clone();
+        let result = validate_create_dispute_case(
+            EntryCreationAction::Create(make_create()),
+            d,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_dispute_rejects_empty_description() {
+        let mut d = valid_dispute();
+        d.description = "".into();
+        let result = validate_create_dispute_case(
+            EntryCreationAction::Create(make_create()),
+            d,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_dispute_rejects_empty_exchange_id() {
+        let mut d = valid_dispute();
+        d.exchange_id = "".into();
+        let result = validate_create_dispute_case(
+            EntryCreationAction::Create(make_create()),
+            d,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_dispute_must_start_at_direct_negotiation() {
+        let mut d = valid_dispute();
+        d.stage = DisputeStage::MediationPanel;
+        d.mediator_dids = vec![
+            "did:mycelix:m1".into(),
+            "did:mycelix:m2".into(),
+            "did:mycelix:m3".into(),
+        ];
+        let result = validate_create_dispute_case(
+            EntryCreationAction::Create(make_create()),
+            d,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Dispute update ----
+
+    #[test]
+    fn test_dispute_update_mediation_requires_3_mediators() {
+        let mut d = valid_dispute();
+        d.stage = DisputeStage::MediationPanel;
+        d.mediator_dids = vec!["did:mycelix:m1".into(), "did:mycelix:m2".into()];
+        let result = validate_update_dispute_case(make_update(), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_dispute_update_mediation_valid_with_3() {
+        let mut d = valid_dispute();
+        d.stage = DisputeStage::MediationPanel;
+        d.mediator_dids = vec![
+            "did:mycelix:m1".into(),
+            "did:mycelix:m2".into(),
+            "did:mycelix:m3".into(),
+        ];
+        let result = validate_update_dispute_case(make_update(), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_dispute_update_rejects_invalid_mediator_did() {
+        let mut d = valid_dispute();
+        d.stage = DisputeStage::MediationPanel;
+        d.mediator_dids = vec![
+            "did:mycelix:m1".into(),
+            "bad-did".into(),
+            "did:mycelix:m3".into(),
+        ];
+        let result = validate_update_dispute_case(make_update(), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Hearth balance ----
+
+    #[test]
+    fn test_hearth_balance_create_valid() {
+        let result = validate_create_hearth_balance(valid_hearth_balance()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_hearth_balance_rejects_invalid_member_did() {
+        let mut hb = valid_hearth_balance();
+        hb.member_did = "nope".into();
+        let result = validate_create_hearth_balance(hb).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_hearth_balance_rejects_invalid_hearth_did() {
+        let mut hb = valid_hearth_balance();
+        hb.hearth_did = "nope".into();
+        let result = validate_create_hearth_balance(hb).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_hearth_balance_rejects_exceeding_credit_limit() {
+        let mut hb = valid_hearth_balance();
+        hb.balance = 21; // HEARTH_TEND_CREDIT_LIMIT is 20
+        let result = validate_create_hearth_balance(hb).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_hearth_balance_update_rejects_exceeding_limit() {
+        let mut hb = valid_hearth_balance();
+        hb.balance = -21;
+        let result = validate_update_hearth_balance(hb).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Bilateral settlement ----
+
+    #[test]
+    fn test_settlement_create_valid() {
+        let result = validate_create_bilateral_settlement(valid_settlement()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_settlement_rejects_zero_amount() {
+        let mut s = valid_settlement();
+        s.amount = 0;
+        let result = validate_create_bilateral_settlement(s).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_settlement_rejects_non_pending_status() {
+        let mut s = valid_settlement();
+        s.status = SettlementStatus::Completed;
+        let result = validate_create_bilateral_settlement(s).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_settlement_update_rejects_pending_status() {
+        let mut s = valid_settlement();
+        s.status = SettlementStatus::Pending;
+        let result = validate_update_bilateral_settlement(s).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_settlement_update_allows_completed() {
+        let mut s = valid_settlement();
+        s.status = SettlementStatus::Completed;
+        let result = validate_update_bilateral_settlement(s).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- Currency alias ----
+
+    #[test]
+    fn test_alias_create_valid() {
+        let result = validate_create_currency_alias(valid_alias()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_alias_rejects_empty_name() {
+        let mut a = valid_alias();
+        a.alias_name = "".into();
+        let result = validate_create_currency_alias(a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_alias_rejects_overlong_symbol() {
+        let mut a = valid_alias();
+        a.display_symbol = Some("TOOLONG!".into()); // > 6 chars
+        let result = validate_create_currency_alias(a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_alias_rejects_invalid_dao_did() {
+        let mut a = valid_alias();
+        a.dao_did = "nope".into();
+        let result = validate_create_currency_alias(a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

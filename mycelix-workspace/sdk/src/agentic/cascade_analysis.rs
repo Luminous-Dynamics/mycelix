@@ -1029,7 +1029,7 @@ mod tests {
     #[test]
     fn test_contagion_paths() {
         let engine = CascadeEngine::new(CascadeConfig::default());
-        let network = create_test_network();
+        let mut network = create_test_network();
         let engine_with_network = CascadeEngine {
             config: engine.config,
             network,

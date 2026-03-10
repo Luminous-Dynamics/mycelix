@@ -1183,7 +1183,7 @@ pub struct CartelVotingPatternResult {
 
 /// Simulate cartel voting patterns over multiple rounds
 pub fn simulate_cartel_voting_patterns(
-    _network_size: usize,
+    network_size: usize,
     cartel_size: usize,
     rounds: usize,
 ) -> CartelVotingPatternResult {
@@ -1206,7 +1206,7 @@ pub struct CartelTimingResult {
 }
 
 /// Simulate cartel with timing analysis
-pub fn simulate_cartel_with_timing(_network_size: usize, cartel_size: usize) -> CartelTimingResult {
+pub fn simulate_cartel_with_timing(network_size: usize, cartel_size: usize) -> CartelTimingResult {
     // Cartel nodes often vote together (small timing gap)
     let avg_gap = if cartel_size > 15 { 10.0 } else { 50.0 };
 
@@ -1258,9 +1258,9 @@ pub struct SybilIdentityChurnResult {
 
 /// Simulate Sybil identity churn
 pub fn simulate_sybil_identity_churn(
-    _network_size: usize,
-    _entities: usize,
-    _churn_cycles: usize,
+    network_size: usize,
+    entities: usize,
+    churn_cycles: usize,
 ) -> SybilIdentityChurnResult {
     // New identities start with very low reputation
     let new_identity_weight = 0.01; // Almost no weight
@@ -1281,7 +1281,7 @@ pub struct CrossDomainSybilResult {
 
 /// Simulate cross-domain Sybil attack
 pub fn simulate_cross_domain_sybil(
-    _network_size: usize,
+    network_size: usize,
     entities: usize,
     identities_per_entity: usize,
     domains: usize,
@@ -1304,7 +1304,7 @@ pub struct AdaptiveAdversaryResult {
 
 /// Simulate adaptive adversary
 pub fn simulate_adaptive_adversary(
-    _network_size: usize,
+    network_size: usize,
     byzantine_fraction: f64,
     rounds: usize,
 ) -> AdaptiveAdversaryResult {
@@ -1327,8 +1327,8 @@ pub struct ProbingAdversaryResult {
 
 /// Simulate probing adversary
 pub fn simulate_probing_adversary(
-    _network_size: usize,
-    _byzantine_fraction: f64,
+    network_size: usize,
+    byzantine_fraction: f64,
 ) -> ProbingAdversaryResult {
     let probes = 10; // Number of probing attempts
     let detected = probes > 5; // Detection threshold

@@ -16,6 +16,7 @@ use mycelix_sdk::agentic::{
     // Multi-agent
     AgentVote,
     AlertThresholds,
+    AlertType,
     BehaviorLogEntry,
     // Calibration
     CalibrationEngine,
@@ -24,6 +25,7 @@ use mycelix_sdk::agentic::{
     CollaborativeTaskType,
     CollusionDetector,
     ConsensusConfig,
+    CrossAgentCalibration,
     EnhancedAgentCalibrationProfile,
 
     EpistemicStats,
@@ -485,7 +487,7 @@ fn test_scenario_complete_agent_lifecycle() {
     let mut monitoring = MonitoringEngine::new(AlertThresholds::default(), 100);
     let mut gaming_detector = GamingDetector::new(GamingDetectionConfig::default());
     let mut calibration = CalibrationEngine::new(CalibrationEngineConfig::default());
-    let quarantine = QuarantineManager::new();
+    let mut quarantine = QuarantineManager::new();
 
     // Phase 1: Create new agent with decent trust
     let mut agent = create_agent("lifecycle-agent", "good-sponsor", 0.6);

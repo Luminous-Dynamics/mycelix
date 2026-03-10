@@ -23,9 +23,27 @@ use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 
 /// Consolidated exchange tests — single conductor setup, 22 scenarios.
-#[tokio::test(flavor = "multi_thread")]
+///
+/// Runs block_on inside a thread with 16MB stack because the consolidated
+/// async state machine (22 scenarios, 1633 lines) exceeds default stack sizes.
+#[test]
 #[ignore]
-async fn test_exchanges_all() {
+fn test_exchanges_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_exchanges_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_exchanges_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(3).await;
 
     let zome_a = apps[0].cells()[0].zome("currency_mint");
@@ -48,9 +66,8 @@ async fn test_exchanges_all() {
             params: test_params("Meal Credits", "MC"),
             governance_proposal_id: None,
         };
-        let def: CurrencyDefinition = conductor
-            .call(&zome_a, "create_currency", input)
-            .await;
+        let def: CurrencyDefinition =
+            call_with_retry(&conductor, &zome_a, "create_currency", input).await;
         let _active: CurrencyDefinition = conductor
             .call(
                 &zome_a,
@@ -511,6 +528,16 @@ async fn test_exchanges_all() {
             "  - Balances: Alice={}, Bob={}",
             alice_bal2.balance, bob_bal.balance
         );
+
+        // Verify confirmed exchange no longer appears in Bob's pending list
+        let bob_pending_after: Vec<MintedExchange> = conductor
+            .call(&zome_b, "list_pending_for_receiver", bob_did.clone())
+            .await;
+        assert!(
+            !bob_pending_after.iter().any(|e| e.id == exchange.id),
+            "Confirmed exchange must not appear in receiver's pending list"
+        );
+        println!("  - Confirmed exchange removed from pending index");
 
         println!("Test 13.1 PASSED");
     }

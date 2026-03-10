@@ -11,9 +11,27 @@ use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 
 /// Consolidated demurrage test: 10 scenarios sharing a single conductor.
-#[tokio::test(flavor = "multi_thread")]
+///
+/// Runs block_on inside a thread with 16MB stack because the consolidated
+/// async state machine (10 scenarios, 776 lines) exceeds default stack sizes.
+#[test]
 #[ignore]
-async fn test_demurrage_all() {
+fn test_demurrage_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_demurrage_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_demurrage_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(2).await;
 
     let zome_a = apps[0].cells()[0].zome("currency_mint");
@@ -28,17 +46,17 @@ async fn test_demurrage_all() {
         let receiver_did = bob_did.clone();
 
         // Create currency with 2% demurrage
-        let def: CurrencyDefinition = conductor
-            .call(
-                &zome_a,
-                "create_currency",
-                CreateCurrencyInput {
-                    dao_did: "did:mycelix:dao:compost-test".into(),
-                    params: test_params("CompostCoin", "CC"),
-                    governance_proposal_id: None,
-                },
-            )
-            .await;
+        let def: CurrencyDefinition = call_with_retry(
+            &conductor,
+            &zome_a,
+            "create_currency",
+            CreateCurrencyInput {
+                dao_did: "did:mycelix:dao:compost-test".into(),
+                params: test_params("CompostCoin", "CC"),
+                governance_proposal_id: None,
+            },
+        )
+        .await;
 
         let _: CurrencyDefinition = conductor
             .call(

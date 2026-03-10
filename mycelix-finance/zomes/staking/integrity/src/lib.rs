@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Staking Integrity Zome
 //!
 //! Defines entry types for SAP-based collateral staking with MYCEL weighting:
@@ -60,6 +61,21 @@ pub enum StakeStatus {
     Slashed,
     /// Fully slashed (jailed)
     Jailed,
+}
+
+impl StakeStatus {
+    /// Valid status transitions. Prevents reversal of terminal states.
+    pub fn can_transition_to(&self, new: &StakeStatus) -> bool {
+        matches!(
+            (self, new),
+            (StakeStatus::Active, StakeStatus::Unbonding)
+                | (StakeStatus::Active, StakeStatus::Slashed)
+                | (StakeStatus::Active, StakeStatus::Jailed)
+                | (StakeStatus::Unbonding, StakeStatus::Withdrawn)
+                | (StakeStatus::Slashed, StakeStatus::Unbonding)
+                | (StakeStatus::Slashed, StakeStatus::Jailed)
+        )
+    }
 }
 
 /// Slashing Event
@@ -236,12 +252,30 @@ pub enum EscrowHashType {
     Keccak256,
 }
 
-/// Signature on escrow release
+/// Signature on escrow release (legacy, embedded in CryptoEscrow)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct EscrowSignature {
     pub signer_did: String,
     pub signature: Vec<u8>,
     pub signed_at: i64,
+}
+
+/// Immutable escrow signature entry (RC-18 fix: avoids race condition on mutable array)
+///
+/// Each signature is stored as its own DHT entry and linked to the escrow via
+/// `EscrowToSignatures`. This eliminates the concurrent-update race on
+/// `CryptoEscrow.collected_signatures`.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct EscrowSignatureEntry {
+    /// Escrow ID this signature belongs to
+    pub escrow_id: String,
+    /// Signer's DID
+    pub signer_did: String,
+    /// Cryptographic signature bytes
+    pub signature: Vec<u8>,
+    /// When the signature was created
+    pub timestamp: Timestamp,
 }
 
 /// Escrow status
@@ -259,6 +293,23 @@ pub enum EscrowStatus {
     Disputed,
     /// Expired without resolution
     Expired,
+}
+
+impl EscrowStatus {
+    /// Valid status transitions. Terminal states (Released, Refunded, Expired) cannot change.
+    pub fn can_transition_to(&self, new: &EscrowStatus) -> bool {
+        matches!(
+            (self, new),
+            (EscrowStatus::Pending, EscrowStatus::Releasable)
+                | (EscrowStatus::Pending, EscrowStatus::Refunded)
+                | (EscrowStatus::Pending, EscrowStatus::Disputed)
+                | (EscrowStatus::Pending, EscrowStatus::Expired)
+                | (EscrowStatus::Releasable, EscrowStatus::Released)
+                | (EscrowStatus::Releasable, EscrowStatus::Disputed)
+                | (EscrowStatus::Disputed, EscrowStatus::Released)
+                | (EscrowStatus::Disputed, EscrowStatus::Refunded)
+        )
+    }
 }
 
 /// Staking rewards distribution
@@ -295,6 +346,7 @@ pub enum EntryTypes {
     SlashingEvent(SlashingEvent),
     CryptoEscrow(CryptoEscrow),
     RewardDistribution(RewardDistribution),
+    EscrowSignatureEntry(EscrowSignatureEntry),
 }
 
 #[hdk_link_types]
@@ -317,6 +369,8 @@ pub enum LinkTypes {
     EscrowIdToEscrow,
     /// Link from governance_agents anchor to authorized agent pubkeys
     GovernanceAgents,
+    /// Link from escrow signature anchor to individual EscrowSignatureEntry entries
+    EscrowToSignatures,
 }
 
 /// Validation callback
@@ -329,6 +383,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::SlashingEvent(event) => validate_slashing_event(action, event),
                 EntryTypes::CryptoEscrow(escrow) => validate_escrow(action, escrow),
                 EntryTypes::RewardDistribution(dist) => validate_reward_distribution(action, dist),
+                EntryTypes::EscrowSignatureEntry(sig) => validate_escrow_signature_entry(action, sig),
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -340,6 +395,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::RewardDistribution(_) => Ok(ValidateCallbackResult::Invalid(
                     "Reward distributions are immutable".into(),
+                )),
+                EntryTypes::EscrowSignatureEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Escrow signatures are immutable".into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -354,6 +412,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::StakeIdToStake => Ok(ValidateCallbackResult::Valid),
             LinkTypes::EscrowIdToEscrow => Ok(ValidateCallbackResult::Valid),
             LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::EscrowToSignatures => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
@@ -390,17 +449,17 @@ fn validate_create_stake(
         ));
     }
 
-    // Validate MYCEL score range (0.0 to 1.0)
-    if stake.mycel_score < 0.0 || stake.mycel_score > 1.0 {
+    // Validate MYCEL score range (0.0 to 1.0) — is_finite rejects NaN/Infinity
+    if !stake.mycel_score.is_finite() || stake.mycel_score < 0.0 || stake.mycel_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "MYCEL score must be in [0.0, 1.0]".into(),
+            "MYCEL score must be a finite number in [0.0, 1.0]".into(),
         ));
     }
 
     // Validate stake weight = 1.0 + mycel_score (range 1.0-2.0)
-    if stake.stake_weight < 1.0 || stake.stake_weight > 2.0 {
+    if !stake.stake_weight.is_finite() || stake.stake_weight < 1.0 || stake.stake_weight > 2.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Stake weight must be in [1.0, 2.0]".into(),
+            "Stake weight must be a finite number in [1.0, 2.0]".into(),
         ));
     }
 
@@ -422,23 +481,37 @@ fn validate_create_stake(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate stake update
+/// Validate stake update — enforces status transition rules
 fn validate_update_stake(
-    _action: Update,
+    action: Update,
     stake: CollateralStake,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate MYCEL score range
-    if stake.mycel_score < 0.0 || stake.mycel_score > 1.0 {
+    // Validate MYCEL score range — is_finite rejects NaN/Infinity
+    if !stake.mycel_score.is_finite() || stake.mycel_score < 0.0 || stake.mycel_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "MYCEL score must be in [0.0, 1.0]".into(),
+            "MYCEL score must be a finite number in [0.0, 1.0]".into(),
         ));
     }
 
     // Validate stake weight range
-    if stake.stake_weight < 1.0 || stake.stake_weight > 2.0 {
+    if !stake.stake_weight.is_finite() || stake.stake_weight < 1.0 || stake.stake_weight > 2.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Stake weight must be in [1.0, 2.0]".into(),
         ));
+    }
+
+    // Enforce status transition rules via original entry comparison
+    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
+        if let Ok(Some(original)) = original_record.entry().to_app_option::<CollateralStake>() {
+            if original.status != stake.status
+                && !original.status.can_transition_to(&stake.status)
+            {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "Invalid status transition: {:?} → {:?}",
+                    original.status, stake.status
+                )));
+            }
+        }
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -537,6 +610,31 @@ fn validate_escrow(_action: Create, escrow: CryptoEscrow) -> ExternResult<Valida
         ));
     }
 
+    // Validate float fields in release conditions (NaN bypasses comparison operators)
+    for condition in &escrow.conditions {
+        match condition {
+            ReleaseCondition::OraclePrice { min_price, .. } => {
+                if !min_price.is_finite() || *min_price <= 0.0 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "OraclePrice min_price must be a finite positive number".into(),
+                    ));
+                }
+            }
+            ReleaseCondition::MycelThreshold { min_mycel_score } => {
+                if !min_mycel_score.is_finite()
+                    || *min_mycel_score < 0.0
+                    || *min_mycel_score > 1.0
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "MycelThreshold min_mycel_score must be a finite number in [0.0, 1.0]"
+                            .into(),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
     // Must have at least one condition
     if escrow.conditions.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -563,7 +661,7 @@ fn validate_escrow(_action: Create, escrow: CryptoEscrow) -> ExternResult<Valida
 
 /// Validate escrow update
 fn validate_update_escrow(
-    _action: Update,
+    action: Update,
     escrow: CryptoEscrow,
 ) -> ExternResult<ValidateCallbackResult> {
     // Basic validation
@@ -572,6 +670,55 @@ fn validate_update_escrow(
             "Depositor must be a valid DID".into(),
         ));
     }
+
+    // Enforce status transition rules
+    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
+        if let Ok(Some(original)) = original_record.entry().to_app_option::<CryptoEscrow>() {
+            if original.status != escrow.status
+                && !original.status.can_transition_to(&escrow.status)
+            {
+                return Ok(ValidateCallbackResult::Invalid(format!(
+                    "Invalid escrow status transition: {:?} → {:?}",
+                    original.status, escrow.status
+                )));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate escrow signature entry
+fn validate_escrow_signature_entry(
+    _action: Create,
+    sig: EscrowSignatureEntry,
+) -> ExternResult<ValidateCallbackResult> {
+    // String length checks
+    if sig.escrow_id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Escrow ID exceeds maximum length".into(),
+        ));
+    }
+    if sig.signer_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Signer DID exceeds maximum length".into(),
+        ));
+    }
+
+    // Signer must be a valid DID
+    if !sig.signer_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Signer must be a valid DID".into(),
+        ));
+    }
+
+    // Signature must not be empty
+    if sig.signature.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Signature must not be empty".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -617,4 +764,344 @@ fn validate_reward_distribution(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+// =============================================================================
+// UNIT TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ts(micros: i64) -> Timestamp {
+        Timestamp::from_micros(micros)
+    }
+
+    fn valid_stake() -> CollateralStake {
+        CollateralStake {
+            id: "stake:test:001".into(),
+            staker_did: "did:mycelix:alice".into(),
+            sap_amount: 1000,
+            mycel_score: 0.5,
+            stake_weight: 1.5,
+            staked_at: ts(1_000_000),
+            unbonding_until: None,
+            status: StakeStatus::Active,
+            pending_rewards: 0,
+            last_reward_claim: ts(1_000_000),
+        }
+    }
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn make_update() -> Update {
+        Update {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(2_000_000),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    // ---- Stake creation ----
+
+    #[test]
+    fn test_stake_create_valid() {
+        let result =
+            validate_create_stake(make_create(), valid_stake())
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_stake_rejects_nan_mycel_score() {
+        let mut stake = valid_stake();
+        stake.mycel_score = f32::NAN;
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_infinity_mycel_score() {
+        let mut stake = valid_stake();
+        stake.mycel_score = f32::INFINITY;
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_nan_weight() {
+        let mut stake = valid_stake();
+        stake.stake_weight = f32::NAN;
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_zero_sap() {
+        let mut stake = valid_stake();
+        stake.sap_amount = 0;
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_inconsistent_weight() {
+        let mut stake = valid_stake();
+        stake.stake_weight = 1.9; // Should be 1.5 for mycel_score=0.5
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_non_active_status() {
+        let mut stake = valid_stake();
+        stake.status = StakeStatus::Withdrawn;
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_rejects_invalid_did() {
+        let mut stake = valid_stake();
+        stake.staker_did = "not-a-did".into();
+        let result =
+            validate_create_stake(make_create(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Stake update ----
+
+    #[test]
+    fn test_stake_update_rejects_nan() {
+        let mut stake = valid_stake();
+        stake.mycel_score = f32::NAN;
+        let result =
+            validate_update_stake(make_update(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_stake_update_rejects_infinity_weight() {
+        let mut stake = valid_stake();
+        stake.stake_weight = f32::INFINITY;
+        let result =
+            validate_update_stake(make_update(), stake).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Escrow: release condition float validation ----
+
+    fn valid_escrow() -> CryptoEscrow {
+        CryptoEscrow {
+            id: "escrow:test:001".into(),
+            depositor_did: "did:mycelix:alice".into(),
+            beneficiary_did: "did:mycelix:bob".into(),
+            sap_amount: 500,
+            purpose: "Test escrow".into(),
+            conditions: vec![ReleaseCondition::Timelock {
+                release_time: 2_000_000,
+            }],
+            required_conditions: 1,
+            met_conditions: vec![],
+            hash_lock: None,
+            timelock: None,
+            multisig_threshold: None,
+            multisig_signers: vec![],
+            collected_signatures: vec![],
+            status: EscrowStatus::Pending,
+            created_at: ts(1_000_000),
+            released_at: None,
+        }
+    }
+
+    #[test]
+    fn test_escrow_create_valid() {
+        let result =
+            validate_escrow(make_create(), valid_escrow()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_escrow_rejects_nan_oracle_price() {
+        let mut escrow = valid_escrow();
+        escrow.conditions = vec![ReleaseCondition::OraclePrice {
+            oracle_id: "oracle:test".into(),
+            asset: "ETH".into(),
+            min_price: f64::NAN,
+        }];
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_escrow_rejects_infinity_oracle_price() {
+        let mut escrow = valid_escrow();
+        escrow.conditions = vec![ReleaseCondition::OraclePrice {
+            oracle_id: "oracle:test".into(),
+            asset: "ETH".into(),
+            min_price: f64::INFINITY,
+        }];
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_escrow_rejects_nan_mycel_threshold() {
+        let mut escrow = valid_escrow();
+        escrow.conditions = vec![ReleaseCondition::MycelThreshold {
+            min_mycel_score: f32::NAN,
+        }];
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_escrow_rejects_mycel_threshold_out_of_range() {
+        let mut escrow = valid_escrow();
+        escrow.conditions = vec![ReleaseCondition::MycelThreshold {
+            min_mycel_score: 1.5, // > 1.0
+        }];
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_escrow_rejects_zero_sap() {
+        let mut escrow = valid_escrow();
+        escrow.sap_amount = 0;
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_escrow_rejects_no_conditions() {
+        let mut escrow = valid_escrow();
+        escrow.conditions = vec![];
+        let result =
+            validate_escrow(make_create(), escrow).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- Slashing event ----
+
+    #[test]
+    fn test_slashing_rejects_over_100_percent() {
+        let event = SlashingEvent {
+            id: "slash:test".into(),
+            stake_id: "stake:test".into(),
+            staker_did: "did:mycelix:alice".into(),
+            reason: SlashingReason::Downtime,
+            slash_percentage: 101,
+            sap_slashed: 100,
+            evidence_hash: vec![0; 32],
+            evidence: vec![1, 2, 3],
+            slashed_at: ts(1_000_000),
+            jailed: false,
+            jail_release: None,
+        };
+        let result =
+            validate_slashing_event(make_create(), event).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_slashing_rejects_empty_evidence() {
+        let event = SlashingEvent {
+            id: "slash:test".into(),
+            stake_id: "stake:test".into(),
+            staker_did: "did:mycelix:alice".into(),
+            reason: SlashingReason::DoubleSigning,
+            slash_percentage: 100,
+            sap_slashed: 1000,
+            evidence_hash: vec![0; 32],
+            evidence: vec![],
+            slashed_at: ts(1_000_000),
+            jailed: true,
+            jail_release: None,
+        };
+        let result =
+            validate_slashing_event(make_create(), event).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // =========================================================================
+    // Status transition state machines
+    // =========================================================================
+
+    #[test]
+    fn test_stake_status_valid_transitions() {
+        use StakeStatus::*;
+        assert!(Active.can_transition_to(&Unbonding));
+        assert!(Active.can_transition_to(&Slashed));
+        assert!(Active.can_transition_to(&Jailed));
+        assert!(Unbonding.can_transition_to(&Withdrawn));
+        assert!(Slashed.can_transition_to(&Unbonding));
+        assert!(Slashed.can_transition_to(&Jailed));
+    }
+
+    #[test]
+    fn test_stake_status_invalid_transitions() {
+        use StakeStatus::*;
+        // Terminal states
+        assert!(!Withdrawn.can_transition_to(&Active));
+        assert!(!Withdrawn.can_transition_to(&Unbonding));
+        assert!(!Jailed.can_transition_to(&Active));
+        assert!(!Jailed.can_transition_to(&Slashed));
+        // Cannot go backwards
+        assert!(!Unbonding.can_transition_to(&Active));
+        assert!(!Slashed.can_transition_to(&Active));
+    }
+
+    #[test]
+    fn test_escrow_status_valid_transitions() {
+        use EscrowStatus::*;
+        assert!(Pending.can_transition_to(&Releasable));
+        assert!(Pending.can_transition_to(&Refunded));
+        assert!(Pending.can_transition_to(&Disputed));
+        assert!(Pending.can_transition_to(&Expired));
+        assert!(Releasable.can_transition_to(&Released));
+        assert!(Releasable.can_transition_to(&Disputed));
+        assert!(Disputed.can_transition_to(&Released));
+        assert!(Disputed.can_transition_to(&Refunded));
+    }
+
+    #[test]
+    fn test_escrow_status_invalid_transitions() {
+        use EscrowStatus::*;
+        // Terminal states
+        assert!(!Released.can_transition_to(&Pending));
+        assert!(!Released.can_transition_to(&Refunded));
+        assert!(!Refunded.can_transition_to(&Pending));
+        assert!(!Refunded.can_transition_to(&Released));
+        assert!(!Expired.can_transition_to(&Pending));
+        assert!(!Expired.can_transition_to(&Released));
+    }
 }

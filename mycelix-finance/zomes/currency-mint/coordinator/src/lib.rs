@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Currency Factory Coordinator Zome
 //!
 //! Enables communities to create their own mutual credit currencies with
@@ -29,8 +30,8 @@
 //! - `record_minted_exchange(RecordMintedExchangeInput) -> MintedExchange`
 //! - `confirm_minted_exchange(String) -> MintedExchange`
 //! - `cancel_expired_exchange(String) -> bool`
-//! - `list_pending_exchanges(String) -> Vec<MintedExchange>`
-//! - `list_pending_for_receiver(String) -> Vec<MintedExchange>`
+//! - `list_pending_exchanges(PaginatedCurrencyInput) -> Vec<MintedExchange>`
+//! - `list_pending_for_receiver(PaginatedReceiverInput) -> Vec<MintedExchange>`
 //! - `get_currency_exchanges(PaginatedCurrencyInput) -> Vec<MintedExchange>`
 //! - `get_exchange(String) -> Option<MintedExchange>`
 //!
@@ -118,6 +119,15 @@ pub struct MintedBalanceInfo {
     pub currency_id: String,
     pub currency_name: String,
     pub currency_symbol: String,
+    /// Raw (stored) balance before demurrage computation.
+    pub raw_balance: i32,
+    /// Effective balance after in-memory demurrage computation (no writes performed).
+    pub effective_balance: i32,
+    /// Pending demurrage amount that would be deducted on next persist.
+    pub pending_demurrage: i32,
+    /// Timestamp of last recorded activity for this balance.
+    pub last_activity: Timestamp,
+    /// Legacy field: equals `effective_balance` for backward compatibility.
     pub balance: i32,
     pub credit_limit: i32,
     pub can_provide: bool,
@@ -142,6 +152,12 @@ pub struct PaginatedCurrencyInput {
     pub limit: Option<usize>,
     /// Only return exchanges with timestamp >= this value (cursor for forward pagination)
     pub after_timestamp: Option<Timestamp>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PaginatedReceiverInput {
+    pub receiver_did: String,
+    pub limit: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

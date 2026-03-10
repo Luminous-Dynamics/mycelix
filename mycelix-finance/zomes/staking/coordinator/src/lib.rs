@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Staking Coordinator Zome
 //!
 //! Business logic for SAP-based collateral staking with MYCEL weighting:
@@ -7,18 +8,16 @@
 //! - Reward distribution with Merkle proofs
 
 use hdk::prelude::*;
-use mycelix_finance_shared::{anchor_hash, verify_caller_is_did};
+use mycelix_finance_shared::{
+    anchor_hash, follow_update_chain, links_to_records, verify_caller_is_did,
+    verify_governance_or_bootstrap_from_links, GOVERNANCE_AGENTS_ANCHOR,
+};
 use staking_integrity::*;
 
 /// Anchor for active stakes
 const ACTIVE_STAKES_ANCHOR: &str = "active_stakes";
 
-const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
-
-/// Check if the calling agent is a registered governance agent.
-/// If no governance agents are registered yet (bootstrap), allow any agent.
 fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let caller = agent_info()?.agent_initial_pubkey;
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -26,24 +25,7 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
         )?,
         GetStrategy::default(),
     )?;
-
-    // Bootstrap: if no governance agents registered yet, allow anyone
-    if gov_links.is_empty() {
-        return Ok(());
-    }
-
-    // Check if caller is in the governance list
-    for link in gov_links {
-        if let Ok(agent) = AgentPubKey::try_from(link.target) {
-            if agent == caller {
-                return Ok(());
-            }
-        }
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "Caller is not an authorized governance agent".into()
-    )))
+    verify_governance_or_bootstrap_from_links(gov_links)
 }
 
 /// Register a governance agent. Only existing governance agents can register
@@ -136,12 +118,13 @@ pub fn create_stake(input: CreateStakeInput) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find stake".into()
+        format!("Stake record not found after creation for staker {}", input.staker_did)
     )))
 }
 
 /// Look up a stake by its ID using the StakeIdToStake link index.
 /// Returns (CollateralStake, Record) or an error if not found.
+/// Follows the update chain to return the latest version.
 fn find_stake_by_id(stake_id: &str) -> ExternResult<(CollateralStake, Record)> {
     let links = get_links(
         LinkQuery::try_new(anchor_hash(stake_id)?, LinkTypes::StakeIdToStake)?,
@@ -149,12 +132,13 @@ fn find_stake_by_id(stake_id: &str) -> ExternResult<(CollateralStake, Record)> {
     )?;
     let link = links
         .first()
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Stake not found".into())))?;
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake not found for ID {}",
+            stake_id
+        ))))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Stake record not found".into()
-    )))?;
+    let record = follow_update_chain(hash)?;
     let stake = record
         .entry()
         .to_app_option::<CollateralStake>()
@@ -172,19 +156,18 @@ fn find_stake_by_id(stake_id: &str) -> ExternResult<(CollateralStake, Record)> {
 
 /// Look up an escrow by its ID using the EscrowIdToEscrow link index.
 /// Returns (CryptoEscrow, Record) or an error if not found.
+/// Follows the update chain to return the latest version.
 fn find_escrow_by_id(escrow_id: &str) -> ExternResult<(CryptoEscrow, Record)> {
     let links = get_links(
         LinkQuery::try_new(anchor_hash(escrow_id)?, LinkTypes::EscrowIdToEscrow)?,
         GetStrategy::default(),
     )?;
     let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Escrow not found".into()
+        format!("Escrow not found for ID {}", escrow_id)
     )))?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-    let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Escrow record not found".into()
-    )))?;
+    let record = follow_update_chain(hash)?;
     let escrow = record
         .entry()
         .to_app_option::<CryptoEscrow>()
@@ -211,9 +194,10 @@ pub fn begin_unbonding(stake_id: String) -> ExternResult<Record> {
     let (stake, record) = find_stake_by_id(&stake_id)?;
 
     if stake.status != StakeStatus::Active {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Active stake not found".into()
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake {} is {:?}, expected Active for unbonding",
+            stake_id, stake.status
+        ))));
     }
 
     let updated = CollateralStake {
@@ -228,7 +212,10 @@ pub fn begin_unbonding(stake_id: String) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake record not found after unbonding for stake {}",
+            stake_id
+        ))))
 }
 
 /// Complete withdrawal after unbonding period
@@ -238,9 +225,10 @@ pub fn withdraw_stake(stake_id: String) -> ExternResult<Record> {
     let (stake, record) = find_stake_by_id(&stake_id)?;
 
     if stake.status != StakeStatus::Unbonding {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Unbonding stake not found".into()
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake {} is {:?}, expected Unbonding for withdrawal",
+            stake_id, stake.status
+        ))));
     }
 
     // Check if unbonding period is complete
@@ -263,7 +251,10 @@ pub fn withdraw_stake(stake_id: String) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake record not found after withdrawal for stake {}",
+            stake_id
+        ))))
 }
 
 /// Update stake MYCEL score
@@ -272,9 +263,10 @@ pub fn update_stake_mycel(input: UpdateMycelInput) -> ExternResult<Record> {
     let (stake, record) = find_stake_by_id(&input.stake_id)?;
 
     if stake.status != StakeStatus::Active {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Active stake not found".into()
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake {} is {:?}, expected Active for MYCEL update",
+            input.stake_id, stake.status
+        ))));
     }
 
     // Fetch verified MYCEL score from recognition zome
@@ -292,7 +284,10 @@ pub fn update_stake_mycel(input: UpdateMycelInput) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Stake record not found after MYCEL update for stake {}",
+            input.stake_id
+        ))))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -317,10 +312,20 @@ fn fetch_verified_mycel_score(staker_did: &str) -> ExternResult<f32> {
             }
             match result.decode::<MycelState>() {
                 Ok(state) => Ok((state.mycel_score as f32).clamp(0.0, 1.0)),
-                Err(_) => Ok(0.0),
+                Err(e) => {
+                    debug!("fetch_verified_mycel_score: decode error for {}: {:?}, defaulting to 0.0", staker_did, e);
+                    Ok(0.0)
+                }
             }
         }
-        _ => Ok(0.0), // Recognition unreachable → minimum weight
+        Ok(other) => {
+            debug!("fetch_verified_mycel_score: recognition returned {:?} for {}, defaulting to 0.0", other, staker_did);
+            Ok(0.0)
+        }
+        Err(e) => {
+            debug!("fetch_verified_mycel_score: recognition unreachable for {}: {:?}, defaulting to 0.0", staker_did, e);
+            Ok(0.0) // Recognition unreachable → minimum weight
+        }
     }
 }
 
@@ -421,7 +426,10 @@ pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
     )?;
 
     get(event_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Slashing event record not found after creation for stake {}",
+            input.stake_id
+        ))))
 }
 
 // =============================================================================
@@ -503,7 +511,10 @@ pub fn create_escrow(input: CreateEscrowInput) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Escrow record not found after creation for escrow {}",
+            escrow_id
+        ))))
 }
 
 /// Reveal hash preimage to satisfy hash-lock condition
@@ -512,9 +523,10 @@ pub fn reveal_hash_preimage(input: RevealPreimageInput) -> ExternResult<Record> 
     let (escrow, record) = find_escrow_by_id(&input.escrow_id)?;
 
     if escrow.status != EscrowStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Escrow not found or not pending".into()
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Escrow {} is {:?}, expected Pending for hash preimage reveal",
+            input.escrow_id, escrow.status
+        ))));
     }
 
     // Verify hash preimage
@@ -555,14 +567,18 @@ pub fn reveal_hash_preimage(input: RevealPreimageInput) -> ExternResult<Record> 
                 )?;
 
                 return get(action_hash, GetOptions::default())?
-                    .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())));
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Escrow record not found after hash preimage reveal for escrow {}",
+                        input.escrow_id
+                    ))));
             }
         }
     }
 
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "No hash-lock condition found".into()
-    )))
+    Err(wasm_error!(WasmErrorInner::Guest(format!(
+        "No hash-lock condition found for escrow {}",
+        input.escrow_id
+    ))))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -583,16 +599,56 @@ fn compute_hash(preimage: &[u8], _hash_type: &EscrowHashType) -> Vec<u8> {
         .to_vec()
 }
 
-/// Add multi-sig signature to escrow
+/// Collect all EscrowSignatureEntry records linked to an escrow's signature anchor.
+///
+/// Batch-optimized: EscrowSignatureEntry entries are immutable (write-once
+/// signatures), so bare get() via links_to_records is equivalent to
+/// follow_update_chain. The records are then deserialized in-memory.
+fn get_escrow_signature_entries(
+    escrow_id: &str,
+) -> ExternResult<Vec<(ActionHash, EscrowSignatureEntry)>> {
+    let sig_anchor = anchor_hash(&format!("escrow-sigs:{}", escrow_id))?;
+    let links = get_links(
+        LinkQuery::try_new(sig_anchor, LinkTypes::EscrowToSignatures)?,
+        GetStrategy::default(),
+    )?;
+
+    let records = links_to_records(links)?;
+    let mut entries = Vec::new();
+    for record in records {
+        let ah = record.action_address().clone();
+        if let Some(sig_entry) = record
+            .entry()
+            .to_app_option::<EscrowSignatureEntry>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            entries.push((ah, sig_entry));
+        }
+    }
+    Ok(entries)
+}
+
+/// Add multi-sig signature to escrow (RC-18: race-condition-safe)
+///
+/// Creates an immutable `EscrowSignatureEntry` and links it to the escrow
+/// signature anchor. Duplicate detection is done AFTER creation for
+/// idempotency — if a duplicate is found, the link is deleted and Ok is
+/// returned.
 #[hdk_extern]
 pub fn add_escrow_signature(input: AddSignatureInput) -> ExternResult<Record> {
     let now = sys_time()?;
-    let (escrow, record) = find_escrow_by_id(&input.escrow_id)?;
+    let (escrow, _record) = find_escrow_by_id(&input.escrow_id)?;
 
     if escrow.status != EscrowStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Escrow not found or not pending".into()
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Escrow {} is {:?}, expected Pending for signature addition",
+            input.escrow_id, escrow.status
+        ))));
     }
 
     // Verify signer is authorized
@@ -602,60 +658,49 @@ pub fn add_escrow_signature(input: AddSignatureInput) -> ExternResult<Record> {
         )));
     }
 
-    // Check if already signed
-    if escrow
-        .collected_signatures
-        .iter()
-        .any(|s| s.signer_did == input.signer_did)
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest("Already signed".into())));
-    }
-
-    let signature = EscrowSignature {
-        signer_did: input.signer_did,
+    // Create immutable signature entry
+    let sig_entry = EscrowSignatureEntry {
+        escrow_id: input.escrow_id.clone(),
+        signer_did: input.signer_did.clone(),
         signature: input.signature,
-        signed_at: now.as_micros() as i64,
+        timestamp: now,
     };
 
-    let mut collected = escrow.collected_signatures.clone();
-    collected.push(signature);
+    let sig_action_hash = create_entry(&EntryTypes::EscrowSignatureEntry(sig_entry))?;
 
-    // Check if multi-sig threshold is met
-    let mut met_conditions = escrow.met_conditions.clone();
-    if let Some(threshold) = escrow.multisig_threshold {
-        if collected.len() >= threshold as usize {
-            // Find and mark the multi-sig condition as met
-            for (i, condition) in escrow.conditions.iter().enumerate() {
-                if matches!(condition, ReleaseCondition::MultiSig { .. }) {
-                    if !met_conditions.contains(&(i as u8)) {
-                        met_conditions.push(i as u8);
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    let status = if met_conditions.len() >= escrow.required_conditions as usize {
-        EscrowStatus::Releasable
-    } else {
-        EscrowStatus::Pending
-    };
-
-    let updated = CryptoEscrow {
-        collected_signatures: collected,
-        met_conditions,
-        status,
-        ..escrow
-    };
-
-    let action_hash = update_entry(
-        record.action_address().clone(),
-        &EntryTypes::CryptoEscrow(updated),
+    // Link from escrow signature anchor to this signature entry
+    let sig_anchor = anchor_hash(&format!("escrow-sigs:{}", input.escrow_id))?;
+    let link_hash = create_link(
+        sig_anchor,
+        sig_action_hash.clone(),
+        LinkTypes::EscrowToSignatures,
+        (),
     )?;
 
-    get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+    // Check for duplicate signer (AFTER creating, for idempotency)
+    let existing_sigs = get_escrow_signature_entries(&input.escrow_id)?;
+    let duplicates: Vec<_> = existing_sigs
+        .iter()
+        .filter(|(ah, s)| s.signer_did == input.signer_did && *ah != sig_action_hash)
+        .collect();
+
+    if !duplicates.is_empty() {
+        // Another entry for this signer already exists — remove our link
+        delete_link(link_hash, GetOptions::default())?;
+        // Return the existing record
+        let (existing_ah, _) = &duplicates[0];
+        return get(existing_ah.clone(), GetOptions::default())?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+                "Existing signature record not found for escrow {} signer {}",
+                input.escrow_id, input.signer_did
+            ))));
+    }
+
+    get(sig_action_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Signature record not found after creation for escrow {} signer {}",
+            input.escrow_id, input.signer_did
+        ))))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -666,20 +711,64 @@ pub struct AddSignatureInput {
 }
 
 /// Release escrow to beneficiary
+///
+/// Verifies the multi-sig threshold by counting unique signer DIDs from
+/// linked `EscrowSignatureEntry` entries (RC-18 fix).
 #[hdk_extern]
 pub fn release_escrow(escrow_id: String) -> ExternResult<Record> {
     let now = sys_time()?;
     let (escrow, record) = find_escrow_by_id(&escrow_id)?;
 
-    if escrow.status != EscrowStatus::Releasable {
+    // Allow release if already marked Releasable, OR if still Pending but
+    // the multi-sig threshold is now met via linked signature entries.
+    if escrow.status != EscrowStatus::Releasable && escrow.status != EscrowStatus::Pending {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Releasable escrow not found".into()
+            "Escrow is not in a releasable state".into()
+        )));
+    }
+
+    // Count unique signers from linked EscrowSignatureEntry entries
+    if let Some(threshold) = escrow.multisig_threshold {
+        let sig_entries = get_escrow_signature_entries(&escrow_id)?;
+        let mut unique_signers = std::collections::HashSet::new();
+        for (_ah, sig) in &sig_entries {
+            unique_signers.insert(sig.signer_did.clone());
+        }
+        if unique_signers.len() < threshold as usize {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Multi-sig threshold not met: {} of {} required signatures",
+                unique_signers.len(),
+                threshold
+            ))));
+        }
+    }
+
+    // Also check non-multisig met_conditions if required
+    // (legacy path: met_conditions covers hash-lock, timelock, etc.)
+    let mut met_conditions = escrow.met_conditions.clone();
+
+    // If multisig threshold is met, mark the MultiSig condition as met
+    if escrow.multisig_threshold.is_some() {
+        for (i, condition) in escrow.conditions.iter().enumerate() {
+            if matches!(condition, ReleaseCondition::MultiSig { .. }) {
+                if !met_conditions.contains(&(i as u8)) {
+                    met_conditions.push(i as u8);
+                }
+                break;
+            }
+        }
+    }
+
+    if met_conditions.len() < escrow.required_conditions as usize {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Not all required conditions are met".into()
         )));
     }
 
     let updated = CryptoEscrow {
         status: EscrowStatus::Released,
         released_at: Some(now),
+        met_conditions,
         ..escrow
     };
 
@@ -689,7 +778,10 @@ pub fn release_escrow(escrow_id: String) -> ExternResult<Record> {
     )?;
 
     get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Escrow record not found after release for escrow {}",
+            escrow_id
+        ))))
 }
 
 // =============================================================================
@@ -704,6 +796,9 @@ pub struct PaginatedDidInput {
 }
 
 /// Get all stakes for a staker (paginated, default limit 100)
+///
+// NOTE: Sequential follow_update_chain required — entries are mutable (status transitions:
+// Active → Unbonding → Withdrawn, or Active → Slashed/Jailed)
 #[hdk_extern]
 pub fn get_staker_stakes(input: PaginatedDidInput) -> ExternResult<Vec<Record>> {
     let limit = input.limit.unwrap_or(100);
@@ -717,15 +812,16 @@ pub fn get_staker_stakes(input: PaginatedDidInput) -> ExternResult<Vec<Record>> 
     for link in links.into_iter().take(limit) {
         let ah = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(ah, GetOptions::default())? {
-            stakes.push(record);
-        }
+        stakes.push(follow_update_chain(ah)?);
     }
 
     Ok(stakes)
 }
 
 /// Get all active stakes (paginated, default limit 100)
+///
+// NOTE: Sequential follow_update_chain required — entries are mutable (status transitions).
+/// Filters to only return currently-Active stakes (skips Withdrawn, Slashed, etc.).
 #[hdk_extern]
 pub fn get_active_stakes(limit: Option<usize>) -> ExternResult<Vec<Record>> {
     let limit = limit.unwrap_or(100);
@@ -736,17 +832,16 @@ pub fn get_active_stakes(limit: Option<usize>) -> ExternResult<Vec<Record>> {
     for link in links {
         let ah = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(ah.clone(), GetOptions::default())? {
-            if let Some(stake) = record
-                .entry()
-                .to_app_option::<CollateralStake>()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            {
-                if stake.status == StakeStatus::Active {
-                    stakes.push(record);
-                    if stakes.len() >= limit {
-                        break;
-                    }
+        let record = follow_update_chain(ah)?;
+        if let Some(stake) = record
+            .entry()
+            .to_app_option::<CollateralStake>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            if stake.status == StakeStatus::Active {
+                stakes.push(record);
+                if stakes.len() >= limit {
+                    break;
                 }
             }
         }
@@ -756,6 +851,8 @@ pub fn get_active_stakes(limit: Option<usize>) -> ExternResult<Vec<Record>> {
 }
 
 /// Get escrows for a depositor (paginated, default limit 100)
+///
+// NOTE: Sequential follow_update_chain required — entries are mutable (conditions met, status changes).
 #[hdk_extern]
 pub fn get_depositor_escrows(input: PaginatedDidInput) -> ExternResult<Vec<Record>> {
     let limit = input.limit.unwrap_or(100);
@@ -769,15 +866,15 @@ pub fn get_depositor_escrows(input: PaginatedDidInput) -> ExternResult<Vec<Recor
     for link in links.into_iter().take(limit) {
         let ah = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(ah, GetOptions::default())? {
-            escrows.push(record);
-        }
+        escrows.push(follow_update_chain(ah)?);
     }
 
     Ok(escrows)
 }
 
 /// Get escrows for a beneficiary (paginated, default limit 100)
+///
+// NOTE: Sequential follow_update_chain required — entries are mutable (conditions met, status changes).
 #[hdk_extern]
 pub fn get_beneficiary_escrows(input: PaginatedDidInput) -> ExternResult<Vec<Record>> {
     let limit = input.limit.unwrap_or(100);
@@ -793,9 +890,7 @@ pub fn get_beneficiary_escrows(input: PaginatedDidInput) -> ExternResult<Vec<Rec
     for link in links.into_iter().take(limit) {
         let ah = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(ah, GetOptions::default())? {
-            escrows.push(record);
-        }
+        escrows.push(follow_update_chain(ah)?);
     }
 
     Ok(escrows)

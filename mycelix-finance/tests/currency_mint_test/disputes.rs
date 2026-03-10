@@ -12,9 +12,27 @@ use currency_mint_integrity::CurrencyDefinition;
 use mycelix_finance_types::CurrencyStatus;
 
 /// Consolidated dispute and amendment tests — single conductor, 3 agents.
-#[tokio::test(flavor = "multi_thread")]
+///
+/// Runs block_on inside a thread with 16MB stack because the consolidated
+/// async state machine (10 scenarios, 748 lines) exceeds default stack sizes.
+#[test]
 #[ignore]
-async fn test_disputes_all() {
+fn test_disputes_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_disputes_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_disputes_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(3).await;
     let cell_a = &apps[0].cells()[0];
     let zome_a = cell_a.zome("currency_mint");
@@ -27,17 +45,17 @@ async fn test_disputes_all() {
 
         let receiver_did = format!("did:mycelix:{}", agents[1]);
 
-        let def: CurrencyDefinition = conductor
-            .call(
-                &zome_a,
-                "create_currency",
-                CreateCurrencyInput {
-                    dao_did: "did:mycelix:dao:dispute-test".into(),
-                    params: test_params("DisputeCoin", "DC"),
-                    governance_proposal_id: None,
-                },
-            )
-            .await;
+        let def: CurrencyDefinition = call_with_retry(
+            &conductor,
+            &zome_a,
+            "create_currency",
+            CreateCurrencyInput {
+                dao_did: "did:mycelix:dao:dispute-test".into(),
+                params: test_params("DisputeCoin", "DC"),
+                governance_proposal_id: None,
+            },
+        )
+        .await;
 
         let _: CurrencyDefinition = conductor
             .call(
@@ -331,9 +349,9 @@ async fn test_disputes_all() {
 
         let new_params = test_params("AmendGuard Updated", "AG");
 
-        // Amend on Draft — should fail (not Active or Suspended)
-        let result: Result<CurrencyDefinition, _> = conductor
-            .call_fallible(
+        // Amend on Draft — allowed (Draft and Active both permit amendments)
+        let amended: CurrencyDefinition = conductor
+            .call(
                 &zome_a,
                 "amend_currency_params",
                 AmendCurrencyParamsInput {
@@ -343,8 +361,8 @@ async fn test_disputes_all() {
                 },
             )
             .await;
-        assert!(result.is_err(), "Amend on Draft should be rejected");
-        println!("  - Amend on Draft: rejected");
+        assert_eq!(amended.params.name, "AmendGuard Updated");
+        println!("  - Amend on Draft: accepted (correct)");
 
         // Activate, then Retire
         let _: CurrencyDefinition = conductor

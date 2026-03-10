@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Recognition Coordinator Zome
 //!
 //! Implements MYCEL reputation through weighted recognition events.
@@ -12,7 +13,10 @@
 //! - jubilee_normalize: Apply 4-year jubilee compression
 
 use hdk::prelude::*;
-use mycelix_finance_shared::{anchor_hash, verify_caller_is_did};
+use mycelix_finance_shared::{
+    anchor_hash, follow_update_chain, verify_caller_is_did,
+    verify_governance_or_bootstrap_from_links, GOVERNANCE_AGENTS_ANCHOR,
+};
 
 // Re-export integrity types for external use
 pub use recognition_integrity::*;
@@ -22,12 +26,7 @@ const DID_METHOD_PREFIX: &str = "did:mycelix:";
 /// Maximum length for a DID string
 const MAX_DID_LENGTH: usize = 256;
 
-const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
-
-/// Check if the calling agent is a registered governance agent.
-/// If no governance agents are registered yet (bootstrap), allow any agent.
 fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let caller = agent_info()?.agent_initial_pubkey;
     let gov_links = get_links(
         LinkQuery::try_new(
             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
@@ -35,24 +34,7 @@ fn verify_governance_or_bootstrap() -> ExternResult<()> {
         )?,
         GetStrategy::default(),
     )?;
-
-    // Bootstrap: if no governance agents registered yet, allow anyone
-    if gov_links.is_empty() {
-        return Ok(());
-    }
-
-    // Check if caller is in the governance list
-    for link in gov_links {
-        if let Ok(agent) = AgentPubKey::try_from(link.target) {
-            if agent == caller {
-                return Ok(());
-            }
-        }
-    }
-
-    Err(wasm_error!(WasmErrorInner::Guest(
-        "Caller is not an authorized governance agent".into()
-    )))
+    verify_governance_or_bootstrap_from_links(gov_links)
 }
 
 /// Register a governance agent. Only existing governance agents can register
@@ -208,6 +190,11 @@ pub fn recognize_member(input: RecognizeMemberInput) -> ExternResult<Record> {
 }
 
 /// Get all recognitions received by a member, optionally filtered by cycle (paginated, default limit 100)
+///
+// NOTE: RecognitionEvents are immutable and could use links_to_records, but this
+// function applies cycle_id filtering with early-exit on limit during iteration.
+// Batch-fetching all records then filtering would be wasteful when cycle_id is set,
+// so sequential get() with inline filtering is kept intentionally.
 #[hdk_extern]
 pub fn get_recognition_received(
     input: GetRecognitionsInput,
@@ -230,12 +217,17 @@ pub fn get_recognition_received(
     let mut events = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
+            // RecognitionEvents are immutable (never updated), so plain get() is correct here
             if let Some(record) = get(action_hash, GetOptions::default())? {
                 if let Some(event) = record
                     .entry()
                     .to_app_option::<RecognitionEvent>()
-                    .ok()
-                    .flatten()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "RecognitionEvent deserialization error: {:?}",
+                            e
+                        )))
+                    })?
                 {
                     // Filter by cycle if specified
                     if let Some(ref cycle) = input.cycle_id {
@@ -705,15 +697,18 @@ fn find_mycel_state_with_hash(
 
     if let Some(link) = links.first() {
         if let Some(link_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(link_hash, GetOptions::default())? {
-                if let Some(state) = record
-                    .entry()
-                    .to_app_option::<MemberMycelState>()
-                    .ok()
-                    .flatten()
-                {
-                    return Ok(Some((state, record.action_address().clone())));
-                }
+            let record = follow_update_chain(link_hash)?;
+            let state = record
+                .entry()
+                .to_app_option::<MemberMycelState>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "MemberMycelState deserialization error: {:?}",
+                        e
+                    )))
+                })?;
+            if let Some(state) = state {
+                return Ok(Some((state, record.action_address().clone())));
             }
         }
     }
@@ -734,18 +729,25 @@ fn get_or_create_allocation(
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
-                if let Some(alloc) = record
-                    .entry()
-                    .to_app_option::<RecognitionAllocation>()
-                    .ok()
-                    .flatten()
-                {
-                    return Ok(alloc);
-                }
-            }
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-15).
+    if let Some(action_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    {
+        let record = follow_update_chain(action_hash)?;
+        let alloc = record
+            .entry()
+            .to_app_option::<RecognitionAllocation>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "RecognitionAllocation deserialization error: {:?}",
+                    e
+                )))
+            })?;
+        if let Some(alloc) = alloc {
+            return Ok(alloc);
         }
     }
 
@@ -758,12 +760,44 @@ fn get_or_create_allocation(
 
     let alloc_hash = create_entry(&EntryTypes::RecognitionAllocation(alloc.clone()))?;
 
+    let anchor = anchor_hash(&anchor_key)?;
     create_link(
-        anchor_hash(&anchor_key)?,
-        alloc_hash,
+        anchor.clone(),
+        alloc_hash.clone(),
         LinkTypes::RecognizerCycleToAllocation,
         (),
     )?;
+
+    // RC-15: Race condition guard — re-read links to detect concurrent creators.
+    let recheck_links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::RecognizerCycleToAllocation)?,
+        GetStrategy::default(),
+    )?;
+    if recheck_links.len() > 1 {
+        if let Some(winner_hash) = recheck_links
+            .iter()
+            .filter_map(|l| l.target.clone().into_action_hash())
+            .min()
+        {
+            if winner_hash != alloc_hash {
+                // We lost the race — return the winner's entry instead
+                let record = follow_update_chain(winner_hash)?;
+                let winner_alloc = record
+                    .entry()
+                    .to_app_option::<RecognitionAllocation>()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "RecognitionAllocation deserialization error: {:?}",
+                            e
+                        )))
+                    })?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Winner allocation entry missing".into()
+                    )))?;
+                return Ok(winner_alloc);
+            }
+        }
+    }
 
     Ok(alloc)
 }
@@ -778,19 +812,26 @@ fn increment_allocation(recognizer_did: &str, cycle_id: &str) -> ExternResult<()
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(link_hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(link_hash, GetOptions::default())? {
-                if let Some(mut alloc) = record
-                    .entry()
-                    .to_app_option::<RecognitionAllocation>()
-                    .ok()
-                    .flatten()
-                {
-                    alloc.count += 1;
-                    update_entry(record.action_address().clone(), &alloc)?;
-                }
-            }
+    // Pick the link with the lowest target ActionHash (deterministic winner)
+    // to handle orphaned links from past race conditions (RC-15).
+    if let Some(link_hash) = links
+        .iter()
+        .filter_map(|l| l.target.clone().into_action_hash())
+        .min()
+    {
+        let record = follow_update_chain(link_hash)?;
+        if let Some(mut alloc) = record
+            .entry()
+            .to_app_option::<RecognitionAllocation>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "RecognitionAllocation deserialization error: {:?}",
+                    e
+                )))
+            })?
+        {
+            alloc.count += 1;
+            update_entry(record.action_address().clone(), &alloc)?;
         }
     }
 

@@ -613,6 +613,17 @@ pub struct VerifyCommitmentInput {
 }
 
 // ============================================================================
+// MFA Mirror Types (shared across test modules for MFA setup)
+// ============================================================================
+
+/// Mirror of mfa_coordinator::CreateMfaStateInput (top-level for cross-module use)
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CreateMfaStateInputShared {
+    pub did: String,
+    pub primary_key_hash: String,
+}
+
+// ============================================================================
 // Test Utilities
 // ============================================================================
 
@@ -1194,11 +1205,42 @@ mod mfa_tests {
         pub reason: String,
     }
 
+    /// Mirror of mfa_coordinator::OracleAttestation
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct OracleAttestation {
+        pub oracle_pubkey: String,
+        pub signature: String,
+        pub data_hash: String,
+        pub attested_at: u64,
+    }
+
+    /// Mirror of mfa_coordinator::GuardianAttestation
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct GuardianAttestation {
+        pub guardian_did: String,
+        pub signature: String,
+        pub timestamp: u64,
+    }
+
+    /// Mirror of mfa_coordinator::VerificationProof
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub enum VerificationProof {
+        Signature { signature: String, message: String },
+        WebAuthn { authenticator_data: String, client_data_hash: String, signature: String },
+        BiometricChallenge { template_hash: String, response: String, oracle_attestation: Option<OracleAttestation> },
+        GitcoinPassport { score: f64, checked_at: u64, stamps: Vec<String>, oracle_attestation: Option<OracleAttestation> },
+        VerifiableCredential { credential: String, issuer: String, credential_type: String },
+        SocialRecovery { guardian_signatures: Vec<GuardianAttestation>, threshold: u32 },
+        Knowledge { answer_hash: String },
+    }
+
     /// Mirror of mfa_coordinator::VerifyFactorInput
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct VerifyFactorInput {
         pub did: String,
         pub factor_id: String,
+        pub challenge: Option<String>,
+        pub proof: Option<VerificationProof>,
     }
 
     /// Mirror of mfa_coordinator::AssuranceOutput
@@ -2653,6 +2695,17 @@ mod social_recovery_tests {
             .await;
         assert!(retrieved.is_some(), "Recovery config should be retrievable");
 
+        // 3b. Setup MFA state for trustees (required: minimum Basic assurance)
+        for trustee_did in &[&trustee1, &trustee2, &trustee3] {
+            let mfa_input = CreateMfaStateInputShared {
+                did: trustee_did.to_string(),
+                primary_key_hash: format!("sha256:test-key-{}", trustee_did),
+            };
+            let _: serde_json::Value = conductor
+                .call(&cell.zome("mfa"), "create_mfa_state", mfa_input)
+                .await;
+        }
+
         // 4. Initiate recovery (trustee1 starts it)
         let new_agent = app.agent().clone(); // reuse agent for test simplicity
         let initiate_input = InitiateRecoveryInput {
@@ -2809,6 +2862,15 @@ mod social_recovery_tests {
             .call(&cell.zome("recovery"), "setup_recovery", setup_input)
             .await;
 
+        // Setup MFA state for initiator trustee (required: minimum Basic assurance)
+        let mfa_input = CreateMfaStateInputShared {
+            did: "did:mycelix:trustee-cancel-a".to_string(),
+            primary_key_hash: "sha256:test-key-cancel-a".to_string(),
+        };
+        let _: serde_json::Value = conductor
+            .call(&cell.zome("mfa"), "create_mfa_state", mfa_input)
+            .await;
+
         // Trustee initiates recovery
         let initiate_input = InitiateRecoveryInput {
             did: owner_did.clone(),
@@ -2891,6 +2953,15 @@ mod social_recovery_tests {
 
         let _: Record = conductor
             .call(&cell.zome("recovery"), "setup_recovery", setup_input)
+            .await;
+
+        // Setup MFA state for initiator trustee (required: minimum Basic assurance)
+        let mfa_input = CreateMfaStateInputShared {
+            did: "did:mycelix:trustee-get-a".to_string(),
+            primary_key_hash: "sha256:test-key-get-a".to_string(),
+        };
+        let _: serde_json::Value = conductor
+            .call(&cell.zome("mfa"), "create_mfa_state", mfa_input)
             .await;
 
         // Initiate recovery to create a request
@@ -2986,6 +3057,15 @@ mod social_recovery_tests {
 
         let _: Record = conductor
             .call(&cell.zome("recovery"), "setup_recovery", setup_input)
+            .await;
+
+        // Setup MFA state for initiator trustee (required: minimum Basic assurance)
+        let mfa_input = CreateMfaStateInputShared {
+            did: trustee1.clone(),
+            primary_key_hash: "sha256:test-key-reject-1".to_string(),
+        };
+        let _: serde_json::Value = conductor
+            .call(&cell.zome("mfa"), "create_mfa_state", mfa_input)
             .await;
 
         // Initiate recovery (creates a Pending request)

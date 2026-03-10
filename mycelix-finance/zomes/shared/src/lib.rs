@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! Mycelix Finance Shared Utilities
 //!
 //! This crate provides common functionality for all Mycelix Finance zomes:
@@ -31,9 +32,106 @@ pub use mycelix_finance_types;
 pub use anchors::*;
 pub use batch::*;
 pub use economics::*;
+pub use governance::*;
 pub use identity::*;
 pub use types::*;
+pub use update_chain::*;
+pub use race_resolution::*;
 pub use validation::*;
+pub use input_validation::*;
+pub use rate_limit::*;
+
+/// Community size threshold above which governance proposals are required for
+/// currency creation, demurrage changes, and dispute resolution.
+pub const COMMUNITY_GOVERNANCE_THRESHOLD: u32 = 10;
+
+/// Race-condition resolution for concurrent link creation.
+///
+/// When multiple agents create the same logical link simultaneously, we need
+/// a deterministic way to pick a single winner. This module provides a shared
+/// helper that selects the link with the lowest `create_link_hash`.
+pub mod race_resolution {
+    use super::*;
+
+    /// Deterministically pick a single winner from a set of concurrent links.
+    ///
+    /// Returns the link with the lowest `create_link_hash` (lexicographic byte
+    /// comparison), which is consistent across all DHT nodes regardless of the
+    /// order in which links are observed.
+    ///
+    /// # Errors
+    /// Returns an error if the slice is empty.
+    pub fn pick_race_winner(links: &[Link]) -> ExternResult<&Link> {
+        links
+            .iter()
+            .min_by_key(|l| l.create_link_hash.clone())
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Race resolution failed: no links found after creation".into()
+                ))
+            })
+    }
+}
+
+/// Update chain traversal for Holochain entries.
+///
+/// In Holochain, `get()` returns the **original** entry, not the latest version.
+/// When an entry has been modified via `update_entry()`, you must use `get_details()`
+/// to discover the update chain and follow it to the latest version.
+///
+/// All coordinator zomes that do link-based lookups SHOULD use `follow_update_chain`
+/// instead of bare `get()` when the entry might have been updated.
+pub mod update_chain {
+    use super::*;
+
+    /// Maximum update chain depth before we bail out.
+    /// Prevents unbounded network calls on entries with pathological update histories.
+    pub const MAX_UPDATE_CHAIN_DEPTH: usize = 256;
+
+    /// Recursively follow the Holochain update chain from an original action hash
+    /// to find the latest version of a record.
+    ///
+    /// Each `update_entry` creates a new action that is recorded as an update of
+    /// its predecessor. This function walks `get_details().updates` until it finds
+    /// an action with no further updates.
+    ///
+    /// Stops after [`MAX_UPDATE_CHAIN_DEPTH`] hops to prevent unbounded traversal.
+    pub fn follow_update_chain(action_hash: ActionHash) -> ExternResult<Record> {
+        let mut current_hash = action_hash;
+        for _ in 0..MAX_UPDATE_CHAIN_DEPTH {
+            let details = get_details(current_hash.clone(), GetOptions::default())?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("Record not found".into())),
+            )?;
+            match details {
+                Details::Record(record_details) => {
+                    // Deterministic fork resolution: when concurrent updates
+                    // create a fork (multiple updates pointing to the same
+                    // predecessor), select the update with the LOWEST ActionHash
+                    // (lexicographic comparison of raw bytes). This ensures all
+                    // nodes converge to the same view regardless of DHT ordering.
+                    if let Some(chosen_update) = record_details
+                        .updates
+                        .iter()
+                        .min_by_key(|u| u.action_address().clone())
+                    {
+                        current_hash = chosen_update.action_address().clone();
+                    } else {
+                        return Ok(record_details.record);
+                    }
+                }
+                _ => {
+                    return get(current_hash, GetOptions::default())?.ok_or(wasm_error!(
+                        WasmErrorInner::Guest("Record not found".into())
+                    ));
+                }
+            }
+        }
+        // Reached max depth — return whatever we have at the current hash
+        get(current_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Update chain exceeded maximum depth".into()
+        )))
+    }
+}
 
 /// Batch operations module - solves N+1 query patterns
 ///
@@ -274,7 +372,7 @@ pub mod batch {
     ) -> Vec<T> {
         records
             .iter()
-            .filter_map(|r| r.entry().to_app_option::<T>().ok().flatten())
+            .filter_map(|r| r.entry().to_app_option::<T>().unwrap_or_default())
             .collect()
     }
 
@@ -294,12 +392,10 @@ pub mod batch {
         records
             .iter()
             .filter(|r| {
-                r.entry()
-                    .to_app_option::<T>()
-                    .ok()
-                    .flatten()
-                    .map(|entry| predicate(&entry))
-                    .unwrap_or(false)
+                match r.entry().to_app_option::<T>() {
+                    Ok(Some(entry)) => predicate(&entry),
+                    _ => false,
+                }
             })
             .cloned()
             .collect()
@@ -458,6 +554,64 @@ pub mod economics {
     pub use mycelix_finance_types::*;
 }
 
+/// Governance authorization helpers
+///
+/// Shared logic for checking if the calling agent is an authorized governance
+/// agent. Each coordinator zome fetches its own `LinkTypes::GovernanceAgents`
+/// links and passes them to `verify_governance_or_bootstrap_from_links()`.
+///
+/// This eliminates duplicated authorization logic across recognition, staking,
+/// and tend coordinators while keeping link type resolution local to each zome.
+pub mod governance {
+    use super::*;
+
+    /// Standard anchor name for governance agent registration links.
+    /// All zomes MUST use this same anchor string to share a single governance
+    /// agent registry within the DNA.
+    pub const GOVERNANCE_AGENTS_ANCHOR: &str = "governance_agents";
+
+    /// Check if the calling agent is in the provided governance agent links.
+    ///
+    /// **Bootstrap rule**: if the links list is empty (no governance agents
+    /// registered yet), any agent is allowed. This enables initial setup.
+    ///
+    /// # Usage
+    /// ```rust,ignore
+    /// use mycelix_finance_shared::governance::*;
+    ///
+    /// fn verify_governance_or_bootstrap() -> ExternResult<()> {
+    ///     let gov_links = get_links(
+    ///         LinkQuery::try_new(
+    ///             anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+    ///             LinkTypes::GovernanceAgents,
+    ///         )?,
+    ///         GetStrategy::default(),
+    ///     )?;
+    ///     verify_governance_or_bootstrap_from_links(gov_links)
+    /// }
+    /// ```
+    pub fn verify_governance_or_bootstrap_from_links(
+        gov_links: Vec<Link>,
+    ) -> ExternResult<()> {
+        if gov_links.is_empty() {
+            return Ok(());
+        }
+
+        let caller = agent_info()?.agent_initial_pubkey;
+        for link in gov_links {
+            if let Ok(agent) = AgentPubKey::try_from(link.target) {
+                if agent == caller {
+                    return Ok(());
+                }
+            }
+        }
+
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not an authorized governance agent".into()
+        )))
+    }
+}
+
 /// Agent identity helpers
 pub mod identity {
     use super::*;
@@ -483,6 +637,36 @@ pub mod identity {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "Caller DID mismatch: claimed {} but agent is {}",
                 claimed_did, actual
+            ))));
+        }
+        Ok(())
+    }
+}
+
+/// String ID input validation helpers
+pub mod input_validation {
+    use super::*;
+
+    /// Validate that a string ID is non-empty and within reasonable bounds.
+    pub fn validate_id(id: &str, field_name: &str) -> ExternResult<()> {
+        if id.is_empty() || id.len() > 256 {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "{} must be 1-256 characters, got {}", field_name, id.len()
+            ))));
+        }
+        Ok(())
+    }
+
+    /// Validate that a DID string has proper format (non-empty, starts with "did:").
+    pub fn validate_did_format(did: &str, field_name: &str) -> ExternResult<()> {
+        if did.is_empty() || did.len() > 256 {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "{} must be 1-256 characters, got {}", field_name, did.len()
+            ))));
+        }
+        if !did.starts_with("did:") {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "{} must start with 'did:', got '{}'", field_name, &did[..did.len().min(20)]
             ))));
         }
         Ok(())
@@ -558,6 +742,60 @@ pub mod validation {
             )));
         }
         Ok(())
+    }
+}
+
+/// Per-agent rate limiting constants and utilities.
+///
+/// Holochain coordinator zomes each define their own `LinkTypes`, so the shared
+/// crate cannot directly create or query links.  Instead we provide the
+/// constants and anchor-naming convention here; each coordinator applies the
+/// check using its own link type.
+///
+/// ## Recommended pattern (in a coordinator zome)
+///
+/// ```rust,ignore
+/// use mycelix_finance_shared::{anchor_hash, DEFAULT_RATE_LIMIT_PER_MINUTE, rate_limit_anchor_key};
+///
+/// fn check_rate_limit(anchor_prefix: &str, agent: &AgentPubKey) -> ExternResult<()> {
+///     let key = rate_limit_anchor_key(anchor_prefix, agent);
+///     let anchor = anchor_hash(&key)?;
+///     let links = get_links(
+///         LinkQuery::try_new(anchor.clone(), LinkTypes::AnchorLinks)?,
+///         GetStrategy::default(),
+///     )?;
+///     if links.len() >= DEFAULT_RATE_LIMIT_PER_MINUTE {
+///         return Err(wasm_error!(WasmErrorInner::Guest(format!(
+///             "Rate limit exceeded: max {} ops/min for {}",
+///             DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_prefix
+///         ))));
+///     }
+///     // Record this operation
+///     create_link(anchor, agent.clone().into(), LinkTypes::AnchorLinks, ())?;
+///     Ok(())
+/// }
+/// ```
+pub mod rate_limit {
+    /// Default maximum operations per minute per agent.
+    ///
+    /// Individual coordinator zomes may override this with a tighter limit
+    /// (e.g., currency-mint uses 60 for exchange recording).
+    pub const DEFAULT_RATE_LIMIT_PER_MINUTE: usize = 100;
+
+    /// Build the anchor key for a rate-limit bucket.
+    ///
+    /// The key encodes the anchor prefix, the agent's public key, and a
+    /// minute-granularity time bucket so that old buckets naturally become
+    /// unreferenced and can be garbage-collected.
+    ///
+    /// `now_micros` should come from `sys_time()?.as_micros()`.
+    pub fn rate_limit_anchor_key(
+        anchor_prefix: &str,
+        agent: &hdk::prelude::AgentPubKey,
+        now_micros: i64,
+    ) -> String {
+        let bucket = now_micros / 60_000_000; // 60-second window
+        format!("rate:{}:{}:{}", anchor_prefix, agent, bucket)
     }
 }
 
@@ -779,5 +1017,48 @@ mod tests {
         assert!(result.records.is_empty());
         assert!(result.not_found.is_empty());
         assert!(result.errors.is_empty());
+    }
+
+    // =========================================================================
+    // Property-based tests (proptest)
+    // =========================================================================
+
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        // Property: `anchor_hash` is deterministic -- same input always produces
+        // the same hash.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn anchor_hash_is_deterministic(input in "\\PC{1,200}") {
+                let hash1 = anchors::anchor_hash(&input).unwrap();
+                let hash2 = anchors::anchor_hash(&input).unwrap();
+                prop_assert_eq!(hash1, hash2, "anchor_hash must be deterministic");
+            }
+        }
+
+        // Property: `anchor_hash` has no collisions for distinct inputs.
+        // With blake2b-256, any two distinct strings should produce distinct hashes.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn anchor_hash_no_collisions(
+                a in "\\PC{1,100}",
+                b in "\\PC{1,100}",
+            ) {
+                prop_assume!(a != b);
+                let hash_a = anchors::anchor_hash(&a).unwrap();
+                let hash_b = anchors::anchor_hash(&b).unwrap();
+                prop_assert_ne!(
+                    hash_a, hash_b,
+                    "Distinct inputs must produce distinct hashes: {:?} vs {:?}",
+                    a, b
+                );
+            }
+        }
     }
 }

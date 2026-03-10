@@ -29,8 +29,11 @@ use std::path::PathBuf;
 pub struct DidDocument {
     pub id: String,
     pub controller: AgentPubKey,
+    #[serde(rename = "verificationMethod", alias = "verification_method")]
     pub verification_method: Vec<VerificationMethod>,
     pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", alias = "key_agreement", default)]
+    pub key_agreement: Vec<String>,
     pub service: Vec<ServiceEndpoint>,
     pub created: Timestamp,
     pub updated: Timestamp,
@@ -41,16 +44,22 @@ pub struct DidDocument {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VerificationMethod {
     pub id: String,
+    #[serde(rename = "type", alias = "type_")]
     pub type_: String,
     pub controller: String,
+    #[serde(rename = "publicKeyMultibase", alias = "public_key_multibase")]
     pub public_key_multibase: String,
+    #[serde(default)]
+    pub algorithm: Option<u16>,
 }
 
 /// Mirror of did_registry_integrity::ServiceEndpoint
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ServiceEndpoint {
     pub id: String,
+    #[serde(rename = "type", alias = "type_")]
     pub type_: String,
+    #[serde(rename = "serviceEndpoint", alias = "service_endpoint")]
     pub service_endpoint: String,
 }
 
@@ -671,7 +680,8 @@ mod did_updates {
             id: format!("{}#keys-2", created_did.id),
             type_: "Ed25519VerificationKey2020".to_string(),
             controller: created_did.id.clone(),
-            public_key_multibase: "zBackupKeyMultibase123456".to_string(),
+            public_key_multibase: "z6MkeXBLjYiSvqnhFb6D7sHm8yKm4jV45wwBFRaatf1cfZ76".to_string(),
+            algorithm: None,
         };
 
         let updated_record: Record = conductor
@@ -773,13 +783,20 @@ mod duplicate_prevention {
 
         let first_did: DidDocument = decode_entry(&first_record).expect("No entry");
 
-        let second_record: Record = conductor
-            .call(&cell.zome("did_registry"), "create_did", ())
+        // Second create_did should fail — agents can only have one DID
+        let second_result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("did_registry"), "create_did", ())
             .await;
 
-        let second_did: DidDocument = decode_entry(&second_record).expect("No entry");
-
-        assert_eq!(first_did.id, second_did.id, "DIDs should be identical for same agent");
+        assert!(
+            second_result.is_err(),
+            "Creating a second DID for the same agent should fail"
+        );
+        let err_msg = format!("{:?}", second_result.unwrap_err());
+        assert!(
+            err_msg.contains("already has a DID"),
+            "Error should mention duplicate DID: {}", err_msg
+        );
 
         let resolved: Option<Record> = conductor
             .call(
@@ -858,6 +875,7 @@ mod unit_tests {
             type_: "Ed25519VerificationKey2020".to_string(),
             controller: "did:mycelix:test".to_string(),
             public_key_multibase: "zABC123".to_string(),
+            algorithm: None,
         };
 
         let json = serde_json::to_string(&vm).expect("Serialize failed");

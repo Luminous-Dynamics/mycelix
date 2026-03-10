@@ -14,7 +14,7 @@
 //! social proof (Bob's endorsement), defeating Mallory's unattested lie.
 
 use mycelix_sdk::dkg::{
-    calculate_confidence, meets_threshold, Attestation, AttestationSet,
+    calculate_confidence, meets_threshold, Attestation, AttestationSet, AttestationType,
     ConfidenceInput, EpistemicType, TripleValue, VerifiableTriple,
 };
 

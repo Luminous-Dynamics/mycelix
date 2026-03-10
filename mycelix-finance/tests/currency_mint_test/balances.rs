@@ -12,9 +12,26 @@
 use super::common::*;
 use currency_mint_integrity::CurrencyDefinition;
 
-#[tokio::test(flavor = "multi_thread")]
+/// Runs block_on inside a thread with 16MB stack because the consolidated
+/// async state machine exceeds default stack sizes.
+#[test]
 #[ignore]
-async fn test_balances_all() {
+fn test_balances_all() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(test_balances_all_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn test_balances_all_inner() {
     let (conductor, agents, apps) = setup_finance_conductor(2).await;
     let cell_a = &apps[0].cells()[0];
     let zome_a = cell_a.zome("currency_mint");
@@ -26,17 +43,17 @@ async fn test_balances_all() {
     {
         let dao_did = "did:mycelix:dao:listing-test";
         for (name, sym) in [("Alpha", "A"), ("Beta", "B"), ("Gamma", "G")] {
-            let _: CurrencyDefinition = conductor
-                .call(
-                    &zome_a,
-                    "create_currency",
-                    CreateCurrencyInput {
-                        dao_did: dao_did.into(),
-                        params: test_params(name, sym),
-                        governance_proposal_id: None,
-                    },
-                )
-                .await;
+            let _: CurrencyDefinition = call_with_retry(
+                &conductor,
+                &zome_a,
+                "create_currency",
+                CreateCurrencyInput {
+                    dao_did: dao_did.into(),
+                    params: test_params(name, sym),
+                    governance_proposal_id: None,
+                },
+            )
+            .await;
         }
 
         let currencies: Vec<CurrencyDefinition> = conductor
