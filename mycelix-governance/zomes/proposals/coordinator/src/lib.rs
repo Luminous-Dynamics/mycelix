@@ -168,6 +168,8 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
 
     let records = query(filter)?;
 
+    // Take the LAST match — update_entry appends newer versions later in the chain
+    let mut found: Option<Record> = None;
     for record in records {
         if let Some(proposal) = record
             .entry()
@@ -175,12 +177,12 @@ pub fn get_proposal(proposal_id: String) -> ExternResult<Option<Record>> {
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if proposal.id == proposal_id {
-                return Ok(Some(record));
+                found = Some(record);
             }
         }
     }
 
-    Ok(None)
+    Ok(found)
 }
 
 /// Get active proposals
@@ -307,6 +309,17 @@ pub fn update_proposal_status(input: UpdateStatusInput) -> ExternResult<Record> 
         current_record.action_address().clone(),
         &EntryTypes::Proposal(updated_proposal),
     )?;
+
+    // Create active_proposals link when transitioning TO Active
+    if !was_active && new_status == ProposalStatus::Active {
+        create_entry(&EntryTypes::Anchor(Anchor("active_proposals".to_string())))?;
+        create_link(
+            anchor_hash("active_proposals")?,
+            action_hash.clone(),
+            LinkTypes::ActiveProposals,
+            (),
+        )?;
+    }
 
     // Clean up active_proposals link when transitioning away from Active
     if was_active && new_status != ProposalStatus::Active {

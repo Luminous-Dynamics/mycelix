@@ -830,6 +830,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "price_oracle"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix_finance_shared",
+ "price_oracle_integrity",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "price_oracle_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

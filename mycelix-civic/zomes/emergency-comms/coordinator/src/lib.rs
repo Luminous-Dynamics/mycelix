@@ -149,6 +149,15 @@ pub fn create_channel(input: CreateChannelInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // Link to all_channels anchor for enumeration
+    create_entry(&EntryTypes::Anchor(Anchor("all_channels".to_string())))?;
+    create_link(
+        anchor_hash("all_channels")?,
+        action_hash.clone(),
+        LinkTypes::AllChannels,
+        (),
+    )?;
+
     get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created channel".into()
     )))
@@ -288,6 +297,26 @@ pub fn get_channel_messages(channel_hash: ActionHash) -> ExternResult<Vec<Record
 
     messages.sort_by_key(|a| a.action().timestamp());
     Ok(messages)
+}
+
+/// Get all channels
+#[hdk_extern]
+pub fn get_channels(_: ()) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash("all_channels")?, LinkTypes::AllChannels)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut channels = Vec::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get_latest_record(action_hash)? {
+            channels.push(record);
+        }
+    }
+
+    Ok(channels)
 }
 
 /// Get active broadcasts (non-expired)

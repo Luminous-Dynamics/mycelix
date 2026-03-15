@@ -1001,6 +1001,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "jurisdiction"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "governance-utils",
+ "hdk",
+ "jurisdiction_integrity",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jurisdiction_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "k256"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1095,6 +1118,16 @@ checksum = "a160ffed3c2f98d2906c67a9b6e4e1f09cca7e17e3f780286a349061459eeebe"
 dependencies = [
  "futures",
  "pin-utils",
+]
+
+[[package]]
+name = "mycelix-bridge-entry-types"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
