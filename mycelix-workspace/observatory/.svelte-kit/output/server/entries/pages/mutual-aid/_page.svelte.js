@@ -1,24 +1,36 @@
-import { c as create_ssr_component, a as subscribe, e as escape, b as each } from "../../../chunks/ssr.js";
+import { c as create_ssr_component, a as subscribe, o as onDestroy } from "../../../chunks/ssr.js";
 import { w as writable } from "../../../chunks/index.js";
+import { c as createFreshness, b as getServiceOffers, d as getServiceRequests } from "../../../chunks/freshness.js";
 import "../../../chunks/conductor.js";
 const Page = create_ssr_component(($$result, $$props, $$bindings, slots) => {
-  let $offers, $$unsubscribe_offers;
   let $requests, $$unsubscribe_requests;
+  let $offers, $$unsubscribe_offers;
   const offers = writable([]);
   $$unsubscribe_offers = subscribe(offers, (value) => $offers = value);
   const requests = writable([]);
   $$unsubscribe_requests = subscribe(requests, (value) => $requests = value);
-  $$unsubscribe_offers();
+  let searchQuery = "";
+  function matchesSearch(...fields) {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return fields.some((f) => f && f.toLowerCase().includes(q));
+  }
+  function matchesCategory(category) {
+    return true;
+  }
+  async function fetchData() {
+    const [o, r] = await Promise.all([getServiceOffers(), getServiceRequests()]);
+    offers.set(o);
+    requests.set(r);
+  }
+  const freshness = createFreshness(fetchData, 12e4);
+  const { stopPolling } = freshness;
+  onDestroy(() => stopPolling());
+  $offers.filter((o) => matchesSearch(o.title, o.description) && matchesCategory(o.category));
+  $requests.filter((r) => matchesSearch(r.title, r.description) && matchesCategory(r.category));
   $$unsubscribe_requests();
-  return `${$$result.head += `<!-- HEAD_svelte-1839n2y_START -->${$$result.title = `<title>Mutual Aid | Mycelix Observatory</title>`, ""}<!-- HEAD_svelte-1839n2y_END -->`, ""} <div class="text-white"><header class="bg-gray-800/50 border-b border-gray-700 px-4 py-2"><div class="container mx-auto flex justify-between items-center"><div class="flex items-center gap-2" data-svelte-h="svelte-1qk59lg"><span class="text-xl">🤲</span> <div><h1 class="text-lg font-bold">Mutual Aid Timebank</h1> <p class="text-xs text-gray-400">Community care, neighbor to neighbor</p></div></div> <div class="flex items-center gap-4"><div class="text-right"><p class="text-xs text-gray-400" data-svelte-h="svelte-1hygofd">Active Offers</p> <p class="text-lg font-bold text-green-400">${escape($offers.length)}</p></div> <div class="text-right"><p class="text-xs text-gray-400" data-svelte-h="svelte-12ja9vm">Open Requests</p> <p class="text-lg font-bold text-orange-400">${escape($requests.filter((r) => !r.fulfilled).length)}</p></div></div></div></header> <main class="container mx-auto p-6"> <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"><div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><h3 class="text-gray-400 text-xs uppercase" data-svelte-h="svelte-1qy91o9">Active Offers</h3> <p class="text-2xl font-bold mt-1 text-green-400">${escape($offers.length)}</p></div> <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><h3 class="text-gray-400 text-xs uppercase" data-svelte-h="svelte-tsoajs">Open Requests</h3> <p class="text-2xl font-bold mt-1 text-orange-400">${escape($requests.filter((r) => !r.fulfilled).length)}</p></div> <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><h3 class="text-gray-400 text-xs uppercase" data-svelte-h="svelte-35s7vm">Hours Offered</h3> <p class="text-2xl font-bold mt-1 text-blue-400">${escape($offers.reduce((s, o) => s + o.hours_available, 0))}</p></div> <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><h3 class="text-gray-400 text-xs uppercase" data-svelte-h="svelte-k36bv4">Hours Needed</h3> <p class="text-2xl font-bold mt-1 text-purple-400">${escape($requests.filter((r) => !r.fulfilled).reduce((s, r) => s + r.hours_needed, 0))}</p></div></div>  <div class="flex gap-3 mb-6"><button class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition-colors" data-svelte-h="svelte-oius77">+ Offer Help</button> <button class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded text-sm font-medium transition-colors" data-svelte-h="svelte-1wh39or">+ Request Help</button></div>  ${``}  ${``}  <div class="bg-gray-800 rounded-lg border border-gray-700"><div class="p-4 border-b border-gray-700 flex items-center gap-4"><div class="flex gap-1"><button class="${"px-3 py-1 rounded text-sm " + escape(
-    "bg-green-600",
-    true
-  ) + " transition-colors"}">Offers (${escape($offers.length)})</button> <button class="${"px-3 py-1 rounded text-sm " + escape(
-    "bg-gray-700 hover:bg-gray-600",
-    true
-  ) + " transition-colors"}">Requests (${escape($requests.length)})</button></div></div> <div class="p-4 space-y-3">${`${$offers.length ? each($offers, (offer) => {
-    return `<div class="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700/70 transition-colors"><div class="flex justify-between items-start"><div><div class="flex items-center gap-2"><p class="font-medium">${escape(offer.title)}</p> <span class="text-xs px-2 py-0.5 rounded bg-gray-600 text-gray-300">${escape(offer.category)}</span> ${offer.recurring ? `<span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/50" data-svelte-h="svelte-1rjf6ab">Recurring</span>` : ``}</div> <p class="text-xs text-gray-400 mt-1">${escape(offer.description)}</p></div> <div class="text-right"><span class="text-sm font-bold text-green-400">${escape(offer.hours_available)}h</span> </div></div> <div class="flex justify-between text-xs text-gray-500 mt-2"><span>by ${escape(offer.provider_did)}</span> <span>${escape(new Date(offer.created_at).toLocaleDateString())}</span></div> </div>`;
-  }) : `<p class="text-gray-500 text-center py-8" data-svelte-h="svelte-gxlemm">No offers yet. Be the first to help!</p>`}`}</div></div> <footer class="mt-8 text-center text-gray-500 text-sm" data-svelte-h="svelte-14cmnz8"><p>Mutual Aid Timebank · Mycelix Commons</p></footer></main></div>`;
+  $$unsubscribe_offers();
+  return `${$$result.head += `<!-- HEAD_svelte-1839n2y_START -->${$$result.title = `<title>Mutual Aid | Mycelix Observatory</title>`, ""}<!-- HEAD_svelte-1839n2y_END -->`, ""} ${`<div class="text-white p-8 text-center text-gray-400" data-svelte-h="svelte-1ucku6e">Loading mutual aid data...</div>`}`;
 });
 export {
   Page as default

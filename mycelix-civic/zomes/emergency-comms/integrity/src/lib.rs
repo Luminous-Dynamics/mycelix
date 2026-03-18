@@ -94,7 +94,6 @@ pub enum LinkTypes {
     AgentToMessage,
     UnsyncedMessages,
     ActiveBroadcasts,
-    AllChannels,
 }
 
 #[hdk_extern]
@@ -171,14 +170,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::ActiveBroadcasts => {
-                    if tag_len > 256 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Link tag too long (max 256 bytes)".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::AllChannels => {
                     if tag_len > 256 {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Link tag too long (max 256 bytes)".into(),

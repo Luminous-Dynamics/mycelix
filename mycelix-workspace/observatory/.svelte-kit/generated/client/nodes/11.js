@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/tend/+page.svelte";
+export { default as component } from "../../../../src/routes/household/+page.svelte";

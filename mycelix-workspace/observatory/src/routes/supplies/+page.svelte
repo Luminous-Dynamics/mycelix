@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import {
     getAllInventoryItems,
     getLowStockItems,
@@ -8,6 +8,10 @@
     type InventoryItem,
     type LowStockItem,
   } from '$lib/resilience-client';
+  import { toasts } from '$lib/toast';
+  import { exportInventoryCsv } from '$lib/data-export';
+  import { createFreshness } from '$lib/freshness';
+  import FreshnessBar from '$lib/components/FreshnessBar.svelte';
 
   let items: InventoryItem[] = [];
   let lowStock: LowStockItem[] = [];
@@ -43,18 +47,24 @@
 
   const CATEGORIES = ['Food', 'Water', 'Medical', 'Fuel', 'Hygiene', 'Shelter'];
 
+  // Freshness — 2min polling
+  async function fetchData() {
+    [items, lowStock] = await Promise.all([
+      getAllInventoryItems(),
+      getLowStockItems(),
+    ]);
+  }
+
+  const freshness = createFreshness(fetchData, 120_000);
+  const { lastUpdated, loadError, refreshing, startPolling, stopPolling, refresh } = freshness;
+
   onMount(async () => {
-    try {
-      [items, lowStock] = await Promise.all([
-        getAllInventoryItems(),
-        getLowStockItems(),
-      ]);
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load supply data';
-    } finally {
-      loading = false;
-    }
+    await refresh();
+    loading = false;
+    startPolling();
   });
+
+  onDestroy(() => stopPolling());
 
   $: categories = [...new Set(items.map(i => i.category))].sort();
 
@@ -86,14 +96,15 @@
     try {
       const created = await addInventoryItem({
         ...newItem,
-        description: newItem.description || null,
-        created_at: Date.now(),
+        description: newItem.description || undefined,
       });
       items = [created, ...items];
       newItem = resetNewItem();
       showAddForm = false;
+      toasts.success('Item added');
     } catch (e) {
       addError = e instanceof Error ? e.message : 'Failed to add item';
+      toasts.error(addError);
     } finally {
       addSubmitting = false;
     }
@@ -118,8 +129,10 @@
       stockFormOpen[itemId] = false;
       stockQuantity[itemId] = 0;
       stockNotes[itemId] = '';
+      toasts.success('Stock updated');
     } catch (e) {
       stockError[itemId] = e instanceof Error ? e.message : 'Failed to update stock';
+      toasts.error(stockError[itemId]);
     } finally {
       stockSubmitting[itemId] = false;
     }
@@ -128,11 +141,13 @@
 
 <div class="min-h-screen bg-gray-950 text-gray-100 p-6">
   <div class="container mx-auto max-w-6xl">
+    <FreshnessBar {lastUpdated} {loadError} {refreshing} {refresh} />
     <div class="flex items-center justify-between mb-1">
       <h1 class="text-2xl font-bold">Community Supplies</h1>
       <button
         class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-amber-700 hover:bg-amber-600 text-white"
         on:click={() => { showAddForm = !showAddForm; addError = ''; }}
+        aria-label={showAddForm ? 'Cancel adding new item' : 'Add new inventory item'}
       >
         {showAddForm ? 'Cancel' : '+ Add Item'}
       </button>
@@ -235,6 +250,7 @@
                 type="submit"
                 disabled={addSubmitting}
                 class="px-6 py-2 rounded-lg text-sm font-semibold transition-colors bg-amber-700 hover:bg-amber-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Submit new inventory item"
               >
                 {addSubmitting ? 'Adding...' : 'Add Item'}
               </button>
@@ -284,11 +300,13 @@
         <button
           class="px-3 py-1 rounded-full text-sm transition-colors {!filterCategory ? 'bg-amber-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}"
           on:click={() => filterCategory = ''}
+          aria-label="Show all categories"
         >All</button>
         {#each categories as cat}
           <button
             class="px-3 py-1 rounded-full text-sm transition-colors {filterCategory === cat ? 'bg-amber-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}"
             on:click={() => filterCategory = cat}
+            aria-label="Filter by {cat}"
           >{cat}</button>
         {/each}
       </div>
@@ -313,6 +331,7 @@
                 <button
                   class="px-3 py-1 rounded text-xs font-medium transition-colors bg-amber-800/60 hover:bg-amber-700 text-amber-200"
                   on:click={() => toggleStockForm(item.id)}
+                  aria-label={stockFormOpen[item.id] ? `Cancel stock update for ${item.name}` : `Update stock for ${item.name}`}
                 >
                   {stockFormOpen[item.id] ? 'Cancel' : 'Update Stock'}
                 </button>
@@ -332,7 +351,7 @@
                 {#if stockError[item.id]}
                   <div class="bg-red-900/30 border border-red-500 rounded p-2 text-red-200 text-xs mb-3">{stockError[item.id]}</div>
                 {/if}
-                <form on:submit|preventDefault={() => handleUpdateStock(item.id)} class="flex flex-wrap items-end gap-3">
+                <form on:submit|preventDefault={() => handleUpdateStock(item.id)} class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-2 sm:gap-3">
                   <div>
                     <label class="block text-xs text-gray-400 mb-1" for="stock-qty-{item.id}">Quantity</label>
                     <input
@@ -358,6 +377,7 @@
                     type="submit"
                     disabled={stockSubmitting[item.id]}
                     class="px-4 py-1 rounded text-sm font-semibold transition-colors bg-amber-700 hover:bg-amber-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Save stock update for {item.name}"
                   >
                     {stockSubmitting[item.id] ? 'Saving...' : 'Save'}
                   </button>
@@ -373,6 +393,14 @@
           <p class="text-lg">No items in this category.</p>
         </div>
       {/if}
+
+      <div class="mt-6 flex justify-end">
+        <button on:click={() => exportInventoryCsv(items)}
+          class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300 transition-colors"
+          aria-label="Export inventory data as CSV file">
+          Export Inventory CSV
+        </button>
+      </div>
     {/if}
   </div>
 </div>

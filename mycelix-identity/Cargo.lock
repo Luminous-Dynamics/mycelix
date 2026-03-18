@@ -105,6 +105,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468ef7d57b3fb7e16b576e8377cdbde2320c60e1491e961d11da40fc4f02a2d"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+ "cpufeatures",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1181,6 +1195,7 @@ dependencies = [
 name = "mycelix-bridge-common"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "hdk",
  "serde",
 ]
@@ -1203,6 +1218,28 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "zeroize",
+]
+
+[[package]]
+name = "name_registry_coordinator"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "name_registry_integrity",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "name_registry_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2120,6 +2157,28 @@ checksum = "312e32e551d92129218ea9a2452120f4aabc03529ef03e4d0d82fb2780608598"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "web_of_trust_coordinator"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "serde",
+ "serde_json",
+ "web_of_trust_integrity",
+]
+
+[[package]]
+name = "web_of_trust_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

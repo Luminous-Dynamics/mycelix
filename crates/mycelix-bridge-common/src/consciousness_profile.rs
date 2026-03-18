@@ -25,6 +25,47 @@ use crate::consciousness_thresholds::{
 };
 
 // ============================================================================
+// Sigmoid authorization constants
+// ============================================================================
+
+/// Default sigmoid temperature for vote weight computation.
+/// 0.05 provides a smooth transition over ~±0.1 around the threshold.
+pub const VOTE_WEIGHT_TEMPERATURE: f64 = 0.05;
+
+/// Maximum vote weight (basis points: 10000 = 100%).
+pub const VOTE_WEIGHT_MAX_BP: f64 = 10000.0;
+
+/// Hysteresis margin for tier transitions.
+/// Promotion requires `threshold + margin`; demotion requires `threshold - margin`.
+pub const TIER_HYSTERESIS_MARGIN: f64 = 0.05;
+
+// ============================================================================
+// Continuous sigmoid authorization
+// ============================================================================
+
+/// Compute continuous vote weight using sigmoid function.
+///
+/// Instead of hard tier thresholds, this provides a smooth gradient:
+/// `W = W_max / (1 + e^(-(score - threshold) / temperature))`
+///
+/// - score < threshold: weight approaches 0 smoothly
+/// - score = threshold: weight = W_max / 2
+/// - score > threshold: weight approaches W_max smoothly
+///
+/// Temperature controls strictness:
+/// - low temperature (0.02): sharp transition (like hard threshold)
+/// - high temperature (0.10): gradual transition (noise-tolerant)
+pub fn continuous_vote_weight(score: f64, threshold: f64, temperature: f64, max_weight: f64) -> f64 {
+    if temperature <= 0.0 || !score.is_finite() {
+        return 0.0;
+    }
+    let exponent = -((score - threshold) / temperature);
+    // Clamp exponent to prevent overflow
+    let exponent = exponent.clamp(-20.0, 20.0);
+    max_weight / (1.0 + exponent.exp())
+}
+
+// ============================================================================
 // Core types
 // ============================================================================
 
@@ -69,6 +110,26 @@ impl ConsciousnessProfile {
     /// Derive the consciousness tier from this profile's combined score.
     pub fn tier(&self) -> ConsciousnessTier {
         ConsciousnessTier::from_score(self.combined_score())
+    }
+
+    /// Derive consciousness tier with hysteresis, given the current tier.
+    ///
+    /// Prevents rapid tier oscillation from measurement noise at boundaries.
+    pub fn tier_with_hysteresis(&self, current_tier: ConsciousnessTier) -> ConsciousnessTier {
+        ConsciousnessTier::from_score_with_hysteresis(self.combined_score(), current_tier)
+    }
+
+    /// Compute continuous vote weight for governance participation.
+    ///
+    /// Uses sigmoid function centered at Citizen threshold (0.4)
+    /// with temperature 0.05 for noise-tolerant transitions.
+    pub fn vote_weight_continuous(&self) -> f64 {
+        continuous_vote_weight(
+            self.combined_score(),
+            0.4, // Citizen threshold
+            VOTE_WEIGHT_TEMPERATURE,
+            VOTE_WEIGHT_MAX_BP,
+        )
     }
 
     /// Create a profile with all dimensions at zero (anonymous, no history).
@@ -166,6 +227,13 @@ pub struct ConsciousnessCredential {
     pub expires_at: u64,
     /// DID of the issuing bridge (e.g., "did:mycelix:<identity_bridge_pubkey>").
     pub issuer: String,
+    /// BLAKE3 hash of the agent's behavioral trajectory (from TrajectoryAccumulator).
+    #[serde(default)]
+    pub trajectory_commitment: Option<[u8; 32]>,
+    /// Extensible key-value store for future credential features.
+    /// Avoids adding new `Option<T>` fields for every feature.
+    #[serde(default)]
+    pub extensions: std::collections::HashMap<String, Vec<u8>>,
 }
 
 impl ConsciousnessCredential {
@@ -211,7 +279,35 @@ impl ConsciousnessCredential {
             issued_at: now_us,
             expires_at: now_us + Self::DEFAULT_TTL_US,
             issuer,
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         }
+    }
+
+    /// Set an extension value.
+    pub fn set_extension(&mut self, key: impl Into<String>, value: Vec<u8>) {
+        self.extensions.insert(key.into(), value);
+    }
+
+    /// Get an extension value.
+    pub fn get_extension(&self, key: &str) -> Option<&Vec<u8>> {
+        self.extensions.get(key)
+    }
+
+    /// Remove an extension value.
+    pub fn remove_extension(&mut self, key: &str) -> Option<Vec<u8>> {
+        self.extensions.remove(key)
+    }
+
+    /// Set the trajectory commitment from a TrajectoryAccumulator's output.
+    pub fn with_trajectory_commitment(mut self, commitment: [u8; 32]) -> Self {
+        self.trajectory_commitment = Some(commitment);
+        self
+    }
+
+    /// Check if the credential has a trajectory binding.
+    pub fn has_trajectory_binding(&self) -> bool {
+        self.trajectory_commitment.is_some()
     }
 }
 
@@ -276,6 +372,79 @@ impl ConsciousnessTier {
             Self::Guardian => 10000,
         }
     }
+
+    /// Tier transition with hysteresis to prevent oscillation at boundaries.
+    ///
+    /// Promotion requires crossing `threshold + TIER_HYSTERESIS_MARGIN`.
+    /// Demotion requires dropping below `threshold - TIER_HYSTERESIS_MARGIN`.
+    /// This prevents rapid tier flapping from measurement noise.
+    pub fn from_score_with_hysteresis(score: f64, current_tier: ConsciousnessTier) -> ConsciousnessTier {
+        let margin = TIER_HYSTERESIS_MARGIN;
+
+        // Determine what tier we'd promote to (higher threshold required)
+        let promoted = if score >= 0.8 + margin {
+            ConsciousnessTier::Guardian
+        } else if score >= 0.6 + margin {
+            ConsciousnessTier::Steward
+        } else if score >= 0.4 + margin {
+            ConsciousnessTier::Citizen
+        } else if score >= 0.3 + margin {
+            ConsciousnessTier::Participant
+        } else {
+            ConsciousnessTier::Observer
+        };
+
+        // Determine what tier we'd demote to (lower threshold required)
+        let demoted = if score < 0.3 - margin {
+            ConsciousnessTier::Observer
+        } else if score < 0.4 - margin {
+            ConsciousnessTier::Participant
+        } else if score < 0.6 - margin {
+            ConsciousnessTier::Citizen
+        } else if score < 0.8 - margin {
+            ConsciousnessTier::Steward
+        } else {
+            ConsciousnessTier::Guardian
+        };
+
+        // Promote if we'd go higher, demote if we'd go lower, else stay
+        if promoted > current_tier {
+            promoted
+        } else if demoted < current_tier {
+            demoted
+        } else {
+            current_tier
+        }
+    }
+
+    /// Degrade the tier by `levels` steps. Floors at Observer.
+    pub fn degrade(self, levels: u32) -> Self {
+        let tiers = [
+            Self::Observer,
+            Self::Participant,
+            Self::Citizen,
+            Self::Steward,
+            Self::Guardian,
+        ];
+        let current_idx = tiers.iter().position(|t| *t == self).unwrap_or(0);
+        let new_idx = current_idx.saturating_sub(levels as usize);
+        tiers[new_idx]
+    }
+
+    /// Upgrade one level, capped at `max_tier`.
+    pub fn upgrade_capped(self, max_tier: Self) -> Self {
+        let tiers = [
+            Self::Observer,
+            Self::Participant,
+            Self::Citizen,
+            Self::Steward,
+            Self::Guardian,
+        ];
+        let current_idx = tiers.iter().position(|t| *t == self).unwrap_or(0);
+        let max_idx = tiers.iter().position(|t| *t == max_tier).unwrap_or(0);
+        let new_idx = (current_idx + 1).min(max_idx);
+        tiers[new_idx]
+    }
 }
 
 // ============================================================================
@@ -310,6 +479,14 @@ pub struct GovernanceEligibility {
     pub profile: ConsciousnessProfile,
     /// Why ineligible (empty if eligible).
     pub reasons: Vec<String>,
+    /// Restoration progress (0.0–1.0). 1.0 for non-blacklisted agents.
+    /// Only meaningful when used with `evaluate_governance_with_reputation`.
+    #[serde(default = "default_restoration_progress")]
+    pub restoration_progress: f64,
+}
+
+fn default_restoration_progress() -> f64 {
+    1.0
 }
 
 // ============================================================================
@@ -416,6 +593,8 @@ pub fn bootstrap_credential(
         issued_at: now_us,
         expires_at: now_us.saturating_add(BOOTSTRAP_TTL_US),
         issuer: "did:mycelix:bootstrap".to_string(),
+        trajectory_commitment: None,
+        extensions: std::collections::HashMap::new(),
     }
 }
 
@@ -433,6 +612,7 @@ pub fn evaluate_bootstrap_governance(
             tier: ConsciousnessTier::Observer,
             profile: credential.profile.clone(),
             reasons: vec!["Bootstrap credential expired".into()],
+            restoration_progress: 1.0,
         };
     }
     if requirement.min_tier > ConsciousnessTier::Participant {
@@ -445,6 +625,7 @@ pub fn evaluate_bootstrap_governance(
                 "Bootstrap credentials are capped at Participant; {:?} required",
                 requirement.min_tier,
             )],
+            restoration_progress: 1.0,
         };
     }
     if let Some(min_id) = requirement.min_identity {
@@ -458,6 +639,7 @@ pub fn evaluate_bootstrap_governance(
                     "Identity {:.2} below required {:.2}",
                     credential.profile.identity, min_id,
                 )],
+                restoration_progress: 1.0,
             };
         }
     }
@@ -467,6 +649,7 @@ pub fn evaluate_bootstrap_governance(
         tier: ConsciousnessTier::Participant,
         profile: credential.profile.clone(),
         reasons: vec!["Bootstrap credential: temporary Participant access".into()],
+        restoration_progress: 1.0,
     }
 }
 
@@ -529,6 +712,7 @@ pub fn evaluate_governance(
                 tier,
                 profile: clamped,
                 reasons,
+                restoration_progress: 1.0,
             };
         }
 
@@ -541,6 +725,7 @@ pub fn evaluate_governance(
                 "Credential expired at {} (now {})",
                 credential.expires_at, now_us
             )],
+            restoration_progress: 1.0,
         };
     }
     let clamped = credential.profile.clamped();
@@ -587,6 +772,7 @@ pub fn evaluate_governance(
         tier,
         profile: clamped,
         reasons,
+        restoration_progress: 1.0,
     }
 }
 
@@ -805,6 +991,269 @@ pub struct GovernanceAuditResult {
 }
 
 // ============================================================================
+// Reputation Decay, Slashing, and Restoration
+// ============================================================================
+
+/// Reputation decay rate per day (multiplicative).
+/// Half-life ~347 days: `0.998^347 ~ 0.500`.
+///
+/// Basis: Dunbar (2010) — social relationships require maintenance;
+/// trust fades without sustained positive interaction.
+pub const REPUTATION_DECAY_PER_DAY: f64 = 0.998;
+
+/// Slashing factor for detected Byzantine behavior.
+/// Applied as: `reputation *= (1.0 - SLASH_FACTOR)`.
+///
+/// Basis: Ostrom (1990) — graduated sanctions in commons governance.
+/// First offense halves reputation; recovery is possible but slow.
+pub const REPUTATION_SLASH_FACTOR: f64 = 0.5;
+
+/// Reputation floor below which an agent is considered blacklisted.
+/// At this level, the agent cannot participate in governance.
+///
+/// Basis: Axelrod (1984) — sustained defection warrants exclusion,
+/// but the threshold must be low enough to allow recovery.
+pub const REPUTATION_BLACKLIST_THRESHOLD: f64 = 0.05;
+
+/// Minimum consecutive good interactions to lift a blacklist.
+///
+/// Basis: Ubuntu restorative justice — redemption through demonstrated
+/// commitment to community norms. 100 interactions ~ weeks of good behavior.
+pub const REPUTATION_RESTORATION_INTERACTIONS: u32 = 100;
+
+/// Maximum slash events before permanent reputation cap at 0.5.
+/// Prevents repeated gaming of slash/recovery cycles.
+///
+/// Basis: Three-strikes principle with proportional response.
+pub const REPUTATION_MAX_SLASHES: u32 = 5;
+
+/// Reputation state for an agent, tracking decay and sanctions.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReputationState {
+    /// Current reputation score (0.0-1.0).
+    pub score: f64,
+    /// Last update timestamp (microseconds since epoch).
+    pub last_updated_us: u64,
+    /// Number of consecutive good interactions since last slash.
+    pub consecutive_good: u32,
+    /// Total slash events in this agent's history.
+    pub total_slashes: u32,
+    /// Whether the agent is currently blacklisted.
+    pub blacklisted: bool,
+    /// Timestamp at which blacklist was applied (for duration tracking).
+    pub blacklisted_since_us: Option<u64>,
+}
+
+impl Default for ReputationState {
+    fn default() -> Self {
+        Self {
+            score: 0.0,
+            last_updated_us: 0,
+            consecutive_good: 0,
+            total_slashes: 0,
+            blacklisted: false,
+            blacklisted_since_us: None,
+        }
+    }
+}
+
+impl ReputationState {
+    /// Create a new reputation state with the given initial score and timestamp.
+    pub fn new(initial_score: f64, now_us: u64) -> Self {
+        let sanitized = if initial_score.is_finite() {
+            initial_score.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        Self {
+            score: sanitized,
+            last_updated_us: now_us,
+            ..Default::default()
+        }
+    }
+
+    /// Apply temporal decay based on elapsed time.
+    ///
+    /// `reputation *= DECAY^days_elapsed`
+    ///
+    /// Uses microsecond timestamps. Safe for NaN/Inf inputs (clamps to 0).
+    pub fn apply_decay(&mut self, now_us: u64) {
+        if now_us <= self.last_updated_us {
+            return; // No time elapsed or clock skew
+        }
+        let elapsed_us = now_us - self.last_updated_us;
+        let elapsed_days = elapsed_us as f64 / 86_400_000_000.0;
+
+        if !elapsed_days.is_finite() || elapsed_days <= 0.0 {
+            return;
+        }
+
+        let decay_factor = REPUTATION_DECAY_PER_DAY.powf(elapsed_days);
+        if decay_factor.is_finite() {
+            self.score = (self.score * decay_factor).clamp(0.0, 1.0);
+        } else {
+            self.score = 0.0; // Extreme elapsed time -> full decay
+        }
+        self.last_updated_us = now_us;
+
+        // Check blacklist threshold after decay
+        self.check_blacklist(now_us);
+    }
+
+    /// Record a positive interaction, incrementing the consecutive good count.
+    ///
+    /// If the agent is blacklisted and reaches RESTORATION_INTERACTIONS,
+    /// the blacklist is lifted (Ubuntu restorative justice model).
+    pub fn record_good_interaction(&mut self, reputation_boost: f64, now_us: u64) {
+        self.apply_decay(now_us);
+        self.consecutive_good = self.consecutive_good.saturating_add(1);
+
+        // Apply reputation boost (clamped to prevent abuse)
+        let effective_boost = reputation_boost.clamp(0.0, 0.1);
+        let cap = if self.total_slashes >= REPUTATION_MAX_SLASHES {
+            0.5 // Permanent cap after max slashes
+        } else {
+            1.0
+        };
+        self.score = (self.score + effective_boost).clamp(0.0, cap);
+
+        // Check restoration
+        if self.blacklisted && self.consecutive_good >= REPUTATION_RESTORATION_INTERACTIONS {
+            self.blacklisted = false;
+            self.blacklisted_since_us = None;
+            // Restore to minimum Participant threshold
+            self.score = self.score.max(0.1);
+        }
+    }
+
+    /// Apply a reputation slash for detected Byzantine behavior.
+    ///
+    /// Resets consecutive good interactions. Checks blacklist after slashing.
+    ///
+    /// Returns the new reputation score.
+    pub fn slash(&mut self, now_us: u64) -> f64 {
+        self.apply_decay(now_us);
+        self.score *= 1.0 - REPUTATION_SLASH_FACTOR;
+        self.score = self.score.clamp(0.0, 1.0);
+        self.consecutive_good = 0;
+        self.total_slashes = self.total_slashes.saturating_add(1);
+        self.check_blacklist(now_us);
+        self.score
+    }
+
+    /// Apply a proportional slash with a custom factor.
+    ///
+    /// `factor` is clamped to [0.0, 1.0]. Applied as: `score *= (1.0 - factor)`.
+    pub fn slash_proportional(&mut self, factor: f64, now_us: u64) -> f64 {
+        self.apply_decay(now_us);
+        let clamped_factor = factor.clamp(0.0, 1.0);
+        self.score *= 1.0 - clamped_factor;
+        self.score = self.score.clamp(0.0, 1.0);
+        self.consecutive_good = 0;
+        self.total_slashes = self.total_slashes.saturating_add(1);
+        self.check_blacklist(now_us);
+        self.score
+    }
+
+    /// Check and update blacklist status.
+    fn check_blacklist(&mut self, now_us: u64) {
+        if self.score < REPUTATION_BLACKLIST_THRESHOLD && !self.blacklisted {
+            self.blacklisted = true;
+            self.blacklisted_since_us = Some(now_us);
+        }
+    }
+
+    /// Whether this agent can participate in governance.
+    ///
+    /// Blacklisted agents are excluded from all governance actions
+    /// until they complete the restoration path.
+    pub fn can_participate(&self) -> bool {
+        !self.blacklisted
+    }
+
+    /// Restoration progress (0.0-1.0).
+    ///
+    /// Returns 1.0 for non-blacklisted agents.
+    /// For blacklisted agents, tracks progress toward RESTORATION_INTERACTIONS.
+    pub fn restoration_progress(&self) -> f64 {
+        if !self.blacklisted {
+            return 1.0;
+        }
+        (self.consecutive_good as f64 / REPUTATION_RESTORATION_INTERACTIONS as f64).clamp(0.0, 1.0)
+    }
+}
+
+/// Apply reputation decay to a ConsciousnessProfile's reputation dimension.
+///
+/// Convenience function for use in credential issuance pipelines.
+pub fn decay_reputation(profile: &ConsciousnessProfile, elapsed_days: f64) -> ConsciousnessProfile {
+    if !elapsed_days.is_finite() || elapsed_days <= 0.0 {
+        return profile.clone();
+    }
+    let decay_factor = REPUTATION_DECAY_PER_DAY.powf(elapsed_days);
+    let decayed_rep = if decay_factor.is_finite() {
+        (profile.reputation * decay_factor).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    ConsciousnessProfile {
+        identity: profile.identity,
+        reputation: decayed_rep,
+        community: profile.community,
+        engagement: profile.engagement,
+    }
+}
+
+/// Evaluate governance with reputation state integration.
+///
+/// Wraps `evaluate_governance` but also checks blacklist status
+/// and applies restoration progress to vote weight.
+///
+/// # TOCTOU Warning
+///
+/// This function checks `reputation_state.blacklisted` at call time, but the
+/// on-chain reputation may change between this check and the commit of the
+/// governance action. Callers in coordinator zomes SHOULD re-check blacklist
+/// status at commit time (e.g., in a `validate_*` callback) to close this
+/// race window. In practice the risk is low (blacklisting is rare and requires
+/// reputation < 0.05), but high-severity governance actions (constitutional
+/// amendments, treasury operations) warrant the extra check.
+pub fn evaluate_governance_with_reputation(
+    credential: &ConsciousnessCredential,
+    requirement: &GovernanceRequirement,
+    reputation_state: &ReputationState,
+    now_us: u64,
+) -> GovernanceEligibility {
+    // Blacklisted agents cannot participate
+    if reputation_state.blacklisted {
+        return GovernanceEligibility {
+            eligible: false,
+            weight_bp: 0,
+            tier: ConsciousnessTier::Observer,
+            profile: credential.profile.clone(),
+            reasons: vec![format!(
+                "Blacklisted: reputation {:.3} below threshold {:.3}. Restoration progress: {:.0}%",
+                reputation_state.score,
+                REPUTATION_BLACKLIST_THRESHOLD,
+                reputation_state.restoration_progress() * 100.0,
+            )],
+            restoration_progress: reputation_state.restoration_progress(),
+        };
+    }
+
+    // Evaluate normally
+    let mut result = evaluate_governance(credential, requirement, now_us);
+
+    // Scale vote weight by slash penalty if agent has been slashed before
+    if reputation_state.total_slashes > 0 {
+        let slash_penalty = 1.0 - (reputation_state.total_slashes as f64 * 0.05).min(0.25);
+        result.weight_bp = (result.weight_bp as f64 * slash_penalty) as u32;
+    }
+
+    result
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -825,6 +1274,8 @@ mod tests {
             issued_at: NOW - 60_000_000,
             expires_at: NOW + 86_400_000_000,
             issuer: "test".to_string(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         }
     }
 
@@ -1286,6 +1737,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 1_000_000 + ConsciousnessCredential::DEFAULT_TTL_US,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(!cred.is_expired(1_000_000));
         assert!(!cred.is_expired(1_000_000 + ConsciousnessCredential::DEFAULT_TTL_US - 1));
@@ -1300,6 +1753,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 1_000_000 + ConsciousnessCredential::DEFAULT_TTL_US,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(cred.is_expired(cred.expires_at));
         assert!(cred.is_expired(cred.expires_at + 1));
@@ -1355,6 +1810,8 @@ mod tests {
             issued_at: 1_700_000_000_000_000,
             expires_at: 1_700_000_000_000_000 + ConsciousnessCredential::DEFAULT_TTL_US,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         let json = serde_json::to_string(&cred).unwrap();
         let c2: ConsciousnessCredential = serde_json::from_str(&json).unwrap();
@@ -1487,6 +1944,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 2_000_000,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(!cred.is_expired(1_999_999));
     }
@@ -1500,6 +1959,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 2_000_000,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         // >= means expired at exact boundary
         assert!(cred.is_expired(2_000_000));
@@ -1514,6 +1975,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 2_000_000,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(cred.is_expired(2_000_001));
     }
@@ -1527,6 +1990,8 @@ mod tests {
             issued_at: 1_000_000,
             expires_at: 1_000_000, // zero TTL
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(cred.is_expired(1_000_000));
     }
@@ -1540,6 +2005,8 @@ mod tests {
             issued_at: 0,
             expires_at: u64::MAX,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         // Any reasonable timestamp is before u64::MAX
         assert!(!cred.is_expired(1_700_000_000_000_000));
@@ -1554,6 +2021,8 @@ mod tests {
             issued_at: 0,
             expires_at: u64::MAX,
             issuer: "did:mycelix:issuer".into(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
         };
         assert!(cred.is_expired(u64::MAX));
     }
@@ -2513,5 +2982,445 @@ mod tests {
             // Tier is always valid (no panic)
             let _tier = clamped.tier();
         }
+    }
+
+    // ========================================================================
+    // Reputation decay, slashing, and restoration tests
+    // ========================================================================
+
+    #[test]
+    fn test_reputation_decay_one_day() {
+        let mut state = ReputationState::new(1.0, 0);
+        let one_day_us = 86_400_000_000u64;
+        state.apply_decay(one_day_us);
+        assert!(
+            (state.score - REPUTATION_DECAY_PER_DAY).abs() < 1e-6,
+            "After 1 day, score should be {}, got {}",
+            REPUTATION_DECAY_PER_DAY,
+            state.score
+        );
+    }
+
+    #[test]
+    fn test_reputation_decay_half_life() {
+        let mut state = ReputationState::new(1.0, 0);
+        let days_347_us = 347 * 86_400_000_000u64;
+        state.apply_decay(days_347_us);
+        assert!(
+            state.score > 0.49 && state.score < 0.51,
+            "After ~347 days, score should be ~0.5, got {}",
+            state.score
+        );
+    }
+
+    #[test]
+    fn test_reputation_no_decay_on_zero_elapsed() {
+        let mut state = ReputationState::new(0.8, 1000);
+        state.apply_decay(1000); // same timestamp
+        assert!((state.score - 0.8).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_reputation_slash() {
+        let mut state = ReputationState::new(1.0, 0);
+        let new_score = state.slash(1000);
+        assert!(
+            (new_score - 0.5).abs() < 1e-6,
+            "After slash, score should be 0.5, got {}",
+            new_score
+        );
+        assert_eq!(state.total_slashes, 1);
+        assert_eq!(state.consecutive_good, 0);
+    }
+
+    #[test]
+    fn test_reputation_slash_below_blacklist() {
+        let mut state = ReputationState::new(0.08, 0);
+        state.slash(1000);
+        // 0.08 * 0.5 = 0.04 < 0.05 threshold
+        assert!(state.blacklisted);
+        assert!(!state.can_participate());
+    }
+
+    #[test]
+    fn test_reputation_restoration_path() {
+        let mut state = ReputationState::new(0.03, 0);
+        state.blacklisted = true;
+        state.blacklisted_since_us = Some(0);
+
+        // Progress through restoration
+        for i in 0..REPUTATION_RESTORATION_INTERACTIONS {
+            assert!(
+                state.blacklisted,
+                "Should still be blacklisted at interaction {}",
+                i
+            );
+            state.record_good_interaction(0.001, 1000 + i as u64 * 1000);
+        }
+
+        assert!(
+            !state.blacklisted,
+            "Should be restored after {} good interactions",
+            REPUTATION_RESTORATION_INTERACTIONS
+        );
+        assert!(
+            state.score >= 0.1,
+            "Score should be at least 0.1 after restoration"
+        );
+    }
+
+    #[test]
+    fn test_reputation_max_slashes_cap() {
+        let mut state = ReputationState::new(1.0, 0);
+
+        // Slash more than MAX_SLASHES times
+        for i in 0..(REPUTATION_MAX_SLASHES + 2) {
+            state.score = 0.8; // Reset score to test cap
+            state.slash(i as u64 * 1000);
+        }
+
+        // Now good interactions should be capped at 0.5
+        state.score = 0.3;
+        state.blacklisted = false;
+        for i in 0..200 {
+            state.record_good_interaction(0.01, 1_000_000 + i as u64 * 1000);
+        }
+        assert!(
+            state.score <= 0.5 + 1e-6,
+            "Score should be capped at 0.5 after {} slashes, got {}",
+            REPUTATION_MAX_SLASHES,
+            state.score
+        );
+    }
+
+    #[test]
+    fn test_reputation_proportional_slash() {
+        let mut state = ReputationState::new(1.0, 0);
+        state.slash_proportional(0.3, 1000);
+        assert!((state.score - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_reputation_restoration_progress() {
+        let mut state = ReputationState::new(0.01, 0);
+        state.blacklisted = true;
+        state.blacklisted_since_us = Some(0);
+        state.consecutive_good = 50;
+
+        let progress = state.restoration_progress();
+        assert!(
+            (progress - 0.5).abs() < 1e-6,
+            "50/{} should be 50% progress, got {}",
+            REPUTATION_RESTORATION_INTERACTIONS,
+            progress
+        );
+    }
+
+    #[test]
+    fn test_reputation_non_blacklisted_full_progress() {
+        let state = ReputationState::new(0.8, 0);
+        assert!((state.restoration_progress() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_decay_reputation_profile() {
+        let profile = ConsciousnessProfile {
+            identity: 0.9,
+            reputation: 1.0,
+            community: 0.7,
+            engagement: 0.5,
+        };
+        let decayed = decay_reputation(&profile, 30.0);
+        assert!(
+            (decayed.identity - 0.9).abs() < 1e-10,
+            "Identity should not decay"
+        );
+        assert!(decayed.reputation < 1.0, "Reputation should decay");
+        assert!(
+            (decayed.community - 0.7).abs() < 1e-10,
+            "Community should not decay"
+        );
+    }
+
+    #[test]
+    fn test_evaluate_governance_blacklisted() {
+        let credential = ConsciousnessCredential {
+            did: "did:mycelix:test".to_string(),
+            profile: ConsciousnessProfile {
+                identity: 0.9,
+                reputation: 0.01,
+                community: 0.8,
+                engagement: 0.7,
+            },
+            tier: ConsciousnessTier::Citizen,
+            issued_at: 0,
+            expires_at: 100_000_000_000,
+            issuer: "did:mycelix:bridge".to_string(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
+        };
+        let rep_state = ReputationState {
+            score: 0.01,
+            blacklisted: true,
+            blacklisted_since_us: Some(0),
+            consecutive_good: 20,
+            total_slashes: 2,
+            last_updated_us: 0,
+        };
+        let requirement = GovernanceRequirement {
+            min_tier: ConsciousnessTier::Participant,
+            min_identity: None,
+            min_community: None,
+        };
+
+        let result = evaluate_governance_with_reputation(
+            &credential,
+            &requirement,
+            &rep_state,
+            50_000_000_000,
+        );
+        assert!(!result.eligible, "Blacklisted agent should not be eligible");
+        assert_eq!(result.weight_bp, 0);
+    }
+
+    #[test]
+    fn test_evaluate_governance_slash_penalty() {
+        let credential = ConsciousnessCredential {
+            did: "did:mycelix:test".to_string(),
+            profile: ConsciousnessProfile {
+                identity: 0.9,
+                reputation: 0.8,
+                community: 0.8,
+                engagement: 0.7,
+            },
+            tier: ConsciousnessTier::Steward,
+            issued_at: 0,
+            expires_at: 100_000_000_000,
+            issuer: "did:mycelix:bridge".to_string(),
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
+        };
+        let rep_state = ReputationState {
+            score: 0.8,
+            blacklisted: false,
+            blacklisted_since_us: None,
+            consecutive_good: 50,
+            total_slashes: 2, // 2 slashes -> 10% weight reduction
+            last_updated_us: 0,
+        };
+        let requirement = GovernanceRequirement {
+            min_tier: ConsciousnessTier::Participant,
+            min_identity: None,
+            min_community: None,
+        };
+
+        let result = evaluate_governance_with_reputation(
+            &credential,
+            &requirement,
+            &rep_state,
+            50_000_000_000,
+        );
+        assert!(result.eligible);
+        // Weight should be reduced by slash penalty
+        let base_weight = credential.profile.clamped().tier().vote_weight_bp();
+        assert!(
+            result.weight_bp < base_weight,
+            "Weight {} should be less than base {} due to slash penalty",
+            result.weight_bp,
+            base_weight
+        );
+    }
+
+    #[test]
+    fn test_reputation_nan_safety() {
+        let state = ReputationState::new(f64::NAN, 0);
+        assert!(
+            (state.score - 0.0).abs() < 1e-10,
+            "NaN should clamp to 0"
+        );
+
+        let mut state2 = ReputationState::new(0.5, 0);
+        state2.apply_decay(u64::MAX); // extreme elapsed time
+        assert!(state2.score.is_finite());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Continuous sigmoid authorization tests
+    // ════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_sigmoid_at_threshold_returns_half_max() {
+        let w = continuous_vote_weight(0.4, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            (w - VOTE_WEIGHT_MAX_BP / 2.0).abs() < 1e-6,
+            "At threshold, weight should be max/2, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_sigmoid_below_threshold_near_zero() {
+        let w = continuous_vote_weight(0.1, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            w < 100.0,
+            "Well below threshold, weight should be near zero, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_sigmoid_above_threshold_near_max() {
+        let w = continuous_vote_weight(0.7, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            w > 9900.0,
+            "Well above threshold, weight should be near max, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_sigmoid_zero_temperature_returns_zero() {
+        let w = continuous_vote_weight(0.5, 0.4, 0.0, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            (w - 0.0).abs() < 1e-10,
+            "Zero temperature should return 0.0, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_sigmoid_nan_score_returns_zero() {
+        let w = continuous_vote_weight(f64::NAN, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            (w - 0.0).abs() < 1e-10,
+            "NaN score should return 0.0, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_sigmoid_infinity_score_returns_zero() {
+        let w = continuous_vote_weight(f64::INFINITY, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        assert!(
+            (w - 0.0).abs() < 1e-10,
+            "Infinity score should return 0.0, got {w}"
+        );
+    }
+
+    #[test]
+    fn test_vote_weight_continuous_on_profile() {
+        let profile = ConsciousnessProfile {
+            identity: 0.5,
+            reputation: 0.5,
+            community: 0.5,
+            engagement: 0.5,
+        };
+        // combined_score = 0.5, which is above 0.4 threshold
+        let w = profile.vote_weight_continuous();
+        assert!(w > VOTE_WEIGHT_MAX_BP / 2.0, "Score 0.5 > threshold 0.4 should give > half max");
+        assert!(w < VOTE_WEIGHT_MAX_BP, "Should not exceed max");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Hysteresis tests
+    // ════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hysteresis_no_promote_in_deadband() {
+        // Score 0.42 — above Citizen threshold (0.4) but below promote threshold (0.45)
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.42, ConsciousnessTier::Participant);
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Participant,
+            "0.42 should NOT promote from Participant (need 0.45)"
+        );
+    }
+
+    #[test]
+    fn test_hysteresis_no_demote_in_deadband() {
+        // Score 0.38 — below Citizen threshold (0.4) but above demote threshold (0.35)
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.38, ConsciousnessTier::Citizen);
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Citizen,
+            "0.38 should NOT demote from Citizen (need < 0.35)"
+        );
+    }
+
+    #[test]
+    fn test_hysteresis_demotes_below_lower_threshold() {
+        // Score 0.34 — below demote threshold (0.35)
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.34, ConsciousnessTier::Citizen);
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Participant,
+            "0.34 should demote from Citizen (below 0.35)"
+        );
+    }
+
+    #[test]
+    fn test_hysteresis_promotes_above_upper_threshold() {
+        // Score 0.46 — above promote threshold (0.45)
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.46, ConsciousnessTier::Participant);
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Citizen,
+            "0.46 should promote from Participant to Citizen (above 0.45)"
+        );
+    }
+
+    #[test]
+    fn test_hysteresis_guardian_boundary() {
+        // 0.83 — above 0.8 but below promote threshold 0.85
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.83, ConsciousnessTier::Steward);
+        assert_eq!(tier, ConsciousnessTier::Steward, "0.83 should NOT promote to Guardian (need 0.85)");
+
+        // 0.86 — above promote threshold 0.85
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.86, ConsciousnessTier::Steward);
+        assert_eq!(tier, ConsciousnessTier::Guardian, "0.86 should promote to Guardian");
+
+        // 0.76 — below demote threshold 0.75
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.74, ConsciousnessTier::Guardian);
+        assert_eq!(tier, ConsciousnessTier::Steward, "0.74 should demote from Guardian");
+    }
+
+    #[test]
+    fn test_hysteresis_observer_boundary() {
+        // 0.33 — above 0.3 but below promote threshold 0.35
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.33, ConsciousnessTier::Observer);
+        assert_eq!(tier, ConsciousnessTier::Observer, "0.33 should NOT promote from Observer (need 0.35)");
+
+        // 0.36 — above promote threshold 0.35
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.36, ConsciousnessTier::Observer);
+        assert_eq!(tier, ConsciousnessTier::Participant, "0.36 should promote to Participant");
+
+        // 0.24 — below demote threshold 0.25
+        let tier = ConsciousnessTier::from_score_with_hysteresis(0.24, ConsciousnessTier::Participant);
+        assert_eq!(tier, ConsciousnessTier::Observer, "0.24 should demote to Observer");
+    }
+
+    #[test]
+    fn extensions_default_empty() {
+        let cred = ConsciousnessCredential::from_unified_consciousness(
+            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+        );
+        assert!(cred.extensions.is_empty());
+        assert!(cred.trajectory_commitment.is_none());
+    }
+
+    #[test]
+    fn extensions_set_get_roundtrip() {
+        let mut cred = ConsciousnessCredential::from_unified_consciousness(
+            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+        );
+        cred.set_extension("foo", vec![1, 2, 3]);
+        assert_eq!(cred.get_extension("foo"), Some(&vec![1, 2, 3]));
+        assert_eq!(cred.get_extension("bar"), None);
+    }
+
+    #[test]
+    fn extensions_remove() {
+        let mut cred = ConsciousnessCredential::from_unified_consciousness(
+            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+        );
+        cred.set_extension("key", vec![42]);
+        let removed = cred.remove_extension("key");
+        assert_eq!(removed, Some(vec![42]));
+        assert!(cred.get_extension("key").is_none());
     }
 }

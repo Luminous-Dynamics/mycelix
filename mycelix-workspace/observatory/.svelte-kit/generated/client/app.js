@@ -13,23 +13,43 @@ export const nodes = [
 	() => import('./nodes/9'),
 	() => import('./nodes/10'),
 	() => import('./nodes/11'),
-	() => import('./nodes/12')
+	() => import('./nodes/12'),
+	() => import('./nodes/13'),
+	() => import('./nodes/14'),
+	() => import('./nodes/15'),
+	() => import('./nodes/16'),
+	() => import('./nodes/17'),
+	() => import('./nodes/18'),
+	() => import('./nodes/19'),
+	() => import('./nodes/20'),
+	() => import('./nodes/21'),
+	() => import('./nodes/22')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
 		"/": [2],
-		"/analytics": [3],
-		"/attribution": [4],
-		"/emergency": [5],
-		"/epistemic-markets": [6],
-		"/food": [7],
-		"/governance": [8],
-		"/mutual-aid": [9],
-		"/network": [10],
-		"/tend": [11],
-		"/value-anchor": [12]
+		"/admin": [3],
+		"/analytics": [4],
+		"/attribution": [5],
+		"/care-circles": [6],
+		"/emergency": [7],
+		"/epistemic-markets": [8],
+		"/food": [9],
+		"/governance": [10],
+		"/household": [11],
+		"/knowledge": [12],
+		"/mutual-aid": [13],
+		"/network": [14],
+		"/print": [15],
+		"/resilience": [16],
+		"/shelter": [17],
+		"/supplies": [18],
+		"/tend": [19],
+		"/value-anchor": [20],
+		"/water": [21],
+		"/welcome": [22]
 	};
 
 export const hooks = {

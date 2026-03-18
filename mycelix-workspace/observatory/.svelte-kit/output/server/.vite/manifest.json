@@ -9,11 +9,31 @@
       "_environment.js"
     ]
   },
+  "_FreshnessBar.js": {
+    "file": "chunks/FreshnessBar.js",
+    "name": "FreshnessBar",
+    "imports": [
+      "_ssr.js",
+      "_freshness.js"
+    ]
+  },
+  "_community.js": {
+    "file": "chunks/community.js",
+    "name": "community"
+  },
   "_conductor.js": {
     "file": "chunks/conductor.js",
     "name": "conductor",
     "imports": [
       "_index.js"
+    ]
+  },
+  "_connection-health.js": {
+    "file": "chunks/connection-health.js",
+    "name": "connection-health",
+    "imports": [
+      "_index.js",
+      "_conductor.js"
     ]
   },
   "_environment.js": {
@@ -23,6 +43,15 @@
   "_exports.js": {
     "file": "chunks/exports.js",
     "name": "exports"
+  },
+  "_freshness.js": {
+    "file": "chunks/freshness.js",
+    "name": "freshness",
+    "imports": [
+      "_conductor.js",
+      "_community.js",
+      "_index.js"
+    ]
   },
   "_index.js": {
     "file": "chunks/index.js",
@@ -55,8 +84,26 @@
     "file": "chunks/ssr2.js",
     "name": "ssr"
   },
+  "_state.svelte.js": {
+    "file": "chunks/state.svelte.js",
+    "name": "state.svelte",
+    "imports": [
+      "_ssr2.js",
+      "_exports.js"
+    ]
+  },
   "_stores.js": {
     "file": "chunks/stores.js",
+    "name": "stores",
+    "imports": [
+      "_ssr.js",
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js"
+    ]
+  },
+  "_stores2.js": {
+    "file": "chunks/stores2.js",
     "name": "stores",
     "imports": [
       "_index.js",
@@ -72,7 +119,8 @@
     "name": "value-basket",
     "imports": [
       "_index.js",
-      "_conductor.js"
+      "_conductor.js",
+      "_community.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.55.0_@sveltejs+vite-plugin-svelte@3.1.2_svelte@4.2.20_vite@5.4.21_light_fd23d82fce577b17bbeee1073e2cdcc6/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
@@ -83,18 +131,6 @@
     "imports": [
       "_shared.js",
       "_environment.js"
-    ]
-  },
-  "node_modules/.pnpm/@sveltejs+kit@2.55.0_@sveltejs+vite-plugin-svelte@3.1.2_svelte@4.2.20_vite@5.4.21_light_fd23d82fce577b17bbeee1073e2cdcc6/node_modules/@sveltejs/kit/src/runtime/components/svelte-4/error.svelte": {
-    "file": "entries/fallbacks/error.svelte.js",
-    "name": "entries/fallbacks/error.svelte",
-    "src": "node_modules/.pnpm/@sveltejs+kit@2.55.0_@sveltejs+vite-plugin-svelte@3.1.2_svelte@4.2.20_vite@5.4.21_light_fd23d82fce577b17bbeee1073e2cdcc6/node_modules/@sveltejs/kit/src/runtime/components/svelte-4/error.svelte",
-    "isEntry": true,
-    "imports": [
-      "_ssr.js",
-      "_exports.js",
-      "_utils.js",
-      "_ssr2.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.55.0_@sveltejs+vite-plugin-svelte@3.1.2_svelte@4.2.20_vite@5.4.21_light_fd23d82fce577b17bbeee1073e2cdcc6/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
@@ -111,6 +147,19 @@
       "_internal.js"
     ]
   },
+  "src/routes/+error.svelte": {
+    "file": "entries/pages/_error.svelte.js",
+    "name": "entries/pages/_error.svelte",
+    "src": "src/routes/+error.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_stores.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_error.CJ1n-VYq.css"
+    ]
+  },
   "src/routes/+layout.svelte": {
     "file": "entries/pages/_layout.svelte.js",
     "name": "entries/pages/_layout.svelte",
@@ -119,8 +168,21 @@
     "imports": [
       "_ssr.js",
       "_stores.js",
-      "_conductor.js"
+      "_stores2.js",
+      "_conductor.js",
+      "_connection-health.js",
+      "_value-basket.js",
+      "_index.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_layout.LxVoTd4q.css"
     ]
+  },
+  "src/routes/+layout.ts": {
+    "file": "entries/pages/_layout.ts.js",
+    "name": "entries/pages/_layout.ts",
+    "src": "src/routes/+layout.ts",
+    "isEntry": true
   },
   "src/routes/+page.svelte": {
     "file": "entries/pages/_page.svelte.js",
@@ -129,13 +191,24 @@
     "isEntry": true,
     "imports": [
       "_ssr.js",
-      "_stores.js",
+      "_stores2.js",
       "_conductor.js",
-      "_value-basket.js",
-      "_index.js"
+      "_index.js",
+      "_value-basket.js"
     ],
     "css": [
       "_app/immutable/assets/_page.B18oszhI.css"
+    ]
+  },
+  "src/routes/admin/+page.svelte": {
+    "file": "entries/pages/admin/_page.svelte.js",
+    "name": "entries/pages/admin/_page.svelte",
+    "src": "src/routes/admin/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_freshness.js",
+      "_connection-health.js"
     ]
   },
   "src/routes/analytics/+page.svelte": {
@@ -158,6 +231,16 @@
       "_conductor.js"
     ]
   },
+  "src/routes/care-circles/+page.svelte": {
+    "file": "entries/pages/care-circles/_page.svelte.js",
+    "name": "entries/pages/care-circles/_page.svelte",
+    "src": "src/routes/care-circles/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_conductor.js"
+    ]
+  },
   "src/routes/emergency/+page.svelte": {
     "file": "entries/pages/emergency/_page.svelte.js",
     "name": "entries/pages/emergency/_page.svelte",
@@ -166,6 +249,7 @@
     "imports": [
       "_ssr.js",
       "_index.js",
+      "_freshness.js",
       "_conductor.js"
     ]
   },
@@ -189,6 +273,7 @@
     "imports": [
       "_ssr.js",
       "_index.js",
+      "_freshness.js",
       "_conductor.js"
     ]
   },
@@ -202,6 +287,26 @@
       "_index.js"
     ]
   },
+  "src/routes/household/+page.svelte": {
+    "file": "entries/pages/household/_page.svelte.js",
+    "name": "entries/pages/household/_page.svelte",
+    "src": "src/routes/household/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_conductor.js"
+    ]
+  },
+  "src/routes/knowledge/+page.svelte": {
+    "file": "entries/pages/knowledge/_page.svelte.js",
+    "name": "entries/pages/knowledge/_page.svelte",
+    "src": "src/routes/knowledge/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_conductor.js"
+    ]
+  },
   "src/routes/mutual-aid/+page.svelte": {
     "file": "entries/pages/mutual-aid/_page.svelte.js",
     "name": "entries/pages/mutual-aid/_page.svelte",
@@ -210,6 +315,7 @@
     "imports": [
       "_ssr.js",
       "_index.js",
+      "_freshness.js",
       "_conductor.js"
     ]
   },
@@ -226,6 +332,55 @@
       "_app/immutable/assets/_page.5gpOXjRl.css"
     ]
   },
+  "src/routes/print/+page.svelte": {
+    "file": "entries/pages/print/_page.svelte.js",
+    "name": "entries/pages/print/_page.svelte",
+    "src": "src/routes/print/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_conductor.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.BAdUiMl_.css"
+    ]
+  },
+  "src/routes/resilience/+page.svelte": {
+    "file": "entries/pages/resilience/_page.svelte.js",
+    "name": "entries/pages/resilience/_page.svelte",
+    "src": "src/routes/resilience/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_freshness.js",
+      "_FreshnessBar.js",
+      "_stores2.js",
+      "_community.js",
+      "_conductor.js"
+    ]
+  },
+  "src/routes/shelter/+page.svelte": {
+    "file": "entries/pages/shelter/_page.svelte.js",
+    "name": "entries/pages/shelter/_page.svelte",
+    "src": "src/routes/shelter/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_conductor.js"
+    ]
+  },
+  "src/routes/supplies/+page.svelte": {
+    "file": "entries/pages/supplies/_page.svelte.js",
+    "name": "entries/pages/supplies/_page.svelte",
+    "src": "src/routes/supplies/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_freshness.js",
+      "_conductor.js",
+      "_FreshnessBar.js"
+    ]
+  },
   "src/routes/tend/+page.svelte": {
     "file": "entries/pages/tend/_page.svelte.js",
     "name": "entries/pages/tend/_page.svelte",
@@ -234,8 +389,9 @@
     "imports": [
       "_ssr.js",
       "_index.js",
-      "_conductor.js",
-      "_value-basket.js"
+      "_freshness.js",
+      "_value-basket.js",
+      "_conductor.js"
     ]
   },
   "src/routes/value-anchor/+page.svelte": {
@@ -246,7 +402,32 @@
     "imports": [
       "_ssr.js",
       "_value-basket.js",
-      "_conductor.js"
+      "_conductor.js",
+      "_community.js"
+    ]
+  },
+  "src/routes/water/+page.svelte": {
+    "file": "entries/pages/water/_page.svelte.js",
+    "name": "entries/pages/water/_page.svelte",
+    "src": "src/routes/water/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_freshness.js",
+      "_conductor.js",
+      "_FreshnessBar.js"
+    ]
+  },
+  "src/routes/welcome/+page.svelte": {
+    "file": "entries/pages/welcome/_page.svelte.js",
+    "name": "entries/pages/welcome/_page.svelte",
+    "src": "src/routes/welcome/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_ssr.js",
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js"
     ]
   }
 }

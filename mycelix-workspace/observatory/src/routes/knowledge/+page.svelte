@@ -7,6 +7,7 @@
     type KnowledgeClaim,
     type GraphStats,
   } from '$lib/resilience-client';
+  import { toasts } from '$lib/toast';
 
   let claims: KnowledgeClaim[] = [];
   let stats: GraphStats | null = null;
@@ -73,8 +74,10 @@
       formContent = '';
       formTags = '';
       formConfidence = 0.7;
+      toasts.success('Claim submitted');
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to submit claim';
+      toasts.error(error);
     } finally {
       submitting = false;
     }
@@ -196,6 +199,7 @@
           type="text"
           bind:value={searchTag}
           placeholder="Search by topic (e.g., water-safety, first-aid)..."
+          aria-label="Search knowledge by topic"
           class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
         />
         <button type="submit" class="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-lg text-white transition-colors">Search</button>

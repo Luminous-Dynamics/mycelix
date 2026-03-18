@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
+  import { createFreshness } from '$lib/freshness';
+  import FreshnessBar from '$lib/components/FreshnessBar.svelte';
   import { conductorStatus } from '$lib/stores';
   import {
     getBalance,
@@ -27,8 +30,10 @@
     status: CardStatus;
   }
 
+  import { getDefaultDao } from '$lib/community';
+
   const DEFAULT_MEMBER = 'did:key:local-operator';
-  const DEFAULT_DAO = 'dao:roodepoort';
+  const DEFAULT_DAO = getDefaultDao();
 
   let cards: DomainCard[] = [
     { domain: 'TEND', metric: '--', color: 'bg-green-500', borderColor: 'border-green-700', textColor: 'text-green-400', link: '/tend', status: 'loading' },
@@ -44,14 +49,12 @@
     { domain: 'Supplies', metric: '--', color: 'bg-amber-500', borderColor: 'border-amber-700', textColor: 'text-amber-400', link: '/supplies', status: 'loading' },
   ];
 
-  let lastUpdated: string | null = null;
-
   function updateCard(index: number, metric: string, status: CardStatus) {
     cards[index] = { ...cards[index], metric, status };
     cards = cards;
   }
 
-  onMount(async () => {
+  async function fetchData(): Promise<void> {
     const fetchers: Array<() => Promise<void>> = [
       // 0: TEND — Balance
       async () => {
@@ -137,8 +140,31 @@
     ];
 
     await Promise.all(fetchers.map((fn) => fn()));
-    lastUpdated = new Date().toLocaleTimeString();
+  }
+
+  const { lastUpdated, loadError, refreshing, startPolling, stopPolling, refresh } =
+    createFreshness(fetchData, 120_000);
+
+  onMount(async () => {
+    await refresh();
+    startPolling();
   });
+
+  onDestroy(() => stopPolling());
+
+  function loadCommunityName(): string {
+    if (!browser) return 'Mycelix Community';
+    try {
+      const raw = localStorage.getItem('mycelix-community-config');
+      if (raw) {
+        const cfg = JSON.parse(raw);
+        if (cfg.name) return cfg.name;
+      }
+    } catch { /* ignore */ }
+    return 'Mycelix Community';
+  }
+
+  const communityName = loadCommunityName();
 
   function statusDotColor(status: CardStatus): string {
     switch (status) {
@@ -157,8 +183,10 @@
   <!-- Header -->
   <div class="max-w-6xl mx-auto mb-8">
     <h1 class="text-3xl font-bold text-white">Mycelix Resilience Kit</h1>
-    <p class="text-gray-400 mt-1">Roodepoort Community</p>
+    <p class="text-gray-400 mt-1">{communityName}</p>
   </div>
+
+  <FreshnessBar {lastUpdated} {loadError} {refreshing} {refresh} />
 
   <!-- Domain Grid -->
   <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
@@ -170,7 +198,7 @@
       >
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-gray-400">{card.domain}</span>
-          <span class="w-2.5 h-2.5 rounded-full {statusDotColor(card.status)}"></span>
+          <span class="w-2.5 h-2.5 rounded-full {statusDotColor(card.status)}" aria-hidden="true"></span>
         </div>
         <div class="mt-auto">
           <span class="text-2xl font-bold {card.textColor}">{card.metric}</span>
@@ -189,18 +217,18 @@
           $conductorStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
           $conductorStatus === 'demo' ? 'bg-yellow-400' :
           'bg-red-400'
-        }"></span>
+        }" aria-hidden="true"></span>
         <span class="text-gray-400">Conductor:</span>
         <span class="text-gray-200 capitalize">{$conductorStatus}</span>
       </div>
       <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+        <span class="w-2 h-2 rounded-full bg-yellow-400" aria-hidden="true"></span>
         <span class="text-gray-400">Mesh Bridge:</span>
         <span class="text-gray-200">Standby</span>
       </div>
       <div class="flex items-center gap-2">
         <span class="text-gray-400">Last Updated:</span>
-        <span class="text-gray-200">{lastUpdated ?? 'Fetching...'}</span>
+        <span class="text-gray-200">{$lastUpdated ? new Date($lastUpdated).toLocaleTimeString() : 'Fetching...'}</span>
       </div>
     </div>
   </div>

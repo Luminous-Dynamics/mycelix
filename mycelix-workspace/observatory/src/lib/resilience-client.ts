@@ -6,6 +6,7 @@
  */
 
 import { callZome, isConnected } from './conductor';
+import { enqueue } from './offline-queue';
 
 // ============================================================================
 // Types — TEND (Time Exchange)
@@ -266,7 +267,9 @@ export interface EmergencyChannel {
 // TEND Client
 // ============================================================================
 
-const DEFAULT_DAO = 'roodepoort-resilience';
+// Read DAO identifier from community config (set in community-config.json)
+import { getDefaultDao } from './community';
+const DEFAULT_DAO = getDefaultDao();
 
 export async function getBalance(memberDid: string, daoDid = DEFAULT_DAO): Promise<BalanceInfo> {
   if (!isConnected()) return mockBalance(memberDid, daoDid);
@@ -285,7 +288,20 @@ export async function recordExchange(
   serviceCategory: string,
   daoDid = DEFAULT_DAO,
 ): Promise<ExchangeRecord> {
-  if (!isConnected()) return mockExchange(receiverDid, hours, serviceDescription, serviceCategory);
+  if (!isConnected()) {
+    // Queue for replay when conductor reconnects
+    const queued = await enqueue('tend', 'recordExchange', {
+      receiverDid,
+      hours,
+      serviceDescription,
+      serviceCategory,
+      daoDid,
+    });
+    const mock = mockExchange(receiverDid, hours, serviceDescription, serviceCategory);
+    // Use the queue ID if available so the UI record can be correlated later
+    if (queued) mock.id = `queued-${queued.id}`;
+    return mock;
+  }
   return callZome<ExchangeRecord>({
     role_name: 'finance',
     zome_name: 'tend',
@@ -619,78 +635,142 @@ export async function getTopReporters(item: string, limit = 10): Promise<Reporte
 }
 
 // ============================================================================
-// Types — Water Safety
+// Types — Care Circles
 // ============================================================================
 
-export type HarvestType = 'RoofRainwater' | 'GroundCatchment' | 'FogCollection' | 'DewCollection' | 'Snowmelt';
-export type TankType = 'Underground' | 'Aboveground' | 'Bladder' | 'Cistern' | 'Dam';
-export type AlertSeverity = 'Advisory' | 'Warning' | 'Emergency';
+export interface CareCircle {
+  id: string;
+  name: string;
+  description: string;
+  circle_type: string;
+  location: string;
+  max_members: number;
+  member_count?: number;
+  created_at: number;
+}
+
+export interface CircleMembership {
+  id: string;
+  circle_id: string;
+  member_did: string;
+  role: MemberRole;
+  joined_at: number;
+  active: boolean;
+}
+
+export type MemberRole = 'Organizer' | 'Member' | 'Observer';
+
+// ============================================================================
+// Types — Emergency Shelter
+// ============================================================================
+
+export interface Building {
+  id: string;
+  name: string;
+  address: string;
+  total_units: number;
+  available_units: number;
+}
+
+export interface HousingUnit {
+  id: string;
+  building_id: string;
+  unit_number: string;
+  unit_type: string;
+  bedrooms: number;
+  bathrooms: number;
+  square_meters: number;
+  floor: number;
+  status: string;
+  accessibility_features: string[];
+}
+
+// ============================================================================
+// Types — Supply Tracking
+// ============================================================================
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  sku: string;
+  unit: string;
+  reorder_point: number;
+  reorder_quantity: number;
+}
+
+export interface StockLevel {
+  id: string;
+  item_id: string;
+  quantity: number;
+  location: string;
+  recorded_by: string;
+  recorded_at: number;
+  notes?: string;
+}
+
+export interface LowStockItem {
+  item: InventoryItem;
+  total_stock: number;
+}
+
+// ============================================================================
+// Types — Water Safety
+// ============================================================================
 
 export interface WaterSystem {
   id: string;
   name: string;
-  system_type: HarvestType;
+  system_type: string;
   capacity_liters: number;
+  catchment_area_sqm?: number;
+  efficiency_percent: number;
+  owner_did: string;
   location_lat: number;
   location_lon: number;
-  owner_did: string;
   installed_at: number;
-  catchment_area_sqm: number | null;
-  efficiency_percent: number;
 }
 
 export interface StorageTank {
   id: string;
-  name: string;
+  system_id: string;
   capacity_liters: number;
   current_level_liters: number;
-  tank_type: TankType;
-  connected_system_id: string | null;
-  owner_did: string;
+  material: string;
 }
 
 export interface WaterReading {
   id: string;
   source_id: string;
-  sampler_did: string;
-  timestamp: number;
-  ph: number | null;
-  turbidity_ntu: number | null;
-  tds_ppm: number | null;
-  potability_score: number;
-  meets_who_standards: boolean;
-  meets_epa_standards: boolean;
+  parameter: string;
+  value: number;
+  unit: string;
+  location: string;
+  recorded_at: number;
+  recorder_did: string;
 }
 
 export interface ContaminationAlert {
   id: string;
   source_id: string;
-  severity: AlertSeverity;
   contaminant: string;
   measured_value: number;
   threshold_value: number;
-  reported_by: string;
+  severity: string;
   reported_at: number;
-  resolved_at: number | null;
+  reported_by: string;
 }
 
 // ============================================================================
 // Types — Household (Hearth)
 // ============================================================================
 
-export type HearthAlertType = 'Fire' | 'Flood' | 'Medical' | 'Violence' | 'Other';
-export type HearthAlertSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
-export type SafetyStatus = 'Safe' | 'NeedHelp' | 'Evacuating' | 'Unknown';
-export type HearthResourceType = 'Tools' | 'Food' | 'Water' | 'Medical' | 'Shelter' | 'Communications';
-export type LoanStatus = 'Active' | 'Overdue' | 'Returned';
-
 export interface Hearth {
   id: string;
   name: string;
-  description: string;
-  hearth_type: string;
-  created_by: string;
   member_count: number;
+  created_at: number;
 }
 
 export interface EmergencyPlan {
@@ -714,11 +794,14 @@ export interface HearthAlert {
   alert_type: HearthAlertType;
   severity: HearthAlertSeverity;
   message: string;
-  reporter_did: string;
-  location_hint: string | null;
   created_at: number;
-  resolved_at: number | null;
+  resolved: boolean;
 }
+
+export type HearthAlertType = 'Fire' | 'Flood' | 'Medical' | 'Violence' | 'Other';
+export type HearthAlertSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+export type SafetyStatus = 'Safe' | 'NeedHelp' | 'Evacuating' | 'Unknown';
+export type HearthResourceType = 'Tools' | 'Food' | 'Water' | 'Medical' | 'Shelter' | 'Communications';
 
 export interface SafetyCheckIn {
   id: string;
@@ -744,9 +827,8 @@ export interface ResourceLoan {
   id: string;
   resource_id: string;
   borrower_did: string;
-  due_date: number;
-  status: LoanStatus;
-  created_at: number;
+  lent_at: number;
+  returned_at: number | null;
 }
 
 // ============================================================================
@@ -765,109 +847,11 @@ export interface KnowledgeClaim {
   created_at: number;
 }
 
-export interface KnowledgeRelationship {
-  id: string;
-  source_id: string;
-  target_id: string;
-  relationship_type: string;
-  weight: number;
-}
-
 export interface GraphStats {
   total_claims: number;
   total_relationships: number;
   total_ontologies: number;
   total_concepts: number;
-}
-
-// ============================================================================
-// Types — Care Circles
-// ============================================================================
-
-export type CircleType = 'Neighborhood' | 'Workplace' | 'Faith' | 'Family' | 'School' | string;
-export type MemberRole = 'Organizer' | 'Member' | 'Observer';
-
-export interface CareCircle {
-  id: string;
-  name: string;
-  description: string;
-  location: string;
-  max_members: number;
-  created_by: string;
-  circle_type: CircleType;
-  active: boolean;
-  created_at: number;
-  member_count?: number;
-}
-
-export interface CircleMembership {
-  id: string;
-  circle_id: string;
-  member_did: string;
-  role: MemberRole;
-  joined_at: number;
-  active: boolean;
-}
-
-// ============================================================================
-// Types — Emergency Shelter (Housing)
-// ============================================================================
-
-export type BuildingType = 'Apartment' | 'Townhouse' | 'SingleFamily' | 'Duplex' | 'CoHousing' | 'MixedUse';
-export type UnitType = 'Studio' | 'OneBedroom' | 'TwoBedroom' | 'ThreeBedroom' | 'FourPlus' | 'Accessible' | 'Family';
-export type UnitStatus = 'Available' | 'Occupied' | 'UnderMaintenance' | 'Reserved' | 'Renovation';
-
-export interface Building {
-  id: string;
-  name: string;
-  address: string;
-  location_lat: number;
-  location_lon: number;
-  total_units: number;
-  building_type: BuildingType;
-}
-
-export interface HousingUnit {
-  id: string;
-  building_id: string;
-  unit_number: string;
-  unit_type: UnitType;
-  square_meters: number;
-  floor: number;
-  bedrooms: number;
-  bathrooms: number;
-  accessibility_features: string[];
-  status: UnitStatus;
-}
-
-// ============================================================================
-// Types — Supply Tracking
-// ============================================================================
-
-export type MovementType = 'Inbound' | 'Outbound' | 'Transfer' | 'Adjustment';
-
-export interface InventoryItem {
-  id: string;
-  sku: string;
-  name: string;
-  description: string | null;
-  category: string;
-  unit: string;
-  reorder_point: number;
-  reorder_quantity: number;
-  created_at: number;
-}
-
-export interface StockLevel {
-  item_id: string;
-  location: string;
-  quantity: number;
-  reserved: number;
-}
-
-export interface LowStockItem {
-  item: InventoryItem;
-  total_stock: number;
 }
 
 // ============================================================================
@@ -884,13 +868,13 @@ export async function getAllCareCircles(): Promise<CareCircle[]> {
   });
 }
 
-export async function getCirclesByType(circleType: CircleType): Promise<CareCircle[]> {
-  if (!isConnected()) return mockCareCircles().filter(c => c.circle_type === circleType);
+export async function getCirclesByType(circleType: string): Promise<CareCircle[]> {
+  if (!isConnected()) return mockCareCircles().filter((c) => c.circle_type === circleType);
   return callZome<CareCircle[]>({
     role_name: 'commons_care',
     zome_name: 'care_circles',
     fn_name: 'get_circles_by_type',
-    payload: circleType,
+    payload: { circle_type: circleType },
   });
 }
 
@@ -905,7 +889,14 @@ export async function getCircleMembers(circleHash: string): Promise<CircleMember
 }
 
 export async function joinCircle(circleHash: string, role: MemberRole = 'Member'): Promise<CircleMembership> {
-  if (!isConnected()) return { id: `cm-${Date.now()}`, circle_id: circleHash, member_did: 'self.did', role, joined_at: Date.now(), active: true };
+  if (!isConnected()) return {
+    id: `cm-${Date.now()}`,
+    circle_id: circleHash,
+    member_did: 'self.did',
+    role,
+    joined_at: Date.now(),
+    active: true,
+  };
   return callZome<CircleMembership>({
     role_name: 'commons_care',
     zome_name: 'care_circles',
@@ -919,7 +910,7 @@ export async function joinCircle(circleHash: string, role: MemberRole = 'Member'
 // ============================================================================
 
 export async function getAvailableUnits(): Promise<HousingUnit[]> {
-  if (!isConnected()) return mockAvailableUnits();
+  if (!isConnected()) return mockHousingUnits();
   return callZome<HousingUnit[]>({
     role_name: 'commons_care',
     zome_name: 'housing_units',
@@ -929,7 +920,7 @@ export async function getAvailableUnits(): Promise<HousingUnit[]> {
 }
 
 export async function getBuildingUnits(buildingHash: string): Promise<HousingUnit[]> {
-  if (!isConnected()) return mockAvailableUnits();
+  if (!isConnected()) return mockHousingUnits().filter((u) => u.building_id === buildingHash);
   return callZome<HousingUnit[]>({
     role_name: 'commons_care',
     zome_name: 'housing_units',
@@ -953,12 +944,12 @@ export async function getAllInventoryItems(): Promise<InventoryItem[]> {
 }
 
 export async function getItemsByCategory(category: string): Promise<InventoryItem[]> {
-  if (!isConnected()) return mockInventoryItems().filter(i => i.category.toLowerCase() === category.toLowerCase());
+  if (!isConnected()) return mockInventoryItems().filter((i) => i.category === category);
   return callZome<InventoryItem[]>({
     role_name: 'supplychain',
     zome_name: 'inventory_coordinator',
     fn_name: 'get_items_by_category',
-    payload: category,
+    payload: { category },
   });
 }
 
@@ -972,6 +963,16 @@ export async function getLowStockItems(): Promise<LowStockItem[]> {
   });
 }
 
+export async function getStockLevels(itemHash: string): Promise<StockLevel[]> {
+  if (!isConnected()) return mockStockLevels(itemHash);
+  return callZome<StockLevel[]>({
+    role_name: 'supplychain',
+    zome_name: 'inventory_coordinator',
+    fn_name: 'get_stock_levels',
+    payload: itemHash,
+  });
+}
+
 export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> {
   if (!isConnected()) return { ...item, id: `inv-${Date.now()}` };
   return callZome<InventoryItem>({
@@ -982,23 +983,25 @@ export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise
   });
 }
 
-export async function updateStockLevel(itemHash: string, quantity: number, notes: string): Promise<StockLevel> {
-  if (!isConnected()) return { item_id: itemHash, quantity, location: 'Community store', reserved: 0 };
+export async function updateStockLevel(
+  itemHash: string,
+  quantity: number,
+  notes?: string,
+): Promise<StockLevel> {
+  if (!isConnected()) return {
+    id: `sl-${Date.now()}`,
+    item_id: itemHash,
+    quantity,
+    location: 'Roodepoort Community Store',
+    recorded_by: 'self.did',
+    recorded_at: Date.now(),
+    notes,
+  };
   return callZome<StockLevel>({
     role_name: 'supplychain',
     zome_name: 'inventory_coordinator',
     fn_name: 'record_stock_level',
     payload: { item_hash: itemHash, quantity, notes },
-  });
-}
-
-export async function getStockLevels(itemHash: string): Promise<StockLevel[]> {
-  if (!isConnected()) return [];
-  return callZome<StockLevel[]>({
-    role_name: 'supplychain',
-    zome_name: 'inventory_coordinator',
-    fn_name: 'get_stock_levels',
-    payload: itemHash,
   });
 }
 
@@ -1017,7 +1020,7 @@ export async function getAllWaterSystems(): Promise<WaterSystem[]> {
 }
 
 export async function getMyWaterSystems(): Promise<WaterSystem[]> {
-  if (!isConnected()) return mockWaterSystems().filter(s => s.owner_did === 'self.did');
+  if (!isConnected()) return mockWaterSystems().filter((s) => s.owner_did === 'self.did');
   return callZome<WaterSystem[]>({
     role_name: 'commons_care',
     zome_name: 'water_capture',
@@ -1027,7 +1030,7 @@ export async function getMyWaterSystems(): Promise<WaterSystem[]> {
 }
 
 export async function registerWaterSystem(system: Omit<WaterSystem, 'id'>): Promise<WaterSystem> {
-  if (!isConnected()) return { ...system, id: `ws-${Date.now()}` } as WaterSystem;
+  if (!isConnected()) return { ...system, id: `ws-${Date.now()}` };
   return callZome<WaterSystem>({
     role_name: 'commons_care',
     zome_name: 'water_capture',
@@ -1037,7 +1040,13 @@ export async function registerWaterSystem(system: Omit<WaterSystem, 'id'>): Prom
 }
 
 export async function updateTankLevel(tankHash: string, newLevelLiters: number): Promise<StorageTank> {
-  if (!isConnected()) return mockTanks()[0];
+  if (!isConnected()) return {
+    id: tankHash,
+    system_id: 'ws-001',
+    capacity_liters: 5000,
+    current_level_liters: newLevelLiters,
+    material: 'Polyethylene',
+  };
   return callZome<StorageTank>({
     role_name: 'commons_care',
     zome_name: 'water_capture',
@@ -1047,7 +1056,7 @@ export async function updateTankLevel(tankHash: string, newLevelLiters: number):
 }
 
 export async function submitWaterReading(reading: Omit<WaterReading, 'id'>): Promise<WaterReading> {
-  if (!isConnected()) return { ...reading, id: `wr-${Date.now()}` } as WaterReading;
+  if (!isConnected()) return { ...reading, id: `wr-${Date.now()}` };
   return callZome<WaterReading>({
     role_name: 'commons_care',
     zome_name: 'water_purity',
@@ -1080,9 +1089,9 @@ export async function getMyHearths(): Promise<Hearth[]> {
   });
 }
 
-export async function getEmergencyPlan(hearthHash: string): Promise<EmergencyPlan | null> {
+export async function getEmergencyPlan(hearthHash: string): Promise<EmergencyPlan> {
   if (!isConnected()) return mockEmergencyPlan(hearthHash);
-  return callZome<EmergencyPlan | null>({
+  return callZome<EmergencyPlan>({
     role_name: 'hearth',
     zome_name: 'hearth_emergency',
     fn_name: 'get_emergency_plan',
@@ -1095,12 +1104,18 @@ export async function createEmergencyPlan(
   contacts: EmergencyContact[],
   meetingPoints: string[],
 ): Promise<EmergencyPlan> {
-  if (!isConnected()) return mockEmergencyPlan(hearthHash)!;
+  if (!isConnected()) return {
+    id: `ep-${Date.now()}`,
+    hearth_id: hearthHash,
+    contacts,
+    meeting_points: meetingPoints,
+    last_reviewed: Date.now(),
+  };
   return callZome<EmergencyPlan>({
     role_name: 'hearth',
     zome_name: 'hearth_emergency',
     fn_name: 'create_emergency_plan',
-    payload: { hearth_hash: hearthHash, contacts, meeting_points: meetingPoints, medical_info_hashes: [] },
+    payload: { hearth_hash: hearthHash, contacts, meeting_points: meetingPoints },
   });
 }
 
@@ -1110,17 +1125,25 @@ export async function raiseHearthAlert(
   severity: HearthAlertSeverity,
   message: string,
 ): Promise<HearthAlert> {
-  if (!isConnected()) return mockHearthAlert(hearthHash, alertType, severity, message);
+  if (!isConnected()) return {
+    id: `ha-${Date.now()}`,
+    hearth_id: hearthHash,
+    alert_type: alertType,
+    severity,
+    message,
+    created_at: Date.now(),
+    resolved: false,
+  };
   return callZome<HearthAlert>({
     role_name: 'hearth',
     zome_name: 'hearth_emergency',
     fn_name: 'raise_alert',
-    payload: { hearth_hash: hearthHash, alert_type: alertType, severity, message, location_hint: null },
+    payload: { hearth_hash: hearthHash, alert_type: alertType, severity, message },
   });
 }
 
 export async function getActiveHearthAlerts(hearthHash: string): Promise<HearthAlert[]> {
-  if (!isConnected()) return [];
+  if (!isConnected()) return mockHearthAlerts(hearthHash);
   return callZome<HearthAlert[]>({
     role_name: 'hearth',
     zome_name: 'hearth_emergency',
@@ -1129,13 +1152,23 @@ export async function getActiveHearthAlerts(hearthHash: string): Promise<HearthA
   });
 }
 
-export async function checkIn(alertHash: string, status: SafetyStatus): Promise<SafetyCheckIn> {
-  if (!isConnected()) return { id: `ci-${Date.now()}`, alert_id: alertHash, member_did: 'self.did', status, location_hint: null, checked_in_at: Date.now() };
+export async function checkIn(
+  alertHash: string,
+  status: SafetyStatus,
+): Promise<SafetyCheckIn> {
+  if (!isConnected()) return {
+    id: `sci-${Date.now()}`,
+    alert_id: alertHash,
+    member_did: 'self.did',
+    status,
+    location_hint: null,
+    checked_in_at: Date.now(),
+  };
   return callZome<SafetyCheckIn>({
     role_name: 'hearth',
     zome_name: 'hearth_emergency',
     fn_name: 'check_in',
-    payload: { alert_hash: alertHash, status, location_hint: null },
+    payload: { alert_hash: alertHash, status },
   });
 }
 
@@ -1157,7 +1190,16 @@ export async function registerResource(
   condition: string,
   location: string,
 ): Promise<SharedResource> {
-  if (!isConnected()) return { id: `res-${Date.now()}`, hearth_id: hearthHash, name, description, resource_type: resourceType, current_holder: null, condition, location };
+  if (!isConnected()) return {
+    id: `sr-${Date.now()}`,
+    hearth_id: hearthHash,
+    name,
+    description,
+    resource_type: resourceType,
+    current_holder: null,
+    condition,
+    location,
+  };
   return callZome<SharedResource>({
     role_name: 'hearth',
     zome_name: 'hearth_resources',
@@ -1171,12 +1213,12 @@ export async function registerResource(
 // ============================================================================
 
 export async function searchClaimsByTag(tag: string): Promise<KnowledgeClaim[]> {
-  if (!isConnected()) return mockClaims().filter(c => c.tags.includes(tag));
+  if (!isConnected()) return mockKnowledgeClaims().filter((c) => c.tags.includes(tag));
   return callZome<KnowledgeClaim[]>({
     role_name: 'knowledge',
     zome_name: 'claims',
     fn_name: 'get_claims_by_tag',
-    payload: tag,
+    payload: { tag },
   });
 }
 
@@ -1185,17 +1227,27 @@ export async function submitClaim(
   tags: string[],
   confidence: number,
 ): Promise<KnowledgeClaim> {
-  if (!isConnected()) return { id: `cl-${Date.now()}`, author_did: 'self.did', content, tags, confidence, e_score: 0.5, n_score: 0.5, m_score: 0.5, created_at: Date.now() };
+  if (!isConnected()) return {
+    id: `kc-${Date.now()}`,
+    author_did: 'self.did',
+    content,
+    tags,
+    confidence,
+    e_score: 2,
+    n_score: 1,
+    m_score: 1,
+    created_at: Date.now(),
+  };
   return callZome<KnowledgeClaim>({
     role_name: 'knowledge',
     zome_name: 'claims',
     fn_name: 'submit_claim',
-    payload: { content, tags, confidence, classification: null, sources: [], expires: null },
+    payload: { content, tags, confidence },
   });
 }
 
 export async function getGraphStats(): Promise<GraphStats> {
-  if (!isConnected()) return { total_claims: 47, total_relationships: 83, total_ontologies: 5, total_concepts: 31 };
+  if (!isConnected()) return mockGraphStats();
   return callZome<GraphStats>({
     role_name: 'knowledge',
     zome_name: 'graph',
@@ -1204,13 +1256,13 @@ export async function getGraphStats(): Promise<GraphStats> {
   });
 }
 
-export async function findKnowledgePath(source: string, target: string): Promise<string[]> {
-  if (!isConnected()) return [source, 'intermediate-concept', target];
-  return callZome<string[]>({
+export async function findKnowledgePath(source: string, target: string): Promise<unknown> {
+  if (!isConnected()) return { source, target, path: [source, 'community-resilience', target], hops: 2 };
+  return callZome({
     role_name: 'knowledge',
     zome_name: 'graph',
     fn_name: 'find_path',
-    payload: { source, target, max_depth: 5 },
+    payload: { source, target },
   });
 }
 
@@ -1452,148 +1504,168 @@ function mockVolatility(basketName: string): VolatilityResult {
 }
 
 // ============================================================================
-// Mock Data — Water Safety
-// ============================================================================
-
-function mockWaterSystems(): WaterSystem[] {
-  return [
-    { id: 'ws-001', name: 'Sipho\'s roof tank', system_type: 'RoofRainwater', capacity_liters: 5000, location_lat: -26.14, location_lon: 27.86, owner_did: 'sipho.did', installed_at: Date.now() - 90 * 86400000, catchment_area_sqm: 80, efficiency_percent: 75 },
-    { id: 'ws-002', name: 'Community garden catchment', system_type: 'GroundCatchment', capacity_liters: 10000, location_lat: -26.15, location_lon: 27.87, owner_did: 'community.did', installed_at: Date.now() - 180 * 86400000, catchment_area_sqm: 200, efficiency_percent: 60 },
-    { id: 'ws-003', name: 'Fatima\'s JoJo tank', system_type: 'RoofRainwater', capacity_liters: 2500, location_lat: -26.13, location_lon: 27.85, owner_did: 'fatima.did', installed_at: Date.now() - 30 * 86400000, catchment_area_sqm: 45, efficiency_percent: 80 },
-  ];
-}
-
-function mockTanks(): StorageTank[] {
-  return [
-    { id: 'tk-001', name: 'Main JoJo 5000L', capacity_liters: 5000, current_level_liters: 3200, tank_type: 'Aboveground', connected_system_id: 'ws-001', owner_did: 'sipho.did' },
-    { id: 'tk-002', name: 'Underground cistern', capacity_liters: 10000, current_level_liters: 7500, tank_type: 'Underground', connected_system_id: 'ws-002', owner_did: 'community.did' },
-  ];
-}
-
-function mockWaterAlerts(): ContaminationAlert[] {
-  return [
-    { id: 'wa-001', source_id: 'ws-002', severity: 'Advisory', contaminant: 'E. coli', measured_value: 12, threshold_value: 10, reported_by: 'thandi.did', reported_at: Date.now() - 86400000, resolved_at: null },
-  ];
-}
-
-// ============================================================================
-// Mock Data — Household (Hearth)
-// ============================================================================
-
-function mockHearths(): Hearth[] {
-  return [
-    { id: 'h-001', name: 'Stoltz Household', description: 'Our family unit', hearth_type: 'Family', created_by: 'self.did', member_count: 4 },
-    { id: 'h-002', name: 'Block 7 Neighbors', description: 'Immediate neighborhood mutual support', hearth_type: 'Community', created_by: 'sipho.did', member_count: 12 },
-  ];
-}
-
-function mockEmergencyPlan(hearthId: string): EmergencyPlan {
-  return {
-    id: `ep-${hearthId}`,
-    hearth_id: hearthId,
-    contacts: [
-      { name: 'Dr. Ndlovu', phone: '+27 11 123 4567', relationship: 'Family Doctor' },
-      { name: 'Thandi Mokoena', phone: '+27 82 555 1234', relationship: 'Neighbor / First Aid' },
-      { name: 'ER24', phone: '084 124', relationship: 'Emergency Services' },
-    ],
-    meeting_points: [
-      'Ontdekkers Park entrance (primary)',
-      'Florida Lake parking area (secondary)',
-      'Roodepoort Community Hall (if displaced)',
-    ],
-    last_reviewed: Date.now() - 30 * 86400000,
-  };
-}
-
-function mockHearthAlert(hearthId: string, alertType: HearthAlertType, severity: HearthAlertSeverity, message: string): HearthAlert {
-  return { id: `ha-${Date.now()}`, hearth_id: hearthId, alert_type: alertType, severity, message, reporter_did: 'self.did', location_hint: null, created_at: Date.now(), resolved_at: null };
-}
-
-function mockSharedResources(hearthId: string): SharedResource[] {
-  return [
-    { id: 'res-001', hearth_id: hearthId, name: 'Generator (2kW petrol)', description: 'Portable generator for load shedding', resource_type: 'Tools', current_holder: null, condition: 'Good', location: 'Sipho\'s garage' },
-    { id: 'res-002', hearth_id: hearthId, name: 'First aid kit (comprehensive)', description: 'Full trauma kit with splints, tourniquets', resource_type: 'Medical', current_holder: null, condition: 'Good — restocked March 2026', location: 'Community hall storage' },
-    { id: 'res-003', hearth_id: hearthId, name: '25L water containers (x8)', description: 'Stackable water jerrycans for emergency supply', resource_type: 'Water', current_holder: 'fatima.did', condition: 'Good', location: 'Currently with Fatima' },
-    { id: 'res-004', hearth_id: hearthId, name: 'LoRa mesh relay node', description: 'Raspberry Pi + SX1276 HAT for mesh comms', resource_type: 'Communications', current_holder: null, condition: 'Good — tested March 2026', location: 'Block 7 rooftop' },
-    { id: 'res-005', hearth_id: hearthId, name: 'Camping gas stove + 3 canisters', description: 'Two-burner portable stove', resource_type: 'Tools', current_holder: null, condition: 'Fair', location: 'James\'s shed' },
-  ];
-}
-
-// ============================================================================
-// Mock Data — Community Knowledge
-// ============================================================================
-
-// ============================================================================
-// Mock Data — Care Circles
+// Mock Data — Care Circles (Demo Mode)
 // ============================================================================
 
 function mockCareCircles(): CareCircle[] {
   return [
-    { id: 'cc-001', name: 'Florida Elder Care Circle', description: 'Weekly check-ins on elderly neighbors in Florida, Roodepoort. Medication reminders, companionship, transport to clinic.', location: 'Florida, Roodepoort', max_members: 20, created_by: 'thandi.did', circle_type: 'Neighborhood', active: true, created_at: Date.now() - 60 * 86400000, member_count: 8 },
-    { id: 'cc-002', name: 'Horison Childwatch', description: 'After-school care network. Parents take turns watching kids 14:00-17:00 weekdays.', location: 'Horison, Roodepoort', max_members: 12, created_by: 'fatima.did', circle_type: 'Neighborhood', active: true, created_at: Date.now() - 45 * 86400000, member_count: 6 },
-    { id: 'cc-003', name: 'Community First Responders', description: 'Trained in first aid and CPR. On-call rotation for medical emergencies in the ward.', location: 'Roodepoort Ward 77', max_members: 15, created_by: 'james.did', circle_type: 'Neighborhood', active: true, created_at: Date.now() - 90 * 86400000, member_count: 11 },
-    { id: 'cc-004', name: 'Food Preservation Circle', description: 'Monthly workshops on canning, drying, and fermenting. Shared kitchen access at community hall.', location: 'Ontdekkers Park', max_members: 25, created_by: 'noma.did', circle_type: 'Neighborhood', active: true, created_at: Date.now() - 30 * 86400000, member_count: 14 },
-    { id: 'cc-005', name: 'St. Mary\'s Outreach', description: 'Church-based support for families in financial distress. Food parcels, clothing, school fees.', location: 'Roodepoort CBD', max_members: 30, created_by: 'grace.did', circle_type: 'Faith', active: true, created_at: Date.now() - 120 * 86400000, member_count: 22 },
+    { id: 'cc-001', name: 'Sector 7 Neighbourhood Watch', description: 'Community safety and mutual support for Sector 7 residents', circle_type: 'Neighbourhood', location: 'Sector 7, Roodepoort', max_members: 50, member_count: 34, created_at: Date.now() - 7776000000 },
+    { id: 'cc-002', name: 'Florida Lake Gardeners', description: 'Shared gardening knowledge and seed exchange around Florida Lake', circle_type: 'Neighbourhood', location: 'Florida, Roodepoort', max_members: 30, member_count: 18, created_at: Date.now() - 5184000000 },
+    { id: 'cc-003', name: 'Roodepoort First Responders', description: 'Workplace first-aid trained volunteers for emergency response', circle_type: 'Workplace', location: 'Roodepoort CBD', max_members: 20, member_count: 12, created_at: Date.now() - 2592000000 },
+    { id: 'cc-004', name: "St. Mark's Care Network", description: 'Faith-based elder care and food distribution', circle_type: 'Faith', location: 'Horison, Roodepoort', max_members: 40, member_count: 27, created_at: Date.now() - 10368000000 },
   ];
 }
 
 function mockCircleMembers(circleId: string): CircleMembership[] {
+  const now = Date.now();
+  const members: Record<string, CircleMembership[]> = {
+    'cc-001': [
+      { id: 'cm-001', circle_id: 'cc-001', member_did: 'thandi.did', role: 'Organizer', joined_at: now - 7776000000, active: true },
+      { id: 'cm-002', circle_id: 'cc-001', member_did: 'sipho.did', role: 'Member', joined_at: now - 6048000000, active: true },
+      { id: 'cm-003', circle_id: 'cc-001', member_did: 'nomsa.did', role: 'Member', joined_at: now - 4320000000, active: true },
+    ],
+    'cc-002': [
+      { id: 'cm-004', circle_id: 'cc-002', member_did: 'fatima.did', role: 'Organizer', joined_at: now - 5184000000, active: true },
+      { id: 'cm-005', circle_id: 'cc-002', member_did: 'james.did', role: 'Member', joined_at: now - 3456000000, active: true },
+    ],
+    'cc-003': [
+      { id: 'cm-006', circle_id: 'cc-003', member_did: 'sipho.did', role: 'Organizer', joined_at: now - 2592000000, active: true },
+      { id: 'cm-007', circle_id: 'cc-003', member_did: 'lerato.did', role: 'Member', joined_at: now - 1728000000, active: true },
+    ],
+    'cc-004': [
+      { id: 'cm-008', circle_id: 'cc-004', member_did: 'nomsa.did', role: 'Organizer', joined_at: now - 10368000000, active: true },
+      { id: 'cm-009', circle_id: 'cc-004', member_did: 'grace.did', role: 'Member', joined_at: now - 8640000000, active: true },
+      { id: 'cm-010', circle_id: 'cc-004', member_did: 'busi.did', role: 'Observer', joined_at: now - 6912000000, active: true },
+    ],
+  };
+  return members[circleId] ?? [];
+}
+
+// ============================================================================
+// Mock Data — Emergency Shelter (Demo Mode)
+// ============================================================================
+
+function mockHousingUnits(): HousingUnit[] {
   return [
-    { id: 'cm-001', circle_id: circleId, member_did: 'thandi.did', role: 'Organizer', joined_at: Date.now() - 60 * 86400000, active: true },
-    { id: 'cm-002', circle_id: circleId, member_did: 'sipho.did', role: 'Member', joined_at: Date.now() - 55 * 86400000, active: true },
-    { id: 'cm-003', circle_id: circleId, member_did: 'fatima.did', role: 'Member', joined_at: Date.now() - 50 * 86400000, active: true },
-    { id: 'cm-004', circle_id: circleId, member_did: 'james.did', role: 'Member', joined_at: Date.now() - 45 * 86400000, active: true },
+    { id: 'hu-001', building_id: 'bld-001', unit_number: 'A1', unit_type: 'Studio', bedrooms: 0, bathrooms: 1, square_meters: 28, floor: 0, status: 'Available', accessibility_features: ['WheelchairAccessible', 'GrabBars'] },
+    { id: 'hu-002', building_id: 'bld-001', unit_number: 'B3', unit_type: 'OneBedroom', bedrooms: 1, bathrooms: 1, square_meters: 42, floor: 1, status: 'Available', accessibility_features: [] },
+    { id: 'hu-003', building_id: 'bld-002', unit_number: 'C2', unit_type: 'TwoBedroom', bedrooms: 2, bathrooms: 1, square_meters: 58, floor: 0, status: 'Available', accessibility_features: ['WheelchairAccessible', 'WideDoorways'] },
+    { id: 'hu-004', building_id: 'bld-002', unit_number: 'D1', unit_type: 'ThreeBedroom', bedrooms: 3, bathrooms: 2, square_meters: 76, floor: 1, status: 'Available', accessibility_features: ['GrabBars'] },
   ];
 }
 
 // ============================================================================
-// Mock Data — Emergency Shelter
-// ============================================================================
-
-function mockAvailableUnits(): HousingUnit[] {
-  return [
-    { id: 'hu-001', building_id: 'bld-001', unit_number: '3A', unit_type: 'TwoBedroom', square_meters: 55, floor: 0, bedrooms: 2, bathrooms: 1, accessibility_features: ['WheelchairAccessible', 'WideDoorways'], status: 'Available' },
-    { id: 'hu-002', building_id: 'bld-001', unit_number: '7B', unit_type: 'OneBedroom', square_meters: 38, floor: 1, bedrooms: 1, bathrooms: 1, accessibility_features: [], status: 'Available' },
-    { id: 'hu-003', building_id: 'bld-002', unit_number: '2', unit_type: 'Family', square_meters: 85, floor: 0, bedrooms: 3, bathrooms: 2, accessibility_features: ['GrabBars'], status: 'Available' },
-    { id: 'hu-004', building_id: 'bld-003', unit_number: '1A', unit_type: 'Studio', square_meters: 25, floor: 0, bedrooms: 0, bathrooms: 1, accessibility_features: [], status: 'Available' },
-  ];
-}
-
-// ============================================================================
-// Mock Data — Supply Tracking
+// Mock Data — Supply Tracking (Demo Mode)
 // ============================================================================
 
 function mockInventoryItems(): InventoryItem[] {
   return [
-    { id: 'inv-001', sku: 'FOOD-RICE-25', name: 'Rice (25kg bags)', description: 'Long grain white rice', category: 'Food', unit: 'bag', reorder_point: 10, reorder_quantity: 50, created_at: Date.now() - 30 * 86400000 },
-    { id: 'inv-002', sku: 'FOOD-MEAL-10', name: 'Mealie meal (10kg)', description: 'Super maize meal', category: 'Food', unit: 'bag', reorder_point: 20, reorder_quantity: 100, created_at: Date.now() - 30 * 86400000 },
-    { id: 'inv-003', sku: 'WATER-JER-25', name: 'Water jerrycans (25L)', description: 'Stackable HDPE containers', category: 'Water', unit: 'unit', reorder_point: 5, reorder_quantity: 20, created_at: Date.now() - 60 * 86400000 },
-    { id: 'inv-004', sku: 'MED-FAK-01', name: 'First aid kits (comprehensive)', description: 'Trauma kit with splints, tourniquets, bandages', category: 'Medical', unit: 'kit', reorder_point: 3, reorder_quantity: 10, created_at: Date.now() - 45 * 86400000 },
-    { id: 'inv-005', sku: 'FUEL-GAS-9', name: 'Gas canisters (9kg)', description: 'LPG cooking gas', category: 'Fuel', unit: 'canister', reorder_point: 5, reorder_quantity: 15, created_at: Date.now() - 20 * 86400000 },
-    { id: 'inv-006', sku: 'HYG-SOAP-01', name: 'Bar soap (bulk)', description: 'Antibacterial soap bars', category: 'Hygiene', unit: 'bar', reorder_point: 50, reorder_quantity: 200, created_at: Date.now() - 15 * 86400000 },
-    { id: 'inv-007', sku: 'TOOL-TARP-01', name: 'Tarpaulins (4x6m)', description: 'Heavy-duty waterproof tarps for shelter', category: 'Shelter', unit: 'unit', reorder_point: 3, reorder_quantity: 10, created_at: Date.now() - 40 * 86400000 },
+    { id: 'inv-001', name: 'Rice 5kg bags', description: 'Long-grain white rice, sealed bags', category: 'Food', sku: 'FD-RICE-5KG', unit: 'bags', reorder_point: 20, reorder_quantity: 50 },
+    { id: 'inv-002', name: 'Water purification tablets', description: 'Chlorine-based water treatment, 50 per box', category: 'Water', sku: 'WT-PURIFY-50', unit: 'boxes', reorder_point: 15, reorder_quantity: 40 },
+    { id: 'inv-003', name: 'First aid kits', description: 'Standard community first aid kit with bandages, antiseptic, gloves', category: 'Medical', sku: 'MD-FAID-STD', unit: 'kits', reorder_point: 10, reorder_quantity: 25 },
+    { id: 'inv-004', name: 'Diesel 20L', description: 'Diesel fuel for generator backup', category: 'Fuel', sku: 'FL-DIESEL-20L', unit: 'jerricans', reorder_point: 8, reorder_quantity: 20 },
+    { id: 'inv-005', name: 'Soap bars', description: 'Antibacterial soap, individually wrapped', category: 'Hygiene', sku: 'HY-SOAP-BAR', unit: 'bars', reorder_point: 50, reorder_quantity: 200 },
+    { id: 'inv-006', name: 'Emergency blankets', description: 'Mylar thermal blankets, single-use', category: 'Shelter', sku: 'SH-BLANKET-EM', unit: 'blankets', reorder_point: 30, reorder_quantity: 100 },
   ];
 }
 
 function mockLowStockItems(): LowStockItem[] {
   const items = mockInventoryItems();
   return [
-    { item: items[2], total_stock: 3 },  // Water jerrycans below reorder point (5)
-    { item: items[3], total_stock: 2 },  // First aid kits below reorder point (3)
+    { item: items[3], total_stock: 5 },  // Diesel — below reorder_point of 8
+    { item: items[2], total_stock: 7 },   // First aid kits — below reorder_point of 10
+  ];
+}
+
+function mockStockLevels(itemId: string): StockLevel[] {
+  return [
+    { id: 'sl-001', item_id: itemId, quantity: 35, location: 'Roodepoort Community Store', recorded_by: 'thandi.did', recorded_at: Date.now() - 172800000, notes: 'Monthly count' },
+    { id: 'sl-002', item_id: itemId, quantity: 30, location: 'Roodepoort Community Store', recorded_by: 'sipho.did', recorded_at: Date.now() - 604800000, notes: 'After distribution' },
   ];
 }
 
 // ============================================================================
-// Mock Data — Community Knowledge
+// Mock Data — Water Safety (Demo Mode)
 // ============================================================================
 
-function mockClaims(): KnowledgeClaim[] {
+function mockWaterSystems(): WaterSystem[] {
   return [
-    { id: 'cl-001', author_did: 'sipho.did', content: 'Companion planting: tomatoes + basil reduces aphid damage by ~40%', tags: ['food-production', 'permaculture', 'pest-control'], confidence: 0.85, e_score: 0.7, n_score: 0.5, m_score: 0.6, created_at: Date.now() - 30 * 86400000 },
-    { id: 'cl-002', author_did: 'thandi.did', content: 'Oral rehydration: 1L water + 6 tsp sugar + 0.5 tsp salt. WHO standard for dehydration treatment.', tags: ['first-aid', 'water-safety', 'health'], confidence: 0.98, e_score: 0.95, n_score: 0.8, m_score: 0.9, created_at: Date.now() - 60 * 86400000 },
-    { id: 'cl-003', author_did: 'fatima.did', content: 'Solar panel cleaning: wipe with damp cloth weekly. Dust reduces output 15-25% in Gauteng dry season.', tags: ['energy', 'maintenance', 'solar'], confidence: 0.80, e_score: 0.6, n_score: 0.4, m_score: 0.5, created_at: Date.now() - 15 * 86400000 },
-    { id: 'cl-004', author_did: 'james.did', content: 'Vehicle alternator can charge 12V batteries at 14V/50A. Emergency phone charging via car battery + USB regulator.', tags: ['energy', 'emergency', 'communications'], confidence: 0.90, e_score: 0.8, n_score: 0.3, m_score: 0.7, created_at: Date.now() - 45 * 86400000 },
-    { id: 'cl-005', author_did: 'noma.did', content: 'Bread flour stretching: replace 20% wheat with mealie meal for affordable loaves. Needs 10% more water in dough.', tags: ['food-production', 'baking', 'cost-saving'], confidence: 0.88, e_score: 0.7, n_score: 0.5, m_score: 0.7, created_at: Date.now() - 7 * 86400000 },
-    { id: 'cl-006', author_did: 'community.did', content: 'Rainwater harvesting: first-flush diverter (2L per sqm roof) removes bird droppings and dust before tank.', tags: ['water-safety', 'maintenance', 'infrastructure'], confidence: 0.92, e_score: 0.8, n_score: 0.6, m_score: 0.8, created_at: Date.now() - 20 * 86400000 },
+    { id: 'ws-001', name: 'Sector 7 Community Roof Harvest', system_type: 'RoofRainwater', capacity_liters: 10000, catchment_area_sqm: 120, efficiency_percent: 85, owner_did: 'community.did', location_lat: -26.1496, location_lon: 27.8625, installed_at: Date.now() - 15552000000 },
+    { id: 'ws-002', name: 'Florida Lake Ground Catchment', system_type: 'GroundCatchment', capacity_liters: 25000, catchment_area_sqm: 500, efficiency_percent: 60, owner_did: 'community.did', location_lat: -26.1700, location_lon: 27.9100, installed_at: Date.now() - 31104000000 },
+    { id: 'ws-003', name: 'Hilltop Fog Collector', system_type: 'FogCollection', capacity_liters: 2000, catchment_area_sqm: 40, efficiency_percent: 30, owner_did: 'sipho.did', location_lat: -26.1350, location_lon: 27.8450, installed_at: Date.now() - 7776000000 },
   ];
+}
+
+function mockWaterAlerts(): ContaminationAlert[] {
+  return [
+    { id: 'wa-001', source_id: 'ws-002', contaminant: 'E. coli', measured_value: 12.0, threshold_value: 1.0, severity: 'Warning', reported_at: Date.now() - 86400000, reported_by: 'thandi.did' },
+  ];
+}
+
+// ============================================================================
+// Mock Data — Household / Hearth (Demo Mode)
+// ============================================================================
+
+function mockHearths(): Hearth[] {
+  return [
+    { id: 'hth-001', name: 'Stoltz Family', member_count: 4, created_at: Date.now() - 31104000000 },
+    { id: 'hth-002', name: 'Sector 7 Neighbours', member_count: 8, created_at: Date.now() - 15552000000 },
+  ];
+}
+
+function mockEmergencyPlan(hearthId: string): EmergencyPlan {
+  return {
+    id: 'ep-001',
+    hearth_id: hearthId,
+    contacts: [
+      { name: 'Thandi Mokoena', phone: '+27 72 345 6789', relationship: 'Neighbour' },
+      { name: 'Sipho Nkosi', phone: '+27 83 456 7890', relationship: 'Community Leader' },
+      { name: 'Fatima Patel', phone: '+27 61 567 8901', relationship: 'First Responder', email: 'fatima@roodepoort-responders.org' },
+    ],
+    meeting_points: [
+      'Ontdekkers Park main entrance',
+      'Florida Lake parking area',
+      'St. Mark\'s Church hall, Horison',
+    ],
+    last_reviewed: Date.now() - 2592000000,
+  };
+}
+
+function mockHearthAlerts(hearthId: string): HearthAlert[] {
+  return [
+    { id: 'ha-001', hearth_id: hearthId, alert_type: 'Flood', severity: 'Medium', message: 'Heavy rainfall expected overnight. Secure low-lying items.', created_at: Date.now() - 43200000, resolved: false },
+  ];
+}
+
+function mockSharedResources(hearthId: string): SharedResource[] {
+  return [
+    { id: 'sr-001', hearth_id: hearthId, name: 'Generator (petrol, 2kVA)', description: 'Portable generator for load-shedding backup', resource_type: 'Tools', current_holder: 'sipho.did', condition: 'Good', location: 'Sipho\'s garage' },
+    { id: 'sr-002', hearth_id: hearthId, name: 'Community first-aid kit', description: 'Fully stocked trauma kit, restocked monthly', resource_type: 'Medical', current_holder: null, condition: 'Excellent', location: 'Sector 7 community hall' },
+    { id: 'sr-003', hearth_id: hearthId, name: 'Emergency water drums (4x 25L)', description: 'Clean water storage drums, filled and rotated weekly', resource_type: 'Water', current_holder: null, condition: 'Good', location: 'Thandi\'s backyard' },
+    { id: 'sr-004', hearth_id: hearthId, name: 'Two-way radios (set of 4)', description: 'UHF radios for comms during outages, charged weekly', resource_type: 'Communications', current_holder: 'thandi.did', condition: 'Good', location: 'Thandi\'s house' },
+  ];
+}
+
+// ============================================================================
+// Mock Data — Community Knowledge (Demo Mode)
+// ============================================================================
+
+function mockKnowledgeClaims(): KnowledgeClaim[] {
+  return [
+    { id: 'kc-001', author_did: 'sipho.did', content: 'Companion planting tomatoes with basil reduces aphid damage by approximately 40% in Roodepoort clay soils', tags: ['food-production', 'gardening', 'pest-control'], confidence: 0.85, e_score: 3, n_score: 1, m_score: 2, created_at: Date.now() - 2592000000 },
+    { id: 'kc-002', author_did: 'thandi.did', content: 'Boiling water for 3 minutes at Roodepoort altitude is sufficient to eliminate E. coli and most waterborne pathogens', tags: ['water-safety', 'health', 'purification'], confidence: 0.95, e_score: 4, n_score: 1, m_score: 3, created_at: Date.now() - 5184000000 },
+    { id: 'kc-003', author_did: 'fatima.did', content: 'Direct pressure with a clean cloth for 10 minutes stops most wound bleeding; tourniquets only for limb-threatening haemorrhage', tags: ['first-aid', 'emergency', 'health'], confidence: 0.92, e_score: 4, n_score: 2, m_score: 3, created_at: Date.now() - 7776000000 },
+    { id: 'kc-004', author_did: 'james.did', content: 'Roodepoort loam soil pH averages 5.8-6.2; adding wood ash raises pH by ~0.5 per 1kg/m2 application', tags: ['food-production', 'soil', 'gardening'], confidence: 0.78, e_score: 2, n_score: 0, m_score: 2, created_at: Date.now() - 1296000000 },
+    { id: 'kc-005', author_did: 'nomsa.did', content: 'Load-shedding schedules follow 2-hour blocks; keeping a charged power bank and LPG stove covers essential needs during Stage 4', tags: ['energy', 'load-shedding', 'preparedness'], confidence: 0.88, e_score: 3, n_score: 1, m_score: 2, created_at: Date.now() - 864000000 },
+    { id: 'kc-006', author_did: 'grace.did', content: 'Florida Lake water is not potable without filtration; heavy metal levels exceed SANS 241 limits after summer rains', tags: ['water-safety', 'contamination', 'florida-lake'], confidence: 0.90, e_score: 3, n_score: 1, m_score: 3, created_at: Date.now() - 3456000000 },
+  ];
+}
+
+function mockGraphStats(): GraphStats {
+  return {
+    total_claims: 47,
+    total_relationships: 83,
+    total_ontologies: 5,
+    total_concepts: 31,
+  };
 }

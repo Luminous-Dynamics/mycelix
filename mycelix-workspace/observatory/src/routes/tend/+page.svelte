@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import {
     getBalance,
@@ -15,6 +15,18 @@
   } from '$lib/resilience-client';
   import { hasBasket, purchasingPowerIndex, enrichedItems } from '$lib/value-basket';
   import { purchasingPower } from '$lib/value-basket';
+  import { toasts } from '$lib/toast';
+  import { exportTendExchangesCsv } from '$lib/data-export';
+  import { createFreshness } from '$lib/freshness';
+  import FreshnessBar from '$lib/components/FreshnessBar.svelte';
+
+  function exportListings() {
+    const records: ExchangeRecord[] = $listings.map(l => ({
+      id: l.id, provider_did: l.provider_did, receiver_did: '', hours: l.hours_estimate,
+      service_description: l.description, service_category: l.category, status: 'Confirmed' as const, timestamp: l.created_at
+    }));
+    exportTendExchangesCsv(records);
+  }
 
   // ============================================================================
   // Stores
@@ -32,30 +44,59 @@
   let serviceDesc = '';
   let serviceCategory = 'General';
   let submitting = false;
+  let loading = true;
   let tab: 'listings' | 'requests' = 'listings';
 
+  // Search & filter
+  let searchQuery = '';
+  let filterCategory = '';
+
   const categories = ['General', 'Maintenance', 'Education', 'Childcare', 'Transport', 'Food', 'Care', 'Construction', 'Tech'];
+
+  function matchesSearch(...fields: string[]): boolean {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return fields.some(f => f && f.toLowerCase().includes(q));
+  }
+
+  function matchesCategory(category: string): boolean {
+    return !filterCategory || category === filterCategory;
+  }
+
+  $: filteredListings = $listings.filter(l => matchesSearch(l.title, l.description) && matchesCategory(l.category));
+  $: filteredRequests = $requests.filter(r => matchesSearch(r.title, r.description) && matchesCategory(r.category));
+
+  // ============================================================================
+  // Freshness — 2min polling
+  // ============================================================================
+
+  async function fetchData() {
+    const [bal, ora, lst, req] = await Promise.all([
+      getBalance('self.did'),
+      getOracleState(),
+      getDaoListings(),
+      getDaoRequests(),
+    ]);
+    balance.set(bal);
+    oracle.set(ora);
+    listings.set(lst);
+    requests.set(req);
+  }
+
+  const freshness = createFreshness(fetchData, 120_000);
+  const { lastUpdated, loadError, refreshing, startPolling, stopPolling, refresh } = freshness;
 
   // ============================================================================
   // Lifecycle
   // ============================================================================
 
   onMount(async () => {
-    try {
-      const [bal, ora, lst, req] = await Promise.all([
-        getBalance('self.did'),
-        getOracleState(),
-        getDaoListings(),
-        getDaoRequests(),
-      ]);
-      balance.set(bal);
-      oracle.set(ora);
-      listings.set(lst);
-      requests.set(req);
-    } catch (e) {
-      console.warn('[TEND] Failed to load data, using defaults:', e);
-    }
+    await refresh();
+    loading = false;
+    startPolling();
   });
+
+  onDestroy(() => stopPolling());
 
   async function handleExchange() {
     if (!receiverDid || hours <= 0 || !serviceDesc) return;
@@ -69,6 +110,9 @@
       receiverDid = '';
       hours = 1;
       serviceDesc = '';
+      toasts.success('Exchange recorded successfully');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to record exchange');
     } finally {
       submitting = false;
     }
@@ -99,12 +143,15 @@
   <title>TEND | Mycelix Observatory</title>
 </svelte:head>
 
+{#if loading}
+  <div class="text-white p-8 text-center text-gray-400">Loading TEND data...</div>
+{:else}
 <div class="text-white">
   <!-- Header -->
   <header class="bg-gray-800/50 border-b border-gray-700 px-4 py-2">
     <div class="container mx-auto flex justify-between items-center">
       <div class="flex items-center gap-2">
-        <span class="text-xl">&#x1F91D;</span>
+        <span class="text-xl" aria-hidden="true">&#x1F91D;</span>
         <div>
           <h1 class="text-lg font-bold">TEND — Time Exchange</h1>
           <p class="text-xs text-gray-400">All hours are equal. 1 TEND = 1 hour of labor.</p>
@@ -131,6 +178,7 @@
   </header>
 
   <main class="container mx-auto p-6">
+    <FreshnessBar {lastUpdated} {loadError} {refreshing} {refresh} />
     <!-- Balance + Record Exchange -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       <!-- Balance Card -->
@@ -184,17 +232,17 @@
         <form on:submit|preventDefault={handleExchange} class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label for="receiver" class="text-xs text-gray-400">Receiver DID</label>
-            <input id="receiver" bind:value={receiverDid} placeholder="member.did"
+            <input id="receiver" bind:value={receiverDid} placeholder="member.did" required
               class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
           </div>
           <div>
             <label for="hours" class="text-xs text-gray-400">Hours</label>
-            <input id="hours" type="number" bind:value={hours} min="0.25" step="0.25" max="12"
+            <input id="hours" type="number" bind:value={hours} min="0.25" step="0.25" max="12" required
               class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
           </div>
           <div>
             <label for="desc" class="text-xs text-gray-400">Service Description</label>
-            <input id="desc" bind:value={serviceDesc} placeholder="What was done?"
+            <input id="desc" bind:value={serviceDesc} placeholder="What was done?" required
               class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
           </div>
           <div>
@@ -216,6 +264,25 @@
       </div>
     </div>
 
+    <!-- Search & Category Filter -->
+    <div class="mb-6 space-y-3">
+      <input type="text" bind:value={searchQuery} placeholder="Search listings & requests..."
+        aria-label="Search TEND listings and requests"
+        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
+      <div class="flex flex-wrap gap-2">
+        <button on:click={() => filterCategory = ''}
+          class="px-3 py-1 rounded-full text-sm transition-colors {filterCategory === '' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
+          All
+        </button>
+        {#each categories as cat}
+          <button on:click={() => filterCategory = cat}
+            class="px-3 py-1 rounded-full text-sm transition-colors {filterCategory === cat ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
+            {cat}
+          </button>
+        {/each}
+      </div>
+    </div>
+
     <!-- Marketplace Tabs -->
     <div class="bg-gray-800 rounded-lg border border-gray-700">
       <div class="p-4 border-b border-gray-700 flex items-center gap-4">
@@ -223,17 +290,17 @@
         <div class="flex gap-1 ml-auto">
           <button on:click={() => tab = 'listings'}
             class="px-3 py-1 rounded text-sm {tab === 'listings' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'} transition-colors">
-            Listings ({$listings.length})
+            Listings ({filteredListings.length})
           </button>
           <button on:click={() => tab = 'requests'}
             class="px-3 py-1 rounded text-sm {tab === 'requests' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'} transition-colors">
-            Requests ({$requests.length})
+            Requests ({filteredRequests.length})
           </button>
         </div>
       </div>
       <div class="p-4 space-y-3">
         {#if tab === 'listings'}
-          {#each $listings as listing}
+          {#each filteredListings as listing}
             <div class="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700/70 transition-colors">
               <div class="flex justify-between items-start">
                 <div>
@@ -251,10 +318,10 @@
               </div>
             </div>
           {:else}
-            <p class="text-gray-500 text-center py-8">No listings yet</p>
+            <p class="text-gray-500 text-center py-8">{searchQuery || filterCategory ? 'No matching listings' : 'No listings yet'}</p>
           {/each}
         {:else}
-          {#each $requests as request}
+          {#each filteredRequests as request}
             <div class="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700/70 transition-colors">
               <div class="flex justify-between items-start">
                 <div>
@@ -277,7 +344,7 @@
               </div>
             </div>
           {:else}
-            <p class="text-gray-500 text-center py-8">No requests yet</p>
+            <p class="text-gray-500 text-center py-8">{searchQuery || filterCategory ? 'No matching requests' : 'No requests yet'}</p>
           {/each}
         {/if}
       </div>
@@ -299,8 +366,16 @@
       </div>
     </div>
 
-    <footer class="mt-8 text-center text-gray-500 text-sm">
+    <div class="mt-6 flex justify-end">
+      <button on:click={exportListings}
+        class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300 transition-colors">
+        Export Listings CSV
+      </button>
+    </div>
+
+    <footer class="mt-4 text-center text-gray-500 text-sm">
       <p>TEND v1.0 &middot; Commons Charter Article II, Section 2 &middot; All Hours Are Equal</p>
     </footer>
   </main>
 </div>
+{/if}

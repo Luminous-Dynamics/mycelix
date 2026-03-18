@@ -15,6 +15,7 @@
     type HearthAlertType,
     type HearthAlertSeverity,
   } from '$lib/resilience-client';
+  import { toasts } from '$lib/toast';
 
   let hearths: Hearth[] = [];
   let selectedHearth: Hearth | null = null;
@@ -74,6 +75,8 @@
   }
 
   function removeContact(index: number) {
+    const name = planContacts[index]?.name?.trim() || 'this contact';
+    if (!confirm(`Remove ${name} from emergency contacts?`)) return;
     planContacts = planContacts.filter((_, i) => i !== index);
   }
 
@@ -88,6 +91,9 @@
       planContacts = [{ name: '', relationship: '', phone: '', email: '' }];
       planMeetingPoints = '';
       showPlanForm = false;
+      toasts.success('Plan saved');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to save plan');
     } finally {
       submitting = false;
     }
@@ -112,6 +118,9 @@
       resCondition = 'Good';
       resLocation = '';
       showResourceForm = false;
+      toasts.success('Resource shared');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to share resource');
     } finally {
       submitting = false;
     }
@@ -119,6 +128,7 @@
 
   async function handleRaiseAlert() {
     if (!selectedHearth || !alertMessage.trim()) return;
+    if (!confirm('This will alert all household members. Continue?')) return;
     submitting = true;
     try {
       await raiseHearthAlert(selectedHearth.id, alertType, alertSeverity, alertMessage.trim());
@@ -126,6 +136,9 @@
       alertSeverity = 'Medium';
       alertMessage = '';
       showAlertForm = false;
+      toasts.success('Alert raised');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to raise alert');
     } finally {
       submitting = false;
     }
@@ -175,11 +188,12 @@
 
       <!-- Hearth Selector -->
       {#if hearths.length > 1}
-        <div class="flex gap-2 mb-6">
+        <div class="flex flex-wrap gap-2 mb-6">
           {#each hearths as hearth}
             <button
               class="px-4 py-2 rounded-lg border transition-colors {selectedHearth?.id === hearth.id ? 'bg-indigo-900/50 border-indigo-500 text-indigo-200' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-600'}"
               on:click={() => selectHearth(hearth)}
+              aria-label="Select household {hearth.name}"
             >
               {hearth.name}
               <span class="text-xs ml-1 opacity-75">({hearth.member_count} members)</span>
@@ -193,15 +207,18 @@
         <!-- Action Buttons -->
         <div class="flex gap-3 mb-6">
           <button on:click={() => { showPlanForm = !showPlanForm; showResourceForm = false; showAlertForm = false; }}
-            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors">
+            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors"
+            aria-label="Create a new emergency plan">
             + Emergency Plan
           </button>
           <button on:click={() => { showResourceForm = !showResourceForm; showPlanForm = false; showAlertForm = false; }}
-            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors">
+            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors"
+            aria-label="Share a resource with your household">
             + Share Resource
           </button>
           <button on:click={() => { showAlertForm = !showAlertForm; showPlanForm = false; showResourceForm = false; }}
-            class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition-colors">
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition-colors"
+            aria-label="Raise an emergency alert">
             Raise Alert
           </button>
         </div>
@@ -214,7 +231,7 @@
               <!-- Contacts -->
               <div>
                 <div class="flex items-center justify-between mb-2">
-                  <label class="text-xs text-gray-400 uppercase tracking-wider">Emergency Contacts</label>
+                  <span class="text-xs text-gray-400 uppercase tracking-wider">Emergency Contacts</span>
                   <button type="button" on:click={addContact}
                     class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded transition-colors">
                     + Add Contact
@@ -222,7 +239,7 @@
                 </div>
                 <div class="space-y-3">
                   {#each planContacts as contact, i}
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end bg-gray-800/50 rounded p-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-end bg-gray-800/50 rounded p-3">
                       <div>
                         <label for="cname-{i}" class="text-xs text-gray-500">Name</label>
                         <input id="cname-{i}" bind:value={contact.name} placeholder="Jane Doe"
@@ -246,7 +263,8 @@
                       <div>
                         {#if planContacts.length > 1}
                           <button type="button" on:click={() => removeContact(i)}
-                            class="w-full mt-1 bg-red-900/50 hover:bg-red-900 border border-red-700 text-red-300 rounded px-3 py-2 text-sm transition-colors">
+                            class="w-full mt-1 bg-red-900/50 hover:bg-red-900 border border-red-700 text-red-300 rounded px-3 py-2 text-sm transition-colors"
+                            aria-label="Remove contact {contact.name || 'unnamed'}">
                             Remove
                           </button>
                         {/if}
@@ -266,7 +284,8 @@
 
               <button type="submit"
                 disabled={submitting || planContacts.every(c => !c.name.trim() || !c.phone.trim())}
-                class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors">
+                class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors"
+                aria-label="Submit emergency plan">
                 {submitting ? 'Creating...' : 'Create Emergency Plan'}
               </button>
             </form>
@@ -313,7 +332,8 @@
               </div>
               <div class="md:col-span-2">
                 <button type="submit" disabled={submitting || !resName.trim()}
-                  class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors">
+                  class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors"
+                  aria-label="Submit shared resource">
                   {submitting ? 'Registering...' : 'Register Resource'}
                 </button>
               </div>
@@ -356,7 +376,8 @@
               </div>
               <div class="md:col-span-2">
                 <button type="submit" disabled={submitting || !alertMessage.trim()}
-                  class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors">
+                  class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded px-4 py-2 text-sm font-medium transition-colors"
+                  aria-label="Send emergency alert to all household members">
                   {submitting ? 'Sending Alert...' : 'Send Alert'}
                 </button>
               </div>
@@ -385,7 +406,7 @@
                         <span class="font-medium text-white">{contact.name}</span>
                         <span class="text-xs text-gray-400 ml-2">{contact.relationship}</span>
                       </div>
-                      <a href="tel:{contact.phone}" class="text-cyan-400 hover:text-cyan-300 text-sm font-mono">{contact.phone}</a>
+                      <a href="tel:{contact.phone}" class="text-cyan-400 hover:text-cyan-300 text-sm font-mono" aria-label="Call {contact.name} at {contact.phone}">{contact.phone}</a>
                     </div>
                   {/each}
                 </div>

@@ -59,7 +59,8 @@ async fn main() -> Result<()> {
 
     // Select transport
     let transport = transport::create_transport()?;
-    tracing::info!("Transport: {}", transport.name());
+    let transport_name = transport.name().to_string();
+    tracing::info!("Transport: {}", transport_name);
 
     // Start poller (conductor → mesh)
     let poller_transport = transport.clone_box();
@@ -99,8 +100,9 @@ async fn main() -> Result<()> {
         .parse()
         .unwrap_or(9100);
     let health_metrics = metrics;
+    let health_transport_name = transport_name;
     let health_handle = tokio::spawn(async move {
-        if let Err(e) = serve_health(health_port, health_metrics).await {
+        if let Err(e) = serve_health(health_port, health_metrics, &health_transport_name).await {
             tracing::warn!("Health endpoint failed to start: {e}");
         }
     });
@@ -122,14 +124,15 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Minimal HTTP health endpoint — responds to GET /health with JSON status + metrics.
+/// Minimal HTTP health endpoint — responds to GET /health with JSON status + metrics,
+/// and GET /metrics with Prometheus text exposition format.
 /// Also sends systemd watchdog pings every 30 seconds if running under systemd.
-async fn serve_health(port: u16, metrics: BridgeMetrics) -> Result<()> {
-    use tokio::io::AsyncWriteExt;
+async fn serve_health(port: u16, metrics: BridgeMetrics, transport_name: &str) -> Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    tracing::info!("Health endpoint listening on :{port}/health");
+    tracing::info!("Health endpoint listening on :{port}/health and :{port}/metrics");
 
     // Notify systemd we're ready (Type=notify)
     sd_notify("READY=1");
@@ -144,24 +147,50 @@ async fn serve_health(port: u16, metrics: BridgeMetrics) -> Result<()> {
 
     loop {
         let (mut socket, _) = listener.accept().await?;
-        let uptime_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let body = serde_json::json!({
-            "status": "running",
-            "service": "mycelix-mesh-bridge",
-            "version": env!("CARGO_PKG_VERSION"),
-            "uptime_check": uptime_secs,
-            "metrics": metrics.to_json(),
-        });
-        let body_str = body.to_string();
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body_str.len(),
-            body_str
-        );
-        let _ = socket.write_all(response.as_bytes()).await;
+
+        // Read the first chunk of the HTTP request to determine the path.
+        let mut buf = [0u8; 512];
+        let n = socket.read(&mut buf).await.unwrap_or(0);
+        let request_head = String::from_utf8_lossy(&buf[..n]);
+        let request_path = request_head
+            .lines()
+            .next()
+            .unwrap_or("")
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or("/health");
+
+        if request_path.contains("/metrics") {
+            // Prometheus text exposition format
+            let body_str = metrics.to_prometheus();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body_str.len(),
+                body_str
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+        } else {
+            // JSON health response (default for /health and any other path)
+            let uptime_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let body = serde_json::json!({
+                "status": "running",
+                "service": "mycelix-mesh-bridge",
+                "version": env!("CARGO_PKG_VERSION"),
+                "transport": transport_name,
+                "uptime_check": uptime_secs,
+                "metrics": metrics.to_json(),
+            });
+            let body_str = body.to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body_str.len(),
+                body_str
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+        }
     }
 }
 

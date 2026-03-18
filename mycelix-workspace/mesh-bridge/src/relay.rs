@@ -13,6 +13,7 @@ use crate::transport::MeshTransport;
 use crate::BridgeMetrics;
 use anyhow::Result;
 use holochain_client::{AgentSigner, AppWebsocket, ClientAgentSigner, ExternIO, ZomeCallTarget};
+use crate::dedup_cache::LruBinaryCache;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -23,6 +24,21 @@ const REASSEMBLY_TIMEOUT_SECS: u64 = 30;
 
 /// Maximum in-flight reassembly buffers.
 const MAX_REASSEMBLY_BUFFERS: usize = 64;
+
+/// Maximum age of a relayed payload (seconds). Payloads older than this
+/// are rejected to prevent replay attacks from stale mesh traffic.
+const MAX_PAYLOAD_AGE_SECS: u64 = 3600; // 1 hour
+
+/// Maximum future timestamp tolerance (seconds). Prevents spoofed
+/// timestamps from bypassing the age check.
+const MAX_FUTURE_TOLERANCE_SECS: u64 = 300; // 5 minutes
+
+/// Maximum payload data size (bytes). Prevents memory exhaustion
+/// from adversarial oversized messages.
+const MAX_PAYLOAD_DATA_SIZE: usize = 65_536; // 64 KB
+
+/// Maximum inbound messages per minute per peer. Prevents flooding.
+const MAX_MESSAGES_PER_MINUTE_PER_PEER: u32 = 60;
 
 /// Run the relay loop: mesh transport → deserializer → conductor.
 ///
@@ -36,10 +52,19 @@ pub async fn run(
 ) -> Result<()> {
     tracing::info!("Relay starting, conductor={conductor_url}");
 
-    let mut dedup: HashSet<[u8; 32]> = crate::dedup_cache::load_binary_cache("relay-dedup.cache");
+    let cipher = crate::encryption::load_psk();
+    if cipher.is_some() {
+        tracing::info!("PSK encryption enabled (relay)");
+    }
+
+    let mut dedup = LruBinaryCache::from_hash_set(
+        crate::dedup_cache::load_binary_cache("relay-dedup.cache"),
+        10_000,
+    );
     let mut reassembly: HashMap<[u8; 4], ReassemblyBuffer> = HashMap::new();
     let mut ws_cached: Option<AppWebsocket> = None;
     let mut known_peers: HashSet<[u8; 8]> = HashSet::new();
+    let mut peer_rate: HashMap<[u8; 8], PeerRateTracker> = HashMap::new();
 
     loop {
         if cancel.is_cancelled() {
@@ -67,8 +92,77 @@ pub async fn run(
                 if let Some(payload_bytes) = buffer.try_reassemble() {
                     reassembly.remove(&hash_prefix);
 
-                    match RelayPayload::from_bytes(&payload_bytes) {
+                    // --- Decrypt if PSK is configured ---
+                    let decrypted_bytes = if let Some(ref c) = cipher {
+                        match crate::encryption::decrypt(c, &payload_bytes) {
+                            Ok(plain) => plain,
+                            Err(e) => {
+                                tracing::warn!("Decryption failed (wrong key or plaintext?): {e}");
+                                metrics.fragments_dropped.fetch_add(1, Ordering::Relaxed);
+                                continue;
+                            }
+                        }
+                    } else {
+                        payload_bytes
+                    };
+
+                    match RelayPayload::from_bytes(&decrypted_bytes) {
                         Ok(payload) => {
+                            // --- Security: validate payload size ---
+                            if payload.data.len() > MAX_PAYLOAD_DATA_SIZE {
+                                tracing::warn!(
+                                    reason = "oversized",
+                                    size_bytes = payload.data.len(),
+                                    relay_type = ?payload.relay_type,
+                                    origin = ?&payload.origin[..4],
+                                    "REJECTED: payload data too large"
+                                );
+                                metrics.fragments_dropped.fetch_add(1, Ordering::Relaxed);
+                                continue;
+                            }
+
+                            // --- Security: validate timestamp (anti-replay) ---
+                            let now = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+                            if payload.timestamp > now + MAX_FUTURE_TOLERANCE_SECS {
+                                tracing::warn!(
+                                    reason = "future_timestamp",
+                                    payload_ts = payload.timestamp,
+                                    now_ts = now,
+                                    origin = ?&payload.origin[..4],
+                                    "REJECTED: payload timestamp in the future"
+                                );
+                                metrics.fragments_dropped.fetch_add(1, Ordering::Relaxed);
+                                continue;
+                            }
+                            if now.saturating_sub(payload.timestamp) > MAX_PAYLOAD_AGE_SECS {
+                                tracing::warn!(
+                                    reason = "expired",
+                                    payload_ts = payload.timestamp,
+                                    age_secs = now.saturating_sub(payload.timestamp),
+                                    origin = ?&payload.origin[..4],
+                                    "REJECTED: payload timestamp too old"
+                                );
+                                metrics.fragments_dropped.fetch_add(1, Ordering::Relaxed);
+                                continue;
+                            }
+
+                            // --- Security: per-peer rate limiting ---
+                            let tracker = peer_rate
+                                .entry(payload.origin)
+                                .or_insert_with(PeerRateTracker::new);
+                            if !tracker.allow() {
+                                tracing::warn!(
+                                    reason = "rate_limited",
+                                    origin = ?&payload.origin[..4],
+                                    "REJECTED: peer exceeds rate limit"
+                                );
+                                metrics.fragments_dropped.fetch_add(1, Ordering::Relaxed);
+                                continue;
+                            }
+
                             // Track peer
                             if known_peers.insert(payload.origin) {
                                 metrics.peers_seen.fetch_add(1, Ordering::Relaxed);
@@ -135,14 +229,11 @@ pub async fn run(
             }
         }
 
-        // Trim dedup
-        if dedup.len() > 10_000 {
-            dedup.clear();
-        }
+        // LRU eviction handled automatically by LruBinaryCache
     }
 
     // Persist dedup cache for restart resilience
-    if let Err(e) = crate::dedup_cache::save_binary_cache(&dedup, "relay-dedup.cache") {
+    if let Err(e) = crate::dedup_cache::save_lru_cache(&dedup, "relay-dedup.cache") {
         tracing::warn!("Failed to save relay dedup cache: {e}");
     }
 
@@ -175,6 +266,40 @@ impl ReassemblyBuffer {
 
     fn is_stale(&self) -> bool {
         self.created_at.elapsed().as_secs() > REASSEMBLY_TIMEOUT_SECS
+    }
+}
+
+/// Sliding-window rate tracker per peer.
+struct PeerRateTracker {
+    /// Timestamps of recent messages (ring buffer).
+    window: std::collections::VecDeque<std::time::Instant>,
+}
+
+impl PeerRateTracker {
+    fn new() -> Self {
+        Self {
+            window: std::collections::VecDeque::with_capacity(
+                MAX_MESSAGES_PER_MINUTE_PER_PEER as usize + 1,
+            ),
+        }
+    }
+
+    /// Returns true if the peer is within rate limits.
+    fn allow(&mut self) -> bool {
+        let now = std::time::Instant::now();
+        let one_minute_ago = now - std::time::Duration::from_secs(60);
+
+        // Expire old entries
+        while self.window.front().map_or(false, |t| *t < one_minute_ago) {
+            self.window.pop_front();
+        }
+
+        if self.window.len() >= MAX_MESSAGES_PER_MINUTE_PER_PEER as usize {
+            return false;
+        }
+
+        self.window.push_back(now);
+        true
     }
 }
 
@@ -297,138 +422,77 @@ async fn replay_payload(
             let water: WaterAlertRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying water alert: {} — {}", water.system_id, water.severity);
             let input = ExternIO::encode(serde_json::json!({
-                "system_id": water.system_id,
-                "alert_type": water.alert_type,
-                "severity": water.severity,
-                "description": water.description,
+                "system_id": water.system_id, "alert_type": water.alert_type,
+                "severity": water.severity, "description": water.description,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("commons_care".to_string().into()),
-                "water_purity".into(),
-                "raise_alert".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("commons_care".to_string().into()),
+                "water_purity".into(), "raise_alert".into(), input).await?;
         }
         RelayType::HearthAlert => {
             let hearth: HearthAlertRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying hearth alert: {}", hearth.hearth_id);
             let input = ExternIO::encode(serde_json::json!({
-                "hearth_id": hearth.hearth_id,
-                "alert_type": hearth.alert_type,
-                "message": hearth.message,
+                "hearth_id": hearth.hearth_id, "alert_type": hearth.alert_type, "message": hearth.message,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("hearth".to_string().into()),
-                "hearth_emergency".into(),
-                "raise_alert".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("hearth".to_string().into()),
+                "hearth_emergency".into(), "raise_alert".into(), input).await?;
         }
         RelayType::KnowledgeClaim => {
             let claim: KnowledgeClaimRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying knowledge claim: {}...", &claim.claim_text[..claim.claim_text.len().min(40)]);
             let input = ExternIO::encode(serde_json::json!({
-                "claim_text": claim.claim_text,
-                "tags": claim.tags,
-                "empirical": claim.empirical,
-                "normative": claim.normative,
-                "materiality": claim.materiality,
+                "claim_text": claim.claim_text, "tags": claim.tags,
+                "empirical": claim.empirical, "normative": claim.normative, "materiality": claim.materiality,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("knowledge".to_string().into()),
-                "claims".into(),
-                "submit_claim".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("knowledge".to_string().into()),
+                "claims".into(), "submit_claim".into(), input).await?;
         }
         RelayType::CareCircleUpdate => {
             let circle: CareCircleRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying care circle update: {}", circle.circle_id);
             let input = ExternIO::encode(serde_json::json!({
-                "circle_id": circle.circle_id,
-                "update_type": circle.update_type,
-                "details": circle.details,
+                "circle_id": circle.circle_id, "update_type": circle.update_type, "details": circle.details,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("commons_care".to_string().into()),
-                "care_circles".into(),
-                "post_update".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("commons_care".to_string().into()),
+                "care_circles".into(), "post_update".into(), input).await?;
         }
         RelayType::ShelterUpdate => {
             let shelter: ShelterRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying shelter update: unit {}", shelter.unit_id);
             let input = ExternIO::encode(serde_json::json!({
-                "unit_id": shelter.unit_id,
-                "status": shelter.status,
-                "bedrooms": shelter.bedrooms,
+                "unit_id": shelter.unit_id, "status": shelter.status, "bedrooms": shelter.bedrooms,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("commons_care".to_string().into()),
-                "housing_units".into(),
-                "update_status".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("commons_care".to_string().into()),
+                "housing_units".into(), "update_status".into(), input).await?;
         }
         RelayType::SupplyUpdate => {
             let supply: SupplyRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying supply update: {} ({})", supply.item_name, supply.quantity);
             let input = ExternIO::encode(serde_json::json!({
-                "item_id": supply.item_id,
-                "item_name": supply.item_name,
-                "quantity": supply.quantity,
-                "category": supply.category,
+                "item_id": supply.item_id, "item_name": supply.item_name,
+                "quantity": supply.quantity, "category": supply.category,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("supplychain".to_string().into()),
-                "inventory_coordinator".into(),
-                "update_stock".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("supplychain".to_string().into()),
+                "inventory_coordinator".into(), "update_stock".into(), input).await?;
         }
         RelayType::MutualAidOffer => {
             let aid: MutualAidRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying mutual aid {}: {}", aid.offer_type, aid.title);
             let input = ExternIO::encode(serde_json::json!({
-                "title": aid.title,
-                "description": aid.description,
-                "category": aid.category,
+                "title": aid.title, "description": aid.description, "category": aid.category,
             }))?;
-            let fn_name = if aid.offer_type == "Request" {
-                "create_service_request"
-            } else {
-                "create_service_offer"
-            };
-            ws.call_zome(
-                ZomeCallTarget::RoleName("commons_care".to_string().into()),
-                "mutualaid_timebank".into(),
-                fn_name.into(),
-                input,
-            )
-            .await?;
+            let fn_name = if aid.offer_type == "Request" { "create_service_request" } else { "create_service_offer" };
+            ws.call_zome(ZomeCallTarget::RoleName("commons_care".to_string().into()),
+                "mutualaid_timebank".into(), fn_name.into(), input).await?;
         }
         RelayType::PriceReport => {
             let price: PriceReportRelay = bincode::deserialize(&payload.data)?;
             tracing::info!("Replaying price report: {} = {} TEND", price.item_name, price.price_tend);
             let input = ExternIO::encode(serde_json::json!({
-                "item_name": price.item_name,
-                "price_tend": price.price_tend,
-                "evidence": price.evidence,
+                "item_name": price.item_name, "price_tend": price.price_tend, "evidence": price.evidence,
             }))?;
-            ws.call_zome(
-                ZomeCallTarget::RoleName("finance".to_string().into()),
-                "price_oracle".into(),
-                "report_price".into(),
-                input,
-            )
-            .await?;
+            ws.call_zome(ZomeCallTarget::RoleName("finance".to_string().into()),
+                "price_oracle".into(), "report_price".into(), input).await?;
         }
         RelayType::Heartbeat => unreachable!(), // handled above
     }
@@ -501,36 +565,71 @@ mod tests {
 
     #[test]
     fn test_content_hash_dedup() {
-        let mut dedup: HashSet<[u8; 32]> = HashSet::new();
+        let mut dedup = LruBinaryCache::new(10_000);
 
-        let hash1 = blake3::hash(b"payload-1").into();
-        let hash2 = blake3::hash(b"payload-2").into();
+        let hash1: [u8; 32] = blake3::hash(b"payload-1").into();
+        let hash2: [u8; 32] = blake3::hash(b"payload-2").into();
 
         assert!(!dedup.contains(&hash1));
-        dedup.insert(hash1);
+        assert!(dedup.insert(hash1));
         assert!(dedup.contains(&hash1));
         assert!(!dedup.contains(&hash2));
 
-        // Duplicate insert doesn't grow set
-        dedup.insert(hash1);
+        // Duplicate insert returns false and doesn't grow
+        assert!(!dedup.insert(hash1));
         assert_eq!(dedup.len(), 1);
 
-        dedup.insert(hash2);
+        assert!(dedup.insert(hash2));
         assert_eq!(dedup.len(), 2);
     }
 
     #[test]
-    fn test_dedup_overflow_clear() {
-        let mut dedup: HashSet<[u8; 32]> = HashSet::new();
-        for i in 0..10_001u32 {
+    fn test_peer_rate_tracker_allows_within_limit() {
+        let mut tracker = PeerRateTracker::new();
+        for _ in 0..MAX_MESSAGES_PER_MINUTE_PER_PEER {
+            assert!(tracker.allow());
+        }
+        // Next should be rejected
+        assert!(!tracker.allow());
+    }
+
+    #[test]
+    fn test_peer_rate_tracker_window_expiry() {
+        let mut tracker = PeerRateTracker::new();
+        // Fill up the window
+        for _ in 0..MAX_MESSAGES_PER_MINUTE_PER_PEER {
+            assert!(tracker.allow());
+        }
+        assert!(!tracker.allow());
+
+        // Manually expire all entries by pushing old timestamps
+        tracker.window.clear();
+        // After clearing, should allow again
+        assert!(tracker.allow());
+    }
+
+    #[test]
+    fn test_payload_age_constants() {
+        assert!(MAX_PAYLOAD_AGE_SECS > 0);
+        assert!(MAX_PAYLOAD_AGE_SECS <= 86400, "max age should be <= 24h");
+        assert!(MAX_FUTURE_TOLERANCE_SECS > 0);
+        assert!(MAX_FUTURE_TOLERANCE_SECS <= 600, "future tolerance should be <= 10min");
+        assert!(MAX_PAYLOAD_DATA_SIZE > 0);
+        assert!(MAX_PAYLOAD_DATA_SIZE <= 1_048_576, "max data should be <= 1MB");
+        assert!(MAX_MESSAGES_PER_MINUTE_PER_PEER >= 10);
+    }
+
+    #[test]
+    fn test_dedup_lru_eviction_at_cap() {
+        let mut dedup = LruBinaryCache::new(100);
+        for i in 0..200u32 {
             dedup.insert(blake3::hash(&i.to_le_bytes()).into());
         }
-        assert!(dedup.len() > 10_000);
-
-        // Simulates the relay loop overflow logic
-        if dedup.len() > 10_000 {
-            dedup.clear();
-        }
-        assert_eq!(dedup.len(), 0);
+        // LRU keeps exactly capacity entries
+        assert_eq!(dedup.len(), 100);
+        // Oldest entries (0..100) should be evicted
+        assert!(!dedup.contains(&blake3::hash(&0u32.to_le_bytes()).into()));
+        // Newest entries should be present
+        assert!(dedup.contains(&blake3::hash(&199u32.to_le_bytes()).into()));
     }
 }

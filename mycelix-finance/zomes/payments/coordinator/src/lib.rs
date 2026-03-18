@@ -3,10 +3,12 @@
 use hdk::prelude::*;
 use mycelix_finance_shared::{
     anchor_hash, follow_update_chain, links_to_records, rate_limit_anchor_key, validate_did_format,
-    validate_id, verify_caller_is_did, DEFAULT_RATE_LIMIT_PER_MINUTE,
+    validate_id, verify_caller_is_did, verify_citizen_tier, verify_participant_tier,
+    DEFAULT_RATE_LIMIT_PER_MINUTE,
 };
 use mycelix_finance_types::{
-    compute_demurrage_deduction, FeeTier, SapMintSource, SuccessionPreference, COMPOST_LOCAL_PCT,
+    compute_demurrage_deduction, CompostPoolTier, FeeTier, PendingCompost, SapMintCapCounter,
+    SapMintSource, SuccessionPreference, COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES,
     COMPOST_REGIONAL_PCT, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, SAP_MINT_ANNUAL_MAX,
     SAP_MINT_PER_PROPOSAL_MAX,
 };
@@ -85,6 +87,9 @@ pub struct SapBalanceResponse {
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResult> {
+    // Opportunistically drain pending compost queue
+    let _ = drain_pending_compost_inner();
+
     let (record, bal) = get_sap_balance_inner(&input.member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
@@ -114,65 +119,31 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
-    // Redistribute via treasury zome cross-zome calls
+    // Redistribute via treasury zome cross-zome calls with retry + queue
+    let mut fully_redistributed = true;
+
     if let Some(ref pool_id) = input.local_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: local_amount,
-                source_member_did: input.member_did.clone(),
-            },
-        ) {
-            debug!(
-                "Compost redistribution to local pool {} failed: {:?}",
-                pool_id, e
-            );
+        if !try_deliver_compost(pool_id, local_amount, &input.member_did) {
+            fully_redistributed = false;
+            queue_pending_compost(pool_id, local_amount, &input.member_did, CompostPoolTier::Local)?;
         }
     }
     if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: regional_amount,
-                source_member_did: input.member_did.clone(),
-            },
-        ) {
-            debug!(
-                "Compost redistribution to regional pool {} failed: {:?}",
-                pool_id, e
-            );
+        if !try_deliver_compost(pool_id, regional_amount, &input.member_did) {
+            fully_redistributed = false;
+            queue_pending_compost(pool_id, regional_amount, &input.member_did, CompostPoolTier::Regional)?;
         }
     }
     if let Some(ref pool_id) = input.global_commons_pool_id {
-        if let Err(e) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: pool_id.clone(),
-                amount: global_amount,
-                source_member_did: input.member_did.clone(),
-            },
-        ) {
-            debug!(
-                "Compost redistribution to global pool {} failed: {:?}",
-                pool_id, e
-            );
+        if !try_deliver_compost(pool_id, global_amount, &input.member_did) {
+            fully_redistributed = false;
+            queue_pending_compost(pool_id, global_amount, &input.member_did, CompostPoolTier::Global)?;
         }
     }
 
     Ok(DemurrageResult {
         deducted: deduction,
-        redistributed: true,
+        redistributed: fully_redistributed,
     })
 }
 
@@ -197,8 +168,153 @@ pub struct DemurrageResult {
     pub redistributed: bool,
 }
 
+// ---------------------------------------------------------------------------
+// Compost Delivery Queue (Phase 1a)
+// ---------------------------------------------------------------------------
+
+/// Anchor path for the pending compost queue.
+const PENDING_COMPOST_ANCHOR: &str = "pending_compost_queue";
+
+/// Attempt to deliver compost to treasury with retries.
+/// Returns `true` if delivery succeeded, `false` if all retries exhausted.
+fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
+    if amount == 0 {
+        return true;
+    }
+    for attempt in 0..COMPOST_MAX_RETRIES {
+        match call(
+            CallTargetCell::Local,
+            ZomeName::from("treasury"),
+            FunctionName::from("receive_compost"),
+            None,
+            ReceiveCompostPayload {
+                commons_pool_id: pool_id.to_string(),
+                amount,
+                source_member_did: source_did.to_string(),
+            },
+        ) {
+            Ok(ZomeCallResponse::Ok(_)) => return true,
+            Ok(other) => {
+                debug!(
+                    "Compost delivery attempt {}/{} to {} returned {:?}",
+                    attempt + 1,
+                    COMPOST_MAX_RETRIES,
+                    pool_id,
+                    other
+                );
+            }
+            Err(e) => {
+                debug!(
+                    "Compost delivery attempt {}/{} to {} failed: {:?}",
+                    attempt + 1,
+                    COMPOST_MAX_RETRIES,
+                    pool_id,
+                    e
+                );
+            }
+        }
+    }
+    false
+}
+
+/// Enqueue a failed compost delivery for later processing.
+/// Stores a serialized `PendingCompost` in the link tag from the pending compost anchor.
+fn queue_pending_compost(
+    pool_id: &str,
+    amount: u64,
+    source_did: &str,
+    tier: CompostPoolTier,
+) -> ExternResult<()> {
+    let now = sys_time()?;
+    let pending = PendingCompost {
+        commons_pool_id: pool_id.to_string(),
+        amount,
+        source_member_did: source_did.to_string(),
+        pool_tier: tier,
+        created_at_micros: now.as_micros(),
+        retry_count: COMPOST_MAX_RETRIES,
+    };
+    let tag_bytes =
+        serde_json::to_vec(&pending).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize PendingCompost: {:?}",
+            e
+        ))))?;
+    let anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+    create_link(
+        anchor,
+        // Self-referential: target is also the anchor (we only care about the tag)
+        anchor_hash(PENDING_COMPOST_ANCHOR)?,
+        LinkTypes::PendingCompostQueue,
+        tag_bytes,
+    )?;
+    debug!(
+        "Queued pending compost: {} micro-SAP to pool {} (tier {:?}) from {}",
+        amount, pool_id, pending.pool_tier, source_did
+    );
+    Ok(())
+}
+
+/// Drain the pending compost queue by retrying all queued deliveries.
+/// Successfully delivered entries are removed from the queue.
+/// Called opportunistically from `credit_sap` and `debit_sap`.
+///
+/// Returns the number of successfully drained entries.
+#[hdk_extern]
+pub fn drain_pending_compost(_: ()) -> ExternResult<u32> {
+    drain_pending_compost_inner()
+}
+
+fn drain_pending_compost_inner() -> ExternResult<u32> {
+    let anchor = anchor_hash(PENDING_COMPOST_ANCHOR)?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::PendingCompostQueue)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.is_empty() {
+        return Ok(0);
+    }
+
+    let mut drained = 0u32;
+    for link in &links {
+        let tag_bytes = link.tag.as_ref();
+        let pending: PendingCompost = match serde_json::from_slice(tag_bytes) {
+            Ok(p) => p,
+            Err(e) => {
+                debug!("Skipping malformed pending compost link: {:?}", e);
+                // Delete the malformed link to prevent infinite retries
+                delete_link(link.create_link_hash.clone())?;
+                continue;
+            }
+        };
+
+        if try_deliver_compost(&pending.commons_pool_id, pending.amount, &pending.source_member_did) {
+            // Success — remove from queue
+            delete_link(link.create_link_hash.clone())?;
+            drained += 1;
+            debug!(
+                "Drained pending compost: {} micro-SAP to pool {} from {}",
+                pending.amount, pending.commons_pool_id, pending.source_member_did
+            );
+        } else {
+            debug!(
+                "Pending compost still undeliverable: {} micro-SAP to pool {} from {} (queued at {})",
+                pending.amount, pending.commons_pool_id, pending.source_member_did, pending.created_at_micros
+            );
+        }
+    }
+
+    Ok(drained)
+}
+
 /// Maximum retries for optimistic-locking SAP balance mutations.
 const MAX_SAP_RETRIES: usize = 3;
+
+/// Minimum elapsed seconds before recomputing demurrage on retry.
+/// If a concurrent writer already applied demurrage and updated `last_demurrage_at`,
+/// the retry will see a very small elapsed time. Recomputing demurrage in that case
+/// risks double-application against a stale balance. Skip if < 60s elapsed.
+const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 
 /// Credit SAP to a member's balance (used by bridge deposits and community issuance).
 /// Auto-initializes the SapBalance entry if the member has none yet.
@@ -208,6 +324,11 @@ const MAX_SAP_RETRIES: usize = 3;
 /// created a fork, retries up to `MAX_SAP_RETRIES` times.
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
+    // Opportunistically drain any pending compost deliveries
+    if let Err(e) = drain_pending_compost_inner() {
+        debug!("credit_sap: pending compost drain failed (non-fatal): {:?}", e);
+    }
+
     // Check if this member has no balance — if so, auto-initialize (no race concern for create)
     if find_sap_balance_record(&input.member_did)?.is_none() {
         let now = sys_time()?;
@@ -236,15 +357,22 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         let (record, bal) = get_sap_balance_inner(&input.member_did)?;
         let now = sys_time()?;
 
-        // Apply pending demurrage first, then credit
+        // Apply pending demurrage first, then credit.
+        // If elapsed time is very small (< 60s), a concurrent writer likely already
+        // applied demurrage and updated last_demurrage_at. Skip recomputation to
+        // avoid double-application against a stale balance.
         let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let deduction = compute_demurrage_deduction(
-            bal.balance,
-            DEMURRAGE_EXEMPT_FLOOR,
-            DEMURRAGE_RATE,
-            elapsed,
-        );
-        let post_demurrage = bal.balance.saturating_sub(deduction);
+        let post_demurrage = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+            let deduction = compute_demurrage_deduction(
+                bal.balance,
+                DEMURRAGE_EXEMPT_FLOOR,
+                DEMURRAGE_RATE,
+                elapsed,
+            );
+            bal.balance.saturating_sub(deduction)
+        } else {
+            bal.balance
+        };
 
         let expected_balance = post_demurrage + input.amount;
         let updated = SapBalance {
@@ -303,24 +431,36 @@ pub struct CreditSapInput {
 /// our update won. If a concurrent update created a fork, retries.
 #[hdk_extern]
 pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
+    // Opportunistically drain any pending compost deliveries
+    if let Err(e) = drain_pending_compost_inner() {
+        debug!("debit_sap: pending compost drain failed (non-fatal): {:?}", e);
+    }
+
     for attempt in 0..MAX_SAP_RETRIES {
         let (record, bal) = get_sap_balance_inner(&input.member_did)?;
         let now = sys_time()?;
 
-        // Apply pending demurrage first
+        // Apply pending demurrage first.
+        // Skip if elapsed < 60s — a concurrent writer likely already applied demurrage
+        // and updated last_demurrage_at (avoids double-application on retry).
         let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let deduction = compute_demurrage_deduction(
-            bal.balance,
-            DEMURRAGE_EXEMPT_FLOOR,
-            DEMURRAGE_RATE,
-            elapsed,
-        );
-        let effective = bal.balance.saturating_sub(deduction);
+        let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+            let deduction = compute_demurrage_deduction(
+                bal.balance,
+                DEMURRAGE_EXEMPT_FLOOR,
+                DEMURRAGE_RATE,
+                elapsed,
+            );
+            bal.balance.saturating_sub(deduction)
+        } else {
+            bal.balance
+        };
 
         if input.amount > effective {
+            let demurrage_applied = bal.balance.saturating_sub(effective);
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
-                effective, bal.balance, deduction, input.amount
+                effective, bal.balance, demurrage_applied, input.amount
             ))));
         }
 
@@ -409,34 +549,11 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         }
     }
 
-    // Consciousness gate: SAP minting requires Steward tier (consciousness >= 0.6)
-    // This implements the Φ Gate — high-impact economic actions require demonstrated
-    // community consciousness (identity + reputation + community + engagement).
-    if let Ok(ZomeCallResponse::Ok(result)) = call(
-        CallTargetCell::Local,
-        ZomeName::from("finance_bridge"),
-        FunctionName::from("get_member_fee_tier"),
-        None,
-        input.recipient_did.clone(),
-    ) {
-        #[derive(Debug, Deserialize)]
-        struct TierResp {
-            tier_name: String,
-        }
-        if let Ok(resp) = result.decode::<TierResp>() {
-            if resp.tier_name == "Newcomer" {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "SAP minting recipient must be at least Member tier (MYCEL >= 0.3). \
-                     Newcomers cannot receive governance-minted SAP to prevent bootstrap attacks."
-                        .into()
-                )));
-            }
-        }
-    }
-    // SECURITY NOTE: If bridge is unreachable, we allow the mint (bootstrap/standalone mode).
-    // This is PERMISSIVE — the consciousness gate is bypassed. Governance authorization
-    // (checked above) is still required, so this only weakens the tier check, not
-    // the authorization check. Per-proposal and annual caps still apply.
+    // Consciousness gate: SAP minting requires Citizen+ tier (identity >= 0.25,
+    // reputation >= 0.10). Uses shared consciousness gating via identity cluster.
+    // If identity cluster is unreachable, falls back to permissive (bootstrap mode) —
+    // governance authorization (checked above) is still required.
+    verify_citizen_tier()?;
 
     // Constitutional cap: per-proposal maximum
     if input.amount > SAP_MINT_PER_PROPOSAL_MAX {
@@ -490,6 +607,9 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         amount: input.amount,
         reason: format!("Governance mint: proposal {}", input.proposal_id),
     })?;
+
+    // Update the running mint cap counter (O(1) for future cap checks)
+    update_mint_cap_counter(input.amount, now)?;
 
     // Broadcast mint event via bridge
     if let Err(e) = call(
@@ -550,9 +670,95 @@ pub fn get_mint_records(member_did: String) -> ExternResult<Vec<Record>> {
 
 // --- Internal helpers ---
 
-/// Enforce annual governance mint cap: total minted via governance proposals
-/// in the last 365 days must not exceed SAP_MINT_ANNUAL_MAX.
+/// Anchor key for the singleton mint cap counter entry.
+const MINT_CAP_COUNTER_ANCHOR: &str = "sap_mint_cap_counter";
+
+/// Enforce annual governance mint cap using the on-chain `SapMintCapCounterEntry`.
+///
+/// O(1) check: reads the running counter instead of scanning all `SapMintRecord` entries.
+/// If no counter exists yet (first-ever governance mint), falls back to a one-time chain
+/// scan to bootstrap the counter. Subsequent calls are O(1).
 fn enforce_annual_mint_cap(new_amount: u64, now: Timestamp) -> ExternResult<()> {
+    let counter = load_or_bootstrap_mint_cap_counter(now)?;
+    let effective = if counter.is_period_expired(now.as_micros()) {
+        // Period rolled over — counter resets, only the new amount counts
+        SapMintCapCounter {
+            period_start_micros: now.as_micros(),
+            cumulative_minted: 0,
+            mint_count: 0,
+            last_updated_micros: now.as_micros(),
+        }
+    } else {
+        counter
+    };
+
+    if effective.would_exceed_cap(new_amount) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Annual governance mint cap exceeded: {} already minted this year + {} requested > {} max",
+            effective.cumulative_minted, new_amount, SAP_MINT_ANNUAL_MAX
+        ))));
+    }
+    Ok(())
+}
+
+/// Update the on-chain mint cap counter after a successful governance mint.
+/// Called immediately after the SapMintRecord is committed.
+fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<()> {
+    let year_micros: i64 = 365 * 24 * 60 * 60 * 1_000_000;
+
+    match find_mint_cap_counter_record()? {
+        Some((record, existing)) => {
+            let counter: SapMintCapCounter = existing.into();
+            let updated = if counter.is_period_expired(now.as_micros()) {
+                // Period expired — start fresh
+                SapMintCapCounterEntry {
+                    period_start_micros: now.as_micros(),
+                    cumulative_minted: minted_amount,
+                    mint_count: 1,
+                    last_updated_micros: now.as_micros(),
+                }
+            } else {
+                SapMintCapCounterEntry {
+                    cumulative_minted: counter
+                        .cumulative_minted
+                        .saturating_add(minted_amount),
+                    mint_count: counter.mint_count.saturating_add(1),
+                    last_updated_micros: now.as_micros(),
+                    ..existing
+                }
+            };
+            update_entry(
+                record.action_address().clone(),
+                &EntryTypes::SapMintCapCounterEntry(updated),
+            )?;
+        }
+        None => {
+            // First mint ever — create counter
+            let counter = SapMintCapCounterEntry {
+                period_start_micros: now.as_micros() - year_micros + year_micros, // = now
+                cumulative_minted: minted_amount,
+                mint_count: 1,
+                last_updated_micros: now.as_micros(),
+            };
+            let hash = create_entry(&EntryTypes::SapMintCapCounterEntry(counter))?;
+            create_link(
+                anchor_hash(MINT_CAP_COUNTER_ANCHOR)?,
+                hash,
+                LinkTypes::MintCapCounterAnchor,
+                (),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// Load the existing mint cap counter, or bootstrap from chain scan if none exists.
+fn load_or_bootstrap_mint_cap_counter(now: Timestamp) -> ExternResult<SapMintCapCounter> {
+    if let Some((_record, entry)) = find_mint_cap_counter_record()? {
+        return Ok(entry.into());
+    }
+
+    // No counter yet — bootstrap from chain scan (one-time cost)
     let year_micros: i64 = 365 * 24 * 60 * 60 * 1_000_000;
     let cutoff = now.as_micros() - year_micros;
 
@@ -562,7 +768,7 @@ fn enforce_annual_mint_cap(new_amount: u64, now: Timestamp) -> ExternResult<()> 
         )?))
         .include_entries(true);
 
-    let annual_total: u64 = query(filter)?
+    let (annual_total, mint_count) = query(filter)?
         .into_iter()
         .filter_map(|r| match r.entry().to_app_option::<SapMintRecord>() {
             Ok(opt) => opt,
@@ -573,16 +779,46 @@ fn enforce_annual_mint_cap(new_amount: u64, now: Timestamp) -> ExternResult<()> 
         })
         .filter(|m| m.minted_at.as_micros() > cutoff)
         .filter(|m| matches!(m.source, SapMintSource::GovernanceProposal { .. }))
-        .map(|m| m.amount)
-        .fold(0u64, |acc, v| acc.saturating_add(v));
+        .fold((0u64, 0u32), |(acc, cnt), m| {
+            (acc.saturating_add(m.amount), cnt.saturating_add(1))
+        });
 
-    if annual_total.saturating_add(new_amount) > SAP_MINT_ANNUAL_MAX {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Annual governance mint cap exceeded: {} already minted this year + {} requested > {} max",
-            annual_total, new_amount, SAP_MINT_ANNUAL_MAX
-        ))));
+    Ok(SapMintCapCounter {
+        period_start_micros: cutoff,
+        cumulative_minted: annual_total,
+        mint_count,
+        last_updated_micros: now.as_micros(),
+    })
+}
+
+/// Find the singleton mint cap counter record via link-based lookup.
+fn find_mint_cap_counter_record(
+) -> ExternResult<Option<(Record, SapMintCapCounterEntry)>> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(MINT_CAP_COUNTER_ANCHOR)?,
+            LinkTypes::MintCapCounterAnchor,
+        )?,
+        GetStrategy::default(),
+    )?;
+    if let Some(link) = links.last() {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        let record = follow_update_chain(hash)?;
+        let entry = record
+            .entry()
+            .to_app_option::<SapMintCapCounterEntry>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "SapMintCapCounterEntry deserialization error: {:?}",
+                    e
+                )))
+            })?;
+        if let Some(entry) = entry {
+            return Ok(Some((record, entry)));
+        }
     }
-    Ok(())
+    Ok(None)
 }
 
 fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, SapBalance)>> {
@@ -745,6 +981,7 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
 
 #[hdk_extern]
 pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
+    verify_participant_tier()?;
     // Verify caller is the sender (prevents DID spoofing)
     verify_caller_is_did(&input.from_did)?;
 
@@ -912,6 +1149,7 @@ pub struct SendPaymentInput {
 
 #[hdk_extern]
 pub fn open_payment_channel(input: OpenChannelInput) -> ExternResult<Record> {
+    verify_participant_tier()?;
     verify_caller_is_did(&input.party_a)?;
 
     let now = sys_time()?;
@@ -1573,6 +1811,9 @@ pub struct HearthSapPoolResponse {
 ///
 /// Deducts from caller's SapBalance and credits the hearth pool.
 /// Requires hearth membership (verified via cross-zome call).
+///
+/// Uses optimistic locking with retry on the hearth pool update to prevent
+/// concurrent contributions from overwriting each other.
 #[hdk_extern]
 pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult<HearthSapPool> {
     if input.amount == 0 {
@@ -1587,7 +1828,7 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
     // Verify hearth membership
     verify_hearth_membership(&caller_did, &input.hearth_did)?;
 
-    // Deduct from personal SAP balance
+    // Deduct from personal SAP balance (uses credit_sap/debit_sap style retry internally)
     let (record, mut personal_bal) = find_sap_balance_record(&caller_did)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("No SAP balance found".into())
     ))?;
@@ -1603,24 +1844,59 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
     personal_bal.balance -= input.amount;
     update_entry(record.action_address().clone(), &personal_bal)?;
 
-    // Credit hearth pool (apply demurrage first)
-    let mut pool = get_or_create_hearth_pool(&input.hearth_did)?;
-    let now_ts = sys_time()?;
-    let elapsed = elapsed_seconds(pool.last_demurrage_at, now_ts);
-    let deduction = compute_demurrage_deduction(
-        pool.balance,
-        DEMURRAGE_EXEMPT_FLOOR,
-        DEMURRAGE_RATE,
-        elapsed,
-    );
-    pool.balance = pool.balance.saturating_sub(deduction);
-    pool.last_demurrage_at = now_ts;
+    // Credit hearth pool with optimistic-locking retry
+    for attempt in 0..MAX_SAP_RETRIES {
+        let (pool_record, pool) = get_hearth_pool_record(&input.hearth_did)?;
+        let now_ts = sys_time()?;
 
-    pool.balance += input.amount;
-    pool.total_contributed += input.amount;
-    update_hearth_pool(&input.hearth_did, &pool)?;
+        // Apply demurrage (skip if < 60s to avoid double-application on retry)
+        let elapsed = elapsed_seconds(pool.last_demurrage_at, now_ts);
+        let post_demurrage = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+            let deduction = compute_demurrage_deduction(
+                pool.balance,
+                DEMURRAGE_EXEMPT_FLOOR,
+                DEMURRAGE_RATE,
+                elapsed,
+            );
+            pool.balance.saturating_sub(deduction)
+        } else {
+            pool.balance
+        };
 
-    Ok(pool)
+        let expected_balance = post_demurrage + input.amount;
+        let expected_contributed = pool.total_contributed + input.amount;
+        let updated = HearthSapPool {
+            balance: expected_balance,
+            last_demurrage_at: now_ts,
+            total_contributed: expected_contributed,
+            ..pool
+        };
+        update_entry(pool_record.action_address().clone(), &updated)?;
+
+        // Verify our update won: re-read from the anchor
+        let (_, actual) = get_hearth_pool_record(&input.hearth_did)?;
+        if actual.balance == expected_balance && actual.total_contributed == expected_contributed {
+            return Ok(updated);
+        }
+
+        // Concurrent update detected
+        if attempt == MAX_SAP_RETRIES - 1 {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "contribute_to_hearth_pool for hearth {} failed after {} retries due to concurrent modifications",
+                input.hearth_did, MAX_SAP_RETRIES
+            ))));
+        }
+        debug!(
+            "contribute_to_hearth_pool: concurrent update detected for hearth {}, retry {}/{}",
+            input.hearth_did,
+            attempt + 1,
+            MAX_SAP_RETRIES
+        );
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "contribute_to_hearth_pool: retry loop exited unexpectedly".into()
+    )))
 }
 
 /// Withdraw SAP from hearth pool to personal balance.
@@ -1821,6 +2097,57 @@ fn get_or_create_hearth_pool(hearth_did: &str) -> ExternResult<HearthSapPool> {
         (),
     )?;
     Ok(pool)
+}
+
+/// Like `get_or_create_hearth_pool` but also returns the Record for optimistic locking.
+fn get_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, HearthSapPool)> {
+    let anchor_key = format!("hearth-sap:{}", hearth_did);
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthDidToSapPool)?,
+        GetStrategy::default(),
+    )?;
+
+    if let Some(link) = links.first() {
+        if let Some(action_hash) = link.target.clone().into_action_hash() {
+            let record = follow_update_chain(action_hash)?;
+            if let Some(pool) = record
+                .entry()
+                .to_app_option::<HearthSapPool>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "HearthSapPool deserialization error: {:?}",
+                        e
+                    )))
+                })?
+            {
+                return Ok((record, pool));
+            }
+        }
+    }
+
+    // Create if not found
+    let now = sys_time()?;
+    let pool = HearthSapPool {
+        hearth_did: hearth_did.to_string(),
+        balance: 0,
+        last_demurrage_at: now,
+        member_count: 0,
+        total_contributed: 0,
+        total_withdrawn: 0,
+    };
+
+    let hash = create_entry(&EntryTypes::HearthSapPool(pool.clone()))?;
+    create_link(
+        anchor_hash(&anchor_key)?,
+        hash.clone(),
+        LinkTypes::HearthDidToSapPool,
+        (),
+    )?;
+
+    let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("HearthSapPool not found after creation".into())
+    ))?;
+    Ok((record, pool))
 }
 
 fn update_hearth_pool(hearth_did: &str, pool: &HearthSapPool) -> ExternResult<()> {

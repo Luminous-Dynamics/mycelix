@@ -4,6 +4,7 @@
     getAvailableUnits,
     type HousingUnit,
   } from '$lib/resilience-client';
+  import { toasts } from '$lib/toast';
 
   let units: HousingUnit[] = [];
   let loading = true;
@@ -82,10 +83,16 @@
   async function submitRequest() {
     if (!formName.trim() || !formPhone.trim()) return;
     formSubmitting = true;
-    // Demo mode: simulate a brief delay then confirm
-    await new Promise(resolve => setTimeout(resolve, 600));
-    formSubmitting = false;
-    formSubmitted = true;
+    try {
+      // Demo mode: simulate a brief delay then confirm
+      await new Promise(resolve => setTimeout(resolve, 600));
+      formSubmitting = false;
+      formSubmitted = true;
+      toasts.success('Placement requested');
+    } catch (e) {
+      formSubmitting = false;
+      toasts.error(e instanceof Error ? e.message : 'Failed to request placement');
+    }
   }
 
   const UNIT_TYPES = ['Studio', 'OneBedroom', 'TwoBedroom', 'ThreeBedroom', 'FourPlus', 'Accessible', 'Family'];
@@ -193,18 +200,20 @@
 
 <!-- Placement Request Form Overlay -->
 {#if selectedUnitId !== null}
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
   <div
     class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
     on:click|self={closeRequestForm}
     on:keydown={e => { if (e.key === 'Escape') closeRequestForm(); }}
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     aria-label="Request placement form"
   >
-    <div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md p-6">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md p-4 sm:p-6">
       {#if formSubmitted}
         <div class="text-center py-4">
-          <div class="text-emerald-400 text-4xl mb-3">&#10003;</div>
+          <div class="text-emerald-400 text-4xl mb-3" aria-hidden="true">&#10003;</div>
           <h2 class="text-xl font-bold text-white mb-2">Request Submitted</h2>
           <p class="text-gray-400 text-sm mb-1">
             Your placement request for <span class="text-emerald-300 font-medium">Unit {selectedUnitId}</span> has been received.

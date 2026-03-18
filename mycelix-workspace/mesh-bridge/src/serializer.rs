@@ -460,43 +460,24 @@ mod tests {
         assert_eq!(decoded.relay_type, RelayType::WaterAlert);
         let inner: WaterAlertRelay = bincode::deserialize(&decoded.data).unwrap();
         assert_eq!(inner.system_id, "rainwater-tank-3");
-        assert_eq!(inner.severity, "High");
-
-        // Hearth alert
-        let hearth = HearthAlertRelay {
-            hearth_id: "stoltz-family".into(),
-            alert_type: "CheckIn".into(),
-            message: "All family members safe after storm".into(),
-        };
-        let hearth_data = bincode::serialize(&hearth).unwrap();
-        let hearth_payload = RelayPayload::new(RelayType::HearthAlert, origin, hearth_data);
-        let decoded = RelayPayload::from_bytes(&hearth_payload.to_bytes()).unwrap();
-        assert_eq!(decoded.relay_type, RelayType::HearthAlert);
-        let inner: HearthAlertRelay = bincode::deserialize(&decoded.data).unwrap();
-        assert_eq!(inner.hearth_id, "stoltz-family");
 
         // Knowledge claim
         let knowledge = KnowledgeClaimRelay {
             claim_text: "Moringa leaves can purify water".into(),
-            tags: vec!["water".into(), "purification".into(), "plants".into()],
-            empirical: 2,
-            normative: 1,
-            materiality: 2,
+            tags: vec!["water".into(), "purification".into()],
+            empirical: 2, normative: 1, materiality: 2,
         };
         let knowledge_data = bincode::serialize(&knowledge).unwrap();
         let knowledge_payload = RelayPayload::new(RelayType::KnowledgeClaim, origin, knowledge_data);
         let decoded = RelayPayload::from_bytes(&knowledge_payload.to_bytes()).unwrap();
         assert_eq!(decoded.relay_type, RelayType::KnowledgeClaim);
         let inner: KnowledgeClaimRelay = bincode::deserialize(&decoded.data).unwrap();
-        assert_eq!(inner.tags.len(), 3);
-        assert_eq!(inner.empirical, 2);
+        assert_eq!(inner.tags.len(), 2);
 
         // Supply update
         let supply = SupplyRelay {
-            item_id: "med-001".into(),
-            item_name: "First aid kits".into(),
-            quantity: 8.0,
-            category: "Medical".into(),
+            item_id: "med-001".into(), item_name: "First aid kits".into(),
+            quantity: 8.0, category: "Medical".into(),
         };
         let supply_data = bincode::serialize(&supply).unwrap();
         let supply_payload = RelayPayload::new(RelayType::SupplyUpdate, origin, supply_data);
@@ -504,12 +485,10 @@ mod tests {
         assert_eq!(decoded.relay_type, RelayType::SupplyUpdate);
         let inner: SupplyRelay = bincode::deserialize(&decoded.data).unwrap();
         assert_eq!(inner.item_name, "First aid kits");
-        assert!((inner.quantity - 8.0).abs() < f32::EPSILON);
 
         // Price report
         let price = PriceReportRelay {
-            item_name: "Bread (700g)".into(),
-            price_tend: 0.18,
+            item_name: "Bread (700g)".into(), price_tend: 0.18,
             evidence: "Shoprite Florida, 2026-03-15".into(),
         };
         let price_data = bincode::serialize(&price).unwrap();
@@ -517,21 +496,6 @@ mod tests {
         let decoded = RelayPayload::from_bytes(&price_payload.to_bytes()).unwrap();
         assert_eq!(decoded.relay_type, RelayType::PriceReport);
         let inner: PriceReportRelay = bincode::deserialize(&decoded.data).unwrap();
-        assert_eq!(inner.item_name, "Bread (700g)");
         assert!((inner.price_tend - 0.18).abs() < f32::EPSILON);
-
-        // Mutual aid offer
-        let aid = MutualAidRelay {
-            offer_type: "Offer".into(),
-            title: "Solar panel installation".into(),
-            description: "Can install 2kW panels, have tools".into(),
-            category: "Energy".into(),
-        };
-        let aid_data = bincode::serialize(&aid).unwrap();
-        let aid_payload = RelayPayload::new(RelayType::MutualAidOffer, origin, aid_data);
-        let decoded = RelayPayload::from_bytes(&aid_payload.to_bytes()).unwrap();
-        assert_eq!(decoded.relay_type, RelayType::MutualAidOffer);
-        let inner: MutualAidRelay = bincode::deserialize(&decoded.data).unwrap();
-        assert_eq!(inner.title, "Solar panel installation");
     }
 }

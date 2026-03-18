@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/governance/+page.svelte";
+export { default as component } from "../../../../src/routes/epistemic-markets/+page.svelte";

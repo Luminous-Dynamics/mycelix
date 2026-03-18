@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import {
     getAllWaterSystems,
     getActiveWaterAlerts,
@@ -9,6 +9,9 @@
     type WaterReading,
     type ContaminationAlert,
   } from '$lib/resilience-client';
+  import { toasts } from '$lib/toast';
+  import { createFreshness } from '$lib/freshness';
+  import FreshnessBar from '$lib/components/FreshnessBar.svelte';
 
   let systems: WaterSystem[] = [];
   let alerts: ContaminationAlert[] = [];
@@ -25,9 +28,10 @@
   // Report Reading form
   let showReadingForm = false;
   let rdSourceId = '';
-  let rdPh: number | null = null;
-  let rdTurbidity: number | null = null;
-  let rdTds: number | null = null;
+  let rdParameter = 'pH';
+  let rdValue = 7.0;
+  let rdUnit = 'pH';
+  let rdLocation = '';
 
   let submitting = false;
 
@@ -39,18 +43,24 @@
     { value: 'Snowmelt', label: 'Snowmelt' },
   ] as const;
 
+  // Freshness — 60s polling (water safety is critical)
+  async function fetchData() {
+    [systems, alerts] = await Promise.all([
+      getAllWaterSystems(),
+      getActiveWaterAlerts(),
+    ]);
+  }
+
+  const freshness = createFreshness(fetchData, 60_000);
+  const { lastUpdated, loadError, refreshing, startPolling, stopPolling, refresh } = freshness;
+
   onMount(async () => {
-    try {
-      [systems, alerts] = await Promise.all([
-        getAllWaterSystems(),
-        getActiveWaterAlerts(),
-      ]);
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load water data';
-    } finally {
-      loading = false;
-    }
+    await refresh();
+    loading = false;
+    startPolling();
   });
+
+  onDestroy(() => stopPolling());
 
   async function handleRegisterSystem() {
     if (!sysName || sysCapacity <= 0) return;
@@ -60,7 +70,7 @@
         name: sysName,
         system_type: sysType,
         capacity_liters: sysCapacity,
-        catchment_area_sqm: sysCatchment > 0 ? sysCatchment : null,
+        catchment_area_sqm: sysCatchment > 0 ? sysCatchment : undefined,
         efficiency_percent: 0,
         owner_did: '',
         location_lat: 0,
@@ -73,6 +83,9 @@
       sysCatchment = 50;
       sysType = 'RoofRainwater';
       showSystemForm = false;
+      toasts.success('System registered');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to register system');
     } finally {
       submitting = false;
     }
@@ -84,20 +97,22 @@
     try {
       await submitWaterReading({
         source_id: rdSourceId,
-        sampler_did: '',
-        timestamp: Date.now(),
-        ph: rdPh,
-        turbidity_ntu: rdTurbidity,
-        tds_ppm: rdTds,
-        potability_score: 0,
-        meets_who_standards: false,
-        meets_epa_standards: false,
+        parameter: rdParameter,
+        value: rdValue,
+        unit: rdUnit,
+        location: rdLocation,
+        recorded_at: Date.now(),
+        recorder_did: '',
       });
       rdSourceId = '';
-      rdPh = null;
-      rdTurbidity = null;
-      rdTds = null;
+      rdParameter = 'pH';
+      rdValue = 7.0;
+      rdUnit = 'pH';
+      rdLocation = '';
       showReadingForm = false;
+      toasts.success('Reading submitted');
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : 'Failed to submit reading');
     } finally {
       submitting = false;
     }
@@ -119,7 +134,8 @@
 <div class="min-h-screen bg-gray-950 text-gray-100 p-6">
   <div class="container mx-auto max-w-6xl">
     <h1 class="text-2xl font-bold mb-1">Water Safety</h1>
-    <p class="text-gray-400 mb-6">Community water harvesting systems, storage levels, and quality monitoring.</p>
+    <p class="text-gray-400 mb-4">Community water harvesting systems, storage levels, and quality monitoring.</p>
+    <FreshnessBar {lastUpdated} {loadError} {refreshing} {refresh} />
 
     {#if loading}
       <div class="text-gray-400">Loading water data...</div>
@@ -231,18 +247,25 @@
               </select>
             </div>
             <div>
-              <label for="rdph" class="text-xs text-gray-400">pH (0-14, optional)</label>
-              <input id="rdph" type="number" bind:value={rdPh} min="0" max="14" step="0.1" placeholder="7.0"
+              <label for="rdparam" class="text-xs text-gray-400">Parameter</label>
+              <select id="rdparam" bind:value={rdParameter}
+                on:change={() => { rdUnit = rdParameter === 'pH' ? 'pH' : rdParameter === 'Turbidity' ? 'NTU' : 'ppm'; }}
+                class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+                <option value="pH">pH</option>
+                <option value="Turbidity">Turbidity</option>
+                <option value="TDS">Total Dissolved Solids</option>
+                <option value="Chlorine">Chlorine</option>
+                <option value="E.coli">E. coli</option>
+              </select>
+            </div>
+            <div>
+              <label for="rdval" class="text-xs text-gray-400">Value ({rdUnit})</label>
+              <input id="rdval" type="number" bind:value={rdValue} min="0" step="0.1"
                 class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500" />
             </div>
             <div>
-              <label for="rdturb" class="text-xs text-gray-400">Turbidity (NTU, optional)</label>
-              <input id="rdturb" type="number" bind:value={rdTurbidity} min="0" step="0.1" placeholder="1.0"
-                class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500" />
-            </div>
-            <div>
-              <label for="rdtds" class="text-xs text-gray-400">TDS (ppm, optional)</label>
-              <input id="rdtds" type="number" bind:value={rdTds} min="0" step="1" placeholder="300"
+              <label for="rdloc" class="text-xs text-gray-400">Sample Location</label>
+              <input id="rdloc" type="text" bind:value={rdLocation} placeholder="e.g. Tank inlet"
                 class="w-full mt-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500" />
             </div>
             <div class="md:col-span-2">

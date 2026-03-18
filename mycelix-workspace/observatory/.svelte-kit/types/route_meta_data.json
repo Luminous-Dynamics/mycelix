@@ -1,13 +1,66 @@
 {
-	"/": [],
-	"/analytics": [],
-	"/attribution": [],
-	"/emergency": [],
-	"/epistemic-markets": [],
-	"/food": [],
-	"/governance": [],
-	"/mutual-aid": [],
-	"/network": [],
-	"/tend": [],
-	"/value-anchor": []
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/admin": [
+		"src/routes/+layout.ts"
+	],
+	"/analytics": [
+		"src/routes/+layout.ts"
+	],
+	"/attribution": [
+		"src/routes/+layout.ts"
+	],
+	"/care-circles": [
+		"src/routes/+layout.ts"
+	],
+	"/emergency": [
+		"src/routes/+layout.ts"
+	],
+	"/epistemic-markets": [
+		"src/routes/+layout.ts"
+	],
+	"/food": [
+		"src/routes/+layout.ts"
+	],
+	"/governance": [
+		"src/routes/+layout.ts"
+	],
+	"/household": [
+		"src/routes/+layout.ts"
+	],
+	"/knowledge": [
+		"src/routes/+layout.ts"
+	],
+	"/mutual-aid": [
+		"src/routes/+layout.ts"
+	],
+	"/network": [
+		"src/routes/+layout.ts"
+	],
+	"/print": [
+		"src/routes/+layout.ts"
+	],
+	"/resilience": [
+		"src/routes/+layout.ts"
+	],
+	"/shelter": [
+		"src/routes/+layout.ts"
+	],
+	"/supplies": [
+		"src/routes/+layout.ts"
+	],
+	"/tend": [
+		"src/routes/+layout.ts"
+	],
+	"/value-anchor": [
+		"src/routes/+layout.ts"
+	],
+	"/water": [
+		"src/routes/+layout.ts"
+	],
+	"/welcome": [
+		"src/routes/+layout.ts"
+	]
 }
