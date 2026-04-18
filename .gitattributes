@@ -1,0 +1,20 @@
+# Tell GitHub's linguist to ignore auto-generated / vendored content
+# when computing the repo's language breakdown. Without this, 4,500+
+# TypeDoc HTML files can dominate percentages and make a primarily-Rust
+# project look like a primarily-HTML one.
+
+# TypeDoc / auto-generated API documentation (regenerable via `npx typedoc`)
+mycelix-workspace/sdk-ts/docs/** linguist-generated=true
+
+# Build outputs (shouldn't be synced, defensive)
+**/.svelte-kit/** linguist-generated=true
+**/dist/**        linguist-generated=true
+**/.stage/**      linguist-generated=true
+
+# Python virtualenvs (never should be tracked; defensive)
+**/.venv/** linguist-vendored=true
+**/venv/**  linguist-vendored=true
+
+# ML training datasets / checkpoints
+**/datasets/**   linguist-vendored=true
+**/checkpoints/** linguist-vendored=true
