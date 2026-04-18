@@ -1,12 +1,13 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Timebank Coordinator Zome
 //! Business logic for service offers, requests, exchanges, and time credits.
 
 use care_timebank_integrity::*;
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -21,43 +22,6 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
     anchor_hash(anchor_str)
 }
 
-/// Collect records from links
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // SERVICE OFFERS
@@ -66,7 +30,7 @@ fn require_consciousness(
 /// Create a new service offer
 #[hdk_extern]
 pub fn create_service_offer(offer: ServiceOffer) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_service_offer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_service_offer")?;
     let action_hash = create_entry(&EntryTypes::ServiceOffer(offer.clone()))?;
 
     // Link agent to offer
@@ -172,7 +136,7 @@ pub fn search_offers(query: String) -> ExternResult<Vec<Record>> {
 /// Create a new service request
 #[hdk_extern]
 pub fn create_service_request(request: ServiceRequest) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_service_request")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_service_request")?;
     let action_hash = create_entry(&EntryTypes::ServiceRequest(request.clone()))?;
 
     // Link agent to request
@@ -262,7 +226,7 @@ pub struct CompleteExchangeInput {
 /// Complete a service exchange, creating a TimeExchange record and updating credits
 #[hdk_extern]
 pub fn complete_exchange(input: CompleteExchangeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "complete_exchange")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_exchange")?;
     let now = sys_time()?;
 
     let exchange = TimeExchange {
@@ -338,7 +302,7 @@ pub struct RateExchangeInput {
 /// Rate a completed exchange
 #[hdk_extern]
 pub fn rate_exchange(input: RateExchangeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "rate_exchange")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "rate_exchange")?;
     if input.rating < 1 || input.rating > 5 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Rating must be between 1 and 5".into()

@@ -1,53 +1,18 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Transport Sharing Coordinator Zome
 //! Business logic for ride offers, requests, matching, and cargo coordination.
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use transport_sharing_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 // ============================================================================
@@ -56,7 +21,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn post_ride_offer(offer: RideOffer) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "post_ride_offer")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "post_ride_offer")?;
     let action_hash = create_entry(&EntryTypes::RideOffer(offer.clone()))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_offers".to_string())))?;
@@ -93,7 +58,7 @@ pub fn get_available_rides(_: ()) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn request_ride(request: RideRequest) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "request_ride")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "request_ride")?;
     let action_hash = create_entry(&EntryTypes::RideRequest(request.clone()))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_requests".to_string())))?;
@@ -110,6 +75,17 @@ pub fn request_ride(request: RideRequest) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geo-spatial index for ride request origin
+    let geo_hash = commons_types::geo::geohash_encode(request.origin_lat, request.origin_lon, 6);
+    let geo_anchor_str = format!("geo:{}", geo_hash);
+    create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+    create_link(
+        anchor_hash(&geo_anchor_str)?,
+        action_hash.clone(),
+        LinkTypes::GeoIndex,
+        geo_hash.as_bytes().to_vec(),
+    )?;
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created request".into()
     )))
@@ -121,7 +97,7 @@ pub fn request_ride(request: RideRequest) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn match_ride(ride_match: RideMatch) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "match_ride")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "match_ride")?;
     let _offer = get(ride_match.offer_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Offer not found".into())))?;
     let _request = get(ride_match.request_hash.clone(), GetOptions::default())?.ok_or(
@@ -155,7 +131,7 @@ pub struct UpdateMatchStatusInput {
 
 #[hdk_extern]
 pub fn confirm_match(input: UpdateMatchStatusInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "confirm_match")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "confirm_match")?;
     let now = sys_time()?.as_micros() / 1_000_000;
     let record = get(input.match_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Match not found".into())))?;
@@ -180,7 +156,7 @@ pub fn confirm_match(input: UpdateMatchStatusInput) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn complete_ride(match_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "complete_ride")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_ride")?;
     let record = get(match_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Match not found".into())))?;
     let mut ride_match: RideMatch = record
@@ -203,7 +179,7 @@ pub fn complete_ride(match_hash: ActionHash) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn cancel_ride(match_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "cancel_ride")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "cancel_ride")?;
     let record = get(match_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Match not found".into())))?;
     let mut ride_match: RideMatch = record
@@ -230,11 +206,13 @@ pub fn cancel_ride(match_hash: ActionHash) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn post_cargo_offer(cargo: CargoOffer) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "post_cargo_offer")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "post_cargo_offer")?;
     let _vehicle = get(cargo.vehicle_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Vehicle not found".into())
     ))?;
 
+    let cargo_origin_lat = cargo.origin_lat;
+    let cargo_origin_lon = cargo.origin_lon;
     let action_hash = create_entry(&EntryTypes::CargoOffer(cargo))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_offers".to_string())))?;
@@ -243,6 +221,17 @@ pub fn post_cargo_offer(cargo: CargoOffer) -> ExternResult<Record> {
         action_hash.clone(),
         LinkTypes::AllOffers,
         (),
+    )?;
+
+    // Geo-spatial index for cargo offer origin
+    let geo_hash = commons_types::geo::geohash_encode(cargo_origin_lat, cargo_origin_lon, 6);
+    let geo_anchor_str = format!("geo:{}", geo_hash);
+    create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+    create_link(
+        anchor_hash(&geo_anchor_str)?,
+        action_hash.clone(),
+        LinkTypes::GeoIndex,
+        geo_hash.as_bytes().to_vec(),
     )?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -256,7 +245,7 @@ pub fn post_cargo_offer(cargo: CargoOffer) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn review_ride(review: RideReview) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "review_ride")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "review_ride")?;
     let action_hash = create_entry(&EntryTypes::RideReview(review.clone()))?;
 
     create_link(
@@ -397,6 +386,40 @@ pub fn get_my_rides(_: ()) -> ExternResult<Vec<Record>> {
     all.extend(records_from_links(requester_links)?);
 
     Ok(all)
+}
+
+// ============================================================================
+// GEO QUERIES
+// ============================================================================
+
+/// Get ride shares near a geographic location using geohash-based indexing.
+#[hdk_extern]
+pub fn get_nearby_rides(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = input.radius_km;
+    Ok(records)
 }
 
 #[cfg(test)]

@@ -1,46 +1,26 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Curation Coordinator Zome
 use hdk::prelude::*;
 use media_curation_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
+    GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Helper function to create an anchor entry and return its hash
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) { debug!("Anchor creation warning: {:?}", e); }
     hash_entry(&anchor)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
 }
 
 #[hdk_extern]
 pub fn endorse(input: EndorseInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "endorse")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "endorse")?;
     let now = sys_time()?;
     let endorsement = Endorsement {
         id: format!(
@@ -82,7 +62,7 @@ pub struct EndorseInput {
 
 #[hdk_extern]
 pub fn create_collection(input: CreateCollectionInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "create_collection")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "create_collection")?;
     let now = sys_time()?;
     let collection = Collection {
         id: format!("collection:{}:{}", input.curator_did, now.as_micros()),
@@ -163,7 +143,7 @@ pub fn calculate_quality_score(publication_id: String) -> ExternResult<Record> {
 
 #[hdk_extern]
 pub fn feature_content(input: FeatureInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_voting(), "feature_content")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "feature_content")?;
     let now = sys_time()?;
     let featured = FeaturedContent {
         id: format!("featured:{}:{}", input.publication_id, now.as_micros()),
@@ -297,7 +277,7 @@ pub fn get_collection(collection_id: String) -> ExternResult<Option<Record>> {
 /// Add publication to collection
 #[hdk_extern]
 pub fn add_to_collection(input: AddToCollectionInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "add_to_collection")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "add_to_collection")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Collection,
@@ -354,7 +334,7 @@ pub struct AddToCollectionInput {
 /// Remove publication from collection
 #[hdk_extern]
 pub fn remove_from_collection(input: RemoveFromCollectionInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "remove_from_collection")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "remove_from_collection")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Collection,
@@ -407,7 +387,7 @@ pub struct RemoveFromCollectionInput {
 /// Update collection metadata
 #[hdk_extern]
 pub fn update_collection(input: UpdateCollectionInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "update_collection")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "update_collection")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Collection,
@@ -489,7 +469,7 @@ pub struct UpdateQualityScoreInput {
 /// Remove endorsement
 #[hdk_extern]
 pub fn remove_endorsement(input: RemoveEndorsementInput) -> ExternResult<()> {
-    require_consciousness(&requirement_for_basic(), "remove_endorsement")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "remove_endorsement")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Endorsement,
@@ -524,7 +504,7 @@ pub struct RemoveEndorsementInput {
 /// Unfeature content
 #[hdk_extern]
 pub fn unfeature_content(input: UnfeatureInput) -> ExternResult<()> {
-    require_consciousness(&requirement_for_voting(), "unfeature_content")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "unfeature_content")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::FeaturedContent,
@@ -600,6 +580,124 @@ pub fn get_public_collections(_: ()) -> ExternResult<Vec<Record>> {
         }
     }
     Ok(results)
+}
+
+// ============================================================================
+// Gallery & Exhibition (Visual Art Curation)
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateGalleryInput {
+    pub name: String,
+    pub description: String,
+    pub theme: Option<String>,
+    pub initial_publication_ids: Vec<String>,
+}
+
+/// Create a new curated gallery (Participant+).
+#[hdk_extern]
+pub fn create_gallery(input: CreateGalleryInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "create_gallery")?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    let now = sys_time()?;
+
+    let gallery = Gallery {
+        id: format!("gal:{}:{}", agent, now.as_micros()),
+        name: input.name,
+        description: input.description,
+        curator_did: format!("did:holo:{}", agent),
+        theme: input.theme,
+        publication_ids: input.initial_publication_ids,
+        created: now,
+        updated: now,
+    };
+
+    let action_hash = create_entry(&EntryTypes::Gallery(gallery.clone()))?;
+    let curator_anchor = anchor_hash(&format!("did:holo:{}", agent))?;
+    create_link(
+        curator_anchor,
+        action_hash.clone(),
+        LinkTypes::CuratorToGalleries,
+        (),
+    )?;
+
+    get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AddToGalleryInput {
+    pub gallery_hash: ActionHash,
+    pub publication_id: String,
+}
+
+/// Add a publication to a gallery (Observer+).
+#[hdk_extern]
+pub fn add_to_gallery(input: AddToGalleryInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "add_to_gallery")?;
+
+    let record = get(input.gallery_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Gallery not found".into())))?;
+
+    let mut gallery: Gallery = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Invalid gallery".into())))?;
+
+    gallery.publication_ids.push(input.publication_id);
+    gallery.updated = sys_time()?;
+
+    let updated_hash = update_entry(input.gallery_hash, &EntryTypes::Gallery(gallery))?;
+    get_latest_record(updated_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateExhibitionInput {
+    pub name: String,
+    pub description: String,
+    pub gallery_hash: ActionHash,
+    pub featured_publication_ids: Vec<String>,
+    pub end_date: Option<Timestamp>,
+}
+
+/// Create a time-bounded exhibition (Citizen+).
+#[hdk_extern]
+pub fn create_exhibition(input: CreateExhibitionInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "create_exhibition")?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    let now = sys_time()?;
+
+    let exhibition = Exhibition {
+        id: format!("exh:{}:{}", agent, now.as_micros()),
+        name: input.name,
+        description: input.description,
+        gallery_id: input.gallery_hash.to_string(),
+        curator_did: format!("did:holo:{}", agent),
+        featured_publication_ids: input.featured_publication_ids,
+        start_date: now,
+        end_date: input.end_date,
+        created: now,
+    };
+
+    let action_hash = create_entry(&EntryTypes::Exhibition(exhibition))?;
+    create_link(
+        input.gallery_hash,
+        action_hash.clone(),
+        LinkTypes::GalleryToExhibitions,
+        (),
+    )?;
+
+    get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+}
+
+/// Get all publications in a gallery.
+#[hdk_extern]
+pub fn get_gallery(gallery_hash: ActionHash) -> ExternResult<Option<Gallery>> {
+    let record = get(gallery_hash, GetOptions::default())?;
+    match record {
+        Some(r) => Ok(r.entry().to_app_option().ok().flatten()),
+        None => Ok(None),
+    }
 }
 
 #[cfg(test)]

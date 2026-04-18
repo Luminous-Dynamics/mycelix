@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Commons</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/main-3107590768720670.css" integrity="sha384-VcNmsP4R2xxwiK1p2z69I84yOqPgQraFfy9gO3mobcGZZkbUWq8ziSzK6VmmeGLW"/>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>" />
+<link rel="modulepreload" href="/mycelix-commons-ui-c301b463289382be.js" crossorigin="anonymous" integrity="sha384-EuirTmzECTGzKtjCyJ+d7Dzr15cOBNHSmkxv1n3lUsg1PHBXdEs8rUKmIBaiyAlw"><link rel="preload" href="/mycelix-commons-ui-c301b463289382be_bg.wasm" crossorigin="anonymous" integrity="sha384-3LEW2bR5yWjyaKDr+Sb9V2jl6MRa5PIP7HR6eg0YdwPyxzpBs8+22z3BmZapS6sq" as="fetch" type="application/wasm"></head>
+<body>
+    <script id="holochain-bridge">
+    (function() {
+        window.__HC_STATUS = 'connecting';
+        var WS_URL = window.__HC_CONDUCTOR_URL || 'ws://localhost:8888';
+        var TIMEOUT_MS = 3000;
+        try {
+            var ws = new WebSocket(WS_URL);
+            var timer = setTimeout(function() { ws.close(); window.__HC_STATUS = 'mock'; }, TIMEOUT_MS);
+            ws.onopen = function() { clearTimeout(timer); window.__HC_STATUS = 'connected'; ws.close(); };
+            ws.onerror = function() { clearTimeout(timer); window.__HC_STATUS = 'mock'; };
+        } catch (e) { window.__HC_STATUS = 'mock'; }
+    })();
+    </script>
+
+<script type="module">
+import init, * as bindings from '/mycelix-commons-ui-c301b463289382be.js';
+const wasm = await init({ module_or_path: '/mycelix-commons-ui-c301b463289382be_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script></body>
+</html>

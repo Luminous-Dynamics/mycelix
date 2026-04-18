@@ -1,10 +1,18 @@
 #![deny(unsafe_code)]
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Finance Bridge Coordinator Zome
 //!
 //! Cross-hApp communication for payment processing, collateral management,
 //! and collateral bridge deposits across the Mycelix ecosystem.
 
 use finance_bridge_integrity::*;
+use finance_wire_types::{
+    BalanceResponse, DepositCollateralInput, FeeTierResponse, FinanceBridgeHealth,
+    FinanceRuntimeDiscovery, GetPaymentHistoryInput, ProcessPaymentInput, RegisterCollateralInput,
+    UpdateCollateralHealthInput,
+};
 use hdk::prelude::*;
 use mycelix_finance_shared::{
     anchor_hash, follow_update_chain, verify_caller_is_did, verify_citizen_tier,
@@ -27,7 +35,12 @@ const FINANCE_HAPP_ID: &str = "mycelix-finance";
 ///
 /// Set to `true` for high-security deployments where governance availability
 /// is guaranteed and any gap in oversight is unacceptable.
-const STRICT_GOVERNANCE_MODE: bool = false;
+///
+/// SECURITY: Changed from `false` to `true` — financial operations must not
+/// proceed without governance verification. The permissive default allowed
+/// currency creation and proposal verification to bypass governance during
+/// network partitions, which is unacceptable for production deployments.
+const STRICT_GOVERNANCE_MODE: bool = true;
 
 /// 24 hours in microseconds
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -94,16 +107,6 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
     )))
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProcessPaymentInput {
-    pub source_happ: String,
-    pub from_did: String,
-    pub to_did: String,
-    pub amount: u64,
-    pub currency: String,
-    pub reference: String,
-}
-
 /// Register collateral from another hApp
 #[hdk_extern]
 pub fn register_collateral(input: RegisterCollateralInput) -> ExternResult<Record> {
@@ -119,7 +122,7 @@ pub fn register_collateral(input: RegisterCollateralInput) -> ExternResult<Recor
             now.as_micros()
         ),
         owner_did: input.owner_did.clone(),
-        asset_type: input.asset_type,
+        asset_type: map_wire_asset_type(input.asset_type),
         asset_id: input.asset_id,
         source_happ: input.source_happ,
         value_estimate: input.value_estimate,
@@ -143,16 +146,6 @@ pub fn register_collateral(input: RegisterCollateralInput) -> ExternResult<Recor
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RegisterCollateralInput {
-    pub owner_did: String,
-    pub source_happ: String,
-    pub asset_type: AssetType,
-    pub asset_id: String,
-    pub value_estimate: u64,
-    pub currency: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateCollateralStatusInput {
     pub collateral_id: String,
     pub owner_did: String,
@@ -172,7 +165,10 @@ pub fn update_collateral_status(input: UpdateCollateralStatusInput) -> ExternRes
 
     // Find the collateral registration
     let links = get_links(
-        LinkQuery::try_new(anchor_hash("collateral_registry")?, LinkTypes::CollateralRegistry)?,
+        LinkQuery::try_new(
+            anchor_hash("collateral_registry")?,
+            LinkTypes::CollateralRegistry,
+        )?,
         GetStrategy::default(),
     )?;
 
@@ -180,10 +176,7 @@ pub fn update_collateral_status(input: UpdateCollateralStatusInput) -> ExternRes
         let hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         let record = follow_update_chain(hash)?;
-        if let Ok(Some(collateral)) = record
-            .entry()
-            .to_app_option::<CollateralRegistration>()
-        {
+        if let Ok(Some(collateral)) = record.entry().to_app_option::<CollateralRegistration>() {
             if collateral.id == input.collateral_id {
                 // Verify ownership
                 if collateral.owner_did != input.owner_did {
@@ -264,13 +257,6 @@ pub struct BroadcastFinanceEventInput {
     pub payload: String,
 }
 
-/// Input for paginated payment history queries
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GetPaymentHistoryInput {
-    pub did: String,
-    pub limit: Option<usize>,
-}
-
 /// Get payment history for a DID (paginated, default limit 100)
 #[hdk_extern]
 pub fn get_payment_history(input: GetPaymentHistoryInput) -> ExternResult<Vec<Record>> {
@@ -329,9 +315,9 @@ pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record>
     let mycel_score = fetch_mycel_score(&input.depositor_did);
     let tier = FeeTier::from_mycel(mycel_score);
     let daily_limit_pct = match tier {
-        FeeTier::Newcomer => 1,   // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
-        FeeTier::Member => 5,     // 5% for members
-        FeeTier::Steward => 10,   // 10% for stewards
+        FeeTier::Newcomer => 1, // 1% for newcomers (shouldn't reach here due to tier gate, but defense in depth)
+        FeeTier::Member => 5,   // 5% for members
+        FeeTier::Steward => 10, // 10% for stewards
     };
 
     // Enforce rate limit: max daily_limit_pct% of vault per day per member
@@ -425,14 +411,6 @@ pub fn deposit_collateral(input: DepositCollateralInput) -> ExternResult<Record>
     get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Deposit not found".into()
     )))
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DepositCollateralInput {
-    pub depositor_did: String,
-    pub collateral_type: String, // "ETH" or "USDC"
-    pub collateral_amount: u64,
-    pub oracle_rate: f64,
 }
 
 /// Confirm a pending deposit after collateral has been verified.
@@ -539,7 +517,12 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         FeeTier::Member => 5,
         FeeTier::Steward => 10,
     };
-    enforce_rate_limit(&deposit.depositor_did, deposit.sap_minted, now, redeem_daily_limit_pct)?;
+    enforce_rate_limit(
+        &deposit.depositor_did,
+        deposit.sap_minted,
+        now,
+        redeem_daily_limit_pct,
+    )?;
 
     let redeemed = CollateralBridgeDeposit {
         status: BridgeDepositStatus::Redeemed,
@@ -620,14 +603,6 @@ pub fn get_member_fee_tier(member_did: String) -> ExternResult<FeeTierResponse> 
         tier_name: format!("{:?}", tier),
         base_fee_rate: tier.base_fee_rate(),
     })
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FeeTierResponse {
-    pub member_did: String,
-    pub mycel_score: f64,
-    pub tier_name: String,
-    pub base_fee_rate: f64,
 }
 
 /// Get a member's effective TEND limit based on current network vitality.
@@ -779,7 +754,7 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
             // blocking the operation until governance is reachable.
             if STRICT_GOVERNANCE_MODE {
                 return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Governance cluster returned non-Ok response for {}: {:?}. Strict mode requires governance availability.",
+                    "Circuit breaker: governance cluster unavailable for {}, operation suspended: {:?}",
                     dao_did, other
                 ))));
             }
@@ -791,7 +766,7 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
             // When STRICT_GOVERNANCE_MODE is true, fail-closed instead.
             if STRICT_GOVERNANCE_MODE {
                 return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "Governance cluster unreachable for {}: {:?}. Strict mode requires governance availability.",
+                    "Circuit breaker: governance cluster unreachable for {}, operation suspended: {:?}",
                     dao_did, e
                 ))));
             }
@@ -830,24 +805,22 @@ pub fn verify_governance_proposal(proposal_id: String) -> ExternResult<bool> {
             // Governance returned non-Ok — proposal likely doesn't exist
             Ok(false)
         }
-        Err(_e) => {
-            // SECURITY NOTE: When governance cluster is unreachable, behavior depends
-            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return false),
+        Err(e) => {
+            // Circuit breaker: When governance cluster is unreachable, behavior depends
+            // on STRICT_GOVERNANCE_MODE. In strict mode we fail-closed (return error),
             // blocking operations that need governance approval. In permissive mode
             // we return true, relying on local verify_governance_agent as a fallback.
             if STRICT_GOVERNANCE_MODE {
-                debug!(
-                    "verify_governance_proposal: governance unreachable for {}, strict mode returning false (fail-closed)",
-                    proposal_id
-                );
-                Ok(false)
-            } else {
-                debug!(
-                    "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive)",
-                    proposal_id
-                );
-                Ok(true)
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Circuit breaker: governance cluster unreachable for proposal {}, operation suspended: {:?}",
+                    proposal_id, e
+                ))));
             }
+            debug!(
+                "verify_governance_proposal: governance unreachable for {}, defaulting to true (permissive): {:?}",
+                proposal_id, e
+            );
+            Ok(true)
         }
     }
 }
@@ -969,19 +942,173 @@ pub fn query_tend_balance(member_did: String) -> ExternResult<TendBalanceRespons
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BalanceResponse {
-    pub member_did: String,
-    pub currency: String,
-    pub balance: u64,
-    pub available: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct TendBalanceResponse {
     pub member_did: String,
     pub balance: i32,
     pub mycel_score: f64,
     pub available: bool,
+}
+
+/// Discover the local finance runtime context for the connected agent.
+///
+/// This gives the frontend a best-effort default DAO/treasury/commons context
+/// without relying on browser globals. Explicit frontend config may still
+/// override these values.
+#[hdk_extern]
+pub fn discover_runtime_context(_: ()) -> ExternResult<FinanceRuntimeDiscovery> {
+    let member_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
+    let dao_dids = match call(
+        CallTargetCell::Local,
+        ZomeName::from("tend"),
+        FunctionName::from("get_member_dao_contexts"),
+        None,
+        member_did.clone(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Vec<String>>().unwrap_or_default(),
+        Ok(other) => {
+            debug!(
+                "discover_runtime_context: tend returned {:?} for {}, defaulting to empty DAO list",
+                other, member_did
+            );
+            Vec::new()
+        }
+        Err(err) => {
+            debug!(
+                "discover_runtime_context: tend unreachable for {}: {:?}",
+                member_did, err
+            );
+            Vec::new()
+        }
+    };
+
+    let default_dao_did = runtime_default_dao_did(&dao_dids);
+    let commons_pool_id = default_dao_did
+        .as_ref()
+        .and_then(|dao_did| discover_commons_pool_id(dao_did));
+    let treasury_id = discover_managed_treasury_id(&member_did);
+
+    Ok(build_runtime_discovery(
+        member_did,
+        dao_dids,
+        commons_pool_id,
+        treasury_id,
+    ))
+}
+
+fn runtime_default_dao_did(dao_dids: &[String]) -> Option<String> {
+    dao_dids.first().cloned()
+}
+
+fn build_runtime_discovery(
+    member_did: String,
+    dao_dids: Vec<String>,
+    commons_pool_id: Option<String>,
+    treasury_id: Option<String>,
+) -> FinanceRuntimeDiscovery {
+    FinanceRuntimeDiscovery {
+        member_did,
+        default_dao_did: runtime_default_dao_did(&dao_dids),
+        dao_dids,
+        commons_pool_id,
+        treasury_id,
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TreasuryListInput {
+    id: String,
+    limit: Option<usize>,
+}
+
+#[derive(Deserialize)]
+struct MinimalTreasuryRecord {
+    id: String,
+}
+
+#[derive(Deserialize)]
+struct MinimalCommonsPoolRecord {
+    id: String,
+}
+
+fn discover_managed_treasury_id(member_did: &str) -> Option<String> {
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("treasury"),
+        FunctionName::from("get_manager_treasuries"),
+        None,
+        TreasuryListInput {
+            id: member_did.to_string(),
+            limit: Some(1),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<Vec<Record>>().ok().and_then(|records| {
+                records.into_iter().find_map(|record| {
+                    decode_record_entry::<MinimalTreasuryRecord>(&record)
+                        .map(|treasury| treasury.id)
+                })
+            })
+        }
+        Ok(other) => {
+            debug!(
+                "discover_managed_treasury_id: treasury returned {:?} for {}",
+                other, member_did
+            );
+            None
+        }
+        Err(err) => {
+            debug!(
+                "discover_managed_treasury_id: treasury unreachable for {}: {:?}",
+                member_did, err
+            );
+            None
+        }
+    }
+}
+
+fn discover_commons_pool_id(dao_did: &str) -> Option<String> {
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("treasury"),
+        FunctionName::from("get_dao_commons_pool"),
+        None,
+        dao_did.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<Option<Record>>()
+            .ok()
+            .flatten()
+            .and_then(|record| {
+                decode_record_entry::<MinimalCommonsPoolRecord>(&record).map(|pool| pool.id)
+            }),
+        Ok(other) => {
+            debug!(
+                "discover_commons_pool_id: treasury returned {:?} for {}",
+                other, dao_did
+            );
+            None
+        }
+        Err(err) => {
+            debug!(
+                "discover_commons_pool_id: treasury unreachable for {}: {:?}",
+                dao_did, err
+            );
+            None
+        }
+    }
+}
+
+fn decode_record_entry<T: serde::de::DeserializeOwned>(record: &Record) -> Option<T> {
+    match record.entry().as_option()? {
+        Entry::App(bytes) => {
+            let sb = SerializedBytes::from(bytes.to_owned());
+            rmp_serde::from_slice::<T>(sb.bytes())
+                .ok()
+                .or_else(|| serde_json::from_slice::<T>(sb.bytes()).ok())
+        }
+        _ => None,
+    }
 }
 
 /// Get a unified financial summary for a member across all currencies.
@@ -1039,13 +1166,6 @@ pub fn health_check(_: ()) -> ExternResult<FinanceBridgeHealth> {
     })
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FinanceBridgeHealth {
-    pub healthy: bool,
-    pub agent: String,
-    pub zomes: Vec<String>,
-}
-
 // ---------------------------------------------------------------------------
 // Phase 1b: Oracle Rate Attestation
 // ---------------------------------------------------------------------------
@@ -1054,10 +1174,13 @@ pub struct FinanceBridgeHealth {
 ///
 /// Fetches consensus from the price-oracle zome. If the oracle is unreachable
 /// (bootstrap/standalone), accepts the claimed rate with a warning.
-fn verify_oracle_rate_against_consensus(collateral_type: &str, claimed_rate: f64) -> ExternResult<()> {
+fn verify_oracle_rate_against_consensus(
+    collateral_type: &str,
+    claimed_rate: f64,
+) -> ExternResult<()> {
     use mycelix_finance_types::ORACLE_RATE_TOLERANCE;
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Debug)]
     struct GetConsensusInput {
         item: String,
     }
@@ -1075,34 +1198,30 @@ fn verify_oracle_rate_against_consensus(collateral_type: &str, claimed_rate: f64
         None,
         GetConsensusInput { item },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => {
-            match result.decode::<ConsensusResult>() {
-                Ok(consensus)
-                    if consensus.median_price.is_finite() && consensus.median_price > 0.0 =>
-                {
-                    let deviation =
-                        (claimed_rate - consensus.median_price).abs() / consensus.median_price;
-                    if deviation > ORACLE_RATE_TOLERANCE {
-                        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                            "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%). \
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<ConsensusResult>() {
+            Ok(consensus) if consensus.median_price.is_finite() && consensus.median_price > 0.0 => {
+                let deviation =
+                    (claimed_rate - consensus.median_price).abs() / consensus.median_price;
+                if deviation > ORACLE_RATE_TOLERANCE {
+                    return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                        "Oracle rate {:.6} deviates {:.1}% from consensus {:.6} (max {:.0}%). \
                              Use get_consensus_price to fetch current rate before depositing.",
-                            claimed_rate,
-                            deviation * 100.0,
-                            consensus.median_price,
-                            ORACLE_RATE_TOLERANCE * 100.0
-                        ))));
-                    }
-                    Ok(())
+                        claimed_rate,
+                        deviation * 100.0,
+                        consensus.median_price,
+                        ORACLE_RATE_TOLERANCE * 100.0
+                    ))));
                 }
-                _ => {
-                    debug!(
-                        "verify_oracle_rate: consensus invalid, accepting claimed rate {:.6}",
-                        claimed_rate
-                    );
-                    Ok(())
-                }
+                Ok(())
             }
-        }
+            _ => {
+                debug!(
+                    "verify_oracle_rate: consensus invalid, accepting claimed rate {:.6}",
+                    claimed_rate
+                );
+                Ok(())
+            }
+        },
         _ => {
             debug!(
                 "verify_oracle_rate: price oracle unreachable, accepting claimed rate {:.6}",
@@ -1251,21 +1370,17 @@ pub fn release_covenant(covenant_id: String) -> ExternResult<Record> {
 /// Query active (unreleased) covenants for a collateral ID.
 #[hdk_extern]
 pub fn check_covenants(collateral_id: String) -> ExternResult<Vec<Record>> {
-    check_covenants_inner(&collateral_id)
-}
-
-/// Inner implementation: query active (unreleased) covenants for a collateral ID.
-/// Returns `Vec<Record>` directly — used by both the extern `check_covenants`
-/// and internal covenant enforcement (e.g., redemption and status-change guards).
-fn check_covenants_inner(collateral_id: &str) -> ExternResult<Vec<Record>> {
-    get_active_covenants(collateral_id)
+    get_active_covenants(&collateral_id)
 }
 
 /// Internal helper: query active (unreleased) covenants for a collateral ID.
 /// Used by both the extern `check_covenants` and internal covenant enforcement.
 fn get_active_covenants(collateral_id: &str) -> ExternResult<Vec<Record>> {
     let links = get_links(
-        LinkQuery::try_new(anchor_hash(collateral_id)?, LinkTypes::CollateralToCovenants)?,
+        LinkQuery::try_new(
+            anchor_hash(collateral_id)?,
+            LinkTypes::CollateralToCovenants,
+        )?,
         GetStrategy::default(),
     )?;
 
@@ -1314,20 +1429,12 @@ fn enforce_no_active_covenants(collateral_id: &str) -> ExternResult<()> {
 // Phase 2b: LTV Monitoring
 // ---------------------------------------------------------------------------
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateCollateralHealthInput {
-    pub collateral_id: String,
-    pub obligation_amount: u64,
-}
-
 /// Compute and store the LTV health status for a collateral position.
 ///
 /// Fetches current value from the price oracle, computes the LTV ratio,
 /// and stores a CollateralHealth snapshot linked to the collateral.
 #[hdk_extern]
-pub fn update_collateral_health(
-    input: UpdateCollateralHealthInput,
-) -> ExternResult<Record> {
+pub fn update_collateral_health(input: UpdateCollateralHealthInput) -> ExternResult<Record> {
     verify_participant_tier()?;
     let now = sys_time()?;
 
@@ -1340,11 +1447,12 @@ pub fn update_collateral_health(
         f64::INFINITY
     };
 
+    // Thresholds match canonical CollateralHealthStatus::from_ltv() in mycelix_finance_types
     let status = if !ltv_ratio.is_finite() || ltv_ratio > 0.95 {
         "Liquidation"
-    } else if ltv_ratio > 0.85 {
+    } else if ltv_ratio > 0.90 {
         "MarginCall"
-    } else if ltv_ratio > 0.75 {
+    } else if ltv_ratio > 0.80 {
         "Warning"
     } else {
         "Healthy"
@@ -1354,7 +1462,11 @@ pub fn update_collateral_health(
         collateral_id: input.collateral_id.clone(),
         current_value,
         obligation_amount: input.obligation_amount,
-        ltv_ratio: if ltv_ratio.is_finite() { ltv_ratio } else { 999.0 },
+        ltv_ratio: if ltv_ratio.is_finite() {
+            ltv_ratio
+        } else {
+            999.0
+        },
         status: status.to_string(),
         computed_at: now,
     };
@@ -1385,10 +1497,21 @@ pub fn update_collateral_health(
     )))
 }
 
+fn map_wire_asset_type(asset_type: finance_wire_types::AssetType) -> AssetType {
+    match asset_type {
+        finance_wire_types::AssetType::RealEstate => AssetType::RealEstate,
+        finance_wire_types::AssetType::Vehicle => AssetType::Vehicle,
+        finance_wire_types::AssetType::Cryptocurrency => AssetType::Cryptocurrency,
+        finance_wire_types::AssetType::EnergyAsset => AssetType::EnergyAsset,
+        finance_wire_types::AssetType::Equipment => AssetType::Equipment,
+        finance_wire_types::AssetType::Other(value) => AssetType::Other(value),
+    }
+}
+
 /// Fetch current value for a collateral position from the price oracle.
 /// Falls back to 0 if oracle is unreachable.
 fn fetch_collateral_value(collateral_id: &str) -> u64 {
-    #[derive(Serialize)]
+    #[derive(Serialize, Debug)]
     struct GetValueInput {
         collateral_id: String,
     }
@@ -1406,10 +1529,9 @@ fn fetch_collateral_value(collateral_id: &str) -> u64 {
             collateral_id: collateral_id.to_string(),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => result
-            .decode::<ValueResult>()
-            .map(|v| v.value)
-            .unwrap_or(0),
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<ValueResult>().map(|v| v.value).unwrap_or(0)
+        }
         _ => {
             debug!(
                 "fetch_collateral_value: oracle unreachable for {}, defaulting to 0",
@@ -1439,9 +1561,7 @@ pub struct RegisterEnergyCertificateInput {
 
 /// Register a new energy production certificate. Requires Participant+ tier.
 #[hdk_extern]
-pub fn register_energy_certificate(
-    input: RegisterEnergyCertificateInput,
-) -> ExternResult<Record> {
+pub fn register_energy_certificate(input: RegisterEnergyCertificateInput) -> ExternResult<Record> {
     verify_participant_tier()?;
     verify_caller_is_did(&input.producer_did)?;
     let now = sys_time()?;
@@ -1504,9 +1624,7 @@ pub struct VerifyEnergyCertificateInput {
 
 /// Verify an energy certificate and assign SAP value. Requires Citizen+ tier.
 #[hdk_extern]
-pub fn verify_energy_certificate(
-    input: VerifyEnergyCertificateInput,
-) -> ExternResult<Record> {
+pub fn verify_energy_certificate(input: VerifyEnergyCertificateInput) -> ExternResult<Record> {
     verify_citizen_tier()?;
     verify_caller_is_did(&input.verifier_did)?;
 
@@ -1533,6 +1651,8 @@ pub fn verify_energy_certificate(
                 }
 
                 // Verify project exists in energy cluster (cross-cluster call)
+                // Circuit breaker: if energy cluster is unreachable, log and proceed
+                // (non-fatal — accept verification in offline mode)
                 match call(
                     CallTargetCell::OtherRole("energy".into()),
                     ZomeName::from("energy_bridge"),
@@ -1541,9 +1661,23 @@ pub fn verify_energy_certificate(
                     cert.project_id.clone(),
                 ) {
                     Ok(ZomeCallResponse::Ok(_)) => {} // Project exists
-                    _ => {
-                        debug!("verify_energy_certificate: energy cluster unreachable, proceeding without project verification");
-                        // Non-fatal: accept verification even if energy cluster is unreachable (offline mode)
+                    Ok(ZomeCallResponse::NetworkError(e)) => {
+                        debug!(
+                            "Circuit breaker: energy cluster unavailable (network error), proceeding without project verification: {}",
+                            e
+                        );
+                    }
+                    Ok(other) => {
+                        debug!(
+                            "Circuit breaker: energy cluster returned unexpected response, proceeding without project verification: {:?}",
+                            other
+                        );
+                    }
+                    Err(e) => {
+                        debug!(
+                            "Circuit breaker: energy cluster unreachable (transport error), proceeding without project verification: {:?}",
+                            e
+                        );
                     }
                 }
 
@@ -1588,9 +1722,7 @@ pub struct RegisterAgriculturalAssetInput {
 
 /// Register a new agricultural asset. Requires Participant+ tier.
 #[hdk_extern]
-pub fn register_agricultural_asset(
-    input: RegisterAgriculturalAssetInput,
-) -> ExternResult<Record> {
+pub fn register_agricultural_asset(input: RegisterAgriculturalAssetInput) -> ExternResult<Record> {
     verify_participant_tier()?;
     verify_caller_is_did(&input.producer_did)?;
     let now = sys_time()?;
@@ -1637,9 +1769,8 @@ pub fn register_agricultural_asset(
         .to_string(),
     })?;
 
-    get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Asset not found".into()
-    )))
+    get(hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Asset not found".into())))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1651,9 +1782,7 @@ pub struct VerifyAgriculturalAssetInput {
 
 /// Verify an agricultural asset and assign SAP value. Requires Citizen+ tier.
 #[hdk_extern]
-pub fn verify_agricultural_asset(
-    input: VerifyAgriculturalAssetInput,
-) -> ExternResult<Record> {
+pub fn verify_agricultural_asset(input: VerifyAgriculturalAssetInput) -> ExternResult<Record> {
     verify_citizen_tier()?;
     verify_caller_is_did(&input.verifier_did)?;
 
@@ -1729,13 +1858,12 @@ pub fn create_multi_collateral_position(
         #[serde(rename = "type")]
         _type: String,
     }
-    let components: Vec<Component> =
-        serde_json::from_str(&input.components_json).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Invalid components JSON: {:?}",
-                e
-            )))
-        })?;
+    let components: Vec<Component> = serde_json::from_str(&input.components_json).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid components JSON: {:?}",
+            e
+        )))
+    })?;
 
     if components.is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1746,7 +1874,10 @@ pub fn create_multi_collateral_position(
     // Diversification bonus: 1% per distinct asset type, capped at 5%
     let distinct_types: std::collections::HashSet<&str> =
         components.iter().map(|c| c._type.as_str()).collect();
-    let diversification_bonus = (distinct_types.len() as f64 * 0.01).min(0.05);
+    // Bonus starts from 2nd distinct class: 5% per class, capped at 20%
+    // Matches canonical compute_diversification_bonus() in mycelix_finance_types
+    let bonus_classes = distinct_types.len().saturating_sub(1);
+    let diversification_bonus = (bonus_classes as f64 * 0.05).min(0.20);
 
     let base_ltv = if input.aggregate_value > 0 {
         input.aggregate_obligation as f64 / input.aggregate_value as f64
@@ -1755,11 +1886,12 @@ pub fn create_multi_collateral_position(
     };
     let effective_ltv = (base_ltv - diversification_bonus).max(0.0);
 
+    // Thresholds match canonical CollateralHealthStatus::from_ltv() in mycelix_finance_types
     let status = if !effective_ltv.is_finite() || effective_ltv > 0.95 {
         "Liquidation"
-    } else if effective_ltv > 0.85 {
+    } else if effective_ltv > 0.90 {
         "MarginCall"
-    } else if effective_ltv > 0.75 {
+    } else if effective_ltv > 0.80 {
         "Warning"
     } else {
         "Healthy"
@@ -1907,7 +2039,10 @@ pub fn verify_fiat_deposit(input: VerifyFiatDepositInput) -> ExternResult<Record
     verify_caller_is_did(&input.verifier_did)?;
 
     let links = get_links(
-        LinkQuery::try_new(anchor_hash("fiat_deposits")?, LinkTypes::FiatDepositRegistry)?,
+        LinkQuery::try_new(
+            anchor_hash("fiat_deposits")?,
+            LinkTypes::FiatDepositRegistry,
+        )?,
         GetStrategy::default(),
     )?;
 
@@ -1997,7 +2132,12 @@ pub fn verify_fiat_deposit(input: VerifyFiatDepositInput) -> ExternResult<Record
 /// Vault value = sum of `sap_minted` for all Confirmed deposits.
 /// Daily activity = sum of `sap_minted` for this member's deposits/redemptions
 /// created within the last 24 hours.
-fn enforce_rate_limit(member_did: &str, new_amount: u64, now: Timestamp, daily_limit_pct: u32) -> ExternResult<()> {
+fn enforce_rate_limit(
+    member_did: &str,
+    new_amount: u64,
+    now: Timestamp,
+    daily_limit_pct: u32,
+) -> ExternResult<()> {
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CollateralBridgeDeposit,
@@ -2047,4 +2187,173 @@ fn enforce_rate_limit(member_did: &str, new_amount: u64, now: Timestamp, daily_l
     }
 
     Ok(())
+}
+
+// ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// See `mycelix_bridge_common::metrics::BridgeMetricsSnapshot` for the schema.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
+    })
+}
+
+// ============================================================================
+// Notification Service
+// ============================================================================
+
+/// Receive a cross-cluster notification and store it locally.
+#[hdk_extern]
+pub fn receive_notification(
+    notification: mycelix_bridge_entry_types::CrossClusterNotification,
+) -> ExternResult<ActionHash> {
+    let action_hash = create_entry(&EntryTypes::Notification(notification.clone()))?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = anchor_hash(&format!("notifications:{:?}", agent))?;
+    create_link(
+        inbox_anchor,
+        action_hash.clone(),
+        LinkTypes::AgentToNotification,
+        (),
+    )?;
+    let all_anchor = anchor_hash("all_notifications")?;
+    create_link(
+        all_anchor,
+        action_hash.clone(),
+        LinkTypes::AllNotifications,
+        (),
+    )?;
+    let signal = mycelix_bridge_common::notifications::NotificationSignal {
+        signal_type: "cross_cluster_notification".into(),
+        source_cluster: notification.source_cluster,
+        event_type: notification.event_type,
+        payload: notification.payload,
+        priority: notification.priority,
+    };
+    emit_signal(&signal)?;
+    Ok(action_hash)
+}
+
+/// Get notifications for the calling agent.
+#[hdk_extern]
+pub fn get_my_notifications(
+    input: mycelix_bridge_common::notifications::NotificationQueryInput,
+) -> ExternResult<Vec<Record>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = anchor_hash(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    let limit = input
+        .limit
+        .unwrap_or(mycelix_bridge_common::notifications::DEFAULT_NOTIFICATION_LIMIT)
+        .min(mycelix_bridge_common::notifications::MAX_NOTIFICATIONS_PER_AGENT);
+    let mut records = Vec::new();
+    for link in links.iter().rev().take(limit) {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+/// Get unread notification count for the calling agent.
+#[hdk_extern]
+pub fn get_unread_count(_: ()) -> ExternResult<u32> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = anchor_hash(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    Ok(links.len() as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_default_dao_did_uses_first_known_context() {
+        let dao_dids = vec![
+            "did:mycelix:dao-alpha".to_string(),
+            "did:mycelix:dao-beta".to_string(),
+        ];
+        assert_eq!(
+            runtime_default_dao_did(&dao_dids).as_deref(),
+            Some("did:mycelix:dao-alpha")
+        );
+    }
+
+    #[test]
+    fn build_runtime_discovery_keeps_empty_state_explicit() {
+        let discovery = build_runtime_discovery("did:mycelix:alice".into(), Vec::new(), None, None);
+
+        assert_eq!(discovery.member_did, "did:mycelix:alice");
+        assert!(discovery.dao_dids.is_empty());
+        assert!(discovery.default_dao_did.is_none());
+        assert!(discovery.commons_pool_id.is_none());
+        assert!(discovery.treasury_id.is_none());
+    }
+
+    #[test]
+    fn build_runtime_discovery_preserves_discovered_context() {
+        let discovery = build_runtime_discovery(
+            "did:mycelix:alice".into(),
+            vec![
+                "did:mycelix:dao-alpha".into(),
+                "did:mycelix:dao-beta".into(),
+            ],
+            Some("commons-alpha".into()),
+            Some("treasury-alpha".into()),
+        );
+
+        assert_eq!(
+            discovery.default_dao_did.as_deref(),
+            Some("did:mycelix:dao-alpha")
+        );
+        assert_eq!(discovery.commons_pool_id.as_deref(), Some("commons-alpha"));
+        assert_eq!(discovery.treasury_id.as_deref(), Some("treasury-alpha"));
+        assert_eq!(discovery.dao_dids.len(), 2);
+    }
+
+    #[test]
+    fn map_wire_asset_type_preserves_variants() {
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::RealEstate),
+            AssetType::RealEstate
+        );
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::Vehicle),
+            AssetType::Vehicle
+        );
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::Cryptocurrency),
+            AssetType::Cryptocurrency
+        );
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::EnergyAsset),
+            AssetType::EnergyAsset
+        );
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::Equipment),
+            AssetType::Equipment
+        );
+        assert_eq!(
+            map_wire_asset_type(finance_wire_types::AssetType::Other("bamboo".into())),
+            AssetType::Other("bamboo".into())
+        );
+    }
 }

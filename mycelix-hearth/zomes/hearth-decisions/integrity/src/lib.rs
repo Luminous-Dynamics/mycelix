@@ -1,9 +1,13 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Decisions Integrity Zome
 //!
 //! Defines entry types and validation for family/household decisions,
 //! votes, and decision outcomes.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::check_link_author_match;
 use hearth_types::*;
 
 // ============================================================================
@@ -156,13 +160,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action: _,
         } => validate_create_link(link_type, &tag),
         FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => validate_delete_link(link_type),
+            link_type, action, ..
+        } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
+            validate_delete_link(link_type)
+        }
         FlatOp::RegisterDelete(_) => {
             // INVARIANT: Decisions, Votes, and Outcomes are append-only.
             // Deletion would break audit trails, tally integrity, and history links.
@@ -398,6 +407,7 @@ pub fn validate_delete_link(link_type: LinkTypes) -> ExternResult<ValidateCallba
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
+
 
 // ============================================================================
 // Tests

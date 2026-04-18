@@ -1,3 +1,6 @@
+# Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 # Mycelix Ecosystem - Unified Development Environment
 # Orchestrates all Mycelix hApps with shared Holochain infrastructure
 #
@@ -19,9 +22,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # Holochain from holonix
+    # Holochain from holonix — version pinned in nix/modules/holochain-versions.nix
+    # To upgrade: update holochain-versions.nix, then `nix flake lock --update-input holonix`
     holonix = {
-      url = "github:holochain/holonix/d21b3543";
+      url = "github:holochain/holonix/d21b3543"; # Must match holonixCommit in holochain-versions.nix
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

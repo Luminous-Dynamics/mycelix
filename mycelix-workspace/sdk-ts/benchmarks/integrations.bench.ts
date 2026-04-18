@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * @mycelix/sdk Integration Module Benchmarks
  *
@@ -7,7 +10,7 @@
 import { bench, describe } from 'vitest';
 import { MailTrustService } from '../src/integrations/mail/index.js';
 import { MarketplaceReputationService } from '../src/integrations/marketplace/index.js';
-import { EduNetCredentialService } from '../src/integrations/edunet/index.js';
+import { PraxisCredentialService } from '../src/integrations/praxis/index.js';
 import { SupplyChainProvenanceService } from '../src/integrations/supplychain/index.js';
 
 // ============================================================================
@@ -131,11 +134,11 @@ describe('Marketplace Integration Performance', () => {
 });
 
 // ============================================================================
-// EduNet Integration Benchmarks
+// Praxis Integration Benchmarks
 // ============================================================================
 
-describe('EduNet Integration Performance', () => {
-  const eduNetService = new EduNetCredentialService();
+describe('Praxis Integration Performance', () => {
+  const eduNetService = new PraxisCredentialService();
 
   bench('issueCertificate - course completion', () => {
     eduNetService.issueCertificate({

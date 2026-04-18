@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Rhythms Coordinator Zome
 //!
 //! Business logic for managing family rhythms (routines/rituals),
@@ -8,19 +11,13 @@ use hearth_coordinator_common::{get_latest_record, records_from_links, require_m
 use hearth_rhythms_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, GovernanceEligibility,
 };
 
 // ============================================================================
 // Consciousness Gating
 // ============================================================================
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("hearth_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Input Types
@@ -99,7 +96,7 @@ fn is_in_epoch(ts: &Timestamp, epoch_start: &Timestamp, epoch_end: &Timestamp) -
 /// Create a new family rhythm and link it to the hearth.
 #[hdk_extern]
 pub fn create_rhythm(input: CreateRhythmInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_rhythm")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "create_rhythm")?;
     require_membership(&input.hearth_hash)?;
     let now = sys_time()?;
 
@@ -132,7 +129,7 @@ pub fn create_rhythm(input: CreateRhythmInput) -> ExternResult<Record> {
 /// Reads the rhythm to obtain its hearth_hash, then validates membership.
 #[hdk_extern]
 pub fn log_occurrence(input: LogOccurrenceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "log_occurrence")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "log_occurrence")?;
     // Read the rhythm to get the hearth_hash for membership validation
     let rhythm_record = get(input.rhythm_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Rhythm not found".into())),
@@ -186,7 +183,7 @@ pub fn log_occurrence(input: LogOccurrenceInput) -> ExternResult<Record> {
 /// (Founder, Elder, or Adult).
 #[hdk_extern]
 pub fn set_presence(input: SetPresenceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "set_presence")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "set_presence")?;
     let caller = agent_info()?.agent_initial_pubkey;
     let role = require_membership(&input.hearth_hash)?;
 

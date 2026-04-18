@@ -1,46 +1,23 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Property Transfer Coordinator Zome
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 use property_transfer_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 /// Get or create an anchor entry and return its EntryHash for use as link base
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) { debug!("Anchor creation warning: {:?}", e); }
     hash_entry(&anchor)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
 }
 
 #[hdk_extern]
 pub fn initiate_transfer(input: InitiateTransferInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "initiate_transfer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "initiate_transfer")?;
 
     let now = sys_time()?;
     let transfer = Transfer {
@@ -163,7 +140,7 @@ fn update_transfer_status(transfer_id: &str, new_status: TransferStatus) -> Exte
 /// 4. Broadcasts ownership change event via bridge
 #[hdk_extern]
 pub fn complete_transfer(transfer_id: String) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "complete_transfer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "complete_transfer")?;
 
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(

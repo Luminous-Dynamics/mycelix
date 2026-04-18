@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * @mycelix/sdk Workflow Mutation Tests
  *
@@ -1098,7 +1101,7 @@ describe('Readiness Threshold - Mutation Targets', () => {
     // Should have certification step first
     const certStep = result.steps.find((s) => s.name === 'Verify Operator Certifications');
     expect(certStep).toBeDefined();
-    expect(certStep?.happ).toBe('edunet');
+    expect(certStep?.happ).toBe('praxis');
   });
 
   it('should verify readiness step may exist after certification', async () => {

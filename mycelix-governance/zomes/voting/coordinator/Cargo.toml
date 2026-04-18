@@ -2,6 +2,7 @@
 name = "voting"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
 description = "Governance voting coordinator zome"
 
 [lib]
@@ -16,3 +17,6 @@ voting_integrity = { path = "../integrity" }
 governance-utils = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 mycelix-core-types = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
+mycelix-zkp-core = { workspace = true }
+mycelix-bridge-common = { workspace = true }

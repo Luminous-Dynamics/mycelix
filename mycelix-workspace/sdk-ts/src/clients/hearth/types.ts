@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * Hearth hApp Client Types
  *
@@ -787,11 +790,14 @@ export interface GovernanceAuditResult {
   total_matched: number;
 }
 
-export type ConsciousnessTier = 'Dormant' | 'Awakening' | 'Aware' | 'Reflective' | 'Transcendent';
+/** Hearth-specific growth stages (distinct from civic CivicTier). */
+export type HearthGrowthStage = 'Dormant' | 'Awakening' | 'Aware' | 'Reflective' | 'Transcendent';
+/** @deprecated Use HearthGrowthStage — this name conflicts with civic CivicTier. */
+export type ConsciousnessTier = HearthGrowthStage;
 
 export interface ConsciousnessCredential {
   did: string;
-  tier: ConsciousnessTier;
+  tier: HearthGrowthStage;
   phi_score: number;
   issued_at: Timestamp;
 }

@@ -1,19 +1,17 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Incidents Coordinator Zome
 //! Business logic for disaster declaration and lifecycle management
 
 use emergency_incidents_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
+    GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -23,27 +21,9 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 
 /// Declare a new disaster
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn declare_disaster(input: DeclareDisasterInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "declare_disaster")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "declare_disaster")?;
     if input.title.is_empty() || input.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -62,6 +42,10 @@ pub fn declare_disaster(input: DeclareDisasterInput) -> ExternResult<Record> {
 
     let agent_info = agent_info()?;
     let now = sys_time()?;
+
+    // Capture geo coordinates before affected_area is moved
+    let disaster_center_lat = input.affected_area.center_lat;
+    let disaster_center_lon = input.affected_area.center_lon;
 
     let disaster = Disaster {
         id: input.id.clone(),
@@ -115,6 +99,22 @@ pub fn declare_disaster(input: DeclareDisasterInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geo-spatial index for disaster center
+    // Coordinates captured before affected_area was moved into the disaster entry
+    let geo_hash = commons_types::geo::geohash_encode(
+        disaster_center_lat,
+        disaster_center_lon,
+        6,
+    );
+    let geo_anchor_str = format!("geo:{}", geo_hash);
+    create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+    create_link(
+        anchor_hash(&geo_anchor_str)?,
+        action_hash.clone(),
+        LinkTypes::GeoIndex,
+        geo_hash.as_bytes().to_vec(),
+    )?;
+
     get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created disaster".into()
     )))
@@ -156,7 +156,7 @@ pub fn get_active_disasters(_: ()) -> ExternResult<Vec<Record>> {
 /// Update a disaster's status
 #[hdk_extern]
 pub fn update_disaster_status(input: UpdateDisasterStatusInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "update_disaster_status")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "update_disaster_status")?;
     let current_record = get(input.disaster_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Disaster not found".into())),
     )?;
@@ -213,7 +213,7 @@ pub struct UpdateDisasterStatusInput {
 /// Add an incident update to a disaster
 #[hdk_extern]
 pub fn add_incident_update(input: AddIncidentUpdateInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "add_incident_update")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "add_incident_update")?;
     if input.content.is_empty() || input.content.len() > 8192 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Content must be 1-8192 characters".into()
@@ -257,7 +257,7 @@ pub struct AddIncidentUpdateInput {
 /// End a disaster (set status to Closed)
 #[hdk_extern]
 pub fn end_disaster(disaster_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_voting(), "end_disaster")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "end_disaster")?;
     update_disaster_status(UpdateDisasterStatusInput {
         disaster_hash,
         new_status: DisasterStatus::Closed,

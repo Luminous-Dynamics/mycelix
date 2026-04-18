@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mesh transport abstraction.
 //!
 //! Implements `MeshTransport` trait for:
@@ -204,6 +207,16 @@ impl MeshTransport for BatmanTransport {
 // =============================================================================
 
 /// Create transport based on available features and environment.
+///
+/// Set `MESH_TRANSPORT` to one of:
+///   - `loopback` (default) — in-memory testing
+///   - `lora` — direct SX1276 SPI (feature: `lora`)
+///   - `batman` — B.A.T.M.A.N. UDP mesh (feature: `batman`)
+///   - `meshtastic` — Meshtastic device via serial/TCP (feature: `meshtastic`)
+///   - `espnow` — ESP-NOW peer-to-peer WiFi via serial bridge (feature: `espnow`)
+///   - `reticulum` — Reticulum daemon store-and-forward mesh (feature: `reticulum`)
+///   - `ccsds` — CCSDS space packet via ground station modem (feature: `ccsds`)
+///   - `mqtt` — MQTT broker gateway (feature: `mqtt`)
 pub fn create_transport() -> Result<Box<dyn MeshTransport>> {
     // Check env for transport preference
     let transport_type = std::env::var("MESH_TRANSPORT").unwrap_or_else(|_| "loopback".into());
@@ -224,8 +237,42 @@ pub fn create_transport() -> Result<Box<dyn MeshTransport>> {
             let transport = rt.block_on(BatmanTransport::new(9735, 9735))?;
             Ok(Box::new(transport))
         }
+        "meshtastic" => {
+            let config = crate::meshtastic::MeshtasticConfig::from_env();
+            let transport = crate::meshtastic::MeshtasticTransport::new(config)?;
+            Ok(Box::new(transport))
+        }
+        #[cfg(feature = "espnow")]
+        "espnow" => {
+            let config = crate::espnow::EspNowConfig::from_env();
+            let transport = crate::espnow::EspNowTransport::new(config)?;
+            Ok(Box::new(transport))
+        }
+        #[cfg(feature = "reticulum")]
+        "reticulum" => {
+            let config = crate::reticulum::ReticulumConfig::from_env();
+            let rt = tokio::runtime::Handle::current();
+            let transport = rt.block_on(crate::reticulum::ReticulumTransport::new(config))?;
+            Ok(Box::new(transport))
+        }
+        #[cfg(feature = "ccsds")]
+        "ccsds" => {
+            let config = crate::ccsds::CcsdsConfig::from_env();
+            let rt = tokio::runtime::Handle::current();
+            let transport = rt.block_on(crate::ccsds::CcsdsTransport::new(config))?;
+            Ok(Box::new(transport))
+        }
+        #[cfg(feature = "mqtt")]
+        "mqtt" => {
+            let config = crate::mqtt::MqttConfig::from_env();
+            let rt = tokio::runtime::Handle::current();
+            let transport = rt.block_on(crate::mqtt::MqttTransport::new(config))?;
+            Ok(Box::new(transport))
+        }
         _ => {
-            tracing::info!("Using loopback transport (set MESH_TRANSPORT=lora|batman for real mesh)");
+            tracing::info!(
+                "Using loopback transport (set MESH_TRANSPORT=lora|batman|meshtastic|mqtt for real mesh)"
+            );
             Ok(Box::new(LoopbackTransport::new()))
         }
     }

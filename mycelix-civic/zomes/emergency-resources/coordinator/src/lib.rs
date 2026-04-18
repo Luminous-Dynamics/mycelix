@@ -1,19 +1,17 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Resources Coordinator Zome
 //! Emergency resource registration, deployment, and request fulfillment
 
 use emergency_resources_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
+    GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -23,27 +21,9 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 
 /// Register a new emergency resource
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn register_resource(input: RegisterResourceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "register_resource")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "register_resource")?;
     if input.name.is_empty() || input.name.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Name must be 1-256 characters".into()
@@ -133,7 +113,7 @@ pub struct RegisterResourceInput {
 /// Deploy a resource to a disaster
 #[hdk_extern]
 pub fn deploy_resource(input: DeployResourceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_voting(), "deploy_resource")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "deploy_resource")?;
     let current_record = get(input.resource_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Resource not found".into())),
     )?;
@@ -197,7 +177,7 @@ pub struct DeployResourceInput {
 /// Request resources for a disaster
 #[hdk_extern]
 pub fn request_resource(input: RequestResourceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "request_resource")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "request_resource")?;
     if input.quantity_needed == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Quantity needed must be greater than 0".into()
@@ -252,7 +232,7 @@ pub struct RequestResourceInput {
 /// Fulfill a resource request
 #[hdk_extern]
 pub fn fulfill_request(input: FulfillRequestInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "fulfill_request")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "fulfill_request")?;
     let current_record = get(input.request_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Request not found".into())),
     )?;

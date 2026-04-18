@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Gratitude Coordinator Zome
 //! Business logic for expressing gratitude, managing appreciation circles,
 //! and tracking gratitude statistics.
@@ -7,20 +10,13 @@ use hearth_coordinator_common::{get_latest_record, records_from_links, require_m
 use hearth_gratitude_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
 };
 
 // ============================================================================
 // Consciousness Gating
 // ============================================================================
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("hearth_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Input Types
@@ -53,7 +49,7 @@ pub struct StartCircleInput {
 /// and emits a HearthSignal::GratitudeExpressed signal.
 #[hdk_extern]
 pub fn express_gratitude(input: ExpressGratitudeInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "express_gratitude")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "express_gratitude")?;
     require_membership(&input.hearth_hash)?;
     let caller = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
@@ -111,7 +107,7 @@ pub fn express_gratitude(input: ExpressGratitudeInput) -> ExternResult<Record> {
 /// Start a new appreciation circle with a theme and initial participants.
 #[hdk_extern]
 pub fn start_appreciation_circle(input: StartCircleInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "start_appreciation_circle")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "start_appreciation_circle")?;
     require_membership(&input.hearth_hash)?;
     let now = sys_time()?;
 
@@ -152,7 +148,7 @@ pub fn start_appreciation_circle(input: StartCircleInput) -> ExternResult<Record
 /// Join an existing appreciation circle by adding the calling agent to participants.
 #[hdk_extern]
 pub fn join_circle(circle_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "join_circle")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "join_circle")?;
     let caller = agent_info()?.agent_initial_pubkey;
 
     let record = get(circle_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
@@ -199,7 +195,7 @@ pub fn join_circle(circle_hash: ActionHash) -> ExternResult<Record> {
 /// Only the circle creator (action author) can complete it.
 #[hdk_extern]
 pub fn complete_circle(circle_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "complete_circle")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "complete_circle")?;
     let caller = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 

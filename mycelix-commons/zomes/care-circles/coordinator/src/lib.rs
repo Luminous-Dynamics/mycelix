@@ -1,18 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Circles Coordinator Zome
 //! Business logic for care circle creation, membership, and discovery.
 
 use care_circles_integrity::*;
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, GovernanceEligibility, GovernanceRequirement,
-};
+use mycelix_bridge_common::civic_requirement_basic;
+use mycelix_zome_helpers::records_from_links;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -25,40 +21,10 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
     anchor_hash(anchor_str)
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
 /// Create a new care circle. The creator automatically becomes an Organizer member.
 #[hdk_extern]
 pub fn create_circle(circle: CareCircle) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_circle")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_circle")?;
     let action_hash = create_entry(&EntryTypes::CareCircle(circle.clone()))?;
 
     // Link to all circles
@@ -128,7 +94,7 @@ pub struct JoinCircleInput {
 /// Join an existing care circle
 #[hdk_extern]
 pub fn join_circle(input: JoinCircleInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "join_circle")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "join_circle")?;
     let caller = agent_info()?.agent_initial_pubkey;
 
     // Verify circle exists
@@ -226,7 +192,7 @@ pub fn join_circle(input: JoinCircleInput) -> ExternResult<Record> {
 /// Leave a care circle by deactivating membership
 #[hdk_extern]
 pub fn leave_circle(circle_hash: ActionHash) -> ExternResult<bool> {
-    require_consciousness(&requirement_for_basic(), "leave_circle")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "leave_circle")?;
     let caller = agent_info()?.agent_initial_pubkey;
 
     let cm_anchor = anchor_hash(&format!("circle_members:{}", circle_hash))?;
@@ -343,6 +309,120 @@ pub fn get_circles_by_type(circle_type: CircleType) -> ExternResult<Vec<Record>>
         GetStrategy::default(),
     )?;
     records_from_links(links)
+}
+
+// ── TEND MUTUAL CREDIT ─────────────────────────────────────────────────
+
+/// Best-effort cross-cluster call to TEND zome to record the exchange.
+/// Returns the TEND exchange ID if successful, or None if the finance
+/// cluster is unreachable (the local exchange record is still created).
+fn bridge_tend_exchange(
+    receiver_did: &str,
+    hours: f32,
+    description: &str,
+) -> Option<String> {
+    #[derive(Serialize, Debug)]
+    struct TendPayload {
+        receiver_did: String,
+        hours: f32,
+        service_description: String,
+        service_category: String,
+        cultural_alias: Option<String>,
+        dao_did: String,
+        service_date: Option<Timestamp>,
+    }
+    let payload = TendPayload {
+        receiver_did: receiver_did.to_string(),
+        hours,
+        service_description: description.to_string(),
+        service_category: "CareCircle".to_string(),
+        cultural_alias: None,
+        dao_did: "did:mycelix:commons".to_string(),
+        service_date: None,
+    };
+    match call(
+        CallTargetCell::OtherRole("finance".into()),
+        ZomeName::from("tend"),
+        FunctionName::from("record_exchange"),
+        None,
+        payload,
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            #[derive(Deserialize, Debug)]
+            struct TendResult { id: String }
+            result.decode::<TendResult>().ok().map(|r| r.id)
+        }
+        _ => None,
+    }
+}
+
+/// Input for recording a care exchange within a circle.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecordCareExchangeInput {
+    pub circle_hash: ActionHash,
+    pub receiver: AgentPubKey,
+    pub hours: f32,
+    pub service_description: String,
+}
+
+/// Aggregate TEND balance for a circle.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CircleTendBalance {
+    pub circle_hash: ActionHash,
+    pub total_exchanges: u32,
+    pub total_hours: f32,
+}
+
+/// Record a care exchange within a circle. Caller is the provider.
+/// Makes a best-effort cross-cluster call to the TEND zome.
+#[hdk_extern]
+pub fn record_care_exchange(input: RecordCareExchangeInput) -> ExternResult<Record> {
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_care_exchange")?;
+    let provider = agent_info()?.agent_initial_pubkey;
+    if provider == input.receiver {
+        return Err(wasm_error!("Cannot record exchange with yourself"));
+    }
+    let receiver_did = format!("did:mycelix:{}", input.receiver);
+    let tend_id = bridge_tend_exchange(&receiver_did, input.hours, &input.service_description);
+    let status = if tend_id.is_some() { CircleTendStatus::Confirmed } else { CircleTendStatus::Proposed };
+    let exchange = CircleTendExchange {
+        circle_hash: input.circle_hash.clone(),
+        provider,
+        receiver: input.receiver,
+        hours: input.hours,
+        service_description: input.service_description,
+        tend_exchange_id: tend_id,
+        status,
+        created_at: sys_time()?,
+    };
+    let action_hash = create_entry(&EntryTypes::CircleTendExchange(exchange))?;
+    create_link(input.circle_hash, action_hash.clone(), LinkTypes::CircleToTendExchange, ())?;
+    get(action_hash, GetOptions::default())?
+        .ok_or(wasm_error!("Failed to get created exchange record"))
+}
+
+/// Get the aggregate TEND balance for a circle.
+#[hdk_extern]
+pub fn get_circle_tend_balance(circle_hash: ActionHash) -> ExternResult<CircleTendBalance> {
+    let links = get_links(
+        LinkQuery::try_new(circle_hash.clone(), LinkTypes::CircleToTendExchange)?,
+        GetStrategy::default(),
+    )?;
+    let mut total_exchanges = 0u32;
+    let mut total_hours = 0.0f32;
+    for link in links {
+        let target = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!("Invalid link target"))?;
+        if let Some(record) = get(target, GetOptions::default())? {
+            if let Some(exchange) = record.entry().to_app_option::<CircleTendExchange>().ok().flatten() {
+                if exchange.status == CircleTendStatus::Confirmed {
+                    total_exchanges += 1;
+                    total_hours += exchange.hours;
+                }
+            }
+        }
+    }
+    Ok(CircleTendBalance { circle_hash, total_exchanges, total_hours })
 }
 
 #[cfg(test)]

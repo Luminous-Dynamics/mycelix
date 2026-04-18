@@ -25,6 +25,7 @@ exclude = ["tests"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 # Holochain 0.6 compatible
@@ -48,6 +49,9 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 personal-types = { path = "crates/personal-types" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+
+# ZKP verification for vault access proofs
+mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
 
 [profile.dev]
 opt-level = "z"

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +18,12 @@ pub enum PledgeType {
     DeveloperTime,
     QA,
     Documentation,
+    /// Pledge tutoring hours to help future learners
+    TutoringTime,
+    /// Pledge translation time for curriculum localization
+    ContentTranslation,
+    /// Pledge to review/improve curriculum content
+    CurriculumReview,
     Other,
 }
 

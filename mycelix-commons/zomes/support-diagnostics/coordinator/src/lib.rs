@@ -1,21 +1,16 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Support Diagnostics Coordinator Zome
 //! Business logic for diagnostic results, privacy preferences, and cognitive
 //! updates in the Mycelix support domain.
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use support_diagnostics_integrity::*;
 use support_types::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // SIGNAL
@@ -40,36 +35,6 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
 // ============================================================================
 // DIAGNOSTIC RESULTS
 // ============================================================================
@@ -78,7 +43,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// index, the agent, and optionally the originating ticket.
 #[hdk_extern]
 pub fn run_diagnostic(diag: DiagnosticResult) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "run_diagnostic")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "run_diagnostic")?;
     let action_hash = create_entry(&EntryTypes::DiagnosticResult(diag.clone()))?;
 
     // Time-sharded diagnostics link
@@ -149,7 +114,7 @@ pub fn list_diagnostics(_: ()) -> ExternResult<Vec<Record>> {
 /// Set (or update) the calling agent's privacy preferences.
 #[hdk_extern]
 pub fn set_privacy_preference(pref: PrivacyPreference) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "set_privacy_preference")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "set_privacy_preference")?;
     let action_hash = create_entry(&EntryTypes::PrivacyPreference(pref.clone()))?;
 
     create_link(
@@ -179,7 +144,10 @@ pub fn get_privacy_preference(agent: AgentPubKey) -> ExternResult<Option<Record>
     // Return the latest link (highest timestamp)
     let mut sorted = links;
     sorted.sort_by_key(|l| l.timestamp);
-    let latest = sorted.last().unwrap();
+    let latest = match sorted.last() {
+        Some(l) => l,
+        None => return Ok(None),
+    };
 
     let action_hash = ActionHash::try_from(latest.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
@@ -265,7 +233,7 @@ pub struct HelperWorkload {
 /// Register a new helper profile, linking it to the "all_helpers" anchor.
 #[hdk_extern]
 pub fn register_helper(profile: HelperProfile) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "register_helper")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_helper")?;
     let action_hash = create_entry(&EntryTypes::HelperProfile(profile))?;
     create_entry(&EntryTypes::Anchor(Anchor("all_helpers".to_string())))?;
     create_link(
@@ -282,7 +250,7 @@ pub fn register_helper(profile: HelperProfile) -> ExternResult<Record> {
 /// Update a helper's availability status.
 #[hdk_extern]
 pub fn update_availability(input: UpdateAvailInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "update_availability")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_availability")?;
     let record = get(input.helper_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Helper profile not found".into())
     ))?;
@@ -338,7 +306,7 @@ pub fn get_available_helpers(category: Option<SupportCategory>) -> ExternResult<
 /// then emits a BridgeEventSignal for the Symthaea bridge.
 #[hdk_extern]
 pub fn publish_cognitive_update(update: CognitiveUpdate) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "publish_cognitive_update")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "publish_cognitive_update")?;
     let action_hash = create_entry(&EntryTypes::CognitiveUpdate(update.clone()))?;
 
     // Category-specific time-sharded link

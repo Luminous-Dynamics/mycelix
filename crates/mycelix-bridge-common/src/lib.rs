@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix Bridge Common — Shared dispatch types and utilities
 //!
 //! Provides the cross-domain dispatch primitives used by both the
@@ -5,31 +8,81 @@
 //! coordinator imports these types and calls `dispatch_call_checked()`
 //! with its own allowlist.
 //!
-//! ## Consciousness Thresholds (always available)
+//! ## Civic Thresholds (always available)
 //!
-//! The `consciousness_thresholds` module is the canonical source of truth for all
-//! consciousness-related thresholds across the Mycelix ecosystem. It does not
-//! depend on HDK and can be used by any Rust crate.
+//! The `consciousness_thresholds` module (legacy name) contains the canonical
+//! threshold constants. The `sovereign_gate` module provides the 8D Sovereign
+//! Profile gating system that replaces the old 4D consciousness gating.
 
+pub mod constitutional_envelope;
+// ── Model governance extensions (feature-gated) ──────────────────────────
+#[cfg(feature = "model-governance")]
+pub mod scoring_model;
+#[cfg(feature = "model-governance")]
+pub mod model_governance;
+#[cfg(feature = "model-governance")]
+pub mod shadow_evaluation;
 pub mod consciousness_thresholds;
+pub mod consciousness_zkp;
+pub mod membership_zkp;
 /// Backward-compatible module alias — allows `mycelix_bridge_common::phi_thresholds::*` paths.
 pub use consciousness_thresholds as phi_thresholds;
 pub use consciousness_thresholds::{ConsciousnessThresholds, PhiThresholds};
 
 pub mod consciousness_profile;
+// Pure Rust re-exports (always available)
 pub use consciousness_profile::{
     bootstrap_credential, decay_reputation, evaluate_bootstrap_governance, evaluate_governance,
-    evaluate_governance_with_reputation, gate_consciousness, is_bootstrap_eligible, needs_refresh,
+    evaluate_governance_with_reputation, is_bootstrap_eligible, needs_refresh,
     requirement_for_basic, requirement_for_constitutional, requirement_for_guardian,
-    requirement_for_proposal, requirement_for_voting, should_audit, ConsciousnessCredential,
-    ConsciousnessProfile, ConsciousnessTier, GateAuditInput, GovernanceAuditFilter,
+    requirement_for_proposal, requirement_for_voting, ConsciousnessCredential,
+    ConsciousnessProfile, ConsciousnessTier, ExtensionKey, GateAuditInput, GovernanceAuditFilter,
     GovernanceAuditResult, GovernanceEligibility, GovernanceRequirement, ReputationState,
     GRACE_PERIOD_US, REFRESH_WINDOW_US, REPUTATION_BLACKLIST_THRESHOLD, REPUTATION_DECAY_PER_DAY,
     REPUTATION_MAX_SLASHES, REPUTATION_RESTORATION_INTERACTIONS, REPUTATION_SLASH_FACTOR,
 };
+// HDK-dependent re-exports
+#[cfg(feature = "hdk")]
+pub use consciousness_profile::gate_consciousness;
 
-pub mod sub_passport;
+// 8D Sovereign Profile — anti-tyranny civic identity (replacing 4D ConsciousnessProfile)
+pub mod sovereign_gate;
+pub use sovereign_profile::{
+    CivicRequirement, CivicTier, SovereignCredential, SovereignDimension, SovereignProfile,
+    civic_requirement_basic, civic_requirement_constitutional, civic_requirement_guardian,
+    civic_requirement_proposal, civic_requirement_voting,
+};
+pub use sovereign_profile::weights::DimensionWeights;
+#[cfg(feature = "hdk")]
+pub use sovereign_gate::gate_civic;
+
 pub mod offline_credential;
+pub mod sub_passport;
+
+// ── Interplanetary extensions (feature-gated) ────────────────────────────
+#[cfg(feature = "interplanetary")]
+pub mod earth_colony_protocol;
+#[cfg(feature = "interplanetary")]
+pub mod interplanetary_bridge;
+#[cfg(all(feature = "interplanetary", feature = "hdk"))]
+pub mod mars_isru;
+#[cfg(feature = "interplanetary")]
+pub mod planetary_governance;
+#[cfg(feature = "interplanetary")]
+pub mod cross_planetary_fl;
+
+// ── Federated learning extensions (feature-gated) ────────────────────────
+#[cfg(feature = "federated")]
+pub mod terrain_fl;
+#[cfg(feature = "federated")]
+pub mod consciousness_sync;
+#[cfg(feature = "federated")]
+pub mod federated_genomics;
+
+#[cfg(feature = "hdk")]
+pub mod validation;
+#[cfg(feature = "hdk")]
+pub use validation::{check_author_match, check_link_author_match};
 
 pub mod collective_phi;
 pub use collective_phi::{
@@ -42,6 +95,28 @@ pub use routing::{
     CrossClusterRole, CIVIC_DOMAINS, COMMONS_DOMAINS,
 };
 
+pub mod routing_registry;
+
+pub mod metrics;
+
+// ── Infrastructure extensions (feature-gated) ────────────────────────────
+#[cfg(feature = "infrastructure")]
+pub mod saga;
+#[cfg(feature = "infrastructure")]
+pub mod migration;
+pub mod notifications; // Notifications are core — used by all clusters
+
+#[cfg(feature = "infrastructure")]
+pub mod license_enforcement;
+#[cfg(feature = "infrastructure")]
+pub mod merkle_timestamp;
+#[cfg(feature = "infrastructure")]
+pub mod timestamp_anchor;
+
+#[cfg(kani)]
+mod kani_proofs;
+
+#[cfg(feature = "hdk")]
 use hdk::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -70,9 +145,37 @@ pub struct DispatchResult {
     pub response: Option<Vec<u8>>,
     /// Error message (on failure).
     pub error: Option<String>,
+    /// Structured error code (on failure). Enables programmatic error handling
+    /// without parsing error message strings. Populated by dispatch functions;
+    /// defaults to `None` for backward compatibility with existing callers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<BridgeErrorCode>,
+}
+
+impl DispatchResult {
+    /// Create a success result.
+    pub fn ok(response: Vec<u8>) -> Self {
+        Self {
+            success: true,
+            response: Some(response),
+            error: None,
+            error_code: None,
+        }
+    }
+
+    /// Create an error result with structured code.
+    pub fn err(code: BridgeErrorCode, message: String) -> Self {
+        Self {
+            success: false,
+            response: None,
+            error: Some(message),
+            error_code: Some(code),
+        }
+    }
 }
 
 /// Input for resolving a query with a result.
+#[cfg(feature = "hdk")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ResolveQueryInput {
     pub query_hash: ActionHash,
@@ -98,7 +201,108 @@ pub struct BridgeHealth {
 }
 
 // ============================================================================
-// Dispatch logic
+// Bridge Error Codes — structured error classification for dispatch failures
+// ============================================================================
+
+/// Structured error codes for bridge dispatch failures.
+///
+/// Each code maps to a specific failure mode, making it easy to:
+/// - Track error rates by type in metrics (via `BridgeMetricsSnapshot.error_counts`)
+/// - Diagnose issues from logs without parsing error message strings
+/// - Build alerting rules (e.g., alert on BRG-006 spike = cross-cluster partition)
+///
+/// Codes are stable — do not renumber or reuse after removal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BridgeErrorCode {
+    /// BRG-001: Target zome not in allowlist (unauthorized dispatch attempt)
+    AllowlistRejected,
+    /// BRG-002: Network error during local dispatch
+    LocalNetworkError,
+    /// BRG-003: Local zome call rejected (non-Ok response)
+    LocalCallRejected,
+    /// BRG-004: No response from local zome call
+    LocalNoResponse,
+    /// BRG-005: Local HDK call failed (runtime error)
+    LocalCallFailed,
+    /// BRG-006: Network error during cross-cluster dispatch
+    CrossClusterNetworkError,
+    /// BRG-007: Cross-cluster call rejected (non-Ok response)
+    CrossClusterCallRejected,
+    /// BRG-008: No response from cross-cluster call
+    CrossClusterNoResponse,
+    /// BRG-009: Cross-cluster HDK call failed (runtime error)
+    CrossClusterCallFailed,
+    /// BRG-010: Dispatch input validation failed (oversized payload/identifier)
+    ValidationFailed,
+}
+
+impl BridgeErrorCode {
+    /// String code for metrics recording (e.g., "BRG-001").
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::AllowlistRejected => "BRG-001",
+            Self::LocalNetworkError => "BRG-002",
+            Self::LocalCallRejected => "BRG-003",
+            Self::LocalNoResponse => "BRG-004",
+            Self::LocalCallFailed => "BRG-005",
+            Self::CrossClusterNetworkError => "BRG-006",
+            Self::CrossClusterCallRejected => "BRG-007",
+            Self::CrossClusterNoResponse => "BRG-008",
+            Self::CrossClusterCallFailed => "BRG-009",
+            Self::ValidationFailed => "BRG-010",
+        }
+    }
+}
+
+impl core::fmt::Display for BridgeErrorCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+// ============================================================================
+// Dispatch size limits — prevent memory exhaustion via oversized payloads
+// ============================================================================
+
+/// Maximum dispatch payload size (1 MB). Prevents memory exhaustion from
+/// oversized payloads being cloned into ExternIO.
+pub const MAX_DISPATCH_PAYLOAD_BYTES: usize = 1_048_576;
+
+/// Maximum dispatch zome/fn_name identifier length (256 bytes).
+pub const MAX_DISPATCH_IDENTIFIER_BYTES: usize = 256;
+
+/// Validate dispatch input field sizes.
+fn validate_dispatch_sizes(
+    zome: &str,
+    fn_name: &str,
+    payload: &[u8],
+) -> Result<(), String> {
+    if zome.len() > MAX_DISPATCH_IDENTIFIER_BYTES {
+        return Err(format!(
+            "Zome name too long ({} bytes, max {})",
+            zome.len(),
+            MAX_DISPATCH_IDENTIFIER_BYTES
+        ));
+    }
+    if fn_name.len() > MAX_DISPATCH_IDENTIFIER_BYTES {
+        return Err(format!(
+            "Function name too long ({} bytes, max {})",
+            fn_name.len(),
+            MAX_DISPATCH_IDENTIFIER_BYTES
+        ));
+    }
+    if payload.len() > MAX_DISPATCH_PAYLOAD_BYTES {
+        return Err(format!(
+            "Payload too large ({} bytes, max {})",
+            payload.len(),
+            MAX_DISPATCH_PAYLOAD_BYTES
+        ));
+    }
+    Ok(())
+}
+
+// ============================================================================
+// Dispatch logic (HDK functions gated behind `hdk` feature)
 // ============================================================================
 
 /// Dispatch a synchronous call to a domain zome, with allowlist validation.
@@ -110,22 +314,25 @@ pub struct BridgeHealth {
 ///
 /// The `payload` field in `DispatchInput` must already be MessagePack-encoded.
 /// We bypass `ExternIO::encode()` to avoid double-serialization.
+#[cfg(feature = "hdk")]
 pub fn dispatch_call_checked(
     input: &DispatchInput,
     allowed_zomes: &[&str],
 ) -> ExternResult<DispatchResult> {
+    if let Err(msg) = validate_dispatch_sizes(&input.zome, &input.fn_name, &input.payload) {
+        metrics::record_error(&input.zome, &input.fn_name, BridgeErrorCode::ValidationFailed.as_str());
+        return Ok(DispatchResult::err(BridgeErrorCode::ValidationFailed, msg));
+    }
     if !allowed_zomes.contains(&input.zome.as_str()) {
-        return Ok(DispatchResult {
-            success: false,
-            response: None,
-            error: Some(format!(
-                "Zome '{}' is not in the allowed dispatch list. Valid zomes: {:?}",
-                input.zome, allowed_zomes
-            )),
-        });
+        metrics::record_error(&input.zome, &input.fn_name, BridgeErrorCode::AllowlistRejected.as_str());
+        return Ok(DispatchResult::err(
+            BridgeErrorCode::AllowlistRejected,
+            format!("Zome '{}' is not in the allowed dispatch list. Valid zomes: {:?}", input.zome, allowed_zomes),
+        ));
     }
 
     let payload = ExternIO(input.payload.clone());
+    let start_us = sys_time().ok().map(|t| t.as_micros() as u64);
 
     let result = HDK.with(|h| {
         h.borrow().call(vec![Call::new(
@@ -137,34 +344,39 @@ pub fn dispatch_call_checked(
         )])
     });
 
+    let elapsed_us = start_us.and_then(|start| {
+        sys_time().ok().map(|end| (end.as_micros() as u64).saturating_sub(start))
+    });
+
     match result {
         Ok(responses) => match responses.into_iter().next() {
-            Some(ZomeCallResponse::Ok(extern_io)) => Ok(DispatchResult {
-                success: true,
-                response: Some(extern_io.0),
-                error: None,
-            }),
-            Some(ZomeCallResponse::NetworkError(err)) => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some(format!("Network error: {}", err)),
-            }),
-            Some(other) => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some(format!("Zome call rejected: {:?}", other)),
-            }),
-            None => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some("No response from zome call".into()),
-            }),
+            Some(ZomeCallResponse::Ok(extern_io)) => {
+                if let Some(latency) = elapsed_us {
+                    metrics::record_success(&input.zome, &input.fn_name, latency);
+                }
+                Ok(DispatchResult::ok(extern_io.0))
+            }
+            Some(ZomeCallResponse::NetworkError(err)) => {
+                let code = BridgeErrorCode::LocalNetworkError;
+                metrics::record_error(&input.zome, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, format!("Network error: {}", err)))
+            }
+            Some(other) => {
+                let code = BridgeErrorCode::LocalCallRejected;
+                metrics::record_error(&input.zome, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, format!("Zome call rejected: {:?}", other)))
+            }
+            None => {
+                let code = BridgeErrorCode::LocalNoResponse;
+                metrics::record_error(&input.zome, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, "No response from zome call".into()))
+            }
         },
-        Err(e) => Ok(DispatchResult {
-            success: false,
-            response: None,
-            error: Some(format!("Call failed: {:?}", e)),
-        }),
+        Err(e) => {
+            let code = BridgeErrorCode::LocalCallFailed;
+            metrics::record_error(&input.zome, &input.fn_name, code.as_str());
+            Ok(DispatchResult::err(code, format!("Call failed: {:?}", e)))
+        }
     }
 }
 
@@ -214,22 +426,34 @@ pub struct CorrelatedDispatch {
 /// Instead of `CallTargetCell::Local`, it uses
 /// `CallTargetCell::OtherRole(role)` to reach a different DNA within the
 /// same installed hApp.  The target zome must be in `allowed_zomes`.
+#[cfg(feature = "hdk")]
 pub fn dispatch_call_cross_cluster(
     input: &CrossClusterDispatchInput,
     allowed_zomes: &[&str],
 ) -> ExternResult<DispatchResult> {
+    if let Err(msg) = validate_dispatch_sizes(&input.zome, &input.fn_name, &input.payload) {
+        metrics::record_error(&input.zome, &input.fn_name, BridgeErrorCode::ValidationFailed.as_str());
+        return Ok(DispatchResult::err(BridgeErrorCode::ValidationFailed, msg));
+    }
+    if input.role.len() > MAX_DISPATCH_IDENTIFIER_BYTES {
+        metrics::record_error(&input.zome, &input.fn_name, BridgeErrorCode::ValidationFailed.as_str());
+        return Ok(DispatchResult::err(
+            BridgeErrorCode::ValidationFailed,
+            format!("Role name too long ({} bytes, max {})", input.role.len(), MAX_DISPATCH_IDENTIFIER_BYTES),
+        ));
+    }
     if !allowed_zomes.contains(&input.zome.as_str()) {
-        return Ok(DispatchResult {
-            success: false,
-            response: None,
-            error: Some(format!(
-                "Zome '{}' is not in the allowed cross-cluster dispatch list. Valid zomes: {:?}",
-                input.zome, allowed_zomes
-            )),
-        });
+        metrics::record_error(&input.zome, &input.fn_name, BridgeErrorCode::AllowlistRejected.as_str());
+        return Ok(DispatchResult::err(
+            BridgeErrorCode::AllowlistRejected,
+            format!("Zome '{}' is not in the allowed cross-cluster dispatch list. Valid zomes: {:?}", input.zome, allowed_zomes),
+        ));
     }
 
     let payload = ExternIO(input.payload.clone());
+    let call_key = format!("{}::{}", input.role, input.zome);
+    let start_us = sys_time().ok().map(|t| t.as_micros() as u64);
+    metrics::record_cross_cluster();
 
     let result = HDK.with(|h| {
         h.borrow().call(vec![Call::new(
@@ -241,34 +465,39 @@ pub fn dispatch_call_cross_cluster(
         )])
     });
 
+    let elapsed_us = start_us.and_then(|start| {
+        sys_time().ok().map(|end| (end.as_micros() as u64).saturating_sub(start))
+    });
+
     match result {
         Ok(responses) => match responses.into_iter().next() {
-            Some(ZomeCallResponse::Ok(extern_io)) => Ok(DispatchResult {
-                success: true,
-                response: Some(extern_io.0),
-                error: None,
-            }),
-            Some(ZomeCallResponse::NetworkError(err)) => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some(format!("Cross-cluster network error: {}", err)),
-            }),
-            Some(other) => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some(format!("Cross-cluster call rejected: {:?}", other)),
-            }),
-            None => Ok(DispatchResult {
-                success: false,
-                response: None,
-                error: Some("No response from cross-cluster call".into()),
-            }),
+            Some(ZomeCallResponse::Ok(extern_io)) => {
+                if let Some(latency) = elapsed_us {
+                    metrics::record_success(&call_key, &input.fn_name, latency);
+                }
+                Ok(DispatchResult::ok(extern_io.0))
+            }
+            Some(ZomeCallResponse::NetworkError(err)) => {
+                let code = BridgeErrorCode::CrossClusterNetworkError;
+                metrics::record_error(&call_key, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, format!("Cross-cluster network error: {}", err)))
+            }
+            Some(other) => {
+                let code = BridgeErrorCode::CrossClusterCallRejected;
+                metrics::record_error(&call_key, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, format!("Cross-cluster call rejected: {:?}", other)))
+            }
+            None => {
+                let code = BridgeErrorCode::CrossClusterNoResponse;
+                metrics::record_error(&call_key, &input.fn_name, code.as_str());
+                Ok(DispatchResult::err(code, "No response from cross-cluster call".into()))
+            }
         },
-        Err(e) => Ok(DispatchResult {
-            success: false,
-            response: None,
-            error: Some(format!("Cross-cluster call failed: {:?}", e)),
-        }),
+        Err(e) => {
+            let code = BridgeErrorCode::CrossClusterCallFailed;
+            metrics::record_error(&call_key, &input.fn_name, code.as_str());
+            Ok(DispatchResult::err(code, format!("Cross-cluster call failed: {:?}", e)))
+        }
     }
 }
 
@@ -280,6 +509,7 @@ pub fn dispatch_call_cross_cluster(
 ///
 /// This is needed because the commons cluster is split into two DNA roles
 /// in the unified hApp to fit under Holochain's 16MB DNA limit.
+#[cfg(feature = "hdk")]
 pub fn dispatch_call_cross_cluster_commons(
     input: &CrossClusterDispatchInput,
     allowed_zomes: &[&str],
@@ -530,7 +760,10 @@ pub struct AuditTrailEntry {
     pub source_agent: String,
     pub payload_preview: String,
     pub created_at_us: i64,
+    #[cfg(feature = "hdk")]
     pub action_hash: ActionHash,
+    #[cfg(not(feature = "hdk"))]
+    pub action_hash: String,
 }
 
 /// Result of an audit trail query.
@@ -543,9 +776,10 @@ pub struct AuditTrailResult {
 }
 
 // ============================================================================
-// Typed hearth↔other cluster query/result helpers
+// Typed hearth↔other cluster query/result helpers (require HDK types)
 // ============================================================================
 
+#[cfg(feature = "hdk")]
 /// Input for querying hearth membership (civic/commons → hearth)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HearthMemberQuery {
@@ -562,6 +796,7 @@ pub struct HearthMemberResult {
     pub error: Option<String>,
 }
 
+#[cfg(feature = "hdk")]
 /// Input for querying hearth care availability (commons → hearth)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HearthCareQuery {
@@ -577,6 +812,7 @@ pub struct HearthCareResult {
     pub error: Option<String>,
 }
 
+#[cfg(feature = "hdk")]
 /// Input for querying hearth emergency status (civic → hearth)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HearthEmergencyQuery {
@@ -594,10 +830,165 @@ pub struct HearthEmergencyResult {
 }
 
 // ============================================================================
+// Cross-cluster typed queries (Phase 1C — governance/finance/identity/health)
+// ============================================================================
+
+/// Query: Check budget proposal status (Finance ↔ Governance)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BudgetProposalQuery {
+    pub proposal_id: String,
+}
+
+/// Result: Budget proposal status
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BudgetProposalResult {
+    pub approved: bool,
+    pub amount: u64,
+    pub treasury_balance: u64,
+    pub error: Option<String>,
+}
+
+/// Query: Verify property as collateral (Finance → Commons)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CollateralPropertyQuery {
+    pub property_hash: String,
+}
+
+/// Result: Collateral property status
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CollateralPropertyResult {
+    pub valid: bool,
+    pub appraised_value: u64,
+    pub encumbered: bool,
+    pub error: Option<String>,
+}
+
+/// Query: Check restitution ability (Civic → Finance)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RestitutionQuery {
+    pub case_id: String,
+    pub defendant_did: String,
+}
+
+/// Result: Restitution check
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RestitutionResult {
+    pub balance_sufficient: bool,
+    pub amount_due: u64,
+    pub error: Option<String>,
+}
+
+/// Notice: Credential revocation push (Identity → *)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevocationNotice {
+    pub credential_hash: String,
+    pub did: String,
+    pub reason: String,
+    pub effective_at: u64,
+}
+
+/// Acknowledgment: Revocation received
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevocationAck {
+    pub received: bool,
+    pub affected_entries: u32,
+    pub error: Option<String>,
+}
+
+/// Query: Consented health record access (Health → Personal)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsentedRecordQuery {
+    pub patient_did: String,
+    pub record_type: String,
+}
+
+/// Result: Consented record access
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsentedRecordResult {
+    pub authorized: bool,
+    pub record_hash: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Query: Energy project governance approval (Energy → Governance)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProjectProposalQuery {
+    pub project_id: String,
+}
+
+/// Result: Project governance approval
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProjectProposalResult {
+    pub governance_approved: bool,
+    pub conditions: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Query: Verify knowledge claim (Knowledge → Media)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClaimVerificationQuery {
+    pub claim_hash: String,
+}
+
+/// Result: Claim verification
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClaimVerificationResult {
+    pub verified: bool,
+    pub confidence: f64,
+    pub sources: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Query: Carbon offset from transport (Climate → Transport/Commons)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CarbonOffsetQuery {
+    pub route_id: String,
+    pub distance_km: f64,
+}
+
+/// Result: Carbon offset calculation
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CarbonOffsetResult {
+    pub credits_earned: f64,
+    pub offset_hash: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Priority levels for cross-cluster notifications.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NotificationPriority {
+    /// Batched into daily digest
+    Low = 0,
+    /// Delivered on next poll
+    Normal = 1,
+    /// Immediate signal
+    High = 2,
+    /// Bypass quiet hours, multi-channel delivery
+    Emergency = 3,
+}
+
+impl NotificationPriority {
+    pub const fn from_u8(v: u8) -> Self {
+        match v {
+            0 => Self::Low,
+            1 => Self::Normal,
+            2 => Self::High,
+            3 => Self::Emergency,
+            _ => Self::Normal,
+        }
+    }
+
+    pub const fn as_u8(&self) -> u8 {
+        *self as u8
+    }
+}
+
+// ============================================================================
 // Utilities
 // ============================================================================
 
 /// Convert links to their target records, skipping any that have been deleted.
+#[cfg(feature = "hdk")]
 pub fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
     let mut records = Vec::new();
     for link in links {
@@ -690,30 +1081,38 @@ mod tests {
 
     #[test]
     fn dispatch_result_success_serde_roundtrip() {
-        let result = DispatchResult {
-            success: true,
-            response: Some(vec![10, 20, 30]),
-            error: None,
-        };
+        let result = DispatchResult::ok(vec![10, 20, 30]);
         let json = serde_json::to_string(&result).unwrap();
         let r2: DispatchResult = serde_json::from_str(&json).unwrap();
         assert!(r2.success);
         assert_eq!(r2.response, Some(vec![10, 20, 30]));
         assert!(r2.error.is_none());
+        assert!(r2.error_code.is_none());
     }
 
     #[test]
     fn dispatch_result_error_serde_roundtrip() {
-        let result = DispatchResult {
-            success: false,
-            response: None,
-            error: Some("something failed".into()),
-        };
+        let result = DispatchResult::err(
+            BridgeErrorCode::LocalCallFailed,
+            "something failed".into(),
+        );
         let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("error_code")); // error code field present
         let r2: DispatchResult = serde_json::from_str(&json).unwrap();
         assert!(!r2.success);
         assert!(r2.response.is_none());
         assert_eq!(r2.error.as_deref(), Some("something failed"));
+        assert_eq!(r2.error_code, Some(BridgeErrorCode::LocalCallFailed));
+    }
+
+    #[test]
+    fn dispatch_result_backward_compat_without_error_code() {
+        // Old serialized results without error_code should deserialize fine
+        let json = r#"{"success":false,"response":null,"error":"old error"}"#;
+        let r: DispatchResult = serde_json::from_str(json).unwrap();
+        assert!(!r.success);
+        assert_eq!(r.error.as_deref(), Some("old error"));
+        assert_eq!(r.error_code, None); // backward compatible default
     }
 
     #[test]

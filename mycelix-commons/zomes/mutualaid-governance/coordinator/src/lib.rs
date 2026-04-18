@@ -1,20 +1,15 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mutual Aid Governance Coordinator Zome
 //! Democratic decision-making for mutual aid circles.
 
 use hdk::prelude::*;
 use mutualaid_common::{Proposal, Vote};
 use mutualaid_governance_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Extern Functions
@@ -25,28 +20,10 @@ const MIN_VOTING_PERIOD_MS: i64 = 5 * 60 * 1_000_000; // 5 minutes in microsecon
 
 /// Create a governance proposal
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn create_proposal(proposal: Proposal) -> ExternResult<Record> {
     // Consciousness gate: Participant tier + identity >= 0.25
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_proposal")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "create_proposal")?;
 
     // Validate title is not empty or whitespace-only
     if proposal.title.trim().is_empty() {
@@ -107,7 +84,7 @@ pub fn get_all_proposals(_: ()) -> ExternResult<Vec<Record>> {
 #[hdk_extern]
 pub fn cast_vote(vote: Vote) -> ExternResult<Record> {
     // Consciousness gate: Citizen tier + identity >= 0.25
-    let _eligibility = require_consciousness(&requirement_for_voting(), "cast_vote")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "cast_vote")?;
 
     // Check for double-voting: look up existing votes linked to this proposal
     let existing_vote_links = get_links(

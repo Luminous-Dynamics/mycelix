@@ -1,3 +1,7 @@
+#![allow(deprecated)] // Uses legacy ConsciousnessCredential/Tier for fallback path
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Commons Bridge Coordinator Zome
 //!
 //! Unified cross-domain dispatch for the Commons cluster.
@@ -26,12 +30,13 @@ use commons_bridge_integrity::*;
 use commons_types::{CommonsEvent, CommonsQuery};
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, resolve_commons_zome, AuditTrailEntry,
-    AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth, CareAvailabilityQuery,
-    CareAvailabilityResult, ConsciousnessCredential, ConsciousnessTier, CrossClusterDispatchInput,
-    DispatchInput, DispatchResult, EventTypeQuery, GateAuditInput, GovernanceAuditFilter,
-    GovernanceAuditResult, PropertyOwnershipQuery, PropertyOwnershipResult, ResolveQueryInput,
-    RATE_LIMIT_WINDOW_SECS,
+    self as bridge, check_rate_limit_count, needs_refresh, resolve_commons_zome,
+    routing_registry, AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain,
+    BridgeHealth, CareAvailabilityQuery, CareAvailabilityResult, ConsciousnessCredential,
+    ConsciousnessProfile, ConsciousnessTier,
+    CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult,
+    EventTypeQuery, GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult,
+    PropertyOwnershipQuery, PropertyOwnershipResult, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
 };
 
 // ============================================================================
@@ -39,119 +44,26 @@ use mycelix_bridge_common::{
 // ============================================================================
 
 /// Zomes that live in the commons_land DNA (physical infrastructure).
-const LAND_ZOMES: &[&str] = &[
-    // Property domain
-    "property_registry",
-    "property_transfer",
-    "property_disputes",
-    "property_commons",
-    // Housing domain
-    "housing_units",
-    "housing_membership",
-    "housing_finances",
-    "housing_maintenance",
-    "housing_clt",
-    "housing_governance",
-    // Water domain
-    "water_flow",
-    "water_purity",
-    "water_capture",
-    "water_steward",
-    "water_wisdom",
-    // Food domain
-    "food_production",
-    "food_distribution",
-    "food_preservation",
-    "food_knowledge",
-];
+const LAND_ZOMES: &[&str] = routing_registry::COMMONS_LAND_ZOMES;
 
 /// Zomes that live in the commons_care DNA (social/care).
-const CARE_ZOMES: &[&str] = &[
-    // Care domain
-    "care_timebank",
-    "care_circles",
-    "care_matching",
-    "care_plans",
-    "care_credentials",
-    // Mutual aid domain
-    "mutualaid_needs",
-    "mutualaid_circles",
-    "mutualaid_governance",
-    "mutualaid_pools",
-    "mutualaid_requests",
-    "mutualaid_resources",
-    "mutualaid_timebank",
-    // Transport domain
-    "transport_routes",
-    "transport_sharing",
-    "transport_impact",
-    // Support domain
-    "support_knowledge",
-    "support_tickets",
-    "support_diagnostics",
-    // Space
-    "space",
-];
+const CARE_ZOMES: &[&str] = routing_registry::COMMONS_CARE_ZOMES;
 
 // ============================================================================
 // Allowed zome names — security boundary for dispatch (union of both DNAs)
 // ============================================================================
 
-const ALLOWED_ZOMES: &[&str] = &[
-    // Property domain
-    "property_registry",
-    "property_transfer",
-    "property_disputes",
-    "property_commons",
-    // Housing domain
-    "housing_units",
-    "housing_membership",
-    "housing_finances",
-    "housing_maintenance",
-    "housing_clt",
-    "housing_governance",
-    // Care domain
-    "care_timebank",
-    "care_circles",
-    "care_matching",
-    "care_plans",
-    "care_credentials",
-    // Mutual aid domain
-    "mutualaid_needs",
-    "mutualaid_circles",
-    "mutualaid_governance",
-    "mutualaid_pools",
-    "mutualaid_requests",
-    "mutualaid_resources",
-    "mutualaid_timebank",
-    // Water domain
-    "water_flow",
-    "water_purity",
-    "water_capture",
-    "water_steward",
-    "water_wisdom",
-    // Food domain
-    "food_production",
-    "food_distribution",
-    "food_preservation",
-    "food_knowledge",
-    // Transport domain
-    "transport_routes",
-    "transport_sharing",
-    "transport_impact",
-    // Support domain
-    "support_knowledge",
-    "support_tickets",
-    "support_diagnostics",
-    // Space
-    "space",
-];
+const ALLOWED_ZOMES: &[&str] = routing_registry::COMMONS_LOCAL_ZOMES;
 
 /// hApp role name for the commons_land DNA.
 const COMMONS_LAND_ROLE: &str = "commons_land";
 
 /// hApp role name for the commons_care DNA.
 const COMMONS_CARE_ROLE: &str = "commons_care";
+
+// NOTE: COMMONS_LAND_ROLE and COMMONS_CARE_ROLE are sub-cluster role names,
+// not cross-cluster roles. They are internal to commons and not part of the
+// routing registry's CrossClusterRole enum.
 
 // ============================================================================
 // Sub-Cluster Detection
@@ -287,14 +199,10 @@ pub fn dispatch_call(input: DispatchInput) -> ExternResult<DispatchResult> {
 
     // Validate against the full allowlist (both sub-clusters)
     if !ALLOWED_ZOMES.contains(&input.zome.as_str()) {
-        return Ok(DispatchResult {
-            success: false,
-            response: None,
-            error: Some(format!(
-                "Zome '{}' is not in the commons allowlist",
-                input.zome
-            )),
-        });
+        return Ok(DispatchResult::err(
+            mycelix_bridge_common::BridgeErrorCode::AllowlistRejected,
+            format!("Zome '{}' is not in the commons allowlist", input.zome),
+        ));
     }
 
     let cluster = detect_sub_cluster();
@@ -325,6 +233,13 @@ pub fn dispatch_call(input: DispatchInput) -> ExternResult<DispatchResult> {
 /// If auto-dispatch succeeds, the query is automatically resolved with the result.
 #[hdk_extern]
 pub fn query_commons(query: CommonsQuery) -> ExternResult<Record> {
+    // Require at least Participant tier to submit queries (prevents DHT spam from Observers)
+    mycelix_bridge_common::gate_civic(
+        "commons_bridge",
+        &mycelix_bridge_common::civic_requirement_basic(),
+        "query_commons",
+    )?;
+
     let action_hash = create_entry(&EntryTypes::Query(query.clone()))?;
 
     // Link to all queries
@@ -368,12 +283,15 @@ pub fn query_commons(query: CommonsQuery) -> ExternResult<Record> {
                     .response
                     .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
                     .unwrap_or_else(|| "null".to_string());
-                // Auto-resolve the query
-                let _ = resolve_query(ResolveQueryInput {
+                // Auto-resolve the query. Failure here leaves the query in "pending"
+                // state — the data is still on the DHT, just not marked resolved.
+                if let Err(e) = resolve_query(ResolveQueryInput {
                     query_hash: action_hash.clone(),
                     result: result_str,
                     success: true,
-                });
+                }) {
+                    debug!("Auto-resolve failed for query {:?}: {:?}", action_hash, e);
+                }
             }
         }
     }
@@ -395,6 +313,13 @@ fn resolve_domain_zome(domain: &str, query_type: &str) -> Option<String> {
 /// Resolve a pending query with a result
 #[hdk_extern]
 pub fn resolve_query(input: ResolveQueryInput) -> ExternResult<Record> {
+    // Require Citizen tier to resolve queries (modifies existing data)
+    mycelix_bridge_common::gate_civic(
+        "commons_bridge",
+        &mycelix_bridge_common::civic_requirement_voting(),
+        "resolve_query",
+    )?;
+
     let record = get(input.query_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Query not found".into())))?;
 
@@ -436,6 +361,13 @@ pub struct BridgeEventSignal {
 /// Broadcast a cross-domain event within the Commons cluster and emit a signal
 #[hdk_extern]
 pub fn broadcast_event(event: CommonsEvent) -> ExternResult<Record> {
+    // Require at least Participant tier to broadcast events
+    mycelix_bridge_common::gate_civic(
+        "commons_bridge",
+        &mycelix_bridge_common::civic_requirement_basic(),
+        "broadcast_event",
+    )?;
+
     let action_hash = create_entry(&EntryTypes::Event(event.clone()))?;
 
     // Link to all events
@@ -479,6 +411,58 @@ pub fn broadcast_event(event: CommonsEvent) -> ExternResult<Record> {
     };
     emit_signal(&signal)?;
 
+    // Cross-cluster notification fanout
+    // Dispatch notification to other clusters for events that cross boundaries
+    {
+        let notification = mycelix_bridge_entry_types::CrossClusterNotification {
+            schema_version: 1,
+            source_cluster: "commons".into(),
+            source_zome: event.domain.clone(),
+            event_type: event.event_type.clone(),
+            target_clusters: vec![], // broadcast to all
+            target_agents: vec![],
+            payload: event.payload.clone(),
+            priority: 1, // Normal priority
+            created_at: sys_time()?,
+            expires_at: None,
+        };
+
+        let payload_bytes = ExternIO::encode(&notification)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .0;
+
+        // Fan out to connected clusters (best-effort, don't fail on dispatch errors)
+        let targets: &[(CrossClusterRole, &str)] = &[
+            (CrossClusterRole::Civic, "civic_bridge"),
+            (CrossClusterRole::Identity, "identity_bridge"),
+            (CrossClusterRole::Finance, "finance_bridge"),
+            (CrossClusterRole::Hearth, "hearth_bridge"),
+        ];
+
+        for (target_role, zome) in targets {
+            let allowed = routing_registry::get_allowed_zomes(
+                CrossClusterRole::Commons,
+                *target_role,
+            );
+            // Skip if the target zome isn't in the allowed list for this route
+            if allowed.is_empty() || !allowed.iter().any(|z| *z == *zome) {
+                continue;
+            }
+            let dispatch = CrossClusterDispatchInput {
+                role: target_role.as_str().to_string(),
+                zome: zome.to_string(),
+                fn_name: "receive_notification".into(),
+                payload: payload_bytes.clone(),
+            };
+            // Best-effort: log errors but don't fail the broadcast
+            if let Ok(result) = bridge::dispatch_call_cross_cluster(&dispatch, allowed) {
+                if !result.success {
+                    debug!("Notification fanout to {} failed: {:?}", target_role.as_str(), result.error);
+                }
+            }
+        }
+    }
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created event".into()
     )))
@@ -490,12 +474,13 @@ pub fn broadcast_event(event: CommonsEvent) -> ExternResult<Record> {
 
 /// Log a governance gate decision as an auditable event.
 ///
-/// Called fire-and-forget by each coordinator's `require_consciousness()`.
+/// Called fire-and-forget by each coordinator's `require_civic()`.
 /// Stores the decision as a `BridgeEventEntry` with `domain: "governance_gate"`.
 #[hdk_extern]
 pub fn log_governance_gate(input: GateAuditInput) -> ExternResult<()> {
     let agent = agent_info()?.agent_initial_pubkey;
     let event = StoredEvent {
+        schema_version: 1,
         domain: "governance_gate".to_string(),
         event_type: input.action_name.clone(),
         source_agent: agent.clone(),
@@ -666,31 +651,11 @@ pub fn get_my_events(_: ()) -> ExternResult<Vec<Record>> {
 // ============================================================================
 
 /// Civic-side zomes that commons-bridge is allowed to call cross-cluster.
-const ALLOWED_CIVIC_ZOMES: &[&str] = &[
-    // Justice domain
-    "justice_cases",
-    "justice_evidence",
-    "justice_arbitration",
-    "justice_restorative",
-    "justice_enforcement",
-    // Emergency domain
-    "emergency_incidents",
-    "emergency_triage",
-    "emergency_resources",
-    "emergency_coordination",
-    "emergency_shelters",
-    "emergency_comms",
-    // Media domain
-    "media_publication",
-    "media_attribution",
-    "media_factcheck",
-    "media_curation",
-    // Civic bridge
-    "civic_bridge",
-];
+const ALLOWED_CIVIC_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Commons, CrossClusterRole::Civic);
 
 /// The hApp role name for the Civic DNA.
-const CIVIC_ROLE: &str = "civic";
+const CIVIC_ROLE: &str = routing_registry::role_name(CrossClusterRole::Civic);
 
 /// Dispatch a call to any zome in the Civic DNA.
 ///
@@ -774,13 +739,28 @@ pub fn check_emergency_for_area(
             has_active_emergencies: false,
             active_count: 0,
             recommendation: None,
-            error: Some(format!("Cross-cluster network error: {}", err)),
+            error: Some(format!(
+                "Circuit breaker: civic cluster unavailable (network error), operation suspended: {}",
+                err
+            )),
         }),
-        _ => Ok(EmergencyAreaCheckResult {
+        Ok(other) => Ok(EmergencyAreaCheckResult {
             has_active_emergencies: false,
             active_count: 0,
             recommendation: None,
-            error: Some("Failed to reach civic cluster emergency_incidents".into()),
+            error: Some(format!(
+                "Circuit breaker: civic cluster returned unexpected response, operation suspended: {:?}",
+                other
+            )),
+        }),
+        Err(e) => Ok(EmergencyAreaCheckResult {
+            has_active_emergencies: false,
+            active_count: 0,
+            recommendation: None,
+            error: Some(format!(
+                "Circuit breaker: civic cluster unreachable (transport error), operation suspended: {:?}",
+                e
+            )),
         }),
     }
 }
@@ -1059,10 +1039,11 @@ pub fn check_care_availability(
 // ============================================================================
 
 /// Identity-side zomes that commons-bridge is allowed to call cross-cluster.
-const ALLOWED_IDENTITY_ZOMES: &[&str] = &["identity_bridge", "did_registry"];
+const ALLOWED_IDENTITY_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Commons, CrossClusterRole::Identity);
 
 /// The hApp role name for the Identity DNA.
-const IDENTITY_ROLE: &str = "identity";
+const IDENTITY_ROLE: &str = routing_registry::role_name(CrossClusterRole::Identity);
 
 /// Dispatch a cross-cluster call to any allowed zome in the Identity DNA.
 #[hdk_extern]
@@ -1145,8 +1126,10 @@ fn get_cached_credential(did: &str) -> ExternResult<Option<ConsciousnessCredenti
         }
     }
 
-    // Get the most recent link
-    let link = links.into_iter().max_by_key(|l| l.timestamp).unwrap();
+    // Get the most recent link (safe: early return above guarantees non-empty)
+    let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) else {
+        return Ok(None);
+    };
     let target = link.target.into_action_hash().ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
             "Invalid credential cache link target".into()
@@ -1194,6 +1177,7 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
     })?;
 
     let entry = CachedCredentialEntry {
+        schema_version: 1,
         did: credential.did.clone(),
         credential_json: json,
         cached_at_us: now,
@@ -1208,125 +1192,110 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
 
 /// Get a consciousness credential for the specified DID.
 ///
-/// First checks the local cache (10-minute TTL). On cache miss, makes a
-/// cross-cluster call to `identity_bridge.issue_consciousness_credential` to
-/// obtain identity, reputation, and community dimensions, then fills in the
-/// engagement dimension locally from this cluster's activity data (events +
-/// queries in the last 90 days with 30-day half-life exponential decay).
-/// The result is cached for subsequent calls.
+/// Legacy 4D credential accessor — now delegates to the 8D sovereign path.
+///
+/// Fetches a `SovereignCredential` via `get_sovereign_credential`, converts
+/// to the legacy 4D `ConsciousnessCredential`, caches, and returns.
+/// This ensures ALL credential fetching goes through the 8D identity bridge.
+///
+/// If the identity cluster is unreachable, checks cache. If no cache,
+/// fails closed (no unverified credentials).
 #[hdk_extern]
 pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    use mycelix_bridge_common::sovereign_gate::sovereign_from_credential;
+
     // 1. Check cache first (avoids cross-cluster call if recent)
     if let Some(cached) = get_cached_credential(&did)? {
-        // Proactive refresh — attempt inline refresh, fall back to cached if it fails
         let now_us = sys_time()?.as_micros() as u64;
-        if needs_refresh(&cached, now_us) {
-            debug!(
-                "Credential nearing expiry, attempting proactive refresh for {}",
-                cached.did
-            );
-            if let Ok(ZomeCallResponse::Ok(response)) = call(
-                CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-                ZomeName::new("identity_bridge"),
-                FunctionName::new("refresh_consciousness_credential"),
-                None,
-                cached.did.clone(),
-            ) {
-                if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                    let _ = cache_credential(&refreshed);
-                    return Ok(refreshed);
-                }
-            }
-            // Refresh failed — serve cached credential (still valid, just nearing expiry)
+        if !needs_refresh(&cached, now_us) {
+            return Ok(cached);
         }
-        return Ok(cached);
+        // Cache exists but needs refresh — try sovereign path, fall back to cached
     }
 
+    // 2. Fetch via sovereign path (8D)
+    match get_sovereign_credential(did.clone()) {
+        Ok(sovereign_cred) => {
+            // Convert 8D → 4D for backward compat
+            let legacy_profile = {
+                let lp = mycelix_bridge_common::sovereign_gate::LegacyProfile::from(
+                    sovereign_cred.profile.clone(),
+                );
+                ConsciousnessProfile {
+                    identity: lp.identity,
+                    reputation: lp.reputation,
+                    community: lp.community,
+                    engagement: lp.engagement,
+                }
+            };
+            let credential = ConsciousnessCredential {
+                did: sovereign_cred.did,
+                profile: legacy_profile.clone(),
+                tier: ConsciousnessTier::from_score(legacy_profile.combined_score()),
+                issued_at: sovereign_cred.issued_at,
+                expires_at: sovereign_cred.expires_at,
+                issuer: sovereign_cred.issuer,
+                trajectory_commitment: None,
+                extensions: Default::default(),
+            };
+            let _ = cache_credential(&credential);
+            Ok(credential)
+        }
+        Err(_) => {
+            // Sovereign path failed — serve cached if available
+            if let Some(cached) = get_cached_credential(&did)? {
+                debug!("Sovereign credential fetch failed, serving cached 4D credential");
+                return Ok(cached);
+            }
+            // No cache, no sovereign — fail closed
+            Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable — cannot verify credentials \
+                 for {}. Operations suspended until identity verification is restored.",
+                did
+            ))))
+        }
+    }
+}
+
+/// Fetch a native 8D `SovereignCredential` from the identity bridge.
+///
+/// Called by `gate_civic()` when the bridge supports native 8D credentials.
+/// Dispatches to the identity cluster's `issue_sovereign_credential` extern.
+/// Falls back to an error if the identity cluster is unreachable — callers
+/// should fall back to the legacy `get_consciousness_credential` path.
+#[hdk_extern]
+pub fn get_sovereign_credential(
+    did: String,
+) -> ExternResult<mycelix_bridge_common::sovereign_gate::SovereignCredential> {
     enforce_rate_limit("identity:identity_bridge")?;
 
-    // 2. Cross-cluster call to identity: issue_consciousness_credential
-    let payload = ExternIO::encode(did.clone())
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .0;
-    let dispatch = CrossClusterDispatchInput {
-        role: IDENTITY_ROLE.to_string(),
-        zome: "identity_bridge".to_string(),
-        fn_name: "issue_consciousness_credential".to_string(),
-        payload,
-    };
-    let result = bridge::dispatch_call_cross_cluster(&dispatch, ALLOWED_IDENTITY_ZOMES);
+    let response = call(
+        CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("issue_sovereign_credential"),
+        None,
+        did.clone(),
+    )?;
 
-    let mut credential: ConsciousnessCredential = match result {
-        Ok(r) if r.success => {
-            let response_bytes = r.response.ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Empty response from identity bridge".into()
-                ))
-            })?;
-            ExternIO(response_bytes).decode().map_err(|e| {
+    match response {
+        ZomeCallResponse::Ok(extern_io) => {
+            extern_io.decode().map_err(|e| {
                 wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode consciousness credential: {:?}",
+                    "Failed to decode sovereign credential: {:?}",
                     e
                 )))
-            })?
+            })
         }
-        _ => {
-            // Identity role unavailable (single-DNA mode or network partition).
-            // Return a permissive fallback credential so single-cluster operations
-            // can proceed. In production, the identity role will provide real scores.
-            debug!(
-                "Identity role unavailable, using Citizen-tier fallback credential for {}",
-                did
-            );
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.5, // unified_consciousness — Citizen tier (permissive fallback)
-                0.5, // identity — assumed basic verification
-                0.5, // reputation — neutral
-                0.5, // community — assumed local member
-                "did:mycelix:commons-bridge-fallback".to_string(),
-                now_us,
-            )
-        }
-    };
-
-    // 3. Fill in engagement dimension locally (no cross-cluster call)
-    credential.profile.engagement = calculate_local_engagement()?;
-
-    // 4. Recalculate tier with engagement included
-    credential.tier = ConsciousnessTier::from_score(credential.profile.combined_score());
-
-    // 5. Cache the result for subsequent calls
-    let _ = cache_credential(&credential); // best-effort — don't fail if caching fails
-
-    // Proactive refresh check (covers edge case: identity issued a short-lived credential)
-    let now_us = sys_time()?.as_micros() as u64;
-    if needs_refresh(&credential, now_us) {
-        debug!(
-            "Freshly-issued credential nearing expiry, attempting proactive refresh for {}",
-            credential.did
-        );
-        if let Ok(ZomeCallResponse::Ok(response)) = call(
-            CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-            ZomeName::new("identity_bridge"),
-            FunctionName::new("refresh_consciousness_credential"),
-            None,
-            credential.did.clone(),
-        ) {
-            if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                let _ = cache_credential(&refreshed);
-                return Ok(refreshed);
-            }
-        }
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Sovereign credential call failed for {}: {:?}",
+            did, other
+        )))),
     }
-
-    Ok(credential)
 }
 
 /// Refresh a consciousness credential by re-fetching from the identity cluster.
 ///
-/// Called by `gate_consciousness()` when a credential is nearing expiry (within
+/// Called by `gate_civic()` when a credential is nearing expiry (within
 /// 2 hours). Fetches a fresh credential from the identity bridge, updates the
 /// local engagement dimension, and caches the result.
 ///
@@ -1374,17 +1343,12 @@ pub fn refresh_consciousness_credential(did: String) -> ExternResult<Consciousne
             if let Some(cached) = get_cached_credential(&did)? {
                 return Ok(cached);
             }
-            // No cache either — return Citizen-tier fallback
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.5,
-                0.5,
-                0.5,
-                0.5,
-                "did:mycelix:commons-bridge-fallback".to_string(),
-                now_us,
-            )
+            // No cache either — fail closed. Do not issue unverified credentials.
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable during refresh and no cached credential \
+                 for {}. Cannot proceed without verified consciousness credentials.",
+                did
+            ))));
         }
     };
 
@@ -1398,6 +1362,98 @@ pub fn refresh_consciousness_credential(did: String) -> ExternResult<Consciousne
     let _ = cache_credential(&credential);
 
     Ok(credential)
+}
+
+/// Issue a consciousness credential enriched with Symthaea consciousness signals.
+///
+/// When a Symthaea instance is connected, it provides multi-dimensional consciousness
+/// data (phi, meta_awareness, coherence, care_activation) that produces a richer
+/// `engagement` score than the local activity-based calculation.
+///
+/// Falls back to `get_consciousness_credential` (local engagement) if Symthaea
+/// signals are not provided (all zero).
+#[hdk_extern]
+pub fn get_consciousness_credential_enriched(
+    input: EnrichedCredentialInput,
+) -> ExternResult<ConsciousnessCredential> {
+    // If no Symthaea signals provided, fall back to standard local engagement
+    let has_symthaea = input.phi > 0.0
+        || input.meta_awareness > 0.0
+        || input.coherence > 0.0
+        || input.care_activation > 0.0;
+
+    if !has_symthaea {
+        return get_consciousness_credential(input.did);
+    }
+
+    // 1. Get base credential from identity bridge (identity, reputation, community)
+    let payload = ExternIO::encode(input.did.clone())
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .0;
+    let dispatch = CrossClusterDispatchInput {
+        role: IDENTITY_ROLE.to_string(),
+        zome: "identity_bridge".to_string(),
+        fn_name: "issue_consciousness_credential".to_string(),
+        payload,
+    };
+    let result = bridge::dispatch_call_cross_cluster(&dispatch, ALLOWED_IDENTITY_ZOMES);
+
+    let base_cred: ConsciousnessCredential = match result {
+        Ok(r) if r.success => {
+            let response_bytes = r.response.ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Empty response from identity bridge".into()
+                ))
+            })?;
+            ExternIO(response_bytes).decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode consciousness credential: {:?}",
+                    e
+                )))
+            })?
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable — cannot issue enriched credential for {}",
+                input.did
+            ))));
+        }
+    };
+
+    // 2. Build enriched credential using Symthaea signals for engagement
+    let now_us = sys_time()?.as_micros() as u64;
+    let credential = mycelix_bridge_common::ConsciousnessCredential::from_symthaea(
+        input.did,
+        input.phi,
+        input.meta_awareness,
+        input.coherence,
+        input.care_activation,
+        base_cred.profile.identity,
+        base_cred.profile.reputation,
+        base_cred.profile.community,
+        format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey),
+        now_us,
+    );
+
+    // 3. Cache the enriched credential
+    let _ = cache_credential(&credential);
+
+    Ok(credential)
+}
+
+/// Input for enriched consciousness credential issuance.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct EnrichedCredentialInput {
+    /// Agent DID
+    pub did: String,
+    /// Symthaea Integrated Information (Φ) \[0, 1\]
+    pub phi: f64,
+    /// Symthaea meta-cognitive depth \[0, 1\]
+    pub meta_awareness: f64,
+    /// Symthaea narrative coherence \[0, 1\]
+    pub coherence: f64,
+    /// Symthaea empathic responsiveness \[0, 1\]
+    pub care_activation: f64,
 }
 
 /// Calculate local engagement score from this cluster's activity.
@@ -1449,6 +1505,448 @@ fn calculate_local_engagement() -> ExternResult<f64> {
 }
 
 // ============================================================================
+// Cross-Cluster Dispatch: Commons → Finance
+// ============================================================================
+
+/// Finance-side zomes that commons-bridge is allowed to call cross-cluster.
+const ALLOWED_FINANCE_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Commons, CrossClusterRole::Finance);
+
+/// The hApp role name for the Finance DNA.
+const FINANCE_ROLE: &str = routing_registry::role_name(CrossClusterRole::Finance);
+
+/// Register a commons property as finance collateral.
+///
+/// Verifies the caller's consciousness tier (Participant+), confirms the
+/// property exists in the local property-registry, then makes a cross-cluster
+/// call to the finance bridge to register the property as collateral, making
+/// it eligible for SAP-backed lending positions.
+///
+/// Non-fatal on finance cluster unreachability — the property remains
+/// registered locally even if finance collateral registration fails.
+#[hdk_extern]
+pub fn register_property_as_collateral(
+    input: PropertyCollateralInput,
+) -> ExternResult<PropertyCollateralResult> {
+    // 1. Verify consciousness tier via local bridge (Participant+ required)
+    let credential = get_consciousness_credential(input.owner_did.clone())?;
+    if credential.tier.min_score() < ConsciousnessTier::Participant.min_score() {
+        return Ok(PropertyCollateralResult {
+            success: false,
+            property_id: input.property_id,
+            collateral_registered: false,
+            error: Some(format!(
+                "Insufficient consciousness tier: {:?} (Participant+ required)",
+                credential.tier
+            )),
+        });
+    }
+
+    // 2. Verify the property exists in local property-registry
+    let cluster = detect_sub_cluster();
+    let property_call_target = if is_local_zome("property_registry", cluster) {
+        CallTargetCell::Local
+    } else {
+        CallTargetCell::OtherRole(sibling_role(cluster).into())
+    };
+    let property_response = call(
+        property_call_target,
+        ZomeName::from("property_registry"),
+        FunctionName::from("get_property"),
+        None,
+        input.property_id.clone(),
+    );
+    match &property_response {
+        Ok(ZomeCallResponse::Ok(_)) => {
+            // Property exists — proceed
+        }
+        Ok(other) => {
+            return Ok(PropertyCollateralResult {
+                success: false,
+                property_id: input.property_id,
+                collateral_registered: false,
+                error: Some(format!(
+                    "Property not found in registry: {:?}",
+                    other
+                )),
+            });
+        }
+        Err(e) => {
+            return Ok(PropertyCollateralResult {
+                success: false,
+                property_id: input.property_id,
+                collateral_registered: false,
+                error: Some(format!("Property registry lookup failed: {:?}", e)),
+            });
+        }
+    }
+
+    // 3. Cross-cluster call to finance bridge to register collateral
+    #[derive(Serialize, Debug)]
+    struct RegisterCollateralPayload {
+        owner_did: String,
+        source_happ: String,
+        asset_type: String,
+        asset_id: String,
+        value_estimate: u64,
+        currency: String,
+    }
+
+    match call(
+        CallTargetCell::OtherRole(FINANCE_ROLE.into()),
+        ZomeName::from("finance_bridge"),
+        FunctionName::from("register_collateral"),
+        None,
+        RegisterCollateralPayload {
+            owner_did: input.owner_did.clone(),
+            source_happ: "mycelix-commons".to_string(),
+            asset_type: "RealEstate".to_string(),
+            asset_id: input.property_id.clone(),
+            value_estimate: input.appraised_value,
+            currency: "SAP".to_string(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(_result)) => Ok(PropertyCollateralResult {
+            success: true,
+            property_id: input.property_id,
+            collateral_registered: true,
+            error: None,
+        }),
+        Ok(other) => Ok(PropertyCollateralResult {
+            success: false,
+            property_id: input.property_id,
+            collateral_registered: false,
+            error: Some(format!(
+                "Circuit breaker: finance cluster returned unexpected response, operation suspended: {:?}",
+                other
+            )),
+        }),
+        Err(e) => {
+            // Circuit breaker: Finance cluster unreachable — non-fatal, property still registered locally
+            debug!(
+                "Circuit breaker: finance cluster unreachable for register_collateral, operation suspended: {:?}",
+                e
+            );
+            Ok(PropertyCollateralResult {
+                success: false,
+                property_id: input.property_id,
+                collateral_registered: false,
+                error: Some(format!(
+                    "Circuit breaker: finance cluster unreachable, operation suspended: {:?}",
+                    e
+                )),
+            })
+        }
+    }
+}
+
+/// Query collateral health for a commons property.
+///
+/// Cross-cluster call to finance bridge to check LTV status.
+/// Returns loan-to-value ratio and status for the given property.
+#[hdk_extern]
+pub fn check_property_collateral_health(
+    property_id: String,
+) -> ExternResult<CollateralHealthResult> {
+    match call(
+        CallTargetCell::OtherRole(FINANCE_ROLE.into()),
+        ZomeName::from("finance_bridge"),
+        FunctionName::from("update_collateral_health"),
+        None,
+        property_id.clone(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            // Decode the health status
+            #[derive(Debug, Deserialize)]
+            struct HealthResponse {
+                ltv_ratio: f64,
+                status: String,
+            }
+            match result.decode::<HealthResponse>() {
+                Ok(health) => Ok(CollateralHealthResult {
+                    property_id,
+                    ltv_ratio: Some(health.ltv_ratio),
+                    status: Some(health.status),
+                    available: true,
+                    error: None,
+                }),
+                Err(e) => Ok(CollateralHealthResult {
+                    property_id,
+                    ltv_ratio: None,
+                    status: None,
+                    available: false,
+                    error: Some(format!("Decode error: {:?}", e)),
+                }),
+            }
+        }
+        Ok(other) => Ok(CollateralHealthResult {
+            property_id,
+            ltv_ratio: None,
+            status: None,
+            available: false,
+            error: Some(format!(
+                "Circuit breaker: finance cluster returned unexpected response, operation suspended: {:?}",
+                other
+            )),
+        }),
+        Err(e) => Ok(CollateralHealthResult {
+            property_id,
+            ltv_ratio: None,
+            status: None,
+            available: false,
+            error: Some(format!(
+                "Circuit breaker: finance cluster unreachable, operation suspended: {:?}",
+                e
+            )),
+        }),
+    }
+}
+
+/// Input for registering a commons property as finance collateral.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PropertyCollateralInput {
+    /// Property identifier from the commons property-registry.
+    pub property_id: String,
+    /// DID of the property owner requesting collateral registration.
+    pub owner_did: String,
+    /// Appraised value of the property in smallest currency unit.
+    pub appraised_value: u64,
+}
+
+/// Result of a property collateral registration attempt.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PropertyCollateralResult {
+    /// Whether the overall operation succeeded.
+    pub success: bool,
+    /// The property identifier that was processed.
+    pub property_id: String,
+    /// Whether the collateral was registered in the finance cluster.
+    pub collateral_registered: bool,
+    /// Error message if the operation failed.
+    pub error: Option<String>,
+}
+
+/// Result of a collateral health check.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CollateralHealthResult {
+    /// The property identifier that was checked.
+    pub property_id: String,
+    /// Loan-to-value ratio (0.0-1.0), if available.
+    pub ltv_ratio: Option<f64>,
+    /// Collateral status string (e.g., "Healthy", "AtRisk", "Liquidating").
+    pub status: Option<String>,
+    /// Whether the finance cluster was reachable.
+    pub available: bool,
+    /// Error message if the check failed.
+    pub error: Option<String>,
+}
+
+// ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// Includes per-function success/error counts, latency percentiles (p50/p95/p99),
+/// rate limit hits, and cross-cluster call counts. Metrics accumulate for the
+/// lifetime of the cell and reset on conductor restart.
+///
+/// Returns JSON string for maximum compatibility — callers can deserialize with
+/// `serde_json::from_str::<BridgeMetricsSnapshot>()`. Suitable for Prometheus
+/// scraping, admin tools, or Observatory dashboard consumption.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
+    })
+}
+
+// ============================================================================
+// Notification Service
+// ============================================================================
+
+/// Receive a cross-cluster notification and store it locally.
+///
+/// Called by other bridges via `CallTargetCell::OtherRole("commons")`.
+#[hdk_extern]
+pub fn receive_notification(notification: mycelix_bridge_entry_types::CrossClusterNotification) -> ExternResult<ActionHash> {
+    let action_hash = create_entry(&EntryTypes::Notification(notification.clone()))?;
+
+    // Link to agent's notification inbox
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    create_link(inbox_anchor, action_hash.clone(), LinkTypes::AgentToNotification, ())?;
+
+    // Link to global notifications anchor
+    let all_anchor = ensure_anchor("all_notifications")?;
+    create_link(all_anchor, action_hash.clone(), LinkTypes::AllNotifications, ())?;
+
+    // Emit signal to connected UI clients
+    let signal = mycelix_bridge_common::notifications::NotificationSignal {
+        signal_type: "cross_cluster_notification".into(),
+        source_cluster: notification.source_cluster,
+        event_type: notification.event_type,
+        payload: notification.payload,
+        priority: notification.priority,
+    };
+    emit_signal(&signal)?;
+
+    Ok(action_hash)
+}
+
+/// Get notifications for the calling agent.
+#[hdk_extern]
+pub fn get_my_notifications(input: mycelix_bridge_common::notifications::NotificationQueryInput) -> ExternResult<Vec<Record>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::Local,
+    )?;
+
+    let limit = input.limit
+        .unwrap_or(mycelix_bridge_common::notifications::DEFAULT_NOTIFICATION_LIMIT)
+        .min(mycelix_bridge_common::notifications::MAX_NOTIFICATIONS_PER_AGENT);
+
+    let mut records = Vec::new();
+    for link in links.iter().rev().take(limit) {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+/// Get unread notification count for the calling agent.
+#[hdk_extern]
+pub fn get_unread_count(_: ()) -> ExternResult<u32> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::Local,
+    )?;
+    Ok(links.len() as u32)
+}
+
+/// Subscribe to specific event types from specific clusters.
+#[hdk_extern]
+pub fn subscribe_events(input: mycelix_bridge_common::notifications::SubscribeInput) -> ExternResult<ActionHash> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let sub_anchor = ensure_anchor(&format!("subscriptions:{:?}", agent))?;
+
+    let payload = serde_json::to_string(&input)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+
+    let event = mycelix_bridge_entry_types::BridgeEventEntry {
+        schema_version: 1,
+        domain: "notifications".into(),
+        event_type: "subscription".into(),
+        source_agent: agent.clone(),
+        payload,
+        created_at: sys_time()?,
+        related_hashes: vec![],
+    };
+    let action_hash = create_entry(&EntryTypes::Event(event))?;
+    create_link(sub_anchor, action_hash.clone(), LinkTypes::NotificationSubscription, ())?;
+
+    Ok(action_hash)
+}
+
+/// Unsubscribe from events by deleting the subscription link.
+#[hdk_extern]
+pub fn unsubscribe_events(subscription_hash: ActionHash) -> ExternResult<()> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let sub_anchor = ensure_anchor(&format!("subscriptions:{:?}", agent))?;
+
+    let links = get_links(
+        LinkQuery::try_new(sub_anchor, LinkTypes::NotificationSubscription)?,
+        GetStrategy::Local,
+    )?;
+
+    for link in links {
+        let target = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if target == subscription_hash {
+            delete_link(link.create_link_hash, GetOptions::default())?;
+            break;
+        }
+    }
+    Ok(())
+}
+
+// ============================================================================
+// Geo-Spatial Proximity Queries
+// ============================================================================
+
+/// Get entries near a given location by dispatching to the appropriate domain zome.
+///
+/// The `entry_type` field in the query determines which zome to call:
+/// - "property" → property_registry::get_nearby_properties
+/// - "shelter" → emergency_shelters::get_nearby_shelters (cross-cluster to civic)
+/// - Default → property_registry::get_nearby_properties
+#[hdk_extern]
+pub fn get_nearby(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let zome = match input.entry_type.as_deref() {
+        Some("property") | None => "property_registry",
+        Some("housing") => "housing_units",
+        Some("food") => "food_production",
+        Some("water") => "water_capture",
+        Some("shelter") => {
+            // Cross-cluster dispatch to civic
+            let payload = ExternIO::encode(&input)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            let dispatch = CrossClusterDispatchInput {
+                role: "civic".into(),
+                zome: "emergency_shelters".into(),
+                fn_name: "get_nearby_shelters".into(),
+                payload: payload.0,
+            };
+            let result = bridge::dispatch_call_cross_cluster(
+                &dispatch,
+                routing_registry::get_allowed_zomes(CrossClusterRole::Commons, CrossClusterRole::Civic),
+            )?;
+            if result.success {
+                if let Some(response) = result.response {
+                    return ExternIO(response).decode::<Vec<Record>>()
+                        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())));
+                }
+            }
+            return Ok(vec![]);
+        }
+        Some(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                format!("Unknown entry_type for get_nearby: '{}'. Supported: property, housing, food, water, shelter", other)
+            )));
+        }
+    };
+
+    // Local dispatch to the appropriate commons zome
+    let payload = ExternIO::encode(&input)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let fn_name = format!("get_nearby_{}", input.entry_type.as_deref().unwrap_or("properties"));
+    let dispatch = DispatchInput {
+        zome: zome.into(),
+        fn_name,
+        payload: payload.0,
+    };
+    let result = bridge::dispatch_call_checked(&dispatch, routing_registry::COMMONS_LOCAL_ZOMES)?;
+    if result.success {
+        if let Some(response) = result.response {
+            return ExternIO(response).decode::<Vec<Record>>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())));
+        }
+    }
+    Ok(vec![])
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1483,9 +1981,8 @@ mod tests {
 
     #[test]
     fn local_allowlist_has_expected_count() {
-        // 4 property + 6 housing + 5 care + 7 mutualaid + 5 water + 4 food
-        // + 3 transport + 3 support + 1 space = 38
-        assert_eq!(ALLOWED_ZOMES.len(), 38);
+        // Land (17) + Care (21) + commons_bridge = 40 (union of both sub-clusters + bridge)
+        assert_eq!(ALLOWED_ZOMES.len(), 40);
     }
 
     #[test]
@@ -2390,8 +2887,8 @@ mod tests {
 
     #[test]
     fn care_zomes_has_expected_count() {
-        // 5 care + 7 mutualaid + 3 transport + 3 support + 1 space = 19
-        assert_eq!(CARE_ZOMES.len(), 19, "Expected 19 care zomes");
+        // 5 care + 7 mutualaid + 3 transport + 3 support + 1 space + 1 wellbeing + 1 community-calendar = 21
+        assert_eq!(CARE_ZOMES.len(), 21, "Expected 21 care zomes");
     }
 
     #[test]
@@ -2532,5 +3029,134 @@ mod tests {
     fn role_constants_are_correct() {
         assert_eq!(COMMONS_LAND_ROLE, "commons_land");
         assert_eq!(COMMONS_CARE_ROLE, "commons_care");
+    }
+
+    // ============================================================================
+    // Finance Cross-Cluster Tests
+    // ============================================================================
+
+    #[test]
+    fn finance_allowlist_contains_bridge() {
+        assert!(ALLOWED_FINANCE_ZOMES.contains(&"finance_bridge"));
+    }
+
+    #[test]
+    fn finance_allowlist_has_expected_count() {
+        // finance_bridge + currency_mint + payments + treasury + staking + recognition = 6
+        assert_eq!(ALLOWED_FINANCE_ZOMES.len(), 6);
+    }
+
+    #[test]
+    fn finance_role_constant_correct() {
+        assert_eq!(FINANCE_ROLE, "finance");
+    }
+
+    #[test]
+    fn finance_allowlist_has_no_duplicates() {
+        let mut seen = std::collections::HashSet::new();
+        for zome in ALLOWED_FINANCE_ZOMES {
+            assert!(
+                seen.insert(zome),
+                "Duplicate zome in ALLOWED_FINANCE_ZOMES: '{}'",
+                zome
+            );
+        }
+    }
+
+    #[test]
+    fn finance_allowlist_entries_are_non_empty() {
+        for zome in ALLOWED_FINANCE_ZOMES {
+            assert!(
+                !zome.is_empty(),
+                "ALLOWED_FINANCE_ZOMES contains an empty string"
+            );
+            assert!(
+                !zome.contains(' '),
+                "ALLOWED_FINANCE_ZOMES entry '{}' contains whitespace",
+                zome
+            );
+        }
+    }
+
+    // ---- Property collateral type serde ----
+
+    #[test]
+    fn property_collateral_input_serde_roundtrip() {
+        let input = PropertyCollateralInput {
+            property_id: "PROP-001".into(),
+            owner_did: "did:mycelix:agent_abc".into(),
+            appraised_value: 250_000,
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let input2: PropertyCollateralInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(input2.property_id, "PROP-001");
+        assert_eq!(input2.owner_did, "did:mycelix:agent_abc");
+        assert_eq!(input2.appraised_value, 250_000);
+    }
+
+    #[test]
+    fn property_collateral_result_success_serde_roundtrip() {
+        let result = PropertyCollateralResult {
+            success: true,
+            property_id: "PROP-001".into(),
+            collateral_registered: true,
+            error: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let r2: PropertyCollateralResult = serde_json::from_str(&json).unwrap();
+        assert!(r2.success);
+        assert!(r2.collateral_registered);
+        assert_eq!(r2.property_id, "PROP-001");
+        assert!(r2.error.is_none());
+    }
+
+    #[test]
+    fn property_collateral_result_failure_serde_roundtrip() {
+        let result = PropertyCollateralResult {
+            success: false,
+            property_id: "PROP-002".into(),
+            collateral_registered: false,
+            error: Some("Finance cluster unreachable".into()),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let r2: PropertyCollateralResult = serde_json::from_str(&json).unwrap();
+        assert!(!r2.success);
+        assert!(!r2.collateral_registered);
+        assert_eq!(r2.error.as_deref(), Some("Finance cluster unreachable"));
+    }
+
+    #[test]
+    fn collateral_health_result_available_serde_roundtrip() {
+        let result = CollateralHealthResult {
+            property_id: "PROP-001".into(),
+            ltv_ratio: Some(0.65),
+            status: Some("Healthy".into()),
+            available: true,
+            error: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let r2: CollateralHealthResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(r2.property_id, "PROP-001");
+        assert!((r2.ltv_ratio.unwrap() - 0.65).abs() < 1e-10);
+        assert_eq!(r2.status.as_deref(), Some("Healthy"));
+        assert!(r2.available);
+        assert!(r2.error.is_none());
+    }
+
+    #[test]
+    fn collateral_health_result_unavailable_serde_roundtrip() {
+        let result = CollateralHealthResult {
+            property_id: "PROP-003".into(),
+            ltv_ratio: None,
+            status: None,
+            available: false,
+            error: Some("Finance cluster unreachable".into()),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let r2: CollateralHealthResult = serde_json::from_str(&json).unwrap();
+        assert!(!r2.available);
+        assert!(r2.ltv_ratio.is_none());
+        assert!(r2.status.is_none());
+        assert_eq!(r2.error.as_deref(), Some("Finance cluster unreachable"));
     }
 }

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! # Mycelix SDK - hApp Integration Tests
 //!
 //! These tests verify that the SDK components work correctly when integrated
@@ -301,8 +304,8 @@ mod bridge_integration {
                 last_updated: 900,
             },
             HappReputationScore {
-                happ_id: "edunet".to_string(),
-                happ_name: "Mycelix EduNet".to_string(),
+                happ_id: "praxis".to_string(),
+                happ_name: "Mycelix Praxis".to_string(),
                 score: 0.95,
                 interactions: 25,
                 last_updated: 800,
@@ -387,8 +390,8 @@ mod mail_trust_integration {
                 last_updated: 1000,
             },
             HappReputationScore {
-                happ_id: "edunet".to_string(),
-                happ_name: "Mycelix EduNet".to_string(),
+                happ_id: "praxis".to_string(),
+                happ_name: "Mycelix Praxis".to_string(),
                 score: 0.8,
                 interactions: 20,
                 last_updated: 900,
@@ -529,8 +532,8 @@ mod e2e_workflows {
                 last_updated: 1000,
             },
             HappReputationScore {
-                happ_id: "edunet".to_string(),
-                happ_name: "EduNet".to_string(),
+                happ_id: "praxis".to_string(),
+                happ_name: "Praxis".to_string(),
                 score: 0.9,
                 interactions: 50,
                 last_updated: 950,

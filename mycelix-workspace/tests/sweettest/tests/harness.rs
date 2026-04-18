@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Shared test harness for Mycelix sweettest integration tests.
 //!
 //! Provides conductor setup, DNA loading, and helper utilities
@@ -33,8 +36,8 @@ impl DnaPaths {
         Self::workspace_root().join("../mycelix-finance/dna/mycelix_finance.dna")
     }
 
-    pub fn edunet() -> PathBuf {
-        Self::workspace_root().join("../mycelix-edunet/dna/edunet.dna")
+    pub fn praxis() -> PathBuf {
+        Self::workspace_root().join("../mycelix-praxis/dna/praxis.dna")
     }
 
     pub fn supplychain() -> PathBuf {
@@ -92,6 +95,11 @@ impl DnaPaths {
     /// Attribution DNA (dependency registry + usage receipts + reciprocity pledges)
     pub fn attribution() -> PathBuf {
         Self::workspace_root().join("../mycelix-attribution/dna/mycelix_attribution_dna.dna")
+    }
+
+    /// Energy cluster DNA (projects + investments + grid + regenerative + bridge)
+    pub fn energy() -> PathBuf {
+        Self::workspace_root().join("../mycelix-energy/dna/mycelix_energy.dna")
     }
 
     /// LUCID hApp DNA (privacy/ZK attestation)

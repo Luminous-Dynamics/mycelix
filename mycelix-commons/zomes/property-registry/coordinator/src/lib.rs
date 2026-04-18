@@ -1,47 +1,31 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Property Registry Coordinator Zome
 use commons_types::batch::links_to_records;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_constitutional, requirement_for_proposal,
-    requirement_for_voting, GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_constitutional, civic_requirement_proposal, civic_requirement_voting,
 };
+use mycelix_zome_helpers::get_latest_record;
 use property_registry_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
-/// Get or create an anchor entry and return its EntryHash for use as link base
+/// Get or create an anchor entry and return its EntryHash for use as link base.
+///
+/// Anchor creation is idempotent — duplicates are expected and harmless.
+/// Non-duplicate errors are logged for debugging but don't fail the operation.
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
-    hash_entry(&anchor)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) {
+        debug!("Anchor creation returned error (may be duplicate): {:?}", e);
     }
+    hash_entry(&anchor)
 }
 
 #[hdk_extern]
 pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "register_property")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "register_property")?;
     let now = sys_time()?;
     let property = Property {
         id: format!("property:{}:{}", input.owner_did, now.as_micros()),
@@ -65,8 +49,16 @@ pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // O(1) property ID index for direct lookup
+    create_link(
+        anchor_hash(&format!("property:{}", property.id))?,
+        action_hash.clone(),
+        LinkTypes::PropertyIdIndex,
+        (),
+    )?;
+
     // Link by location if available
-    if let Some(geo) = input.geolocation {
+    if let Some(ref geo) = input.geolocation {
         let geo_key = format!(
             "geo:{}:{}",
             (geo.latitude * 1000.0) as i64,
@@ -78,6 +70,11 @@ pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
             LinkTypes::LocationToProperty,
             (),
         )?;
+
+        // Geohash spatial index
+        let geo_hash = commons_types::geo::geohash_encode(geo.latitude, geo.longitude, 6);
+        let geo_anchor = anchor_hash(&format!("geo:{}", geo_hash))?;
+        create_link(geo_anchor, action_hash.clone(), LinkTypes::GeoIndex, geo_hash.as_bytes().to_vec())?;
     }
 
     // Create initial title deed
@@ -90,11 +87,18 @@ pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
         previous_deed_id: None,
         encumbrances: Vec::new(),
     };
-    let deed_hash = create_entry(&EntryTypes::TitleDeed(deed))?;
+    let deed_hash = create_entry(&EntryTypes::TitleDeed(deed.clone()))?;
     create_link(
         action_hash.clone(),
-        deed_hash,
+        deed_hash.clone(),
         LinkTypes::PropertyToDeeds,
+        (),
+    )?;
+    // O(1) deed lookup by property ID
+    create_link(
+        anchor_hash(&format!("deed:{}", deed.property_id))?,
+        deed_hash,
+        LinkTypes::DeedIdIndex,
         (),
     )?;
 
@@ -113,8 +117,26 @@ pub struct RegisterPropertyInput {
     pub metadata: PropertyMetadata,
 }
 
+/// Get a property by ID via O(1) link-based index.
+///
+/// Falls back to chain scan for properties created before the index existed.
 #[hdk_extern]
 pub fn get_property(property_id: String) -> ExternResult<Option<Record>> {
+    // O(1) path: PropertyIdIndex anchor → link → record
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("property:{}", property_id))?,
+            LinkTypes::PropertyIdIndex,
+        )?,
+        GetStrategy::default(),
+    )?;
+    if let Some(link) = links.first() {
+        let action_hash = ActionHash::try_from(link.target.clone())
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid link target: {:?}", e))))?;
+        return get_latest_record(action_hash);
+    }
+
+    // Fallback: chain scan for pre-index properties
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -145,7 +167,7 @@ pub fn get_owner_properties(did: String) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn add_encumbrance(input: AddEncumbranceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "add_encumbrance")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "add_encumbrance")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TitleDeed,
@@ -259,7 +281,7 @@ pub fn get_property_deeds(property_id: String) -> ExternResult<Vec<Record>> {
 #[hdk_extern]
 pub fn update_property_metadata(input: UpdateMetadataInput) -> ExternResult<Record> {
     let _eligibility =
-        require_consciousness(&requirement_for_proposal(), "update_property_metadata")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_property_metadata")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -304,7 +326,7 @@ pub struct UpdateMetadataInput {
 /// Remove an encumbrance (when paid off)
 #[hdk_extern]
 pub fn remove_encumbrance(input: RemoveEncumbranceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "remove_encumbrance")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "remove_encumbrance")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::TitleDeed,
@@ -369,7 +391,7 @@ pub fn get_properties_by_type(property_type: PropertyType) -> ExternResult<Vec<R
 /// Add a co-owner to property
 #[hdk_extern]
 pub fn add_co_owner(input: AddCoOwnerInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "add_co_owner")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "add_co_owner")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -426,7 +448,7 @@ pub struct AddCoOwnerInput {
 /// Remove a co-owner from property
 #[hdk_extern]
 pub fn remove_co_owner(input: RemoveCoOwnerInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "remove_co_owner")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "remove_co_owner")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -529,7 +551,7 @@ pub fn has_clear_title(property_id: String) -> ExternResult<bool> {
 #[hdk_extern]
 pub fn transfer_ownership(input: TransferOwnershipInput) -> ExternResult<TransferOwnershipResult> {
     let _eligibility =
-        require_consciousness(&requirement_for_constitutional(), "transfer_ownership")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_constitutional(), "transfer_ownership")?;
     let now = sys_time()?;
 
     // 1. Get the current property
@@ -697,6 +719,44 @@ pub fn verify_ownership(input: VerifyOwnershipInput) -> ExternResult<bool> {
 pub struct VerifyOwnershipInput {
     pub property_id: String,
     pub did: String,
+}
+
+/// Get properties near a given location using geohash-based proximity search.
+///
+/// Queries the geo-index anchors created by `register_property()` to find
+/// all properties within the geohash neighborhood (9 cells at precision 6,
+/// approximately 3.6km x 1.8km coverage).
+#[hdk_extern]
+pub fn get_nearby_properties(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    // Geohash precision 6 covers ~1.2km x 0.6km per cell.
+    // 9 cells (center + 8 neighbors) covers ~3.6km x 1.8km.
+    // For finer filtering, callers can deserialize entries and check haversine distance.
+    let _ = input.radius_km; // Available for future post-filtering
+
+    Ok(records)
 }
 
 #[cfg(test)]

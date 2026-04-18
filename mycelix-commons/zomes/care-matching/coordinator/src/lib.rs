@@ -1,12 +1,13 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Matching Coordinator Zome
 //! Business logic for finding, suggesting, accepting, and declining care matches.
 
 use care_matching_integrity::*;
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 
 // holochain_serialized_bytes is a dependency needed by the SerializedBytes derive macro
 // on the local ServiceOffer/ServiceRequest structs below.
@@ -76,12 +77,6 @@ pub struct ServiceRequest {
     pub created_at: Timestamp,
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -92,36 +87,6 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     create_entry(&EntryTypes::Anchor(anchor))?;
     anchor_hash(anchor_str)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 /// Input for finding matches for a request
@@ -249,7 +214,7 @@ pub fn find_matches_for_request(input: FindMatchesInput) -> ExternResult<Vec<Rec
 /// Suggest a specific match (manual matching by an organizer or system)
 #[hdk_extern]
 pub fn suggest_match(care_match: CareMatch) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "suggest_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "suggest_match")?;
     let action_hash = create_entry(&EntryTypes::CareMatch(care_match.clone()))?;
 
     let req_anchor = ensure_anchor(&format!("request_matches:{}", care_match.request_hash))?;
@@ -300,14 +265,14 @@ pub fn suggest_match(care_match: CareMatch) -> ExternResult<Record> {
 /// Accept a suggested match
 #[hdk_extern]
 pub fn accept_match(match_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "accept_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "accept_match")?;
     update_match_status(match_hash, MatchStatus::Accepted)
 }
 
 /// Decline a suggested match
 #[hdk_extern]
 pub fn decline_match(match_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "decline_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "decline_match")?;
     update_match_status(match_hash, MatchStatus::Declined)
 }
 

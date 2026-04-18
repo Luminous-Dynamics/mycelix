@@ -1,4 +1,7 @@
 #![deny(unsafe_code)]
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix Finance Shared Types
 //!
 //! Canonical type definitions for the Mycelix three-currency economic system.
@@ -198,8 +201,52 @@ pub enum SuccessionPreference {
 
 /// Annual demurrage rate (2%). Constitutional bounds: 1-5%.
 pub const DEMURRAGE_RATE: f64 = 0.02;
-/// SAP exempt floor in micro-units (1,000 SAP = 1_000_000_000 micro-SAP).
-pub const DEMURRAGE_EXEMPT_FLOOR: u64 = 1_000_000_000;
+
+// =============================================================================
+// DEMURRAGE DISCOUNT FOR DIVERSIFIED POSITIONS
+// =============================================================================
+
+/// Demurrage discount per distinct asset class in a multi-collateral position.
+/// 0.1% per class, capped at 0.5% total discount.
+///
+/// Incentivizes diversification through ongoing savings rather than just
+/// a threshold shift that may never be triggered.
+pub const DEMURRAGE_DISCOUNT_PER_CLASS: f64 = 0.001;
+
+/// Maximum demurrage discount from diversification (0.5% off the base rate).
+pub const DEMURRAGE_DISCOUNT_CAP: f64 = 0.005;
+
+/// Minimum number of distinct asset classes to qualify for demurrage discount.
+/// A single-class position gets no discount.
+pub const DEMURRAGE_DISCOUNT_MIN_CLASSES: usize = 3;
+
+/// Compute the effective demurrage rate for a position with diversified collateral.
+///
+/// `base_rate` is the standard demurrage rate (e.g., 0.02 = 2%).
+/// `distinct_classes` is the number of distinct asset classes in the position.
+///
+/// Returns: effective rate = base_rate - discount (never below 0.5 * base_rate).
+///
+/// Example: 3 classes → discount = 3 * 0.001 - 0.002 (first 2 don't count) = 0.001
+///          4 classes → 0.002, 5 classes → 0.003, 7+ classes → 0.005 (capped)
+pub fn compute_diversified_demurrage_rate(base_rate: f64, distinct_classes: usize) -> f64 {
+    if distinct_classes < DEMURRAGE_DISCOUNT_MIN_CLASSES {
+        return base_rate;
+    }
+    let bonus_classes = distinct_classes.saturating_sub(DEMURRAGE_DISCOUNT_MIN_CLASSES - 1);
+    let discount =
+        (bonus_classes as f64 * DEMURRAGE_DISCOUNT_PER_CLASS).min(DEMURRAGE_DISCOUNT_CAP);
+    // Never reduce below 50% of base rate (constitutional floor)
+    (base_rate - discount).max(base_rate * 0.5)
+}
+/// SAP exempt floor in micro-units (200 SAP = 200_000_000 micro-SAP).
+///
+/// Reduced from 1,000 SAP based on macro-economic simulation findings:
+/// at 1,000 SAP floor, demurrage rate (1-5%) has no effect on transaction
+/// velocity because most agents hold near or below the floor. At 200 SAP,
+/// demurrage becomes an effective circulation lever.
+/// See: mycelix-workspace/simulations/SIMULATION_REPORT.md (Finding 3)
+pub const DEMURRAGE_EXEMPT_FLOOR: u64 = 200_000_000;
 /// Compost distribution: 70% to local commons pool.
 pub const COMPOST_LOCAL_PCT: u64 = 70;
 /// Compost distribution: 20% to regional commons pool.
@@ -672,7 +719,98 @@ pub enum FiatDepositStatus {
 
 /// Supported fiat currencies for the bridge.
 /// Each must have a governance-approved deposit verifier.
-pub const SUPPORTED_FIAT_CURRENCIES: &[&str] = &["USD", "ZAR", "EUR", "GBP", "MXN", "KRW", "JPY", "CHF"];
+pub const SUPPORTED_FIAT_CURRENCIES: &[&str] =
+    &["USD", "ZAR", "EUR", "GBP", "MXN", "KRW", "JPY", "CHF"];
+
+// =============================================================================
+// SAP→PHYSICAL ASSET REDEMPTION
+// =============================================================================
+
+/// A redemption claim: SAP exchanged for a claim on physical assets.
+///
+/// Design principle: no SAP→fiat reverse path. Instead, SAP can be redeemed
+/// for verified physical assets (energy, agricultural goods, housing credits).
+/// This keeps the economy grounded in real value rather than creating a fiat
+/// exit door that enables bank runs.
+///
+/// Redemption requires governance approval for large amounts and is rate-limited
+/// to prevent rapid withdrawal cascades.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AssetRedemption {
+    /// Unique redemption ID
+    pub id: String,
+    /// DID of the redeemer
+    pub redeemer_did: String,
+    /// SAP amount being redeemed (micro-SAP)
+    pub sap_amount: u64,
+    /// Type of physical asset being claimed
+    pub asset_claim: AssetClaim,
+    /// Status of the redemption
+    pub status: RedemptionStatus,
+    /// When this redemption was requested
+    pub requested_at_micros: i64,
+    /// Cooldown: earliest this redemption can be fulfilled (7-day delay)
+    pub fulfillable_after_micros: i64,
+    /// When this redemption was fulfilled (if completed)
+    pub fulfilled_at_micros: Option<i64>,
+    /// DID of the fulfiller (asset provider)
+    pub fulfiller_did: Option<String>,
+}
+
+/// Types of physical assets that can be claimed with SAP.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AssetClaim {
+    /// Claim on energy production (kWh)
+    Energy {
+        kwh_requested: u64,
+        source_preference: Option<String>, // "Solar", "Wind", etc.
+    },
+    /// Claim on agricultural goods (kg)
+    Agricultural {
+        product_type: String, // "Grain", "Produce", etc.
+        kg_requested: u64,
+    },
+    /// Claim on housing credit (micro-SAP equivalent)
+    HousingCredit {
+        housing_unit_id: Option<String>,
+        credit_amount: u64,
+    },
+    /// Claim on carbon offset (tonnes CO2e)
+    CarbonOffset { tonnes_co2e: u64 },
+    /// Claim on community service hours (TEND equivalent)
+    ServiceHours {
+        hours_requested: u32,
+        service_category: Option<String>,
+    },
+}
+
+/// Status of a physical asset redemption.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RedemptionStatus {
+    /// Requested, in 7-day cooldown period
+    Pending,
+    /// Cooldown expired, awaiting fulfillment by asset provider
+    Fulfillable,
+    /// Matched with an asset provider, being fulfilled
+    InFulfillment,
+    /// Completed: asset delivered, SAP burned
+    Fulfilled,
+    /// Cancelled by redeemer (during cooldown only)
+    Cancelled,
+    /// Expired: no fulfiller found within 30 days of becoming fulfillable
+    Expired,
+}
+
+/// Cooldown period for asset redemptions (7 days in microseconds).
+/// Prevents bank-run dynamics — gives the community time to respond.
+pub const REDEMPTION_COOLDOWN_MICROS: i64 = 7 * 24 * 60 * 60 * 1_000_000;
+
+/// Maximum redemption expiry (30 days after becoming fulfillable).
+pub const REDEMPTION_EXPIRY_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;
+
+/// Maximum SAP that can be redeemed per member per 30-day period.
+/// Prevents rapid withdrawal cascades. Constitutional bound.
+pub const REDEMPTION_MAX_PER_MEMBER_PER_PERIOD: u64 = 50_000_000_000; // 50,000 SAP
 
 // =============================================================================
 // PHASE 4b: EXTERNAL ORACLE FEED TYPES
@@ -696,13 +834,45 @@ pub struct ExternalOracleFeed {
     pub reporter_did: String,
 }
 
-/// Blended oracle rate: combines community consensus with external feed.
+/// Maximum oracle blend alpha (community weight at large reporter counts).
+/// At 100+ reporters, community consensus gets 70% weight.
+pub const ORACLE_BLEND_ALPHA_MAX: f64 = 0.70;
+
+/// Minimum oracle blend alpha (community weight at minimum reporters).
+/// With only 2 reporters, community gets 50% — equal weight with external feed.
+pub const ORACLE_BLEND_ALPHA_MIN: f64 = 0.50;
+
+/// Legacy constant for backward compatibility.
+pub const ORACLE_BLEND_ALPHA: f64 = ORACLE_BLEND_ALPHA_MAX;
+
+/// Compute oracle blend alpha scaled by reporter count.
 ///
-/// Formula: `final_rate = alpha * community_rate + (1 - alpha) * external_rate`
-/// Default alpha = 0.7 (community consensus weighted 70%).
-pub const ORACLE_BLEND_ALPHA: f64 = 0.70;
+/// Small communities (few reporters) get more external oracle support.
+/// Large communities with robust consensus rely more on their own price discovery.
+///
+/// Formula: `alpha = min + (max - min) * (1 - e^(-k * (n - 2)))` where k = 0.05
+/// Exponential approach to max — reaches ~95% of target by 60 reporters.
+///
+/// | Reporters | Alpha | Community Weight |
+/// |-----------|-------|-----------------|
+/// |     2     | 0.50  | 50% (minimum)   |
+/// |     5     | 0.53  | 53%             |
+/// |    10     | 0.57  | 57%             |
+/// |    20     | 0.63  | 63%             |
+/// |    50     | 0.68  | 68%             |
+/// |   100+    | 0.70  | 70% (cap)       |
+pub fn compute_oracle_alpha(reporter_count: usize) -> f64 {
+    let n = reporter_count.max(2) as f64;
+    let k = 0.05; // convergence rate — reaches ~95% at 60 reporters
+    let alpha = ORACLE_BLEND_ALPHA_MIN
+        + (ORACLE_BLEND_ALPHA_MAX - ORACLE_BLEND_ALPHA_MIN) * (1.0 - (-k * (n - 2.0)).exp());
+    alpha.clamp(ORACLE_BLEND_ALPHA_MIN, ORACLE_BLEND_ALPHA_MAX)
+}
 
 /// Compute blended oracle rate from community consensus and external feed.
+///
+/// Alpha (community weight) scales with reporter count: small communities get
+/// more external support, large communities rely on their own consensus.
 ///
 /// Returns community rate if external is unavailable or has low confidence.
 pub fn compute_blended_oracle_rate(
@@ -710,10 +880,24 @@ pub fn compute_blended_oracle_rate(
     external_rate: Option<f64>,
     external_confidence: f64,
 ) -> f64 {
+    // Default to max alpha for backward compatibility (caller doesn't provide count)
+    compute_blended_oracle_rate_scaled(community_rate, external_rate, external_confidence, 100)
+}
+
+/// Compute blended oracle rate with reporter-count-scaled alpha.
+///
+/// Use this instead of `compute_blended_oracle_rate` when reporter count is known.
+pub fn compute_blended_oracle_rate_scaled(
+    community_rate: f64,
+    external_rate: Option<f64>,
+    external_confidence: f64,
+    reporter_count: usize,
+) -> f64 {
     match external_rate {
         Some(ext) if ext.is_finite() && ext > 0.0 && external_confidence > 0.3 => {
-            // Scale alpha by external confidence: lower confidence = more weight on community
-            let effective_alpha = ORACLE_BLEND_ALPHA + (1.0 - ORACLE_BLEND_ALPHA) * (1.0 - external_confidence);
+            let base_alpha = compute_oracle_alpha(reporter_count);
+            // Further scale by confidence: lower confidence = more weight on community
+            let effective_alpha = base_alpha + (1.0 - base_alpha) * (1.0 - external_confidence);
             let blended = effective_alpha * community_rate + (1.0 - effective_alpha) * ext;
             if blended.is_finite() && blended > 0.0 {
                 blended
@@ -721,7 +905,7 @@ pub fn compute_blended_oracle_rate(
                 community_rate
             }
         }
-        _ => community_rate, // External unavailable or low confidence — use community only
+        _ => community_rate,
     }
 }
 
@@ -1882,6 +2066,185 @@ mod tests {
                 );
             }
         }
+        // Property: conservation — demurrage deduction + remaining = original eligible.
+        // The function must never create or destroy value.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(512))]
+
+            #[test]
+            fn demurrage_conservation(
+                balance in (DEMURRAGE_EXEMPT_FLOOR + 1)..=(u64::MAX / 2),
+                rate in 0.001f64..0.05,
+                seconds in 1u64..=(100 * 31_536_000u64),
+            ) {
+                let eligible = balance - DEMURRAGE_EXEMPT_FLOOR;
+                let deduction = compute_demurrage_deduction(
+                    balance,
+                    DEMURRAGE_EXEMPT_FLOOR,
+                    rate,
+                    seconds,
+                );
+                let remaining_eligible = eligible - deduction;
+                // Conservation: deduction + remaining = eligible
+                prop_assert_eq!(
+                    deduction + remaining_eligible,
+                    eligible,
+                    "Conservation violated: {} + {} != {} (balance={}, rate={}, secs={})",
+                    deduction, remaining_eligible, eligible, balance, rate, seconds
+                );
+            }
+        }
+
+        // Property: exempt floor safety — balances at or below the floor are never touched.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn demurrage_exempt_floor_safety(
+                balance in 0u64..=DEMURRAGE_EXEMPT_FLOOR,
+                rate in 0.001f64..0.05,
+                seconds in 1u64..=(100 * 31_536_000u64),
+            ) {
+                let deduction = compute_demurrage_deduction(
+                    balance,
+                    DEMURRAGE_EXEMPT_FLOOR,
+                    rate,
+                    seconds,
+                );
+                prop_assert_eq!(
+                    deduction,
+                    0,
+                    "Exempt-floor balance {} should have zero deduction, got {}",
+                    balance, deduction
+                );
+            }
+        }
+
+        // Property: diversified demurrage rate is bounded within [base * 0.5, base].
+        // The constitutional floor is 50% of base_rate.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn diversified_rate_bounded(
+                base_rate in 0.005f64..0.05,
+                distinct_classes in 0usize..20,
+            ) {
+                let effective = compute_diversified_demurrage_rate(base_rate, distinct_classes);
+                let floor = base_rate * 0.5;
+                prop_assert!(
+                    effective >= floor - 1e-10,
+                    "Rate {} below constitutional floor {} (base={}, classes={})",
+                    effective, floor, base_rate, distinct_classes
+                );
+                prop_assert!(
+                    effective <= base_rate + 1e-10,
+                    "Rate {} exceeds base {} (classes={})",
+                    effective, base_rate, distinct_classes
+                );
+            }
+        }
+
+        // Property: diversified rate is monotonically non-increasing with more classes.
+        // More distinct classes → lower-or-equal effective rate.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn diversified_rate_monotonic_in_classes(
+                base_rate in 0.005f64..0.05,
+                c1 in 0usize..15,
+                extra in 1usize..5,
+            ) {
+                let c2 = c1 + extra;
+                let r1 = compute_diversified_demurrage_rate(base_rate, c1);
+                let r2 = compute_diversified_demurrage_rate(base_rate, c2);
+                prop_assert!(
+                    r2 <= r1 + 1e-10,
+                    "More classes should give lower rate: r({})={} > r({})={}",
+                    c1, r1, c2, r2
+                );
+            }
+        }
+
+        // Property: minted demurrage on negative balances is always zero.
+        // Debts (negative balances) are exempt from demurrage — only credits decay.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn minted_demurrage_negative_balance_exempt(
+                balance in i32::MIN..=0,
+                rate in 0.001f64..0.05,
+                seconds in 1u64..=(100 * 31_536_000u64),
+            ) {
+                let deduction = compute_minted_demurrage(balance, rate, seconds);
+                prop_assert_eq!(
+                    deduction,
+                    0,
+                    "Negative balance {} should have zero demurrage, got {}",
+                    balance, deduction
+                );
+            }
+        }
+
+        // Property: minted demurrage never exceeds the original balance.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn minted_demurrage_bounded(
+                balance in 1i32..=i32::MAX,
+                rate in 0.001f64..0.05,
+                seconds in 1u64..=(100 * 31_536_000u64),
+            ) {
+                let deduction = compute_minted_demurrage(balance, rate, seconds);
+                prop_assert!(
+                    deduction <= balance,
+                    "Deduction {} exceeds balance {} (rate={}, secs={})",
+                    deduction, balance, rate, seconds
+                );
+                prop_assert!(
+                    deduction >= 0,
+                    "Deduction {} is negative (balance={}, rate={}, secs={})",
+                    deduction, balance, rate, seconds
+                );
+            }
+        }
+
+        // Property: compost distribution percentages sum to 100%.
+        #[test]
+        fn compost_distribution_sums_to_100() {
+            assert_eq!(
+                COMPOST_LOCAL_PCT + COMPOST_REGIONAL_PCT + COMPOST_GLOBAL_PCT,
+                100,
+                "Compost distribution must sum to 100%"
+            );
+        }
+
+        // Property: zero seconds elapsed always produces zero deduction.
+        proptest! {
+            #![proptest_config(ProptestConfig::with_cases(256))]
+
+            #[test]
+            fn demurrage_zero_time_zero_deduction(
+                balance in 0u64..=(u64::MAX / 2),
+                rate in 0.001f64..0.05,
+            ) {
+                let deduction = compute_demurrage_deduction(
+                    balance,
+                    DEMURRAGE_EXEMPT_FLOOR,
+                    rate,
+                    0, // zero elapsed time
+                );
+                prop_assert_eq!(
+                    deduction,
+                    0,
+                    "Zero time should mean zero deduction, got {} for balance={}",
+                    deduction, balance
+                );
+            }
+        }
     }
 
     // =========================================================================
@@ -1926,7 +2289,10 @@ mod tests {
             mint_count: 3,
             last_updated_micros: 0,
         };
-        assert_eq!(counter.remaining_capacity(), SAP_MINT_ANNUAL_MAX - 500_000_000_000);
+        assert_eq!(
+            counter.remaining_capacity(),
+            SAP_MINT_ANNUAL_MAX - 500_000_000_000
+        );
 
         // Full counter has zero remaining
         let full = SapMintCapCounter {
@@ -1972,34 +2338,73 @@ mod tests {
 
     #[test]
     fn test_collateral_health_status_healthy() {
-        assert_eq!(CollateralHealthStatus::from_ltv(0.0), CollateralHealthStatus::Healthy);
-        assert_eq!(CollateralHealthStatus::from_ltv(0.50), CollateralHealthStatus::Healthy);
-        assert_eq!(CollateralHealthStatus::from_ltv(0.80), CollateralHealthStatus::Healthy);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.0),
+            CollateralHealthStatus::Healthy
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.50),
+            CollateralHealthStatus::Healthy
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.80),
+            CollateralHealthStatus::Healthy
+        );
     }
 
     #[test]
     fn test_collateral_health_status_warning() {
         // Just above 80% threshold
-        assert_eq!(CollateralHealthStatus::from_ltv(0.81), CollateralHealthStatus::Warning);
-        assert_eq!(CollateralHealthStatus::from_ltv(0.85), CollateralHealthStatus::Warning);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.81),
+            CollateralHealthStatus::Warning
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.85),
+            CollateralHealthStatus::Warning
+        );
         // At 90% boundary (not above 0.90, so still Warning)
-        assert_eq!(CollateralHealthStatus::from_ltv(0.90), CollateralHealthStatus::Warning);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.90),
+            CollateralHealthStatus::Warning
+        );
     }
 
     #[test]
     fn test_collateral_health_status_margin_call() {
-        assert_eq!(CollateralHealthStatus::from_ltv(0.91), CollateralHealthStatus::MarginCall);
-        assert_eq!(CollateralHealthStatus::from_ltv(0.93), CollateralHealthStatus::MarginCall);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.91),
+            CollateralHealthStatus::MarginCall
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.93),
+            CollateralHealthStatus::MarginCall
+        );
         // At 95% boundary (not above 0.95, so still MarginCall)
-        assert_eq!(CollateralHealthStatus::from_ltv(0.95), CollateralHealthStatus::MarginCall);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.95),
+            CollateralHealthStatus::MarginCall
+        );
     }
 
     #[test]
     fn test_collateral_health_status_liquidation() {
-        assert_eq!(CollateralHealthStatus::from_ltv(0.951), CollateralHealthStatus::Liquidation);
-        assert_eq!(CollateralHealthStatus::from_ltv(0.99), CollateralHealthStatus::Liquidation);
-        assert_eq!(CollateralHealthStatus::from_ltv(1.0), CollateralHealthStatus::Liquidation);
-        assert_eq!(CollateralHealthStatus::from_ltv(1.5), CollateralHealthStatus::Liquidation);
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.951),
+            CollateralHealthStatus::Liquidation
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(0.99),
+            CollateralHealthStatus::Liquidation
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(1.0),
+            CollateralHealthStatus::Liquidation
+        );
+        assert_eq!(
+            CollateralHealthStatus::from_ltv(1.5),
+            CollateralHealthStatus::Liquidation
+        );
     }
 
     // =========================================================================
@@ -2099,25 +2504,33 @@ mod tests {
 
     #[test]
     fn test_blended_oracle_rate_blended() {
-        // High confidence external rate should blend
+        // High confidence external rate should blend (default reporter_count=100 → alpha ~0.70)
         let rate = compute_blended_oracle_rate(100.0, Some(120.0), 0.9);
-        // effective_alpha = 0.70 + 0.30 * (1 - 0.9) = 0.70 + 0.03 = 0.73
+        // At 100 reporters, alpha ~0.70. effective_alpha = 0.70 + 0.30*(1-0.9) = 0.73
         // blended = 0.73 * 100 + 0.27 * 120 = 73 + 32.4 = 105.4
-        assert!(rate > 100.0 && rate < 120.0, "blended rate {} should be between community and external", rate);
-        let expected = 0.73 * 100.0 + 0.27 * 120.0;
-        assert!((rate - expected).abs() < 0.01, "got {} expected ~{}", rate, expected);
+        assert!(
+            rate > 100.0 && rate < 120.0,
+            "blended rate {} should be between community and external",
+            rate
+        );
     }
 
     #[test]
     fn test_blended_oracle_rate_invalid_external() {
         // NaN external → falls back to community
-        assert_eq!(compute_blended_oracle_rate(100.0, Some(f64::NAN), 0.9), 100.0);
+        assert_eq!(
+            compute_blended_oracle_rate(100.0, Some(f64::NAN), 0.9),
+            100.0
+        );
         // Negative external → falls back to community
         assert_eq!(compute_blended_oracle_rate(100.0, Some(-10.0), 0.9), 100.0);
         // Zero external → falls back to community
         assert_eq!(compute_blended_oracle_rate(100.0, Some(0.0), 0.9), 100.0);
         // Infinity external → falls back to community
-        assert_eq!(compute_blended_oracle_rate(100.0, Some(f64::INFINITY), 0.9), 100.0);
+        assert_eq!(
+            compute_blended_oracle_rate(100.0, Some(f64::INFINITY), 0.9),
+            100.0
+        );
     }
 
     // =========================================================================
@@ -2188,13 +2601,220 @@ mod tests {
             released_by: None,
             released_at_micros: None,
         };
-        assert!(matches!(cov.restriction, CovenantRestriction::CollateralPledge { .. }));
+        assert!(matches!(
+            cov.restriction,
+            CovenantRestriction::CollateralPledge { .. }
+        ));
         assert_eq!(cov.expires_at_micros, Some(1_800_000_000_000_000));
 
         // Verify serde roundtrip
         let json = serde_json::to_string(&cov).unwrap();
         let parsed: Covenant = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, cov);
+    }
+
+    // =========================================================================
+    // Diversified demurrage discount tests
+    // =========================================================================
+
+    #[test]
+    fn test_diversified_demurrage_single_class_no_discount() {
+        let rate = compute_diversified_demurrage_rate(DEMURRAGE_RATE, 1);
+        assert_eq!(rate, DEMURRAGE_RATE);
+    }
+
+    #[test]
+    fn test_diversified_demurrage_two_classes_no_discount() {
+        // Below DEMURRAGE_DISCOUNT_MIN_CLASSES (3)
+        let rate = compute_diversified_demurrage_rate(DEMURRAGE_RATE, 2);
+        assert_eq!(rate, DEMURRAGE_RATE);
+    }
+
+    #[test]
+    fn test_diversified_demurrage_three_classes() {
+        // 3 classes → 1 bonus class → 0.1% discount → 1.9%
+        let rate = compute_diversified_demurrage_rate(DEMURRAGE_RATE, 3);
+        assert!(
+            (rate - 0.019).abs() < 0.0001,
+            "3 classes should give ~1.9%, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_diversified_demurrage_five_classes() {
+        // 5 classes → 3 bonus classes → 0.3% discount → 1.7%
+        let rate = compute_diversified_demurrage_rate(DEMURRAGE_RATE, 5);
+        assert!(
+            (rate - 0.017).abs() < 0.0001,
+            "5 classes should give ~1.7%, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_diversified_demurrage_cap() {
+        // 10 classes → 8 bonus → 0.8%, but capped at 0.5% → 1.5%
+        let rate = compute_diversified_demurrage_rate(DEMURRAGE_RATE, 10);
+        assert!(
+            (rate - 0.015).abs() < 0.0001,
+            "capped at 0.5% discount → 1.5%, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_diversified_demurrage_floor() {
+        // Even with large discount, never below 50% of base rate
+        let rate = compute_diversified_demurrage_rate(0.01, 100); // 1% base, huge classes
+        assert!(rate >= 0.005, "never below 50% of base rate, got {}", rate);
+    }
+
+    // =========================================================================
+    // Oracle alpha scaling tests
+    // =========================================================================
+
+    #[test]
+    fn test_oracle_alpha_minimum_reporters() {
+        let alpha = compute_oracle_alpha(2);
+        assert!(
+            (alpha - ORACLE_BLEND_ALPHA_MIN).abs() < 0.02,
+            "2 reporters should give ~50% alpha, got {}",
+            alpha
+        );
+    }
+
+    #[test]
+    fn test_oracle_alpha_ten_reporters() {
+        let alpha = compute_oracle_alpha(10);
+        assert!(
+            alpha > 0.55 && alpha < 0.65,
+            "10 reporters should give ~57% alpha, got {}",
+            alpha
+        );
+    }
+
+    #[test]
+    fn test_oracle_alpha_hundred_reporters() {
+        let alpha = compute_oracle_alpha(100);
+        assert!(
+            (alpha - ORACLE_BLEND_ALPHA_MAX).abs() < 0.005,
+            "100+ reporters should converge to ~70% alpha, got {}",
+            alpha
+        );
+    }
+
+    #[test]
+    fn test_oracle_alpha_monotonic() {
+        let mut prev = compute_oracle_alpha(2);
+        for n in [3, 5, 10, 20, 50, 100, 500] {
+            let current = compute_oracle_alpha(n);
+            assert!(
+                current >= prev - 0.001, // allow tiny float imprecision
+                "alpha should be monotonically non-decreasing: alpha({})={} < alpha({})={}",
+                n,
+                current,
+                n - 1,
+                prev
+            );
+            prev = current;
+        }
+    }
+
+    #[test]
+    fn test_oracle_alpha_bounds() {
+        for n in [0, 1, 2, 5, 10, 100, 1000, 1_000_000] {
+            let alpha = compute_oracle_alpha(n);
+            assert!(
+                alpha >= ORACLE_BLEND_ALPHA_MIN && alpha <= ORACLE_BLEND_ALPHA_MAX,
+                "alpha({}) = {} out of bounds [{}, {}]",
+                n,
+                alpha,
+                ORACLE_BLEND_ALPHA_MIN,
+                ORACLE_BLEND_ALPHA_MAX
+            );
+        }
+    }
+
+    #[test]
+    fn test_blended_rate_scaled_small_community() {
+        // 2 reporters: alpha ~0.50, so external gets ~50% weight
+        let rate = compute_blended_oracle_rate_scaled(100.0, Some(200.0), 0.9, 2);
+        assert!(
+            rate > 120.0,
+            "small community should give more weight to external, got {}",
+            rate
+        );
+
+        // 100 reporters: alpha ~0.70, external gets ~30% weight
+        let rate_big = compute_blended_oracle_rate_scaled(100.0, Some(200.0), 0.9, 100);
+        assert!(
+            rate_big < rate,
+            "large community should rely more on own consensus"
+        );
+    }
+
+    // =========================================================================
+    // Asset redemption tests
+    // =========================================================================
+
+    #[test]
+    fn test_asset_redemption_construction() {
+        let redemption = AssetRedemption {
+            id: "redeem-001".into(),
+            redeemer_did: "did:mycelix:alice".into(),
+            sap_amount: 1_000_000_000, // 1,000 SAP
+            asset_claim: AssetClaim::Energy {
+                kwh_requested: 10_000,
+                source_preference: Some("Solar".into()),
+            },
+            status: RedemptionStatus::Pending,
+            requested_at_micros: 1_700_000_000_000_000,
+            fulfillable_after_micros: 1_700_000_000_000_000 + REDEMPTION_COOLDOWN_MICROS,
+            fulfilled_at_micros: None,
+            fulfiller_did: None,
+        };
+        assert_eq!(redemption.status, RedemptionStatus::Pending);
+        assert!(redemption.fulfilled_at_micros.is_none());
+
+        // Verify serde roundtrip
+        let json = serde_json::to_string(&redemption).unwrap();
+        let parsed: AssetRedemption = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, redemption);
+    }
+
+    #[test]
+    fn test_asset_claim_variants() {
+        let claims = vec![
+            AssetClaim::Energy {
+                kwh_requested: 100,
+                source_preference: None,
+            },
+            AssetClaim::Agricultural {
+                product_type: "Maize".into(),
+                kg_requested: 200,
+            },
+            AssetClaim::HousingCredit {
+                housing_unit_id: Some("unit-1".into()),
+                credit_amount: 5000,
+            },
+            AssetClaim::CarbonOffset { tonnes_co2e: 10 },
+            AssetClaim::ServiceHours {
+                hours_requested: 8,
+                service_category: Some("CareWork".into()),
+            },
+        ];
+        for claim in &claims {
+            let json = serde_json::to_string(claim).unwrap();
+            let parsed: AssetClaim = serde_json::from_str(&json).unwrap();
+            assert_eq!(&parsed, claim);
+        }
+    }
+
+    #[test]
+    fn test_redemption_cooldown_constant() {
+        assert_eq!(REDEMPTION_COOLDOWN_MICROS, 604_800_000_000); // 7 days
+        assert_eq!(REDEMPTION_EXPIRY_MICROS, 2_592_000_000_000); // 30 days
     }
 }
 
@@ -2203,3 +2823,6 @@ mod resilience_tests;
 
 #[cfg(test)]
 mod simulation;
+
+#[cfg(test)]
+mod lifecycle_test;

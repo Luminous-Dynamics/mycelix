@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix Justice Integrity Zome
 //!
 //! Entry types and validation for decentralized dispute resolution.
@@ -10,6 +13,7 @@
 //! - Community-based adjudication
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 // ============================================================================
 // CASE TYPES
@@ -700,6 +704,68 @@ pub struct CircleSession {
 }
 
 // ============================================================================
+// RESTITUTION — Structured Economic Justice
+// ============================================================================
+
+/// Type of restitution
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RestitutionType {
+    /// Tracked via TEND mutual credit (hours of service)
+    TimeExchange,
+    /// Community service hours (tracked but not credited)
+    CommunityService,
+    /// Direct repair of harm (non-monetary)
+    DirectRepair,
+    /// Symbolic acknowledgment (apology, ceremony, etc.)
+    Symbolic,
+}
+
+/// Status of a restitution agreement
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RestitutionStatus {
+    /// Agreement created, awaiting action
+    Pending,
+    /// Restitution work in progress
+    InProgress,
+    /// TEND payment recorded, awaiting verification
+    PaymentRecorded,
+    /// Verified by facilitator or receiver
+    Verified,
+    /// All terms fulfilled
+    Completed,
+    /// Party failed to fulfill terms within deadline
+    Defaulted,
+}
+
+/// A structured restitution agreement within a restorative circle.
+#[hdk_entry_helper]
+#[derive(Clone)]
+pub struct RestitutionAgreement {
+    /// Hash of the parent RestorativeCircle
+    pub circle_hash: ActionHash,
+    /// Human-readable agreement ID
+    pub agreement_id: String,
+    /// Description of restitution terms
+    pub description: String,
+    /// Type of restitution
+    pub restitution_type: RestitutionType,
+    /// Hours of service/exchange (for TimeExchange and CommunityService)
+    pub amount_hours: Option<f32>,
+    /// DID of the person making restitution (typically HarmDoer)
+    pub from_did: String,
+    /// DID of the person receiving restitution (typically HarmReceiver)
+    pub to_did: String,
+    /// Deadline for completion
+    pub deadline: Timestamp,
+    /// Optional TEND exchange ID once payment is recorded
+    pub tend_exchange_id: Option<String>,
+    /// Current status
+    pub status: RestitutionStatus,
+    /// When the agreement was created
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
 // ENTRY ENUM
 // ============================================================================
 
@@ -722,6 +788,8 @@ pub enum EntryTypes {
     Enforcement(Enforcement),
     #[entry_type(visibility = "public")]
     RestorativeCircle(RestorativeCircle),
+    #[entry_type(visibility = "public")]
+    RestitutionAgreement(RestitutionAgreement),
 }
 
 // ============================================================================
@@ -752,6 +820,8 @@ pub enum LinkTypes {
     ArbitratorToCases,
     /// All cases path
     AllCases,
+    /// RestorativeCircle -> RestitutionAgreement
+    CircleToRestitution,
 }
 
 // ============================================================================
@@ -770,6 +840,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Appeal(a) => validate_appeal(&a),
             EntryTypes::Enforcement(e) => validate_enforcement(&e),
             EntryTypes::RestorativeCircle(r) => validate_restorative(&r),
+            EntryTypes::RestitutionAgreement(a) => validate_restitution(&a),
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Case(c) => validate_case(&c),
@@ -780,6 +851,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Appeal(a) => validate_appeal(&a),
             EntryTypes::Enforcement(e) => validate_enforcement(&e),
             EntryTypes::RestorativeCircle(r) => validate_restorative(&r),
+            EntryTypes::RestitutionAgreement(a) => validate_restitution(&a),
         },
         FlatOp::RegisterCreateLink {
             link_type,
@@ -816,7 +888,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::DecisionToEnforcement
                 | LinkTypes::CaseToRestorativeCircle
                 | LinkTypes::ArbitratorToCases
-                | LinkTypes::AllCases => {
+                | LinkTypes::AllCases
+                | LinkTypes::CircleToRestitution => {
                     if tag_len > 256 {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Link tag too long (max 256 bytes)".into(),
@@ -826,20 +899,44 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
             }
         }
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
+        FlatOp::RegisterDeleteLink { tag, action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
             if tag.0.len() > 256 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Delete link tag too long (max 256 bytes)".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }
@@ -1505,6 +1602,42 @@ fn validate_restorative(circle: &RestorativeCircle) -> ExternResult<ValidateCall
         }
     }
 
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_restitution(agreement: &RestitutionAgreement) -> ExternResult<ValidateCallbackResult> {
+    if agreement.agreement_id.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Agreement ID too long (max 256)".into(),
+        ));
+    }
+    if agreement.description.len() > 4096 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Restitution description too long (max 4096)".into(),
+        ));
+    }
+    if agreement.from_did.len() > 256 || !agreement.from_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "from_did must be a valid DID (max 256)".into(),
+        ));
+    }
+    if agreement.to_did.len() > 256 || !agreement.to_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "to_did must be a valid DID (max 256)".into(),
+        ));
+    }
+    if agreement.from_did == agreement.to_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "from_did and to_did must be different".into(),
+        ));
+    }
+    if let Some(hours) = agreement.amount_hours {
+        if hours <= 0.0 || !hours.is_finite() || hours > 10_000.0 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Restitution hours must be positive, finite, and <= 10,000".into(),
+            ));
+        }
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 

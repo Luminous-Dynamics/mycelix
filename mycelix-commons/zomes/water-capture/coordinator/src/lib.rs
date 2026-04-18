@@ -1,11 +1,12 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Capture Coordinator Zome
 //! Business logic for water harvesting, storage, and aquifer recharge
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use water_capture_integrity::*;
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -13,42 +14,6 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // HARVEST SYSTEMS
@@ -57,7 +22,7 @@ fn require_consciousness(
 /// Register a new water harvesting system
 #[hdk_extern]
 pub fn register_harvest_system(system: HarvestSystem) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "register_harvest_system")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_harvest_system")?;
     if system.id.trim().is_empty() || system.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "System ID must be 1-256 non-whitespace characters".into()
@@ -103,6 +68,14 @@ pub fn register_harvest_system(system: HarvestSystem) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geohash spatial index
+    {
+        let geo_hash = commons_types::geo::geohash_encode(system.location_lat, system.location_lon, 6);
+        let geo_anchor_str = format!("geo:{}", geo_hash);
+        create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+        create_link(anchor_hash(&geo_anchor_str)?, action_hash.clone(), LinkTypes::GeoIndex, geo_hash.as_bytes().to_vec())?;
+    }
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created harvest system".into()
     )))
@@ -136,7 +109,7 @@ pub fn get_all_systems(_: ()) -> ExternResult<Vec<Record>> {
 /// Register a new storage tank
 #[hdk_extern]
 pub fn register_tank(tank: StorageTank) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "register_tank")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_tank")?;
     if tank.id.trim().is_empty() || tank.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Tank ID must be 1-256 non-whitespace characters".into()
@@ -190,7 +163,7 @@ pub fn register_tank(tank: StorageTank) -> ExternResult<Record> {
 /// Update the current water level in a tank
 #[hdk_extern]
 pub fn update_tank_level(input: UpdateTankLevelInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "update_tank_level")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_tank_level")?;
     let agent_info = agent_info()?;
     let record = get(input.tank_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Tank not found".into())))?;
@@ -239,7 +212,7 @@ pub struct UpdateTankLevelInput {
 /// Record a water harvest from a system
 #[hdk_extern]
 pub fn record_harvest(harvest: HarvestRecord) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "record_harvest")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_harvest")?;
     if harvest.liters_collected == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Harvest amount must be greater than zero".into()
@@ -289,7 +262,7 @@ pub fn get_harvest_history(system_hash: ActionHash) -> ExternResult<Vec<Record>>
 #[hdk_extern]
 pub fn register_recharge_project(project: RechargeProject) -> ExternResult<Record> {
     let _eligibility =
-        require_consciousness(&requirement_for_basic(), "register_recharge_project")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_recharge_project")?;
     if project.id.trim().is_empty() || project.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Project ID must be 1-256 non-whitespace characters".into()
@@ -335,6 +308,40 @@ pub fn get_all_recharge_projects(_: ()) -> ExternResult<Vec<Record>> {
         GetStrategy::default(),
     )?;
     records_from_links(links)
+}
+
+// ============================================================================
+// GEO QUERIES
+// ============================================================================
+
+/// Get water capture systems near a geographic location using geohash-based indexing.
+#[hdk_extern]
+pub fn get_nearby_water(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = input.radius_km;
+    Ok(records)
 }
 
 // ============================================================================

@@ -2,6 +2,7 @@
 name = "threshold_signing_coordinator"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
 description = "Threshold signing coordinator zome for DKG-based collective signatures"
 
 [lib]
@@ -17,6 +18,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 feldman-dkg = { workspace = true }
 k256 = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
 getrandom_03 = { workspace = true }
 
 [dev-dependencies]

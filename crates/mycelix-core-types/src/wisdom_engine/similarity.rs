@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 // =============================================================================
 // Component 21: Pattern Similarity & Clustering
 // =============================================================================
@@ -993,7 +996,7 @@ impl SimilarityRegistry {
                     if count > 0 {
                         let avg_sim = total_sim / count as f32;
                         if avg_sim >= self.config.related_threshold {
-                            if best_merge.is_none() || avg_sim > best_merge.as_ref().unwrap().2 {
+                            if best_merge.as_ref().map_or(true, |bm| avg_sim > bm.2) {
                                 best_merge = Some((cluster_ids[i], cluster_ids[j], avg_sim));
                             }
                         }
@@ -1007,8 +1010,11 @@ impl SimilarityRegistry {
                     break;
                 }
 
-                let cluster_b = clusters.remove(&b).unwrap();
-                clusters.get_mut(&a).unwrap().extend(cluster_b);
+                let cluster_b = clusters.remove(&b)
+                    .expect("cluster b exists since it was selected from cluster_ids");
+                clusters.get_mut(&a)
+                    .expect("cluster a exists since it was selected from cluster_ids")
+                    .extend(cluster_b);
             } else {
                 break;
             }

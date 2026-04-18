@@ -1,7 +1,11 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Membership Integrity Zome
 //! Entry types and validation for co-op members, applications, waitlists, and rent-to-own.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Unit type preference (local copy to avoid cross-integrity linking)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -230,18 +234,38 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 Ok(ValidateCallbackResult::Valid)
             }
         },
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            Ok(check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            ))
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 

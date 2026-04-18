@@ -29,7 +29,7 @@ members = [
     "zomes/housing-governance/integrity",
     "zomes/housing-governance/coordinator",
 
-    # Care domain (5 zomes)
+    # Care domain (5 zomes + wellbeing + boundary-contracts)
     "zomes/care-timebank/integrity",
     "zomes/care-timebank/coordinator",
     "zomes/care-circles/integrity",
@@ -40,6 +40,10 @@ members = [
     "zomes/care-plans/coordinator",
     "zomes/care-credentials/integrity",
     "zomes/care-credentials/coordinator",
+    "zomes/wellbeing/integrity",
+    "zomes/wellbeing/coordinator",
+    "zomes/boundary-contracts/integrity",
+    "zomes/boundary-contracts/coordinator",
 
     # Mutual Aid domain (7 zomes)
     "zomes/mutualaid-needs/integrity",
@@ -108,6 +112,24 @@ members = [
     "zomes/resource-mesh/coordinator",
     "zomes/resource-mesh/integrity",
 
+    # Tool Library domain (2 zomes)
+    "zomes/tool-library/integrity",
+    "zomes/tool-library/coordinator",
+
+    # Community Calendar (1 zome)
+    "zomes/community-calendar/integrity",
+    "zomes/community-calendar/coordinator",
+
+    # Waste/Circular domain (8 zomes)
+    "zomes/waste-registry/integrity",
+    "zomes/waste-registry/coordinator",
+    "zomes/waste-collection/integrity",
+    "zomes/waste-collection/coordinator",
+    "zomes/compost-control/integrity",
+    "zomes/compost-control/coordinator",
+    "zomes/circular-marketplace/integrity",
+    "zomes/circular-marketplace/coordinator",
+
     # Unified bridge (1 zome)
     "zomes/commons-bridge/integrity",
     "zomes/commons-bridge/coordinator",
@@ -117,6 +139,7 @@ exclude = ["tests"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 # Holochain 0.6 compatible
@@ -145,6 +168,7 @@ mutualaid-common = { path = "crates/mutualaid-common" }
 support-types = { path = "crates/support-types" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+mycelix-zome-helpers = { path = "../mycelix-workspace/crates/mycelix-zome-helpers" }
 
 [profile.dev]
 opt-level = "z"

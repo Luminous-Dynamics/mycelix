@@ -1,7 +1,11 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Circles Integrity Zome
 //! Defines entry types and validation for care circles and membership.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -78,26 +82,46 @@ pub struct CircleMembership {
     pub active: bool,
 }
 
+/// Status of a care exchange within a circle.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum CircleTendStatus {
+    Proposed,
+    Confirmed,
+    Disputed,
+    Cancelled,
+}
+
+/// A TEND mutual credit exchange tracked within a care circle.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct CircleTendExchange {
+    pub circle_hash: ActionHash,
+    pub provider: AgentPubKey,
+    pub receiver: AgentPubKey,
+    pub hours: f32,
+    pub service_description: String,
+    pub tend_exchange_id: Option<String>,
+    pub status: CircleTendStatus,
+    pub created_at: Timestamp,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     Anchor(Anchor),
     CareCircle(CareCircle),
     CircleMembership(CircleMembership),
+    CircleTendExchange(CircleTendExchange),
 }
 
 #[hdk_link_types]
 pub enum LinkTypes {
-    /// All circles anchor
     AllCircles,
-    /// Circle type anchor to circles of that type
     TypeToCircle,
-    /// Circle to its memberships
     CircleToMembership,
-    /// Agent to their memberships
     AgentToMembership,
-    /// Agent to circles they created
     AgentToCreatedCircle,
+    CircleToTendExchange,
 }
 
 #[hdk_extern]
@@ -115,6 +139,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CircleMembership(membership) => {
                     validate_create_membership(action, membership)
                 }
+                EntryTypes::CircleTendExchange(exchange) => {
+                    if exchange.hours <= 0.0 || !exchange.hours.is_finite() || exchange.hours > 168.0 {
+                        return Ok(ValidateCallbackResult::Invalid("Exchange hours must be positive, finite, <= 168".into()));
+                    }
+                    if exchange.provider == exchange.receiver {
+                        return Ok(ValidateCallbackResult::Invalid("Provider and receiver must differ".into()));
+                    }
+                    if exchange.service_description.is_empty() || exchange.service_description.len() > 2048 {
+                        return Ok(ValidateCallbackResult::Invalid("Service description: 1-2048 chars".into()));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -125,6 +161,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::CareCircle(circle) => validate_update_circle(circle),
                 EntryTypes::CircleMembership(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::CircleTendExchange(_) => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -168,23 +205,27 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::AgentToCreatedCircle => {
+            LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "AgentToCreatedCircle link tag too long (max 256 bytes)".into(),
+                        "Link tag too long (max 256 bytes)".into(),
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
         },
         FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => match link_type {
+            link_type, tag, action, ..
+        } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
+            match link_type {
             LinkTypes::AllCircles => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -217,19 +258,41 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::AgentToCreatedCircle => {
+            LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
-                        "AgentToCreatedCircle delete link tag too long (max 256 bytes)".into(),
+                        "Delete link tag too long (max 256 bytes)".into(),
                     ));
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-        },
+        }
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 

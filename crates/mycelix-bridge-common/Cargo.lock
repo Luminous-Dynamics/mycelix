@@ -808,6 +808,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "sovereign-profile",
 ]
 
 [[package]]
@@ -1142,6 +1143,13 @@ name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
+
+[[package]]
+name = "sovereign-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "spki"

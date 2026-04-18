@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Cases Coordinator Zome
 //!
 //! Manages the full lifecycle of dispute cases including filing,
@@ -6,39 +9,16 @@
 use hdk::prelude::*;
 use justice_cases_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_proposal, GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// File a new case
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn file_case(case: Case) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "file_case")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "file_case")?;
 
     let action_hash = create_entry(&EntryTypes::Case(case.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
@@ -183,7 +163,7 @@ pub struct AddPartyInput {
 /// Submit evidence for a case
 #[hdk_extern]
 pub fn submit_evidence(evidence: Evidence) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "submit_evidence")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "submit_evidence")?;
 
     let action_hash = create_entry(&EntryTypes::Evidence(evidence.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(

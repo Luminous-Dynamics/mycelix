@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * @mycelix/sdk Commons Cluster Integration
  *
@@ -231,6 +234,8 @@ export const COMMONS_CARE_ZOMES = [
   'transport_routes', 'transport_sharing', 'transport_impact',
   'support_knowledge', 'support_tickets', 'support_diagnostics',
   'space',
+  'mesh_time',
+  'resource_mesh',
 ] as const;
 
 /** All zomes across both commons DNAs (backward compatible) */

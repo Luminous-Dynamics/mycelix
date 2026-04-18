@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * Mycelix SDK Core
  *
@@ -132,6 +135,35 @@ export {
   type GovernanceAuditResult,
   type ZomeCallable,
 } from './consciousness-gate.js';
+
+// =============================================================================
+// 8D Sovereign Profile Gate (replaces consciousness gate)
+// =============================================================================
+
+export {
+  CivicGateError,
+  combinedScore as sovereignCombinedScore,
+  tierFromScore as civicTierFromScore,
+  meetsRequirement,
+  decayScore,
+  daysUntilThreshold,
+  legacyCombinedScore,
+  CIVIC_TIERS,
+  TIER_THRESHOLDS,
+  TIER_VOTE_WEIGHT_BP,
+  WEIGHTS_GOVERNANCE,
+  DIMENSION_LABELS,
+  LAMBDA_MIN,
+  LAMBDA_MAX,
+  type SovereignProfile,
+  type SovereignDimension,
+  type CivicTier,
+  type DimensionWeights,
+  type CivicRequirement,
+  type SovereignCredential,
+  type CivicEligibility,
+  type CivicGateRejection,
+} from './sovereign-gate.js';
 
 // =============================================================================
 // Zome Client Base

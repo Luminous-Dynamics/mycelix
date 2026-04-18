@@ -1,9 +1,13 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Emergency Integrity Zome
 //!
 //! Defines entry types and validation for emergency plans, alerts,
 //! and safety check-ins within a hearth.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use hearth_types::*;
 
 // ============================================================================
@@ -163,14 +167,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
+        FlatOp::RegisterDeleteLink { tag, action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
             if tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
@@ -181,6 +186,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
             "Emergency entries cannot be deleted once created".into(),
         )),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

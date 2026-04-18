@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * Type Definitions for Mycelix-DAO
  *
@@ -333,7 +336,7 @@ export interface CrossHappReputation {
   agent: AgentPubKey;
   mail_reputation?: number;
   marketplace_reputation?: number;
-  edunet_reputation?: number;
+  praxis_reputation?: number;
   supplychain_reputation?: number;
   aggregate: number;
 }

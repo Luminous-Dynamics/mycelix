@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Enforcement Coordinator Zome
 //!
 //! Manages the execution of decisions, remedy enforcement,
@@ -6,16 +9,11 @@
 use hdk::prelude::*;
 use justice_enforcement_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_constitutional, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_constitutional, civic_requirement_voting,
+    GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Input for verifying a case exists before enforcement
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -35,27 +33,9 @@ pub struct CaseVerificationResult {
 
 /// Create an enforcement action
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn create_enforcement(enforcement: Enforcement) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "create_enforcement")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "create_enforcement")?;
     let action_hash = create_entry(&EntryTypes::Enforcement(enforcement.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not get created enforcement".into())
@@ -109,7 +89,7 @@ pub fn get_decision_enforcement(decision_id: String) -> ExternResult<Vec<Record>
 /// Record an enforcement action taken
 #[hdk_extern]
 pub fn record_action(input: RecordActionInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "record_action")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "record_action")?;
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Enforcement not found".into())
     ))?;
@@ -141,7 +121,7 @@ pub struct RecordActionInput {
 #[hdk_extern]
 pub fn update_enforcement_status(input: UpdateEnforcementStatusInput) -> ExternResult<Record> {
     let _eligibility =
-        require_consciousness(&requirement_for_voting(), "update_enforcement_status")?;
+        mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "update_enforcement_status")?;
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Enforcement not found".into())
     ))?;
@@ -198,7 +178,7 @@ pub struct UpdateEnforcementStatusInput {
 /// Complete enforcement
 #[hdk_extern]
 pub fn complete_enforcement(input: CompleteEnforcementInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "complete_enforcement")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "complete_enforcement")?;
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Enforcement not found".into())
     ))?;
@@ -235,7 +215,7 @@ pub struct CompleteEnforcementInput {
 /// Mark enforcement as failed
 #[hdk_extern]
 pub fn mark_enforcement_failed(input: FailedEnforcementInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "mark_enforcement_failed")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "mark_enforcement_failed")?;
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Enforcement not found".into())
     ))?;
@@ -333,8 +313,8 @@ pub fn get_enforcements_by_status(status: EnforcementStatus) -> ExternResult<Vec
 /// Execute cross-hApp enforcement action
 #[hdk_extern]
 pub fn execute_cross_happ_action(input: CrossHappActionInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(
-        &requirement_for_constitutional(),
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", 
+        &civic_requirement_constitutional(),
         "execute_cross_happ_action",
     )?;
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(

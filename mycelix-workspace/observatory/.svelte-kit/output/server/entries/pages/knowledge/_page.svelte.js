@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, b as escape, d as add_attribute, e as each } from "../../../chunks/ssr.js";
 import "../../../chunks/conductor.js";
 const Page = create_ssr_component(($$result, $$props, $$bindings, slots) => {

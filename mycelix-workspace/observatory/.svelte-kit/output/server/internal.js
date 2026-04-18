@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { g, o, c, s, a, b } from "./chunks/internal.js";
 import { s as s2, e, f } from "./chunks/environment.js";
 export {

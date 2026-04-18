@@ -1,53 +1,18 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Transport Routes Coordinator Zome
 //! Business logic for vehicle registration, route creation, and stop management.
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use transport_routes_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 // ============================================================================
@@ -56,7 +21,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn register_vehicle(vehicle: Vehicle) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "register_vehicle")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_vehicle")?;
     let action_hash = create_entry(&EntryTypes::Vehicle(vehicle.clone()))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_vehicles".to_string())))?;
@@ -101,7 +66,7 @@ pub struct UpdateVehicleStatusInput {
 
 #[hdk_extern]
 pub fn update_vehicle_status(input: UpdateVehicleStatusInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "update_vehicle_status")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_vehicle_status")?;
     let record = get(input.vehicle_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Vehicle not found".into())
     ))?;
@@ -136,7 +101,7 @@ pub fn update_vehicle_status(input: UpdateVehicleStatusInput) -> ExternResult<Re
 
 #[hdk_extern]
 pub fn create_route(route: Route) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_route")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_route")?;
     let action_hash = create_entry(&EntryTypes::Route(route.clone()))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_routes".to_string())))?;
@@ -167,7 +132,7 @@ pub fn get_all_routes(_: ()) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn add_stop(stop: Stop) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "add_stop")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "add_stop")?;
     let _route = get(stop.route_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Route not found".into())))?;
 
@@ -177,6 +142,17 @@ pub fn add_stop(stop: Stop) -> ExternResult<Record> {
         action_hash.clone(),
         LinkTypes::RouteToStop,
         (),
+    )?;
+
+    // Geo-spatial index for stop location
+    let geo_hash = commons_types::geo::geohash_encode(stop.location_lat, stop.location_lon, 6);
+    let geo_anchor_str = format!("geo:{}", geo_hash);
+    create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+    create_link(
+        anchor_hash(&geo_anchor_str)?,
+        action_hash.clone(),
+        LinkTypes::GeoIndex,
+        geo_hash.as_bytes().to_vec(),
     )?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -199,7 +175,7 @@ pub fn get_route_stops(route_hash: ActionHash) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn log_maintenance(record_entry: MaintenanceRecord) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "log_maintenance")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "log_maintenance")?;
     let action_hash = create_entry(&EntryTypes::MaintenanceRecord(record_entry.clone()))?;
 
     create_link(
@@ -225,7 +201,7 @@ pub fn get_vehicle_maintenance(vehicle_hash: ActionHash) -> ExternResult<Vec<Rec
 
 #[hdk_extern]
 pub fn set_vehicle_features(features: VehicleFeatures) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "set_vehicle_features")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "set_vehicle_features")?;
     let action_hash = create_entry(&EntryTypes::VehicleFeatures(features.clone()))?;
 
     create_link(
@@ -314,6 +290,40 @@ pub fn get_vehicles_needing_maintenance(current_time: u64) -> ExternResult<Vec<R
         }
     }
     Ok(needing_maintenance)
+}
+
+// ============================================================================
+// GEO QUERIES
+// ============================================================================
+
+/// Get transport routes near a geographic location using geohash-based indexing.
+#[hdk_extern]
+pub fn get_nearby_routes(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = input.radius_km;
+    Ok(records)
 }
 
 #[cfg(test)]

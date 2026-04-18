@@ -1,16 +1,12 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use web_of_trust_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_voting, requirement_for_basic,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_voting, GovernanceEligibility,
 };
+use web_of_trust_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("identity_bridge", requirement, action_name)
-}
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -26,38 +22,58 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Attest trust to another agent (Citizen+).
 #[hdk_extern]
 pub fn attest_trust(attestation: TrustAttestation) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "attest_trust")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("identity_bridge", &civic_requirement_voting(), "attest_trust")?;
 
     let action_hash = create_entry(&EntryTypes::TrustAttestation(attestation.clone()))?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Link from attestor
-    create_link(agent, action_hash.clone(), LinkTypes::AttestorToAttestations, ())?;
+    create_link(
+        agent,
+        action_hash.clone(),
+        LinkTypes::AttestorToAttestations,
+        (),
+    )?;
 
     // Link from subject
-    create_link(attestation.subject, action_hash.clone(), LinkTypes::SubjectToAttestations, ())?;
+    create_link(
+        attestation.subject,
+        action_hash.clone(),
+        LinkTypes::SubjectToAttestations,
+        (),
+    )?;
 
     // Link from all attestations anchor
     let all_anchor = ensure_anchor("all_attestations")?;
-    create_link(all_anchor, action_hash.clone(), LinkTypes::AllAttestations, ())?;
+    create_link(
+        all_anchor,
+        action_hash.clone(),
+        LinkTypes::AllAttestations,
+        (),
+    )?;
 
-    let record = get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Record not found".into())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Record not found".into())
+    ))?;
     Ok(record)
 }
 
 /// Revoke a trust attestation (attestor only).
 #[hdk_extern]
 pub fn revoke_trust(revocation: TrustRevocation) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "revoke_trust")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("identity_bridge", &civic_requirement_basic(), "revoke_trust")?;
 
     // Verify caller is the attestor
     let attestation_record = get(revocation.attestation_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Attestation not found".into())))?;
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Attestation not found".into()
+        )))?;
     let attestor = attestation_record.action().author().clone();
     let caller = agent_info()?.agent_initial_pubkey;
     if attestor != caller {
-        return Err(wasm_error!(WasmErrorInner::Guest("Only attestor can revoke".into())));
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only attestor can revoke".into()
+        )));
     }
 
     let action_hash = create_entry(&EntryTypes::TrustRevocation(revocation.clone()))?;
@@ -68,8 +84,9 @@ pub fn revoke_trust(revocation: TrustRevocation) -> ExternResult<Record> {
         (),
     )?;
 
-    let record = get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Record not found".into())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Record not found".into())
+    ))?;
     Ok(record)
 }
 
@@ -100,7 +117,12 @@ pub fn get_trust_chain(input: TrustChainInput) -> ExternResult<Vec<TrustAttestat
         for link in links {
             if let Some(target) = link.target.into_action_hash() {
                 if let Some(record) = get(target, GetOptions::default())? {
-                    if let Some(att) = record.entry().to_app_option::<TrustAttestation>().ok().flatten() {
+                    if let Some(att) = record
+                        .entry()
+                        .to_app_option::<TrustAttestation>()
+                        .ok()
+                        .flatten()
+                    {
                         if !visited.contains(&att.subject) {
                             visited.insert(att.subject.clone());
                             chain.push(att.clone());
@@ -131,7 +153,12 @@ pub fn get_trust_score(subject: AgentPubKey) -> ExternResult<f64> {
     for link in links {
         if let Some(target) = link.target.into_action_hash() {
             if let Some(record) = get(target.clone(), GetOptions::default())? {
-                if let Some(att) = record.entry().to_app_option::<TrustAttestation>().ok().flatten() {
+                if let Some(att) = record
+                    .entry()
+                    .to_app_option::<TrustAttestation>()
+                    .ok()
+                    .flatten()
+                {
                     // Check for revocations
                     let revocations = get_links(
                         LinkQuery::try_new(target, LinkTypes::AttestationToRevocations)?,
@@ -146,7 +173,11 @@ pub fn get_trust_score(subject: AgentPubKey) -> ExternResult<f64> {
         }
     }
 
-    Ok(if count > 0 { total_trust / count as f64 } else { 0.0 })
+    Ok(if count > 0 {
+        total_trust / count as f64
+    } else {
+        0.0
+    })
 }
 
 /// Offline-capable trust verification from cached chain.

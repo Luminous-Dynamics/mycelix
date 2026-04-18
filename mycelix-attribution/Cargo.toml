@@ -10,6 +10,9 @@ members = [
 ]
 exclude = ["tests", "cli", "verifier", "prover", "stark-common"]
 
+[workspace.package]
+license = "AGPL-3.0-or-later"
+
 [workspace.dependencies]
 hdk = "0.6.0"
 hdi = "0.7.0"

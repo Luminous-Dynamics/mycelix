@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "types",
+    "crates/finance-wire-types",
+    "crates/finance-leptos-types",
     "zomes/shared",
     "zomes/payments/integrity",
     "zomes/payments/coordinator",
@@ -22,6 +24,9 @@ members = [
 ]
 exclude = ["tests"]
 
+[workspace.package]
+license = "AGPL-3.0-or-later"
+
 [workspace.dependencies]
 # Holochain 0.6 compatible (per official compatibility table)
 hdk = "0.6.0"
@@ -33,6 +38,10 @@ holochain_serialized_bytes = "0.0.56"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Bridge
+mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
+mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+
 # Utilities
 chrono = "0.4"
 thiserror = "1.0"
@@ -42,6 +51,9 @@ derive_more = "0.99"
 # NOTE: Do NOT use features = ["js"] or ["wasm_js"] - they pull in wasm-bindgen
 # which is incompatible with Holochain's WASM runtime.
 getrandom_03 = { package = "getrandom", version = "0.3" }
+
+# ZKP verification for transaction privacy
+mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
 
 [profile.dev]
 opt-level = "z"

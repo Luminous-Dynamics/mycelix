@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Currency lifecycle management: creation, activation, suspension, retirement, discovery, amendment.
 
 use currency_mint_integrity::*;
@@ -31,7 +34,7 @@ pub fn create_currency(input: CreateCurrencyInput) -> ExternResult<CurrencyDefin
     }
 
     // Governance gate: communities above threshold require a governance proposal
-    let community_size = fetch_community_size(&input.dao_did);
+    let community_size = fetch_community_size(&input.dao_did)?;
     if community_size > COMMUNITY_GOVERNANCE_THRESHOLD {
         if input.governance_proposal_id.is_none() {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -261,17 +264,13 @@ pub fn retire_currency(currency_id: String) -> ExternResult<CurrencyDefinition> 
         let _ = get_or_create_minted_balance(compost_did.clone(), currency_id.clone())?;
 
         for did in &member_dids {
-            let bal =
-                get_or_create_minted_balance(did.clone(), currency_id.clone())?;
+            let bal = get_or_create_minted_balance(did.clone(), currency_id.clone())?;
             let elapsed = now
                 .as_micros()
                 .saturating_sub(bal.last_activity.as_micros()) as u64
                 / 1_000_000;
-            let deduction = compute_minted_demurrage(
-                bal.balance,
-                def.params.demurrage_rate,
-                elapsed,
-            );
+            let deduction =
+                compute_minted_demurrage(bal.balance, def.params.demurrage_rate, elapsed);
             if deduction > 0 {
                 mutate_balance(did, &currency_id, |b| {
                     b.balance -= deduction;
@@ -297,8 +296,7 @@ pub fn retire_currency(currency_id: String) -> ExternResult<CurrencyDefinition> 
             sum += bal.balance as i64;
         }
         // Include compost balance in the sum
-        let compost_bal =
-            get_or_create_minted_balance(compost_did, currency_id.clone())?;
+        let compost_bal = get_or_create_minted_balance(compost_did, currency_id.clone())?;
         sum += compost_bal.balance as i64;
 
         if sum != 0 {
@@ -422,7 +420,7 @@ pub fn amend_currency_params(input: AmendCurrencyParamsInput) -> ExternResult<Cu
     }
 
     // Governance gate
-    let community_size = fetch_community_size(&def.creator_dao_did);
+    let community_size = fetch_community_size(&def.creator_dao_did)?;
     if community_size > COMMUNITY_GOVERNANCE_THRESHOLD {
         if input.governance_proposal_id.is_none() {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(

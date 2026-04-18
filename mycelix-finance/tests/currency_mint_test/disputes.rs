@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Dispute and parameter amendment tests.
 //!
 //! Coverage:
@@ -252,8 +255,9 @@ async fn test_disputes_all_inner() {
         );
 
         // Verify via get_currency
-        let fetched: Option<CurrencyDefinition> =
-            conductor.call(&zome_a, "get_currency", def.id.clone()).await;
+        let fetched: Option<CurrencyDefinition> = conductor
+            .call(&zome_a, "get_currency", def.id.clone())
+            .await;
         let f = fetched.expect("Currency should exist");
         assert_eq!(f.params.credit_limit, 80);
         println!("  - get_currency confirms amended params");

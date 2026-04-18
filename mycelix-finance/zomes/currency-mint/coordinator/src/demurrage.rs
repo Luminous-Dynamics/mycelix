@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Demurrage application and compost redistribution.
 
 use currency_mint_integrity::*;
@@ -136,7 +139,7 @@ pub fn redistribute_compost(currency_id: String) -> ExternResult<RedistributeCom
     }
 
     // Governance gate: communities above threshold require authorization
-    let community_size = fetch_community_size(&def.creator_dao_did);
+    let community_size = fetch_community_size(&def.creator_dao_did)?;
     if community_size > COMMUNITY_GOVERNANCE_THRESHOLD {
         match call(
             CallTargetCell::Local,

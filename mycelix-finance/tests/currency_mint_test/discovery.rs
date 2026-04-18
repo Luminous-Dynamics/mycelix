@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Discovery tests: list_active_currencies, search_currencies, suspend/reactivate index.
 //!
 //! Coverage:
@@ -78,8 +81,7 @@ async fn test_discovery_active_only_inner() {
         .await;
 
     // Both should appear in list
-    let active: Vec<CurrencyDefinition> =
-        conductor.call(&zome, "list_active_currencies", ()).await;
+    let active: Vec<CurrencyDefinition> = conductor.call(&zome, "list_active_currencies", ()).await;
     assert!(
         active.iter().any(|c| c.id == def_a.id),
         "AlphaCoin should be in active list"

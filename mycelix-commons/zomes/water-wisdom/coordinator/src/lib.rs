@@ -1,53 +1,18 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Wisdom Coordinator Zome
 //! Business logic for traditional water knowledge, conservation, and climate patterns
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use water_wisdom_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 // ============================================================================
@@ -57,7 +22,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Record a traditional water management practice
 #[hdk_extern]
 pub fn record_practice(practice: TraditionalPractice) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "record_practice")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_practice")?;
     if practice.title.is_empty() || practice.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -152,7 +117,7 @@ pub fn get_all_practices(_: ()) -> ExternResult<Vec<Record>> {
 /// Share a conservation method
 #[hdk_extern]
 pub fn share_conservation_method(method: ConservationMethod) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "share_conservation_method")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "share_conservation_method")?;
     if method.title.is_empty() || method.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -212,7 +177,7 @@ pub fn get_conservation_methods(_: ()) -> ExternResult<Vec<Record>> {
 /// Record an observed climate-water pattern
 #[hdk_extern]
 pub fn record_climate_pattern(pattern: ClimateWaterPattern) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "record_climate_pattern")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_climate_pattern")?;
     if pattern.region.is_empty() || pattern.region.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Region must be 1-256 characters".into()
@@ -296,7 +261,7 @@ pub struct UpdateTraditionalPracticeInput {
 /// Update a traditional water management practice
 #[hdk_extern]
 pub fn update_practice(input: UpdateTraditionalPracticeInput) -> ExternResult<ActionHash> {
-    require_consciousness(&requirement_for_proposal(), "update_practice")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_practice")?;
     update_entry(
         input.original_action_hash,
         &EntryTypes::TraditionalPractice(input.updated_entry),
@@ -314,7 +279,7 @@ pub struct UpdateConservationMethodInput {
 pub fn update_conservation_method(
     input: UpdateConservationMethodInput,
 ) -> ExternResult<ActionHash> {
-    require_consciousness(&requirement_for_proposal(), "update_conservation_method")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_conservation_method")?;
     update_entry(
         input.original_action_hash,
         &EntryTypes::ConservationMethod(input.updated_entry),
@@ -330,7 +295,7 @@ pub struct UpdateClimateWaterPatternInput {
 /// Update an observed climate-water pattern
 #[hdk_extern]
 pub fn update_climate_pattern(input: UpdateClimateWaterPatternInput) -> ExternResult<ActionHash> {
-    require_consciousness(&requirement_for_proposal(), "update_climate_pattern")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_climate_pattern")?;
     update_entry(
         input.original_action_hash,
         &EntryTypes::ClimateWaterPattern(input.updated_entry),

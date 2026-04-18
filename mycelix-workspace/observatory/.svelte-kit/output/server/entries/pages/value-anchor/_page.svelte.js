@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, a as subscribe, b as escape, e as each, d as add_attribute } from "../../../chunks/ssr.js";
 import { v as volatilityData, e as enrichedItems, h as hasBasket, p as purchasingPowerIndex, b as basketHistory, o as oracleLoading, a as basketIndexData, C as CANONICAL_ITEMS, R as RESILIENCE_BASKET_NAME } from "../../../chunks/value-basket.js";
 import { a as conductorStatus$ } from "../../../chunks/conductor.js";

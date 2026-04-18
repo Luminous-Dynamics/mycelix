@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Lightweight in-memory bridge metrics collection.
 //!
 //! Provides WASM-compatible metrics tracking for bridge dispatch calls.
@@ -40,6 +43,12 @@ const MAX_LATENCY_SAMPLES: usize = 256;
 /// Prevents unbounded memory growth from diverse call patterns. Once the
 /// limit is reached, new call keys are tracked under a catch-all `"_overflow"` key.
 const MAX_CALL_KEYS: usize = 128;
+
+/// Maximum number of distinct error codes tracked.
+///
+/// Prevents unbounded memory growth from diverse error patterns. Once the
+/// limit is reached, new error codes are tracked under a catch-all `"_overflow"` key.
+const MAX_ERROR_KEYS: usize = 128;
 
 // ============================================================================
 // Internal counters
@@ -148,6 +157,14 @@ pub struct BridgeMetrics {
     total_errors: u64,
     /// Total cross-cluster calls (subset of total_success + total_errors).
     total_cross_cluster: u64,
+    /// Consciousness gate checks: pass count.
+    gate_pass: u64,
+    /// Consciousness gate checks: fail count.
+    gate_fail: u64,
+    /// Consciousness tier distribution (Observer, Participant, Citizen, Steward, Guardian).
+    tier_counts: [u64; 5],
+    /// Credential source distribution (fresh, refresh, cache, bootstrap).
+    credential_source_counts: [u64; 4],
 }
 
 impl BridgeMetrics {
@@ -160,6 +177,10 @@ impl BridgeMetrics {
             total_success: 0,
             total_errors: 0,
             total_cross_cluster: 0,
+            gate_pass: 0,
+            gate_fail: 0,
+            tier_counts: [0; 5],
+            credential_source_counts: [0; 4],
         }
     }
 
@@ -202,8 +223,19 @@ impl BridgeMetrics {
             return &mut self.error_counters[idx];
         }
 
+        let effective_code = if self.error_counters.len() >= MAX_ERROR_KEYS {
+            "_overflow"
+        } else {
+            error_code
+        };
+
+        let pos = self.error_counters.iter().position(|c| c.code == effective_code);
+        if let Some(idx) = pos {
+            return &mut self.error_counters[idx];
+        }
+
         self.error_counters.push(ErrorCounter {
-            code: error_code.to_string(),
+            code: effective_code.to_string(),
             count: 0,
         });
         let len = self.error_counters.len();
@@ -250,6 +282,25 @@ impl BridgeMetrics {
         self.total_cross_cluster += 1;
     }
 
+    /// Record a consciousness gate check result.
+    ///
+    /// - `passed`: whether the gate allowed the operation
+    /// - `tier_index`: 0=Observer, 1=Participant, 2=Citizen, 3=Steward, 4=Guardian
+    /// - `source_index`: 0=fresh, 1=refresh, 2=cache, 3=bootstrap
+    pub fn record_gate_check(&mut self, passed: bool, tier_index: usize, source_index: usize) {
+        if passed {
+            self.gate_pass += 1;
+        } else {
+            self.gate_fail += 1;
+        }
+        if tier_index < 5 {
+            self.tier_counts[tier_index] += 1;
+        }
+        if source_index < 4 {
+            self.credential_source_counts[source_index] += 1;
+        }
+    }
+
     /// Take a serializable snapshot of the current metrics.
     pub fn snapshot(&self) -> BridgeMetricsSnapshot {
         let call_counts: Vec<CallCountSnapshot> = self.call_counters.iter().map(|c| {
@@ -275,6 +326,10 @@ impl BridgeMetrics {
             call_counts,
             error_counts,
             latency: self.latency.percentiles(),
+            gate_pass: self.gate_pass,
+            gate_fail: self.gate_fail,
+            tier_counts: self.tier_counts,
+            credential_source_counts: self.credential_source_counts,
         }
     }
 
@@ -287,6 +342,10 @@ impl BridgeMetrics {
         self.total_success = 0;
         self.total_errors = 0;
         self.total_cross_cluster = 0;
+        self.gate_pass = 0;
+        self.gate_fail = 0;
+        self.tier_counts = [0; 5];
+        self.credential_source_counts = [0; 4];
     }
 }
 
@@ -335,6 +394,11 @@ pub fn record_rate_limit_hit() {
 /// Convenience: record a cross-cluster call.
 pub fn record_cross_cluster() {
     with_bridge_metrics(|m| m.record_cross_cluster());
+}
+
+/// Convenience: record a consciousness gate check.
+pub fn record_gate_check(passed: bool, tier_index: usize, source_index: usize) {
+    with_bridge_metrics(|m| m.record_gate_check(passed, tier_index, source_index));
 }
 
 /// Convenience: get a serializable metrics snapshot.
@@ -401,6 +465,18 @@ pub struct BridgeMetricsSnapshot {
     pub error_counts: Vec<ErrorCountSnapshot>,
     /// Latency percentiles (None if no latency data collected).
     pub latency: Option<LatencyPercentiles>,
+    /// Consciousness gate pass count.
+    #[serde(default)]
+    pub gate_pass: u64,
+    /// Consciousness gate fail count.
+    #[serde(default)]
+    pub gate_fail: u64,
+    /// Tier distribution: [Observer, Participant, Citizen, Steward, Guardian].
+    #[serde(default)]
+    pub tier_counts: [u64; 5],
+    /// Credential source distribution: [fresh, refresh, cache, bootstrap].
+    #[serde(default)]
+    pub credential_source_counts: [u64; 4],
 }
 
 // ============================================================================
@@ -577,6 +653,33 @@ mod tests {
             .find(|c| c.key == "_overflow::_overflow")
             .unwrap();
         assert_eq!(overflow.success_count, 1);
+    }
+
+    #[test]
+    fn error_overflow_key_used_when_limit_reached() {
+        let mut m = fresh_metrics();
+        for i in 0..MAX_ERROR_KEYS {
+            m.record_error("z", "f", &format!("ERR-{:04}", i));
+        }
+        assert_eq!(m.error_counters.len(), MAX_ERROR_KEYS);
+
+        m.record_error("z", "f", "ERR-NEW");
+        assert_eq!(m.error_counters.len(), MAX_ERROR_KEYS + 1);
+        let overflow = m
+            .error_counters
+            .iter()
+            .find(|c| c.code == "_overflow")
+            .unwrap();
+        assert_eq!(overflow.count, 1);
+
+        m.record_error("z", "f", "ERR-ANOTHER");
+        let overflow = m
+            .error_counters
+            .iter()
+            .find(|c| c.code == "_overflow")
+            .unwrap();
+        assert_eq!(overflow.count, 2);
+        assert_eq!(m.error_counters.len(), MAX_ERROR_KEYS + 1);
     }
 
     #[test]

@@ -1,4 +1,8 @@
 #![allow(clippy::manual_range_contains)]
+
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Threshold Signing Coordinator Zome
 //!
 //! Business logic for DKG-based threshold signatures on governance decisions.
@@ -13,30 +17,8 @@
 
 use hdk::prelude::*;
 use k256::ecdsa::signature::Verifier;
+use mycelix_zome_helpers::get_latest_record;
 use threshold_signing_integrity::*;
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/// Follow update chains to get the latest version of a record.
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
 
 // ============================================================================
 // REAL-TIME SIGNALS

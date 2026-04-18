@@ -1,4 +1,6 @@
-
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import root from '../root.svelte';
 import { set_building, set_prerendering } from '__sveltekit/environment';
 import { set_assets } from '$app/paths/internal/server';

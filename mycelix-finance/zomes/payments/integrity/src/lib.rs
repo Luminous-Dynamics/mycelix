@@ -1,4 +1,7 @@
 #![deny(unsafe_code)]
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
@@ -399,9 +402,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::MintCapCounterAnchor => {
-                    if base_address.as_ref().len() != 39
-                        || target_address.as_ref().len() != 39
-                    {
+                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
                         return Ok(ValidateCallbackResult::Invalid(
                             "MintCapCounterAnchor link must connect valid hashes".into(),
                         ));
@@ -1110,5 +1111,48 @@ mod tests {
         let result =
             validate_create_exit_record(EntryCreationAction::Create(make_create()), exit).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- 25. Valid SapMintCapCounterEntry ----
+
+    #[test]
+    fn test_valid_sap_mint_cap_counter() {
+        let counter = SapMintCapCounterEntry {
+            period_start_micros: 1_000_000,
+            cumulative_minted: 500_000_000,
+            mint_count: 3,
+            last_updated_micros: 2_000_000,
+        };
+        let result = validate_sap_mint_cap_counter(&counter).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    // ---- 26. SapMintCapCounterEntry with negative period_start (must fail) ----
+
+    #[test]
+    fn test_sap_mint_cap_counter_negative_period() {
+        let counter = SapMintCapCounterEntry {
+            period_start_micros: -1,
+            cumulative_minted: 0,
+            mint_count: 0,
+            last_updated_micros: 0,
+        };
+        let result = validate_sap_mint_cap_counter(&counter).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- 27. SapMintCapCounterEntry From/Into SapMintCapCounter roundtrip ----
+
+    #[test]
+    fn test_sap_mint_cap_counter_roundtrip() {
+        let counter = SapMintCapCounter {
+            period_start_micros: 1_000_000,
+            cumulative_minted: 500_000_000,
+            mint_count: 3,
+            last_updated_micros: 2_000_000,
+        };
+        let entry: SapMintCapCounterEntry = counter.clone().into();
+        let back: SapMintCapCounter = entry.into();
+        assert_eq!(counter, back);
     }
 }

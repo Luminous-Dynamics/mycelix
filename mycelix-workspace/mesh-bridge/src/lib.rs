@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix Mesh Bridge — library crate.
 //!
 //! Exports modules for integration tests and the binary entry point.
@@ -9,6 +12,13 @@ pub mod transport;
 
 pub mod dedup_cache;
 pub mod encryption;
+pub mod meshtastic;
+pub mod espnow;
+pub mod reticulum;
+pub mod ccsds;
+
+#[cfg(feature = "mqtt")]
+pub mod mqtt;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;

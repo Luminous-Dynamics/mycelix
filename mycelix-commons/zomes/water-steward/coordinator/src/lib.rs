@@ -1,53 +1,18 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Steward Coordinator Zome
 //! Business logic for watershed governance, water rights, transfers, and disputes
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_constitutional, requirement_for_proposal,
-    requirement_for_voting, GovernanceEligibility, GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_constitutional, civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::records_from_links;
 use water_steward_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 // ============================================================================
@@ -57,7 +22,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Define a new watershed
 #[hdk_extern]
 pub fn define_watershed(watershed: Watershed) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "define_watershed")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "define_watershed")?;
     if watershed.id.trim().is_empty() || watershed.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Watershed ID must be 1-256 non-whitespace characters".into()
@@ -107,6 +72,23 @@ pub fn define_watershed(watershed: Watershed) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geo-spatial index: compute centroid of boundary polygon
+    if !watershed.boundary.is_empty() {
+        let n = watershed.boundary.len() as f64;
+        let (sum_lat, sum_lon) = watershed.boundary.iter().fold((0.0, 0.0), |(alat, alon), (lat, lon)| (alat + lat, alon + lon));
+        let centroid_lat = sum_lat / n;
+        let centroid_lon = sum_lon / n;
+        let geo_hash = commons_types::geo::geohash_encode(centroid_lat, centroid_lon, 6);
+        let geo_anchor_str = format!("geo:{}", geo_hash);
+        create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+        create_link(
+            anchor_hash(&geo_anchor_str)?,
+            action_hash.clone(),
+            LinkTypes::GeoIndex,
+            geo_hash.as_bytes().to_vec(),
+        )?;
+    }
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created watershed".into()
     )))
@@ -129,7 +111,7 @@ pub fn get_all_watersheds(_: ()) -> ExternResult<Vec<Record>> {
 /// Register a new water right within a watershed
 #[hdk_extern]
 pub fn register_water_right(right: WaterRight) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "register_water_right")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "register_water_right")?;
     // Verify watershed exists
     let _ws_record = get(right.watershed_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Watershed not found".into())),
@@ -186,7 +168,7 @@ pub fn get_my_rights(_: ()) -> ExternResult<Vec<Record>> {
 /// Transfer a water right to another holder
 #[hdk_extern]
 pub fn transfer_right(input: TransferRightInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "transfer_right")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "transfer_right")?;
     let agent_info = agent_info()?;
 
     // Fetch the water right
@@ -293,7 +275,7 @@ pub struct TransferRightInput {
 /// File a water dispute within a watershed
 #[hdk_extern]
 pub fn file_dispute(dispute: WaterDispute) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "file_dispute")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "file_dispute")?;
     if dispute.description.trim().is_empty() || dispute.description.len() > 8192 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Description must be 1-8192 non-whitespace characters".into()
@@ -331,7 +313,7 @@ pub fn file_dispute(dispute: WaterDispute) -> ExternResult<Record> {
 /// Resolve a water dispute
 #[hdk_extern]
 pub fn resolve_dispute(input: ResolveDisputeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_constitutional(), "resolve_dispute")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_constitutional(), "resolve_dispute")?;
 
     if input.resolution_text.trim().is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(

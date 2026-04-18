@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Timebank Coordinator Zome
 //!
 //! This zome provides the coordinator functions for time banking
@@ -6,17 +9,9 @@
 use hdk::prelude::*;
 use mutualaid_common::*;
 use mutualaid_timebank_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // =============================================================================
 // INPUT TYPES
@@ -84,27 +79,9 @@ pub struct SearchRequestsInput {
 
 /// Create a new service offer
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn create_service_offer(input: CreateOfferInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_service_offer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_service_offer")?;
     let provider = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -242,7 +219,7 @@ pub fn search_offers(input: SearchOffersInput) -> ExternResult<Vec<Record>> {
 /// Deactivate a service offer
 #[hdk_extern]
 pub fn deactivate_offer(hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "deactivate_offer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "deactivate_offer")?;
     let record = get_latest_record(hash.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Offer not found".to_string()
     )))?;
@@ -280,7 +257,7 @@ pub fn deactivate_offer(hash: ActionHash) -> ExternResult<Record> {
 /// Create a new service request
 #[hdk_extern]
 pub fn create_service_request(input: CreateRequestInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_service_request")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_service_request")?;
     let requester = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -430,7 +407,7 @@ pub fn search_requests(input: SearchRequestsInput) -> ExternResult<Vec<Record>> 
 /// Record a completed time exchange
 #[hdk_extern]
 pub fn record_exchange(input: RecordExchangeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "record_exchange")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_exchange")?;
     let now = sys_time()?;
 
     let exchange = TimeExchange {
@@ -537,7 +514,7 @@ pub fn get_exchanges_by_agent(agent: AgentPubKey) -> ExternResult<Vec<Record>> {
 /// Confirm an exchange (both parties must confirm)
 #[hdk_extern]
 pub fn confirm_exchange(hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "confirm_exchange")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "confirm_exchange")?;
     let record = get_latest_record(hash.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Exchange not found".to_string()
     )))?;
@@ -569,7 +546,7 @@ pub fn confirm_exchange(hash: ActionHash) -> ExternResult<Record> {
 /// Rate an exchange
 #[hdk_extern]
 pub fn rate_exchange(input: RateExchangeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "rate_exchange")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "rate_exchange")?;
     let record = get(input.exchange_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Exchange not found".to_string())
     ))?;

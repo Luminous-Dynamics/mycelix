@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Resilience Kit Smoke Tests
 //!
 //! Cross-DNA integration tests that verify the 5-DNA resilience hApp
@@ -108,7 +111,7 @@ async fn test_resilience_tend_then_price_oracle() {
                 hours: 1.0,
                 service_description: "Plumbing repair".into(),
                 service_category: "Maintenance".into(),
-                dao_did: "roodepoort-resilience".into(),
+                dao_did: "example-community".into(),
             },
         )
         .await;
@@ -124,7 +127,7 @@ async fn test_resilience_tend_then_price_oracle() {
             ReportPriceInput {
                 item: "bread_750g".into(),
                 price_tend: 0.15,
-                evidence: "Shoprite Roodepoort 2026-03-15".into(),
+                evidence: "Community Store 2026-03-15".into(),
             },
         )
         .await;
@@ -176,7 +179,7 @@ async fn test_resilience_emergency_comms() {
             &alice_civic.zome("emergency_comms"),
             "create_channel",
             serde_json::json!({
-                "name": "Roodepoort General",
+                "name": "Community General",
                 "description": "Community-wide emergency channel"
             }),
         )

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Collective Pattern Integration
 //!
 //! Component 13 connects patterns to collective wisdom and group validation.
@@ -365,7 +368,8 @@ impl CollectivePatternRegistry {
         // Extract values we need before checking config
         let emergence_threshold = self.config.emergence_threshold;
         let (is_emergent, discoveries) = {
-            let ctx = self.contexts.get(&pattern_id).unwrap();
+            let ctx = self.contexts.get(&pattern_id)
+                .expect("context created by get_or_create above");
             (
                 ctx.is_emergent(emergence_threshold),
                 ctx.independent_discoveries,

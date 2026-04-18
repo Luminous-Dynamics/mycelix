@@ -1,48 +1,25 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Property Disputes Coordinator Zome
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 use property_disputes_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 /// Get or create an anchor entry and return its EntryHash for use as link base
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
     // Create the anchor entry - if it already exists, this is idempotent
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) { debug!("Anchor creation warning: {:?}", e); }
     // Return the deterministic entry hash
     hash_entry(&anchor)
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn file_dispute(input: FileDisputeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "file_dispute")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "file_dispute")?;
     let now = sys_time()?;
     let dispute = PropertyDispute {
         id: format!("dispute:{}:{}", input.property_id, now.as_micros()),
@@ -86,7 +63,7 @@ pub struct FileDisputeInput {
 
 #[hdk_extern]
 pub fn file_ownership_claim(input: FileClaimInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "file_ownership_claim")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "file_ownership_claim")?;
     let now = sys_time()?;
     let claim = OwnershipClaim {
         id: format!("claim:{}:{}", input.property_id, now.as_micros()),
@@ -118,7 +95,7 @@ pub struct FileClaimInput {
 
 #[hdk_extern]
 pub fn escalate_to_justice(input: EscalateInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "escalate_to_justice")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "escalate_to_justice")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::PropertyDispute,
@@ -165,7 +142,7 @@ pub struct EscalateInput {
 
 #[hdk_extern]
 pub fn resolve_dispute(input: ResolveDisputeInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "resolve_dispute")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "resolve_dispute")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::PropertyDispute,
@@ -292,7 +269,7 @@ pub fn get_property_claims(property_id: String) -> ExternResult<Vec<Record>> {
 /// Update dispute status
 #[hdk_extern]
 pub fn update_dispute_status(input: UpdateDisputeStatusInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "update_dispute_status")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "update_dispute_status")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::PropertyDispute,
@@ -334,7 +311,7 @@ pub struct UpdateDisputeStatusInput {
 /// Update ownership claim status
 #[hdk_extern]
 pub fn update_claim_status(input: UpdateClaimStatusInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "update_claim_status")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "update_claim_status")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::OwnershipClaim,
@@ -374,7 +351,7 @@ pub struct UpdateClaimStatusInput {
 /// Add evidence to a dispute
 #[hdk_extern]
 pub fn add_dispute_evidence(input: AddEvidenceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "add_dispute_evidence")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "add_dispute_evidence")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::PropertyDispute,
@@ -478,7 +455,7 @@ pub fn get_ownership_claim(claim_id: String) -> ExternResult<Option<Record>> {
 /// Add supporting document to ownership claim
 #[hdk_extern]
 pub fn add_claim_document(input: AddDocumentInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "add_claim_document")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "add_claim_document")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::OwnershipClaim,

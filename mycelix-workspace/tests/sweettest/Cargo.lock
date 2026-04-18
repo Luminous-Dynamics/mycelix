@@ -469,6 +469,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468ef7d57b3fb7e16b576e8377cdbde2320c60e1491e961d11da40fc4f02a2d"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq 0.4.2",
+ "cpufeatures",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3939,6 +3953,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelix-bridge-common"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "hdk",
+ "serde",
+]
+
+[[package]]
+name = "mycelix-bridge-entry-types"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mycelix-crypto"
 version = "0.1.0"
 dependencies = [
@@ -3961,6 +3994,8 @@ version = "0.1.0"
 dependencies = [
  "holochain",
  "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-bridge-entry-types",
  "mycelix-crypto",
  "rmp-serde",
  "serde",

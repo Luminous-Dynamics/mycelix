@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Participant in DKG ceremony
 
 use rand_core::CryptoRngCore;
@@ -147,7 +150,7 @@ impl Participant {
         }
 
         self.init_dealer(rng)?;
-        let deal = self.dealer.as_ref().unwrap().generate_deal();
+        let deal = self.dealer.as_ref().expect("dealer initialized by init_dealer above").generate_deal();
         self.state = ParticipantState::Dealt;
         Ok(deal)
     }

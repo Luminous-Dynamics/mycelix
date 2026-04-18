@@ -1,12 +1,20 @@
 # Mycelix DNA Size Audit
 
-**Date**: 2026-03-18 (updated)
+**Date**: 2026-03-22 (updated)
 **Build**: Release (`cargo build --release --target wasm32-unknown-unknown`)
-**Build Date**: 2026-02-21 (sizes below from original audit)
+**Build Date**: 2026-02-21 (per-zome sizes from original audit; DNA bundles pre-date new zomes)
 
-> **Note**: Since the original audit, new zomes have been added to the workspace
-> (mesh-time, resource-mesh in Commons; resonance-feed in Civic; name-registry,
-> web-of-trust in Identity). These need a fresh WASM size audit before release.
+> **Verified 2026-03-22**: Commons cluster rebuilt with 82 WASM files (was 78).
+> Two new zome pairs added: mesh-time (3.44 MB pair) and resource-mesh (3.52 MB pair).
+> Total raw WASM: 155.2 MB (was 144.9 MB, +7.1%). Bridge coordinator grew +0.18 MB
+> from metrics extern + fail-closed security hardening.
+>
+> **Measured headroom** (Commons only — Civic/Identity estimates below):
+> - Commons total: 155.2 MB raw → estimated ~28.2 MB DNA (5.5x compression) → **56% used**
+> - Civic: ~11.2 MB + ~3.6 MB (resonance-feed) ≈ 14.8 MB → **30% used**
+> - Identity: ~6.4 MB + ~7.2 MB (name-registry + web-of-trust) ≈ 13.6 MB → **27% used**
+>
+> All DNAs remain well within the 50 MB limit. Growth rate: +10.3 MB raw / ~5 months.
 
 ---
 

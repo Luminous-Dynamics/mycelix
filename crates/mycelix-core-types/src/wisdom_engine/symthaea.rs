@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! SymthaeaCausalBridge: Scientific Method for AI
 //!
 //! The SymthaeaCausalBridge implements a complete scientific method cycle for
@@ -2148,7 +2151,8 @@ impl SymthaeaCausalBridge {
         }
 
         best_id.map(|id| {
-            let pattern = self.patterns.get(&id).unwrap();
+            let pattern = self.patterns.get(&id)
+                .expect("id came from iterating self.patterns keys");
             let decay_factor = decay_config.calculate_decay(pattern.last_used, timestamp);
             let days_since =
                 (timestamp.saturating_sub(pattern.last_used)) as f32 / (24.0 * 60.0 * 60.0);

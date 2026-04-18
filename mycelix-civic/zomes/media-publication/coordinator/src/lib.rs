@@ -1,45 +1,25 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Publication Coordinator Zome
 use hdk::prelude::*;
 use media_publication_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
 };
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Helper function to create an anchor entry and return its hash
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) { debug!("Anchor creation warning: {:?}", e); }
     hash_entry(&anchor)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
 }
 
 #[hdk_extern]
 pub fn publish(input: PublishInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "publish")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "publish")?;
 
     let now = sys_time()?;
     let publication = Publication {
@@ -93,6 +73,8 @@ pub struct PublishInput {
 
 #[hdk_extern]
 pub fn add_content_block(input: AddBlockInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "add_content_block")?;
+
     let block = ContentBlock {
         publication_id: input.publication_id.clone(),
         block_index: input.block_index,
@@ -120,7 +102,7 @@ pub struct AddBlockInput {
 
 #[hdk_extern]
 pub fn update_publication(input: UpdateInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "update_publication")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "update_publication")?;
 
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
@@ -498,6 +480,70 @@ pub fn compute_author_stats(author_did: String, versions: &[u32]) -> AuthorStats
         publication_count,
         total_versions,
     }
+}
+
+// ============================================================================
+// Visual Art Metadata
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateArtMetadataInput {
+    pub publication_hash: ActionHash,
+    pub dimensions: Option<String>,
+    pub medium: Option<String>,
+    pub edition_size: Option<u32>,
+    pub ipfs_preview_cid: Option<String>,
+    pub ipfs_full_cid: Option<String>,
+    pub provenance_chain: Vec<String>,
+}
+
+/// Attach visual art metadata to a publication (Participant+).
+#[hdk_extern]
+pub fn create_art_metadata(input: CreateArtMetadataInput) -> ExternResult<Record> {
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "create_art_metadata")?;
+
+    let metadata = VisualArtMetadata {
+        publication_id: input.publication_hash.to_string(),
+        dimensions: input.dimensions,
+        medium: input.medium,
+        edition_size: input.edition_size,
+        ipfs_preview_cid: input.ipfs_preview_cid,
+        ipfs_full_cid: input.ipfs_full_cid,
+        provenance_chain: input.provenance_chain,
+    };
+
+    let action_hash = create_entry(&EntryTypes::VisualArtMetadata(metadata))?;
+
+    // Link publication to its art metadata
+    create_link(
+        input.publication_hash,
+        action_hash.clone(),
+        LinkTypes::PublicationToMetadata,
+        (),
+    )?;
+
+    get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
+}
+
+/// Get art metadata for a publication.
+#[hdk_extern]
+pub fn get_art_metadata(publication_hash: ActionHash) -> ExternResult<Option<VisualArtMetadata>> {
+    let links = get_links(
+        LinkQuery::new(
+            publication_hash,
+            LinkTypeFilter::single_type(0.into(), (LinkTypes::PublicationToMetadata as u8).into()),
+        ),
+        GetStrategy::default(),
+    )?;
+
+    if let Some(link) = links.last() {
+        if let Some(target) = link.target.clone().into_action_hash() {
+            if let Some(record) = get(target, GetOptions::default())? {
+                return Ok(record.entry().to_app_option().ok().flatten());
+            }
+        }
+    }
+    Ok(None)
 }
 
 #[cfg(test)]

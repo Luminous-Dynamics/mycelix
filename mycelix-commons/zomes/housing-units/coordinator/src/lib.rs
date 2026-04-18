@@ -1,19 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Units Coordinator Zome
 //! Business logic for buildings and housing units.
 
 use hdk::prelude::*;
 use housing_units_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -22,27 +17,9 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 
 /// Register a new building in the cooperative
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn register_building(building: Building) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "register_building")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "register_building")?;
     if building.name.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Building name must be at most 256 characters".into()
@@ -70,6 +47,14 @@ pub fn register_building(building: Building) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geohash spatial index
+    {
+        let geo_hash = commons_types::geo::geohash_encode(building.location_lat, building.location_lon, 6);
+        let geo_anchor_str = format!("geo:{}", geo_hash);
+        create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+        create_link(anchor_hash(&geo_anchor_str)?, action_hash.clone(), LinkTypes::GeoIndex, geo_hash.as_bytes().to_vec())?;
+    }
+
     get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created building".into()
     )))
@@ -78,7 +63,7 @@ pub fn register_building(building: Building) -> ExternResult<Record> {
 /// Register a new unit within a building
 #[hdk_extern]
 pub fn register_unit(unit: Unit) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "register_unit")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "register_unit")?;
     if unit.unit_number.len() > 64 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Unit number must be at most 64 characters".into()
@@ -120,7 +105,7 @@ pub struct UpdateUnitStatusInput {
 /// Update the status of a unit
 #[hdk_extern]
 pub fn update_unit_status(input: UpdateUnitStatusInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "update_unit_status")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_unit_status")?;
     let record = get(input.unit_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Unit not found".into())))?;
 
@@ -220,7 +205,7 @@ pub struct AssignOccupantInput {
 /// Assign an occupant to a unit
 #[hdk_extern]
 pub fn assign_occupant(input: AssignOccupantInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "assign_occupant")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "assign_occupant")?;
     let record = get(input.unit_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Unit not found".into())))?;
 
@@ -276,7 +261,7 @@ pub fn assign_occupant(input: AssignOccupantInput) -> ExternResult<Record> {
 /// Vacate a unit, removing the occupant
 #[hdk_extern]
 pub fn vacate_unit(unit_action_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "vacate_unit")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "vacate_unit")?;
     let record = get_latest_record(unit_action_hash.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Unit not found".into())))?;
 

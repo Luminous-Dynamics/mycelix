@@ -1,19 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Maintenance Coordinator Zome
 //! Business logic for maintenance requests, work orders, and inspections.
 
 use hdk::prelude::*;
 use housing_maintenance_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -22,27 +17,9 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 
 /// Submit a new maintenance request
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn submit_request(req: MaintenanceRequest) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "submit_request")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "submit_request")?;
     let action_hash = create_entry(&EntryTypes::MaintenanceRequest(req.clone()))?;
 
     // Link to open requests
@@ -83,7 +60,7 @@ pub struct AcknowledgeRequestInput {
 /// Acknowledge a maintenance request
 #[hdk_extern]
 pub fn acknowledge_request(input: AcknowledgeRequestInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "acknowledge_request")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "acknowledge_request")?;
     let record = get(input.request_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Request not found".into())
     ))?;
@@ -114,7 +91,7 @@ pub fn acknowledge_request(input: AcknowledgeRequestInput) -> ExternResult<Recor
 /// Create a work order for a maintenance request
 #[hdk_extern]
 pub fn create_work_order(order: WorkOrder) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_work_order")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "create_work_order")?;
     if order.assigned_to.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Assigned-to must be at most 256 characters".into()
@@ -165,7 +142,7 @@ pub struct CompleteWorkOrderInput {
 /// Complete a work order and mark the request as completed
 #[hdk_extern]
 pub fn complete_work_order(input: CompleteWorkOrderInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "complete_work_order")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_work_order")?;
     let record = get(input.work_order_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Work order not found".into())
     ))?;
@@ -238,7 +215,7 @@ pub fn complete_work_order(input: CompleteWorkOrderInput) -> ExternResult<Record
 /// Schedule a building inspection
 #[hdk_extern]
 pub fn schedule_inspection(inspection: Inspection) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "schedule_inspection")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "schedule_inspection")?;
     let action_hash = create_entry(&EntryTypes::Inspection(inspection.clone()))?;
 
     create_link(
@@ -264,7 +241,7 @@ pub struct RecordInspectionInput {
 /// Record the results of an inspection
 #[hdk_extern]
 pub fn record_inspection(input: RecordInspectionInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "record_inspection")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "record_inspection")?;
     let record = get(input.inspection_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Inspection not found".into())
     ))?;

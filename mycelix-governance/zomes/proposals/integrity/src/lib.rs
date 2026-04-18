@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Proposals Integrity Zome
 //! Defines entry types and validation for governance proposals
 //!
@@ -11,6 +14,10 @@ use hdi::prelude::*;
 pub struct Anchor(pub String);
 
 /// A governance proposal (MIP - Mycelix Improvement Proposal)
+///
+/// SYNC-MIRROR: field changes here must be mirrored in
+/// voting/coordinator/src/lib.rs::ProposalMirror (same field order).
+/// Run `cargo test -p voting` to verify the mirror stays in sync.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct Proposal {

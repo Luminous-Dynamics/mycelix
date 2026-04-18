@@ -1,6 +1,10 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Curation Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -70,6 +74,35 @@ pub struct FeaturedContent {
     pub featured_until: Option<Timestamp>,
 }
 
+/// A curated gallery of visual art or mixed-media publications.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct Gallery {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub curator_did: String,
+    pub theme: Option<String>,
+    pub publication_ids: Vec<String>,
+    pub created: Timestamp,
+    pub updated: Timestamp,
+}
+
+/// A time-bounded exhibition within a gallery.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct Exhibition {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub gallery_id: String,
+    pub curator_did: String,
+    pub featured_publication_ids: Vec<String>,
+    pub start_date: Timestamp,
+    pub end_date: Option<Timestamp>,
+    pub created: Timestamp,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
@@ -79,6 +112,8 @@ pub enum EntryTypes {
     Collection(Collection),
     QualityScore(QualityScore),
     FeaturedContent(FeaturedContent),
+    Gallery(Gallery),
+    Exhibition(Exhibition),
 }
 
 #[hdk_link_types]
@@ -89,6 +124,9 @@ pub enum LinkTypes {
     CollectionToPublications,
     PublicationToQuality,
     FeaturedPublications,
+    CuratorToGalleries,
+    GalleryToPublications,
+    GalleryToExhibitions,
 }
 
 /// Genesis self-check
@@ -116,6 +154,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::FeaturedContent(featured) => {
                     validate_create_featured_content(EntryCreationAction::Create(action), featured)
                 }
+                EntryTypes::Gallery(gallery) => validate_gallery(&gallery),
+                EntryTypes::Exhibition(exhibition) => validate_exhibition(&exhibition),
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -131,6 +171,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::FeaturedContent(featured) => {
                     validate_update_featured_content(action, featured)
                 }
+                EntryTypes::Gallery(gallery) => validate_gallery(&gallery),
+                EntryTypes::Exhibition(exhibition) => validate_exhibition(&exhibition),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -148,7 +190,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::CuratorToCollections
                 | LinkTypes::CollectionToPublications
                 | LinkTypes::PublicationToQuality
-                | LinkTypes::FeaturedPublications => {
+                | LinkTypes::FeaturedPublications
+                | LinkTypes::CuratorToGalleries
+                | LinkTypes::GalleryToPublications
+                | LinkTypes::GalleryToExhibitions => {
                     if tag_len > 256 {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Link tag too long (max 256 bytes)".into(),
@@ -158,14 +203,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
             }
         }
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
+        FlatOp::RegisterDeleteLink { tag, action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
             if tag.0.len() > 256 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Delete link tag too long (max 256 bytes)".into(),
@@ -175,8 +221,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 
@@ -396,6 +463,38 @@ fn validate_update_featured_content(
     _action: Update,
     _featured: FeaturedContent,
 ) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_gallery(gallery: &Gallery) -> ExternResult<ValidateCallbackResult> {
+    if gallery.name.is_empty() || gallery.name.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid("Gallery name must be 1-256 chars".to_string()));
+    }
+    if gallery.description.len() > 4096 {
+        return Ok(ValidateCallbackResult::Invalid("Gallery description must be <= 4KB".to_string()));
+    }
+    if !gallery.curator_did.starts_with("did:") || gallery.curator_did.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+    }
+    if gallery.publication_ids.len() > 500 {
+        return Ok(ValidateCallbackResult::Invalid("Gallery may contain at most 500 publications".to_string()));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_exhibition(exhibition: &Exhibition) -> ExternResult<ValidateCallbackResult> {
+    if exhibition.name.is_empty() || exhibition.name.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid("Exhibition name must be 1-256 chars".to_string()));
+    }
+    if exhibition.description.len() > 4096 {
+        return Ok(ValidateCallbackResult::Invalid("Exhibition description must be <= 4KB".to_string()));
+    }
+    if !exhibition.curator_did.starts_with("did:") || exhibition.curator_did.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+    }
+    if exhibition.featured_publication_ids.len() > 100 {
+        return Ok(ValidateCallbackResult::Invalid("Exhibition may feature at most 100 publications".to_string()));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -1546,7 +1645,10 @@ mod tests {
             | LinkTypes::CuratorToCollections
             | LinkTypes::CollectionToPublications
             | LinkTypes::PublicationToQuality
-            | LinkTypes::FeaturedPublications => {
+            | LinkTypes::FeaturedPublications
+            | LinkTypes::CuratorToGalleries
+            | LinkTypes::GalleryToPublications
+            | LinkTypes::GalleryToExhibitions => {
                 if tag_len > 256 {
                     ValidateCallbackResult::Invalid("Link tag too long (max 256 bytes)".into())
                 } else {
@@ -1615,6 +1717,9 @@ mod tests {
             LinkTypes::CollectionToPublications,
             LinkTypes::PublicationToQuality,
             LinkTypes::FeaturedPublications,
+            LinkTypes::CuratorToGalleries,
+            LinkTypes::GalleryToPublications,
+            LinkTypes::GalleryToExhibitions,
         ];
         for lt in &all_types {
             let result = validate_create_link_tag(lt, &massive_tag);

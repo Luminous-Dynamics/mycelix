@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Shared mirror types and helper functions for Currency Mint sweettests.
 //!
 //! Mirror types avoid linking the coordinator crate (which generates conflicting
@@ -226,7 +229,10 @@ where
 {
     let max_retries = 2;
     for attempt in 0..=max_retries {
-        match conductor.call_fallible(zome, fn_name, payload.clone()).await {
+        match conductor
+            .call_fallible(zome, fn_name, payload.clone())
+            .await
+        {
             Ok(result) => return result,
             Err(e) => {
                 let err_str = format!("{:?}", e);
@@ -278,7 +284,11 @@ pub async fn setup_finance_conductor(
     // rather than in the first test scenario.
     let warmup_zome = apps[0].cells()[0].zome("currency_mint");
     let _: Result<Vec<String>, _> = conductor
-        .call_fallible(&warmup_zome, "list_currency_members", "warmup-probe".to_string())
+        .call_fallible(
+            &warmup_zome,
+            "list_currency_members",
+            "warmup-probe".to_string(),
+        )
         .await;
     // Ignore the result — the call itself is enough to prime the nonce store.
     // A short pause gives the conductor time to settle.

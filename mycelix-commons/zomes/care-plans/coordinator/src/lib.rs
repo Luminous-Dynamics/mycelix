@@ -1,19 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Care Plans Coordinator Zome
 //! Business logic for care plan management and session logging.
 
 use care_plans_integrity::*;
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -26,40 +21,10 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
     anchor_hash(anchor_str)
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
 /// Create a new care plan
 #[hdk_extern]
 pub fn create_care_plan(plan: CarePlan) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_care_plan")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "create_care_plan")?;
     let action_hash = create_entry(&EntryTypes::CarePlan(plan.clone()))?;
 
     // Link to all plans
@@ -98,7 +63,7 @@ pub fn create_care_plan(plan: CarePlan) -> ExternResult<Record> {
 /// Log a care session against a plan
 #[hdk_extern]
 pub fn log_session(session: CareSession) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "log_session")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "log_session")?;
     // Verify the plan exists
     let _plan_record = get(session.plan_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Care plan not found".into())),
@@ -172,7 +137,7 @@ pub struct UpdatePlanStatusInput {
 /// Update the status of a care plan
 #[hdk_extern]
 pub fn update_plan_status(input: UpdatePlanStatusInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "update_plan_status")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_plan_status")?;
     let record = get(input.plan_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Care plan not found".into())
     ))?;

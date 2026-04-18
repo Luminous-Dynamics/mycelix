@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Needs Coordinator Zome
 //!
 //! This zome provides coordinator functions for needs matching
@@ -6,17 +9,9 @@
 use hdk::prelude::*;
 use mutualaid_common::*;
 use mutualaid_needs_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // =============================================================================
 // INPUT TYPES
@@ -87,27 +82,9 @@ pub struct SearchOffersInput {
 
 /// Create a new need
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn create_need(input: CreateNeedInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_need")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_need")?;
     let requester = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -273,7 +250,7 @@ pub fn get_emergency_needs(_: ()) -> ExternResult<Vec<Record>> {
 /// Withdraw a need
 #[hdk_extern]
 pub fn withdraw_need(hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "withdraw_need")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "withdraw_need")?;
     let record = get_latest_record(hash.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Need not found".to_string()
     )))?;
@@ -310,7 +287,7 @@ pub fn withdraw_need(hash: ActionHash) -> ExternResult<Record> {
 /// Create a new offer
 #[hdk_extern]
 pub fn create_offer(input: CreateOfferInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_offer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_offer")?;
     let offerer = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -435,7 +412,7 @@ pub fn search_offers(input: SearchOffersInput) -> ExternResult<Vec<Record>> {
 /// Withdraw an offer
 #[hdk_extern]
 pub fn withdraw_offer(hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "withdraw_offer")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "withdraw_offer")?;
     let record = get_latest_record(hash.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Offer not found".to_string()
     )))?;
@@ -472,7 +449,7 @@ pub fn withdraw_offer(hash: ActionHash) -> ExternResult<Record> {
 /// Propose a match between a need and an offer
 #[hdk_extern]
 pub fn propose_match(input: ProposeMatchInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "propose_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "propose_match")?;
     let now = sys_time()?;
 
     // Get need
@@ -546,7 +523,7 @@ pub fn propose_match(input: ProposeMatchInput) -> ExternResult<Record> {
 /// Accept a match
 #[hdk_extern]
 pub fn accept_match(match_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "accept_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "accept_match")?;
     let record = get_latest_record(match_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Match not found".to_string())
     ))?;
@@ -586,7 +563,7 @@ pub struct ScheduleHandoffInput {
 
 #[hdk_extern]
 pub fn schedule_handoff(input: ScheduleHandoffInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "schedule_handoff")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "schedule_handoff")?;
     let match_hash = input.match_hash;
     let scheduled_time = input.scheduled_time;
     let location = input.location;
@@ -668,7 +645,7 @@ pub fn get_offer_matches(offer_hash: ActionHash) -> ExternResult<Vec<Record>> {
 /// Record fulfillment of a match
 #[hdk_extern]
 pub fn fulfill_match(input: FulfillMatchInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "fulfill_match")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "fulfill_match")?;
     let now = sys_time()?;
 
     // Get match
@@ -755,7 +732,7 @@ pub fn fulfill_match(input: FulfillMatchInput) -> ExternResult<Record> {
 /// Confirm fulfillment (the other party confirms)
 #[hdk_extern]
 pub fn confirm_fulfillment(fulfillment_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "confirm_fulfillment")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "confirm_fulfillment")?;
     let record = get_latest_record(fulfillment_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Fulfillment not found".to_string())
     ))?;

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, a as subscribe, o as onDestroy, b as escape, v as validate_component, e as each, d as add_attribute } from "../../../chunks/ssr.js";
 import { c as createFreshness, o as getBalance, f as getAllPlots, e as getChannels, h as getAllWaterSystems, i as getActiveWaterAlerts, p as getMyHearths, q as getGraphStats, r as getAllCareCircles, s as getAvailableUnits, t as getAllInventoryItems, j as getLowStockItems } from "../../../chunks/freshness.js";
 import { F as FreshnessBar } from "../../../chunks/FreshnessBar.js";

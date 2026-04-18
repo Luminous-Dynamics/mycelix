@@ -2,6 +2,7 @@
 name = "verifiable_credential_coordinator"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
 description = "W3C Verifiable Credentials coordinator zome"
 
 [lib]
@@ -14,6 +15,7 @@ holochain_serialized_bytes = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 mycelix-crypto = { workspace = true }
+mycelix-zkp-core = { workspace = true }
 
 [features]
 default = []

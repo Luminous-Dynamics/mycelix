@@ -1,19 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Food Production Coordinator Zome
 //! Business logic for plot management, crop tracking, and harvest recording.
 
 use food_production_integrity::*;
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // BRIDGE SIGNAL (for cross-domain UI notification)
@@ -29,36 +24,6 @@ pub struct BridgeEventSignal {
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 // ============================================================================
@@ -109,7 +74,7 @@ pub struct NutrientSummary {
 
 #[hdk_extern]
 pub fn register_plot(plot: Plot) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "register_plot")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "register_plot")?;
     let action_hash = create_entry(&EntryTypes::Plot(plot.clone()))?;
 
     create_entry(&EntryTypes::Anchor(Anchor("all_plots".to_string())))?;
@@ -125,6 +90,14 @@ pub fn register_plot(plot: Plot) -> ExternResult<Record> {
         LinkTypes::StewardToPlot,
         (),
     )?;
+
+    // Geohash spatial index
+    {
+        let geo_hash = commons_types::geo::geohash_encode(plot.location_lat, plot.location_lon, 6);
+        let geo_anchor_str = format!("geo:{}", geo_hash);
+        create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+        create_link(anchor_hash(&geo_anchor_str)?, action_hash.clone(), LinkTypes::GeoIndex, geo_hash.as_bytes().to_vec())?;
+    }
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created plot".into()
@@ -151,7 +124,7 @@ pub fn get_all_plots(_: ()) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn plant_crop(crop: Crop) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "plant_crop")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "plant_crop")?;
     // Verify plot exists
     let _plot = get(crop.plot_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Plot not found".into())))?;
@@ -184,7 +157,7 @@ pub fn get_plot_crops(plot_hash: ActionHash) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn record_harvest(yr: YieldRecord) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "record_harvest")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_harvest")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Verify crop exists
@@ -230,7 +203,7 @@ pub fn get_crop_yields(crop_hash: ActionHash) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn create_season_plan(plan: SeasonPlan) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_season_plan")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_season_plan")?;
     let _plot = get(plan.plot_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Plot not found".into())))?;
 
@@ -262,7 +235,7 @@ pub fn get_season_plans(plot_hash: ActionHash) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn add_garden_member(input: AddMemberInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "add_garden_member")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "add_garden_member")?;
 
     // Only the plot steward can add members
     let caller = agent_info()?.agent_initial_pubkey;
@@ -311,7 +284,7 @@ pub fn get_plot_members(plot_hash: ActionHash) -> ExternResult<Vec<Record>> {
 
 #[hdk_extern]
 pub fn remove_garden_member(input: RemoveMemberInput) -> ExternResult<ActionHash> {
-    require_consciousness(&requirement_for_proposal(), "remove_garden_member")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "remove_garden_member")?;
 
     // Only the plot steward can remove members
     let caller = agent_info()?.agent_initial_pubkey;
@@ -350,7 +323,7 @@ pub fn remove_garden_member(input: RemoveMemberInput) -> ExternResult<ActionHash
 
 #[hdk_extern]
 pub fn log_resource_input(input: LogResourceInputData) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "log_resource_input")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "log_resource_input")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Verify plot exists if provided
@@ -476,6 +449,40 @@ pub fn get_nutrient_summary(_: ()) -> ExternResult<NutrientSummary> {
         total_potassium_kg: total_k,
         total_contributions: records.len(),
     })
+}
+
+// ============================================================================
+// GEO QUERIES
+// ============================================================================
+
+/// Get food production plots near a geographic location using geohash-based indexing.
+#[hdk_extern]
+pub fn get_nearby_food(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = input.radius_km;
+    Ok(records)
 }
 
 #[cfg(test)]

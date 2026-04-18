@@ -1,7 +1,11 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Transport Routes Integrity Zome
 //! Entry types and validation for vehicles, routes, and stops.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -102,6 +106,10 @@ pub enum StopType {
     Pickup,
     Dropoff,
     Transfer,
+    /// Waste collection pickup point
+    WastePickup,
+    /// Delivery to waste processing facility
+    FacilityDelivery,
 }
 
 #[hdk_entry_helper]
@@ -179,6 +187,8 @@ pub enum LinkTypes {
     VehicleToRoute,
     VehicleToMaintenance,
     VehicleToFeatures,
+    /// Geohash anchor to entry for spatial indexing
+    GeoIndex,
 }
 
 // ============================================================================
@@ -261,12 +271,47 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
+            LinkTypes::GeoIndex => {
+                if tag.0.len() > 256 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "GeoIndex link tag too long (max 256 bytes)".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         },
-        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            Ok(check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            ))
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 
@@ -1152,7 +1197,8 @@ mod tests {
             | LinkTypes::RouteToStop
             | LinkTypes::VehicleToRoute
             | LinkTypes::VehicleToMaintenance
-            | LinkTypes::VehicleToFeatures => 256,
+            | LinkTypes::VehicleToFeatures
+            | LinkTypes::GeoIndex => 256,
         };
         let name = match link_type {
             LinkTypes::AllVehicles => "AllVehicles",
@@ -1162,6 +1208,7 @@ mod tests {
             LinkTypes::VehicleToRoute => "VehicleToRoute",
             LinkTypes::VehicleToMaintenance => "VehicleToMaintenance",
             LinkTypes::VehicleToFeatures => "VehicleToFeatures",
+            LinkTypes::GeoIndex => "GeoIndex",
         };
         if tag.0.len() > max {
             ValidateCallbackResult::Invalid(format!(

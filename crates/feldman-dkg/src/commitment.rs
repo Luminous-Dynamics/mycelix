@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Feldman commitments for verifiable secret sharing
 //!
 //! Commitments allow verification of shares without revealing the secret.
@@ -56,7 +59,7 @@ impl Commitment {
 
         let point = AffinePoint::from_bytes(&arr.into());
         if point.is_some().into() {
-            Ok(Self(point.unwrap().into()))
+            Ok(Self(point.expect("point is_some check passed but unwrap failed").into()))
         } else {
             Err(DkgError::SerializationError("Invalid curve point".into()))
         }

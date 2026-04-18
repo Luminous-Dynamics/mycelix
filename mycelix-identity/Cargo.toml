@@ -1,10 +1,12 @@
 [workspace]
 resolver = "2"
 # Tests excluded from WASM workspace (use different deps)
-exclude = ["tests", "cli"]
+exclude = ["tests", "cli", "crates/identity-leptos-types", "apps"]
 members = [
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
+    # eIDAS 2.0 ZKP selective disclosure
+    "crates/eidas-zkp",
     # Zomes
     "zomes/did_registry/integrity",
     "zomes/did_registry/coordinator",
@@ -32,7 +34,13 @@ members = [
     # Web of Trust
     "zomes/web-of-trust/coordinator",
     "zomes/web-of-trust/integrity",
+    # Cross-Cluster Reputation Aggregator
+    "zomes/reputation-aggregator/coordinator",
+    "zomes/reputation-aggregator/integrity",
 ]
+
+[workspace.package]
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 # Holochain 0.6 compatible (per official compatibility table)
@@ -66,6 +74,11 @@ derive_more = "0.99"
 # NOTE: Do NOT use features = ["js"] or ["wasm_js"] - they pull in wasm-bindgen
 # which is incompatible with Holochain's WASM runtime.
 getrandom_03 = { package = "getrandom", version = "0.3" }
+mycelix-zome-helpers = { path = "../mycelix-workspace/crates/mycelix-zome-helpers" }
+
+# ZKP verification for selective disclosure
+mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
+# getrandom 0.2 pulled in by rand_core — needs "custom" for WASM
 
 [profile.dev]
 opt-level = "z"

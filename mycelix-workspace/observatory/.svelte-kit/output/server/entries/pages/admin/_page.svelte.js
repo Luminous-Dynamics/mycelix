@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, a as subscribe, o as onDestroy } from "../../../chunks/ssr.js";
 import { c as createFreshness, g as getDaoListings, a as getDaoRequests, b as getServiceOffers, d as getServiceRequests, e as getChannels, f as getAllPlots, h as getAllWaterSystems, i as getActiveWaterAlerts, j as getLowStockItems, k as getOracleState } from "../../../chunks/freshness.js";
 import { a as connectionQuality, b as qualityColor, c as connectionLabel, q as queueCount, g as getQueue } from "../../../chunks/connection-health.js";

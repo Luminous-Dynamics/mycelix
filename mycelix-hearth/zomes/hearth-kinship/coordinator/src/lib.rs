@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Kinship Coordinator Zome
 //!
 //! CRUD operations and business logic for hearth membership and kinship bonds.
@@ -8,8 +11,8 @@ use hearth_coordinator_common::{get_latest_record, records_from_links};
 use hearth_kinship_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
+    GovernanceEligibility,
 };
 
 // ============================================================================
@@ -120,12 +123,6 @@ fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembers
     )))
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("hearth_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Hearth CRUD
@@ -136,7 +133,7 @@ fn require_consciousness(
 /// Creates links: AllHearths, AgentToHearths, HearthToMembers, TypeToHearths.
 #[hdk_extern]
 pub fn create_hearth(input: CreateHearthInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_hearth")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "create_hearth")?;
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
     let max_members = input.max_members.unwrap_or(10);
@@ -213,7 +210,7 @@ pub fn create_hearth(input: CreateHearthInput) -> ExternResult<Record> {
 /// Invite a member to a hearth. Caller must be Founder, Elder, or Adult.
 #[hdk_extern]
 pub fn invite_member(input: InviteMemberInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "invite_member")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "invite_member")?;
     // Validate caller has guardian role
     require_guardian_role(&input.hearth_hash)?;
 
@@ -255,7 +252,7 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<Record> {
 /// Accept an invitation. Creates a membership and updates invitation status.
 #[hdk_extern]
 pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "accept_invitation")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "accept_invitation")?;
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -348,7 +345,7 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
 /// Decline an invitation. Updates the invitation status to Declined.
 #[hdk_extern]
 pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "decline_invitation")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "decline_invitation")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     let invitation_record = get(invitation_hash.clone(), GetOptions::default())?.ok_or(
@@ -392,7 +389,7 @@ pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
 /// Validates the departing member is not the last Founder.
 #[hdk_extern]
 pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "leave_hearth")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "leave_hearth")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     let record = get(membership_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
@@ -457,7 +454,7 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
 /// Update a member's role. Caller must be Founder or Elder.
 #[hdk_extern]
 pub fn update_member_role(input: UpdateMemberRoleInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "update_member_role")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_voting(), "update_member_role")?;
     let record = get(input.membership_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Membership not found".into())
     ))?;
@@ -494,7 +491,7 @@ pub fn update_member_role(input: UpdateMemberRoleInput) -> ExternResult<Record> 
 /// Validates that both the caller and member_b are active hearth members.
 #[hdk_extern]
 pub fn create_kinship_bond(input: CreateBondInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_kinship_bond")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "create_kinship_bond")?;
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
     let initial_strength = input.initial_strength_bp.unwrap_or(BOND_BASE_FAMILY);
@@ -585,7 +582,7 @@ pub fn create_kinship_bond(input: CreateBondInput) -> ExternResult<Record> {
 /// low-quality interactions slow recovery.
 #[hdk_extern]
 pub fn tend_bond(input: TendBondInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "tend_bond")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "tend_bond")?;
     let now = sys_time()?;
 
     let record = get(input.bond_hash.clone(), GetOptions::default())?
@@ -664,7 +661,7 @@ pub fn get_bond_health(input: GetBondHealthInput) -> ExternResult<u32> {
 /// Create a weekly digest entry and link it to the hearth.
 #[hdk_extern]
 pub fn create_weekly_digest(input: WeeklyDigest) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "create_weekly_digest")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "create_weekly_digest")?;
     let hearth_hash = input.hearth_hash.clone();
 
     let action_hash = create_entry(&EntryTypes::WeeklyDigest(input))?;
@@ -840,6 +837,18 @@ fn propose_auto_recovery(hearth_hash: &ActionHash) -> ExternResult<()> {
             error: format!("{e:?}"),
         });
     }
+
+    // Mark self-recovery as superseded by social recovery (best-effort).
+    // Self-recovery remains available as a fallback.
+    let agent = agent_info()?.agent_initial_pubkey;
+    let did = format!("did:mycelix:{}", agent);
+    let _ = call(
+        CallTargetCell::OtherRole(RoleName::from("identity")),
+        ZomeName::new("recovery"),
+        FunctionName::new("mark_self_recovery_superseded"),
+        None,
+        did,
+    );
 
     Ok(())
 }

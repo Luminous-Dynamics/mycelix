@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Execution Integrity Zome
 //! Defines entry types and validation for proposal execution
 //!
@@ -43,6 +46,78 @@ pub enum TimelockStatus {
     Cancelled,
     /// Execution failed
     Failed,
+    /// Vetoed by a guardian — pending possible override (48-hour window)
+    Vetoed,
+}
+
+/// Status of a guardian veto (can be overridden by supermajority)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum VetoStatus {
+    /// Veto in effect, override window open
+    Active,
+    /// Override challenge initiated
+    Challenged,
+    /// Supermajority (80%) override succeeded — timelock restored to Ready
+    Overridden,
+    /// Override attempt failed or window expired — timelock cancelled
+    Sustained,
+}
+
+/// Override window duration: 48 hours in microseconds.
+/// Hardcoded — not configurable by governance to prevent the threshold
+/// itself from being weakened by governance capture.
+pub const VETO_OVERRIDE_WINDOW_US: i64 = 48 * 3600 * 1_000_000;
+
+/// Supermajority threshold required to override a guardian veto.
+/// Aligned with Constitution Art. III, Sec. 5.3: "two-thirds (2/3)
+/// majority in both houses." Hardcoded — not configurable by governance.
+pub const VETO_OVERRIDE_THRESHOLD: f64 = 0.67;
+
+/// Participation insurance: if override quorum fails, the threshold
+/// decreases by this amount per failed attempt.
+/// 67% -> 62% -> 60% (floor). Prevents the 34% boycott attack
+/// where a minority sustains a veto by suppressing participation.
+pub const OVERRIDE_THRESHOLD_DECAY_PER_ATTEMPT: f64 = 0.05;
+
+/// Absolute floor for the adaptive override threshold.
+/// Never goes below 60% — preserving supermajority legitimacy.
+pub const OVERRIDE_THRESHOLD_FLOOR: f64 = 0.60;
+
+/// Maximum vetoes per Guardian per 12-month period before probation.
+/// Aligned with Constitution Art. III, Sec. 5.4.
+pub const VETO_YEARLY_LIMIT: u32 = 3;
+
+/// Rolling year window for veto limit enforcement (microseconds).
+/// 12 months ≈ 365.25 days.
+pub const ROLLING_YEAR_US: i64 = 365 * 24 * 3600 * 1_000_000 + 6 * 3600 * 1_000_000;
+
+/// Strategic Override sunset: 36 months from Genesis Epoch (microseconds).
+/// After this period, veto authority transitions to Charter Guardian Authority,
+/// which requires constitutional justification (Art. III, Sec. 3).
+pub const STRATEGIC_OVERRIDE_SUNSET_US: i64 = 36 * 30 * 24 * 3600 * 1_000_000_i64;
+
+/// Threat categories that constitute valid constitutional justification
+/// for Charter Guardian Authority vetoes (post-sunset period).
+/// Non-charter vetoes are rejected after the sunset.
+pub const CHARTER_THREAT_CATEGORIES: &[&str] = &[
+    "constitutional_violation",
+    "core_principle_violation",
+    "member_rights_violation",
+];
+
+/// Check whether the Strategic Override period has expired.
+pub fn is_post_sunset(genesis_epoch_us: i64, now_us: i64) -> bool {
+    (now_us - genesis_epoch_us) > STRATEGIC_OVERRIDE_SUNSET_US
+}
+
+/// Compute the adaptive override threshold based on failed attempts.
+///
+/// Thermodynamic metaphor: each failed attempt lowers the energy barrier,
+/// making it progressively easier for the community to overcome the veto.
+/// The floor at 67% ensures the barrier never disappears entirely.
+pub fn adaptive_override_threshold(failed_attempts: u32) -> f64 {
+    let decay = failed_attempts as f64 * OVERRIDE_THRESHOLD_DECAY_PER_ATTEMPT;
+    (VETO_OVERRIDE_THRESHOLD - decay).max(OVERRIDE_THRESHOLD_FLOOR)
 }
 
 /// Execution record for a proposal
@@ -76,6 +151,10 @@ pub enum ExecutionStatus {
 }
 
 /// Guardian veto (for emergency cancellation)
+///
+/// Constitutional registry fields (Art. III, Sec. 5.5):
+/// All veto exercises are recorded in an immutable public ledger with
+/// justification hash, threat category, and affected proposal reference.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct GuardianVeto {
@@ -89,6 +168,62 @@ pub struct GuardianVeto {
     pub reason: String,
     /// Veto timestamp
     pub vetoed_at: Timestamp,
+    // ── Constitutional registry fields (Art. III, Sec. 5.5) ──────────
+    /// Proposal ID affected by this veto (if known from timelock context).
+    /// Option for backward compatibility with pre-existing DHT entries.
+    #[serde(default)]
+    pub affected_proposal_id: Option<String>,
+    /// SHA-256 hash of the full justification document.
+    /// Enables verifiable justification without storing full text on-chain.
+    #[serde(default)]
+    pub justification_hash: Option<String>,
+    /// Threat category classifying the reason for veto.
+    /// e.g., "safety", "constitutional", "fiscal", "governance", "security"
+    /// Required for Charter Guardian Authority vetoes (post-sunset).
+    #[serde(default)]
+    pub threat_category: Option<String>,
+}
+
+/// A vote to override a guardian veto
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct VetoOverrideVote {
+    /// Vote identifier
+    pub id: String,
+    /// Veto being challenged
+    pub veto_id: String,
+    /// Voter's DID
+    pub voter_did: String,
+    /// Whether this vote supports overriding the veto
+    pub supports_override: bool,
+    /// Voter's phi score at time of vote
+    pub phi_score: f64,
+    /// Vote timestamp
+    pub voted_at: Timestamp,
+}
+
+/// Result of a veto override attempt
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct VetoOverrideResult {
+    /// Result identifier
+    pub id: String,
+    /// Veto that was challenged
+    pub veto_id: String,
+    /// Timelock that was vetoed
+    pub timelock_id: String,
+    /// Weighted votes supporting override
+    pub override_votes_for: f64,
+    /// Weighted votes sustaining the veto
+    pub override_votes_against: f64,
+    /// Total eligible voters at resolution time
+    pub total_eligible_voters: u64,
+    /// Override threshold (always 0.80)
+    pub override_threshold: f64,
+    /// Whether the override succeeded
+    pub override_succeeded: bool,
+    /// Resolution timestamp
+    pub resolved_at: Timestamp,
 }
 
 /// Status of a fund allocation
@@ -134,6 +269,8 @@ pub enum EntryTypes {
     Execution(Execution),
     GuardianVeto(GuardianVeto),
     FundAllocation(FundAllocation),
+    VetoOverrideVote(VetoOverrideVote),
+    VetoOverrideResult(VetoOverrideResult),
 }
 
 #[hdk_link_types]
@@ -150,6 +287,10 @@ pub enum LinkTypes {
     ProposalToFundAllocation,
     /// O(1) lookup: timelock ID anchor → timelock record
     TimelockById,
+    /// Veto to override votes
+    VetoToOverrideVotes,
+    /// Veto to override result
+    VetoToOverrideResult,
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +323,13 @@ pub fn check_update_timelock(original: &Timelock, updated: &Timelock) -> Result<
         | (TimelockStatus::Pending, TimelockStatus::Cancelled)
         | (TimelockStatus::Ready, TimelockStatus::Executed)
         | (TimelockStatus::Ready, TimelockStatus::Failed)
-        | (TimelockStatus::Ready, TimelockStatus::Cancelled) => Ok(()),
+        | (TimelockStatus::Ready, TimelockStatus::Cancelled)
+        // Veto override transitions:
+        | (TimelockStatus::Ready, TimelockStatus::Vetoed)      // Guardian veto
+        | (TimelockStatus::Pending, TimelockStatus::Vetoed)    // Guardian veto on pending
+        | (TimelockStatus::Vetoed, TimelockStatus::Ready)      // Override succeeded
+        | (TimelockStatus::Vetoed, TimelockStatus::Cancelled)  // Override failed/window expired
+        => Ok(()),
         _ => Err("Invalid timelock status transition".into()),
     }
 }
@@ -201,14 +348,61 @@ pub fn check_create_execution(execution: &Execution) -> Result<(), String> {
     Ok(())
 }
 
-/// Check that a new guardian veto is valid: guardian starts with "did:" and
-/// reason is not empty.
+/// Check that a new guardian veto is valid: guardian starts with "did:",
+/// reason is not empty, and constitutional registry fields are well-formed.
 pub fn check_create_veto(veto: &GuardianVeto) -> Result<(), String> {
     if !veto.guardian.starts_with("did:") {
         return Err("Guardian must be a valid DID".into());
     }
     if veto.reason.is_empty() {
         return Err("Veto reason is required".into());
+    }
+    // Validate justification_hash format when present (SHA-256 = 64 hex chars)
+    if let Some(ref hash) = veto.justification_hash {
+        if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err("justification_hash must be a 64-character hex string (SHA-256)".into());
+        }
+    }
+    // Validate threat_category is non-empty when present
+    if let Some(ref cat) = veto.threat_category {
+        if cat.is_empty() {
+            return Err("threat_category must not be empty when provided".into());
+        }
+    }
+    Ok(())
+}
+
+/// Check that a veto override vote is valid.
+pub fn check_create_override_vote(vote: &VetoOverrideVote) -> Result<(), String> {
+    if !vote.voter_did.starts_with("did:") {
+        return Err("Override voter must be a valid DID".into());
+    }
+    if vote.veto_id.is_empty() {
+        return Err("Veto ID is required for override vote".into());
+    }
+    if vote.phi_score < 0.0 || vote.phi_score > 1.0 {
+        return Err("Phi score must be between 0 and 1".into());
+    }
+    Ok(())
+}
+
+/// Check that a veto override result is valid.
+pub fn check_create_override_result(result: &VetoOverrideResult) -> Result<(), String> {
+    if result.veto_id.is_empty() {
+        return Err("Veto ID is required for override result".into());
+    }
+    if result.timelock_id.is_empty() {
+        return Err("Timelock ID is required for override result".into());
+    }
+    // Threshold must be exactly 0.80 — hardcoded, not configurable
+    if (result.override_threshold - VETO_OVERRIDE_THRESHOLD).abs() > f64::EPSILON {
+        return Err(format!(
+            "Override threshold must be exactly {}, got {}",
+            VETO_OVERRIDE_THRESHOLD, result.override_threshold
+        ));
+    }
+    if result.override_votes_for < 0.0 || result.override_votes_against < 0.0 {
+        return Err("Override vote counts must be non-negative".into());
     }
     Ok(())
 }
@@ -264,6 +458,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Execution(execution) => validate_create_execution(action, execution),
                 EntryTypes::GuardianVeto(veto) => validate_create_veto(action, veto),
                 EntryTypes::FundAllocation(alloc) => validate_create_fund_allocation(action, alloc),
+                EntryTypes::VetoOverrideVote(vote) => validate_create_override_vote(action, vote),
+                EntryTypes::VetoOverrideResult(result) => validate_create_override_result(action, result),
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -287,6 +483,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "Vetoes cannot be modified".into(),
                     ))
                 }
+                EntryTypes::VetoOverrideVote(_) => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Override votes cannot be modified".into(),
+                    ))
+                }
+                EntryTypes::VetoOverrideResult(_) => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Override results cannot be modified".into(),
+                    ))
+                }
                 EntryTypes::FundAllocation(alloc) => {
                     validate_update_fund_allocation(action, alloc, original_action_hash)
                 }
@@ -306,6 +512,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::GuardianToVeto => Ok(ValidateCallbackResult::Valid),
             LinkTypes::ProposalToFundAllocation => Ok(ValidateCallbackResult::Valid),
             LinkTypes::TimelockById => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::VetoToOverrideVotes => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::VetoToOverrideResult => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -376,6 +584,28 @@ fn validate_create_veto(
     veto: GuardianVeto,
 ) -> ExternResult<ValidateCallbackResult> {
     match check_create_veto(&veto) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
+/// Validate veto override vote creation
+fn validate_create_override_vote(
+    _action: Create,
+    vote: VetoOverrideVote,
+) -> ExternResult<ValidateCallbackResult> {
+    match check_create_override_vote(&vote) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
+/// Validate veto override result creation
+fn validate_create_override_result(
+    _action: Create,
+    result: VetoOverrideResult,
+) -> ExternResult<ValidateCallbackResult> {
+    match check_create_override_result(&result) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
     }
@@ -453,6 +683,11 @@ mod tests {
             guardian: "did:key:z6Guardian".into(),
             reason: "Emergency safety concern".into(),
             vetoed_at: ts(1_500_000),
+            affected_proposal_id: Some("prop-1".into()),
+            justification_hash: Some(
+                "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".into(),
+            ),
+            threat_category: Some("safety".into()),
         }
     }
 
@@ -550,6 +785,38 @@ mod tests {
     }
 
     #[test]
+    fn test_timelock_veto_override_transitions() {
+        let original = make_timelock();
+
+        // Ready → Vetoed (guardian veto)
+        let mut ready = original.clone();
+        ready.status = TimelockStatus::Ready;
+        let mut vetoed = ready.clone();
+        vetoed.status = TimelockStatus::Vetoed;
+        assert!(check_update_timelock(&ready, &vetoed).is_ok());
+
+        // Pending → Vetoed (guardian veto on pending)
+        let mut vetoed = original.clone();
+        vetoed.status = TimelockStatus::Vetoed;
+        assert!(check_update_timelock(&original, &vetoed).is_ok());
+
+        // Vetoed → Ready (override succeeded)
+        let mut restored = vetoed.clone();
+        restored.status = TimelockStatus::Ready;
+        assert!(check_update_timelock(&vetoed, &restored).is_ok());
+
+        // Vetoed → Cancelled (override failed or window expired)
+        let mut cancelled = vetoed.clone();
+        cancelled.status = TimelockStatus::Cancelled;
+        assert!(check_update_timelock(&vetoed, &cancelled).is_ok());
+
+        // Vetoed → Executed (INVALID — must go through Ready first)
+        let mut bad = vetoed.clone();
+        bad.status = TimelockStatus::Executed;
+        assert!(check_update_timelock(&vetoed, &bad).is_err());
+    }
+
+    #[test]
     fn test_timelock_invalid_status_transition() {
         let original = make_timelock(); // Pending
         let mut updated = original.clone();
@@ -558,6 +825,165 @@ mod tests {
             check_update_timelock(&original, &updated).unwrap_err(),
             "Invalid timelock status transition"
         );
+    }
+
+    // ---- Veto override vote tests ----
+
+    #[test]
+    fn test_override_vote_valid() {
+        let vote = VetoOverrideVote {
+            id: "ov-1".into(),
+            veto_id: "v-1".into(),
+            voter_did: "did:key:z6Override".into(),
+            supports_override: true,
+            phi_score: 0.7,
+            voted_at: ts(2_000_000),
+        };
+        assert!(check_create_override_vote(&vote).is_ok());
+    }
+
+    #[test]
+    fn test_override_vote_requires_did() {
+        let vote = VetoOverrideVote {
+            id: "ov-1".into(),
+            veto_id: "v-1".into(),
+            voter_did: "not-a-did".into(),
+            supports_override: true,
+            phi_score: 0.5,
+            voted_at: ts(2_000_000),
+        };
+        assert!(check_create_override_vote(&vote).is_err());
+    }
+
+    #[test]
+    fn test_override_vote_requires_veto_id() {
+        let vote = VetoOverrideVote {
+            id: "ov-1".into(),
+            veto_id: "".into(),
+            voter_did: "did:key:z6Test".into(),
+            supports_override: true,
+            phi_score: 0.5,
+            voted_at: ts(2_000_000),
+        };
+        assert!(check_create_override_vote(&vote).is_err());
+    }
+
+    // ---- Veto override result tests ----
+
+    #[test]
+    fn test_override_result_threshold_must_be_080() {
+        let result = VetoOverrideResult {
+            id: "or-1".into(),
+            veto_id: "v-1".into(),
+            timelock_id: "tl-1".into(),
+            override_votes_for: 8.0,
+            override_votes_against: 2.0,
+            total_eligible_voters: 10,
+            override_threshold: 0.67,
+            override_succeeded: true,
+            resolved_at: ts(3_000_000),
+        };
+        assert!(check_create_override_result(&result).is_ok());
+
+        // Wrong threshold rejected
+        let mut bad = result.clone();
+        bad.override_threshold = 0.51;
+        assert!(check_create_override_result(&bad).is_err());
+    }
+
+    #[test]
+    fn test_override_result_requires_ids() {
+        let result = VetoOverrideResult {
+            id: "or-1".into(),
+            veto_id: "".into(),
+            timelock_id: "tl-1".into(),
+            override_votes_for: 5.0,
+            override_votes_against: 5.0,
+            total_eligible_voters: 10,
+            override_threshold: 0.67,
+            override_succeeded: false,
+            resolved_at: ts(3_000_000),
+        };
+        assert!(check_create_override_result(&result).is_err());
+    }
+
+    #[test]
+    fn test_veto_override_threshold_constant() {
+        // Constitutional threshold: 2/3 (Art. III, Sec. 5.3)
+        assert!((VETO_OVERRIDE_THRESHOLD - 0.67).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_veto_override_window_is_48_hours() {
+        assert_eq!(VETO_OVERRIDE_WINDOW_US, 48 * 3600 * 1_000_000);
+    }
+
+    #[test]
+    fn test_veto_yearly_limit_constant() {
+        // Constitutional: Art. III, Sec. 5.4 — 3 vetoes per 12 months
+        assert_eq!(VETO_YEARLY_LIMIT, 3);
+    }
+
+    #[test]
+    fn test_strategic_override_sunset_is_36_months() {
+        // Constitutional: Art. III, Sec. 3 — 36 months from Genesis Epoch
+        let thirty_six_months_us: i64 = 36 * 30 * 24 * 3600 * 1_000_000;
+        assert_eq!(STRATEGIC_OVERRIDE_SUNSET_US, thirty_six_months_us);
+    }
+
+    #[test]
+    fn test_is_post_sunset() {
+        let genesis = 0_i64;
+        // Before sunset: 35 months
+        let before = 35 * 30 * 24 * 3600 * 1_000_000_i64;
+        assert!(!is_post_sunset(genesis, before));
+
+        // After sunset: 37 months
+        let after = 37 * 30 * 24 * 3600 * 1_000_000_i64;
+        assert!(is_post_sunset(genesis, after));
+
+        // Exactly at sunset boundary
+        assert!(!is_post_sunset(genesis, STRATEGIC_OVERRIDE_SUNSET_US));
+    }
+
+    #[test]
+    fn test_charter_threat_categories() {
+        assert!(CHARTER_THREAT_CATEGORIES.contains(&"constitutional_violation"));
+        assert!(CHARTER_THREAT_CATEGORIES.contains(&"core_principle_violation"));
+        assert!(CHARTER_THREAT_CATEGORIES.contains(&"member_rights_violation"));
+        assert!(!CHARTER_THREAT_CATEGORIES.contains(&"fiscal"));
+    }
+
+    // ---- Participation insurance (adaptive threshold) tests ----
+
+    #[test]
+    fn test_adaptive_threshold_initial() {
+        // Constitutional threshold: 2/3 (Art. III, Sec. 5.3)
+        assert!((adaptive_override_threshold(0) - 0.67).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_adaptive_threshold_decays() {
+        assert!((adaptive_override_threshold(1) - 0.62).abs() < f64::EPSILON);
+        assert!((adaptive_override_threshold(2) - 0.60).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_adaptive_threshold_floor() {
+        // Floor at 60%
+        assert!((adaptive_override_threshold(3) - 0.60).abs() < 0.001);
+        assert!((adaptive_override_threshold(10) - 0.60).abs() < 0.001);
+        assert!((adaptive_override_threshold(100) - 0.60).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_adaptive_threshold_never_below_two_thirds() {
+        for attempts in 0..1000 {
+            assert!(
+                adaptive_override_threshold(attempts) >= OVERRIDE_THRESHOLD_FLOOR,
+                "Threshold must never go below 2/3 supermajority"
+            );
+        }
     }
 
     // ---- Execution tests ----
@@ -596,6 +1022,41 @@ mod tests {
             check_create_veto(&v).unwrap_err(),
             "Veto reason is required"
         );
+    }
+
+    #[test]
+    fn test_veto_justification_hash_format() {
+        let mut v = make_veto();
+        // Valid 64-char hex passes
+        assert!(check_create_veto(&v).is_ok());
+
+        // Too short
+        v.justification_hash = Some("abc123".into());
+        assert!(check_create_veto(&v).unwrap_err().contains("64-character hex"));
+
+        // Non-hex chars
+        v.justification_hash = Some(
+            "g1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".into(),
+        );
+        assert!(check_create_veto(&v).unwrap_err().contains("64-character hex"));
+
+        // None is valid (backward compat)
+        v.justification_hash = None;
+        assert!(check_create_veto(&v).is_ok());
+    }
+
+    #[test]
+    fn test_veto_threat_category_not_empty() {
+        let mut v = make_veto();
+        v.threat_category = Some(String::new());
+        assert!(check_create_veto(&v).unwrap_err().contains("threat_category"));
+
+        v.threat_category = Some("fiscal".into());
+        assert!(check_create_veto(&v).is_ok());
+
+        // None is valid (backward compat)
+        v.threat_category = None;
+        assert!(check_create_veto(&v).is_ok());
     }
 
     // ---- Fund allocation tests ----

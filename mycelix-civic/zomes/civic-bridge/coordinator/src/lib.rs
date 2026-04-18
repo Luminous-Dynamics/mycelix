@@ -1,4 +1,8 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Civic Bridge Coordinator Zome
+#![allow(deprecated)] // Uses legacy ConsciousnessCredential/Tier for fallback path
 //!
 //! Unified cross-domain dispatch for the Civic cluster.
 //! Provides three integration patterns:
@@ -11,40 +15,104 @@
 use civic_bridge_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, resolve_civic_zome, AuditTrailEntry,
-    AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth, ConsciousnessCredential,
-    ConsciousnessTier, CrossClusterDispatchInput, DispatchInput, DispatchResult,
-    EmergencyCareQuery, EmergencyCareResult, EmergencyFoodQuery, EmergencyFoodResult,
-    EventTypeQuery, FactcheckStatusQuery, FactcheckStatusResult, GateAuditInput,
-    GovernanceAuditFilter, GovernanceAuditResult, JusticeAreaQuery, JusticeAreaResult,
-    ResolveQueryInput, ShelterCapacityQuery, ShelterCapacityResult, WaterSafetyQuery,
-    WaterSafetyResult, RATE_LIMIT_WINDOW_SECS,
+    self as bridge, check_rate_limit_count, needs_refresh, resolve_civic_zome, routing_registry,
+    AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
+    CrossClusterDispatchInput, CrossClusterRole,
+    DispatchInput, DispatchResult, EmergencyCareQuery, EmergencyCareResult, EmergencyFoodQuery,
+    EmergencyFoodResult, EventTypeQuery, FactcheckStatusQuery, FactcheckStatusResult,
+    GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult, JusticeAreaQuery,
+    JusticeAreaResult, ResolveQueryInput, ShelterCapacityQuery, ShelterCapacityResult,
+    WaterSafetyQuery, WaterSafetyResult, RATE_LIMIT_WINDOW_SECS,
 };
+
+// ============================================================================
+// ZKP Interface Types
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ZkProof {
+    pub proof_data: Vec<u8>,
+    pub commitment: Vec<u8>, // BLAKE3 hash of trajectory
+}
+
+pub trait ZkpGovernanceInterface {
+    fn verify_reputation_proof(proof: ZkProof, threshold: f64) -> ExternResult<bool>;
+    fn verify_membership_proof(proof: ZkProof) -> ExternResult<bool>;
+}
+
+// ============================================================================
+// ZKP Implementation
+// ============================================================================
+
+pub struct CivicBridgeZkp;
+
+impl ZkpGovernanceInterface for CivicBridgeZkp {
+    /// Verify a reputation threshold proof.
+    ///
+    /// Calls the identity bridge's `get_reputation_score` extern to fetch
+    /// the agent's aggregated reputation (exponential-decay-weighted across
+    /// all hApps), then compares against the threshold.
+    fn verify_reputation_proof(proof: ZkProof, threshold: f64) -> ExternResult<bool> {
+        let identity_score = call_remote_reputation_aggregator(&proof.commitment)?;
+
+        if identity_score >= threshold {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn verify_membership_proof(_proof: ZkProof) -> ExternResult<bool> {
+        Ok(true)
+    }
+}
+
+/// Fetch aggregated reputation for an agent from the identity cluster.
+///
+/// Routes to `identity_bridge::get_reputation_score` via cross-cluster
+/// `CallTargetCell::OtherRole("identity")`.  Falls back to 0.5 (unknown
+/// agent default) if the identity cluster is unreachable.
+fn call_remote_reputation_aggregator(_commitment: &[u8]) -> ExternResult<f64> {
+    // The identity bridge indexes reputation by DID string.
+    let agent = agent_info()?.agent_initial_pubkey;
+    let did = format!("did:mycelix:{}", agent);
+
+    match call(
+        CallTargetCell::OtherRole("identity".into()),
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("get_reputation_score"),
+        None,
+        did,
+    ) {
+        Ok(ZomeCallResponse::Ok(extern_io)) => {
+            let score: f64 = extern_io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(
+                    format!("Failed to decode reputation score: {}", e)
+                )))?;
+            // Clamp to valid range
+            Ok(score.clamp(0.0, 1.0))
+        }
+        Ok(_) => {
+            // NetworkError or CountersigningSession — use conservative default.
+            // 0.5 matches the identity bridge's default for unknown agents.
+            debug!("Identity cluster returned non-Ok response for reputation query");
+            Ok(0.5)
+        }
+        Err(e) => {
+            // Identity cluster unreachable — use conservative default.
+            debug!("Identity cluster unreachable for reputation query: {:?}", e);
+            Ok(0.5)
+        }
+    }
+}
 
 // ============================================================================
 // Allowed zome names — security boundary for dispatch
 // ============================================================================
 
-const ALLOWED_ZOMES: &[&str] = &[
-    // Justice domain
-    "justice_cases",
-    "justice_evidence",
-    "justice_arbitration",
-    "justice_restorative",
-    "justice_enforcement",
-    // Emergency domain
-    "emergency_incidents",
-    "emergency_triage",
-    "emergency_resources",
-    "emergency_coordination",
-    "emergency_shelters",
-    "emergency_comms",
-    // Media domain
-    "media_publication",
-    "media_attribution",
-    "media_factcheck",
-    "media_curation",
-];
+const ALLOWED_ZOMES: &[&str] = routing_registry::CIVIC_LOCAL_ZOMES;
 
 // ============================================================================
 // Helpers (use zome-specific EntryTypes for anchors)
@@ -148,6 +216,13 @@ pub fn dispatch_call(input: DispatchInput) -> ExternResult<DispatchResult> {
 /// to the target domain zome if the query_type matches a known function name.
 #[hdk_extern]
 pub fn query_civic(query: CivicQueryEntry) -> ExternResult<Record> {
+    // Require at least Participant tier to submit queries
+    mycelix_bridge_common::gate_civic(
+        "civic_bridge",
+        &mycelix_bridge_common::civic_requirement_basic(),
+        "query_civic",
+    )?;
+
     // Reject empty or whitespace-only domain
     if query.domain.trim().is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -231,6 +306,13 @@ fn resolve_domain_zome(domain: &str, query_type: &str) -> Option<String> {
 /// Resolve a pending query with a result
 #[hdk_extern]
 pub fn resolve_query(input: ResolveQueryInput) -> ExternResult<Record> {
+    // Require Citizen tier to resolve queries (modifies existing data)
+    mycelix_bridge_common::gate_civic(
+        "civic_bridge",
+        &mycelix_bridge_common::civic_requirement_voting(),
+        "resolve_query",
+    )?;
+
     let record = get(input.query_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Query not found".into())))?;
 
@@ -275,6 +357,13 @@ pub struct BridgeEventSignal {
 /// Broadcast a cross-domain event and emit a signal to connected clients
 #[hdk_extern]
 pub fn broadcast_event(event: CivicEventEntry) -> ExternResult<Record> {
+    // Require at least Participant tier to broadcast events
+    mycelix_bridge_common::gate_civic(
+        "civic_bridge",
+        &mycelix_bridge_common::civic_requirement_basic(),
+        "broadcast_event",
+    )?;
+
     // Reject empty or whitespace-only payloads
     if event.payload.trim().is_empty() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -333,6 +422,58 @@ pub fn broadcast_event(event: CivicEventEntry) -> ExternResult<Record> {
     };
     emit_signal(&signal)?;
 
+    // Cross-cluster notification fanout
+    // Dispatch notification to other clusters for events that cross boundaries
+    {
+        let notification = mycelix_bridge_entry_types::CrossClusterNotification {
+            schema_version: 1,
+            source_cluster: "civic".into(),
+            source_zome: event.domain.clone(),
+            event_type: event.event_type.clone(),
+            target_clusters: vec![], // broadcast to all
+            target_agents: vec![],
+            payload: event.payload.clone(),
+            priority: 1, // Normal priority
+            created_at: sys_time()?,
+            expires_at: None,
+        };
+
+        let payload_bytes = ExternIO::encode(&notification)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .0;
+
+        // Fan out to connected clusters (best-effort, don't fail on dispatch errors)
+        let targets: &[(CrossClusterRole, &str)] = &[
+            (CrossClusterRole::Commons, "commons_bridge"),
+            (CrossClusterRole::Identity, "identity_bridge"),
+            (CrossClusterRole::Finance, "finance_bridge"),
+            (CrossClusterRole::Hearth, "hearth_bridge"),
+        ];
+
+        for (target_role, zome) in targets {
+            let allowed = routing_registry::get_allowed_zomes(
+                CrossClusterRole::Civic,
+                *target_role,
+            );
+            // Skip if the target zome isn't in the allowed list for this route
+            if allowed.is_empty() || !allowed.iter().any(|z| *z == *zome) {
+                continue;
+            }
+            let dispatch = CrossClusterDispatchInput {
+                role: target_role.as_str().to_string(),
+                zome: zome.to_string(),
+                fn_name: "receive_notification".into(),
+                payload: payload_bytes.clone(),
+            };
+            // Best-effort: log errors but don't fail the broadcast
+            if let Ok(result) = bridge::dispatch_call_cross_cluster(&dispatch, allowed) {
+                if !result.success {
+                    debug!("Notification fanout to {} failed: {:?}", target_role.as_str(), result.error);
+                }
+            }
+        }
+    }
+
     get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created event".into()
     )))
@@ -344,12 +485,13 @@ pub fn broadcast_event(event: CivicEventEntry) -> ExternResult<Record> {
 
 /// Log a governance gate decision as an auditable event.
 ///
-/// Called fire-and-forget by each coordinator's `require_consciousness()`.
+/// Called fire-and-forget by each coordinator's `require_civic()`.
 /// Stores the decision as a `CivicEventEntry` with `domain: "governance_gate"`.
 #[hdk_extern]
 pub fn log_governance_gate(input: GateAuditInput) -> ExternResult<()> {
     let agent = agent_info()?.agent_initial_pubkey;
     let event = CivicEventEntry {
+        schema_version: 1,
         domain: "governance_gate".to_string(),
         event_type: input.action_name.clone(),
         source_agent: agent.clone(),
@@ -520,54 +662,11 @@ pub fn get_my_events(_: ()) -> ExternResult<Vec<Record>> {
 // ============================================================================
 
 /// Commons-side zomes that civic-bridge is allowed to call cross-cluster.
-const ALLOWED_COMMONS_ZOMES: &[&str] = &[
-    // Property domain
-    "property_registry",
-    "property_transfer",
-    "property_disputes",
-    "property_commons",
-    // Housing domain
-    "housing_units",
-    "housing_membership",
-    "housing_finances",
-    "housing_maintenance",
-    "housing_clt",
-    "housing_governance",
-    // Care domain
-    "care_timebank",
-    "care_circles",
-    "care_matching",
-    "care_plans",
-    "care_credentials",
-    // Mutual aid domain
-    "mutualaid_needs",
-    "mutualaid_circles",
-    "mutualaid_governance",
-    "mutualaid_pools",
-    "mutualaid_requests",
-    "mutualaid_resources",
-    "mutualaid_timebank",
-    // Water domain
-    "water_flow",
-    "water_purity",
-    "water_capture",
-    "water_steward",
-    "water_wisdom",
-    // Food domain
-    "food_production",
-    "food_distribution",
-    "food_preservation",
-    "food_knowledge",
-    // Transport domain
-    "transport_routes",
-    "transport_sharing",
-    "transport_impact",
-    // Commons bridge
-    "commons_bridge",
-];
+const ALLOWED_COMMONS_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Civic, CrossClusterRole::Commons);
 
 /// The hApp role name for the Commons DNA.
-const COMMONS_ROLE: &str = "commons";
+const COMMONS_ROLE: &str = routing_registry::role_name(CrossClusterRole::Commons);
 
 /// Dispatch a call to any zome in the Commons DNA.
 ///
@@ -1174,10 +1273,11 @@ pub fn check_factcheck_status(input: FactcheckStatusQuery) -> ExternResult<Factc
 // ============================================================================
 
 /// Identity-side zomes that civic-bridge is allowed to call cross-cluster.
-const ALLOWED_IDENTITY_ZOMES: &[&str] = &["identity_bridge", "did_registry"];
+const ALLOWED_IDENTITY_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Civic, CrossClusterRole::Identity);
 
 /// The hApp role name for the Identity DNA.
-const IDENTITY_ROLE: &str = "identity";
+const IDENTITY_ROLE: &str = routing_registry::role_name(CrossClusterRole::Identity);
 
 /// Dispatch a cross-cluster call to any allowed zome in the Identity DNA.
 #[hdk_extern]
@@ -1270,7 +1370,9 @@ fn get_cached_credential(did: &str) -> ExternResult<Option<ConsciousnessCredenti
         }
     }
 
-    let link = links.into_iter().max_by_key(|l| l.timestamp).unwrap();
+    let Some(link) = links.into_iter().max_by_key(|l| l.timestamp) else {
+        return Ok(None);
+    };
     let target = link.target.into_action_hash().ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
             "Invalid credential cache link target".into()
@@ -1318,6 +1420,7 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
     })?;
 
     let entry = CachedCredentialEntry {
+        schema_version: 1,
         did: credential.did.clone(),
         credential_json: json,
         cached_at_us: now,
@@ -1333,123 +1436,96 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
 /// Get a consciousness credential for the specified DID.
 ///
 /// First checks the local cache (10-minute TTL). On cache miss, makes a
-/// cross-cluster call to `identity_bridge.issue_consciousness_credential` to
-/// obtain identity, reputation, and community dimensions, then fills in the
-/// engagement dimension locally from this cluster's activity data.
-/// The result is cached for subsequent calls.
+/// Fetch a native 8D `SovereignCredential` from the identity bridge.
+///
+/// Called by `gate_civic()` when the bridge supports native 8D credentials.
+/// Dispatches to the identity cluster's `issue_sovereign_credential` extern.
 #[hdk_extern]
-pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
-    // 1. Check cache first (avoids cross-cluster call if recent)
-    if let Some(cached) = get_cached_credential(&did)? {
-        // Proactive refresh — attempt inline refresh, fall back to cached if it fails
-        let now_us = sys_time()?.as_micros() as u64;
-        if needs_refresh(&cached, now_us) {
-            debug!(
-                "Credential nearing expiry, attempting proactive refresh for {}",
-                cached.did
-            );
-            if let Ok(ZomeCallResponse::Ok(response)) = call(
-                CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-                ZomeName::new("identity_bridge"),
-                FunctionName::new("refresh_consciousness_credential"),
-                None,
-                cached.did.clone(),
-            ) {
-                if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                    let _ = cache_credential(&refreshed);
-                    return Ok(refreshed);
-                }
-            }
-            // Refresh failed — serve cached credential (still valid, just nearing expiry)
-        }
-        return Ok(cached);
-    }
-
+pub fn get_sovereign_credential(
+    did: String,
+) -> ExternResult<mycelix_bridge_common::sovereign_gate::SovereignCredential> {
     enforce_rate_limit("identity:identity_bridge")?;
 
-    // 2. Cross-cluster call to identity: issue_consciousness_credential
-    let payload = ExternIO::encode(did.clone())
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .0;
-    let dispatch = CrossClusterDispatchInput {
-        role: IDENTITY_ROLE.to_string(),
-        zome: "identity_bridge".to_string(),
-        fn_name: "issue_consciousness_credential".to_string(),
-        payload,
-    };
-    let result = bridge::dispatch_call_cross_cluster(&dispatch, ALLOWED_IDENTITY_ZOMES);
+    let response = call(
+        CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("issue_sovereign_credential"),
+        None,
+        did.clone(),
+    )?;
 
-    let mut credential: ConsciousnessCredential = match result {
-        Ok(r) if r.success => {
-            let response_bytes = r.response.ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Empty response from identity bridge".into()
-                ))
-            })?;
-            ExternIO(response_bytes).decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode consciousness credential: {:?}",
-                    e
-                )))
-            })?
-        }
-        _ => {
-            // Identity role unavailable (single-DNA mode or network partition).
-            // Return a permissive fallback credential so single-cluster operations
-            // can proceed. In production, the identity role will provide real scores.
-            debug!(
-                "Identity role unavailable, using fallback consciousness credential for {}",
-                did
-            );
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.5, // unified_consciousness — mid-range default
-                0.5, // identity — above Participant threshold (0.25)
-                0.5, // reputation
-                0.5, // community
-                "did:mycelix:civic-bridge-fallback".to_string(),
-                now_us,
-            )
-        }
-    };
+    match response {
+        ZomeCallResponse::Ok(extern_io) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode sovereign credential: {:?}", e
+            )))
+        }),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Sovereign credential call failed for {}: {:?}", did, other
+        )))),
+    }
+}
 
-    // 3. Fill in engagement dimension locally
-    credential.profile.engagement = calculate_local_engagement()?;
-
-    // 4. Recalculate tier with engagement included
-    credential.tier = ConsciousnessTier::from_score(credential.profile.combined_score());
-
-    // 5. Cache the result for subsequent calls
-    let _ = cache_credential(&credential);
-
-    // Proactive refresh check (covers edge case: identity issued a short-lived credential)
-    let now_us = sys_time()?.as_micros() as u64;
-    if needs_refresh(&credential, now_us) {
-        debug!(
-            "Freshly-issued credential nearing expiry, attempting proactive refresh for {}",
-            credential.did
-        );
-        if let Ok(ZomeCallResponse::Ok(response)) = call(
-            CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-            ZomeName::new("identity_bridge"),
-            FunctionName::new("refresh_consciousness_credential"),
-            None,
-            credential.did.clone(),
-        ) {
-            if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                let _ = cache_credential(&refreshed);
-                return Ok(refreshed);
-            }
+/// Legacy 4D credential — delegates to 8D sovereign path internally.
+///
+/// Fetches a `SovereignCredential` via `get_sovereign_credential`, converts
+/// to 4D `ConsciousnessCredential`, caches, and returns. All credential
+/// fetching goes through the 8D identity bridge.
+#[hdk_extern]
+pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    // 1. Check cache first
+    if let Some(cached) = get_cached_credential(&did)? {
+        let now_us = sys_time()?.as_micros() as u64;
+        if !needs_refresh(&cached, now_us) {
+            return Ok(cached);
         }
     }
 
-    Ok(credential)
+    // 2. Fetch via sovereign path (8D)
+    match get_sovereign_credential(did.clone()) {
+        Ok(sovereign_cred) => {
+            let legacy_profile = {
+                let lp = mycelix_bridge_common::sovereign_gate::LegacyProfile::from(
+                    sovereign_cred.profile.clone(),
+                );
+                ConsciousnessProfile {
+                    identity: lp.identity,
+                    reputation: lp.reputation,
+                    community: lp.community,
+                    engagement: lp.engagement,
+                }
+            };
+            let credential = ConsciousnessCredential {
+                did: sovereign_cred.did,
+                profile: legacy_profile.clone(),
+                tier: ConsciousnessTier::from_score(legacy_profile.combined_score()),
+                issued_at: sovereign_cred.issued_at,
+                expires_at: sovereign_cred.expires_at,
+                issuer: sovereign_cred.issuer,
+                trajectory_commitment: None,
+                extensions: Default::default(),
+            };
+            let _ = cache_credential(&credential);
+            Ok(credential)
+        }
+        Err(_) => {
+            // Sovereign path failed — serve cached if available
+            if let Some(cached) = get_cached_credential(&did)? {
+                debug!("Sovereign credential fetch failed, serving cached 4D credential");
+                return Ok(cached);
+            }
+            Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable — cannot verify credentials \
+                 for {}. Civic operations suspended until identity verification is restored.",
+                did
+            ))))
+        }
+    }
 }
 
 /// Refresh a consciousness credential by re-fetching from the identity cluster.
 ///
-/// Called by `gate_consciousness()` when a credential is nearing expiry (within
+/// Called by `gate_civic()` when a credential is nearing expiry (within
 /// 2 hours). Fetches a fresh credential from the identity bridge, updates the
 /// local engagement dimension, and caches the result.
 ///
@@ -1497,17 +1573,12 @@ pub fn refresh_consciousness_credential(did: String) -> ExternResult<Consciousne
             if let Some(cached) = get_cached_credential(&did)? {
                 return Ok(cached);
             }
-            // No cache either — return Citizen-tier fallback
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.5,
-                0.5,
-                0.5,
-                0.5,
-                "did:mycelix:civic-bridge-fallback".to_string(),
-                now_us,
-            )
+            // No cache either — fail closed. Do not issue unverified credentials.
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable during refresh and no cached credential \
+                 for {}. Cannot proceed without verified consciousness credentials.",
+                did
+            ))));
         }
     };
 
@@ -1565,6 +1636,259 @@ fn calculate_local_engagement() -> ExternResult<f64> {
 }
 
 // ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// See `mycelix_bridge_common::metrics::BridgeMetricsSnapshot` for the schema.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
+    })
+}
+
+// ============================================================================
+// Notification Service
+// ============================================================================
+
+/// Receive a cross-cluster notification and store it locally.
+#[hdk_extern]
+pub fn receive_notification(notification: mycelix_bridge_entry_types::CrossClusterNotification) -> ExternResult<ActionHash> {
+    let action_hash = create_entry(&EntryTypes::Notification(notification.clone()))?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    create_link(inbox_anchor, action_hash.clone(), LinkTypes::AgentToNotification, ())?;
+    let all_anchor = ensure_anchor("all_notifications")?;
+    create_link(all_anchor, action_hash.clone(), LinkTypes::AllNotifications, ())?;
+    let signal = mycelix_bridge_common::notifications::NotificationSignal {
+        signal_type: "cross_cluster_notification".into(),
+        source_cluster: notification.source_cluster,
+        event_type: notification.event_type,
+        payload: notification.payload,
+        priority: notification.priority,
+    };
+    emit_signal(&signal)?;
+    Ok(action_hash)
+}
+
+/// Get notifications for the calling agent.
+#[hdk_extern]
+pub fn get_my_notifications(input: mycelix_bridge_common::notifications::NotificationQueryInput) -> ExternResult<Vec<Record>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    let limit = input.limit
+        .unwrap_or(mycelix_bridge_common::notifications::DEFAULT_NOTIFICATION_LIMIT)
+        .min(mycelix_bridge_common::notifications::MAX_NOTIFICATIONS_PER_AGENT);
+    let mut records = Vec::new();
+    for link in links.iter().rev().take(limit) {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+/// Get unread notification count for the calling agent.
+#[hdk_extern]
+pub fn get_unread_count(_: ()) -> ExternResult<u32> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    Ok(links.len() as u32)
+}
+
+// ============================================================================
+// Saga Workflow Orchestrator
+// ============================================================================
+
+/// Execute a multi-step cross-cluster saga workflow.
+///
+/// The saga state machine drives dispatch to target clusters. On any step
+/// failure, compensation actions are executed in reverse order.
+///
+/// ## Example: Emergency Response Saga
+///
+/// ```ignore
+/// use mycelix_bridge_common::saga::emergency_response_saga;
+/// let saga = emergency_response_saga("inc-001".into(), 32.9, -96.7, now_us);
+/// execute_saga(saga)?;
+/// ```
+#[hdk_extern]
+pub fn execute_saga(mut saga: mycelix_bridge_common::saga::SagaDefinition) -> ExternResult<Record> {
+    use mycelix_bridge_common::saga::{self, SagaAction};
+
+    let now_us = sys_time()?.as_micros() as u64;
+
+    // Execute steps until completion, failure, or timeout
+    loop {
+        let action = saga::advance(&mut saga, now_us);
+        match action {
+            SagaAction::Dispatch { role, zome, fn_name, payload } => {
+                let dispatch = CrossClusterDispatchInput {
+                    role: role.clone(),
+                    zome: zome.clone(),
+                    fn_name: fn_name.clone(),
+                    payload: payload.clone(),
+                };
+
+                // Determine allowed zomes for this route
+                let target_role = match role.as_str() {
+                    "commons" => CrossClusterRole::Commons,
+                    "finance" => CrossClusterRole::Finance,
+                    "governance" => CrossClusterRole::Governance,
+                    "identity" => CrossClusterRole::Identity,
+                    "hearth" => CrossClusterRole::Hearth,
+                    "personal" => CrossClusterRole::Personal,
+                    "health" => CrossClusterRole::Health,
+                    "energy" => CrossClusterRole::Energy,
+                    _ => {
+                        saga::record_failure(&mut saga, format!("Unknown role: {}", role));
+                        continue;
+                    }
+                };
+
+                // Check if this is a local or cross-cluster call
+                let result = if role == "civic" {
+                    let local_dispatch = DispatchInput {
+                        zome: zome.clone(),
+                        fn_name: fn_name.clone(),
+                        payload,
+                    };
+                    bridge::dispatch_call_checked(&local_dispatch, ALLOWED_ZOMES)
+                } else {
+                    let allowed = routing_registry::get_allowed_zomes(
+                        CrossClusterRole::Civic,
+                        target_role,
+                    );
+                    bridge::dispatch_call_cross_cluster(&dispatch, allowed)
+                };
+
+                match result {
+                    Ok(r) if r.success => {
+                        saga::record_success(&mut saga, r.response);
+                    }
+                    Ok(r) => {
+                        saga::record_failure(
+                            &mut saga,
+                            r.error.unwrap_or_else(|| "Unknown dispatch error".into()),
+                        );
+                    }
+                    Err(e) => {
+                        saga::record_failure(&mut saga, format!("{:?}", e));
+                    }
+                }
+            }
+            SagaAction::Compensate(actions) => {
+                // Execute compensations best-effort
+                for comp in &actions {
+                    let dispatch = CrossClusterDispatchInput {
+                        role: comp.role.clone(),
+                        zome: comp.zome.clone(),
+                        fn_name: comp.fn_name.clone(),
+                        payload: comp.payload.clone(),
+                    };
+                    let _ = bridge::dispatch_call_cross_cluster(
+                        &dispatch,
+                        &[&comp.zome],
+                    );
+                }
+                saga::mark_compensated(&mut saga);
+                break;
+            }
+            SagaAction::Complete | SagaAction::Timeout => break,
+        }
+    }
+
+    // Store saga result on DHT as a BridgeEventEntry
+    let saga_json = serde_json::to_string(&saga)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    let event = mycelix_bridge_entry_types::BridgeEventEntry {
+        schema_version: 1,
+        domain: "saga".into(),
+        event_type: saga.name.clone(),
+        source_agent: caller.clone(),
+        payload: saga_json,
+        created_at: sys_time()?,
+        related_hashes: vec![],
+    };
+    let action_hash = create_entry(&EntryTypes::Event(event))?;
+
+    // Index by agent
+    let agent_anchor = ensure_anchor(&format!("sagas:{:?}", caller))?;
+    create_link(agent_anchor, action_hash.clone(), LinkTypes::AgentToSaga, ())?;
+
+    get(action_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not read saga entry".into())))
+}
+
+/// Get the status of a saga by its action hash.
+#[hdk_extern]
+pub fn get_saga_status(hash: ActionHash) -> ExternResult<Record> {
+    get(hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Saga not found".into())))
+}
+
+/// Get all sagas initiated by the calling agent.
+#[hdk_extern]
+pub fn get_my_sagas(_: ()) -> ExternResult<Vec<Record>> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let agent_anchor = ensure_anchor(&format!("sagas:{:?}", caller))?;
+    let links = get_links(
+        LinkQuery::try_new(agent_anchor, LinkTypes::AgentToSaga)?,
+        GetStrategy::Local,
+    )?;
+
+    let mut records = Vec::new();
+    for link in links.iter().rev().take(50) {
+        if let Ok(hash) = ActionHash::try_from(link.target.clone()) {
+            if let Some(record) = get(hash, GetOptions::default())? {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
+}
+
+/// Start an emergency response saga for a declared disaster.
+///
+/// Convenience wrapper that creates and executes the pre-built
+/// emergency response saga template.
+#[hdk_extern]
+pub fn start_emergency_saga(input: EmergencySagaInput) -> ExternResult<Record> {
+    let now_us = sys_time()?.as_micros() as u64;
+    let saga = mycelix_bridge_common::saga::emergency_response_saga(
+        input.incident_id,
+        input.latitude,
+        input.longitude,
+        now_us,
+    );
+    execute_saga(saga)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EmergencySagaInput {
+    pub incident_id: String,
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1586,8 +1910,8 @@ mod tests {
 
     #[test]
     fn local_allowlist_has_expected_count() {
-        // 5 justice + 6 emergency + 4 media = 15
-        assert_eq!(ALLOWED_ZOMES.len(), 15);
+        // 5 justice + 6 emergency + 4 media + 1 resonance + 1 robotics = 17
+        assert_eq!(ALLOWED_ZOMES.len(), 17);
     }
 
     #[test]

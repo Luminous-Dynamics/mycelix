@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Care Coordinator Zome
 //! Business logic for care scheduling, task completion signals,
 //! care swaps, and meal planning.
@@ -9,19 +12,13 @@ use hearth_coordinator_common::{
 };
 use hearth_types::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, GovernanceEligibility,
 };
 
 // ============================================================================
 // Consciousness Gating
 // ============================================================================
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("hearth_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Input Types
@@ -81,7 +78,7 @@ fn is_swap_pending(status: &SwapStatus) -> bool {
 /// Create a new care schedule and link it to the hearth and assigned agent.
 #[hdk_extern]
 pub fn create_care_schedule(input: CreateCareScheduleInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_care_schedule")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "create_care_schedule")?;
     require_membership(&input.hearth_hash)?;
     let schedule = CareSchedule {
         hearth_hash: input.hearth_hash.clone(),
@@ -125,7 +122,7 @@ pub fn create_care_schedule(input: CreateCareScheduleInput) -> ExternResult<Reco
 /// Status: only Active schedules can be completed.
 #[hdk_extern]
 pub fn complete_task(input: CompleteTaskInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "complete_task")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "complete_task")?;
     let now = sys_time()?;
 
     let record = get(input.schedule_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
@@ -201,7 +198,7 @@ pub fn complete_task(input: CompleteTaskInput) -> ExternResult<Record> {
 /// Propose a care task swap with another hearth member.
 #[hdk_extern]
 pub fn propose_swap(input: ProposeSwapInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "propose_swap")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "propose_swap")?;
     require_membership(&input.hearth_hash)?;
     let schedule_record =
         get(input.original_schedule_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
@@ -256,7 +253,7 @@ pub fn propose_swap(input: ProposeSwapInput) -> ExternResult<Record> {
 /// Status: only Proposed swaps can be accepted.
 #[hdk_extern]
 pub fn accept_swap(swap_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "accept_swap")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "accept_swap")?;
     update_swap_status(swap_hash, SwapStatus::Accepted)
 }
 
@@ -266,14 +263,14 @@ pub fn accept_swap(swap_hash: ActionHash) -> ExternResult<Record> {
 /// Status: only Proposed swaps can be declined.
 #[hdk_extern]
 pub fn decline_swap(swap_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "decline_swap")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "decline_swap")?;
     update_swap_status(swap_hash, SwapStatus::Declined)
 }
 
 /// Create a weekly meal plan for the hearth.
 #[hdk_extern]
 pub fn create_meal_plan(input: CreateMealPlanInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "create_meal_plan")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "create_meal_plan")?;
     require_membership(&input.hearth_hash)?;
     let plan = MealPlan {
         hearth_hash: input.hearth_hash.clone(),

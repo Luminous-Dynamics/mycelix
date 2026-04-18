@@ -1095,8 +1095,20 @@ dependencies = [
 name = "mycelix-bridge-common"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "hdk",
+ "mycelix-bridge-entry-types",
  "serde",
+]
+
+[[package]]
+name = "mycelix-bridge-entry-types"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

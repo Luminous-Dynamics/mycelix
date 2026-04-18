@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Scalar field operations for secp256k1
 //!
 //! Wraps k256::Scalar with additional operations needed for DKG.
@@ -62,7 +65,7 @@ impl Scalar {
     pub fn invert(&self) -> DkgResult<Self> {
         let inv = self.0.invert();
         if inv.is_some().into() {
-            Ok(Self(inv.unwrap()))
+            Ok(Self(inv.expect("invert check passed but unwrap failed")))
         } else {
             Err(DkgError::CryptoError("Cannot invert zero".into()))
         }

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { get_request_store, with_request_store } from "@sveltejs/kit/internal/server";
 import { error, json } from "@sveltejs/kit";
 import { G as stringify_remote_arg, H as parse, M as MUTATIVE_METHODS, J as create_field_proxy, K as normalize_issue, L as set_nested_value, N as flatten_issues, O as deep_set, z as stringify, d as browser, u as create_remote_key, h as handle_error_and_jsonify } from "./chunks/shared.js";

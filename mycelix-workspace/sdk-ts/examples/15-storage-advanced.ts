@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * Example 15: Advanced Storage Patterns
  *
@@ -363,7 +366,7 @@ async function crossHappExample() {
   // Each hApp stores reputation in a shared namespace
   const happReputations = [
     { happ: 'marketplace', agent: 'alice', score: 4.8, interactions: 150 },
-    { happ: 'edunet', agent: 'alice', score: 4.9, interactions: 45 },
+    { happ: 'praxis', agent: 'alice', score: 4.9, interactions: 45 },
     { happ: 'supplychain', agent: 'alice', score: 4.7, interactions: 80 },
   ];
 

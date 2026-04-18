@@ -1,4 +1,7 @@
 #![deny(unsafe_code)]
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Price Oracle Coordinator Zome
 //!
 //! Community-driven price discovery for TEND purchasing power.
@@ -111,6 +114,13 @@ pub struct ConsensusResult {
     /// exceeding VOLATILITY_ESCALATION_THRESHOLD (20% weekly change).
     #[serde(default)]
     pub tend_escalated: bool,
+    /// Whether this consensus was degraded to the most recent prior consensus
+    /// because the current reporting window did not have enough reporters.
+    #[serde(default)]
+    pub fallback_used: bool,
+    /// Human-readable explanation for degraded/fallback consensus outputs.
+    #[serde(default)]
+    pub fallback_reason: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -419,11 +429,11 @@ pub fn report_price(input: ReportPriceInput) -> ExternResult<Record> {
 // CONSENSUS COMPUTATION
 // =============================================================================
 
-/// Fetch the most recent stored consensus price for an item.
+/// Fetch the most recent stored consensus entry for an item.
 ///
-/// Returns `Ok(Some(median_price))` if a prior consensus exists, `Ok(None)` otherwise.
+/// Returns `Ok(Some(consensus))` if a prior consensus exists, `Ok(None)` otherwise.
 /// Used by `get_consensus_price` to detect volatility and trigger TEND escalation.
-fn get_previous_consensus_price(item: &str) -> ExternResult<Option<f64>> {
+fn get_previous_consensus(item: &str) -> ExternResult<Option<PriceConsensus>> {
     let consensus_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}:consensus"))?;
     let links = get_links(
         LinkQuery::try_new(consensus_anchor, LinkTypes::ItemToConsensus)?,
@@ -439,13 +449,33 @@ fn get_previous_consensus_price(item: &str) -> ExternResult<Option<f64>> {
                     .ok()
                     .flatten()
                 {
-                    return Ok(Some(prev.median_price));
+                    return Ok(Some(prev));
                 }
             }
         }
     }
 
     Ok(None)
+}
+
+fn build_fallback_consensus(
+    item: &str,
+    window_start: Timestamp,
+    reporter_count: usize,
+    previous: &PriceConsensus,
+    reason: String,
+) -> ConsensusResult {
+    ConsensusResult {
+        item: item.to_string(),
+        median_price: previous.median_price,
+        reporter_count: reporter_count as u32,
+        std_dev: previous.std_dev,
+        window_start,
+        signal_integrity: ACCURACY_INITIAL_SCORE,
+        tend_escalated: false,
+        fallback_used: true,
+        fallback_reason: Some(reason),
+    }
 }
 
 /// Get the accuracy-weighted consensus price for an item.
@@ -464,6 +494,7 @@ fn get_previous_consensus_price(item: &str) -> ExternResult<Option<f64>> {
 pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusResult> {
     let item = input.item.to_lowercase().trim().to_string();
     let item_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}"))?;
+    let previous_consensus = get_previous_consensus(&item)?;
 
     let links = get_links(
         LinkQuery::try_new(item_anchor, LinkTypes::ItemToReports)?,
@@ -496,6 +527,19 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     }
 
     if reporters.len() < MIN_REPORTERS_FOR_CONSENSUS {
+        if let Some(previous) = previous_consensus.as_ref() {
+            return Ok(build_fallback_consensus(
+                &item,
+                window_start,
+                reporters.len(),
+                previous,
+                format!(
+                    "Insufficient fresh reporters in consensus window; reused previous consensus with {} reporter(s)",
+                    reporters.len()
+                ),
+            ));
+        }
+
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Need at least {MIN_REPORTERS_FOR_CONSENSUS} reporters for consensus, got {}",
             reporters.len()
@@ -573,7 +617,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
 
     // Fetch the previous consensus price BEFORE replacing the link, so we
     // compare against the prior value (not the one we just stored).
-    let previous_median = get_previous_consensus_price(&item)?;
+    let previous_median = previous_consensus.as_ref().map(|consensus| consensus.median_price);
 
     // Update latest consensus link (replace old if exists)
     let consensus_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}:consensus"))?;
@@ -653,6 +697,8 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         window_start,
         signal_integrity,
         tend_escalated,
+        fallback_used: false,
+        fallback_reason: None,
     })
 }
 
@@ -670,6 +716,15 @@ pub fn define_basket(input: DefineBasketInput) -> ExternResult<Record> {
     let my_info = agent_info()?;
     let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);
     let now = sys_time()?;
+
+    // Validate all weights are finite and positive before processing
+    for bi in &input.items {
+        if !bi.weight.is_finite() || bi.weight <= 0.0 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Basket item weights must be positive finite numbers".into()
+            )));
+        }
+    }
 
     let items: Vec<BasketItemDef> = input
         .items
@@ -927,12 +982,7 @@ pub fn get_recent_reports(input: GetRecentReportsInput) -> ExternResult<Vec<Rece
     for link in &links {
         if let Some(hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(hash.clone(), GetOptions::default())? {
-                if let Some(report) = record
-                    .entry()
-                    .to_app_option::<PriceReport>()
-                    .ok()
-                    .flatten()
-                {
+                if let Some(report) = record.entry().to_app_option::<PriceReport>().ok().flatten() {
                     results.push(RecentReportResult {
                         id: hash.to_string(),
                         item_name: report.item,
@@ -1074,7 +1124,7 @@ mod tests {
     #[test]
     fn test_trimmed_median_odd() {
         let mut prices = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        prices.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        prices.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let trim_count = (prices.len() as f64 * TRIM_PERCENT).floor() as usize;
         let trimmed = &prices[trim_count..prices.len() - trim_count];
         // Trim 1 from each end: [2, 3, 4, 5, 6, 7, 8, 9]
@@ -1114,6 +1164,39 @@ mod tests {
             prices.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / prices.len() as f64;
         let std_dev = variance.sqrt();
         assert!((std_dev - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_build_fallback_consensus_marks_degraded_output() {
+        let previous = PriceConsensus {
+            item: "grain".into(),
+            median_price: 12.5,
+            reporter_count: 3,
+            std_dev: 0.8,
+            window_start: Timestamp::from_micros(100),
+            computed_at: Timestamp::from_micros(200),
+        };
+
+        let result = build_fallback_consensus(
+            "grain",
+            Timestamp::from_micros(300),
+            1,
+            &previous,
+            "Insufficient fresh reporters".into(),
+        );
+
+        assert_eq!(result.item, "grain");
+        assert_eq!(result.median_price, 12.5);
+        assert_eq!(result.reporter_count, 1);
+        assert_eq!(result.std_dev, 0.8);
+        assert_eq!(result.window_start, Timestamp::from_micros(300));
+        assert_eq!(result.signal_integrity, ACCURACY_INITIAL_SCORE);
+        assert!(!result.tend_escalated);
+        assert!(result.fallback_used);
+        assert_eq!(
+            result.fallback_reason.as_deref(),
+            Some("Insufficient fresh reporters")
+        );
     }
 
     #[test]
@@ -1290,7 +1373,7 @@ mod tests {
         // (weighted_median, signal_integrity)
         // Sort by price for trimming
         let mut sorted: Vec<(f64, f64, u32)> = reports.to_vec();
-        sorted.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        sorted.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
         // Trim 10%
         let trim_count = (sorted.len() as f64 * TRIM_PERCENT).floor() as usize;
@@ -1467,12 +1550,12 @@ mod tests {
         // With the cap, each sybil gets at most 0.5 → 3×0.5 = 1.5 total.
         // Honest total: 0.95 + 0.92 + 0.90 = 2.77 → honest dominate.
         let reports = vec![
-            (0.50, 0.95, MIN_REPORTS_FOR_FULL_WEIGHT),     // established honest
+            (0.50, 0.95, MIN_REPORTS_FOR_FULL_WEIGHT), // established honest
             (0.51, 0.92, MIN_REPORTS_FOR_FULL_WEIGHT + 3), // established honest
             (0.52, 0.90, MIN_REPORTS_FOR_FULL_WEIGHT + 1), // established honest
-            (10.0, ACCURACY_INITIAL_SCORE, 0),              // sybil newcomer
-            (10.0, ACCURACY_INITIAL_SCORE, 1),              // sybil newcomer
-            (10.0, ACCURACY_INITIAL_SCORE, 2),              // sybil newcomer
+            (10.0, ACCURACY_INITIAL_SCORE, 0),         // sybil newcomer
+            (10.0, ACCURACY_INITIAL_SCORE, 1),         // sybil newcomer
+            (10.0, ACCURACY_INITIAL_SCORE, 2),         // sybil newcomer
         ];
         let (median, _si) = sim_consensus_with_counts(&reports);
 
@@ -1487,10 +1570,7 @@ mod tests {
 
         // Compare: without newcomer cap (all treated as established), sybils would
         // have full weight and pull the median higher.
-        let uncapped_reports: Vec<(f64, f64)> = reports
-            .iter()
-            .map(|(p, a, _)| (*p, *a))
-            .collect();
+        let uncapped_reports: Vec<(f64, f64)> = reports.iter().map(|(p, a, _)| (*p, *a)).collect();
         let (uncapped_median, _) = sim_consensus(&uncapped_reports);
         assert!(
             median <= uncapped_median,
@@ -1594,7 +1674,7 @@ mod tests {
             id: "uhCkk_abc123".to_string(),
             item_name: "bread_750g".to_string(),
             price_tend: 0.15,
-            evidence: "Pick n Pay Roodepoort".to_string(),
+            evidence: "Local Market".to_string(),
             reporter_did: "did:holo:abc123".to_string(),
             timestamp: 1710000000000000,
         };
@@ -1603,7 +1683,7 @@ mod tests {
         assert_eq!(json["id"], "uhCkk_abc123");
         assert_eq!(json["item_name"], "bread_750g");
         assert_eq!(json["price_tend"], 0.15);
-        assert_eq!(json["evidence"], "Pick n Pay Roodepoort");
+        assert_eq!(json["evidence"], "Local Market");
         assert_eq!(json["reporter_did"], "did:holo:abc123");
         assert_eq!(json["timestamp"], 1710000000000000i64);
     }

@@ -1,11 +1,12 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Purity Coordinator Zome
 //! Business logic for water quality monitoring, alerts, and remediation
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::records_from_links;
 use water_purity_integrity::*;
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -13,42 +14,6 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
-
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // QUALITY READINGS
@@ -57,7 +22,7 @@ fn require_consciousness(
 /// Submit a new water quality reading
 #[hdk_extern]
 pub fn submit_reading(reading: QualityReading) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "submit_reading")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "submit_reading")?;
 
     // Validate pH range (0-14) if provided
     if let Some(ph) = reading.ph {
@@ -254,7 +219,7 @@ pub struct PotabilityResult {
 /// Raise a contamination alert for a water source
 #[hdk_extern]
 pub fn raise_alert(alert: ContaminationAlert) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "raise_alert")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "raise_alert")?;
     if alert.contaminant.trim().is_empty() || alert.contaminant.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Contaminant name must be 1-256 non-whitespace characters".into()
@@ -323,7 +288,7 @@ pub fn get_active_alerts(_: ()) -> ExternResult<Vec<Record>> {
 /// Resolve an alert by marking it with a resolution timestamp
 #[hdk_extern]
 pub fn resolve_alert(input: ResolveAlertInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "resolve_alert")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "resolve_alert")?;
     let record = get(input.alert_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Alert not found".into())))?;
     let mut alert: ContaminationAlert = record
@@ -367,7 +332,7 @@ pub struct ResolveAlertInput {
 /// Start a remediation action for a contamination alert
 #[hdk_extern]
 pub fn start_remediation(remediation: Remediation) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "start_remediation")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "start_remediation")?;
     if remediation.method.trim().is_empty() || remediation.method.len() > 1024 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Remediation method must be 1-1024 non-whitespace characters".into()
@@ -392,7 +357,7 @@ pub fn start_remediation(remediation: Remediation) -> ExternResult<Record> {
 /// Complete a remediation with verification
 #[hdk_extern]
 pub fn complete_remediation(input: CompleteRemediationInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "complete_remediation")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_remediation")?;
     let agent_info = agent_info()?;
     let record = get(input.remediation_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Remediation not found".into())

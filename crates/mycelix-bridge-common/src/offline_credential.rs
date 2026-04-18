@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Offline-resilient credential extensions for Mycelix identity.
 //!
 //! Extends ConsciousnessCredential with graceful degradation during
@@ -66,6 +69,16 @@ impl FreshnessAttestation {
 const HOURS_24: u64 = 24 * 3600 * 1_000_000;
 const HOURS_72: u64 = 72 * 3600 * 1_000_000;
 const HOURS_168: u64 = 168 * 3600 * 1_000_000;
+
+/// Clock skew tolerance: 15 minutes in microseconds.
+///
+/// During South African loadshedding or extended offline periods, device
+/// clocks can drift. A reference_time up to 15 minutes in the "future" (ahead
+/// of now_us) is treated as a zero-elapsed scenario rather than triggering
+/// the 2-tier anti-tampering degradation. NTP syncs within seconds when power
+/// returns; 15 minutes provides >100x safety margin while limiting the
+/// attack window vs the previous 1 hour tolerance.
+const CLOCK_SKEW_TOLERANCE_US: u64 = 900 * 1_000_000;
 
 /// Maximum allowed custom grace period: 30 days (720 hours).
 const MAX_GRACE_HOURS: u64 = 720;
@@ -136,12 +149,19 @@ impl OfflineCredential {
             _ => self.last_online_verification,
         };
 
-        // Future-dated reference times are suspicious — degrade as if 72h+ offline
+        // Future-dated reference times: tolerate up to 15 minutes of clock skew
+        // (common during South African loadshedding recovery when NTP hasn't synced).
+        // Beyond the tolerance window, treat as suspicious and degrade.
         if reference_time > now_us {
-            return self.credential.tier.degrade(2);
+            let gap = reference_time - now_us;
+            if gap > CLOCK_SKEW_TOLERANCE_US {
+                return self.credential.tier.degrade(2);
+            }
+            // Within tolerance: treat as zero elapsed (just-verified)
+            return self.credential.tier;
         }
 
-        let elapsed = now_us.saturating_sub(reference_time);
+        let elapsed = now_us - reference_time;
         let grace = self.custom_grace_period.unwrap_or(HOURS_24);
 
         if elapsed <= grace {
@@ -298,12 +318,30 @@ mod tests {
 
     #[test]
     fn tier_degrade_levels() {
-        assert_eq!(ConsciousnessTier::Guardian.degrade(0), ConsciousnessTier::Guardian);
-        assert_eq!(ConsciousnessTier::Guardian.degrade(1), ConsciousnessTier::Steward);
-        assert_eq!(ConsciousnessTier::Guardian.degrade(2), ConsciousnessTier::Citizen);
-        assert_eq!(ConsciousnessTier::Guardian.degrade(3), ConsciousnessTier::Participant);
-        assert_eq!(ConsciousnessTier::Guardian.degrade(4), ConsciousnessTier::Observer);
-        assert_eq!(ConsciousnessTier::Guardian.degrade(100), ConsciousnessTier::Observer);
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(0),
+            ConsciousnessTier::Guardian
+        );
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(1),
+            ConsciousnessTier::Steward
+        );
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(2),
+            ConsciousnessTier::Citizen
+        );
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(3),
+            ConsciousnessTier::Participant
+        );
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(4),
+            ConsciousnessTier::Observer
+        );
+        assert_eq!(
+            ConsciousnessTier::Guardian.degrade(100),
+            ConsciousnessTier::Observer
+        );
     }
 
     #[test]
@@ -403,5 +441,55 @@ mod tests {
 
         // After 24h, Participant degrades to Observer -- not usable
         assert!(!offline.is_usable(48 * 3600 * 1_000_000));
+    }
+
+    // ---- Clock skew tolerance ----
+
+    #[test]
+    fn clock_skew_within_tolerance_preserves_tier() {
+        // Credential issued at time 100h, current time 10 minutes behind
+        // (reference_time 10 minutes ahead of now — within 15min tolerance)
+        let base = 100 * 3600 * 1_000_000_u64;
+        let now = base - 10 * 60 * 1_000_000; // 10 min behind reference
+        let cred = make_credential(ConsciousnessTier::Citizen, base);
+        let offline = OfflineCredential::new(cred);
+
+        // Should preserve full tier (within clock skew tolerance)
+        assert_eq!(offline.effective_tier(now), ConsciousnessTier::Citizen);
+    }
+
+    #[test]
+    fn clock_skew_at_15min_boundary_preserves_tier() {
+        // Reference time exactly 15 minutes ahead of now (at tolerance boundary)
+        let base = 100 * 3600 * 1_000_000_u64;
+        let now = base - 900 * 1_000_000; // exactly 15min behind
+        let cred = make_credential(ConsciousnessTier::Steward, base);
+        let offline = OfflineCredential::new(cred);
+
+        // Should still preserve tier (at boundary)
+        assert_eq!(offline.effective_tier(now), ConsciousnessTier::Steward);
+    }
+
+    #[test]
+    fn clock_skew_beyond_tolerance_degrades() {
+        // Reference time 30 minutes ahead of now (beyond 15min tolerance)
+        let base = 100 * 3600 * 1_000_000_u64;
+        let now = base - 30 * 60 * 1_000_000; // 30min behind
+        let cred = make_credential(ConsciousnessTier::Guardian, base);
+        let offline = OfflineCredential::new(cred);
+
+        // Should degrade by 2 levels (suspicious future timestamp)
+        assert_eq!(offline.effective_tier(now), ConsciousnessTier::Citizen);
+    }
+
+    #[test]
+    fn clock_skew_tiny_drift_preserves_tier() {
+        // Reference time just 1 microsecond ahead of now
+        let base = 50 * 3600 * 1_000_000_u64;
+        let now = base - 1;
+        let cred = make_credential(ConsciousnessTier::Citizen, base);
+        let offline = OfflineCredential::new(cred);
+
+        assert_eq!(offline.effective_tier(now), ConsciousnessTier::Citizen);
     }
 }

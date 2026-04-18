@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * Base Zome Client
  *
@@ -9,7 +12,7 @@
 
 import { SdkError, SdkErrorCode, ZomeCallError } from './errors.js';
 import { withRetryAndTimeout, type RetryConfig } from './retry.js';
-import { ConsciousnessGateError, withGateRetry } from './consciousness-gate.js';
+import { withGateRetry } from './consciousness-gate.js';
 
 import type { AppClient, Record as HolochainRecord } from '@holochain/client';
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Pools Coordinator Zome - Mutual aid pool management
 //!
 //! This zome provides the coordination logic for creating and managing
@@ -9,17 +12,9 @@ use mutualaid_pools_integrity::{
     DisbursementStatus, EntryTypes, LinkTypes, MemberRole, MutualAidPool, PoolMembership,
     PoolStatus,
 };
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 /// Input for creating a new pool
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -154,24 +149,6 @@ fn get_member_anchor(did: &str) -> ExternResult<EntryHash> {
 }
 
 /// Create a new mutual aid pool
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
 
 #[hdk_extern]
 pub fn create_pool(input: CreatePoolInput) -> ExternResult<PoolWithHash> {
@@ -453,7 +430,7 @@ pub fn contribute(input: ContributeInput) -> ExternResult<ContributionWithHash> 
 /// Request a disbursement from a pool
 #[hdk_extern]
 pub fn request_disbursement(input: RequestDisbursementInput) -> ExternResult<DisbursementWithHash> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "request_disbursement")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "request_disbursement")?;
 
     // Validate disbursement amount is non-zero
     if input.amount == 0 {
@@ -553,7 +530,7 @@ pub fn request_disbursement(input: RequestDisbursementInput) -> ExternResult<Dis
 /// Vote on a disbursement request
 #[hdk_extern]
 pub fn vote_disbursement(input: VoteDisbursementInput) -> ExternResult<DisbursementWithHash> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "vote_disbursement")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "vote_disbursement")?;
 
     // Get the current disbursement
     let record = get(input.disbursement_hash.clone(), GetOptions::default())?

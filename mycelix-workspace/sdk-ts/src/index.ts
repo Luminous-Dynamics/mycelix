@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
  * @mycelix/sdk
  *
@@ -69,7 +72,7 @@ export * as innovations from './innovations/index.js';
 // Re-export integration modules
 export * as mail from './integrations/mail/index.js';
 export * as marketplace from './integrations/marketplace/index.js';
-export * as edunet from './integrations/edunet/index.js';
+export * as praxis from './integrations/praxis/index.js';
 export * as supplychain from './integrations/supplychain/index.js';
 
 // Bridge routing types (shared across clusters)
@@ -625,16 +628,16 @@ export {
 } from './integrations/marketplace/index.js';
 
 export {
-  // EduNet Integration
+  // Praxis Integration
   type CompletionStatus,
   type Course,
   type CourseCompletion,
   type EducationalCredential,
   type SkillAssessment,
   type LearnerProfile,
-  EduNetCredentialService,
-  getEduNetService,
-} from './integrations/edunet/index.js';
+  PraxisCredentialService,
+  getPraxisService,
+} from './integrations/praxis/index.js';
 
 export {
   // SupplyChain Integration

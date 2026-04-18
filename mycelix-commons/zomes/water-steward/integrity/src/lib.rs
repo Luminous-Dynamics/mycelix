@@ -1,7 +1,11 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Steward Integrity Zome
 //! Watershed governance, water rights, transfers, and dispute resolution
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -232,6 +236,8 @@ pub enum LinkTypes {
     AgentToDispute,
     /// Stewardship type to watersheds
     StewardshipTypeToWatershed,
+    /// Geohash anchor to entry for spatial indexing
+    GeoIndex,
 }
 
 // ============================================================================
@@ -328,19 +334,47 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
+            LinkTypes::GeoIndex => {
+                if tag.0.len() > 256 {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "GeoIndex link tag too long (max 256 bytes)".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         },
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            Ok(check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            ))
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 
@@ -1689,7 +1723,8 @@ mod tests {
             | LinkTypes::WatershedToRight
             | LinkTypes::HolderToRight
             | LinkTypes::WatershedToDispute
-            | LinkTypes::AgentToDispute => {
+            | LinkTypes::AgentToDispute
+            | LinkTypes::GeoIndex => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(format!(
                         "{:?} link tag too long (max 256 bytes)",

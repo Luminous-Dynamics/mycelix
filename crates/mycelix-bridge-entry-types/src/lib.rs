@@ -1,3 +1,7 @@
+#![allow(deprecated)] // Uses legacy ConsciousnessCredential for backward-compat bridge
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix Bridge Entry Types — Shared DHT entry structs for cluster bridges
 //!
 //! Provides the canonical entry types stored on the DHT by both the Commons
@@ -21,6 +25,25 @@ use hdi::prelude::*;
 fn default_schema_v1() -> u8 {
     1
 }
+
+// ============================================================================
+// Size limit constants — prevent DHT storage exhaustion attacks
+// ============================================================================
+
+/// Maximum length for domain identifiers (e.g., "property", "justice")
+pub const MAX_DOMAIN_BYTES: usize = 256;
+
+/// Maximum length for query_type / event_type identifiers
+pub const MAX_TYPE_BYTES: usize = 256;
+
+/// Maximum length for query result payloads (64 KB)
+pub const MAX_RESULT_BYTES: usize = 65_536;
+
+/// Maximum length for each individual hash in related_hashes
+pub const MAX_HASH_BYTES: usize = 128;
+
+/// Maximum length for DID strings
+pub const MAX_DID_BYTES: usize = 256;
 
 // ============================================================================
 // Entry types
@@ -160,6 +183,13 @@ pub fn validate_cached_credential(entry: &CachedCredentialEntry) -> Result<(), S
     if entry.did.is_empty() {
         return Err("Cached credential DID cannot be empty".into());
     }
+    if entry.did.len() > MAX_DID_BYTES {
+        return Err(format!(
+            "Cached credential DID too long ({} bytes, max {})",
+            entry.did.len(),
+            MAX_DID_BYTES
+        ));
+    }
     if entry.credential_json.is_empty() {
         return Err("Cached credential JSON cannot be empty".into());
     }
@@ -247,9 +277,7 @@ impl TryFrom<&Entry> for JurisdictionConstraintEntry {
 /// Validate a jurisdiction constraint entry.
 ///
 /// Returns `Ok(())` if valid, or `Err(reason)` if invalid.
-pub fn validate_jurisdiction_constraint(
-    entry: &JurisdictionConstraintEntry,
-) -> Result<(), String> {
+pub fn validate_jurisdiction_constraint(entry: &JurisdictionConstraintEntry) -> Result<(), String> {
     if entry.zone_id.is_empty() {
         return Err("Zone ID cannot be empty".into());
     }
@@ -304,6 +332,198 @@ pub fn validate_jurisdiction_constraint(
 }
 
 // ============================================================================
+// Schema Migration Framework
+// ============================================================================
+
+/// Trait for entry types that support schema migration.
+///
+/// Implementors declare their current schema version and provide a migration
+/// path from older versions. This enables forward-compatible DHT reads: when
+/// a node encounters an entry written by a newer or older software version,
+/// migration can convert it to the current in-memory representation.
+///
+/// ## Adding a v1 → v2 migration (example)
+///
+/// When you add a new field to `BridgeQueryEntry`:
+///
+/// 1. Add the field with `#[serde(default)]` so v1 entries deserialize.
+/// 2. Bump `CURRENT_VERSION` to 2.
+/// 3. In `migrate()`, handle `from_version == 1`:
+///
+/// ```ignore
+/// fn migrate(raw: &Entry, from_version: u8) -> Result<Option<Self>, String> {
+///     match from_version {
+///         1 => {
+///             // Deserialize v1 entry (missing new_field will get serde default)
+///             let entry = Self::try_from(raw)
+///                 .map_err(|e| format!("v1 migration failed: {}", e))?;
+///             // Optionally transform fields here
+///             Ok(Some(entry))
+///         }
+///         v if v == Self::CURRENT_VERSION => Ok(None), // already current
+///         v => Err(format!("Unknown schema version {}", v)),
+///     }
+/// }
+/// ```
+pub trait SchemaMigration: Sized {
+    /// Current schema version for this type.
+    const CURRENT_VERSION: u8;
+
+    /// Migrate from an older version to the current version.
+    ///
+    /// Returns:
+    /// - `Ok(None)` if the entry is already at the current version (no migration needed).
+    /// - `Ok(Some(migrated))` if migration succeeded.
+    /// - `Err(reason)` if migration is not possible (e.g., unknown future version).
+    fn migrate(_raw: &Entry, from_version: u8) -> Result<Option<Self>, String>;
+}
+
+impl SchemaMigration for BridgeQueryEntry {
+    const CURRENT_VERSION: u8 = 1;
+
+    fn migrate(_raw: &Entry, from_version: u8) -> Result<Option<Self>, String> {
+        match from_version {
+            1 => Ok(None), // Already at current version — no migration needed
+            v if v > Self::CURRENT_VERSION => Err(format!(
+                "BridgeQueryEntry schema version {} is newer than supported version {}",
+                v,
+                Self::CURRENT_VERSION
+            )),
+            v => Err(format!(
+                "BridgeQueryEntry has no migration path from version {}",
+                v
+            )),
+        }
+    }
+}
+
+impl SchemaMigration for BridgeEventEntry {
+    const CURRENT_VERSION: u8 = 1;
+
+    fn migrate(_raw: &Entry, from_version: u8) -> Result<Option<Self>, String> {
+        match from_version {
+            1 => Ok(None), // Already at current version — no migration needed
+            v if v > Self::CURRENT_VERSION => Err(format!(
+                "BridgeEventEntry schema version {} is newer than supported version {}",
+                v,
+                Self::CURRENT_VERSION
+            )),
+            v => Err(format!(
+                "BridgeEventEntry has no migration path from version {}",
+                v
+            )),
+        }
+    }
+}
+
+impl SchemaMigration for CachedCredentialEntry {
+    const CURRENT_VERSION: u8 = 1;
+
+    fn migrate(_raw: &Entry, from_version: u8) -> Result<Option<Self>, String> {
+        match from_version {
+            1 => Ok(None), // Already at current version — no migration needed
+            v if v > Self::CURRENT_VERSION => Err(format!(
+                "CachedCredentialEntry schema version {} is newer than supported version {}",
+                v,
+                Self::CURRENT_VERSION
+            )),
+            v => Err(format!(
+                "CachedCredentialEntry has no migration path from version {}",
+                v
+            )),
+        }
+    }
+}
+
+/// Read an entry with automatic schema migration.
+///
+/// Attempts to deserialize the entry as the current version of `T`. If
+/// deserialization succeeds and the `schema_version` field matches
+/// `T::CURRENT_VERSION`, returns the entry directly. If the version is
+/// older, attempts migration via `T::migrate()`.
+///
+/// ## Errors
+///
+/// Returns `Err` if:
+/// - The entry cannot be deserialized at all (corrupt or wrong type).
+/// - The schema version is from the future (newer than `CURRENT_VERSION`).
+/// - Migration fails for any other reason.
+///
+/// ## Example
+///
+/// ```ignore
+/// let entry: BridgeQueryEntry = read_with_migration::<BridgeQueryEntry>(&raw_entry)?;
+/// ```
+pub fn read_with_migration<T>(entry: &Entry) -> Result<T, String>
+where
+    T: SchemaMigration + for<'a> TryFrom<&'a Entry, Error = WasmError>,
+{
+    // First, try to deserialize as-is. Serde defaults handle missing fields
+    // from older versions, so this usually succeeds even for old entries.
+    match T::try_from(entry) {
+        Ok(value) => Ok(value),
+        Err(deser_err) => {
+            // Deserialization failed — try migration from version 0 as a last resort.
+            // In practice, entries that can't deserialize at all are truly incompatible.
+            match T::migrate(entry, 0) {
+                Ok(Some(migrated)) => Ok(migrated),
+                Ok(None) => Err(format!(
+                    "Entry deserialization failed and no migration applied: {}",
+                    deser_err
+                )),
+                Err(mig_err) => Err(format!(
+                    "Entry deserialization failed ({}), migration also failed ({})",
+                    deser_err, mig_err
+                )),
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Author validation helpers
+// ============================================================================
+
+/// Check that the author of an update/delete matches the original entry author.
+///
+/// Returns `ValidateCallbackResult::Valid` if authors match, or
+/// `ValidateCallbackResult::Invalid` with a descriptive message if they don't.
+///
+/// # Arguments
+/// * `original_author` - The author of the original entry/action
+/// * `action_author` - The author of the update/delete action
+/// * `operation` - Human-readable operation name (e.g., "update", "delete")
+pub fn check_author_match(
+    original_author: &AgentPubKey,
+    action_author: &AgentPubKey,
+    operation: &str,
+) -> ValidateCallbackResult {
+    if action_author != original_author {
+        ValidateCallbackResult::Invalid(format!(
+            "Only the original entry author can {} their entries",
+            operation,
+        ))
+    } else {
+        ValidateCallbackResult::Valid
+    }
+}
+
+/// Check that the author of a delete-link matches the original link author.
+///
+/// Returns `ValidateCallbackResult::Valid` if authors match, or
+/// `ValidateCallbackResult::Invalid` with a descriptive message if they don't.
+pub fn check_link_author_match(
+    original_author: &AgentPubKey,
+    action_author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if action_author != original_author {
+        ValidateCallbackResult::Invalid("Only the original author can delete this link".into())
+    } else {
+        ValidateCallbackResult::Valid
+    }
+}
+
+// ============================================================================
 // Validation helpers
 // ============================================================================
 
@@ -315,10 +535,24 @@ pub fn validate_query_fields(
     query: &BridgeQueryEntry,
     valid_domains: &[&str],
 ) -> Result<(), String> {
+    if query.domain.len() > MAX_DOMAIN_BYTES {
+        return Err(format!(
+            "Domain too long ({} bytes, max {})",
+            query.domain.len(),
+            MAX_DOMAIN_BYTES
+        ));
+    }
     if !valid_domains.contains(&query.domain.as_str()) {
         return Err(format!(
             "Invalid domain '{}'. Must be one of: {:?}",
             query.domain, valid_domains
+        ));
+    }
+    if query.query_type.len() > MAX_TYPE_BYTES {
+        return Err(format!(
+            "Query type too long ({} bytes, max {})",
+            query.query_type.len(),
+            MAX_TYPE_BYTES
         ));
     }
     if query.params.len() > 8192 {
@@ -327,6 +561,15 @@ pub fn validate_query_fields(
     if !query.params.is_empty() {
         if serde_json::from_str::<serde_json::Value>(&query.params).is_err() {
             return Err("Parameters must be valid JSON".into());
+        }
+    }
+    if let Some(ref result) = query.result {
+        if result.len() > MAX_RESULT_BYTES {
+            return Err(format!(
+                "Result too large ({} bytes, max {})",
+                result.len(),
+                MAX_RESULT_BYTES
+            ));
         }
     }
     Ok(())
@@ -339,10 +582,24 @@ pub fn validate_event_fields(
     event: &BridgeEventEntry,
     valid_domains: &[&str],
 ) -> Result<(), String> {
+    if event.domain.len() > MAX_DOMAIN_BYTES {
+        return Err(format!(
+            "Domain too long ({} bytes, max {})",
+            event.domain.len(),
+            MAX_DOMAIN_BYTES
+        ));
+    }
     if !valid_domains.contains(&event.domain.as_str()) {
         return Err(format!(
             "Invalid domain '{}'. Must be one of: {:?}",
             event.domain, valid_domains
+        ));
+    }
+    if event.event_type.len() > MAX_TYPE_BYTES {
+        return Err(format!(
+            "Event type too long ({} bytes, max {})",
+            event.event_type.len(),
+            MAX_TYPE_BYTES
         ));
     }
     if event.payload.len() > 8192 {
@@ -350,6 +607,16 @@ pub fn validate_event_fields(
     }
     if event.related_hashes.len() > 20 {
         return Err("Cannot have more than 20 related hashes".into());
+    }
+    for (i, hash) in event.related_hashes.iter().enumerate() {
+        if hash.len() > MAX_HASH_BYTES {
+            return Err(format!(
+                "Related hash [{}] too long ({} bytes, max {})",
+                i,
+                hash.len(),
+                MAX_HASH_BYTES
+            ));
+        }
     }
     Ok(())
 }
@@ -834,22 +1101,100 @@ mod tests {
     }
 
     #[test]
-    fn query_very_long_domain_string() {
+    fn query_very_long_domain_string_rejected_by_size() {
         let long_domain = "x".repeat(1024);
         let q = make_query(&long_domain, "{}");
-        // A 1024-char domain is not in the allowlist, so validation must reject it
+        // Rejected by MAX_DOMAIN_BYTES (256) before allowlist check
         let err = validate_query_fields(&q, DOMAINS).unwrap_err();
-        assert!(err.contains("Invalid domain"));
+        assert!(err.contains("Domain too long"));
 
-        // But if we add it to the allowlist, it passes
+        // Even if we add it to the allowlist, it's still rejected by size limit
         let custom_domains: Vec<&str> = vec![&long_domain];
-        assert!(validate_query_fields(&q, &custom_domains).is_ok());
+        let err = validate_query_fields(&q, &custom_domains).unwrap_err();
+        assert!(err.contains("Domain too long"));
+    }
 
-        // And serde roundtrip preserves the long domain
-        let bytes = serde_json::to_vec(&q).unwrap();
-        let q2: BridgeQueryEntry = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(q2.domain.len(), 1024);
-        assert_eq!(q, q2);
+    #[test]
+    fn query_domain_at_max_bytes_accepted() {
+        let domain = "x".repeat(MAX_DOMAIN_BYTES);
+        let q = make_query(&domain, "{}");
+        let domains: Vec<&str> = vec![&domain];
+        assert!(validate_query_fields(&q, &domains).is_ok());
+    }
+
+    #[test]
+    fn query_domain_over_max_bytes_rejected() {
+        let domain = "x".repeat(MAX_DOMAIN_BYTES + 1);
+        let q = make_query(&domain, "{}");
+        let domains: Vec<&str> = vec![&domain];
+        let err = validate_query_fields(&q, &domains).unwrap_err();
+        assert!(err.contains("Domain too long"));
+    }
+
+    #[test]
+    fn query_type_over_max_bytes_rejected() {
+        let mut q = make_query("property", "{}");
+        q.query_type = "x".repeat(MAX_TYPE_BYTES + 1);
+        let err = validate_query_fields(&q, DOMAINS).unwrap_err();
+        assert!(err.contains("Query type too long"));
+    }
+
+    #[test]
+    fn query_type_at_max_bytes_accepted() {
+        let mut q = make_query("property", "{}");
+        q.query_type = "x".repeat(MAX_TYPE_BYTES);
+        assert!(validate_query_fields(&q, DOMAINS).is_ok());
+    }
+
+    #[test]
+    fn query_result_over_max_bytes_rejected() {
+        let mut q = make_query("property", "{}");
+        q.result = Some("x".repeat(MAX_RESULT_BYTES + 1));
+        let err = validate_query_fields(&q, DOMAINS).unwrap_err();
+        assert!(err.contains("Result too large"));
+    }
+
+    #[test]
+    fn query_result_at_max_bytes_accepted() {
+        let mut q = make_query("property", "{}");
+        q.result = Some("x".repeat(MAX_RESULT_BYTES));
+        assert!(validate_query_fields(&q, DOMAINS).is_ok());
+    }
+
+    #[test]
+    fn event_type_over_max_bytes_rejected() {
+        let mut e = make_event("property", "{}");
+        e.event_type = "x".repeat(MAX_TYPE_BYTES + 1);
+        let err = validate_event_fields(&e, DOMAINS).unwrap_err();
+        assert!(err.contains("Event type too long"));
+    }
+
+    #[test]
+    fn event_individual_hash_over_max_bytes_rejected() {
+        let mut e = make_event("property", "{}");
+        e.related_hashes = vec!["x".repeat(MAX_HASH_BYTES + 1)];
+        let err = validate_event_fields(&e, DOMAINS).unwrap_err();
+        assert!(err.contains("Related hash [0] too long"));
+    }
+
+    #[test]
+    fn event_individual_hash_at_max_bytes_accepted() {
+        let mut e = make_event("property", "{}");
+        e.related_hashes = vec!["x".repeat(MAX_HASH_BYTES)];
+        assert!(validate_event_fields(&e, DOMAINS).is_ok());
+    }
+
+    #[test]
+    fn cached_credential_did_over_max_bytes_rejected() {
+        let c = make_cached_credential(&"x".repeat(MAX_DID_BYTES + 1), r#"{"p":{}}"#);
+        let err = validate_cached_credential(&c).unwrap_err();
+        assert!(err.contains("DID too long"));
+    }
+
+    #[test]
+    fn cached_credential_did_at_max_bytes_accepted() {
+        let c = make_cached_credential(&"x".repeat(MAX_DID_BYTES), r#"{"p":{}}"#);
+        assert!(validate_cached_credential(&c).is_ok());
     }
 
     // ---- JurisdictionConstraintEntry validation ----
@@ -857,12 +1202,7 @@ mod tests {
     fn make_jurisdiction() -> JurisdictionConstraintEntry {
         JurisdictionConstraintEntry {
             zone_id: "eu-gdpr-zone-1".into(),
-            zone_polygon: vec![
-                (35.0, -10.0),
-                (71.0, -10.0),
-                (71.0, 40.0),
-                (35.0, 40.0),
-            ],
+            zone_polygon: vec![(35.0, -10.0), (71.0, -10.0), (71.0, 40.0), (35.0, 40.0)],
             regulatory_tags: vec!["gdpr".into(), "right_to_erasure".into()],
             fiat_zone: Some("EUR".into()),
             enforcement_risk: 0.85,
@@ -1021,4 +1361,289 @@ mod tests {
         assert_eq!(j2.fiat_zone, None);
         assert_eq!(j2.authority_did, None);
     }
+
+    // ---- Schema migration framework ----
+
+    #[test]
+    fn migration_current_version_returns_none() {
+        // All three types at version 1 should return Ok(None) — no migration needed
+        let entry = Entry::App(
+            AppEntryBytes::try_from(
+                SerializedBytes::try_from(make_query("property", "{}")).unwrap(),
+            )
+            .unwrap(),
+        );
+        assert!(BridgeQueryEntry::migrate(&entry, 1).unwrap().is_none());
+
+        let entry = Entry::App(
+            AppEntryBytes::try_from(
+                SerializedBytes::try_from(make_event("housing", "{}")).unwrap(),
+            )
+            .unwrap(),
+        );
+        assert!(BridgeEventEntry::migrate(&entry, 1).unwrap().is_none());
+
+        let entry = Entry::App(
+            AppEntryBytes::try_from(
+                SerializedBytes::try_from(make_cached_credential("did:test", "{}")).unwrap(),
+            )
+            .unwrap(),
+        );
+        assert!(CachedCredentialEntry::migrate(&entry, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn migration_future_version_returns_error() {
+        // Version 99 is from the future — migration should fail
+        let entry = Entry::App(
+            AppEntryBytes::try_from(
+                SerializedBytes::try_from(make_query("property", "{}")).unwrap(),
+            )
+            .unwrap(),
+        );
+        let err = BridgeQueryEntry::migrate(&entry, 99).unwrap_err();
+        assert!(err.contains("newer than supported"));
+        assert!(err.contains("99"));
+
+        let err = BridgeEventEntry::migrate(&entry, 99).unwrap_err();
+        assert!(err.contains("newer than supported"));
+
+        let err = CachedCredentialEntry::migrate(&entry, 99).unwrap_err();
+        assert!(err.contains("newer than supported"));
+    }
+
+    #[test]
+    fn migration_version_zero_returns_error() {
+        // Version 0 has no migration path
+        let entry = Entry::App(
+            AppEntryBytes::try_from(
+                SerializedBytes::try_from(make_query("property", "{}")).unwrap(),
+            )
+            .unwrap(),
+        );
+        let err = BridgeQueryEntry::migrate(&entry, 0).unwrap_err();
+        assert!(err.contains("no migration path"));
+    }
+
+    #[test]
+    fn migration_current_version_constants() {
+        // Verify all types declare version 1 as current
+        assert_eq!(BridgeQueryEntry::CURRENT_VERSION, 1);
+        assert_eq!(BridgeEventEntry::CURRENT_VERSION, 1);
+        assert_eq!(CachedCredentialEntry::CURRENT_VERSION, 1);
+    }
+
+    #[test]
+    fn read_with_migration_current_version_succeeds() {
+        // read_with_migration should succeed for a well-formed current-version entry
+        let query = make_query("property", r#"{"key":"val"}"#);
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(query.clone()).unwrap()).unwrap(),
+        );
+        let result = read_with_migration::<BridgeQueryEntry>(&entry).unwrap();
+        assert_eq!(result.domain, "property");
+        assert_eq!(result.schema_version, 1);
+
+        let event = make_event("housing", "{}");
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(event.clone()).unwrap()).unwrap(),
+        );
+        let result = read_with_migration::<BridgeEventEntry>(&entry).unwrap();
+        assert_eq!(result.domain, "housing");
+
+        let cred = make_cached_credential("did:test:abc", r#"{"p":1}"#);
+        let entry = Entry::App(
+            AppEntryBytes::try_from(SerializedBytes::try_from(cred.clone()).unwrap()).unwrap(),
+        );
+        let result = read_with_migration::<CachedCredentialEntry>(&entry).unwrap();
+        assert_eq!(result.did, "did:test:abc");
+    }
+
+    #[test]
+    fn read_with_migration_wrong_entry_type_fails() {
+        // Trying to read an Agent entry as BridgeQueryEntry should fail
+        let entry = Entry::Agent(fake_agent());
+        let err = read_with_migration::<BridgeQueryEntry>(&entry).unwrap_err();
+        assert!(err.contains("failed"));
+    }
+
+    // ---- Author validation helpers ----
+
+    fn fake_agent_2() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    #[test]
+    fn check_author_match_same_author_valid() {
+        let agent = fake_agent();
+        let result = check_author_match(&agent, &agent, "delete");
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn check_author_match_different_author_invalid() {
+        let agent1 = fake_agent();
+        let agent2 = fake_agent_2();
+        let result = check_author_match(&agent1, &agent2, "delete");
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("original"), "got: {msg}");
+                assert!(msg.contains("delete"), "got: {msg}");
+            }
+            other => panic!("Expected Invalid, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_link_author_match_same_author_valid() {
+        let agent = fake_agent();
+        let result = check_link_author_match(&agent, &agent);
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn check_link_author_match_different_author_invalid() {
+        let agent1 = fake_agent();
+        let agent2 = fake_agent_2();
+        let result = check_link_author_match(&agent1, &agent2);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("original author"), "got: {msg}");
+                assert!(msg.contains("link"), "got: {msg}");
+            }
+            other => panic!("Expected Invalid, got {other:?}"),
+        }
+    }
+}
+
+// ============================================================================
+// Cross-Cluster Notification Entry
+// ============================================================================
+
+/// A notification dispatched across cluster boundaries.
+///
+/// Stored on the target cluster's DHT when received via cross-cluster fanout.
+/// Used by the notification service to provide unified inbox, unread tracking,
+/// and multi-channel delivery (signal, email, SMS, webhook).
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct CrossClusterNotification {
+    /// Schema version (currently 1)
+    pub schema_version: u8,
+    /// Source cluster role name (e.g., "commons", "civic")
+    pub source_cluster: String,
+    /// Source zome that generated the notification
+    pub source_zome: String,
+    /// Event type identifier (e.g., "property_transfer_initiated", "disaster_declared")
+    pub event_type: String,
+    /// Target cluster role names. Empty = broadcast to all clusters.
+    pub target_clusters: Vec<String>,
+    /// Target agent public keys (base64). Empty = broadcast to all agents.
+    pub target_agents: Vec<String>,
+    /// JSON-serialized notification payload
+    pub payload: String,
+    /// Priority: 0=Low, 1=Normal, 2=High, 3=Emergency
+    pub priority: u8,
+    /// When the notification was created (from source cluster)
+    pub created_at: Timestamp,
+    /// When the notification expires. None = never.
+    pub expires_at: Option<Timestamp>,
+}
+
+impl TryFrom<&Entry> for CrossClusterNotification {
+    type Error = WasmError;
+    fn try_from(entry: &Entry) -> Result<Self, Self::Error> {
+        match entry {
+            Entry::App(bytes) => {
+                let sb = SerializedBytes::from(UnsafeBytes::from(bytes.bytes().to_vec()));
+                <Self as TryFrom<SerializedBytes>>::try_from(sb)
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
+            }
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Not an app entry".into(),
+            ))),
+        }
+    }
+}
+
+impl Default for CrossClusterNotification {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            source_cluster: String::new(),
+            source_zome: String::new(),
+            event_type: String::new(),
+            target_clusters: vec![],
+            target_agents: vec![],
+            payload: String::new(),
+            priority: 1,
+            created_at: Timestamp::from_micros(0),
+            expires_at: None,
+        }
+    }
+}
+
+/// Validate a cross-cluster notification entry.
+pub fn validate_notification(entry: &CrossClusterNotification) -> Result<(), String> {
+    if entry.source_cluster.is_empty() {
+        return Err("source_cluster cannot be empty".into());
+    }
+    if entry.source_cluster.len() > 64 {
+        return Err("source_cluster exceeds 64 chars".into());
+    }
+    if entry.source_zome.is_empty() {
+        return Err("source_zome cannot be empty".into());
+    }
+    if entry.event_type.is_empty() {
+        return Err("event_type cannot be empty".into());
+    }
+    if entry.event_type.len() > 256 {
+        return Err("event_type exceeds 256 chars".into());
+    }
+    if entry.payload.len() > 65_536 {
+        return Err("payload exceeds 64KB limit".into());
+    }
+    if entry.priority > 3 {
+        return Err(format!("priority must be 0-3, got {}", entry.priority));
+    }
+    if entry.target_clusters.len() > 16 {
+        return Err("Cannot target more than 16 clusters".into());
+    }
+    if entry.target_agents.len() > 100 {
+        return Err("Cannot target more than 100 agents".into());
+    }
+    Ok(())
+}
+
+// ============================================================================
+// Saga Entry
+// ============================================================================
+
+/// A saga workflow entry stored on the DHT for durability and auditability.
+///
+/// The `saga_json` field contains a serialized `SagaDefinition` from
+/// `mycelix_bridge_common::saga`.
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct SagaEntry {
+    /// Schema version (currently 1)
+    pub schema_version: u8,
+    /// JSON-serialized SagaDefinition
+    pub saga_json: String,
+    /// Agent who initiated the saga
+    pub initiator: String,
+    /// When the saga was created
+    pub created_at: Timestamp,
+}
+
+/// Validate a saga entry.
+pub fn validate_saga_entry(entry: &SagaEntry) -> Result<(), String> {
+    if entry.saga_json.is_empty() {
+        return Err("saga_json cannot be empty".into());
+    }
+    if entry.saga_json.len() > 1_048_576 {
+        return Err("saga_json exceeds 1MB limit".into());
+    }
+    if entry.initiator.is_empty() {
+        return Err("initiator cannot be empty".into());
+    }
+    Ok(())
 }

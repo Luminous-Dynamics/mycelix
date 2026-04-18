@@ -1,12 +1,15 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Shelters Coordinator Zome
 //! Shelter registration, occupancy tracking, and person check-in/out
 
 use emergency_shelters_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -14,36 +17,11 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
-
 /// Register a new emergency shelter
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
 
 #[hdk_extern]
 pub fn register_shelter(input: RegisterShelterInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "register_shelter")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "register_shelter")?;
     if input.name.is_empty() || input.name.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Name must be 1-256 characters".into()
@@ -109,6 +87,17 @@ pub fn register_shelter(input: RegisterShelterInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // Geo-spatial index for shelter location
+    let geo_hash = commons_types::geo::geohash_encode(input.location_lat, input.location_lon, 6);
+    let geo_anchor_str = format!("geo:{}", geo_hash);
+    create_entry(&EntryTypes::Anchor(Anchor(geo_anchor_str.clone())))?;
+    create_link(
+        anchor_hash(&geo_anchor_str)?,
+        action_hash.clone(),
+        LinkTypes::GeoIndex,
+        geo_hash.as_bytes().to_vec(),
+    )?;
+
     get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created shelter".into()
     )))
@@ -131,7 +120,7 @@ pub struct RegisterShelterInput {
 /// Update shelter status
 #[hdk_extern]
 pub fn update_shelter_status(input: UpdateShelterStatusInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "update_shelter_status")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "update_shelter_status")?;
     let current_record = get(input.shelter_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Shelter not found".into())),
     )?;
@@ -188,7 +177,7 @@ pub struct UpdateShelterStatusInput {
 /// Update a shelter entry (general update)
 #[hdk_extern]
 pub fn update_shelter(input: UpdateShelterInput) -> ExternResult<ActionHash> {
-    require_consciousness(&requirement_for_proposal(), "update_shelter")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "update_shelter")?;
     update_entry(
         input.original_action_hash,
         &EntryTypes::Shelter(input.updated_entry),
@@ -205,7 +194,7 @@ pub struct UpdateShelterInput {
 /// Check in a person or party to a shelter
 #[hdk_extern]
 pub fn check_in_person(input: CheckInPersonInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "check_in_person")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "check_in_person")?;
     if input.person_name.is_empty() || input.person_name.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Person name must be 1-256 characters".into()
@@ -323,7 +312,7 @@ pub struct CheckInPersonInput {
 /// Check out a person from a shelter
 #[hdk_extern]
 pub fn check_out_person(input: CheckOutPersonInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "check_out_person")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "check_out_person")?;
     let current_record = get(input.registration_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Registration not found".into())),
     )?;
@@ -495,6 +484,34 @@ pub fn haversine_distance_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 
         + lat1.to_radians().cos() * lat2.to_radians().cos() * (dlon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().asin();
     6371.0 * c
+}
+
+/// Get shelters near a given location using geohash-based proximity search.
+#[hdk_extern]
+pub fn get_nearby_shelters(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Record>> {
+    let center_hash = commons_types::geo::geohash_encode(input.latitude, input.longitude, 6);
+    let mut all_cells = vec![center_hash.clone()];
+    all_cells.extend(commons_types::geo::geohash_neighbors(&center_hash));
+
+    let mut records = Vec::new();
+    for cell in &all_cells {
+        let anchor_str = format!("geo:{}", cell);
+        let anchor_entry = Anchor(anchor_str);
+        let anchor_hash = hash_entry(&anchor_entry)?;
+        if let Ok(links) = get_links(
+            LinkQuery::try_new(anchor_hash, LinkTypes::GeoIndex)?,
+            GetStrategy::Local,
+        ) {
+            for link in links {
+                if let Ok(action_hash) = ActionHash::try_from(link.target) {
+                    if let Some(record) = get(action_hash, GetOptions::default())? {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+    Ok(records)
 }
 
 #[cfg(test)]

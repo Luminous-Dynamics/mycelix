@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! # Mycelix Governance - Sweettest Integration Tests
 //!
 //! Uses pre-built .dna bundle instead of linking zome crates directly,
@@ -277,6 +280,14 @@ pub struct PhiWeightedTally {
     pub reputation_only_count: u64,
     #[serde(default)]
     pub phi_coverage: f64,
+    #[serde(default)]
+    pub hhi_concentration: f64,
+    #[serde(default)]
+    pub concentration_warning: bool,
+    #[serde(default)]
+    pub vote_margin: f64,
+    #[serde(default)]
+    pub narrow_margin_warning: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -518,6 +529,12 @@ pub struct VetoTimelockInput {
     pub timelock_id: String,
     pub guardian_did: String,
     pub reason: String,
+    #[serde(default)]
+    pub affected_proposal_id: Option<String>,
+    #[serde(default)]
+    pub justification_hash: Option<String>,
+    #[serde(default)]
+    pub threat_category: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -527,6 +544,12 @@ pub struct GuardianVeto {
     pub guardian: String,
     pub reason: String,
     pub vetoed_at: Timestamp,
+    #[serde(default)]
+    pub affected_proposal_id: Option<String>,
+    #[serde(default)]
+    pub justification_hash: Option<String>,
+    #[serde(default)]
+    pub threat_category: Option<String>,
 }
 
 /// Input mirror for lock_proposal_funds

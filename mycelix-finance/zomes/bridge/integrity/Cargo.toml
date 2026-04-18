@@ -2,6 +2,7 @@
 name = "finance_bridge_integrity"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
 description = "Cross-hApp bridge integrity zome for Mycelix Finance"
 
 [lib]
@@ -14,3 +15,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 mycelix_finance_types = { path = "../../../types" }
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }

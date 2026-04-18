@@ -1,16 +1,11 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
 use resource_mesh_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_voting,
 };
-
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -55,7 +50,7 @@ pub fn record_sensor_reading(reading: SensorReading) -> ExternResult<Record> {
 /// Create a resource alert (Participant+).
 #[hdk_extern]
 pub fn create_resource_alert(alert: ResourceAlert) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_resource_alert")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_resource_alert")?;
 
     let action_hash = create_entry(&EntryTypes::ResourceAlert(alert))?;
 
@@ -110,7 +105,7 @@ pub fn get_resource_status(input: ResourceStatusInput) -> ExternResult<Vec<Senso
 /// Match emergency to available resources (cross-domain).
 #[hdk_extern]
 pub fn match_emergency_to_resources(emergency_description: String) -> ExternResult<Vec<SensorReading>> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "match_emergency")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "match_emergency")?;
 
     // Aggregate recent readings across all resource types
     let mut all_resources = Vec::new();
@@ -128,7 +123,7 @@ pub fn match_emergency_to_resources(emergency_description: String) -> ExternResu
 /// Publish a demand forecast (Citizen+).
 #[hdk_extern]
 pub fn publish_forecast(forecast: DemandForecast) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "publish_forecast")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "publish_forecast")?;
 
     let action_hash = create_entry(&EntryTypes::DemandForecast(forecast))?;
 

@@ -1,4 +1,8 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Identity Bridge Coordinator Zome
+#![allow(deprecated)] // Uses legacy ConsciousnessCredential/Tier for fallback path
 //!
 //! Cross-hApp communication for identity verification, DID queries,
 //! and reputation aggregation across the Mycelix ecosystem.
@@ -10,6 +14,7 @@ use identity_bridge_integrity::*;
 use mycelix_bridge_common::consciousness_profile::{
     ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
 };
+use mycelix_bridge_common::{check_rate_limit_count, RATE_LIMIT_WINDOW_SECS};
 
 // Local type definition for DID document data we receive from cross-zome calls
 // This mirrors the did_registry_integrity::DidDocument but avoids importing that crate
@@ -247,6 +252,54 @@ fn has_mfa_enrolled(did: &str) -> ExternResult<bool> {
     }
 }
 
+// ==================== ANCHOR HELPERS ====================
+
+fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
+    let anchor = Anchor(anchor_str.to_string());
+    hash_entry(&EntryTypes::Anchor(anchor))
+}
+
+fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
+    let anchor = Anchor(anchor_str.to_string());
+    create_entry(&EntryTypes::Anchor(anchor))?;
+    anchor_hash(anchor_str)
+}
+
+// ==================== RATE LIMITING ====================
+
+/// Check rate limit and log the dispatch. Returns error if limit exceeded.
+///
+/// Enforces a maximum of 100 dispatches per 60 seconds per agent.
+/// Each call creates a `DispatchRateLimit` link from the agent to the
+/// rate-limit anchor, tagged with the target function name.
+fn enforce_rate_limit(target_fn: &str) -> ExternResult<()> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let anchor = ensure_anchor("dispatch_rate_limit")?;
+
+    let links = get_links(
+        LinkQuery::try_new(agent.clone(), LinkTypes::DispatchRateLimit)?,
+        GetStrategy::Local,
+    )?;
+
+    let now = sys_time()?;
+    let window_start_micros = now.as_micros() - (RATE_LIMIT_WINDOW_SECS * 1_000_000);
+    let window_start = Timestamp::from_micros(window_start_micros);
+
+    let recent_count = links.iter().filter(|l| l.timestamp >= window_start).count();
+
+    check_rate_limit_count(recent_count).map_err(|msg| wasm_error!(WasmErrorInner::Guest(msg)))?;
+
+    // Log this dispatch
+    create_link(
+        agent,
+        anchor,
+        LinkTypes::DispatchRateLimit,
+        target_fn.as_bytes().to_vec(),
+    )?;
+
+    Ok(())
+}
+
 // ==================== API VERSION ====================
 
 /// Returns the API version of this coordinator zome.
@@ -265,6 +318,7 @@ pub fn get_api_version(_: ()) -> ExternResult<u16> {
 /// Register a hApp with the identity bridge
 #[hdk_extern]
 pub fn register_happ(input: RegisterHappInput) -> ExternResult<Record> {
+    enforce_rate_limit("register_happ")?;
     let now = sys_time()?;
 
     let registration = HappRegistration {
@@ -334,6 +388,7 @@ const QUERY_RATE_LIMIT_MICROS: i64 = 60 * 1_000_000;
 /// Query a DID from another hApp (cross-hApp identity lookup)
 #[hdk_extern]
 pub fn query_identity(input: QueryIdentityInput) -> ExternResult<IdentityVerificationResult> {
+    enforce_rate_limit("query_identity")?;
     let now = sys_time()?;
 
     // Rate-limit audit trail entries: skip if the same DID was queried
@@ -634,6 +689,7 @@ fn is_did_deactivated(did: &str) -> ExternResult<bool> {
 /// Report reputation for a DID from another hApp
 #[hdk_extern]
 pub fn report_reputation(input: ReportReputationInput) -> ExternResult<Record> {
+    enforce_rate_limit("report_reputation")?;
     // Validate DID format
     if !input.did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -802,6 +858,7 @@ pub struct ReputationSource {
 /// Broadcast an event to all listening hApps
 #[hdk_extern]
 pub fn broadcast_event(input: BroadcastEventInput) -> ExternResult<Record> {
+    enforce_rate_limit("broadcast_event")?;
     let now = sys_time()?;
 
     let event = BridgeEvent {
@@ -950,6 +1007,7 @@ pub struct MfaAssuranceChangedInput {
 pub fn query_identity_selective(
     input: SelectiveQueryInput,
 ) -> ExternResult<SelectiveIdentityResult> {
+    enforce_rate_limit("query_identity_selective")?;
     let now = sys_time()?;
 
     if input.did.is_empty() || !input.did.starts_with("did:mycelix:") {
@@ -1400,6 +1458,7 @@ pub struct MfaAssuranceLevelResult {
 /// the calling cluster bridge fills it in locally from its own DHT data.
 #[hdk_extern]
 pub fn issue_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    enforce_rate_limit("issue_consciousness_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invalid DID format — must start with did:mycelix:".into()
@@ -1434,6 +1493,8 @@ pub fn issue_consciousness_credential(did: String) -> ExternResult<Consciousness
         issued_at: now_us,
         expires_at: now_us + ConsciousnessCredential::DEFAULT_TTL_US,
         issuer: format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey),
+        trajectory_commitment: None,
+        extensions: Default::default(),
     })
 }
 
@@ -1446,6 +1507,266 @@ pub fn issue_consciousness_credential(did: String) -> ExternResult<Consciousness
 #[hdk_extern]
 pub fn refresh_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
     issue_consciousness_credential(did)
+}
+
+/// Backward-compatible alias for bridge-common's gate_consciousness() calls.
+///
+/// gate_consciousness() calls FunctionName::new("get_consciousness_credential").
+#[hdk_extern]
+pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    issue_consciousness_credential(did)
+}
+
+// ============================================================================
+// 8D Sovereign Credential Issuance
+// ============================================================================
+
+/// Issue an 8D Sovereign Credential for a DID.
+///
+/// Gathers all available dimensions from local and cross-cluster sources.
+/// Dimensions without a data source default to 0.0 (conservative — never
+/// grants unearned access). As more cluster collectors are wired, more
+/// dimensions will be populated with real data.
+///
+/// All 8 dimensions wired to real cluster data:
+/// - D0 Epistemic: knowledge/claims (get_agent_epistemic_score), fallback: MFA
+/// - D1 Thermodynamic: energy/grid (get_agent_thermodynamic_score)
+/// - D2 Network: commons/mesh-time (get_agent_resilience_score), fallback: MFA
+/// - D3 Economic: finance/TEND (get_tend_reputation_input)
+/// - D4 Civic: governance/voting + community trust
+/// - D5 Stewardship: attribution/reciprocity (get_agent_stewardship_score), fallback: reputation
+/// - D6 Semantic: core-FL/hyperfeel (get_agent_semantic_resonance), fallback: community trust
+/// - D7 Competence: craft/credentials (list_my_published_credentials)
+#[hdk_extern]
+pub fn issue_sovereign_credential(
+    did: String,
+) -> ExternResult<sovereign_profile::SovereignCredential> {
+    enforce_rate_limit("issue_sovereign_credential")?;
+    if !did.starts_with("did:mycelix:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID format — must start with did:mycelix:".into()
+        )));
+    }
+
+    // Gather dimensions from existing identity sources
+    let identity_score = get_mfa_assurance_for_did(&did)?;
+    let reputation_score = get_aggregated_reputation(&did)?;
+    let community_score = get_community_trust_score(&did)?;
+
+    // Cross-cluster collectors (each falls back to 0.0 if unavailable)
+    let epistemic = collect_epistemic_integrity(&did);
+    let network = collect_network_resilience();
+    let economic = collect_economic_velocity(&did);
+    let civic_extra = collect_civic_participation(&did);
+    let stewardship = collect_stewardship_care(&did);
+    let competence = collect_domain_competence(&did);
+
+    // New collectors for final 2 dimensions
+    let thermodynamic = collect_thermodynamic_yield(&did);
+    let resonance = collect_semantic_resonance();
+
+    // Build 8D profile — all 8 dimensions wired to real data sources
+    let profile = sovereign_profile::SovereignProfile {
+        epistemic_integrity: if epistemic > 0.0 { epistemic } else { identity_score },
+        thermodynamic_yield: thermodynamic,
+        network_resilience: if network > 0.0 { network } else { identity_score },
+        economic_velocity: economic,
+        civic_participation: community_score.max(civic_extra),
+        stewardship_care: if stewardship > 0.0 { stewardship } else { reputation_score },
+        semantic_resonance: if resonance > 0.0 { resonance } else { community_score },
+        domain_competence: competence,
+    };
+
+    let weights = sovereign_profile::weights::DimensionWeights::governance();
+    let tier = profile.tier(&weights);
+
+    let now = sys_time()?;
+    let now_us = now.as_micros() as u64;
+    let ttl_us = 24 * 60 * 60 * 1_000_000; // 24 hours
+
+    Ok(sovereign_profile::SovereignCredential {
+        did,
+        profile,
+        tier,
+        issued_at: now_us,
+        expires_at: now_us + ttl_us,
+        issuer: format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey),
+        extensions: vec![],
+    })
+}
+
+/// Alias for bridge-common compatibility with gate_civic().
+#[hdk_extern]
+pub fn get_sovereign_credential(
+    did: String,
+) -> ExternResult<sovereign_profile::SovereignCredential> {
+    issue_sovereign_credential(did)
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cluster dimension collectors (best-effort, fallback to 0.0)
+// ---------------------------------------------------------------------------
+
+/// Collect epistemic integrity from knowledge cluster (claims zome).
+fn collect_epistemic_integrity(did: &str) -> f64 {
+    match call(
+        CallTargetCell::OtherRole("knowledge".into()),
+        ZomeName::new("claims"),
+        FunctionName::new("get_agent_epistemic_score"),
+        None,
+        did.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<f64>().unwrap_or(0.0).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Collect network resilience from commons cluster (mesh-time zome).
+fn collect_network_resilience() -> f64 {
+    match call(
+        CallTargetCell::OtherRole("commons_land".into()),
+        ZomeName::new("mesh_time"),
+        FunctionName::new("get_agent_resilience_score"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<f64>().unwrap_or(0.0).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Collect stewardship score from attribution cluster (reciprocity zome).
+fn collect_stewardship_care(did: &str) -> f64 {
+    match call(
+        CallTargetCell::OtherRole("attribution".into()),
+        ZomeName::new("reciprocity"),
+        FunctionName::new("get_agent_stewardship_score"),
+        None,
+        did.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<f64>().unwrap_or(0.0).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Collect thermodynamic yield from energy cluster (grid zome).
+fn collect_thermodynamic_yield(did: &str) -> f64 {
+    match call(
+        CallTargetCell::OtherRole("energy".into()),
+        ZomeName::new("grid"),
+        FunctionName::new("get_agent_thermodynamic_score"),
+        None,
+        did.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<f64>().unwrap_or(0.0).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Collect semantic resonance from federated learning (hyperfeel HV similarity).
+///
+/// Calls the core-FL DNA's `get_agent_semantic_resonance` extern which computes
+/// Hamming similarity between the agent's training HV and the community
+/// consensus HV. Returns 0.0 if the core_fl role is unavailable or the agent
+/// hasn't participated in any training rounds.
+fn collect_semantic_resonance() -> f64 {
+    // Fetch latest completed FL round (best-effort)
+    let round: u32 = match call(
+        CallTargetCell::OtherRole("core_fl".into()),
+        ZomeName::new("h_fl"),
+        FunctionName::new("get_latest_completed_round"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<u32>().unwrap_or(0),
+        _ => return 0.0, // core-FL DNA not available
+    };
+
+    if round == 0 {
+        return 0.0;
+    }
+
+    match call(
+        CallTargetCell::OtherRole("core_fl".into()),
+        ZomeName::new("h_fl"),
+        FunctionName::new("get_agent_semantic_resonance"),
+        None,
+        round,
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            result.decode::<f64>().unwrap_or(0.0).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Collect economic velocity from finance cluster (TEND zome).
+fn collect_economic_velocity(did: &str) -> f64 {
+    // Try cross-cluster call to finance
+    match call(
+        CallTargetCell::OtherRole("finance".into()),
+        ZomeName::new("tend"),
+        FunctionName::new("get_tend_reputation_input"),
+        None,
+        did.to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            // Returns f32 [0,1] — scale to f64
+            result.decode::<f32>().unwrap_or(0.0) as f64
+        }
+        _ => 0.0, // Finance cluster not available
+    }
+}
+
+/// Collect domain competence from craft cluster (guild + credential vitality).
+fn collect_domain_competence(_did: &str) -> f64 {
+    // Try cross-cluster call to craft for credential count
+    // Each credential's vitality contributes; 3+ credentials = saturated
+    match call(
+        CallTargetCell::OtherRole("craft".into()),
+        ZomeName::new("craft_graph"),
+        FunctionName::new("list_my_published_credentials"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            // Returns Vec of credentials — normalize by count and assume average vitality
+            let count = result
+                .decode::<Vec<serde_json::Value>>()
+                .map(|v| v.len())
+                .unwrap_or(0);
+            // 3 credentials = full saturation, linear scale
+            (count as f64 / 3.0).min(1.0)
+        }
+        _ => 0.0, // Craft cluster not available
+    }
+}
+
+/// Collect civic participation from governance cluster (vote counts).
+fn collect_civic_participation(_did: &str) -> f64 {
+    // Try cross-cluster call to governance for voice credits
+    match call(
+        CallTargetCell::OtherRole("governance".into()),
+        ZomeName::new("voting"),
+        FunctionName::new("get_agent_vote_count"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let count = result.decode::<u32>().unwrap_or(0);
+            // 20 votes = full saturation
+            (count as f64 / 20.0).min(1.0)
+        }
+        _ => 0.0, // Governance cluster not available
+    }
 }
 
 /// Compute a community trust score for a DID from peer trust credentials.
@@ -1602,6 +1923,24 @@ pub struct IdentityBridgeHealth {
     pub healthy: bool,
     pub agent: String,
     pub api_version: u16,
+}
+
+// ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// See `mycelix_bridge_common::metrics::BridgeMetricsSnapshot` for the schema.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
+    })
 }
 
 #[cfg(test)]

@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Personal Bridge Coordinator Zome
 //!
 //! Selective disclosure gateway for the Sovereign (Personal) cluster.
@@ -12,8 +15,9 @@
 
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, BridgeHealth, CrossClusterDispatchInput, DispatchInput,
-    DispatchResult, EventTypeQuery, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
+    self as bridge, check_rate_limit_count, routing_registry, BridgeHealth,
+    CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult, EventTypeQuery,
+    ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
 };
 use personal_bridge_integrity::*;
 #[cfg(test)]
@@ -24,17 +28,20 @@ use personal_types::{CredentialPresentation, CredentialType, DisclosureScope};
 // Allowed zome names — security boundary for dispatch
 // ============================================================================
 
-const ALLOWED_ZOMES: &[&str] = &["identity_vault", "health_vault", "credential_wallet"];
+const ALLOWED_ZOMES: &[&str] = routing_registry::PERSONAL_LOCAL_ZOMES;
 
 // Cross-cluster dispatch targets (what personal bridge can call in other clusters)
-const ALLOWED_COMMONS_ZOMES: &[&str] = &["commons_bridge"];
+const ALLOWED_COMMONS_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Personal, CrossClusterRole::Commons);
 
-const ALLOWED_CIVIC_ZOMES: &[&str] = &["civic_bridge"];
+const ALLOWED_CIVIC_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Personal, CrossClusterRole::Civic);
 
-const ALLOWED_GOVERNANCE_ZOMES: &[&str] = &["governance_bridge"];
+const ALLOWED_GOVERNANCE_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Personal, CrossClusterRole::Governance);
 
 const ALLOWED_IDENTITY_ZOMES: &[&str] =
-    &["identity_bridge", "did_registry", "verifiable_credential"];
+    routing_registry::get_allowed_zomes(CrossClusterRole::Personal, CrossClusterRole::Identity);
 
 // ============================================================================
 // Helpers
@@ -482,10 +489,10 @@ pub fn submit_phi_attestation(input: SubmitPhiAttestationInput) -> ExternResult<
 // Cross-Cluster Dispatch
 // ============================================================================
 
-const COMMONS_ROLE: &str = "commons";
-const CIVIC_ROLE: &str = "civic";
-const GOVERNANCE_ROLE: &str = "governance";
-const IDENTITY_ROLE: &str = "identity";
+const COMMONS_ROLE: &str = routing_registry::role_name(CrossClusterRole::Commons);
+const CIVIC_ROLE: &str = routing_registry::role_name(CrossClusterRole::Civic);
+const GOVERNANCE_ROLE: &str = routing_registry::role_name(CrossClusterRole::Governance);
+const IDENTITY_ROLE: &str = routing_registry::role_name(CrossClusterRole::Identity);
 
 /// Dispatch a call to the Commons cluster.
 #[hdk_extern]
@@ -737,6 +744,24 @@ pub fn health_check(_: ()) -> ExternResult<BridgeHealth> {
             "health".to_string(),
             "credential".to_string(),
         ],
+    })
+}
+
+// ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// See `mycelix_bridge_common::metrics::BridgeMetricsSnapshot` for the schema.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
     })
 }
 

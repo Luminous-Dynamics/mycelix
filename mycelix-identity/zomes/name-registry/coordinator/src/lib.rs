@@ -1,16 +1,12 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use name_registry_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_voting, GovernanceEligibility,
 };
+use name_registry_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("identity_bridge", requirement, action_name)
-}
 
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
@@ -26,7 +22,7 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Register a mesh name (Participant+).
 #[hdk_extern]
 pub fn register_name(entry: MeshNameEntry) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "register_name")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("identity_bridge", &civic_requirement_basic(), "register_name")?;
 
     let action_hash = create_entry(&EntryTypes::MeshNameEntry(entry.clone()))?;
     let agent = agent_info()?.agent_initial_pubkey;
@@ -39,8 +35,9 @@ pub fn register_name(entry: MeshNameEntry) -> ExternResult<Record> {
     // Link from agent
     create_link(agent, action_hash.clone(), LinkTypes::AgentToNames, ())?;
 
-    let record = get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Record not found".into())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Record not found".into())
+    ))?;
     Ok(record)
 }
 
@@ -64,7 +61,12 @@ pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
     for link in links.into_iter().rev() {
         if let Some(target) = link.target.into_action_hash() {
             if let Some(record) = get(target, GetOptions::default())? {
-                if let Some(entry) = record.entry().to_app_option::<MeshNameEntry>().ok().flatten() {
+                if let Some(entry) = record
+                    .entry()
+                    .to_app_option::<MeshNameEntry>()
+                    .ok()
+                    .flatten()
+                {
                     return Ok(Some(entry));
                 }
             }
@@ -76,7 +78,7 @@ pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
 /// Transfer name ownership (owner only, Citizen+).
 #[hdk_extern]
 pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "transfer_name")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("identity_bridge", &civic_requirement_voting(), "transfer_name")?;
 
     // Verify caller owns the name
     let name_record = get(transfer.name_hash.clone(), GetOptions::default())?
@@ -84,39 +86,60 @@ pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
     let owner = name_record.action().author().clone();
     let caller = agent_info()?.agent_initial_pubkey;
     if owner != caller {
-        return Err(wasm_error!(WasmErrorInner::Guest("Only owner can transfer".into())));
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only owner can transfer".into()
+        )));
     }
 
     let action_hash = create_entry(&EntryTypes::NameTransfer(transfer.clone()))?;
-    create_link(transfer.name_hash, action_hash.clone(), LinkTypes::NameToTransfers, ())?;
+    create_link(
+        transfer.name_hash,
+        action_hash.clone(),
+        LinkTypes::NameToTransfers,
+        (),
+    )?;
 
     // Link new owner
-    create_link(transfer.new_owner, action_hash.clone(), LinkTypes::AgentToNames, ())?;
+    create_link(
+        transfer.new_owner,
+        action_hash.clone(),
+        LinkTypes::AgentToNames,
+        (),
+    )?;
 
-    let record = get(action_hash, GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Record not found".into())))?;
+    let record = get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Record not found".into())
+    ))?;
     Ok(record)
 }
 
 /// Renew a name (extend expiry by 1 year). Owner only.
 #[hdk_extern]
 pub fn renew_name(name_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "renew_name")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("identity_bridge", &civic_requirement_basic(), "renew_name")?;
 
     let record = get(name_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Name not found".into())))?;
     let owner = record.action().author().clone();
     let caller = agent_info()?.agent_initial_pubkey;
     if owner != caller {
-        return Err(wasm_error!(WasmErrorInner::Guest("Only owner can renew".into())));
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only owner can renew".into()
+        )));
     }
 
-    if let Some(mut entry) = record.entry().to_app_option::<MeshNameEntry>().ok().flatten() {
+    if let Some(mut entry) = record
+        .entry()
+        .to_app_option::<MeshNameEntry>()
+        .ok()
+        .flatten()
+    {
         let one_year_us = 365 * 24 * 3600 * 1_000_000u64;
         entry.expires_at = entry.expires_at.saturating_add(one_year_us);
         let new_hash = update_entry(name_hash, &entry)?;
-        let updated = get(new_hash, GetOptions::default())?
-            .ok_or(wasm_error!(WasmErrorInner::Guest("Updated record not found".into())))?;
+        let updated = get(new_hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Updated record not found".into())
+        ))?;
         Ok(updated)
     } else {
         Err(wasm_error!(WasmErrorInner::Guest("Invalid entry".into())))

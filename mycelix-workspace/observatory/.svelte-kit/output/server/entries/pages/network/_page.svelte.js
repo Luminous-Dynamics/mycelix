@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, a as subscribe, o as onDestroy, b as escape, e as each, n as null_to_empty } from "../../../chunks/ssr.js";
 import { w as writable } from "../../../chunks/index.js";
 const css = {

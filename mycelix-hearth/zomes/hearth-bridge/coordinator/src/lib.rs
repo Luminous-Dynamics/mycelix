@@ -1,3 +1,7 @@
+#![allow(deprecated)] // Uses legacy ConsciousnessCredential/Tier for fallback path
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Bridge Coordinator Zome
 //!
 //! Unified gateway for cross-domain and cross-cluster communication in the
@@ -18,34 +22,28 @@ use hearth_types::{
     SeveranceSummaryData, WeeklyDigest,
 };
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, BridgeHealth, ConsciousnessCredential,
-    ConsciousnessTier, CrossClusterDispatchInput, DispatchInput, DispatchResult, EventTypeQuery,
-    GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult, ResolveQueryInput,
-    RATE_LIMIT_WINDOW_SECS,
+    self as bridge, check_rate_limit_count, needs_refresh, routing_registry, BridgeHealth,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
+    CrossClusterDispatchInput, CrossClusterRole,
+    DispatchInput, DispatchResult, EventTypeQuery, GateAuditInput, GovernanceAuditFilter,
+    GovernanceAuditResult, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
 };
 
 // ============================================================================
 // Allowed zome names -- security boundary for dispatch
 // ============================================================================
 
-const ALLOWED_ZOMES: &[&str] = &[
-    "hearth_kinship",
-    "hearth_gratitude",
-    "hearth_stories",
-    "hearth_care",
-    "hearth_autonomy",
-    "hearth_emergency",
-    "hearth_decisions",
-    "hearth_resources",
-    "hearth_milestones",
-    "hearth_rhythms",
-];
+const ALLOWED_ZOMES: &[&str] = routing_registry::HEARTH_LOCAL_ZOMES;
 
 // Cross-cluster dispatch targets (what hearth bridge can call in other clusters)
-const ALLOWED_PERSONAL_ZOMES: &[&str] = &["personal_bridge"];
-const ALLOWED_IDENTITY_ZOMES: &[&str] = &["identity_bridge", "did_registry", "recovery"];
-const ALLOWED_COMMONS_ZOMES: &[&str] = &["commons_bridge"];
-const ALLOWED_CIVIC_ZOMES: &[&str] = &["civic_bridge"];
+const ALLOWED_PERSONAL_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Hearth, CrossClusterRole::Personal);
+const ALLOWED_IDENTITY_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Hearth, CrossClusterRole::Identity);
+const ALLOWED_COMMONS_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Hearth, CrossClusterRole::Commons);
+const ALLOWED_CIVIC_ZOMES: &[&str] =
+    routing_registry::get_allowed_zomes(CrossClusterRole::Hearth, CrossClusterRole::Civic);
 
 // ============================================================================
 // Domain-to-zome resolution
@@ -144,6 +142,7 @@ pub fn query_hearth(input: DispatchInput) -> ExternResult<Record> {
         .unwrap_or_else(|| input.zome.clone());
 
     let query = HearthQueryEntry {
+        schema_version: 1,
         domain: domain.clone(),
         query_type: input.fn_name.clone(),
         requester: caller.clone(),
@@ -258,6 +257,7 @@ pub fn broadcast_event(input: DispatchInput) -> ExternResult<Record> {
         .unwrap_or_else(|| input.zome.clone());
 
     let event = HearthEventEntry {
+        schema_version: 1,
         domain: domain.clone(),
         event_type: input.fn_name.clone(),
         source_agent: caller.clone(),
@@ -303,12 +303,13 @@ pub fn broadcast_event(input: DispatchInput) -> ExternResult<Record> {
 
 /// Log a governance gate decision as an auditable event.
 ///
-/// Called fire-and-forget by each coordinator's `require_consciousness()`.
+/// Called fire-and-forget by each coordinator's `require_civic()`.
 /// Stores the decision as a `HearthEventEntry` with `domain: "governance_gate"`.
 #[hdk_extern]
 pub fn log_governance_gate(input: GateAuditInput) -> ExternResult<()> {
     let agent = agent_info()?.agent_initial_pubkey;
     let event = HearthEventEntry {
+        schema_version: 1,
         domain: "governance_gate".to_string(),
         event_type: input.action_name.clone(),
         source_agent: agent.clone(),
@@ -452,10 +453,10 @@ pub fn get_my_queries(_: ()) -> ExternResult<Vec<Record>> {
 // Cross-Cluster Dispatch
 // ============================================================================
 
-const PERSONAL_ROLE: &str = "personal";
-const IDENTITY_ROLE: &str = "identity";
-const COMMONS_ROLE: &str = "commons";
-const CIVIC_ROLE: &str = "civic";
+const PERSONAL_ROLE: &str = routing_registry::role_name(CrossClusterRole::Personal);
+const IDENTITY_ROLE: &str = routing_registry::role_name(CrossClusterRole::Identity);
+const COMMONS_ROLE: &str = routing_registry::role_name(CrossClusterRole::Commons);
+const CIVIC_ROLE: &str = routing_registry::role_name(CrossClusterRole::Civic);
 
 /// Dispatch a call to the Personal cluster.
 #[hdk_extern]
@@ -590,6 +591,7 @@ pub fn initiate_severance(input: SeveranceInput) -> ExternResult<Record> {
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
 
     let event = HearthEventEntry {
+        schema_version: 1,
         domain: "kinship".to_string(),
         event_type: "severance_initiated".to_string(),
         source_agent: caller.clone(),
@@ -879,6 +881,7 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
     })?;
 
     let entry = CachedCredentialEntry {
+        schema_version: 1,
         did: credential.did.clone(),
         credential_json: json,
         cached_at_us: now,
@@ -894,123 +897,88 @@ fn cache_credential(credential: &ConsciousnessCredential) -> ExternResult<()> {
 /// Get a consciousness credential for the specified DID.
 ///
 /// First checks the local cache (10-minute TTL). On cache miss, makes a
-/// cross-cluster call to `identity_bridge.issue_consciousness_credential` to
-/// obtain identity, reputation, and community dimensions, then fills in the
-/// engagement dimension locally from this cluster's activity data.
-/// The result is cached for subsequent calls.
+/// Fetch a native 8D `SovereignCredential` from the identity bridge.
 #[hdk_extern]
-pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
-    // 1. Check cache first (avoids cross-cluster call if recent)
-    if let Some(cached) = get_cached_credential(&did)? {
-        // Proactive refresh — attempt inline refresh, fall back to cached if it fails
-        let now_us = sys_time()?.as_micros() as u64;
-        if needs_refresh(&cached, now_us) {
-            debug!(
-                "Credential nearing expiry, attempting proactive refresh for {}",
-                cached.did
-            );
-            if let Ok(ZomeCallResponse::Ok(response)) = call(
-                CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-                ZomeName::new("identity_bridge"),
-                FunctionName::new("refresh_consciousness_credential"),
-                None,
-                cached.did.clone(),
-            ) {
-                if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                    let _ = cache_credential(&refreshed);
-                    return Ok(refreshed);
-                }
-            }
-            // Refresh failed — serve cached credential (still valid, just nearing expiry)
-        }
-        return Ok(cached);
-    }
-
+pub fn get_sovereign_credential(
+    did: String,
+) -> ExternResult<mycelix_bridge_common::sovereign_gate::SovereignCredential> {
     enforce_rate_limit("identity:identity_bridge")?;
 
-    // 2. Cross-cluster call to identity: issue_consciousness_credential
-    let payload = ExternIO::encode(did.clone())
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .0;
-    let dispatch = CrossClusterDispatchInput {
-        role: IDENTITY_ROLE.to_string(),
-        zome: "identity_bridge".to_string(),
-        fn_name: "issue_consciousness_credential".to_string(),
-        payload,
-    };
-    let result = bridge::dispatch_call_cross_cluster(&dispatch, ALLOWED_IDENTITY_ZOMES);
+    let response = call(
+        CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("issue_sovereign_credential"),
+        None,
+        did.clone(),
+    )?;
 
-    let mut credential: ConsciousnessCredential = match result {
-        Ok(r) if r.success => {
-            let response_bytes = r.response.ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Empty response from identity bridge".into()
-                ))
-            })?;
-            ExternIO(response_bytes).decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode consciousness credential: {:?}",
-                    e
-                )))
-            })?
-        }
-        _ => {
-            // Identity role unavailable (single-DNA mode or network partition).
-            // Return a permissive fallback credential so single-cluster operations
-            // can proceed. In production, the identity role will provide real scores.
-            debug!(
-                "Identity role unavailable, using fallback consciousness credential for {}",
-                did
-            );
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.5, // unified_consciousness — mid-range default
-                0.5, // identity — above Participant threshold (0.25)
-                0.5, // reputation
-                0.5, // community
-                "did:mycelix:hearth-bridge-fallback".to_string(),
-                now_us,
-            )
-        }
-    };
+    match response {
+        ZomeCallResponse::Ok(extern_io) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode sovereign credential: {:?}", e
+            )))
+        }),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Sovereign credential call failed for {}: {:?}", did, other
+        )))),
+    }
+}
 
-    // 3. Fill in engagement dimension locally
-    credential.profile.engagement = calculate_local_engagement()?;
-
-    // 4. Recalculate tier with engagement included
-    credential.tier = ConsciousnessTier::from_score(credential.profile.combined_score());
-
-    // 5. Cache the result for subsequent calls
-    let _ = cache_credential(&credential);
-
-    // Proactive refresh check (covers edge case: identity issued a short-lived credential)
-    let now_us = sys_time()?.as_micros() as u64;
-    if needs_refresh(&credential, now_us) {
-        debug!(
-            "Freshly-issued credential nearing expiry, attempting proactive refresh for {}",
-            credential.did
-        );
-        if let Ok(ZomeCallResponse::Ok(response)) = call(
-            CallTargetCell::OtherRole(IDENTITY_ROLE.into()),
-            ZomeName::new("identity_bridge"),
-            FunctionName::new("refresh_consciousness_credential"),
-            None,
-            credential.did.clone(),
-        ) {
-            if let Ok(refreshed) = response.decode::<ConsciousnessCredential>() {
-                let _ = cache_credential(&refreshed);
-                return Ok(refreshed);
-            }
+/// Legacy 4D credential — delegates to 8D sovereign path internally.
+#[hdk_extern]
+pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
+    // 1. Check cache first
+    if let Some(cached) = get_cached_credential(&did)? {
+        let now_us = sys_time()?.as_micros() as u64;
+        if !needs_refresh(&cached, now_us) {
+            return Ok(cached);
         }
     }
 
-    Ok(credential)
+    // 2. Fetch via sovereign path (8D)
+    match get_sovereign_credential(did.clone()) {
+        Ok(sovereign_cred) => {
+            let legacy_profile = {
+                let lp = mycelix_bridge_common::sovereign_gate::LegacyProfile::from(
+                    sovereign_cred.profile.clone(),
+                );
+                ConsciousnessProfile {
+                    identity: lp.identity,
+                    reputation: lp.reputation,
+                    community: lp.community,
+                    engagement: lp.engagement,
+                }
+            };
+            let credential = ConsciousnessCredential {
+                did: sovereign_cred.did,
+                profile: legacy_profile.clone(),
+                tier: ConsciousnessTier::from_score(legacy_profile.combined_score()),
+                issued_at: sovereign_cred.issued_at,
+                expires_at: sovereign_cred.expires_at,
+                issuer: sovereign_cred.issuer,
+                trajectory_commitment: None,
+                extensions: Default::default(),
+            };
+            let _ = cache_credential(&credential);
+            Ok(credential)
+        }
+        Err(_) => {
+            if let Some(cached) = get_cached_credential(&did)? {
+                debug!("Sovereign credential fetch failed, serving cached 4D credential");
+                return Ok(cached);
+            }
+            Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable — cannot verify credentials \
+                 for {}. Hearth operations suspended until identity verification is restored.",
+                did
+            ))))
+        }
+    }
 }
 
 /// Refresh a consciousness credential by re-fetching from the identity cluster.
 ///
-/// Called by `gate_consciousness()` when a credential is nearing expiry (within
+/// Called by `gate_civic()` when a credential is nearing expiry (within
 /// 2 hours). Fetches a fresh credential from the identity bridge, updates the
 /// local engagement dimension, and caches the result.
 ///
@@ -1058,17 +1026,12 @@ pub fn refresh_consciousness_credential(did: String) -> ExternResult<Consciousne
             if let Some(cached) = get_cached_credential(&did)? {
                 return Ok(cached);
             }
-            // No cache either — return Observer-tier fallback
-            let now_us = sys_time()?.as_micros() as u64;
-            ConsciousnessCredential::from_unified_consciousness(
-                did.clone(),
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                "did:mycelix:hearth-bridge-fallback".to_string(),
-                now_us,
-            )
+            // No cache either — fail closed. Do not issue unverified credentials.
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Identity cluster unreachable during refresh and no cached credential \
+                 for {}. Cannot proceed without verified consciousness credentials.",
+                did
+            ))));
         }
     };
 
@@ -1123,6 +1086,83 @@ fn calculate_local_engagement() -> ExternResult<f64> {
     }
 
     Ok((weighted_count / 50.0).min(1.0))
+}
+
+// ============================================================================
+// Observability — Bridge Metrics Export
+// ============================================================================
+
+/// Return a JSON-encoded snapshot of this bridge's dispatch metrics.
+///
+/// See `mycelix_bridge_common::metrics::BridgeMetricsSnapshot` for the schema.
+#[hdk_extern]
+pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
+    let snapshot = mycelix_bridge_common::metrics::metrics_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to serialize metrics snapshot: {}",
+            e
+        )))
+    })
+}
+
+// ============================================================================
+// Notification Service
+// ============================================================================
+
+/// Receive a cross-cluster notification and store it locally.
+#[hdk_extern]
+pub fn receive_notification(notification: mycelix_bridge_entry_types::CrossClusterNotification) -> ExternResult<ActionHash> {
+    let action_hash = create_entry(&EntryTypes::Notification(notification.clone()))?;
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    create_link(inbox_anchor, action_hash.clone(), LinkTypes::AgentToNotification, ())?;
+    let all_anchor = ensure_anchor("all_notifications")?;
+    create_link(all_anchor, action_hash.clone(), LinkTypes::AllNotifications, ())?;
+    let signal = mycelix_bridge_common::notifications::NotificationSignal {
+        signal_type: "cross_cluster_notification".into(),
+        source_cluster: notification.source_cluster,
+        event_type: notification.event_type,
+        payload: notification.payload,
+        priority: notification.priority,
+    };
+    emit_signal(&signal)?;
+    Ok(action_hash)
+}
+
+/// Get notifications for the calling agent.
+#[hdk_extern]
+pub fn get_my_notifications(input: mycelix_bridge_common::notifications::NotificationQueryInput) -> ExternResult<Vec<Record>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    let limit = input.limit
+        .unwrap_or(mycelix_bridge_common::notifications::DEFAULT_NOTIFICATION_LIMIT)
+        .min(mycelix_bridge_common::notifications::MAX_NOTIFICATIONS_PER_AGENT);
+    let mut records = Vec::new();
+    for link in links.iter().rev().take(limit) {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+/// Get unread notification count for the calling agent.
+#[hdk_extern]
+pub fn get_unread_count(_: ()) -> ExternResult<u32> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let inbox_anchor = ensure_anchor(&format!("notifications:{:?}", agent))?;
+    let links = get_links(
+        LinkQuery::try_new(inbox_anchor, LinkTypes::AgentToNotification)?,
+        GetStrategy::default(),
+    )?;
+    Ok(links.len() as u32)
 }
 
 // ============================================================================
@@ -1389,6 +1429,7 @@ mod tests {
             success: true,
             response: Some(encoded.0),
             error: None,
+            error_code: None,
         };
         let decoded: Vec<u32> = decode_dispatch_response(&result, "test").unwrap();
         assert_eq!(decoded, payload);
@@ -1400,6 +1441,7 @@ mod tests {
             success: false,
             response: None,
             error: Some("something broke".to_string()),
+            error_code: None,
         };
         let err = decode_dispatch_response::<Vec<u32>>(&result, "test_ctx").unwrap_err();
         let msg = format!("{}", err);
@@ -1416,6 +1458,7 @@ mod tests {
             success: false,
             response: None,
             error: None,
+            error_code: None,
         };
         let err = decode_dispatch_response::<Vec<u32>>(&result, "ctx").unwrap_err();
         let msg = format!("{}", err);
@@ -1428,6 +1471,7 @@ mod tests {
             success: true,
             response: None,
             error: None,
+            error_code: None,
         };
         let err = decode_dispatch_response::<Vec<u32>>(&result, "ctx").unwrap_err();
         let msg = format!("{}", err);
@@ -1440,6 +1484,7 @@ mod tests {
             success: true,
             response: Some(vec![0xFF, 0xFE, 0xFD]),
             error: None,
+            error_code: None,
         };
         let err = decode_dispatch_response::<Vec<u32>>(&result, "ctx").unwrap_err();
         let msg = format!("{}", err);

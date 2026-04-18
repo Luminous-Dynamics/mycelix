@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Resources Coordinator Zome
 //!
 //! This zome provides coordinator functions for resource sharing
@@ -6,10 +9,8 @@
 use hdk::prelude::*;
 use mutualaid_common::*;
 use mutualaid_resources_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::get_latest_record;
 
 /// Result of crediting timebank hours after resource usage
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -80,12 +81,6 @@ pub struct SearchResourcesInput {
     pub limit: Option<u32>,
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 // =============================================================================
 // RESOURCE MANAGEMENT
@@ -93,27 +88,9 @@ fn require_consciousness(
 
 /// Create a new shared resource
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn create_resource(input: CreateResourceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_resource")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_resource")?;
     let owner = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -274,7 +251,7 @@ pub struct SetResourceAvailabilityInput {
 #[hdk_extern]
 pub fn set_resource_availability(input: SetResourceAvailabilityInput) -> ExternResult<Record> {
     let _eligibility =
-        require_consciousness(&requirement_for_proposal(), "set_resource_availability")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "set_resource_availability")?;
     let hash = input.hash;
     let available = input.available;
     let record = get_latest_record(hash.clone())?.ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -314,7 +291,7 @@ pub fn set_resource_availability(input: SetResourceAvailabilityInput) -> ExternR
 /// Create a new booking
 #[hdk_extern]
 pub fn create_booking(input: CreateBookingInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_booking")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_booking")?;
     let booker = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -459,7 +436,7 @@ pub fn get_my_bookings(_: ()) -> ExternResult<Vec<Record>> {
 /// Confirm a booking (owner only)
 #[hdk_extern]
 pub fn confirm_booking(booking_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "confirm_booking")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "confirm_booking")?;
     let record = get_latest_record(booking_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Booking not found".to_string())
     ))?;
@@ -504,7 +481,7 @@ pub fn confirm_booking(booking_hash: ActionHash) -> ExternResult<Record> {
 /// Cancel a booking
 #[hdk_extern]
 pub fn cancel_booking(booking_hash: ActionHash) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "cancel_booking")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "cancel_booking")?;
     let record = get_latest_record(booking_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Booking not found".to_string())
     ))?;
@@ -555,7 +532,7 @@ pub fn cancel_booking(booking_hash: ActionHash) -> ExternResult<Record> {
 /// Record start of resource usage
 #[hdk_extern]
 pub fn start_usage(input: RecordUsageInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "start_usage")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "start_usage")?;
     let now = sys_time()?;
 
     let usage = Usage {
@@ -614,7 +591,7 @@ pub fn start_usage(input: RecordUsageInput) -> ExternResult<Record> {
 /// Complete resource usage
 #[hdk_extern]
 pub fn complete_usage(input: CompleteUsageInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "complete_usage")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_usage")?;
     let now = sys_time()?;
 
     // Find the usage record for this booking
@@ -718,7 +695,7 @@ pub fn complete_usage_with_timebank(
     input: CompleteUsageWithTimebankInput,
 ) -> ExternResult<TimebankCreditResult> {
     let _eligibility =
-        require_consciousness(&requirement_for_proposal(), "complete_usage_with_timebank")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "complete_usage_with_timebank")?;
     if !input.hours_used.is_finite() || input.hours_used < 0.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "hours_used must be a finite non-negative number".into()
@@ -811,7 +788,7 @@ pub fn complete_usage_with_timebank(
 /// Record maintenance on a resource
 #[hdk_extern]
 pub fn record_maintenance(input: RecordMaintenanceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "record_maintenance")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_maintenance")?;
     if !input.hours_spent.is_finite() || input.hours_spent < 0.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "hours_spent must be a finite non-negative number".into()

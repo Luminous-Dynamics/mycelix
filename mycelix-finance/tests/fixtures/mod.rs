@@ -1,13 +1,16 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Test Fixtures for Mycelix Finance
 //!
 //! This module provides common test utilities, helpers, and fixtures
 //! for testing the Mycelix Finance Holochain zomes.
 
-use holochain::sweettest::{SweetConductor, SweetDnaFile, SweetAgents, SweetCell};
+use holochain::sweettest::{SweetAgents, SweetCell, SweetConductor, SweetDnaFile};
 
 // Re-export zome types for tests
-pub use payments_integrity::*;
 pub use payments::*;
+pub use payments_integrity::*;
 
 /// Standard test DID prefix
 pub const TEST_DID_PREFIX: &str = "did:mycelix:test:";
@@ -128,7 +131,10 @@ pub fn timestamp() -> i64 {
 
 /// Test assertion helper - checks if a payment was created successfully
 pub fn assert_payment_valid(payment: &Payment, from_did: &str, to_did: &str, amount: u64) {
-    assert!(payment.from_did.starts_with("did:"), "From DID must be valid");
+    assert!(
+        payment.from_did.starts_with("did:"),
+        "From DID must be valid"
+    );
     assert!(payment.to_did.starts_with("did:"), "To DID must be valid");
     assert_eq!(payment.from_did, from_did, "From DID mismatch");
     assert_eq!(payment.to_did, to_did, "To DID mismatch");
@@ -136,7 +142,8 @@ pub fn assert_payment_valid(payment: &Payment, from_did: &str, to_did: &str, amo
     assert!(payment.amount > 0, "Amount must be positive");
     assert!(
         payment.currency == "SAP" || payment.currency == "TEND",
-        "Currency must be SAP or TEND, got: {}", payment.currency
+        "Currency must be SAP or TEND, got: {}",
+        payment.currency
     );
 }
 

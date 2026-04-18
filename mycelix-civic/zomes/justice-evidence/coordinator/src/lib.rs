@@ -1,17 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Evidence Coordinator Zome
 use hdk::prelude::*;
 use justice_evidence_integrity::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_proposal, requirement_for_voting, GovernanceEligibility,
-    GovernanceRequirement,
+    civic_requirement_proposal, civic_requirement_voting, GovernanceEligibility,
 };
+use mycelix_zome_helpers::records_from_links;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Create a deterministic anchor hash from a string
 fn anchor_hash(s: &str) -> ExternResult<EntryHash> {
@@ -20,39 +17,10 @@ fn anchor_hash(s: &str) -> ExternResult<EntryHash> {
 }
 
 /// Helper to get records from links
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
-}
 
 #[hdk_extern]
 pub fn submit_evidence(evidence: Evidence) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "submit_evidence")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "submit_evidence")?;
     if evidence.title.is_empty() || evidence.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -110,7 +78,7 @@ pub fn get_complaint_evidence(complaint_id: String) -> ExternResult<Vec<Record>>
 /// Verify evidence (by a juror or arbitrator)
 #[hdk_extern]
 pub fn verify_evidence(input: VerifyEvidenceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "verify_evidence")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_voting(), "verify_evidence")?;
     if input.evidence_id.is_empty() || input.evidence_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Evidence ID must be 1-256 characters".into()
@@ -162,7 +130,7 @@ pub struct VerifyEvidenceInput {
 /// Dispute evidence (challenge its validity)
 #[hdk_extern]
 pub fn dispute_evidence(input: DisputeEvidenceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "dispute_evidence")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "dispute_evidence")?;
     if input.evidence_id.is_empty() || input.evidence_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Evidence ID must be 1-256 characters".into()

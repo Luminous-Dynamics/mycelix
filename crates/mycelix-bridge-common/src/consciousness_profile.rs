@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Multi-dimensional consciousness profile for governance gating.
 //!
 //! Replaces the single MATL score (40% MFA + 60% reputation) with a
@@ -17,8 +20,19 @@
 //! then evaluate it with `evaluate_governance()` — a pure function with no
 //! HDK dependency.
 
+#[cfg(feature = "hdk")]
 use hdk::prelude::*;
 use serde::{Deserialize, Serialize};
+
+// When HDK is not available, provide no-op logging macros
+#[cfg(not(feature = "hdk"))]
+macro_rules! debug {
+    ($($arg:tt)*) => {};
+}
+#[cfg(not(feature = "hdk"))]
+macro_rules! warn {
+    ($($arg:tt)*) => {};
+}
 
 use crate::consciousness_thresholds::{
     BOOTSTRAP_COMMUNITY_THRESHOLD, BOOTSTRAP_MIN_IDENTITY, BOOTSTRAP_TTL_US,
@@ -55,8 +69,17 @@ pub const TIER_HYSTERESIS_MARGIN: f64 = 0.05;
 /// Temperature controls strictness:
 /// - low temperature (0.02): sharp transition (like hard threshold)
 /// - high temperature (0.10): gradual transition (noise-tolerant)
-pub fn continuous_vote_weight(score: f64, threshold: f64, temperature: f64, max_weight: f64) -> f64 {
-    if temperature <= 0.0 || !score.is_finite() {
+pub fn continuous_vote_weight(
+    score: f64,
+    threshold: f64,
+    temperature: f64,
+    max_weight: f64,
+) -> f64 {
+    if !temperature.is_finite() || temperature <= 0.0
+        || !score.is_finite() || !threshold.is_finite()
+        || !max_weight.is_finite() || max_weight < 0.0
+    {
+        warn!("NaN/Inf fallback in continuous_vote_weight: score={}, threshold={}, temperature={}, max_weight={}", score, threshold, temperature, max_weight);
         return 0.0;
     }
     let exponent = -((score - threshold) / temperature);
@@ -88,7 +111,30 @@ pub struct ConsciousnessProfile {
     pub community: f64,
 
     /// Domain-specific engagement (computed locally by each cluster bridge).
-    /// Based on event/query participation counts, decayed over time.
+    ///
+    /// ## Standard computation formula
+    ///
+    /// All bridge coordinators SHOULD compute engagement as:
+    ///
+    /// ```text
+    /// engagement = min(1.0, raw_events / baseline_events)
+    /// ```
+    ///
+    /// where:
+    /// - `raw_events` = count of domain-relevant actions (creates, updates, queries,
+    ///   votes) by this agent in the trailing 30-day window
+    /// - `baseline_events` = cluster-specific expected participation threshold
+    ///   (e.g., 50 for commons, 20 for governance, 10 for personal)
+    ///
+    /// Apply exponential decay with a 30-day half-life to match the reputation
+    /// dimension's decay characteristics:
+    ///
+    /// ```text
+    /// decayed_events = Σ event_i × 0.5^(age_days_i / 30)
+    /// ```
+    ///
+    /// Bridges that do not compute engagement locally SHOULD set this to 0.0
+    /// (conservative default), NOT 1.0.
     pub engagement: f64,
 }
 
@@ -101,10 +147,21 @@ impl ConsciousnessProfile {
     /// - community:  30%
     /// - engagement: 20%
     pub fn combined_score(&self) -> f64 {
-        self.identity * 0.25
-            + self.reputation * 0.25
-            + self.community * 0.30
-            + self.engagement * 0.20
+        // Sanitize inputs first — prevents NaN from entering arithmetic.
+        // Non-finite dimensions clamp to 0.0 (safest default: no contribution).
+        let i = if self.identity.is_finite() { self.identity.clamp(0.0, 1.0) } else {
+            warn!("NaN/Inf in combined_score: identity={}", self.identity); 0.0
+        };
+        let r = if self.reputation.is_finite() { self.reputation.clamp(0.0, 1.0) } else {
+            warn!("NaN/Inf in combined_score: reputation={}", self.reputation); 0.0
+        };
+        let c = if self.community.is_finite() { self.community.clamp(0.0, 1.0) } else {
+            warn!("NaN/Inf in combined_score: community={}", self.community); 0.0
+        };
+        let e = if self.engagement.is_finite() { self.engagement.clamp(0.0, 1.0) } else {
+            warn!("NaN/Inf in combined_score: engagement={}", self.engagement); 0.0
+        };
+        (i * 0.25 + r * 0.25 + c * 0.30 + e * 0.20).clamp(0.0, 1.0)
     }
 
     /// Derive the consciousness tier from this profile's combined score.
@@ -148,6 +205,7 @@ impl ConsciousnessProfile {
         if v.is_finite() {
             v.clamp(0.0, 1.0)
         } else {
+            warn!("NaN/Inf sanitized to 0.0: input={}", v);
             0.0
         }
     }
@@ -200,6 +258,52 @@ impl ConsciousnessProfile {
             engagement: unified_consciousness.clamp(0.0, 1.0),
         }
     }
+
+    /// Create a profile from Symthaea's multi-dimensional consciousness signals.
+    ///
+    /// This is the enriched bridge — instead of mapping a single unified score
+    /// to `engagement`, it computes `engagement` as a weighted composite of
+    /// Symthaea's empirical consciousness metrics:
+    ///
+    /// ```text
+    /// engagement = 0.35 × phi + 0.25 × meta_awareness + 0.20 × coherence + 0.20 × care_activation
+    /// ```
+    ///
+    /// This weighting prioritizes empirical consciousness (phi, meta-awareness)
+    /// over social/empathic aspects, while keeping all signals meaningful.
+    ///
+    /// # Arguments
+    /// * `phi` — Integrated Information (Φ), primary consciousness measure [0, 1]
+    /// * `meta_awareness` — Depth of meta-cognition/self-reflection [0, 1]
+    /// * `coherence` — Narrative continuity and temporal binding [0, 1]
+    /// * `care_activation` — Empathic responsiveness [0, 1]
+    /// * `identity` — MFA assurance level [0, 1] (from identity bridge)
+    /// * `reputation` — Cross-hApp reputation [0, 1] (from reputation bridge)
+    /// * `community` — Peer trust attestations [0, 1] (from community)
+    pub fn from_symthaea(
+        phi: f64,
+        meta_awareness: f64,
+        coherence: f64,
+        care_activation: f64,
+        identity: f64,
+        reputation: f64,
+        community: f64,
+    ) -> Self {
+        let phi_c = phi.clamp(0.0, 1.0);
+        let meta_c = meta_awareness.clamp(0.0, 1.0);
+        let coh_c = coherence.clamp(0.0, 1.0);
+        let care_c = care_activation.clamp(0.0, 1.0);
+
+        let engagement = (0.35 * phi_c + 0.25 * meta_c + 0.20 * coh_c + 0.20 * care_c)
+            .clamp(0.0, 1.0);
+
+        Self {
+            identity: identity.clamp(0.0, 1.0),
+            reputation: reputation.clamp(0.0, 1.0),
+            community: community.clamp(0.0, 1.0),
+            engagement,
+        }
+    }
 }
 
 impl Default for ConsciousnessProfile {
@@ -213,6 +317,10 @@ impl Default for ConsciousnessProfile {
 /// Stored on the agent's source chain. Governance zomes validate locally
 /// by checking issuer and expiry — no cross-cluster call needed at
 /// governance time.
+///
+/// **Deprecated**: Use `sovereign_gate::SovereignCredential` (8D) instead.
+/// This 4D type is retained for backward compatibility during the migration.
+#[deprecated(since = "0.9.0", note = "Use sovereign_gate::SovereignCredential (8D) instead")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsciousnessCredential {
     /// Agent's DID (e.g., "did:mycelix:<pubkey>").
@@ -232,8 +340,27 @@ pub struct ConsciousnessCredential {
     pub trajectory_commitment: Option<[u8; 32]>,
     /// Extensible key-value store for future credential features.
     /// Avoids adding new `Option<T>` fields for every feature.
+    /// See [`ExtensionKey`] for the registry of known keys.
     #[serde(default)]
     pub extensions: std::collections::HashMap<String, Vec<u8>>,
+}
+
+/// Registry of known extension keys for [`ConsciousnessCredential::extensions`].
+///
+/// Using these constants prevents typo bugs and ensures consistency across
+/// producers and consumers. Unknown keys are allowed (forward-compatible)
+/// but known keys should always use these constants.
+pub mod ExtensionKey {
+    /// Substrate type identifier (u8-encoded `SubstrateType` variant).
+    pub const SUBSTRATE_TYPE: &str = "substrate_type";
+    /// Per-region substrate feasibility scores (bincode-encoded `Vec<(String, f32)>`).
+    pub const REGION_FEASIBILITY: &str = "region_feasibility";
+    /// Sub-passport DID reference for delegated credentials.
+    pub const SUB_PASSPORT_DID: &str = "sub_passport_did";
+    /// Freshness attestation (bincode-encoded `FreshnessAttestation`).
+    pub const FRESHNESS_ATTESTATION: &str = "freshness_attestation";
+    /// Moral algebra summary score (f32 LE bytes).
+    pub const MORAL_SCORE: &str = "moral_score";
 }
 
 impl ConsciousnessCredential {
@@ -284,6 +411,41 @@ impl ConsciousnessCredential {
         }
     }
 
+    /// Issue a credential from Symthaea's multi-dimensional consciousness signals.
+    ///
+    /// Enriched bridge: computes `engagement` from phi, meta_awareness, coherence,
+    /// and care_activation instead of a single unified score.
+    ///
+    /// See [`ConsciousnessProfile::from_symthaea`] for the weighting formula.
+    pub fn from_symthaea(
+        did: String,
+        phi: f64,
+        meta_awareness: f64,
+        coherence: f64,
+        care_activation: f64,
+        identity: f64,
+        reputation: f64,
+        community: f64,
+        issuer: String,
+        now_us: u64,
+    ) -> Self {
+        let profile = ConsciousnessProfile::from_symthaea(
+            phi, meta_awareness, coherence, care_activation,
+            identity, reputation, community,
+        );
+        let tier = profile.clamped().tier();
+        Self {
+            did,
+            profile,
+            tier,
+            issued_at: now_us,
+            expires_at: now_us + Self::DEFAULT_TTL_US,
+            issuer,
+            trajectory_commitment: None,
+            extensions: std::collections::HashMap::new(),
+        }
+    }
+
     /// Set an extension value.
     pub fn set_extension(&mut self, key: impl Into<String>, value: Vec<u8>) {
         self.extensions.insert(key.into(), value);
@@ -299,7 +461,19 @@ impl ConsciousnessCredential {
         self.extensions.remove(key)
     }
 
-    /// Set the trajectory commitment from a TrajectoryAccumulator's output.
+    /// Set the trajectory commitment from a `TrajectoryAccumulator`'s output.
+    ///
+    /// # Integration point
+    ///
+    /// The bridge adapter (e.g., `symthaea-mycelix-holochain`) should:
+    /// 1. Maintain a `TrajectoryAccumulator` per agent
+    /// 2. Call `accumulator.trajectory_commitment()` to get the BLAKE3 hash
+    /// 3. Chain `.with_trajectory_commitment(hash)` on the issued credential
+    ///
+    /// ```ignore
+    /// let cred = ConsciousnessCredential::from_unified_consciousness(...)
+    ///     .with_trajectory_commitment(accumulator.trajectory_commitment().unwrap());
+    /// ```
     pub fn with_trajectory_commitment(mut self, commitment: [u8; 32]) -> Self {
         self.trajectory_commitment = Some(commitment);
         self
@@ -317,8 +491,10 @@ impl ConsciousnessCredential {
 
 /// Governance tiers derived from combined consciousness score.
 ///
-/// Mirrors the TrustTier concept from the identity cluster, but defined
-/// here as the canonical shared definition across all clusters.
+/// **Deprecated**: Use `sovereign_gate::CivicTier` instead. The 5 tiers
+/// are identical (Observer→Guardian), but CivicTier is the canonical type
+/// for the 8D sovereign profile system.
+#[deprecated(since = "0.9.0", note = "Use sovereign_gate::CivicTier instead")]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ConsciousnessTier {
     /// combined < 0.3 — can read, no governance participation
@@ -378,7 +554,10 @@ impl ConsciousnessTier {
     /// Promotion requires crossing `threshold + TIER_HYSTERESIS_MARGIN`.
     /// Demotion requires dropping below `threshold - TIER_HYSTERESIS_MARGIN`.
     /// This prevents rapid tier flapping from measurement noise.
-    pub fn from_score_with_hysteresis(score: f64, current_tier: ConsciousnessTier) -> ConsciousnessTier {
+    pub fn from_score_with_hysteresis(
+        score: f64,
+        current_tier: ConsciousnessTier,
+    ) -> ConsciousnessTier {
         let margin = TIER_HYSTERESIS_MARGIN;
 
         // Determine what tier we'd promote to (higher threshold required)
@@ -456,6 +635,9 @@ impl ConsciousnessTier {
 /// The `min_tier` is always checked. Optional per-dimension minimums
 /// add additional requirements (e.g., constitutional changes require
 /// minimum identity verification AND community trust).
+///
+/// **Deprecated**: Use `sovereign_gate::CivicRequirement` (8D) instead.
+#[deprecated(since = "0.9.0", note = "Use sovereign_gate::CivicRequirement (8D) instead")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GovernanceRequirement {
     /// Minimum consciousness tier required.
@@ -516,6 +698,16 @@ pub struct GateAuditInput {
     /// Format: "<agent_hex_prefix>:<timestamp_us>" — generated at action entry points.
     #[serde(default)]
     pub correlation_id: Option<String>,
+    /// Source of the consciousness credential used for this gate check.
+    ///
+    /// Enables post-incident forensics by distinguishing real credentials from
+    /// cached or bootstrap credentials. Values:
+    /// - `"identity_bridge_fresh"` — newly issued by identity cluster
+    /// - `"identity_bridge_refresh"` — refreshed within expiry window
+    /// - `"cache_hit"` — retrieved from local credential cache
+    /// - `"bootstrap"` — bootstrap credential for small communities
+    #[serde(default)]
+    pub credential_source: Option<String>,
 }
 
 // ============================================================================
@@ -764,7 +956,32 @@ pub fn evaluate_governance(
     }
 
     let eligible = reasons.is_empty();
-    let weight_bp = if eligible { tier.vote_weight_bp() } else { 0 };
+    let mut weight_bp = if eligible { tier.vote_weight_bp() } else { 0 };
+
+    // ── Sybil resistance: account age penalty ──────────────────────────
+    // Young credentials get reduced governance weight. This penalizes
+    // mass-created Sybil identities that haven't proven sustained
+    // community participation. The penalty decays linearly over 72 hours.
+    if eligible && weight_bp > 0 && credential.issued_at > 0 {
+        let credential_age_us = now_us.saturating_sub(credential.issued_at);
+        const SYBIL_MATURATION_PERIOD_US: u64 = 72 * 3600 * 1_000_000; // 72 hours
+        if credential_age_us < SYBIL_MATURATION_PERIOD_US {
+            let maturation_ratio =
+                credential_age_us as f64 / SYBIL_MATURATION_PERIOD_US as f64;
+            // Scale weight from 10% at creation to 100% at maturation
+            let age_factor = 0.1 + 0.9 * maturation_ratio;
+            let reduced = (weight_bp as f64 * age_factor) as u32;
+            if reduced < weight_bp {
+                reasons.push(format!(
+                    "Young credential: weight reduced to {:.0}% (matures in {:.1}h)",
+                    age_factor * 100.0,
+                    (SYBIL_MATURATION_PERIOD_US - credential_age_us) as f64
+                        / (3600.0 * 1_000_000.0)
+                ));
+                weight_bp = reduced.max(1); // Never zero if eligible
+            }
+        }
+    }
 
     GovernanceEligibility {
         eligible,
@@ -842,9 +1059,9 @@ pub fn requirement_for_guardian() -> GovernanceRequirement {
 /// Fetch the calling agent's consciousness credential via the specified bridge
 /// zome and evaluate it against a governance requirement.
 ///
-/// This is the shared implementation of `require_consciousness()` — every
-/// coordinator keeps a thin 3-line wrapper that passes its cluster's bridge
-/// zome name (e.g., `"commons_bridge"`, `"civic_bridge"`, `"hearth_bridge"`).
+/// **Deprecated**: Use `sovereign_gate::gate_civic()` instead. This function
+/// is retained as the fallback path for bridges that don't yet support
+/// native `SovereignCredential` issuance.
 ///
 /// Steps:
 /// 1. `agent_info()` → derive DID
@@ -852,6 +1069,8 @@ pub fn requirement_for_guardian() -> GovernanceRequirement {
 /// 3. `evaluate_governance()` (pure)
 /// 4. `should_audit()` → best-effort `log_governance_gate` if sampled
 /// 5. Reject with `WasmError` if ineligible
+#[deprecated(since = "0.9.0", note = "Use sovereign_gate::gate_civic() instead")]
+#[cfg(feature = "hdk")]
 pub fn gate_consciousness(
     bridge_zome: &str,
     requirement: &GovernanceRequirement,
@@ -886,6 +1105,16 @@ pub fn gate_consciousness(
     let now_us = sys_time()?.as_micros() as u64;
     let eligibility = evaluate_governance(&credential, requirement, now_us);
 
+    // Record consciousness gate metrics
+    let tier_index = match eligibility.tier {
+        ConsciousnessTier::Observer => 0,
+        ConsciousnessTier::Participant => 1,
+        ConsciousnessTier::Citizen => 2,
+        ConsciousnessTier::Steward => 3,
+        ConsciousnessTier::Guardian => 4,
+    };
+    crate::metrics::record_gate_check(eligibility.eligible, tier_index, 0);
+
     // Fire audit log (best-effort, rate-limited via should_audit)
     if should_audit(
         requirement,
@@ -901,6 +1130,7 @@ pub fn gate_consciousness(
             required_tier: format!("{:?}", requirement.min_tier),
             weight_bp: eligibility.weight_bp,
             correlation_id: None,
+            credential_source: None,
         };
         match call(
             CallTargetCell::Local,
@@ -1027,6 +1257,13 @@ pub const REPUTATION_RESTORATION_INTERACTIONS: u32 = 100;
 /// Basis: Three-strikes principle with proportional response.
 pub const REPUTATION_MAX_SLASHES: u32 = 5;
 
+/// Cooldown period between slashes before the frequency penalty decays.
+/// 7 days in microseconds.
+pub const REPUTATION_SLASH_COOLDOWN_US: u64 = 7 * 24 * 3600 * 1_000_000;
+
+/// Maximum additional penalty for rapid re-slashing (0.0-1.0).
+pub const REPUTATION_SLASH_FREQUENCY_PENALTY: f64 = 0.5;
+
 /// Reputation state for an agent, tracking decay and sanctions.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReputationState {
@@ -1042,6 +1279,9 @@ pub struct ReputationState {
     pub blacklisted: bool,
     /// Timestamp at which blacklist was applied (for duration tracking).
     pub blacklisted_since_us: Option<u64>,
+    /// Timestamp of the most recent slash (for cooldown frequency penalty).
+    #[serde(default)]
+    pub last_slash_us: Option<u64>,
 }
 
 impl Default for ReputationState {
@@ -1053,6 +1293,7 @@ impl Default for ReputationState {
             total_slashes: 0,
             blacklisted: false,
             blacklisted_since_us: None,
+            last_slash_us: None,
         }
     }
 }
@@ -1063,6 +1304,7 @@ impl ReputationState {
         let sanitized = if initial_score.is_finite() {
             initial_score.clamp(0.0, 1.0)
         } else {
+            warn!("NaN/Inf in ReputationState::new: initial_score={}", initial_score);
             0.0
         };
         Self {
@@ -1085,6 +1327,9 @@ impl ReputationState {
         let elapsed_days = elapsed_us as f64 / 86_400_000_000.0;
 
         if !elapsed_days.is_finite() || elapsed_days <= 0.0 {
+            if !elapsed_days.is_finite() {
+                warn!("NaN/Inf in apply_decay: elapsed_days={}", elapsed_days);
+            }
             return;
         }
 
@@ -1092,6 +1337,7 @@ impl ReputationState {
         if decay_factor.is_finite() {
             self.score = (self.score * decay_factor).clamp(0.0, 1.0);
         } else {
+            warn!("NaN/Inf decay_factor in apply_decay: elapsed_days={}, decay_factor={}", elapsed_days, decay_factor);
             self.score = 0.0; // Extreme elapsed time -> full decay
         }
         self.last_updated_us = now_us;
@@ -1134,9 +1380,11 @@ impl ReputationState {
     pub fn slash(&mut self, now_us: u64) -> f64 {
         self.apply_decay(now_us);
         self.score *= 1.0 - REPUTATION_SLASH_FACTOR;
+        self.apply_frequency_penalty(now_us);
         self.score = self.score.clamp(0.0, 1.0);
         self.consecutive_good = 0;
         self.total_slashes = self.total_slashes.saturating_add(1);
+        self.last_slash_us = Some(now_us);
         self.check_blacklist(now_us);
         self.score
     }
@@ -1148,14 +1396,29 @@ impl ReputationState {
         self.apply_decay(now_us);
         let clamped_factor = factor.clamp(0.0, 1.0);
         self.score *= 1.0 - clamped_factor;
+        self.apply_frequency_penalty(now_us);
         self.score = self.score.clamp(0.0, 1.0);
         self.consecutive_good = 0;
         self.total_slashes = self.total_slashes.saturating_add(1);
+        self.last_slash_us = Some(now_us);
         self.check_blacklist(now_us);
         self.score
     }
 
     /// Check and update blacklist status.
+    /// Apply additional penalty if this slash occurs within the cooldown window.
+    fn apply_frequency_penalty(&mut self, now_us: u64) {
+        if let Some(last) = self.last_slash_us {
+            if now_us <= last + REPUTATION_SLASH_COOLDOWN_US {
+                let elapsed = now_us.saturating_sub(last) as f64;
+                let cooldown = REPUTATION_SLASH_COOLDOWN_US as f64;
+                let recency = 1.0 - (elapsed / cooldown).min(1.0);
+                let penalty = REPUTATION_SLASH_FREQUENCY_PENALTY * recency;
+                self.score *= 1.0 - penalty;
+            }
+        }
+    }
+
     fn check_blacklist(&mut self, now_us: u64) {
         if self.score < REPUTATION_BLACKLIST_THRESHOLD && !self.blacklisted {
             self.blacklisted = true;
@@ -1183,17 +1446,47 @@ impl ReputationState {
     }
 }
 
+/// Minimum cartel confidence to trigger reputation slash.
+pub const CARTEL_SLASH_MIN_CONFIDENCE: f64 = 0.7;
+/// Minimum cartel size for reputation action.
+pub const CARTEL_MIN_SIZE: usize = 3;
+
+/// Apply a proportional reputation slash to all members of a detected cartel.
+pub fn apply_cartel_slash(
+    reputation_states: &mut std::collections::HashMap<String, ReputationState>,
+    member_ids: &[String],
+    confidence: f64,
+    now_us: u64,
+) -> Vec<(String, f64)> {
+    if confidence < CARTEL_SLASH_MIN_CONFIDENCE || member_ids.len() < CARTEL_MIN_SIZE {
+        return Vec::new();
+    }
+    let factor = confidence.clamp(0.0, 1.0);
+    let mut results = Vec::with_capacity(member_ids.len());
+    for member_id in member_ids {
+        if let Some(state) = reputation_states.get_mut(member_id) {
+            let new_score = state.slash_proportional(factor, now_us);
+            results.push((member_id.clone(), new_score));
+        }
+    }
+    results
+}
+
 /// Apply reputation decay to a ConsciousnessProfile's reputation dimension.
 ///
 /// Convenience function for use in credential issuance pipelines.
 pub fn decay_reputation(profile: &ConsciousnessProfile, elapsed_days: f64) -> ConsciousnessProfile {
     if !elapsed_days.is_finite() || elapsed_days <= 0.0 {
+        if !elapsed_days.is_finite() {
+            warn!("NaN/Inf in decay_reputation: elapsed_days={}", elapsed_days);
+        }
         return profile.clone();
     }
     let decay_factor = REPUTATION_DECAY_PER_DAY.powf(elapsed_days);
     let decayed_rep = if decay_factor.is_finite() {
         (profile.reputation * decay_factor).clamp(0.0, 1.0)
     } else {
+        warn!("NaN/Inf decay_factor in decay_reputation: elapsed_days={}, decay_factor={}", elapsed_days, decay_factor);
         0.0
     };
     ConsciousnessProfile {
@@ -1271,7 +1564,7 @@ mod tests {
             did: "did:test:alice".to_string(),
             profile,
             tier,
-            issued_at: NOW - 60_000_000,
+            issued_at: NOW - 4 * 86_400_000_000, // 4 days ago (past 72h maturation)
             expires_at: NOW + 86_400_000_000,
             issuer: "test".to_string(),
             trajectory_commitment: None,
@@ -2476,6 +2769,7 @@ mod tests {
             required_tier: "Participant".into(),
             weight_bp: 7500,
             correlation_id: Some("abcdef01:1700000000000000".into()),
+            credential_source: None,
         };
         let json = serde_json::to_string(&audit).unwrap();
         let a2: GateAuditInput = serde_json::from_str(&json).unwrap();
@@ -2484,10 +2778,30 @@ mod tests {
 
     #[test]
     fn gate_audit_input_serde_without_correlation_id() {
-        // Backward compat: old audit inputs without correlation_id
+        // Backward compat: old audit inputs without correlation_id or credential_source
         let json = r#"{"action_name":"test","zome_name":"z","eligible":true,"actual_tier":"Citizen","required_tier":"Participant","weight_bp":7500}"#;
         let audit: GateAuditInput = serde_json::from_str(json).unwrap();
         assert_eq!(audit.correlation_id, None);
+        assert_eq!(audit.credential_source, None);
+    }
+
+    #[test]
+    fn gate_audit_input_serde_with_credential_source() {
+        let audit = GateAuditInput {
+            action_name: "create_shelter".into(),
+            zome_name: "civic_bridge".into(),
+            eligible: true,
+            actual_tier: "Citizen".into(),
+            required_tier: "Participant".into(),
+            weight_bp: 7500,
+            correlation_id: None,
+            credential_source: Some("identity_bridge_fresh".into()),
+        };
+        let json = serde_json::to_string(&audit).unwrap();
+        assert!(json.contains("credential_source"));
+        assert!(json.contains("identity_bridge_fresh"));
+        let a2: GateAuditInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(a2.credential_source, Some("identity_bridge_fresh".into()));
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -2517,6 +2831,73 @@ mod tests {
         let profile = ConsciousnessProfile::from_unified_consciousness(1.5, -0.2, 0.5, 0.5);
         assert_eq!(profile.engagement, 1.0);
         assert_eq!(profile.identity, 0.0);
+    }
+
+    // -- Enriched Symthaea bridge tests --
+
+    #[test]
+    fn symthaea_bridge_composite_engagement() {
+        // phi=0.8, meta=0.6, coherence=0.5, care=0.7
+        // engagement = 0.35*0.8 + 0.25*0.6 + 0.20*0.5 + 0.20*0.7
+        //            = 0.28 + 0.15 + 0.10 + 0.14 = 0.67
+        let profile = ConsciousnessProfile::from_symthaea(
+            0.8, 0.6, 0.5, 0.7, // Symthaea signals
+            0.75, 0.50, 0.40,    // identity/reputation/community
+        );
+        let expected_engagement = 0.35 * 0.8 + 0.25 * 0.6 + 0.20 * 0.5 + 0.20 * 0.7;
+        assert!((profile.engagement - expected_engagement).abs() < 1e-10);
+        assert_eq!(profile.identity, 0.75);
+        assert_eq!(profile.reputation, 0.50);
+        assert_eq!(profile.community, 0.40);
+    }
+
+    #[test]
+    fn symthaea_bridge_all_max() {
+        let profile = ConsciousnessProfile::from_symthaea(
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        );
+        assert_eq!(profile.engagement, 1.0);
+        assert_eq!(profile.combined_score(), 1.0);
+        assert_eq!(profile.tier(), ConsciousnessTier::Guardian);
+    }
+
+    #[test]
+    fn symthaea_bridge_all_zero() {
+        let profile = ConsciousnessProfile::from_symthaea(
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        );
+        assert_eq!(profile.engagement, 0.0);
+        assert_eq!(profile.combined_score(), 0.0);
+        assert_eq!(profile.tier(), ConsciousnessTier::Observer);
+    }
+
+    #[test]
+    fn symthaea_bridge_clamps_inputs() {
+        let profile = ConsciousnessProfile::from_symthaea(
+            1.5, -0.3, 2.0, -1.0, // out-of-range Symthaea signals
+            0.5, 0.5, 0.5,
+        );
+        // After clamping: phi=1.0, meta=0.0, coh=1.0, care=0.0
+        // engagement = 0.35*1.0 + 0.25*0.0 + 0.20*1.0 + 0.20*0.0 = 0.55
+        let expected = 0.35 + 0.20;
+        assert!((profile.engagement - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn symthaea_credential_from_enriched_bridge() {
+        let now = 1_000_000_000_000_u64;
+        let cred = ConsciousnessCredential::from_symthaea(
+            "did:mycelix:enriched".into(),
+            0.7, 0.6, 0.5, 0.8, // phi, meta, coherence, care
+            0.80, 0.50, 0.40,    // identity, reputation, community
+            "did:mycelix:bridge".into(),
+            now,
+        );
+        assert_eq!(cred.did, "did:mycelix:enriched");
+        // engagement = 0.35*0.7 + 0.25*0.6 + 0.20*0.5 + 0.20*0.8 = 0.245+0.15+0.10+0.16 = 0.655
+        let expected_engagement = 0.35 * 0.7 + 0.25 * 0.6 + 0.20 * 0.5 + 0.20 * 0.8;
+        assert!((cred.profile.engagement - expected_engagement).abs() < 1e-10);
+        assert!(cred.tier >= ConsciousnessTier::Citizen);
     }
 
     #[test]
@@ -2585,6 +2966,7 @@ mod tests {
             required_tier: format!("{:?}", ConsciousnessTier::Participant),
             weight_bp: result.weight_bp,
             correlation_id: Some(format!("mvb:{}", NOW)),
+            credential_source: Some("identity_bridge_fresh".into()),
         };
         // Verify it serializes (real bridge would store on source chain)
         let json = serde_json::to_string(&_audit).unwrap();
@@ -3166,6 +3548,7 @@ mod tests {
             consecutive_good: 20,
             total_slashes: 2,
             last_updated_us: 0,
+            last_slash_us: None,
         };
         let requirement = GovernanceRequirement {
             min_tier: ConsciousnessTier::Participant,
@@ -3204,6 +3587,7 @@ mod tests {
             score: 0.8,
             blacklisted: false,
             blacklisted_since_us: None,
+            last_slash_us: None,
             consecutive_good: 50,
             total_slashes: 2, // 2 slashes -> 10% weight reduction
             last_updated_us: 0,
@@ -3234,10 +3618,7 @@ mod tests {
     #[test]
     fn test_reputation_nan_safety() {
         let state = ReputationState::new(f64::NAN, 0);
-        assert!(
-            (state.score - 0.0).abs() < 1e-10,
-            "NaN should clamp to 0"
-        );
+        assert!((state.score - 0.0).abs() < 1e-10, "NaN should clamp to 0");
 
         let mut state2 = ReputationState::new(0.5, 0);
         state2.apply_decay(u64::MAX); // extreme elapsed time
@@ -3295,7 +3676,12 @@ mod tests {
 
     #[test]
     fn test_sigmoid_infinity_score_returns_zero() {
-        let w = continuous_vote_weight(f64::INFINITY, 0.4, VOTE_WEIGHT_TEMPERATURE, VOTE_WEIGHT_MAX_BP);
+        let w = continuous_vote_weight(
+            f64::INFINITY,
+            0.4,
+            VOTE_WEIGHT_TEMPERATURE,
+            VOTE_WEIGHT_MAX_BP,
+        );
         assert!(
             (w - 0.0).abs() < 1e-10,
             "Infinity score should return 0.0, got {w}"
@@ -3312,7 +3698,10 @@ mod tests {
         };
         // combined_score = 0.5, which is above 0.4 threshold
         let w = profile.vote_weight_continuous();
-        assert!(w > VOTE_WEIGHT_MAX_BP / 2.0, "Score 0.5 > threshold 0.4 should give > half max");
+        assert!(
+            w > VOTE_WEIGHT_MAX_BP / 2.0,
+            "Score 0.5 > threshold 0.4 should give > half max"
+        );
         assert!(w < VOTE_WEIGHT_MAX_BP, "Should not exceed max");
     }
 
@@ -3323,7 +3712,8 @@ mod tests {
     #[test]
     fn test_hysteresis_no_promote_in_deadband() {
         // Score 0.42 — above Citizen threshold (0.4) but below promote threshold (0.45)
-        let tier = ConsciousnessTier::from_score_with_hysteresis(0.42, ConsciousnessTier::Participant);
+        let tier =
+            ConsciousnessTier::from_score_with_hysteresis(0.42, ConsciousnessTier::Participant);
         assert_eq!(
             tier,
             ConsciousnessTier::Participant,
@@ -3356,7 +3746,8 @@ mod tests {
     #[test]
     fn test_hysteresis_promotes_above_upper_threshold() {
         // Score 0.46 — above promote threshold (0.45)
-        let tier = ConsciousnessTier::from_score_with_hysteresis(0.46, ConsciousnessTier::Participant);
+        let tier =
+            ConsciousnessTier::from_score_with_hysteresis(0.46, ConsciousnessTier::Participant);
         assert_eq!(
             tier,
             ConsciousnessTier::Citizen,
@@ -3368,36 +3759,67 @@ mod tests {
     fn test_hysteresis_guardian_boundary() {
         // 0.83 — above 0.8 but below promote threshold 0.85
         let tier = ConsciousnessTier::from_score_with_hysteresis(0.83, ConsciousnessTier::Steward);
-        assert_eq!(tier, ConsciousnessTier::Steward, "0.83 should NOT promote to Guardian (need 0.85)");
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Steward,
+            "0.83 should NOT promote to Guardian (need 0.85)"
+        );
 
         // 0.86 — above promote threshold 0.85
         let tier = ConsciousnessTier::from_score_with_hysteresis(0.86, ConsciousnessTier::Steward);
-        assert_eq!(tier, ConsciousnessTier::Guardian, "0.86 should promote to Guardian");
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Guardian,
+            "0.86 should promote to Guardian"
+        );
 
         // 0.76 — below demote threshold 0.75
         let tier = ConsciousnessTier::from_score_with_hysteresis(0.74, ConsciousnessTier::Guardian);
-        assert_eq!(tier, ConsciousnessTier::Steward, "0.74 should demote from Guardian");
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Steward,
+            "0.74 should demote from Guardian"
+        );
     }
 
     #[test]
     fn test_hysteresis_observer_boundary() {
         // 0.33 — above 0.3 but below promote threshold 0.35
         let tier = ConsciousnessTier::from_score_with_hysteresis(0.33, ConsciousnessTier::Observer);
-        assert_eq!(tier, ConsciousnessTier::Observer, "0.33 should NOT promote from Observer (need 0.35)");
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Observer,
+            "0.33 should NOT promote from Observer (need 0.35)"
+        );
 
         // 0.36 — above promote threshold 0.35
         let tier = ConsciousnessTier::from_score_with_hysteresis(0.36, ConsciousnessTier::Observer);
-        assert_eq!(tier, ConsciousnessTier::Participant, "0.36 should promote to Participant");
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Participant,
+            "0.36 should promote to Participant"
+        );
 
         // 0.24 — below demote threshold 0.25
-        let tier = ConsciousnessTier::from_score_with_hysteresis(0.24, ConsciousnessTier::Participant);
-        assert_eq!(tier, ConsciousnessTier::Observer, "0.24 should demote to Observer");
+        let tier =
+            ConsciousnessTier::from_score_with_hysteresis(0.24, ConsciousnessTier::Participant);
+        assert_eq!(
+            tier,
+            ConsciousnessTier::Observer,
+            "0.24 should demote to Observer"
+        );
     }
 
     #[test]
     fn extensions_default_empty() {
         let cred = ConsciousnessCredential::from_unified_consciousness(
-            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+            "did:test".into(),
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            "issuer".into(),
+            1000,
         );
         assert!(cred.extensions.is_empty());
         assert!(cred.trajectory_commitment.is_none());
@@ -3406,7 +3828,13 @@ mod tests {
     #[test]
     fn extensions_set_get_roundtrip() {
         let mut cred = ConsciousnessCredential::from_unified_consciousness(
-            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+            "did:test".into(),
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            "issuer".into(),
+            1000,
         );
         cred.set_extension("foo", vec![1, 2, 3]);
         assert_eq!(cred.get_extension("foo"), Some(&vec![1, 2, 3]));
@@ -3416,11 +3844,136 @@ mod tests {
     #[test]
     fn extensions_remove() {
         let mut cred = ConsciousnessCredential::from_unified_consciousness(
-            "did:test".into(), 0.5, 0.5, 0.5, 0.5, "issuer".into(), 1000,
+            "did:test".into(),
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            "issuer".into(),
+            1000,
         );
         cred.set_extension("key", vec![42]);
         let removed = cred.remove_extension("key");
         assert_eq!(removed, Some(vec![42]));
         assert!(cred.get_extension("key").is_none());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Sybil maturation proptests
+    // ════════════════════════════════════════════════════════════════════════
+
+    mod sybil_proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        const MATURATION_US: u64 = 72 * 3600 * 1_000_000;
+
+        fn make_credential_at_age(age_us: u64) -> (ConsciousnessCredential, u64) {
+            let now_us = 1_000_000_000_000u64; // fixed reference
+            let issued_at = now_us.saturating_sub(age_us);
+            let cred = ConsciousnessCredential {
+                did: "did:test:prop".to_string(),
+                profile: ConsciousnessProfile {
+                    identity: 0.5,
+                    reputation: 0.5,
+                    community: 0.5,
+                    engagement: 0.5,
+                },
+                tier: ConsciousnessTier::Citizen,
+                issued_at,
+                expires_at: now_us + 86_400_000_000,
+                issuer: "test".to_string(),
+                trajectory_commitment: None,
+                extensions: std::collections::HashMap::new(),
+            };
+            (cred, now_us)
+        }
+
+        proptest! {
+            /// Weight monotonically increases with credential age.
+            #[test]
+            fn prop_weight_monotonic_with_age(
+                age_a_hours in 0u64..200,
+                age_b_hours in 0u64..200,
+            ) {
+                let age_a_us = age_a_hours * 3600 * 1_000_000;
+                let age_b_us = age_b_hours * 3600 * 1_000_000;
+                let (cred_a, now) = make_credential_at_age(age_a_us);
+                let (cred_b, _) = make_credential_at_age(age_b_us);
+                let req = requirement_for_basic();
+
+                let result_a = evaluate_governance(&cred_a, &req, now);
+                let result_b = evaluate_governance(&cred_b, &req, now);
+
+                if age_a_us >= age_b_us {
+                    prop_assert!(
+                        result_a.weight_bp >= result_b.weight_bp,
+                        "Older credential should have >= weight than younger: {} vs {}",
+                        result_a.weight_bp, result_b.weight_bp
+                    );
+                }
+            }
+
+            /// Fully matured credentials (>72h) get full weight (no age penalty).
+            #[test]
+            fn prop_mature_credential_full_weight(age_hours in 73u64..1000) {
+                let age_us = age_hours * 3600 * 1_000_000;
+                let (cred, now) = make_credential_at_age(age_us);
+                let req = requirement_for_basic();
+                let result = evaluate_governance(&cred, &req, now);
+                // Citizen tier (0.5 combined) through sigmoid gives 7500 bp.
+                // The key assertion: no age penalty applied for mature credentials.
+                let baseline = {
+                    let (fresh_cred, _) = make_credential_at_age(age_us);
+                    evaluate_governance(&fresh_cred, &req, now).weight_bp
+                };
+                prop_assert_eq!(
+                    result.weight_bp, baseline,
+                    "Mature credential should have full (unpenalized) weight"
+                );
+            }
+
+            /// Brand-new credentials (0-1h) get severely reduced weight.
+            #[test]
+            fn prop_new_credential_reduced_weight(age_minutes in 0u64..60) {
+                let age_us = age_minutes * 60 * 1_000_000;
+                let (cred, now) = make_credential_at_age(age_us);
+                let req = requirement_for_basic();
+                let result = evaluate_governance(&cred, &req, now);
+                // At 0 minutes: weight = 5000 * 0.1 = 500
+                // At 60 minutes: weight = 5000 * (0.1 + 0.9 * (60/4320)) ≈ 562
+                prop_assert!(
+                    result.weight_bp < 3000,
+                    "New credential should have reduced weight: {}",
+                    result.weight_bp
+                );
+            }
+
+            /// Mass-created Sybil swarm: N identities created simultaneously
+            /// have total collective weight << N honest identities.
+            #[test]
+            fn prop_sybil_swarm_reduced_total_weight(n_sybils in 3usize..50) {
+                let age_us = 60 * 1_000_000; // 1 minute old (mass-created)
+                let honest_age_us = 100 * 3600 * 1_000_000; // 100 hours old
+
+                let (sybil_cred, now) = make_credential_at_age(age_us);
+                let (honest_cred, _) = make_credential_at_age(honest_age_us);
+                let req = requirement_for_basic();
+
+                let sybil_weight = evaluate_governance(&sybil_cred, &req, now).weight_bp;
+                let honest_weight = evaluate_governance(&honest_cred, &req, now).weight_bp;
+
+                let sybil_total = sybil_weight as u64 * n_sybils as u64;
+                let honest_total = honest_weight as u64 * n_sybils as u64;
+
+                // Sybil swarm should have <= 30% the total weight of equivalent honest agents
+                let ratio = sybil_total as f64 / honest_total.max(1) as f64;
+                prop_assert!(
+                    ratio <= 0.3,
+                    "Sybil swarm total weight should be <= 30% of honest: ratio={}",
+                    ratio
+                );
+            }
+        }
     }
 }

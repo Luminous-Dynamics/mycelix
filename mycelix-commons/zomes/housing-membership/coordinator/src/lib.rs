@@ -1,19 +1,14 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Membership Coordinator Zome
 //! Business logic for co-op membership, applications, waitlist, and rent-to-own.
 
 use hdk::prelude::*;
 use housing_membership_integrity::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, requirement_for_voting,
-    GovernanceEligibility, GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting};
+use mycelix_zome_helpers::get_latest_record;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
@@ -22,27 +17,9 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 
 /// Submit a new membership application
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn submit_application(app: MemberApplication) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "submit_application")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "submit_application")?;
     for reference in &app.references {
         if reference.len() > 512 {
             return Err(wasm_error!(WasmErrorInner::Guest(
@@ -84,7 +61,7 @@ pub struct ReviewApplicationInput {
 /// Review an application (change its status)
 #[hdk_extern]
 pub fn review_application(input: ReviewApplicationInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "review_application")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "review_application")?;
     let record = get(input.application_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Application not found".into())
     ))?;
@@ -118,7 +95,7 @@ pub struct ApproveMemberInput {
 /// Approve an application and create a member record
 #[hdk_extern]
 pub fn approve_member(input: ApproveMemberInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "approve_member")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "approve_member")?;
     let record = get(input.application_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Application not found".into())
     ))?;
@@ -195,7 +172,7 @@ pub struct AddToWaitlistInput {
 /// Add an applicant to the waitlist
 #[hdk_extern]
 pub fn add_to_waitlist(input: AddToWaitlistInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "add_to_waitlist")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "add_to_waitlist")?;
     let now = sys_time()?;
 
     // Determine position by counting existing waitlist entries
@@ -279,7 +256,7 @@ pub struct CreateRentToOwnInput {
 /// Create a rent-to-own agreement
 #[hdk_extern]
 pub fn create_rent_to_own(input: CreateRentToOwnInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_voting(), "create_rent_to_own")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_voting(), "create_rent_to_own")?;
     let now = sys_time()?;
 
     let agreement = RentToOwnAgreement {
@@ -326,7 +303,7 @@ pub struct RecordRentPaymentInput {
 /// Record a rent payment and update accumulated equity
 #[hdk_extern]
 pub fn record_rent_payment(input: RecordRentPaymentInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "record_rent_payment")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "record_rent_payment")?;
     let record = get(input.agreement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Agreement not found".into())
     ))?;

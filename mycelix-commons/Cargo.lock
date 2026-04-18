@@ -36,6 +36,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "bit-set"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08807e080ed7f9d5433fa9b275196cfc35414f66a0c79d864dc51a0d825231a3"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
+name = "bitflags"
+version = "2.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
+
+[[package]]
 name = "blake2b_simd"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -70,6 +91,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "boundary_contracts"
+version = "0.1.0"
+dependencies = [
+ "boundary_contracts_integrity",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "boundary_contracts_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -89,6 +134,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -99,6 +145,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -111,6 +158,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -121,6 +169,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -133,6 +182,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -143,6 +193,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -155,6 +206,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -165,6 +217,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -177,6 +230,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -187,6 +241,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -220,6 +275,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "circular_marketplace"
+version = "0.1.0"
+dependencies = [
+ "circular_marketplace_integrity",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "circular_marketplace_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "colored"
 version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -250,6 +330,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -259,6 +340,57 @@ name = "commons_bridge_integrity"
 version = "0.1.0"
 dependencies = [
  "commons-types",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "community_calendar"
+version = "0.1.0"
+dependencies = [
+ "commons-types",
+ "community_calendar_integrity",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "community_calendar_integrity"
+version = "0.1.0"
+dependencies = [
+ "commons-types",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "compost_control"
+version = "0.1.0"
+dependencies = [
+ "compost_control_integrity",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "compost_control_integrity"
+version = "0.1.0"
+dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mycelix-bridge-entry-types",
@@ -387,6 +519,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "errno"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+dependencies = [
+ "libc",
+ "windows-sys",
+]
+
+[[package]]
+name = "fastrand"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -402,10 +550,12 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "food_distribution"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "food_distribution_integrity",
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -416,6 +566,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -428,6 +579,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -438,6 +590,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -450,6 +603,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -460,6 +614,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -468,10 +623,12 @@ dependencies = [
 name = "food_production"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "food_production_integrity",
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -482,6 +639,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -826,6 +984,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "housing_clt_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -836,6 +995,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -848,6 +1008,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "housing_finances_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -858,6 +1019,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -870,6 +1032,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "housing_governance_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -880,6 +1043,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -892,6 +1056,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "housing_maintenance_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -902,6 +1067,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -914,6 +1080,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "housing_membership_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -924,6 +1091,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -932,10 +1100,12 @@ dependencies = [
 name = "housing_units"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "hdk",
  "holochain_serialized_bytes",
  "housing_units_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -946,6 +1116,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1013,6 +1184,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "459427e2af2b9c839b132acb702a1c654d95e10f8c326bfc2ad11310e458b1c5"
 
 [[package]]
+name = "linux-raw-sys"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
+
+[[package]]
 name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1032,6 +1209,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "mesh_time_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1042,6 +1220,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1077,6 +1256,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_circles_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1088,6 +1268,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1101,6 +1282,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_governance_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1112,6 +1294,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1125,6 +1308,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_needs_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1136,6 +1320,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1149,6 +1334,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_pools_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1160,6 +1346,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1173,6 +1360,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_requests_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1184,6 +1372,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1198,6 +1387,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_resources_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1209,6 +1399,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1222,6 +1413,7 @@ dependencies = [
  "mutualaid-common",
  "mutualaid_timebank_integrity",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -1233,6 +1425,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "mutualaid-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1244,6 +1437,7 @@ dependencies = [
  "blake3",
  "hdk",
  "serde",
+ "sovereign-profile",
 ]
 
 [[package]]
@@ -1254,6 +1448,16 @@ dependencies = [
  "holochain_serialized_bytes",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mycelix-zome-helpers"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holo_hash",
+ "mycelix-bridge-common",
+ "serde",
 ]
 
 [[package]]
@@ -1288,6 +1492,15 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+
+[[package]]
+name = "ppv-lite86"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
+dependencies = [
+ "zerocopy",
+]
 
 [[package]]
 name = "proc-macro-error"
@@ -1330,6 +1543,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "property_commons_integrity",
  "serde",
  "serde_json",
@@ -1341,6 +1555,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1353,6 +1568,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "property_disputes_integrity",
  "serde",
  "serde_json",
@@ -1364,6 +1580,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1376,6 +1593,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "property_registry_integrity",
  "serde",
  "serde_json",
@@ -1387,6 +1605,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1399,6 +1618,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "property_transfer_integrity",
  "serde",
  "serde_json",
@@ -1410,9 +1630,35 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "proptest"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37566cb3fdacef14c0737f9546df7cfeadbfbc9fef10991038bf5015d0c80532"
+dependencies = [
+ "bit-set",
+ "bit-vec",
+ "bitflags",
+ "num-traits",
+ "rand",
+ "rand_chacha",
+ "rand_xorshift",
+ "regex-syntax",
+ "rusty-fork",
+ "tempfile",
+ "unarray",
+]
+
+[[package]]
+name = "quick-error"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quote"
@@ -1430,12 +1676,57 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
+name = "rand"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
+dependencies = [
+ "rand_chacha",
+ "rand_core",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
+dependencies = [
+ "ppv-lite86",
+ "rand_core",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
+dependencies = [
+ "getrandom",
+]
+
+[[package]]
+name = "rand_xorshift"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
+dependencies = [
+ "rand_core",
+]
+
+[[package]]
+name = "regex-syntax"
+version = "0.8.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
 name = "resource_mesh"
 version = "0.1.0"
 dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "resource_mesh_integrity",
  "serde",
  "serde_json",
@@ -1447,6 +1738,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1481,10 +1773,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustix"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "146c9e247ccc180c1f61615433868c99f3de3ae256a30a43b49f67c2d9171f34"
+dependencies = [
+ "bitflags",
+ "errno",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+
+[[package]]
+name = "rusty-fork"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc6bf79ff24e648f6da1f8d1f011e9cac26491b619e6b9280f2b47f1774e6ee2"
+dependencies = [
+ "fnv",
+ "quick-error",
+ "tempfile",
+ "wait-timeout",
+]
 
 [[package]]
 name = "ryu"
@@ -1573,12 +1890,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
+name = "sovereign-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "space"
 version = "0.1.0"
 dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "space_integrity",
@@ -1590,6 +1915,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1640,6 +1966,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "support-types",
@@ -1652,6 +1979,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
  "support-types",
@@ -1664,6 +1992,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "support-types",
@@ -1676,6 +2005,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
  "support-types",
@@ -1688,6 +2018,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "support-types",
@@ -1700,6 +2031,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
  "support-types",
@@ -1727,6 +2059,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tempfile"
+version = "3.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0136791f7c95b1f6dd99f9cc786b91bb81c3800b639b3478e561ddb7be95e5f1"
+dependencies = [
+ "fastrand",
+ "getrandom",
+ "once_cell",
+ "rustix",
+ "windows-sys",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1744,6 +2089,32 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.115",
+]
+
+[[package]]
+name = "tool_library"
+version = "0.1.0"
+dependencies = [
+ "commons-types",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+ "tool_library_integrity",
+]
+
+[[package]]
+name = "tool_library_integrity"
+version = "0.1.0"
+dependencies = [
+ "commons-types",
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1785,6 +2156,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "transport_impact_integrity",
@@ -1796,6 +2168,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1804,9 +2177,11 @@ dependencies = [
 name = "transport_routes"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "transport_routes_integrity",
@@ -1818,6 +2193,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1826,9 +2202,11 @@ dependencies = [
 name = "transport_sharing"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "transport_sharing_integrity",
@@ -1840,6 +2218,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1849,6 +2228,12 @@ name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
+
+[[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unicode-ident"
@@ -1879,6 +2264,15 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "wait-timeout"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "wasip2"
@@ -1935,12 +2329,63 @@ dependencies = [
 ]
 
 [[package]]
-name = "water_capture"
+name = "waste_collection"
 version = "0.1.0"
 dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+ "waste_collection_integrity",
+]
+
+[[package]]
+name = "waste_collection_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "waste_registry"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+ "waste_registry_integrity",
+]
+
+[[package]]
+name = "waste_registry_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "water_capture"
+version = "0.1.0"
+dependencies = [
+ "commons-types",
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "water_capture_integrity",
@@ -1952,6 +2397,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1963,6 +2409,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "water_flow_integrity",
@@ -1974,6 +2421,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1985,6 +2433,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "water_purity_integrity",
@@ -1996,6 +2445,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -2004,9 +2454,11 @@ dependencies = [
 name = "water_steward"
 version = "0.1.0"
 dependencies = [
+ "commons-types",
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "water_steward_integrity",
@@ -2018,6 +2470,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -2029,6 +2482,7 @@ dependencies = [
  "hdk",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
  "water_wisdom_integrity",
@@ -2040,6 +2494,31 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "wellbeing"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-common",
+ "mycelix-zome-helpers",
+ "serde",
+ "serde_json",
+ "wellbeing_integrity",
+]
+
+[[package]]
+name = "wellbeing_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -2117,3 +2596,23 @@ name = "wit-bindgen"
 version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7249219f66ced02969388cf2bb044a09756a083d0fab1e566056b04d9fbcaa5"
+
+[[package]]
+name = "zerocopy"
+version = "0.8.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efbb2a062be311f2ba113ce66f697a4dc589f85e78a4aea276200804cea0ed87"
+dependencies = [
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e8bc7269b54418e7aeeef514aa68f8690b8c0489a06b0136e5f57c4c5ccab89"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.115",
+]

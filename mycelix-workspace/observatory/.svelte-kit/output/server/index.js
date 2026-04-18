@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { i as is_primitive, g as get_type, D as DevalueError, a as is_plain_object, e as enumerable_symbols, s as stringify_key, b as stringify_string, v as valid_array_indices, c as escaped, E as ENDPOINT_METHODS, P as PAGE_METHODS, n as negotiate, m as method_not_allowed, h as handle_error_and_jsonify, d as browser, f as get_status, j as is_form_content_type, k as normalize_error, l as stringify, o as get_global_name, p as serialize_uses, q as clarify_devalue_error, r as get_node_type, t as escape_html, S as SVELTE_KIT_ASSETS, u as create_remote_key, w as static_error_page, x as redirect_response, y as parse_remote_arg, z as stringify$1, A as deserialize_binary_form, B as has_prerendered_path, T as TRAILING_SLASH_PARAM, I as INVALIDATED_PARAM, C as handle_fatal_error, M as MUTATIVE_METHODS, F as format_server_error } from "./chunks/shared.js";
 import { json, text, error } from "@sveltejs/kit";
 import { Redirect, SvelteKitError, ActionFailure, HttpError } from "@sveltejs/kit/internal";

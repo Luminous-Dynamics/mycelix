@@ -1,10 +1,12 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Transport Impact Coordinator Zome
 //! Business logic for trip logging, emissions calculation, and carbon credits.
 
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, GovernanceEligibility, GovernanceRequirement,
-};
+use mycelix_bridge_common::civic_requirement_basic;
+use mycelix_zome_helpers::records_from_links;
 use transport_impact_integrity::*;
 
 // ============================================================================
@@ -18,46 +20,10 @@ pub struct BridgeEventSignal {
     pub payload: String,
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_str.to_string());
     hash_entry(&EntryTypes::Anchor(anchor))
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
-fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
-    let mut records = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
-            records.push(record);
-        }
-    }
-    Ok(records)
 }
 
 /// Average CO2 emissions per km by mode (kg CO2/km)
@@ -83,7 +49,7 @@ fn emissions_factor(mode: &TripMode) -> f64 {
 
 #[hdk_extern]
 pub fn log_trip(mut trip: TripLog) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "log_trip")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "log_trip")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Auto-calculate emissions if not provided (zero means calculate)
@@ -228,7 +194,7 @@ pub struct RedeemInput {
 
 #[hdk_extern]
 pub fn redeem_credits(input: RedeemInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "redeem_credits")?;
+    mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "redeem_credits")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Verify sufficient balance before redeeming

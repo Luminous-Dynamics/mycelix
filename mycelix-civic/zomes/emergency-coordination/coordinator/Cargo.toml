@@ -2,6 +2,7 @@
 name = "emergency_coordination"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -15,4 +16,5 @@ holochain_serialized_bytes = { workspace = true }
 emergency_coordination_integrity = { path = "../integrity" }
 civic-types = { workspace = true }
 mycelix-bridge-common = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
 

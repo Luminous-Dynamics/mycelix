@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Resources Coordinator Zome
 //!
 //! Provides CRUD operations for shared resources, resource loans,
@@ -8,20 +11,13 @@ use hearth_coordinator_common::{decode_zome_response, get_latest_record};
 use hearth_resources_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
 };
 
 // ============================================================================
 // Consciousness Gating
 // ============================================================================
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("hearth_bridge", requirement, action_name)
-}
 
 // ============================================================================
 // Input Types
@@ -140,7 +136,7 @@ fn get_caller_role(hearth_hash: ActionHash) -> ExternResult<MemberRole> {
 /// Links the resource from the hearth via HearthToResources.
 #[hdk_extern]
 pub fn register_resource(input: RegisterResourceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "register_resource")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "register_resource")?;
     get_caller_role(input.hearth_hash.clone())?;
     let resource = SharedResource {
         hearth_hash: input.hearth_hash.clone(),
@@ -173,7 +169,7 @@ pub fn register_resource(input: RegisterResourceInput) -> ExternResult<Record> {
 /// Auth: only guardians (Founder/Elder/Adult) can lend shared resources.
 #[hdk_extern]
 pub fn lend_resource(input: LendResourceInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "lend_resource")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "lend_resource")?;
     let now = sys_time()?;
 
     // Get the resource to find its hearth
@@ -238,7 +234,7 @@ pub fn lend_resource(input: LendResourceInput) -> ExternResult<Record> {
 /// The loan must be in an active state (Active or Overdue).
 #[hdk_extern]
 pub fn return_resource(loan_hash: ActionHash) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "return_resource")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "return_resource")?;
     let agent = agent_info()?.agent_initial_pubkey;
 
     let existing = get(loan_hash.clone(), GetOptions::default())?
@@ -295,7 +291,7 @@ pub fn return_resource(loan_hash: ActionHash) -> ExternResult<Record> {
 /// Auth: only guardians (Founder/Elder/Adult) can create budget categories.
 #[hdk_extern]
 pub fn create_budget_category(input: CreateBudgetInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "create_budget_category")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_proposal(), "create_budget_category")?;
     // Guardian authorization
     let _role = require_guardian_role(input.hearth_hash.clone())?;
 
@@ -325,7 +321,7 @@ pub fn create_budget_category(input: CreateBudgetInput) -> ExternResult<Record> 
 /// Log an expense against a budget category, incrementing current_month_actual_cents.
 #[hdk_extern]
 pub fn log_expense(input: LogExpenseInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "log_expense")?;
+    mycelix_zome_helpers::require_civic("hearth_bridge", &civic_requirement_basic(), "log_expense")?;
     let existing = get(input.budget_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Budget category not found".into())
     ))?;

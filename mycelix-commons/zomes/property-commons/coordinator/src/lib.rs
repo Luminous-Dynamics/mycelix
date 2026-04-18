@@ -1,46 +1,23 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Commons Management Coordinator Zome
 use hdk::prelude::*;
-use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
-};
+use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal};
+use mycelix_zome_helpers::get_latest_record;
 use property_commons_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("commons_bridge", requirement, action_name)
-}
 
 /// Get or create an anchor entry and return its EntryHash for use as link base
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
-    let _ = create_entry(&EntryTypes::Anchor(anchor.clone()));
+    if let Err(e) = create_entry(&EntryTypes::Anchor(anchor.clone())) { debug!("Anchor creation warning: {:?}", e); }
     hash_entry(&anchor)
-}
-
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
 }
 
 #[hdk_extern]
 pub fn create_common_resource(input: CreateResourceInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "create_common_resource")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "create_common_resource")?;
     let now = sys_time()?;
     let resource = CommonResource {
         id: format!(
@@ -81,7 +58,7 @@ pub struct CreateResourceInput {
 
 #[hdk_extern]
 pub fn grant_usage_right(input: GrantRightInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "grant_usage_right")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "grant_usage_right")?;
     let now = sys_time()?;
     let right = UsageRight {
         id: format!(
@@ -126,7 +103,7 @@ pub struct GrantRightInput {
 
 #[hdk_extern]
 pub fn log_usage(input: LogUsageInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_basic(), "log_usage")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_basic(), "log_usage")?;
     let now = sys_time()?;
     let log = UsageLog {
         id: format!(
@@ -294,7 +271,7 @@ pub fn get_resource_rights(resource_id: String) -> ExternResult<Vec<Record>> {
 /// Revoke a usage right
 #[hdk_extern]
 pub fn revoke_usage_right(input: RevokeRightInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "revoke_usage_right")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "revoke_usage_right")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::UsageRight,
@@ -348,7 +325,7 @@ pub struct RevokeRightInput {
 /// Add a steward to a resource
 #[hdk_extern]
 pub fn add_steward(input: AddStewardInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "add_steward")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "add_steward")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -413,7 +390,7 @@ pub struct AddStewardInput {
 /// Remove a steward from a resource (cannot remove last steward)
 #[hdk_extern]
 pub fn remove_steward(input: RemoveStewardInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "remove_steward")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "remove_steward")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -500,7 +477,7 @@ pub fn get_holder_rights(holder_did: String) -> ExternResult<Vec<Record>> {
 #[hdk_extern]
 pub fn update_governance_rules(input: UpdateGovernanceInput) -> ExternResult<Record> {
     let _eligibility =
-        require_consciousness(&requirement_for_proposal(), "update_governance_rules")?;
+        mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_governance_rules")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -620,7 +597,7 @@ pub struct UserUsageInput {
 /// Update usage right quota
 #[hdk_extern]
 pub fn update_right_quota(input: UpdateQuotaInput) -> ExternResult<Record> {
-    let _eligibility = require_consciousness(&requirement_for_proposal(), "update_right_quota")?;
+    let _eligibility = mycelix_zome_helpers::require_civic("commons_bridge", &civic_requirement_proposal(), "update_right_quota")?;
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::UsageRight,

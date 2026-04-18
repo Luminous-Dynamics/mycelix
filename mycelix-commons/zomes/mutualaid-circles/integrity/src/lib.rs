@@ -1,9 +1,13 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Circles Integrity Zome
 //!
 //! This zome defines entry types and validation rules for community credit circles
 //! in the Mycelix Mutual Aid hApp. Implements mutual credit with automatic clearing.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
 
 /// Entry types for the circles zome
@@ -65,9 +69,35 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             tag,
             ..
         } => validate_create_link(link_type, base_address, target_address, tag),
-        FlatOp::RegisterDeleteLink { link_type, .. } => {
-            let _ = link_type;
-            Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterDeleteLink { action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            Ok(check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            ))
+        }
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }

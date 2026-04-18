@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { c as create_ssr_component, o as onDestroy, v as validate_component, d as add_attribute, b as escape } from "../../../chunks/ssr.js";
 import { c as createFreshness, t as getAllInventoryItems, j as getLowStockItems } from "../../../chunks/freshness.js";
 import "../../../chunks/conductor.js";

@@ -1,13 +1,15 @@
 [package]
 name = "resource_mesh"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 name = "resource_mesh"
 
 [dependencies]
+mycelix-zome-helpers = { workspace = true }
 hdk = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

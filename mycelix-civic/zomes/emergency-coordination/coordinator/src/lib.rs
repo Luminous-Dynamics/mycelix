@@ -1,12 +1,15 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Coordination Coordinator Zome
 //! Team management, zone assignments, SITREPs, and agent check-ins
 
 use emergency_coordination_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    gate_consciousness, requirement_for_basic, requirement_for_proposal, GovernanceEligibility,
-    GovernanceRequirement,
+    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
 };
+use mycelix_zome_helpers::{get_latest_record};
 
 /// Summary of a single active disaster
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -32,36 +35,12 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(anchor))
 }
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<GovernanceEligibility> {
-    gate_consciousness("civic_bridge", requirement, action_name)
-}
 
 /// Form a new response team
 
-fn get_latest_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(None);
-    };
-    match details {
-        Details::Record(record_details) => {
-            if record_details.updates.is_empty() {
-                Ok(Some(record_details.record))
-            } else {
-                let latest_update = &record_details.updates[record_details.updates.len() - 1];
-                let latest_hash = latest_update.action_address().clone();
-                get_latest_record(latest_hash)
-            }
-        }
-        Details::Entry(_) => Ok(None),
-    }
-}
-
 #[hdk_extern]
 pub fn form_team(input: FormTeamInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "form_team")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "form_team")?;
     if input.name.trim().is_empty() || input.name.len() > 128 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Team name must be 1-128 non-whitespace characters".into()
@@ -141,7 +120,7 @@ pub struct FormTeamInput {
 /// Assign a team to an operational zone
 #[hdk_extern]
 pub fn assign_to_zone(input: AssignToZoneInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_proposal(), "assign_to_zone")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_proposal(), "assign_to_zone")?;
     if input.objective.trim().is_empty() || input.objective.len() > 1024 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Objective must be 1-1024 non-whitespace characters".into()
@@ -233,7 +212,7 @@ pub struct AssignToZoneInput {
 /// Submit a situation report from the field
 #[hdk_extern]
 pub fn submit_sitrep(input: SubmitSitrepInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "submit_sitrep")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "submit_sitrep")?;
     if input.conditions.trim().is_empty() || input.conditions.len() > 4096 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Conditions must be 1-4096 non-whitespace characters".into()
@@ -301,7 +280,7 @@ pub struct SubmitSitrepInput {
 /// Agent location check-in
 #[hdk_extern]
 pub fn checkin(input: CheckinInput) -> ExternResult<Record> {
-    require_consciousness(&requirement_for_basic(), "checkin")?;
+    mycelix_zome_helpers::require_civic("civic_bridge", &civic_requirement_basic(), "checkin")?;
     if input.lat < -90.0 || input.lat > 90.0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Latitude must be between -90 and 90".into()

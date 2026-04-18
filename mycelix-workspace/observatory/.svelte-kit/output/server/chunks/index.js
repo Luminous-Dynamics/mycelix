@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import { f as noop, h as safe_not_equal, a as subscribe, r as run_all, i as is_function } from "./ssr.js";
 const subscriber_queue = [];
 function readable(value, start) {

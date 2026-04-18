@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Reputation System
 //!
 //! Tracks agent reputation across the Mycelix ecosystem.
@@ -25,7 +28,7 @@ pub struct ReputationScore {
     /// Last update timestamp
     pub last_updated: u64,
 
-    /// Source system (e.g., "mail", "marketplace", "edunet")
+    /// Source system (e.g., "mail", "marketplace", "praxis")
     pub source: String,
 }
 

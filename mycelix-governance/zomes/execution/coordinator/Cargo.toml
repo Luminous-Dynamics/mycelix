@@ -2,6 +2,7 @@
 name = "execution"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
 description = "Governance execution coordinator zome"
 
 [lib]
@@ -14,4 +15,5 @@ serde_json = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 execution_integrity = { path = "../integrity" }
 governance-utils = { workspace = true }
+mycelix-zome-helpers = { workspace = true }
 proposals_integrity = { path = "../../proposals/integrity" }

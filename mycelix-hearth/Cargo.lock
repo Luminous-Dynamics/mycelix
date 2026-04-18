@@ -47,6 +47,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468ef7d57b3fb7e16b576e8377cdbde2320c60e1491e961d11da40fc4f02a2d"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+ "cpufeatures",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -412,6 +426,7 @@ version = "0.1.0"
 dependencies = [
  "hdk",
  "hearth-types",
+ "mycelix-zome-helpers",
  "serde",
 ]
 
@@ -438,6 +453,7 @@ dependencies = [
  "hearth_autonomy_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -449,6 +465,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -463,6 +480,7 @@ dependencies = [
  "hearth_bridge_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -490,6 +508,7 @@ dependencies = [
  "hearth_care_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -501,6 +520,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -515,6 +535,7 @@ dependencies = [
  "hearth_decisions_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -526,6 +547,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -540,6 +562,7 @@ dependencies = [
  "hearth_emergency_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -551,6 +574,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -565,6 +589,7 @@ dependencies = [
  "hearth_gratitude_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -576,6 +601,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -590,6 +616,7 @@ dependencies = [
  "hearth_kinship_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -601,6 +628,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -615,6 +643,7 @@ dependencies = [
  "hearth_milestones_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -626,6 +655,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -640,6 +670,7 @@ dependencies = [
  "hearth_resources_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -651,6 +682,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -665,6 +697,7 @@ dependencies = [
  "hearth_rhythms_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -676,6 +709,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -690,6 +724,7 @@ dependencies = [
  "hearth_stories_integrity",
  "holochain_serialized_bytes",
  "mycelix-bridge-common",
+ "mycelix-zome-helpers",
  "serde",
  "serde_json",
 ]
@@ -701,6 +736,7 @@ dependencies = [
  "hdi",
  "hearth-types",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -953,8 +989,10 @@ dependencies = [
 name = "mycelix-bridge-common"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "hdk",
  "serde",
+ "sovereign-profile",
 ]
 
 [[package]]
@@ -965,6 +1003,16 @@ dependencies = [
  "holochain_serialized_bytes",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mycelix-zome-helpers"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "holo_hash",
+ "mycelix-bridge-common",
+ "serde",
 ]
 
 [[package]]
@@ -1168,6 +1216,13 @@ name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
+
+[[package]]
+name = "sovereign-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "strsim"

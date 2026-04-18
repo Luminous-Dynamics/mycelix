@@ -1,3 +1,6 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Hearth Bridge Integrity Zome
 //!
 //! Validates bridge queries and events for the Hearth cluster.
@@ -5,7 +8,10 @@
 
 use hdi::prelude::*;
 pub use mycelix_bridge_entry_types::CachedCredentialEntry;
-use mycelix_bridge_entry_types::{validate_cached_credential, BridgeEventEntry, BridgeQueryEntry};
+use mycelix_bridge_entry_types::{
+    check_author_match, check_link_author_match, validate_cached_credential, BridgeEventEntry,
+    BridgeQueryEntry, CrossClusterNotification,
+};
 
 /// Anchor entry for deterministic link bases.
 #[hdk_entry_helper]
@@ -25,6 +31,7 @@ pub enum EntryTypes {
     BridgeQuery(BridgeQueryEntry),
     BridgeEvent(BridgeEventEntry),
     CachedCredential(CachedCredentialEntry),
+    Notification(CrossClusterNotification),
 }
 
 #[hdk_link_types]
@@ -38,6 +45,12 @@ pub enum LinkTypes {
     DomainToEvent,
     DispatchRateLimit,
     AgentToCredentialCache,
+    /// Agent → their notifications
+    AgentToNotification,
+    /// Global notifications anchor
+    AllNotifications,
+    /// Agent → notification subscription preferences
+    NotificationSubscription,
 }
 
 #[hdk_extern]
@@ -56,6 +69,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::BridgeQuery(query) => validate_query(&query),
             EntryTypes::BridgeEvent(event) => validate_event(&event),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry {
             app_entry,
@@ -74,6 +88,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_event_immutable_fields(&event, &original_action_hash)
             }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink {
@@ -90,14 +105,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterDeleteLink {
-            link_type: _,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag,
-            action: _,
-        } => {
+        FlatOp::RegisterDeleteLink { tag, action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            let result = check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            );
+            if result != ValidateCallbackResult::Valid {
+                return Ok(result);
+            }
             if tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
@@ -108,6 +124,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
             "Bridge entries cannot be deleted once created".into(),
         )),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
