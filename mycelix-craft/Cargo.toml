@@ -1,0 +1,48 @@
+[workspace]
+exclude = ["apps/leptos"]
+members = [
+    "tests",
+    "zomes/craft-graph/integrity",
+    "zomes/craft-graph/coordinator",
+    "zomes/job-postings/integrity",
+    "zomes/job-postings/coordinator",
+    "zomes/work-history/integrity",
+    "zomes/work-history/coordinator",
+    "zomes/connection-graph/integrity",
+    "zomes/connection-graph/coordinator",
+    "zomes/applications/integrity",
+    "zomes/applications/coordinator",
+    "zomes/guild/integrity",
+    "zomes/guild/coordinator",
+    "zomes/craft-bridge/integrity",
+    "zomes/craft-bridge/coordinator",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+hdk = "0.6.0"
+hdi = "0.7.0"
+holochain_serialized_bytes = "0.0.56"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+getrandom_03 = { package = "getrandom", version = "=0.3.2" }
+thiserror = "2"
+base64 = "0.22"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+[patch.crates-io]
+mio = { git = "https://github.com/tokio-rs/mio", tag = "v1.0.3" }
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+eq_op = "deny"
+cast_ptr_alignment = "deny"
+

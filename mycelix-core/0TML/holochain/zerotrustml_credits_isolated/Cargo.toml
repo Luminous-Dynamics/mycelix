@@ -1,0 +1,16 @@
+[package]
+name = "zerotrustml_credits_isolated"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Empty workspace to prevent parent workspace detection
+[workspace]
+
+[dependencies]
+# Holochain 0.6 (upgraded from 0.4)
+hdk = "0.6.0"
+hdi = "0.7.0"
+serde = "1.0"

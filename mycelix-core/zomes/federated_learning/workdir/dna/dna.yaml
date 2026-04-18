@@ -1,0 +1,15 @@
+---
+manifest_version: "0"
+name: federated_learning
+integrity:
+  network_seed: ~
+  properties: ~
+  zomes:
+    - name: federated_learning_integrity
+      path: ../../target/wasm32-unknown-unknown/release/federated_learning_integrity.wasm
+coordinator:
+  zomes:
+    - name: federated_learning
+      path: ../../target/wasm32-unknown-unknown/release/federated_learning.wasm
+      dependencies:
+        - name: federated_learning_integrity

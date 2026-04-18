@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr2.MUL",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr2.MUL",
+    "title": "CAPS.Mathematics.Gr2.MUL: Repeated addition. Multiply by 2, 5, 10. Array model. Sha...",
+    "grade_level": "Grade2",
+    "bloom_level": "Apply",
+    "explanation": "Grade 2 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What is 3 x 2?",
+        "answer": "6",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "3 groups of 2"
+        ],
+        "explanation": "3 x 2 means 2 + 2 + 2 = 6.",
+        "distractors": [
+          "5",
+          "8",
+          "4"
+        ]
+      },
+      {
+        "question": "What is 4 x 5?",
+        "answer": "20",
+        "difficulty_permille": 250,
+        "bloom_level": "Remember",
+        "hints": [
+          "4 groups of 5"
+        ],
+        "explanation": "4 x 5 = 20. Count by 5s: 5, 10, 15, 20.",
+        "distractors": [
+          "15",
+          "25",
+          "10"
+        ]
+      },
+      {
+        "question": "What is 6 x 10?",
+        "answer": "60",
+        "difficulty_permille": 375,
+        "bloom_level": "Remember",
+        "hints": [
+          "When you multiply by 10, add a zero"
+        ],
+        "explanation": "6 x 10 = 60.",
+        "distractors": [
+          "16",
+          "66",
+          "50"
+        ]
+      },
+      {
+        "question": "There are 5 bags with 2 marbles in each bag. How many marbles in total?",
+        "answer": "10",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Multiply: 5 x 2"
+        ],
+        "explanation": "5 x 2 = 10 marbles.",
+        "distractors": [
+          "7",
+          "12",
+          "8"
+        ]
+      },
+      {
+        "question": "Share 15 sweets equally among 3 children. How many does each child get?",
+        "answer": "5",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Divide: 15 shared into 3 equal groups"
+        ],
+        "explanation": "15 / 3 = 5 sweets each.",
+        "distractors": [
+          "3",
+          "6",
+          "4"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 2 Mathematics?",
+      "Try the method for Grade 2 Mathematics.",
+      "Start with what you know about Grade 2 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 2 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 2 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr2.MUL",
+    "title": "Assessment: Repeated addition. Multiply by 2, 5, 10. Array model. Sharing equally (division intro)",
+    "items": [
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MUL",
+        "Grade2",
+        "Operations"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:27"
+}

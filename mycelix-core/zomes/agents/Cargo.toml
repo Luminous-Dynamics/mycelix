@@ -1,0 +1,18 @@
+[package]
+name = "mycelix_agents"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hdk = "0.6.0"
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+# Do NOT use "wasm-bindgen"/"js" - Holochain's WASM runtime rejects wasm-bindgen imports
+getrandom = { version = "0.2", features = ["custom"] }
+
+[profile.release]
+opt-level = "z"
+lto = true

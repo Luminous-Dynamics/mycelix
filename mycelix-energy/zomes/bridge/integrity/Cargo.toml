@@ -1,0 +1,17 @@
+[package]
+name = "energy_bridge_integrity"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Cross-hApp bridge integrity zome for Mycelix Energy (Terra Atlas Bridge)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+hdi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }

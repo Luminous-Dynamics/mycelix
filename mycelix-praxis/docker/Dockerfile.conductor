@@ -1,0 +1,40 @@
+# Holochain Conductor Dockerfile for Mycelix EduNet
+# Multi-stage build for Holochain 0.6
+
+FROM rust:1.84-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y \
+    pkg-config libssl-dev cmake git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Holochain tools (0.6.x)
+RUN cargo install holochain --version 0.6.0 --locked
+RUN cargo install lair-keystore --version 0.6.0 --locked
+RUN cargo install hc --version 0.6.0 --locked
+
+# Stage 2: Runtime image
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    libssl3 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Holochain binaries from builder
+COPY --from=builder /usr/local/cargo/bin/holochain /usr/local/bin/
+COPY --from=builder /usr/local/cargo/bin/lair-keystore /usr/local/bin/
+COPY --from=builder /usr/local/cargo/bin/hc /usr/local/bin/
+
+# Create app directory and data directory
+WORKDIR /app
+RUN mkdir -p /data/databases
+
+# Expose ports:
+#   8888 - Admin WebSocket interface
+#   8889 - App WebSocket interface
+EXPOSE 8888 8889
+
+HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
+    CMD holochain --version || exit 1
+
+ENTRYPOINT ["holochain"]
+CMD ["-c", "/app/conductor-config.yaml"]

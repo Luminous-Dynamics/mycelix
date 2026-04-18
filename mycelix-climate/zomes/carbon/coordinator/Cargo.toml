@@ -1,0 +1,15 @@
+[package]
+name = "carbon"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+getrandom_03 = { workspace = true }
+hdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+carbon_integrity = { path = "../integrity" }

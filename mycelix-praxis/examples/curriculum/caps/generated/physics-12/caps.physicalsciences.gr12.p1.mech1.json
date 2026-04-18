@@ -1,0 +1,396 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+    "title": "CAPS.PhysicalSciences.Gr12.P1.MECH1: Conservation of linear momentum (Σpi = Σpf). Impulse (Fne...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force. 2nd Law: Fnet = ma — acceleration is proportional to net force and inversely proportional to mass. 3rd Law: For every action, there is an equal and opposite reaction (forces act on different objects). Draw free-body diagrams showing all forces. Friction: f = μN where μ is the coefficient of friction and N is the normal force.",
+    "examples": [
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      },
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      },
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A force of 50 N is applied to push a crate 8 m along a horizontal floor in the direction of the force. Calculate the work done on the crate.",
+        "answer": "400 J",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Work done = force × displacement × cos(angle between them).",
+          "When force and displacement are in the same direction, the angle is 0° and cos 0° = 1."
+        ],
+        "explanation": "W = Fd cos θ = 50 × 8 × cos 0° = 50 × 8 × 1 = 400 J.",
+        "distractors": [
+          "6.25 J",
+          "200 J",
+          "800 J"
+        ]
+      },
+      {
+        "question": "A 4 kg ball is rolling at 5 m/s. Calculate its kinetic energy.",
+        "answer": "50 J",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use the formula Ek = ½mv².",
+          "Substitute m = 4 kg and v = 5 m/s."
+        ],
+        "explanation": "Ek = ½mv² = ½(4)(5²) = ½(4)(25) = 50 J.",
+        "distractors": [
+          "100 J",
+          "20 J",
+          "10 J"
+        ]
+      },
+      {
+        "question": "A 2 kg object initially at rest is pushed by a net force of 10 N over a distance of 6 m on a frictionless surface. Using the work-energy theorem, calculate the final speed of the object.",
+        "answer": "7.75 m/s",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "The work-energy theorem states: W_net = ΔEk = ½mv_f² − ½mv_i².",
+          "Since the object starts from rest, v_i = 0, so W_net = ½mv_f²."
+        ],
+        "explanation": "W_net = Fd = 10 × 6 = 60 J. By the work-energy theorem: 60 = ½(2)v_f² → v_f² = 60 → v_f = √60 ≈ 7.75 m/s.",
+        "distractors": [
+          "3.87 m/s",
+          "5.48 m/s",
+          "10 m/s"
+        ]
+      },
+      {
+        "question": "A 0.5 kg ball is dropped from a height of 20 m above the ground. Using conservation of mechanical energy (ignore air resistance), calculate the speed of the ball just before it hits the ground. Use g = 9.8 m/s².",
+        "answer": "19.8 m/s",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "At the top, the ball has only gravitational potential energy: Ep = mgh.",
+          "At the bottom, all Ep converts to Ek: mgh = ½mv². The mass cancels."
+        ],
+        "explanation": "By conservation: Ep(top) = Ek(bottom). mgh = ½mv² → v² = 2gh = 2(9.8)(20) = 392 → v = √392 ≈ 19.8 m/s.",
+        "distractors": [
+          "9.9 m/s",
+          "14.0 m/s",
+          "28.0 m/s"
+        ]
+      },
+      {
+        "question": "A 3 kg block slides from rest down a rough incline that is 5 m long and makes an angle of 30° with the horizontal. The coefficient of kinetic friction is μk = 0.2. Calculate the speed of the block at the bottom of the incline. Use g = 9.8 m/s².",
+        "answer": "5.69 m/s",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "The height of the incline is h = L sin 30° = 5 × 0.5 = 2.5 m.",
+          "Normal force on an incline: N = mg cos θ. Friction force: f = μkN. Use W_net = ΔEk where W_net = mgh − f × L."
+        ],
+        "explanation": "h = 5 sin 30° = 2.5 m. N = mg cos 30° = 3(9.8)(0.866) = 25.46 N. f = μkN = 0.2(25.46) = 5.09 N. W_friction = fL = 5.09 × 5 = 25.46 J. W_gravity = mgh = 3(9.8)(2.5) = 73.5 J. W_net = 73.5 − 25.46 = 48.04 J. ½mv² = 48.04 → v² = 2(48.04)/3 = 32.03 → v ≈ 5.66 m/s.",
+        "distractors": [
+          "7.0 m/s",
+          "4.43 m/s",
+          "3.16 m/s"
+        ]
+      },
+      {
+        "question": "A car engine delivers a constant power of 15 kW. Calculate the driving force exerted by the engine when the car travels at a constant velocity of 25 m/s.",
+        "answer": "600 N",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "At constant velocity, P = Fv.",
+          "Rearrange to find F = P/v. Make sure power is in watts."
+        ],
+        "explanation": "P = Fv → F = P/v = 15 000/25 = 600 N. At constant velocity, this driving force equals the total resistive force.",
+        "distractors": [
+          "375 N",
+          "6000 N",
+          "150 N"
+        ]
+      },
+      {
+        "question": "A 0.02 kg bullet travelling at 400 m/s embeds itself in a 2 kg wooden block resting on a frictionless surface. The block then slides up a rough ramp (μk = 0.3) inclined at 20° to the horizontal. Using conservation of momentum for the collision and the work-energy theorem for the ramp, calculate how far along the ramp the block-bullet system travels before stopping. Use g = 9.8 m/s².",
+        "answer": "1.91 m",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "First use conservation of momentum for the perfectly inelastic collision: m₁v₁ = (m₁ + m₂)v_f.",
+          "Then apply W_net = ΔEk on the ramp: −mgh − fL = 0 − ½mv_f², where h = L sin θ and f = μk mg cos θ."
+        ],
+        "explanation": "Collision: p_i = 0.02 × 400 = 8 kg·m/s. v_f = 8/(0.02 + 2) = 8/2.02 ≈ 3.96 m/s. On ramp: Ek = ½(2.02)(3.96²) = 15.84 J. Along ramp distance L: gravity component = mg sin 20° = 2.02(9.8)(0.342) = 6.77 N. Friction = μk mg cos 20° = 0.3(2.02)(9.8)(0.940) = 5.58 N. Total opposing force = 6.77 + 5.58 = 12.35 N. L = Ek/F_total = 15.84/12.35 ≈ 1.28 m. (Using exact momentum: v_f = 400/101 ≈ 3.96 m/s, Ek ≈ 15.84 J, L ≈ 1.28 m.)",
+        "distractors": [
+          "0.80 m",
+          "2.45 m",
+          "3.96 m"
+        ]
+      }
+    ],
+    "hints": [
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem.",
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem.",
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "impulse",
+        "definition": "The product FΔt, equal to the change in momentum",
+        "example_usage": "A longer collision time reduces the force (e.g., airbags)."
+      },
+      {
+        "term": "elastic collision",
+        "definition": "A collision where kinetic energy is conserved",
+        "example_usage": "Billiard ball collisions are approximately elastic."
+      },
+      {
+        "term": "inelastic collision",
+        "definition": "A collision where kinetic energy is NOT conserved (but momentum is)",
+        "example_usage": "A car crash is inelastic — energy goes to deformation."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think momentum is always conserved.",
+        "correction": "Momentum is only conserved in an isolated system (no external net force). Kinetic energy is only conserved in elastic collisions.",
+        "why_students_think_this": "External forces like friction change the total momentum of the system."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+    "title": "Assessment: Conservation of linear momentum (Σpi = Σpf). Impulse (FnetΔt = mΔv = Δp). Elastic and inelastic collisions in one dimension. Newton's second law in terms of momentum. Application to safety: crumple zones, airbags, seatbelts",
+    "items": [
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH1",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:20"
+}

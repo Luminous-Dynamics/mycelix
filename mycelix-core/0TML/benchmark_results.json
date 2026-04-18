@@ -1,0 +1,20 @@
+{
+  "timestamp": 1759446254.6325896,
+  "results": [
+    {
+      "backend_type": "localfile",
+      "connection_time_ms": 1.2569427490234375,
+      "single_write_ms": 0.5934238433837891,
+      "single_read_ms": 0.36716461181640625,
+      "batch_write_100_ms": 60.01591682434082,
+      "batch_write_avg_ms": 0.6001591682434082,
+      "credit_issue_ms": 0.9255409240722656,
+      "credit_balance_ms": 0.36215782165527344,
+      "byzantine_log_ms": 0.38242340087890625,
+      "stats_retrieval_ms": 8.445501327514648,
+      "memory_usage_mb": 0.15963172912597656,
+      "storage_size_bytes": 36836,
+      "total_time_ms": 84.22446250915527
+    }
+  ]
+}

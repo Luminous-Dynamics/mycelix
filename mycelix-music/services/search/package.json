@@ -1,0 +1,28 @@
+{
+  "name": "@mycelix/search-service",
+  "version": "1.0.0",
+  "description": "Elasticsearch-powered search service for Mycelix",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "index:rebuild": "tsx src/scripts/rebuild-index.ts"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.11.0",
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "pino": "^8.16.0",
+    "pino-pretty": "^10.2.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.9.0",
+    "tsx": "^4.1.0",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6"
+  }
+}

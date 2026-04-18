@@ -1,0 +1,11 @@
+---
+manifest_version: "0"
+name: dkg
+description: "Distributed Knowledge Graph - Truth Ledger with Epistemic Metadata"
+roles:
+  - name: dkg
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: "./dkg.dna"

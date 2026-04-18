@@ -1,0 +1,15 @@
+---
+manifest_version: "0"
+name: dkg
+integrity:
+  network_seed: ~
+  properties: ~
+  zomes:
+    - name: dkg_integrity
+      path: "../target/wasm32-unknown-unknown/release/dkg_integrity.wasm"
+coordinator:
+  zomes:
+    - name: dkg_coordinator
+      path: "../target/wasm32-unknown-unknown/release/dkg_coordinator.wasm"
+      dependencies:
+        - name: dkg_integrity

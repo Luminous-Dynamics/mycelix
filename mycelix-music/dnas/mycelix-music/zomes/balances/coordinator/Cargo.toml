@@ -1,0 +1,19 @@
+[package]
+name = "balances"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "balances"
+
+[dependencies]
+hdk = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+getrandom = { version = "0.3" }
+balances_integrity = { path = "../integrity" }
+mycelix-bridge-common = { path = "../../../../../../crates/mycelix-bridge-common" }
+
+[profile.release]
+opt-level = 'z'
+lto = true

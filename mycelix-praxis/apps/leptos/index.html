@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Free adaptive learning platform — AI literacy, financial literacy, climate science, trades, cybersecurity. Foundation to PhD. Offline-first, community-governed." />
+    <meta property="og:title" content="Praxis — Learn anything, from anywhere" />
+    <meta property="og:description" content="2,000+ topics. 25+ interactive games. Foundation to PhD. AI, climate, finance, trades, and more. Free, offline-first, privacy-respecting." />
+    <meta property="og:url" content="https://praxis.mycelix.net" />
+    <title>Praxis — Learn anything, from anywhere</title>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!-- Fonts: Inter for body text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+
+    <!-- KaTeX math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <!-- Styles -->
+    <link data-trunk rel="css" href="style/main.css" />
+
+    <!-- Static assets -->
+    <link data-trunk rel="copy-dir" href="static/curriculum" />
+    <link data-trunk rel="copy-file" href="static/manifest.json" />
+    <link data-trunk rel="copy-file" href="static/sw.js" />
+    <link data-trunk rel="copy-file" href="static/icon-192.png" />
+    <link data-trunk rel="copy-file" href="static/icon-512.png" />
+    <link data-trunk rel="copy-dir" href="static/spore" />
+    <link data-trunk rel="copy-file" href="static/spore-worker.js" />
+</head>
+<body>
+    <!-- Service Worker registration -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('[Praxis] Service Worker registered');
+        }).catch(function(err) {
+            console.log('[Praxis] SW registration failed:', err);
+        });
+    }
+    </script>
+
+    <!-- Spore WASM integration (synchronous detection before app mount) -->
+    <script id="spore-loader">
+        window.__SPORE_AVAILABLE = false;
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('HEAD', '/spore/symthaea_spore_bg.wasm', false);
+            xhr.send();
+            if (xhr.status === 200) window.__SPORE_AVAILABLE = true;
+        } catch(e) {}
+    </script>
+
+    <!-- Holochain conductor bridge -->
+    <script id="holochain-bridge">
+    (function() {
+        window.__HC_STATUS = 'connecting';
+        var WS_URL = window.__HC_CONDUCTOR_URL || 'ws://localhost:8888';
+        var TIMEOUT_MS = 3000;
+        try {
+            var ws = new WebSocket(WS_URL);
+            var timer = setTimeout(function() {
+                ws.close();
+                window.__HC_STATUS = 'mock';
+            }, TIMEOUT_MS);
+            ws.onopen = function() {
+                clearTimeout(timer);
+                window.__HC_STATUS = 'connected';
+                ws.close();
+            };
+            ws.onerror = function() {
+                clearTimeout(timer);
+                window.__HC_STATUS = 'mock';
+            };
+        } catch (e) {
+            window.__HC_STATUS = 'mock';
+        }
+    })();
+    </script>
+</body>
+</html>

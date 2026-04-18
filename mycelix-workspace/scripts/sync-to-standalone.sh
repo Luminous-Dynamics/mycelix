@@ -82,12 +82,41 @@ RSYNC_EXCLUDE=(
     --exclude='artifacts/'
     --exclude='coverage/'
     --exclude='.conductor/'
-    # Build outputs that regenerate on every trunk/cargo build — exclude so
+    # ML training data — mycelix-core/0TML/datasets/ is 7.6 GB of femnist/mnist/
+    # cifar/emnist/shakespeare training corpora. Regenerable from standard
+    # sources; never belongs in a public repo. Same rule for any `datasets/`
+    # or `checkpoints/` directory that sneaks in via other clusters.
+    --exclude='datasets'
+    --exclude='checkpoints'
+    --exclude='train_data'
+    # Python virtualenvs — never belong in git. Includes nested `*/venv/` etc.
+    --exclude='.venv'
+    --exclude='venv'
+    --exclude='env/'
+    # Build outputs that regenerate on every trunk/cargo/tsc build — exclude so
     # content-hashed artifacts (e.g. dist/main-<hash>.css) don't accumulate
     # in the public standalone with every sync.
-    --exclude='dist/'
-    --exclude='.svelte-kit/'
-    --exclude='.stage/'
+    #
+    # Patterns use no leading slash + no trailing slash so they match any
+    # directory-or-file by that basename, anywhere in the tree (the earlier
+    # trailing-slash form silently failed to match nested observatory dirs).
+    --exclude='dist'
+    --exclude='.svelte-kit'
+    --exclude='.stage'
+    --exclude='.next'
+    --exclude='.turbo'
+    # TypeDoc / Typedoc / auto-generated API HTML (e.g. sdk-ts/docs/).
+    # Dominates the repo language breakdown if included (4,487 HTML files →
+    # 58% HTML on a Rust project). Regenerable from source via `npx typedoc`.
+    --exclude='docs/classes'
+    --exclude='docs/interfaces'
+    --exclude='docs/enums'
+    --exclude='docs/functions'
+    --exclude='docs/variables'
+    --exclude='docs/types'
+    --exclude='docs/modules'
+    --exclude='docs/assets'
+    --exclude='docs/media'
 )
 RSYNC_OPTS=(-a --delete "${RSYNC_EXCLUDE[@]}")
 if $DRY_RUN; then
@@ -102,6 +131,7 @@ fi
 # Path mapping is 1:1 between monorepo and standalone.
 
 CLUSTERS=(
+    # Core civic + resource clusters (Tier 1-2)
     mycelix-commons
     mycelix-civic
     mycelix-hearth
@@ -110,6 +140,30 @@ CLUSTERS=(
     mycelix-identity
     mycelix-personal
     mycelix-attribution
+    # Learning + reputation pipeline
+    mycelix-praxis
+    mycelix-craft
+    # Knowledge + media
+    mycelix-knowledge
+    mycelix-music
+    # Physical + energy
+    mycelix-energy
+    mycelix-climate
+    mycelix-manufacturing
+    # Foundation (FL + mycelix-core-types + feldman-dkg live as shared crates
+    # already, but the top-level cluster carries its README + docs + 0TML research)
+    mycelix-core
+    # Note: clusters WITH their own standalone public repos intentionally NOT
+    # synced here (to avoid duplicating code):
+    #   mycelix-desci       → Luminous-Dynamics/mycelix-desci
+    #   mycelix-supplychain → Luminous-Dynamics/mycelix-supplychain
+    #   mycelix-space       → Luminous-Dynamics/mycelix-space
+    #   mycelix-marketplace → Luminous-Dynamics/Mycelix-Marketplace
+    #   mycelix-observatory → Luminous-Dynamics/mycelix-observatory
+    # Submodules (own standalone):
+    #   mycelix-health      → Luminous-Dynamics/mycelix-health (submodule)
+    # Renamed-to-pulse:
+    #   mycelix-workspace/mycelix-pulse (synced via the mycelix-workspace block below)
 )
 
 sync_dir() {

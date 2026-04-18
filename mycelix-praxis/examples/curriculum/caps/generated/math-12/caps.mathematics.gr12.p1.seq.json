@@ -1,0 +1,406 @@
+{
+  "node_id": "CAPS.Mathematics.Gr12.P1.SEQ",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.SEQ",
+    "title": "CAPS.Mathematics.Gr12.P1.SEQ: Arithmetic sequences (Tn = a + (n−1)d, Sn = n/2[2a + (n−1...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Arithmetic sequences have a constant difference d: Tn = a + (n-1)d. Sum: Sn = n/2[2a + (n-1)d]. Geometric sequences have a constant ratio r: Tn = ar^(n-1). Sum: Sn = a(r^n - 1)/(r - 1). Sigma notation (Σ) compactly expresses sums. A geometric series converges when |r| < 1, with sum to infinity S∞ = a/(1 - r).",
+    "examples": [
+      {
+        "problem": "Find S₂₀ for the arithmetic series 3 + 7 + 11 + 15 + ...",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify a = 3, d = 7 − 3 = 4",
+            "result": "find first term and common difference"
+          },
+          {
+            "instruction": "Step 2: Sₙ = n/2[2a + (n−1)d]",
+            "result": "write the formula"
+          },
+          {
+            "instruction": "Step 3: S₂₀ = 20/2[2(3) + (19)(4)] = 10[6 + 76] = 10 × 82",
+            "result": "substitute"
+          }
+        ],
+        "answer": "Answer: S₂₀ = 820",
+        "visual_description": null
+      },
+      {
+        "problem": "Find the sum to infinity: 18 + 6 + 2 + ⅔ + ...",
+        "steps": [
+          {
+            "instruction": "Step 1: r = 6/18 = ⅓, and |⅓| < 1 so series converges",
+            "result": "check convergence"
+          },
+          {
+            "instruction": "Step 2: S∞ = a/(1 − r) = 18/(1 − ⅓) = 18/(⅔)",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 3: S∞ = 18 × 3/2 = 27",
+            "result": "simplify"
+          }
+        ],
+        "answer": "Answer: S∞ = 27",
+        "visual_description": null
+      },
+      {
+        "problem": "The 3rd term of a geometric sequence is 12 and the 6th term is 96. Find a and r.",
+        "steps": [
+          {
+            "instruction": "Step 1: T₃ = ar² = 12 and T₆ = ar⁵ = 96",
+            "result": "write equations"
+          },
+          {
+            "instruction": "Step 2: Divide: ar⁵/ar² = 96/12, so r³ = 8, r = 2",
+            "result": "find ratio"
+          },
+          {
+            "instruction": "Step 3: ar² = 12, so a(4) = 12, a = 3",
+            "result": "find first term"
+          }
+        ],
+        "answer": "Answer: a = 3, r = 2",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Find T₂₀ for the arithmetic sequence 7, 11, 15, 19, ...",
+        "answer": "83",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify the first term a and the common difference d.",
+          "Use the formula Tₙ = a + (n − 1)d with n = 20."
+        ],
+        "explanation": "a = 7, d = 11 − 7 = 4. T₂₀ = 7 + (20 − 1)(4) = 7 + 76 = 83.",
+        "distractors": [
+          "87",
+          "79",
+          "76"
+        ]
+      },
+      {
+        "question": "Find the sum of the first 25 terms of the arithmetic series 4 + 9 + 14 + 19 + ...",
+        "answer": "1600",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify a = 4 and d = 5.",
+          "Use Sₙ = n/2 [2a + (n − 1)d] with n = 25."
+        ],
+        "explanation": "a = 4, d = 5. S₂₅ = 25/2 [2(4) + (24)(5)] = 25/2 [8 + 120] = 25/2 × 128 = 1600.",
+        "distractors": [
+          "1500",
+          "1650",
+          "1280"
+        ]
+      },
+      {
+        "question": "Find T₈ for the geometric sequence 3, 6, 12, 24, ...",
+        "answer": "384",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "What is the common ratio r?",
+          "Use Tₙ = a \u00b7 rⁿ⁻\u00b9 with a = 3, r = 2, n = 8."
+        ],
+        "explanation": "a = 3, r = 6/3 = 2. T₈ = 3 \u00b7 2⁷ = 3 \u00b7 128 = 384.",
+        "distractors": [
+          "192",
+          "768",
+          "256"
+        ]
+      },
+      {
+        "question": "Find the sum of the first 10 terms of the geometric series 2 + 6 + 18 + 54 + ...",
+        "answer": "59 048",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Identify a = 2 and r = 3.",
+          "Use Sₙ = a(rⁿ − 1)/(r − 1) with n = 10."
+        ],
+        "explanation": "a = 2, r = 3. S₁₀ = 2(3¹⁰ − 1)/(3 − 1) = 2(59 049 − 1)/2 = 59 048.",
+        "distractors": [
+          "59 049",
+          "29 524",
+          "118 096"
+        ]
+      },
+      {
+        "question": "Determine whether the geometric series 24 + 8 + 8/3 + 8/9 + ... converges, and if so, find its sum to infinity.",
+        "answer": "36",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Find r = T₂/T₁ and check whether |r| < 1.",
+          "If the series converges, use S∞ = a/(1 − r)."
+        ],
+        "explanation": "r = 8/24 = 1/3. Since |1/3| < 1, the series converges. S∞ = 24/(1 − 1/3) = 24/(2/3) = 24 \u00d7 3/2 = 36.",
+        "distractors": [
+          "27",
+          "48",
+          "32"
+        ]
+      },
+      {
+        "question": "Evaluate: \u03a3(k=1 to 40) (5k \u2212 3)",
+        "answer": "3 980",
+        "difficulty_permille": 750,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Write the first few terms to identify the type of series: when k = 1 you get 2, when k = 2 you get 7, etc.",
+          "This is an arithmetic series with a = 2 and d = 5. Use Sₙ = n/2 [2a + (n \u2212 1)d] with n = 40."
+        ],
+        "explanation": "When k = 1: 5(1) \u2212 3 = 2. When k = 2: 5(2) \u2212 3 = 7. So a = 2, d = 5, n = 40. S₄₀ = 40/2 [2(2) + (39)(5)] = 20 [4 + 195] = 20 \u00d7 199 = 3 980.",
+        "distractors": [
+          "4 100",
+          "3 900",
+          "3 800"
+        ]
+      },
+      {
+        "question": "A gardener plants 8 trees in the first row and increases the number of trees by 3 in each subsequent row. If there are 12 rows, how many trees are planted altogether? In another section, she plants 2 flowers in the first row and doubles the number in each subsequent row for 8 rows. How many flowers in total?",
+        "answer": "294 trees and 510 flowers",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "The trees form an arithmetic sequence with a = 8, d = 3, n = 12. Use Sₙ = n/2 [2a + (n \u2212 1)d].",
+          "The flowers form a geometric sequence with a = 2, r = 2, n = 8. Use Sₙ = a(rⁿ \u2212 1)/(r \u2212 1)."
+        ],
+        "explanation": "Trees: a = 8, d = 3, n = 12. S₁₂ = 12/2 [2(8) + (11)(3)] = 6 [16 + 33] = 6 \u00d7 49 = 294. Flowers: a = 2, r = 2, n = 8. S₈ = 2(2⁸ \u2212 1)/(2 \u2212 1) = 2(256 \u2212 1)/1 = 2 \u00d7 255 = 510.",
+        "distractors": [
+          "294 trees and 256 flowers",
+          "288 trees and 510 flowers",
+          "294 trees and 512 flowers"
+        ]
+      }
+    ],
+    "hints": [
+      "Is this arithmetic (constant difference) or geometric (constant ratio)?",
+      "For arithmetic: Tₙ = a + (n−1)d. For geometric: Tₙ = arⁿ⁻¹. Identify a and d or r first.",
+      "You have a = 3 and d = 4. Plug into Sₙ = n/2[2a + (n−1)d]."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "common difference",
+        "definition": "The constant value d added between consecutive terms of an arithmetic sequence",
+        "example_usage": "In 3, 7, 11, 15, the common difference is 4."
+      },
+      {
+        "term": "common ratio",
+        "definition": "The constant multiplier r between consecutive terms of a geometric sequence",
+        "example_usage": "In 2, 6, 18, 54, the common ratio is 3."
+      },
+      {
+        "term": "convergent series",
+        "definition": "A geometric series where",
+        "example_usage": "r| < 1, so the sum approaches a finite value | The series 1 + ½ + ¼ + ... converges to 2."
+      },
+      {
+        "term": "sigma notation",
+        "definition": "The symbol Σ used to express the sum of a series compactly",
+        "example_usage": "Σ(k=1 to n) k = 1 + 2 + 3 + ... + n."
+      },
+      {
+        "term": "general term",
+        "definition": "The formula Tₙ that gives any term in the sequence",
+        "example_usage": "The general term of 5, 8, 11, ... is Tₙ = 3n + 2."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students confuse Tₙ (the nth term) with Sₙ (the sum of n terms).",
+        "correction": "Tₙ gives one specific term. Sₙ gives the total of all terms from T₁ to Tₙ.",
+        "why_students_think_this": "Both use n, but they answer different questions: \"what is the 10th term?\" vs \"what is the sum of the first 10 terms?\""
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.SEQ",
+    "title": "Assessment: Arithmetic sequences (Tn = a + (n−1)d, Sn = n/2[2a + (n−1)d]). Geometric sequences (Tn = ar^(n−1), Sn = a(r^n − 1)/(r − 1)). Sum to infinity S∞ = a/(1−r) for |r|<1. Sigma notation. Proof by induction (enrichment)",
+    "items": [
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Find the sum of the first 30 terms of the arithmetic series where T₅ = 15 and T₁₂ = 36.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "S₃₀ = 1365",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "5"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "When does a geometric series converge, and what is its sum?",
+      "back": "Converges when |r| < 1. Sum to infinity S∞ = a/(1 − r).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.SEQ",
+        "Grade12",
+        "Paper 1 — Sequences"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:09"
+}

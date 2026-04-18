@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr4.PAT",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr4.PAT",
+    "title": "CAPS.Mathematics.Gr4.PAT: Investigate patterns in number sequences. Describe rules ...",
+    "grade_level": "Grade4",
+    "bloom_level": "Understand",
+    "explanation": "Grade 4 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What is the rule? 2, 6, 18, 54, ...",
+        "answer": "Multiply by 3",
+        "difficulty_permille": 125,
+        "bloom_level": "Understand",
+        "hints": [
+          "Each number is 3 times the previous"
+        ],
+        "explanation": "2x3=6, 6x3=18, 18x3=54. The rule is multiply by 3.",
+        "distractors": [
+          "Add 4",
+          "Multiply by 2",
+          "Add 12"
+        ]
+      },
+      {
+        "question": "What is the next number: 1, 4, 9, 16, ___?",
+        "answer": "25",
+        "difficulty_permille": 250,
+        "bloom_level": "Understand",
+        "hints": [
+          "These are square numbers: 1x1, 2x2, 3x3, 4x4, ..."
+        ],
+        "explanation": "The pattern is n squared. 5 x 5 = 25.",
+        "distractors": [
+          "20",
+          "24",
+          "36"
+        ]
+      },
+      {
+        "question": "If the rule is 'add 7', and the start is 3, what is the 4th term?",
+        "answer": "24",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "3, 10, 17, ..."
+        ],
+        "explanation": "3, 3+7=10, 10+7=17, 17+7=24. The 4th term is 24.",
+        "distractors": [
+          "21",
+          "28",
+          "31"
+        ]
+      },
+      {
+        "question": "Input-output: If input is 5 and output is 17, and input 3 gives output 11, what is the rule?",
+        "answer": "Multiply by 3 and add 2",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Try: 5 x 3 + 2 = 17, 3 x 3 + 2 = 11"
+        ],
+        "explanation": "5 x 3 + 2 = 17 and 3 x 3 + 2 = 11. Rule: multiply by 3, add 2.",
+        "distractors": [
+          "Add 12",
+          "Multiply by 4 subtract 3",
+          "Multiply by 2 add 7"
+        ]
+      },
+      {
+        "question": "Find the missing number: 2, 5, 11, 23, ___",
+        "answer": "47",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "The rule is: multiply by 2 then add 1"
+        ],
+        "explanation": "2x2+1=5, 5x2+1=11, 11x2+1=23, 23x2+1=47.",
+        "distractors": [
+          "45",
+          "35",
+          "46"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 4 Mathematics?",
+      "Try the method for Grade 4 Mathematics.",
+      "Start with what you know about Grade 4 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 4 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 4 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr4.PAT",
+    "title": "Assessment: Investigate patterns in number sequences. Describe rules for patterns. Complete flow diagrams",
+    "items": [
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.PAT",
+        "Grade4",
+        "Patterns"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:38"
+}

@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr8.MEA",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr8.MEA",
+    "title": "CAPS.Mathematics.Gr8.MEA: Area and perimeter of composite shapes. Surface area and ...",
+    "grade_level": "Grade8",
+    "bloom_level": "Understand",
+    "explanation": "Grade 8 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A rectangle is 12 cm by 8 cm. An inner rectangle 4 cm by 3 cm is removed. What is the remaining area?",
+        "answer": "84 square cm",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Subtract inner area from outer"
+        ],
+        "explanation": "12x8 = 96, 4x3 = 12. 96 - 12 = 84 square cm.",
+        "distractors": [
+          "96 square cm",
+          "72 square cm",
+          "108 square cm"
+        ]
+      },
+      {
+        "question": "Find the perimeter of an L-shape made from two rectangles: 10x4 and 6x4 (sharing a 4 cm side).",
+        "answer": "40 cm",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Trace around the outside of the L-shape"
+        ],
+        "explanation": "Outer edges: 10 + 4 + 6 + 4 + 4 + 8 = ... Trace carefully. Perimeter = 40 cm.",
+        "distractors": [
+          "36 cm",
+          "44 cm",
+          "32 cm"
+        ]
+      },
+      {
+        "question": "A cylinder has radius 5 cm and height 12 cm. Find its surface area. (pi = 3.14)",
+        "answer": "533.8 square cm",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "SA = 2(pi)(r^2) + 2(pi)(r)(h)"
+        ],
+        "explanation": "SA = 2(3.14)(25) + 2(3.14)(5)(12) = 157 + 376.8 = 533.8 sq cm.",
+        "distractors": [
+          "376.8 sq cm",
+          "942 sq cm",
+          "314 sq cm"
+        ]
+      },
+      {
+        "question": "A rectangular prism is 8 cm x 5 cm x 3 cm. Find its surface area.",
+        "answer": "158 square cm",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "SA = 2(lw + lh + wh)"
+        ],
+        "explanation": "SA = 2(40 + 24 + 15) = 2(79) = 158 square cm.",
+        "distractors": [
+          "120 square cm",
+          "79 square cm",
+          "190 square cm"
+        ]
+      },
+      {
+        "question": "A composite shape is a semicircle (diameter 10 cm) on top of a rectangle (10 cm x 6 cm). Find total area. (pi = 3.14)",
+        "answer": "99.25 square cm",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "Area = rectangle + semicircle"
+        ],
+        "explanation": "Rectangle: 10 x 6 = 60. Semicircle: (1/2)(3.14)(5^2) = 39.25. Total: 99.25.",
+        "distractors": [
+          "139.25 sq cm",
+          "60 sq cm",
+          "78.5 sq cm"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 8 Mathematics?",
+      "Try the method for Grade 8 Mathematics.",
+      "Start with what you know about Grade 8 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 8 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 8 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr8.MEA",
+    "title": "Assessment: Area and perimeter of composite shapes. Surface area and volume of cubes, prisms, cylinders. Effect of scaling on measurements",
+    "items": [
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.MEA",
+        "Grade8",
+        "Measurement"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:52"
+}

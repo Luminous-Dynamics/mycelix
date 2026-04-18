@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr8.ALG",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr8.ALG",
+    "title": "CAPS.Mathematics.Gr8.ALG: Expand brackets. Factorise common factor. Solve linear eq...",
+    "grade_level": "Grade8",
+    "bloom_level": "Apply",
+    "explanation": "Grade 8 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Expand: 3(x + 4)",
+        "answer": "3x + 12",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Multiply each term inside by 3"
+        ],
+        "explanation": "3 x x = 3x, 3 x 4 = 12. So 3(x + 4) = 3x + 12.",
+        "distractors": [
+          "3x + 4",
+          "x + 12",
+          "7x"
+        ]
+      },
+      {
+        "question": "Factorise: 6x + 9",
+        "answer": "3(2x + 3)",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Find the HCF of 6 and 9"
+        ],
+        "explanation": "HCF of 6 and 9 is 3. 6x/3 = 2x, 9/3 = 3. Answer: 3(2x + 3).",
+        "distractors": [
+          "6(x + 9)",
+          "3(2x + 9)",
+          "9(x + 1)"
+        ]
+      },
+      {
+        "question": "Expand and simplify: 2(x + 3) + 3(x - 1)",
+        "answer": "5x + 3",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "Expand each bracket, then collect like terms"
+        ],
+        "explanation": "2x + 6 + 3x - 3 = 5x + 3.",
+        "distractors": [
+          "5x + 9",
+          "6x + 3",
+          "5x - 3"
+        ]
+      },
+      {
+        "question": "Solve: 3(x - 2) = 12",
+        "answer": "x = 6",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Expand, then solve"
+        ],
+        "explanation": "3x - 6 = 12, 3x = 18, x = 6.",
+        "distractors": [
+          "x = 4",
+          "x = 2",
+          "x = 10"
+        ]
+      },
+      {
+        "question": "Factorise: x^2 - 9",
+        "answer": "(x + 3)(x - 3)",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Difference of two squares: a^2 - b^2 = (a+b)(a-b)"
+        ],
+        "explanation": "x^2 - 9 = x^2 - 3^2 = (x + 3)(x - 3).",
+        "distractors": [
+          "(x - 9)(x + 1)",
+          "(x + 9)(x - 1)",
+          "(x - 3)^2"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 8 Mathematics?",
+      "Try the method for Grade 8 Mathematics.",
+      "Start with what you know about Grade 8 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 8 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 8 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr8.ALG",
+    "title": "Assessment: Expand brackets. Factorise common factor. Solve linear equations with variables on both sides. Inequalities on number line",
+    "items": [
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.ALG",
+        "Grade8",
+        "Algebra"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:52"
+}

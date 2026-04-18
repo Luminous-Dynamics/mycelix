@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.PHY.4",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.4",
+    "title": "CAPS.PhysicalSciences.Gr10.PHY.4: Speed of sound. Pitch and loudness. Ultrasound applicatio...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "A wave transfers energy without transferring matter. Transverse waves: particles vibrate perpendicular to wave direction (e.g., light, water waves). Longitudinal waves: particles vibrate parallel to wave direction (e.g., sound). Key properties: wavelength (\u03bb) is the distance between two consecutive crests, frequency (f) is the number of waves per second, wave speed v = f\u03bb, period T = 1/f.",
+    "examples": [
+      {
+        "problem": "Solve a Sound problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Sound problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Sound problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A lightning flash is seen and the thunder is heard 4 seconds later. How far away is the storm? (Speed of sound = 340 m/s)",
+        "answer": "d = v x t = 340 x 4 = 1360 m (about 1.4 km)",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Light travels almost instantly, so the delay is the time for sound to travel.",
+          "Use d = v x t."
+        ],
+        "explanation": "d = (340)(4) = 1360 m. Since light is much faster than sound (3 x 10^8 m/s vs 340 m/s), we treat the light travel time as zero.",
+        "distractors": [
+          "85 m",
+          "680 m",
+          "2720 m"
+        ]
+      },
+      {
+        "question": "A guitar string vibrates at 440 Hz (the note A). If the speed of sound in air is 340 m/s, calculate the wavelength of this sound wave.",
+        "answer": "lambda = v/f = 340/440 = 0.77 m",
+        "difficulty_permille": 300,
+        "bloom_level": "Apply",
+        "hints": [
+          "Rearrange v = f x lambda to get lambda = v/f.",
+          "Substitute v = 340 m/s and f = 440 Hz."
+        ],
+        "explanation": "lambda = 340/440 = 0.773 m, approximately 0.77 m.",
+        "distractors": [
+          "149600 m",
+          "1.29 m",
+          "0.44 m"
+        ]
+      },
+      {
+        "question": "Explain why sound cannot travel through a vacuum but light can.",
+        "answer": "Sound is a mechanical (longitudinal) wave that requires a medium (particles to vibrate). A vacuum has no particles, so sound cannot propagate. Light is an electromagnetic wave that does not need a medium and can travel through a vacuum.",
+        "difficulty_permille": 400,
+        "bloom_level": "Understand",
+        "hints": [
+          "Sound needs particles to compress and rarefy.",
+          "Light consists of oscillating electric and magnetic fields."
+        ],
+        "explanation": "This is why astronauts cannot hear each other in space without radios. Sound requires a physical medium; light does not.",
+        "distractors": [
+          "Sound can travel through a vacuum",
+          "Light also needs a medium",
+          "Both require air"
+        ]
+      },
+      {
+        "question": "A factory worker is exposed to 95 dB of noise for 8 hours daily. The safe limit is 85 dB. Explain the health risk and suggest one control measure.",
+        "answer": "95 dB exceeds the 85 dB safe limit, risking noise-induced hearing loss over time. Control measure: provide ear protection (earplugs or earmuffs) to reduce exposure, or enclose the noise source.",
+        "difficulty_permille": 500,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Every 10 dB increase represents a doubling of perceived loudness.",
+          "The safe exposure time halves for every 3 dB above 85 dB."
+        ],
+        "explanation": "At 95 dB, the safe exposure time is only about 1 hour per day. Eight hours of exposure can cause permanent hearing damage. Ear protection or engineering controls are essential.",
+        "distractors": [
+          "95 dB is safe",
+          "Only exposure above 130 dB is harmful",
+          "Hearing loss from noise is always reversible"
+        ]
+      },
+      {
+        "question": "An ultrasound scanner sends a pulse into the body. The pulse reflects off an organ 0.00004 s after being sent. If the speed of sound in body tissue is 1540 m/s, calculate the depth of the organ.",
+        "answer": "d = v x t / 2 = 1540 x 0.00004 / 2 = 0.0308 m = 3.08 cm",
+        "difficulty_permille": 650,
+        "bloom_level": "Apply",
+        "hints": [
+          "The pulse travels to the organ and back, so divide total distance by 2.",
+          "Use d = vt/2."
+        ],
+        "explanation": "Total distance = 1540 x 0.00004 = 0.0616 m. Depth = 0.0616/2 = 0.0308 m = 3.08 cm. The factor of 2 accounts for the return trip.",
+        "distractors": [
+          "6.16 cm",
+          "0.0616 m",
+          "1.54 cm"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Sound applies here?",
+      "Apply the method for Sound step by step.",
+      "Start by writing down what you know about Sound."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "pitch",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Sound.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.4",
+    "title": "Assessment: Speed of sound. Pitch and loudness. Ultrasound applications. Resonance and standing waves in pipes",
+    "items": [
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Sound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Sound?",
+      "back": "Sound is a longitudinal wave that needs a medium to travel (cannot travel in a vacuum)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.4",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

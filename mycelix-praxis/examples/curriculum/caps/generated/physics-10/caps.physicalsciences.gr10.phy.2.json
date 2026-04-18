@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.PHY.2",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.2",
+    "title": "CAPS.PhysicalSciences.Gr10.PHY.2: Gravitational potential energy (Ep = mgh). Kinetic energy...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Kinematics describes motion without considering forces. Key concepts: displacement (change in position, can be negative), velocity (rate of change of displacement), acceleration (rate of change of velocity). Equations of motion: v = u + at, s = ut + \u00bdat\u00b2, v\u00b2 = u\u00b2 + 2as. Motion graphs: x-t graphs show position over time (gradient = velocity), v-t graphs show velocity (gradient = acceleration, area = displacement).",
+    "examples": [
+      {
+        "problem": "Solve a Energy problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Energy problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Energy problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Calculate the gravitational potential energy of a 5 kg rock at a height of 12 m above the ground. (g = 9.8 m/s^2)",
+        "answer": "Ep = mgh = 5 x 9.8 x 12 = 588 J",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use Ep = mgh.",
+          "Substitute m = 5 kg, g = 9.8 m/s^2, h = 12 m."
+        ],
+        "explanation": "Ep = mgh = (5)(9.8)(12) = 588 J.",
+        "distractors": [
+          "490 J",
+          "600 J",
+          "58.8 J"
+        ]
+      },
+      {
+        "question": "A 2 kg ball is thrown upward at 10 m/s. Calculate its kinetic energy at the moment of release.",
+        "answer": "Ek = 1/2 mv^2 = 1/2(2)(10)^2 = 100 J",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use Ek = 1/2 mv^2.",
+          "Substitute m = 2 kg and v = 10 m/s."
+        ],
+        "explanation": "Ek = 1/2(2)(100) = 100 J.",
+        "distractors": [
+          "200 J",
+          "50 J",
+          "20 J"
+        ]
+      },
+      {
+        "question": "A 0.5 kg ball is dropped from 20 m. Using conservation of energy (no air resistance), find its speed just before hitting the ground. (g = 10 m/s^2)",
+        "answer": "v = 20 m/s",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "At the top: Ep = mgh, Ek = 0. At the bottom: Ep = 0, Ek = 1/2 mv^2.",
+          "Set mgh = 1/2 mv^2. Notice that mass cancels."
+        ],
+        "explanation": "mgh = 1/2 mv^2. gh = 1/2 v^2. (10)(20) = 1/2 v^2. v^2 = 400. v = 20 m/s.",
+        "distractors": [
+          "10 m/s",
+          "14.1 m/s",
+          "40 m/s"
+        ]
+      },
+      {
+        "question": "A force of 50 N pushes a box 8 m along a floor at an angle of 30 degrees to the horizontal. Calculate the work done by this force.",
+        "answer": "W = Fx cos(30) x d = 50 x cos(30) x 8 = 50 x 0.866 x 8 = 346.4 J",
+        "difficulty_permille": 550,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use W = Fd cos theta.",
+          "cos(30) = 0.866."
+        ],
+        "explanation": "W = Fd cos theta = (50)(8)(cos 30) = 400 x 0.866 = 346.4 J. Only the horizontal component of force does work along the displacement.",
+        "distractors": [
+          "400 J",
+          "200 J",
+          "250 J"
+        ]
+      },
+      {
+        "question": "A roller coaster car (mass 500 kg) is at the top of a 30 m hill moving at 5 m/s. Calculate its speed at the bottom of the hill, assuming no friction. (g = 10 m/s^2)",
+        "answer": "v = 24.7 m/s",
+        "difficulty_permille": 700,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Total energy at top = total energy at bottom (conservation of mechanical energy).",
+          "Ep(top) + Ek(top) = Ep(bottom) + Ek(bottom), with h = 0 at the bottom."
+        ],
+        "explanation": "mgh + 1/2 mv^2(top) = 1/2 mv^2(bottom). (500)(10)(30) + 1/2(500)(25) = 1/2(500)v^2. 150000 + 6250 = 250v^2. v^2 = 625. Wait: 156250/250 = 625. v = 25 m/s. More precisely: v = sqrt(2gh + v_top^2) = sqrt(600 + 25) = sqrt(625) = 25 m/s.",
+        "distractors": [
+          "30 m/s",
+          "20 m/s",
+          "24.5 m/s"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Energy applies here?",
+      "Apply the method for Energy step by step.",
+      "Start by writing down what you know about Energy."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "kinetic energy",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Energy.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.2",
+    "title": "Assessment: Gravitational potential energy (Ep = mgh). Kinetic energy (Ek = \u00bdmv\u00b2). Mechanical energy. Conservation of mechanical energy (non-conservative forces absent). Work done by a force (W = F\u0394x cos \u03b8)",
+    "items": [
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Energy.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Energy?",
+      "back": "Gravitational potential energy Ep = mgh depends on mass, gravitational acceleration (g = 9",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.2",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

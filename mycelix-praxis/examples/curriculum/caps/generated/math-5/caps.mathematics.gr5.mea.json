@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr5.MEA",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr5.MEA",
+    "title": "CAPS.Mathematics.Gr5.MEA: Perimeter and area of irregular shapes. Volume of rectang...",
+    "grade_level": "Grade5",
+    "bloom_level": "Understand",
+    "explanation": "Grade 5 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 5 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 5 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 5 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A rectangle is 12 cm by 5 cm. What is its perimeter?",
+        "answer": "34 cm",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "P = 2(l + w)"
+        ],
+        "explanation": "P = 2(12 + 5) = 2 x 17 = 34 cm.",
+        "distractors": [
+          "17 cm",
+          "60 cm",
+          "24 cm"
+        ]
+      },
+      {
+        "question": "Find the area of a rectangle: length 9 m, width 4 m.",
+        "answer": "36 square m",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Area = length x width"
+        ],
+        "explanation": "9 x 4 = 36 square metres.",
+        "distractors": [
+          "13 square m",
+          "26 square m",
+          "45 square m"
+        ]
+      },
+      {
+        "question": "A rectangular prism is 5 cm x 3 cm x 2 cm. What is its volume?",
+        "answer": "30 cubic cm",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "V = l x w x h"
+        ],
+        "explanation": "5 x 3 x 2 = 30 cubic cm.",
+        "distractors": [
+          "10 cubic cm",
+          "16 cubic cm",
+          "25 cubic cm"
+        ]
+      },
+      {
+        "question": "An irregular shape has an area of about 18 full squares and 6 half squares on a grid. Estimate the total area.",
+        "answer": "21 square units",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Count full squares + half of partial squares"
+        ],
+        "explanation": "18 + (6 x 0.5) = 18 + 3 = 21 square units.",
+        "distractors": [
+          "24 square units",
+          "18 square units",
+          "12 square units"
+        ]
+      },
+      {
+        "question": "Convert 4500 ml to litres.",
+        "answer": "4.5 litres",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "1 litre = 1000 ml"
+        ],
+        "explanation": "4500 / 1000 = 4.5 litres.",
+        "distractors": [
+          "45 litres",
+          "0.45 litres",
+          "450 litres"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 5 Mathematics?",
+      "Try the method for Grade 5 Mathematics.",
+      "Start with what you know about Grade 5 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 5 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 5 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr5.MEA",
+    "title": "Assessment: Perimeter and area of irregular shapes. Volume of rectangular prisms. Convert between units. 24-hour time",
+    "items": [
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 5 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 5 Mathematics?",
+      "back": "Grade 5 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr5.MEA",
+        "Grade5",
+        "Measurement"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:42"
+}

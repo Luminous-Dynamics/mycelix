@@ -1,0 +1,395 @@
+{
+  "node_id": "CAPS.Mathematics.Gr12.P1.FN",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.FN",
+    "title": "CAPS.Mathematics.Gr12.P1.FN: Revise linear, quadratic (y = a(x−p)²+q), hyperbolic (y =...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "The inverse function reverses the original: if f(x) = y, then f⁻¹(y) = x. To find the inverse, swap x and y and solve for y. The graph of the inverse is a reflection of the original in the line y = x. The inverse of y = ax + q is y = (x - q)/a. The inverse of y = ax² is y = ±√(x/a) — you must restrict the domain. The inverse of y = b^x is y = log_b(x).",
+    "examples": [
+      {
+        "problem": "Sketch f(x) = −(x−2)² + 9 showing intercepts, turning point, and axis of symmetry.",
+        "steps": [
+          {
+            "instruction": "Step 1: Shape: a = −1 < 0 so opens down",
+            "result": "identify shape"
+          },
+          {
+            "instruction": "Step 2: Turning point at (2, 9)",
+            "result": "read from equation"
+          },
+          {
+            "instruction": "Step 3: y-intercept: f(0) = −4 + 9 = 5, so (0, 5)",
+            "result": "set x = 0"
+          },
+          {
+            "instruction": "Step 4: x-intercepts: (x−2)² = 9, x = 5 or x = −1",
+            "result": "set y = 0"
+          }
+        ],
+        "answer": "Answer: TP(2,9), y-int(0,5), x-ints(−1,0) and (5,0), axis x = 2",
+        "visual_description": null
+      },
+      {
+        "problem": "Determine the equation of the hyperbola y = a/(x−p) + q with asymptotes x = 1 and y = −2, passing through (3, 0).",
+        "steps": [
+          {
+            "instruction": "Step 1: From asymptotes: p = 1, q = −2",
+            "result": "read from asymptotes"
+          },
+          {
+            "instruction": "Step 2: y = a/(x−1) − 2. Substitute (3,0): 0 = a/(3−1) − 2",
+            "result": "substitute point"
+          },
+          {
+            "instruction": "Step 3: 2 = a/2, so a = 4",
+            "result": "solve for a"
+          }
+        ],
+        "answer": "Answer: y = 4/(x−1) − 2",
+        "visual_description": null
+      },
+      {
+        "problem": "If f(x) = 2ˣ, determine the equation of its inverse.",
+        "steps": [
+          {
+            "instruction": "Step 1: Write y = 2ˣ",
+            "result": "start with function"
+          },
+          {
+            "instruction": "Step 2: Swap x and y: x = 2ʸ",
+            "result": "reflect in y = x"
+          },
+          {
+            "instruction": "Step 3: Take log₂ of both sides: y = log₂(x)",
+            "result": "solve for y"
+          }
+        ],
+        "answer": "Answer: f⁻¹(x) = log₂(x)",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Given f(x) = (x − 1)² + 3, state the turning point and whether it is a minimum or maximum.",
+        "answer": "Turning point (1, 3); minimum because a = 1 > 0",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "In y = a(x − p)² + q, the turning point is (p, q).",
+          "If a > 0 it opens upward (minimum); if a < 0 it opens downward (maximum)."
+        ],
+        "explanation": "The equation is already in turning-point form y = a(x − p)² + q with p = 1, q = 3, a = 1. Since a = 1 > 0, the parabola opens upward, so (1, 3) is a minimum.",
+        "distractors": [
+          "Turning point (−1, 3); minimum",
+          "Turning point (1, 3); maximum",
+          "Turning point (1, −3); minimum"
+        ]
+      },
+      {
+        "question": "Determine the equation of the parabola with turning point (2, −5) that passes through the point (4, 3).",
+        "answer": "y = 2(x − 2)² − 5",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Start with y = a(x − p)² + q using the turning point (p, q) = (2, −5).",
+          "Substitute the point (4, 3) to solve for a."
+        ],
+        "explanation": "y = a(x − 2)² − 5. Substitute (4, 3): 3 = a(4 − 2)² − 5 = 4a − 5, so 4a = 8 and a = 2. The equation is y = 2(x − 2)² − 5.",
+        "distractors": [
+          "y = (x − 2)² − 5",
+          "y = 2(x + 2)² − 5",
+          "y = −2(x − 2)² − 5"
+        ]
+      },
+      {
+        "question": "Write down the equations of the asymptotes and the y-intercept of g(x) = 3/(x + 2) − 1.",
+        "answer": "Vertical asymptote: x = −2; horizontal asymptote: y = −1; y-intercept: (0, ½)",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "For y = a/(x − p) + q, the vertical asymptote is x = p and the horizontal asymptote is y = q.",
+          "For the y-intercept, set x = 0."
+        ],
+        "explanation": "The function is in the form y = a/(x − p) + q with p = −2, q = −1. Vertical asymptote: x = −2. Horizontal asymptote: y = −1. y-intercept: g(0) = 3/(0 + 2) − 1 = 3/2 − 1 = 1/2, so the y-intercept is (0, ½).",
+        "distractors": [
+          "x = 2; y = −1; y-int (0, −½)",
+          "x = −2; y = 1; y-int (0, ½)",
+          "x = −2; y = −1; y-int (0, ²⁄₃)"
+        ]
+      },
+      {
+        "question": "The graph of y = ab^x passes through (0, 2) and (2, 18). Determine the values of a and b (b > 0).",
+        "answer": "a = 2, b = 3",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "At x = 0: y = a \u00b7 b\u2070 = a. Use the first point to find a.",
+          "Substitute a and the second point to get an equation in b."
+        ],
+        "explanation": "At (0, 2): 2 = a \u00b7 b\u2070 = a, so a = 2. At (2, 18): 18 = 2 \u00b7 b\u00b2, so b\u00b2 = 9, thus b = 3 (since b > 0).",
+        "distractors": [
+          "a = 2, b = 9",
+          "a = 3, b = 2",
+          "a = 18, b = 3"
+        ]
+      },
+      {
+        "question": "Given f(x) = 3^x, write down the equation of f\u207b\u00b9 (the inverse). State the domain and range of f\u207b\u00b9.",
+        "answer": "f\u207b\u00b9(x) = log\u2083(x); domain: x > 0; range: y \u2208 \u211d",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "To find the inverse, swap x and y in y = 3^x, then solve for y.",
+          "The domain of the inverse is the range of the original, and vice versa."
+        ],
+        "explanation": "Start with y = 3^x. Swap x and y: x = 3^y. Solve for y: y = log\u2083(x). The original f has domain \u211d and range y > 0, so f\u207b\u00b9 has domain x > 0 and range y \u2208 \u211d.",
+        "distractors": [
+          "f\u207b\u00b9(x) = log\u2083(x); domain: x \u2208 \u211d; range: y > 0",
+          "f\u207b\u00b9(x) = 3^(1/x); domain: x > 0; range: y > 0",
+          "f\u207b\u00b9(x) = log\u2081\u2080(x)/log\u2081\u2080(3); domain: x \u2265 0; range: y \u2208 \u211d"
+        ]
+      },
+      {
+        "question": "A hyperbola has asymptotes x = 3 and y = 2, and passes through the point (5, 5). Determine its equation in the form y = a/(x \u2212 p) + q.",
+        "answer": "y = 6/(x \u2212 3) + 2",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "From the asymptotes, identify p and q directly.",
+          "Substitute the given point into y = a/(x \u2212 p) + q to find a."
+        ],
+        "explanation": "From asymptotes: p = 3, q = 2, so y = a/(x \u2212 3) + 2. Substitute (5, 5): 5 = a/(5 \u2212 3) + 2, so 3 = a/2, giving a = 6. The equation is y = 6/(x \u2212 3) + 2.",
+        "distractors": [
+          "y = 3/(x \u2212 3) + 2",
+          "y = 6/(x + 3) + 2",
+          "y = 6/(x \u2212 3) \u2212 2"
+        ]
+      },
+      {
+        "question": "The function f(x) = \u22122(x + 1)\u00b2 + 8 and g(x) = \u2212x + 3 are given. Determine the x-values for which f(x) \u2265 g(x).",
+        "answer": "\u22123 \u2264 x \u2264 \u00bd (or equivalently \u22123 \u2264 x \u2264 0.5)",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Set f(x) = g(x) to find the intersection points first.",
+          "Expand and rearrange to a standard quadratic, then solve. Test a value between roots to confirm the inequality direction."
+        ],
+        "explanation": "Set \u22122(x + 1)\u00b2 + 8 = \u2212x + 3. Expand: \u22122(x\u00b2 + 2x + 1) + 8 = \u2212x + 3 \u2192 \u22122x\u00b2 \u2212 4x \u2212 2 + 8 = \u2212x + 3 \u2192 \u22122x\u00b2 \u2212 3x + 3 = 0 \u2192 2x\u00b2 + 3x \u2212 3 = 0. Factorising: (2x \u2212 1)(x + 3) = 0, so x = \u00bd or x = \u22123. Since the parabola opens downward (a < 0), f(x) \u2265 g(x) between the roots: \u22123 \u2264 x \u2264 \u00bd.",
+        "distractors": [
+          "x \u2264 \u22123 or x \u2265 \u00bd",
+          "\u22121 \u2264 x \u2264 3",
+          "\u22123 < x < \u00bd"
+        ]
+      }
+    ],
+    "hints": [
+      "What is the turning point form of a parabola?",
+      "y = a(x − p)² + q. Substitute the TP, then use another point to find a.",
+      "TP(3,−4) gives y = a(x−3)² − 4. Put in (5,0): 0 = a(4) − 4, so a = 1."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "turning point",
+        "definition": "The minimum or maximum point of a parabola",
+        "example_usage": "y = 2(x−1)² + 3 has turning point (1, 3)."
+      },
+      {
+        "term": "asymptote",
+        "definition": "A line that a graph approaches but never touches",
+        "example_usage": "y = 1/(x−2) + 3 has asymptotes at x = 2 and y = 3."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students read the turning point of y = −2(x−3)² + 5 as (−3, 5).",
+        "correction": "The turning point is (3, 5). The formula is y = a(x−p)² + q, so the sign in the bracket is opposite.",
+        "why_students_think_this": "(x − 3)² means p = +3, not −3. The negative is part of the formula structure."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.FN",
+    "title": "Assessment: Revise linear, quadratic (y = a(x−p)²+q), hyperbolic (y = a/(x−p)+q), exponential (y = ab^(x−p)+q). Logarithmic function. Average gradient, increasing/decreasing intervals. Interpret real-world graphs. Transformations and reflections",
+    "items": [
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Given f(x) = 2/(x+1) − 3, state the equations of the asymptotes and sketch the graph.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Vertical: x = −1, Horizontal: y = −3",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the turning point of y = a(x − p)² + q?",
+      "back": "The turning point is (p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FN",
+        "Grade12",
+        "Paper 1 — Functions"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:09"
+}

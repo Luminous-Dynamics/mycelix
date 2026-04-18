@@ -1,0 +1,10 @@
+{
+  "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "chain_id": 31337,
+  "chain_name": "Anvil Local Fork",
+  "rpc_url": "http://localhost:8545",
+  "block_number": 45,
+  "transaction_hash": "42e150df00e589aba1d7ec71c65cfb73d9427e6df4872a7f9c42881004e01b01",
+  "gas_used": 1903246
+}

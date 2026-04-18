@@ -1,0 +1,11 @@
+---
+manifest_version: "0"
+name: mycelix-fl
+description: "Mycelix Federated Learning - Byzantine-resistant distributed ML on Holochain"
+roles:
+  - name: federated_learning
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: ../dna/federated_learning.dna

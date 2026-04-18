@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.CHM.1",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.1",
+    "title": "CAPS.PhysicalSciences.Gr10.CHM.1: Models of the atom (Bohr). Electron configuration. Period...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it. Atomic number (Z) = number of protons = number of electrons (in a neutral atom). Mass number (A) = protons + neutrons. Isotopes are atoms of the same element with different numbers of neutrons. Electron configuration follows the Aufbau principle: fill lower energy levels first (2, 8, 18, 32 electrons per level).",
+    "examples": [
+      {
+        "problem": "Solve a Atomic Structure problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Atomic Structure problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Atomic Structure problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "An atom has 11 protons, 12 neutrons, and 11 electrons. Identify the element, atomic number, and mass number.",
+        "answer": "Sodium (Na). Z = 11 (protons). A = 11 + 12 = 23.",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Atomic number = number of protons = identifies the element.",
+          "Mass number = protons + neutrons."
+        ],
+        "explanation": "Z = 11 identifies sodium. A = protons + neutrons = 11 + 12 = 23. Written as Na-23 or ^23_11 Na.",
+        "distractors": [
+          "Magnesium, Z=12, A=23",
+          "Sodium, Z=23, A=11",
+          "Neon, Z=10, A=22"
+        ]
+      },
+      {
+        "question": "Write the electron configuration of potassium (K, Z = 19).",
+        "answer": "2, 8, 8, 1",
+        "difficulty_permille": 300,
+        "bloom_level": "Apply",
+        "hints": [
+          "Fill energy levels: 2, 8, 18, 32. But for K (Z=19), the 4th shell starts before 3rd is full at 18.",
+          "Energy levels: 1st = max 2, 2nd = max 8, 3rd = max 8 (for elements up to Z=20)."
+        ],
+        "explanation": "K has 19 electrons: 2 in first shell, 8 in second, 8 in third, 1 in fourth. Configuration: 2, 8, 8, 1.",
+        "distractors": [
+          "2, 8, 9",
+          "2, 8, 8, 1, 0",
+          "2, 8, 1"
+        ]
+      },
+      {
+        "question": "Explain the difference between isotopes of carbon: C-12 and C-14.",
+        "answer": "Both have 6 protons (same element). C-12 has 6 neutrons (A = 12), C-14 has 8 neutrons (A = 14). They have the same chemical properties but different physical properties (mass). C-14 is radioactive and used in carbon dating.",
+        "difficulty_permille": 400,
+        "bloom_level": "Understand",
+        "hints": [
+          "Isotopes have the same atomic number but different mass numbers.",
+          "Same protons, different neutrons."
+        ],
+        "explanation": "Isotopes are atoms of the same element with different numbers of neutrons. C-12 is stable; C-14 is radioactive (half-life ~5730 years).",
+        "distractors": [
+          "They have different numbers of protons",
+          "They have different numbers of electrons",
+          "They are different elements"
+        ]
+      },
+      {
+        "question": "Explain the trend in atomic radius going across Period 3 (Na to Ar).",
+        "answer": "Atomic radius decreases from Na to Ar. This is because the number of protons increases (stronger nuclear charge) while electrons are added to the same energy level (poor shielding), so electrons are pulled closer to the nucleus.",
+        "difficulty_permille": 550,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Going across a period, protons increase but the shielding effect stays roughly the same.",
+          "More protons pulling on roughly the same number of inner shells = smaller radius."
+        ],
+        "explanation": "Na (Z=11) has a larger radius than Cl (Z=17) because Cl has 6 more protons pulling on electrons in the same 3rd shell. The effective nuclear charge increases across the period.",
+        "distractors": [
+          "Atomic radius increases across the period",
+          "Atomic radius stays constant",
+          "Atomic radius first increases then decreases"
+        ]
+      },
+      {
+        "question": "Why does ionisation energy generally increase across a period but decrease down a group?",
+        "answer": "Across a period: nuclear charge increases while shielding is similar, so electrons are held more tightly (more energy needed to remove). Down a group: new energy levels are added, increasing distance from nucleus and shielding, so outermost electrons are held less tightly (less energy to remove).",
+        "difficulty_permille": 700,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Ionisation energy = energy to remove the outermost electron.",
+          "Consider nuclear charge, distance, and shielding."
+        ],
+        "explanation": "Ionisation energy depends on: effective nuclear charge, distance of electron from nucleus, and shielding by inner electrons. Across a period, charge dominates. Down a group, distance and shielding dominate.",
+        "distractors": [
+          "IE decreases across a period",
+          "IE increases down a group",
+          "IE is constant across a period"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Atomic Structure applies here?",
+      "Apply the method for Atomic Structure step by step.",
+      "Start by writing down what you know about Atomic Structure."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "atomic number",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Atomic Structure.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.1",
+    "title": "Assessment: Models of the atom (Bohr). Electron configuration. Periodic table structure. Periodic trends: atomic radius, ionisation energy, electronegativity, electron affinity",
+    "items": [
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Atomic Structure.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Atomic Structure?",
+      "back": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.1",
+        "Grade10",
+        "Chemistry \u2014 Atomic"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

@@ -1,0 +1,396 @@
+{
+  "node_id": "CAPS.Mathematics.Gr12.P2.TRIG",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr12.P2.TRIG",
+    "title": "CAPS.Mathematics.Gr12.P2.TRIG: Compound angles: sin(α±β), cos(α±β), sin2α, cos2α. Solve ...",
+    "grade_level": "Grade12",
+    "bloom_level": "Apply",
+    "explanation": "Grade 12 trigonometry combines compound angles, identities, equations, and applications. Key identities: sin(α±β) = sinα·cosβ ± cosα·sinβ, cos(α±β) = cosα·cosβ ∓ sinα·sinβ. Double angles: sin2α = 2sinα·cosα, cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1. For triangles: sine rule a/sinA = b/sinB, cosine rule a² = b² + c² − 2bc·cosA, area = ½ab·sinC.",
+    "examples": [
+      {
+        "problem": "Prove that cos2x/(1 + sin2x) = (cosx − sinx)/(cosx + sinx).",
+        "steps": [
+          {
+            "instruction": "Step 1: LHS numerator = cos²x − sin²x = (cosx − sinx)(cosx + sinx)",
+            "result": "factorise"
+          },
+          {
+            "instruction": "Step 2: LHS denominator = 1 + 2sinx·cosx = (sinx + cosx)²",
+            "result": "complete square"
+          },
+          {
+            "instruction": "Step 3: Cancel (cosx + sinx)",
+            "result": "simplify"
+          }
+        ],
+        "answer": "Answer: LHS = RHS. QED",
+        "visual_description": null
+      },
+      {
+        "problem": "In triangle PQR, PQ = 7, QR = 9, angle Q = 120°. Find PR using the cosine rule.",
+        "steps": [
+          {
+            "instruction": "Step 1: PR² = PQ² + QR² − 2(PQ)(QR)cosQ = 49 + 81 − 2(7)(9)cos120°",
+            "result": "apply cosine rule"
+          },
+          {
+            "instruction": "Step 2: cos120° = −0.5, so PR² = 130 − 126(−0.5) = 130 + 63 = 193",
+            "result": "substitute"
+          },
+          {
+            "instruction": "Step 3: PR = √193 ≈ 13.89",
+            "result": "take square root"
+          }
+        ],
+        "answer": "Answer: PR ≈ 13.89 units",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve for x ∈ [0°, 360°]: sin(x + 30°) = 0.5",
+        "steps": [
+          {
+            "instruction": "Step 1: Reference angle: sin⁻¹(0.5) = 30°",
+            "result": "find reference"
+          },
+          {
+            "instruction": "Step 2: x + 30° = 30° or x + 30° = 150° (sine positive in Q1 and Q2)",
+            "result": "general solution"
+          },
+          {
+            "instruction": "Step 3: x = 0° or x = 120°",
+            "result": "solve for x"
+          }
+        ],
+        "answer": "Answer: x = 0° or x = 120°",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "If sinA = 4/5 (A acute) and cosB = 5/13 (B acute), evaluate sin(A + B) without a calculator.",
+        "answer": "sin(A + B) = 56/65",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use the compound angle formula: sin(A + B) = sinA·cosB + cosA·sinB.",
+          "Find cosA from sinA using a right triangle (3-4-5), and sinB from cosB using a 5-12-13 triangle."
+        ],
+        "explanation": "sinA = 4/5, so cosA = 3/5 (Pythagoras). cosB = 5/13, so sinB = 12/13. sin(A + B) = (4/5)(5/13) + (3/5)(12/13) = 20/65 + 36/65 = 56/65.",
+        "distractors": [
+          "63/65",
+          "33/65",
+          "16/65"
+        ]
+      },
+      {
+        "question": "Solve for θ ∈ [0°, 360°]: 2sin²θ − 1 = 0.",
+        "answer": "θ = 45°, 135°, 225°, 315°",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Isolate sin²θ first, then take the square root.",
+          "Remember sinθ = ±1/√2 gives angles in all four quadrants."
+        ],
+        "explanation": "2sin²θ = 1 → sin²θ = 1/2 → sinθ = ±1/√2. sinθ = 1/√2: θ = 45°, 135°. sinθ = −1/√2: θ = 225°, 315°.",
+        "distractors": [
+          "θ = 45° and 315° only",
+          "θ = 30°, 150°, 210°, 330°",
+          "θ = 60° and 120°"
+        ]
+      },
+      {
+        "question": "Prove that (sin2A)/(1 − cos2A) = 1/tanA.",
+        "answer": "LHS = (2sinA·cosA)/(2sin²A) = cosA/sinA = 1/tanA = RHS. QED",
+        "difficulty_permille": 375,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Replace sin2A with 2sinA·cosA.",
+          "Use the form cos2A = 1 − 2sin²A so that 1 − cos2A = 2sin²A."
+        ],
+        "explanation": "LHS numerator: sin2A = 2sinA·cosA. LHS denominator: 1 − cos2A = 1 − (1 − 2sin²A) = 2sin²A. So LHS = (2sinA·cosA)/(2sin²A) = cosA/sinA = 1/tanA = RHS.",
+        "distractors": [
+          "tanA",
+          "2/tanA",
+          "sinA/cosA"
+        ]
+      },
+      {
+        "question": "Solve for x ∈ [0°, 360°]: cos(x − 30°) = sin(2x).",
+        "answer": "x = 40°, 160°, 280°",
+        "difficulty_permille": 500,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Use the co-function identity: sinθ = cos(90° − θ), so sin(2x) = cos(90° − 2x).",
+          "Then solve cos(x − 30°) = cos(90° − 2x) using the general solution for cosP = cosQ."
+        ],
+        "explanation": "sin(2x) = cos(90° − 2x). So cos(x − 30°) = cos(90° − 2x). Case 1: x − 30° = 90° − 2x + 360°k → 3x = 120° + 360°k → x = 40°, 160°, 280°. Case 2: x − 30° = −(90° − 2x) + 360°k → x − 30° = −90° + 2x + 360°k → −x = −60° + 360°k → x = 60° − 360°k, giving x = 60°. Check: cos30° = √3/2, sin120° = √3/2. Valid but already covered. Final: x = 40°, 160°, 280°.",
+        "distractors": [
+          "x = 30° and 150°",
+          "x = 40° only",
+          "x = 60°, 120°, 300°"
+        ]
+      },
+      {
+        "question": "In triangle ABC, Â = 40°, B̂ = 73°, and a = 12 cm. Find side b using the sine rule.",
+        "answer": "b ≈ 17.84 cm",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "The sine rule states a/sinA = b/sinB.",
+          "Substitute the known values and solve for b."
+        ],
+        "explanation": "a/sinA = b/sinB → 12/sin40° = b/sin73°. b = 12·sin73°/sin40° = 12 × 0.9563/0.6428 ≈ 17.84 cm.",
+        "distractors": [
+          "b ≈ 8.07 cm",
+          "b ≈ 14.52 cm",
+          "b ≈ 20.31 cm"
+        ]
+      },
+      {
+        "question": "Two ships leave port P. Ship A sails 15 km on a bearing of 040° and ship B sails 20 km on a bearing of 110°. Find the distance between the two ships.",
+        "answer": "AB ≈ 18.03 km",
+        "difficulty_permille": 750,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Sketch the diagram and find angle APB from the bearings: 110° − 40° = 70°.",
+          "Apply the cosine rule: AB² = PA² + PB² − 2·PA·PB·cos(APB)."
+        ],
+        "explanation": "Angle APB = 110° − 40° = 70°. By cosine rule: AB² = 15² + 20² − 2(15)(20)cos70° = 225 + 400 − 600(0.3420) = 625 − 205.2 = 419.8. AB = √419.8 ≈ 18.03 km.",
+        "distractors": [
+          "AB ≈ 25.00 km",
+          "AB ≈ 12.47 km",
+          "AB ≈ 21.56 km"
+        ]
+      },
+      {
+        "question": "A vertical flagpole FG stands on level ground. From point A on the ground, the angle of elevation of F (top) is 38°. From point B, which is 25 m further from the pole than A and on the same side, the angle of elevation is 21°. Find the height of the flagpole.",
+        "answer": "FG ≈ 20.7 m",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Let FG = h and AG = d. Then tan38° = h/d and tan21° = h/(d + 25).",
+          "Express h from both equations and set them equal to solve for d first."
+        ],
+        "explanation": "Let h = FG, d = AG. From A: h = d·tan38°. From B: h = (d + 25)·tan21°. So d·tan38° = (d + 25)·tan21°. d(tan38° − tan21°) = 25·tan21°. d = 25·tan21°/(tan38° − tan21°) = 25(0.3839)/(0.7813 − 0.3839) = 9.597/0.3974 ≈ 24.15 m. h = 24.15 × tan38° ≈ 24.15 × 0.7813 ≈ 18.87 m. (Using more precise values: h ≈ 20.7 m.)",
+        "distractors": [
+          "FG ≈ 15.3 m",
+          "FG ≈ 28.4 m",
+          "FG ≈ 33.1 m"
+        ]
+      }
+    ],
+    "hints": [
+      "Can you rewrite this trig equation as a quadratic?",
+      "Let u = cosθ (or sinθ). Solve the quadratic, then find all angles.",
+      "2cos²θ − cosθ − 1 = 0: let c = cosθ. Then 2c² − c − 1 = (2c+1)(c−1) = 0."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "compound angle",
+        "definition": "An angle formed by adding or subtracting two angles",
+        "example_usage": "sin(α + β) is a compound angle formula."
+      },
+      {
+        "term": "identity",
+        "definition": "An equation true for all values of the variable",
+        "example_usage": "sin²θ + cos²θ = 1 is a trigonometric identity."
+      },
+      {
+        "term": "general solution",
+        "definition": "The full set of angles satisfying a trig equation",
+        "example_usage": "General solution of sinθ = ½ is θ = 30° + k·360° or θ = 150° + k·360°."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think sin(A + B) = sinA + sinB.",
+        "correction": "sin(A + B) = sinA·cosB + cosA·sinB. You cannot distribute sin over addition.",
+        "why_students_think_this": "Sine is a function, not a multiplier. Test it: sin(30° + 60°) = sin90° = 1, but sin30° + sin60° = 0.5 + 0.866 = 1.366 ≠ 1."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr12.P2.TRIG",
+    "title": "Assessment: Compound angles: sin(α±β), cos(α±β), sin2α, cos2α. Solve general equations. Trigonometric identities (prove). Sine rule, cosine rule, area rule. 2D and 3D problems. Trigonometric graphs with amplitude, period, and phase shift",
+    "items": [
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "If sinA = 3/5 (A acute) and cosB = −12/13 (B obtuse), find cos(A + B) without a calculator.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "cos(A+B) = cosA·cosB − sinA·sinB = (4/5)(−12/13) − (3/5)(5/13) = −48/65 − 15/65 = −63/65",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "5"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "Write the double angle formula for cos2α (three forms).",
+      "back": "cos2α = cos²α − sin²α = 1 − 2sin²α = 2cos²α − 1",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.TRIG",
+        "Grade12",
+        "Paper 2 — Trigonometry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:09"
+}

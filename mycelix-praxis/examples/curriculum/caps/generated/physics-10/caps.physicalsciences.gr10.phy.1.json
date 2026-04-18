@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.PHY.1",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.1",
+    "title": "CAPS.PhysicalSciences.Gr10.PHY.1: Vectors and scalars. Reference frames. Position, displace...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Kinematics describes motion without considering forces. Key concepts: displacement (change in position, can be negative), velocity (rate of change of displacement), acceleration (rate of change of velocity). Equations of motion: v = u + at, s = ut + \u00bdat\u00b2, v\u00b2 = u\u00b2 + 2as. Motion graphs: x-t graphs show position over time (gradient = velocity), v-t graphs show velocity (gradient = acceleration, area = displacement).",
+    "examples": [
+      {
+        "problem": "Solve a Motion in One Dimension problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Motion in One Dimension problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Motion in One Dimension problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A car accelerates uniformly from rest to 20 m/s in 8 seconds. Calculate the acceleration.",
+        "answer": "a = (v - u)/t = (20 - 0)/8 = 2.5 m/s^2",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use the equation v = u + at.",
+          "The car starts from rest, so u = 0."
+        ],
+        "explanation": "Using v = u + at: 20 = 0 + a(8), so a = 20/8 = 2.5 m/s^2.",
+        "distractors": [
+          "5 m/s^2",
+          "1.25 m/s^2",
+          "160 m/s^2"
+        ]
+      },
+      {
+        "question": "A cyclist travels 100 m in 20 s, then 150 m in 30 s. Calculate the average speed for the entire journey.",
+        "answer": "Average speed = total distance / total time = 250/50 = 5 m/s",
+        "difficulty_permille": 300,
+        "bloom_level": "Apply",
+        "hints": [
+          "Average speed uses total distance and total time, not individual speeds.",
+          "Add the distances and the times separately first."
+        ],
+        "explanation": "Total distance = 100 + 150 = 250 m. Total time = 20 + 30 = 50 s. Average speed = 250/50 = 5 m/s.",
+        "distractors": [
+          "5.5 m/s",
+          "6.25 m/s",
+          "7 m/s"
+        ]
+      },
+      {
+        "question": "A ball is dropped from a building 45 m high. How long does it take to reach the ground? (g = 10 m/s^2, ignore air resistance)",
+        "answer": "t = 3 s",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use s = ut + 1/2 at^2 with u = 0 (dropped, not thrown).",
+          "Substitute s = 45, a = 10, u = 0 and solve for t."
+        ],
+        "explanation": "s = ut + 1/2 at^2. 45 = 0 + 1/2(10)t^2. 45 = 5t^2. t^2 = 9. t = 3 s.",
+        "distractors": [
+          "4.5 s",
+          "2 s",
+          "9 s"
+        ]
+      },
+      {
+        "question": "A car travelling at 30 m/s brakes and decelerates at 5 m/s^2. Calculate the stopping distance.",
+        "answer": "s = 90 m",
+        "difficulty_permille": 550,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use v^2 = u^2 + 2as with v = 0 (the car stops).",
+          "Deceleration means a is negative: a = -5 m/s^2."
+        ],
+        "explanation": "v^2 = u^2 + 2as. 0 = (30)^2 + 2(-5)s. 0 = 900 - 10s. s = 90 m.",
+        "distractors": [
+          "45 m",
+          "180 m",
+          "60 m"
+        ]
+      },
+      {
+        "question": "A velocity-time graph shows a straight line from (0, 4) to (6, 16). Calculate (a) the acceleration and (b) the displacement in those 6 seconds.",
+        "answer": "(a) a = 2 m/s^2. (b) s = 60 m.",
+        "difficulty_permille": 700,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Acceleration = gradient of v-t graph = rise/run.",
+          "Displacement = area under the v-t graph (trapezium)."
+        ],
+        "explanation": "(a) a = (16 - 4)/(6 - 0) = 12/6 = 2 m/s^2. (b) Area = 1/2(4 + 16)(6) = 1/2(20)(6) = 60 m.",
+        "distractors": [
+          "(a) 2 m/s^2, (b) 96 m",
+          "(a) 12 m/s^2, (b) 60 m",
+          "(a) 2 m/s^2, (b) 48 m"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Motion in One Dimension applies here?",
+      "Apply the method for Motion in One Dimension step by step.",
+      "Start by writing down what you know about Motion in One Dimension."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "displacement",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Motion in One Dimension.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.1",
+    "title": "Assessment: Vectors and scalars. Reference frames. Position, displacement, speed, velocity, acceleration. Equations of motion: v = u + at, s = ut + \u00bdat\u00b2, v\u00b2 = u\u00b2 + 2as. Graphs of motion (x-t, v-t, a-t)",
+    "items": [
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Motion in One Dimension.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Motion in One Dimension?",
+      "back": "Kinematics describes motion without considering forces",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.1",
+        "Grade10",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

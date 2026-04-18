@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.PHY.6",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.6",
+    "title": "CAPS.PhysicalSciences.Gr10.PHY.6: Two kinds of charge. Coulomb's law: F = kQ\u2081Q\u2082/r\u00b2. Electri...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Grade 12 electricity covers internal resistance and electrodynamics. EMF (\u03b5) = I(R + r), where r is internal resistance. The 'lost volts' = Ir. Terminal voltage = \u03b5 \u2212 Ir. For electrodynamics: Faraday's law \u03b5 = \u2212N\u0394\u03a6/\u0394t (changing magnetic flux induces an EMF). AC: Vrms = Vmax/\u221a2, Pavg = Vrms \u00d7 Irms.",
+    "examples": [
+      {
+        "problem": "A battery with \u03b5 = 12 V and r = 0.5 \u03a9 is connected to a 5.5 \u03a9 resistor. Find the current and terminal voltage.",
+        "steps": [
+          {
+            "instruction": "Step 1: \u03b5 = I(R + r) \u2192 12 = I(5.5 + 0.5) = 6I",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 2: I = 12/6 = 2 A",
+            "result": "solve for current"
+          },
+          {
+            "instruction": "Step 3: V_terminal = \u03b5 \u2212 Ir = 12 \u2212 2(0.5) = 11 V",
+            "result": "or V = IR = 2(5.5) = 11 V"
+          }
+        ],
+        "answer": "Answer: I = 2 A, terminal voltage = 11 V",
+        "visual_description": null
+      },
+      {
+        "problem": "A battery with \u03b5 = 12 V and r = 0.5 \u03a9 is connected to a 5.5 \u03a9 resistor. Find the current and terminal voltage.",
+        "steps": [
+          {
+            "instruction": "Step 1: \u03b5 = I(R + r) \u2192 12 = I(5.5 + 0.5) = 6I",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 2: I = 12/6 = 2 A",
+            "result": "solve for current"
+          },
+          {
+            "instruction": "Step 3: V_terminal = \u03b5 \u2212 Ir = 12 \u2212 2(0.5) = 11 V",
+            "result": "or V = IR = 2(5.5) = 11 V"
+          }
+        ],
+        "answer": "Answer: I = 2 A, terminal voltage = 11 V",
+        "visual_description": null
+      },
+      {
+        "problem": "A battery with \u03b5 = 12 V and r = 0.5 \u03a9 is connected to a 5.5 \u03a9 resistor. Find the current and terminal voltage.",
+        "steps": [
+          {
+            "instruction": "Step 1: \u03b5 = I(R + r) \u2192 12 = I(5.5 + 0.5) = 6I",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 2: I = 12/6 = 2 A",
+            "result": "solve for current"
+          },
+          {
+            "instruction": "Step 3: V_terminal = \u03b5 \u2212 Ir = 12 \u2212 2(0.5) = 11 V",
+            "result": "or V = IR = 2(5.5) = 11 V"
+          }
+        ],
+        "answer": "Answer: I = 2 A, terminal voltage = 11 V",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Two charges of +3 micro-C and -5 micro-C are separated by 0.2 m. Calculate the electrostatic force between them. (k = 9 x 10^9 N.m^2/C^2)",
+        "answer": "F = kQ1Q2/r^2 = 9x10^9 x 3x10^-6 x 5x10^-6 / (0.2)^2 = 3.375 N (attractive)",
+        "difficulty_permille": 350,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use Coulomb's law: F = kQ1Q2/r^2.",
+          "Convert micro-coulombs to coulombs: 1 micro-C = 10^-6 C."
+        ],
+        "explanation": "F = (9x10^9)(3x10^-6)(5x10^-6)/(0.04) = 0.135/0.04 = 3.375 N. The force is attractive because the charges are opposite.",
+        "distractors": [
+          "0.675 N",
+          "33.75 N",
+          "3375 N"
+        ]
+      },
+      {
+        "question": "If the distance between two charges is doubled, what happens to the electrostatic force?",
+        "answer": "The force decreases to 1/4 of its original value (inverse square law).",
+        "difficulty_permille": 300,
+        "bloom_level": "Understand",
+        "hints": [
+          "F is proportional to 1/r^2.",
+          "If r doubles, r^2 quadruples, so F becomes F/4."
+        ],
+        "explanation": "Coulomb's law: F = kQ1Q2/r^2. If r -> 2r, then F -> kQ1Q2/(2r)^2 = kQ1Q2/4r^2 = F/4.",
+        "distractors": [
+          "Halves",
+          "Doubles",
+          "Stays the same"
+        ]
+      },
+      {
+        "question": "Explain why a positively charged rod attracts small pieces of paper even though paper is electrically neutral.",
+        "answer": "The positive rod induces charge separation in the paper (polarisation). The negative charges in the paper are attracted closer to the rod, while positive charges are repelled farther away. Since the attractive force on nearer negative charges is stronger than the repulsive force on farther positive charges (inverse square law), the net force is attractive.",
+        "difficulty_permille": 500,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Think about induced charges (polarisation).",
+          "The closer charges experience a stronger force (inverse square law)."
+        ],
+        "explanation": "This demonstrates electrostatic induction. The paper remains neutral overall, but the charge redistribution creates a net attractive force.",
+        "distractors": [
+          "The paper becomes positively charged",
+          "Only charged objects can be attracted",
+          "The rod gives charge to the paper"
+        ]
+      },
+      {
+        "question": "Calculate the electric field strength at a point 0.3 m from a charge of +4 micro-C. (k = 9 x 10^9 N.m^2/C^2)",
+        "answer": "E = kQ/r^2 = 9x10^9 x 4x10^-6 / (0.3)^2 = 36000/0.09 = 4 x 10^5 N/C",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use E = kQ/r^2.",
+          "Convert micro-coulombs to coulombs."
+        ],
+        "explanation": "E = (9x10^9)(4x10^-6)/(0.09) = 36000/0.09 = 400000 = 4 x 10^5 N/C, directed away from the positive charge.",
+        "distractors": [
+          "1.2 x 10^5 N/C",
+          "4 x 10^3 N/C",
+          "1.33 x 10^5 N/C"
+        ]
+      },
+      {
+        "question": "Two parallel plates are separated by 0.02 m with a potential difference of 200 V. Calculate the electric field between the plates and the force on an electron in this field. (e = 1.6 x 10^-19 C)",
+        "answer": "E = V/d = 200/0.02 = 10000 V/m. F = qE = 1.6x10^-19 x 10000 = 1.6 x 10^-15 N.",
+        "difficulty_permille": 650,
+        "bloom_level": "Apply",
+        "hints": [
+          "For parallel plates, E = V/d (uniform field).",
+          "Force on a charge: F = qE."
+        ],
+        "explanation": "E = 200/0.02 = 10^4 V/m. F = (1.6 x 10^-19)(10^4) = 1.6 x 10^-15 N, directed from negative plate toward positive plate (opposite to electron's motion).",
+        "distractors": [
+          "F = 3.2 x 10^-15 N",
+          "F = 1.6 x 10^-17 N",
+          "E = 4000 V/m"
+        ]
+      }
+    ],
+    "hints": [
+      "Use \u03b5 = I(R + r). With two different setups, you get two equations with two unknowns (\u03b5 and r).",
+      "Use \u03b5 = I(R + r). With two different setups, you get two equations with two unknowns (\u03b5 and r).",
+      "Use \u03b5 = I(R + r). With two different setups, you get two equations with two unknowns (\u03b5 and r)."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "EMF",
+        "definition": "The maximum potential difference a battery can provide (when no current flows)",
+        "example_usage": "\u03b5 = 12 V for this battery."
+      },
+      {
+        "term": "internal resistance",
+        "definition": "The resistance within the battery itself",
+        "example_usage": "Internal resistance causes the terminal voltage to drop under load."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think the terminal voltage equals the EMF.",
+        "correction": "Terminal voltage = \u03b5 \u2212 Ir. It's less than the EMF when current flows due to energy lost in the battery.",
+        "why_students_think_this": "Internal resistance causes a voltage drop inside the battery. Only when I = 0 does V_terminal = \u03b5."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.6",
+    "title": "Assessment: Two kinds of charge. Coulomb's law: F = kQ\u2081Q\u2082/r\u00b2. Electric field. Electric field between parallel plates. Charge conservation and quantisation",
+    "items": [
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why the headlights of a car dim slightly when the starter motor is engaged.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "The starter motor draws a large current, increasing the Ir drop across internal resistance, reducing terminal voltage.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the relationship between EMF, terminal voltage, and internal resistance?",
+      "back": "\u03b5 = V_terminal + Ir, or equivalently \u03b5 = I(R + r)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.6",
+        "Grade10",
+        "Physics \u2014 Electricity"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

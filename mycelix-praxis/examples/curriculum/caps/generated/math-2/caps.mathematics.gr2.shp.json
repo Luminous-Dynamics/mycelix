@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr2.SHP",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr2.SHP",
+    "title": "CAPS.Mathematics.Gr2.SHP: 2D and 3D shapes. Symmetry. Views of objects. Directions ...",
+    "grade_level": "Grade2",
+    "bloom_level": "Understand",
+    "explanation": "Grade 2 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "How many sides does a rectangle have?",
+        "answer": "4",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "A rectangle is a 4-sided shape"
+        ],
+        "explanation": "A rectangle has 4 sides.",
+        "distractors": [
+          "3",
+          "5",
+          "6"
+        ]
+      },
+      {
+        "question": "Name the 3D shape of a ball.",
+        "answer": "Sphere",
+        "difficulty_permille": 250,
+        "bloom_level": "Remember",
+        "hints": [
+          "It is round in every direction"
+        ],
+        "explanation": "A ball is shaped like a sphere.",
+        "distractors": [
+          "Circle",
+          "Cube",
+          "Cylinder"
+        ]
+      },
+      {
+        "question": "Does a square have a line of symmetry?",
+        "answer": "Yes",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "Can you fold it in half so both sides match?"
+        ],
+        "explanation": "A square has 4 lines of symmetry. You can fold it in half many ways.",
+        "distractors": [
+          "No",
+          "Only circles do",
+          "Only triangles do"
+        ]
+      },
+      {
+        "question": "How many faces does a cube have?",
+        "answer": "6",
+        "difficulty_permille": 500,
+        "bloom_level": "Remember",
+        "hints": [
+          "A cube is like a box with equal faces"
+        ],
+        "explanation": "A cube has 6 square faces.",
+        "distractors": [
+          "4",
+          "8",
+          "12"
+        ]
+      },
+      {
+        "question": "Which direction do you turn if you face north and then face east?",
+        "answer": "Right",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Think about a compass"
+        ],
+        "explanation": "Turning from north to east is a quarter turn to the right.",
+        "distractors": [
+          "Left",
+          "Backwards",
+          "Up"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 2 Mathematics?",
+      "Try the method for Grade 2 Mathematics.",
+      "Start with what you know about Grade 2 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 2 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 2 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr2.SHP",
+    "title": "Assessment: 2D and 3D shapes. Symmetry. Views of objects. Directions and positions",
+    "items": [
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.SHP",
+        "Grade2",
+        "Geometry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:28"
+}

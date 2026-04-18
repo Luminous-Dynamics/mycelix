@@ -1,0 +1,29 @@
+---
+manifest_version: "0"
+name: climate
+integrity:
+  network_seed: ~
+  properties: ~
+  zomes:
+    - name: carbon_integrity
+      path: ../../../target/wasm32-unknown-unknown/release/carbon_integrity.wasm
+    - name: projects_integrity
+      path: ../../../target/wasm32-unknown-unknown/release/projects_integrity.wasm
+    - name: bridge_integrity
+      path: ../../../target/wasm32-unknown-unknown/release/bridge_integrity.wasm
+coordinator:
+  zomes:
+    - name: carbon
+      path: ../../../target/wasm32-unknown-unknown/release/carbon.wasm
+      dependencies:
+        - name: carbon_integrity
+    - name: projects
+      path: ../../../target/wasm32-unknown-unknown/release/projects.wasm
+      dependencies:
+        - name: projects_integrity
+    - name: bridge
+      path: ../../../target/wasm32-unknown-unknown/release/bridge.wasm
+      dependencies:
+        - name: bridge_integrity
+        - name: carbon_integrity
+        - name: projects_integrity

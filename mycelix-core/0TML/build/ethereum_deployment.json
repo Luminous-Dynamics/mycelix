@@ -1,0 +1,9 @@
+{
+  "contract_address": "0x4ef9372EF60D12E1DbeC9a13c724F6c631DdE49A",
+  "deployer": "0x9757Dd5B7877eA97ad39FF3D96eA653594d2609E",
+  "chain_id": 80002,
+  "chain_name": "Polygon Amoy Testnet",
+  "block_number": 27197520,
+  "transaction_hash": "bf257c09055ac444d3521e7b1ca9f9ea97798031ef0f0503f5c651e6a38fb23c",
+  "gas_used": 1903246
+}

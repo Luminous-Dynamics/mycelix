@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr4.DAT",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr4.DAT",
+    "title": "CAPS.Mathematics.Gr4.DAT: Collect and organise data. Bar graphs, pie charts intro. ...",
+    "grade_level": "Grade4",
+    "bloom_level": "Understand",
+    "explanation": "Grade 4 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "The marks are: 5, 8, 3, 6, 8. What is the mode?",
+        "answer": "8",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "The mode is the number that appears most often"
+        ],
+        "explanation": "8 appears twice, more than any other number. The mode is 8.",
+        "distractors": [
+          "5",
+          "6",
+          "3"
+        ]
+      },
+      {
+        "question": "In a bar graph, the tallest bar reaches 25. What does this represent?",
+        "answer": "25 is the highest value in the data set",
+        "difficulty_permille": 250,
+        "bloom_level": "Understand",
+        "hints": [
+          "The height of the bar shows the value"
+        ],
+        "explanation": "The tallest bar shows the category with the most items: 25.",
+        "distractors": [
+          "The total",
+          "The average",
+          "The smallest value"
+        ]
+      },
+      {
+        "question": "A pie chart has 4 equal sections. What fraction does each section represent?",
+        "answer": "1/4",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "4 equal parts of a whole circle"
+        ],
+        "explanation": "The whole pie is divided into 4 equal parts. Each is 1/4 or 25%.",
+        "distractors": [
+          "1/2",
+          "1/3",
+          "1/5"
+        ]
+      },
+      {
+        "question": "Find the range of: 12, 18, 7, 23, 15",
+        "answer": "16",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Range = highest minus lowest"
+        ],
+        "explanation": "Highest = 23, lowest = 7. Range = 23 - 7 = 16.",
+        "distractors": [
+          "15",
+          "18",
+          "11"
+        ]
+      },
+      {
+        "question": "The ages of 5 children are: 8, 10, 9, 11, 7. What is the mean?",
+        "answer": "9",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Add all ages and divide by 5"
+        ],
+        "explanation": "8 + 10 + 9 + 11 + 7 = 45. 45 / 5 = 9.",
+        "distractors": [
+          "10",
+          "8",
+          "11"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 4 Mathematics?",
+      "Try the method for Grade 4 Mathematics.",
+      "Start with what you know about Grade 4 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 4 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 4 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr4.DAT",
+    "title": "Assessment: Collect and organise data. Bar graphs, pie charts intro. Mean of small data sets. Chance events (certain, likely, unlikely, impossible)",
+    "items": [
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DAT",
+        "Grade4",
+        "Data"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:38"
+}

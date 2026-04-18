@@ -1,0 +1,15 @@
+---
+manifest_version: "0"
+name: mycelix-craft
+roles:
+  - name: craft
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: "./dna/mycelix_craft.dna"
+      modifiers:
+        network_seed: ~
+        properties: ~
+        origin_time: ~
+        quantum_time: ~

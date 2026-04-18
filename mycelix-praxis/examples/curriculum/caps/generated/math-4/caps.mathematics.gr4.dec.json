@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr4.DEC",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr4.DEC",
+    "title": "CAPS.Mathematics.Gr4.DEC: Tenths and hundredths. Convert between fractions and deci...",
+    "grade_level": "Grade4",
+    "bloom_level": "Understand",
+    "explanation": "Grade 4 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Write 3/10 as a decimal.",
+        "answer": "0.3",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "Tenths go in the first decimal place"
+        ],
+        "explanation": "3/10 = 0.3. Three tenths.",
+        "distractors": [
+          "3.0",
+          "0.03",
+          "0.33"
+        ]
+      },
+      {
+        "question": "Write 0.25 as a fraction.",
+        "answer": "25/100 or 1/4",
+        "difficulty_permille": 250,
+        "bloom_level": "Understand",
+        "hints": [
+          "0.25 means 25 hundredths"
+        ],
+        "explanation": "0.25 = 25/100 = 1/4 in simplest form.",
+        "distractors": [
+          "25/10",
+          "2/5",
+          "1/25"
+        ]
+      },
+      {
+        "question": "Which is greater: 0.7 or 0.65?",
+        "answer": "0.7",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "Compare tenths first"
+        ],
+        "explanation": "0.7 = 0.70, which is greater than 0.65.",
+        "distractors": [
+          "0.65",
+          "They are equal",
+          "Neither"
+        ]
+      },
+      {
+        "question": "What is 0.4 + 0.3?",
+        "answer": "0.7",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Add tenths: 4 tenths + 3 tenths"
+        ],
+        "explanation": "0.4 + 0.3 = 0.7 (4 tenths + 3 tenths = 7 tenths).",
+        "distractors": [
+          "0.07",
+          "7.0",
+          "0.43"
+        ]
+      },
+      {
+        "question": "Write 47/100 as a decimal.",
+        "answer": "0.47",
+        "difficulty_permille": 625,
+        "bloom_level": "Remember",
+        "hints": [
+          "Hundredths go in the second decimal place"
+        ],
+        "explanation": "47/100 = 0.47.",
+        "distractors": [
+          "4.7",
+          "0.047",
+          "47.0"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 4 Mathematics?",
+      "Try the method for Grade 4 Mathematics.",
+      "Start with what you know about Grade 4 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 4 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 4 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr4.DEC",
+    "title": "Assessment: Tenths and hundredths. Convert between fractions and decimals. Place value with decimals. Add/subtract decimals",
+    "items": [
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.DEC",
+        "Grade4",
+        "Numbers"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:38"
+}

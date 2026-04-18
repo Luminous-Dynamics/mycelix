@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.CHM.5",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.5",
+    "title": "CAPS.PhysicalSciences.Gr10.CHM.5: Acid-base reactions. Redox reactions (oxidation numbers)....",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "The mole is the chemist's counting unit: 1 mol = 6.022 \u00d7 10\u00b2\u00b3 particles (Avogadro's number). Molar mass M (g/mol) is found from the periodic table. Key formulas: n = m/M (moles from mass), n = cV (moles from concentration and volume in dm\u00b3), n = N/NA (moles from number of particles). In balanced equations, coefficients give mole ratios. The limiting reagent is used up first and determines how much product forms.",
+    "examples": [
+      {
+        "problem": "Solve a Types of Reactions problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Types of Reactions problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Types of Reactions problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Classify the reaction: Mg + 2HCl -> MgCl2 + H2. Is this acid-base, redox, or both?",
+        "answer": "This is a redox reaction. Mg is oxidised (0 to +2, loses electrons). H is reduced (+1 to 0, gains electrons). It is also an acid-metal reaction.",
+        "difficulty_permille": 300,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Check oxidation numbers of each element before and after.",
+          "Oxidation = increase in oxidation number. Reduction = decrease."
+        ],
+        "explanation": "Mg: 0 -> +2 (oxidised, loses 2e-). H: +1 -> 0 (reduced, gains e-). This is a displacement reaction where Mg displaces H from HCl.",
+        "distractors": [
+          "Only acid-base",
+          "Synthesis reaction",
+          "Decomposition reaction"
+        ]
+      },
+      {
+        "question": "Write the balanced equation for the neutralisation of sulfuric acid with sodium hydroxide.",
+        "answer": "H2SO4 + 2NaOH -> Na2SO4 + 2H2O",
+        "difficulty_permille": 350,
+        "bloom_level": "Apply",
+        "hints": [
+          "Acid + base -> salt + water.",
+          "H2SO4 is diprotic (2 H+ ions), so you need 2 NaOH."
+        ],
+        "explanation": "Neutralisation: H2SO4 + 2NaOH -> Na2SO4 + 2H2O. The salt is sodium sulfate. Balance: 2 Na, 1 S, 4+2=6 O on each side, 2+4=6 H on left, 4 H on right... checking: left has 2H(acid)+2H(NaOH)=4H? No. H2SO4 has 2H. 2NaOH has 2H. Total 4H -> 2H2O has 4H. Correct.",
+        "distractors": [
+          "H2SO4 + NaOH -> NaSO4 + H2O",
+          "H2SO4 + 2NaOH -> Na2SO4 + H2O",
+          "H2SO4 + NaOH -> NaHSO4 + H2O"
+        ]
+      },
+      {
+        "question": "Determine the oxidation number of Mn in KMnO4.",
+        "answer": "Mn has oxidation number +7.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "K = +1, O = -2 in compounds.",
+          "Sum of oxidation numbers = 0 for a neutral compound."
+        ],
+        "explanation": "(+1) + Mn + 4(-2) = 0. 1 + Mn - 8 = 0. Mn = +7.",
+        "distractors": [
+          "+4",
+          "+2",
+          "+5"
+        ]
+      },
+      {
+        "question": "Write the net ionic equation for the reaction between HCl(aq) and NaOH(aq).",
+        "answer": "H+(aq) + OH-(aq) -> H2O(l)",
+        "difficulty_permille": 550,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Write the full ionic equation first, splitting all aqueous compounds into ions.",
+          "Cancel the spectator ions (Na+ and Cl-)."
+        ],
+        "explanation": "Full ionic: H+(aq) + Cl-(aq) + Na+(aq) + OH-(aq) -> Na+(aq) + Cl-(aq) + H2O(l). Cancel Na+ and Cl- (spectators). Net ionic: H+ + OH- -> H2O.",
+        "distractors": [
+          "NaCl(aq) -> Na+(aq) + Cl-(aq)",
+          "HCl + NaOH -> NaCl + H2O",
+          "H2(g) + O2(g) -> H2O(l)"
+        ]
+      },
+      {
+        "question": "Explain the difference between a synthesis (combination) reaction and a decomposition reaction, giving one example of each.",
+        "answer": "Synthesis: two or more substances combine to form one product. Example: 2Mg + O2 -> 2MgO. Decomposition: one substance breaks down into two or more products. Example: 2H2O2 -> 2H2O + O2 (hydrogen peroxide decomposes).",
+        "difficulty_permille": 350,
+        "bloom_level": "Understand",
+        "hints": [
+          "Synthesis = building up (A + B -> AB). Decomposition = breaking down (AB -> A + B).",
+          "Think of decomposition as the reverse of synthesis."
+        ],
+        "explanation": "These are opposite reaction types. Many compounds can be both synthesised and decomposed, depending on conditions.",
+        "distractors": [
+          "Both are the same type",
+          "Synthesis always requires a catalyst",
+          "Decomposition only occurs at high temperatures"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Types of Reactions applies here?",
+      "Apply the method for Types of Reactions step by step.",
+      "Start by writing down what you know about Types of Reactions."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "oxidation",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Types of Reactions.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.5",
+    "title": "Assessment: Acid-base reactions. Redox reactions (oxidation numbers). Combustion reactions. Synthesis and decomposition. Neutralisation. Net ionic equations",
+    "items": [
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Types of Reactions.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Types of Reactions?",
+      "back": "Acid-base (neutralisation): acid + base \u2192 salt + water",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.5",
+        "Grade10",
+        "Chemistry \u2014 Reactions"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}
