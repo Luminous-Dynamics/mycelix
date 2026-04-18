@@ -1,6 +1,3 @@
-// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 import type * as Kit from '@sveltejs/kit';
 
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
@@ -14,7 +11,7 @@ type EnsureDefined<T> = T extends null | undefined ? {} : T;
 type OptionalUnion<U extends Record<string, any>, A extends keyof U = U extends U ? keyof U : never> = U extends unknown ? { [P in Exclude<A, keyof U>]?: never } & U : never;
 export type Snapshot<T = any> = Kit.Snapshot<T>;
 type PageParentData = EnsureDefined<LayoutData>;
-type LayoutRouteId = RouteId | "/" | "/admin" | "/analytics" | "/attribution" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/network" | "/print" | "/resilience" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome" | null
+type LayoutRouteId = RouteId | "/" | "/admin" | "/analytics" | "/analytics/gates" | "/attribution" | "/budgets" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/network" | "/notifications" | "/print" | "/resilience" | "/sagas" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome" | null
 type LayoutParams = RouteParams & {  }
 type LayoutParentData = EnsureDefined<{}>;
 

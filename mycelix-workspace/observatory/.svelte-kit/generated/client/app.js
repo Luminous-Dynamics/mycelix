@@ -1,6 +1,3 @@
-// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 export { matchers } from './matchers.js';
 
 export const nodes = [
@@ -26,7 +23,11 @@ export const nodes = [
 	() => import('./nodes/19'),
 	() => import('./nodes/20'),
 	() => import('./nodes/21'),
-	() => import('./nodes/22')
+	() => import('./nodes/22'),
+	() => import('./nodes/23'),
+	() => import('./nodes/24'),
+	() => import('./nodes/25'),
+	() => import('./nodes/26')
 ];
 
 export const server_loads = [];
@@ -35,24 +36,28 @@ export const dictionary = {
 		"/": [2],
 		"/admin": [3],
 		"/analytics": [4],
-		"/attribution": [5],
-		"/care-circles": [6],
-		"/emergency": [7],
-		"/epistemic-markets": [8],
-		"/food": [9],
-		"/governance": [10],
-		"/household": [11],
-		"/knowledge": [12],
-		"/mutual-aid": [13],
-		"/network": [14],
-		"/print": [15],
-		"/resilience": [16],
-		"/shelter": [17],
-		"/supplies": [18],
-		"/tend": [19],
-		"/value-anchor": [20],
-		"/water": [21],
-		"/welcome": [22]
+		"/analytics/gates": [5],
+		"/attribution": [6],
+		"/budgets": [7],
+		"/care-circles": [8],
+		"/emergency": [9],
+		"/epistemic-markets": [10],
+		"/food": [11],
+		"/governance": [12],
+		"/household": [13],
+		"/knowledge": [14],
+		"/mutual-aid": [15],
+		"/network": [16],
+		"/notifications": [17],
+		"/print": [18],
+		"/resilience": [19],
+		"/sagas": [20],
+		"/shelter": [21],
+		"/supplies": [22],
+		"/tend": [23],
+		"/value-anchor": [24],
+		"/water": [25],
+		"/welcome": [26]
 	};
 
 export const hooks = {

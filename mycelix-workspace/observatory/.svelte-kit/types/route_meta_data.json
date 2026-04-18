@@ -9,7 +9,13 @@
 	"/analytics": [
 		"src/routes/+layout.ts"
 	],
+	"/analytics/gates": [
+		"src/routes/+layout.ts"
+	],
 	"/attribution": [
+		"src/routes/+layout.ts"
+	],
+	"/budgets": [
 		"src/routes/+layout.ts"
 	],
 	"/care-circles": [
@@ -39,10 +45,16 @@
 	"/network": [
 		"src/routes/+layout.ts"
 	],
+	"/notifications": [
+		"src/routes/+layout.ts"
+	],
 	"/print": [
 		"src/routes/+layout.ts"
 	],
 	"/resilience": [
+		"src/routes/+layout.ts"
+	],
+	"/sagas": [
 		"src/routes/+layout.ts"
 	],
 	"/shelter": [

@@ -1,6 +1,4 @@
-// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
 // this file is generated — do not edit it
 
 
@@ -31,7 +29,7 @@ declare module "$app/types" {
 	type MatcherParam<M> = M extends (param : string) => param is (infer U extends string) ? U : string;
 
 	export interface AppTypes {
-		RouteId(): "/" | "/admin" | "/analytics" | "/attribution" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/mygov" | "/network" | "/print" | "/resilience" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome";
+		RouteId(): "/" | "/admin" | "/analytics" | "/analytics/gates" | "/attribution" | "/budgets" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/mygov" | "/network" | "/notifications" | "/print" | "/resilience" | "/sagas" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome";
 		RouteParams(): {
 			
 		};
@@ -39,7 +37,9 @@ declare module "$app/types" {
 			"/": Record<string, never>;
 			"/admin": Record<string, never>;
 			"/analytics": Record<string, never>;
+			"/analytics/gates": Record<string, never>;
 			"/attribution": Record<string, never>;
+			"/budgets": Record<string, never>;
 			"/care-circles": Record<string, never>;
 			"/emergency": Record<string, never>;
 			"/epistemic-markets": Record<string, never>;
@@ -50,8 +50,10 @@ declare module "$app/types" {
 			"/mutual-aid": Record<string, never>;
 			"/mygov": Record<string, never>;
 			"/network": Record<string, never>;
+			"/notifications": Record<string, never>;
 			"/print": Record<string, never>;
 			"/resilience": Record<string, never>;
+			"/sagas": Record<string, never>;
 			"/shelter": Record<string, never>;
 			"/supplies": Record<string, never>;
 			"/tend": Record<string, never>;
@@ -59,7 +61,7 @@ declare module "$app/types" {
 			"/water": Record<string, never>;
 			"/welcome": Record<string, never>
 		};
-		Pathname(): "/" | "/admin" | "/analytics" | "/attribution" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/network" | "/print" | "/resilience" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome";
+		Pathname(): "/" | "/admin" | "/analytics" | "/analytics/gates" | "/attribution" | "/budgets" | "/care-circles" | "/emergency" | "/epistemic-markets" | "/food" | "/governance" | "/household" | "/knowledge" | "/mutual-aid" | "/network" | "/notifications" | "/print" | "/resilience" | "/sagas" | "/shelter" | "/supplies" | "/tend" | "/value-anchor" | "/water" | "/welcome";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/favicon.png" | "/icon-192.png" | "/icon-512.png" | "/manifest.webmanifest" | string & {};
 	}

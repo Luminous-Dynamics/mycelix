@@ -1,6 +1,4 @@
-// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+
 // this file is generated — do not edit it
 
 
@@ -88,6 +86,7 @@ declare module '$env/static/private' {
 	export const npm_config_init_module: string;
 	export const SYSTEMD_EXEC_PID: string;
 	export const NIXPKGS_CONFIG: string;
+	export const _: string;
 	export const XAUTHORITY: string;
 	export const XDG_PICTURES_DIR: string;
 	export const KITTY_PUBLIC_KEY: string;
@@ -116,17 +115,17 @@ declare module '$env/static/private' {
 	export const WAYLAND_DISPLAY: string;
 	export const STARSHIP_CONFIG: string;
 	export const GIO_EXTRA_MODULES: string;
+	export const CLAUDE_CONFIG_DIR: string;
 	export const XDG_DOWNLOAD_DIR: string;
 	export const KITTY_WINDOW_ID: string;
 	export const XDG_SEAT_PATH: string;
 	export const XDG_MUSIC_DIR: string;
-	export const KITTY_BEAUTIFUL: string;
 	export const XDG_TEMPLATES_DIR: string;
 	export const INVOCATION_ID: string;
 	export const MANAGERPID: string;
 	export const DIRENV_CONFIG: string;
-	export const __GL_SHADER_DISK_CACHE_SKIP_CLEANUP: string;
 	export const INIT_CWD: string;
+	export const __GL_SHADER_DISK_CACHE_SKIP_CLEANUP: string;
 	export const __GL_THREADED_OPTIMIZATIONS: string;
 	export const STARSHIP_SESSION_KEY: string;
 	export const QT_QPA_PLATFORM: string;
@@ -142,9 +141,10 @@ declare module '$env/static/private' {
 	export const XDG_DESKTOP_DIR: string;
 	export const TERMINFO: string;
 	export const TERM: string;
-	export const __GL_SHADER_DISK_CACHE: string;
 	export const npm_package_name: string;
+	export const __GL_SHADER_DISK_CACHE: string;
 	export const DISABLE_INSTALLATION_CHECKS: string;
+	export const IPFS_PATH: string;
 	export const GTK_PATH: string;
 	export const RUSTUP_HOME: string;
 	export const npm_config_prefix: string;
@@ -183,7 +183,6 @@ declare module '$env/static/private' {
 	export const DISABLE_AUTOUPDATER: string;
 	export const XDG_RUNTIME_DIR: string;
 	export const VK_ICD_FILENAMES: string;
-	export const NODE_PATH: string;
 	export const CLAUDE_CODE_ENTRYPOINT: string;
 	export const NIX_XDG_DESKTOP_PORTAL_DIR: string;
 	export const npm_package_json: string;
@@ -194,8 +193,9 @@ declare module '$env/static/private' {
 	export const OPENSSL_DIR: string;
 	export const KDE_FULL_SESSION: string;
 	export const LIBEXEC_PATH: string;
-	export const BROWSER: string;
+	export const CLAUDE_CODE_EXECPATH: string;
 	export const npm_config_noproxy: string;
+	export const BROWSER: string;
 	export const PATH: string;
 	export const npm_config_node_gyp: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
@@ -211,8 +211,13 @@ declare module '$env/static/private' {
 	export const npm_node_execpath: string;
 	export const OLDPWD: string;
 	export const GOPATH: string;
-	export const TERM_PROGRAM: string;
+	export const TEST: string;
+	export const VITEST: string;
 	export const NODE_ENV: string;
+	export const PROD: string;
+	export const DEV: string;
+	export const BASE_URL: string;
+	export const MODE: string;
 }
 
 /**
@@ -347,6 +352,7 @@ declare module '$env/dynamic/private' {
 		npm_config_init_module: string;
 		SYSTEMD_EXEC_PID: string;
 		NIXPKGS_CONFIG: string;
+		_: string;
 		XAUTHORITY: string;
 		XDG_PICTURES_DIR: string;
 		KITTY_PUBLIC_KEY: string;
@@ -375,17 +381,17 @@ declare module '$env/dynamic/private' {
 		WAYLAND_DISPLAY: string;
 		STARSHIP_CONFIG: string;
 		GIO_EXTRA_MODULES: string;
+		CLAUDE_CONFIG_DIR: string;
 		XDG_DOWNLOAD_DIR: string;
 		KITTY_WINDOW_ID: string;
 		XDG_SEAT_PATH: string;
 		XDG_MUSIC_DIR: string;
-		KITTY_BEAUTIFUL: string;
 		XDG_TEMPLATES_DIR: string;
 		INVOCATION_ID: string;
 		MANAGERPID: string;
 		DIRENV_CONFIG: string;
-		__GL_SHADER_DISK_CACHE_SKIP_CLEANUP: string;
 		INIT_CWD: string;
+		__GL_SHADER_DISK_CACHE_SKIP_CLEANUP: string;
 		__GL_THREADED_OPTIMIZATIONS: string;
 		STARSHIP_SESSION_KEY: string;
 		QT_QPA_PLATFORM: string;
@@ -401,9 +407,10 @@ declare module '$env/dynamic/private' {
 		XDG_DESKTOP_DIR: string;
 		TERMINFO: string;
 		TERM: string;
-		__GL_SHADER_DISK_CACHE: string;
 		npm_package_name: string;
+		__GL_SHADER_DISK_CACHE: string;
 		DISABLE_INSTALLATION_CHECKS: string;
+		IPFS_PATH: string;
 		GTK_PATH: string;
 		RUSTUP_HOME: string;
 		npm_config_prefix: string;
@@ -442,7 +449,6 @@ declare module '$env/dynamic/private' {
 		DISABLE_AUTOUPDATER: string;
 		XDG_RUNTIME_DIR: string;
 		VK_ICD_FILENAMES: string;
-		NODE_PATH: string;
 		CLAUDE_CODE_ENTRYPOINT: string;
 		NIX_XDG_DESKTOP_PORTAL_DIR: string;
 		npm_package_json: string;
@@ -453,8 +459,9 @@ declare module '$env/dynamic/private' {
 		OPENSSL_DIR: string;
 		KDE_FULL_SESSION: string;
 		LIBEXEC_PATH: string;
-		BROWSER: string;
+		CLAUDE_CODE_EXECPATH: string;
 		npm_config_noproxy: string;
+		BROWSER: string;
 		PATH: string;
 		npm_config_node_gyp: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
@@ -470,8 +477,13 @@ declare module '$env/dynamic/private' {
 		npm_node_execpath: string;
 		OLDPWD: string;
 		GOPATH: string;
-		TERM_PROGRAM: string;
+		TEST: string;
+		VITEST: string;
 		NODE_ENV: string;
+		PROD: string;
+		DEV: string;
+		BASE_URL: string;
+		MODE: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
