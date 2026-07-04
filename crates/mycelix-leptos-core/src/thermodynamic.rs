@@ -13,11 +13,11 @@
 //! vector. It works on Chrome/Android but is disabled in Safari and Firefox.
 //! We catch the Promise rejection gracefully and default to full energy.
 
-use crate::util::set_css_var;
-use gloo_timers::callback::Interval;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
+use gloo_timers::callback::Interval;
+use crate::util::set_css_var;
 
 /// Torpor threshold: below this battery level (15%), the UI enters torpor.
 const TORPOR_BATTERY_THRESHOLD: f64 = 0.15;

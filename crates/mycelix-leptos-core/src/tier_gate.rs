@@ -7,11 +7,9 @@
 //! a growth progress view with the 8-dimensional breakdown when
 //! they don't. Uses CSS display toggling so children are rendered once.
 
-use crate::consciousness::{
-    combined_score, use_consciousness, SovereignDimension, DIMENSION_LABELS,
-};
 use leptos::prelude::*;
 use personal_leptos_types::TrustTier;
+use crate::consciousness::{use_consciousness, combined_score, SovereignDimension, DIMENSION_LABELS};
 
 /// Gate content behind a minimum civic tier.
 ///
@@ -20,12 +18,15 @@ use personal_leptos_types::TrustTier;
 #[component]
 pub fn TierGate(
     min_tier: TrustTier,
-    #[prop(into)] action: String,
+    #[prop(into)]
+    action: String,
     children: Children,
 ) -> impl IntoView {
     let consciousness = use_consciousness();
 
-    let meets_tier = Memo::new(move |_| consciousness.tier.get() >= min_tier);
+    let meets_tier = Memo::new(move |_| {
+        consciousness.tier.get() >= min_tier
+    });
 
     let rendered_children = children();
 

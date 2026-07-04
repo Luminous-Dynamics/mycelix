@@ -41,7 +41,10 @@ pub fn Badge(
 
 /// Pulsing status dot indicator.
 #[component]
-pub fn StatusDot(#[prop(into)] status: String, #[prop(optional)] pulse: bool) -> impl IntoView {
+pub fn StatusDot(
+    #[prop(into)] status: String,
+    #[prop(optional)] pulse: bool,
+) -> impl IntoView {
     view! {
         <span class=format!(
             "status-dot status-{}{}",

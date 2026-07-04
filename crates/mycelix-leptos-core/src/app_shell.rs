@@ -6,10 +6,10 @@
 //! Provides a consistent navigation skeleton with brand, links,
 //! tier badge, and connection status across all apps.
 
-use crate::consciousness::use_consciousness;
-use crate::holochain_provider::ConnectionBadge;
 use leptos::prelude::*;
 use leptos_router::components::A;
+use crate::holochain_provider::ConnectionBadge;
+use crate::consciousness::use_consciousness;
 
 /// A navigation link definition.
 #[derive(Clone, Debug)]
@@ -104,7 +104,9 @@ pub fn AppNav(
 
 /// Mobile bottom navigation bar.
 #[component]
-pub fn MobileBottomNav(#[prop(into)] tabs: Vec<NavTab>) -> impl IntoView {
+pub fn MobileBottomNav(
+    #[prop(into)] tabs: Vec<NavTab>,
+) -> impl IntoView {
     view! {
         <nav class="mobile-bottom-nav" role="navigation" aria-label="mobile navigation">
             {tabs.into_iter().map(|tab| {

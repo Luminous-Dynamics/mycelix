@@ -18,11 +18,11 @@
 //! }
 //! ```
 
-use crate::consciousness::{
-    civic_tier, combined_score, use_consciousness, SovereignDimension, SovereignProfile,
-    DIMENSION_LABELS,
-};
 use leptos::prelude::*;
+use crate::consciousness::{
+    use_consciousness, combined_score, civic_tier,
+    SovereignDimension, SovereignProfile, DIMENSION_LABELS,
+};
 
 /// Size presets for the radar chart.
 #[derive(Clone, Copy, Default)]
@@ -95,8 +95,7 @@ fn tier_color(score: f64) -> &'static str {
 fn profile_polygon(profile: &SovereignProfile, radius: f64, cx: f64, cy: f64) -> String {
     let mut points = String::new();
     for (i, dim) in SovereignDimension::ALL.iter().enumerate() {
-        let angle =
-            std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64) - std::f64::consts::FRAC_PI_2;
+        let angle = std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64) - std::f64::consts::FRAC_PI_2;
         let val = profile.get(*dim).clamp(0.0, 1.0);
         let r = val * radius;
         let x = cx + r * angle.cos();
@@ -114,8 +113,7 @@ fn ring_polygon(value: f64, radius: f64, cx: f64, cy: f64) -> String {
     let r = value * radius;
     let mut points = String::new();
     for i in 0..AXIS_COUNT {
-        let angle =
-            std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64) - std::f64::consts::FRAC_PI_2;
+        let angle = std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64) - std::f64::consts::FRAC_PI_2;
         let x = cx + r * angle.cos();
         let y = cy + r * angle.sin();
         if !points.is_empty() {
@@ -153,72 +151,64 @@ pub fn SovereignRadar(
     let rings = [0.25, 0.5, 0.75, 1.0];
 
     // Axis lines and labels (static — don't depend on profile)
-    let axes_view = SovereignDimension::ALL
-        .iter()
-        .enumerate()
-        .map(|(i, dim)| {
-            let angle = std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64)
-                - std::f64::consts::FRAC_PI_2;
-            let x2 = cx + radius * angle.cos();
-            let y2 = cy + radius * angle.sin();
-            let label_r = radius + size.label_offset() * 0.6;
-            let lx = cx + label_r * angle.cos();
-            let ly = cy + label_r * angle.sin();
-            let label = &DIMENSION_LABELS[dim.index()];
-            let anchor = if (angle.cos()).abs() < 0.01 {
-                "middle"
-            } else if angle.cos() > 0.0 {
-                "start"
+    let axes_view = SovereignDimension::ALL.iter().enumerate().map(|(i, dim)| {
+        let angle = std::f64::consts::TAU * (i as f64) / (AXIS_COUNT as f64) - std::f64::consts::FRAC_PI_2;
+        let x2 = cx + radius * angle.cos();
+        let y2 = cy + radius * angle.sin();
+        let label_r = radius + size.label_offset() * 0.6;
+        let lx = cx + label_r * angle.cos();
+        let ly = cy + label_r * angle.sin();
+        let label = &DIMENSION_LABELS[dim.index()];
+        let anchor = if (angle.cos()).abs() < 0.01 {
+            "middle"
+        } else if angle.cos() > 0.0 {
+            "start"
+        } else {
+            "end"
+        };
+        view! {
+            <line
+                x1={format!("{:.1}", cx)}
+                y1={format!("{:.1}", cy)}
+                x2={format!("{:.1}", x2)}
+                y2={format!("{:.1}", y2)}
+                stroke="currentColor"
+                stroke-opacity="0.15"
+                stroke-width="1"
+            />
+            {if show_labels {
+                Some(view! {
+                    <text
+                        x={format!("{:.1}", lx)}
+                        y={format!("{:.1}", ly)}
+                        text-anchor=anchor
+                        dominant-baseline="central"
+                        font-size=font_size
+                        fill="currentColor"
+                        opacity="0.7"
+                    >
+                        {label.name_en}
+                    </text>
+                })
             } else {
-                "end"
-            };
-            view! {
-                <line
-                    x1={format!("{:.1}", cx)}
-                    y1={format!("{:.1}", cy)}
-                    x2={format!("{:.1}", x2)}
-                    y2={format!("{:.1}", y2)}
-                    stroke="currentColor"
-                    stroke-opacity="0.15"
-                    stroke-width="1"
-                />
-                {if show_labels {
-                    Some(view! {
-                        <text
-                            x={format!("{:.1}", lx)}
-                            y={format!("{:.1}", ly)}
-                            text-anchor=anchor
-                            dominant-baseline="central"
-                            font-size=font_size
-                            fill="currentColor"
-                            opacity="0.7"
-                        >
-                            {label.name_en}
-                        </text>
-                    })
-                } else {
-                    None
-                }}
-            }
-        })
-        .collect::<Vec<_>>();
+                None
+            }}
+        }
+    }).collect::<Vec<_>>();
 
     // Grid rings (static)
-    let rings_view = rings
-        .iter()
-        .map(|&val| {
-            let pts = ring_polygon(val, radius, cx, cy);
-            view! {
-                <polygon
-                    points=pts
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-opacity="0.1"
-                    stroke-width="1"
-                />
-            }
-        })
-        .collect::<Vec<_>>();
+    let rings_view = rings.iter().map(|&val| {
+        let pts = ring_polygon(val, radius, cx, cy);
+        view! {
+            <polygon
+                points=pts
+                fill="none"
+                stroke="currentColor"
+                stroke-opacity="0.1"
+                stroke-width="1"
+            />
+        }
+    }).collect::<Vec<_>>();
 
     // Profile polygon + center text (reactive)
     let profile_view = move || {

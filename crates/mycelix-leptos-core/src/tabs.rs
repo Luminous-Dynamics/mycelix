@@ -62,7 +62,11 @@ pub fn Tabs(
 
 /// A tab panel that shows only when its index matches the active tab.
 #[component]
-pub fn TabPanel(index: usize, active: ReadSignal<usize>, children: Children) -> impl IntoView {
+pub fn TabPanel(
+    index: usize,
+    active: ReadSignal<usize>,
+    children: Children,
+) -> impl IntoView {
     let id = format!("tabpanel-{index}");
     view! {
         <div

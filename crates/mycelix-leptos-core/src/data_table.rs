@@ -30,11 +30,7 @@ pub fn DataTable<T: Clone + Send + Sync + 'static>(
     #[prop(into)] columns: Vec<Column<T>>,
     #[prop(optional)] empty_message: &'static str,
 ) -> impl IntoView {
-    let empty_msg = if empty_message.is_empty() {
-        "No data"
-    } else {
-        empty_message
-    };
+    let empty_msg = if empty_message.is_empty() { "No data" } else { empty_message };
     let columns = Arc::new(columns);
     let cols_header = Arc::clone(&columns);
     let cols_body = Arc::clone(&columns);
@@ -90,11 +86,7 @@ pub fn Pagination(
 ) -> impl IntoView {
     let total_pages = move || {
         let t = total.get();
-        if t == 0 {
-            1
-        } else {
-            (t + per_page - 1) / per_page
-        }
+        if t == 0 { 1 } else { (t + per_page - 1) / per_page }
     };
 
     view! {
