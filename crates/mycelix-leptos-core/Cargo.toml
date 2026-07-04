@@ -30,3 +30,10 @@ web-sys = { version = "0.3", features = [
     "BatteryManager",
 ] }
 gloo-timers = { version = "0.3", features = ["futures"] }
+
+# Real local identity keypair (local_identity.rs) — Ed25519, matches the
+# pattern already proven in mycelix-pulse/apps/leptos/src/crypto.rs. Keygen
+# is seeded from the Web Crypto CSPRNG (web-sys `Crypto`, above), not rand's
+# OsRng, so no extra getrandom backend wiring is needed for this crate.
+ed25519-dalek = "2.1"
+base64 = "0.22"
