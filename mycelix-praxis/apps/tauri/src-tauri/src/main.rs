@@ -143,7 +143,7 @@ async fn holochain_connect(
     };
 
     transport
-        .connect_native(config)
+        .connect_send(config)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -184,7 +184,7 @@ async fn call_zome(
     };
 
     let data = transport
-        .call_zome_native(&role, &zome, &fn_name, payload)
+        .call_zome_send(&role, &zome, &fn_name, payload)
         .await
         .map_err(|e| e.to_string())?;
 

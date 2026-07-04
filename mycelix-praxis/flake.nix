@@ -87,5 +87,27 @@
           RUST_BACKTRACE = "1";
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
         };
+
+        # Native Linux deps for `apps/tauri/src-tauri` (Tauri v2 desktop
+        # client). Deliberately separate from devShells.default: that shell
+        # pulls in the full holonix Holochain toolchain, which is unrelated
+        # to (and much heavier than) what's needed to just build the
+        # desktop wrapper. `cargo check`/`cargo build` here needs
+        # webkit2gtk + dbus (Tauri's tray/menu backend links libdbus
+        # directly, not just via zbus) — without these, the build fails
+        # with "Package dbus-1 was not found in the pkg-config search path".
+        devShells.tauri-desktop = pkgs.mkShell {
+          name = "mycelix-praxis-tauri-dev";
+
+          buildInputs = with pkgs; [
+            rustWithWasm
+            pkg-config
+            gtk3
+            webkitgtk_4_1
+            libsoup_3
+            librsvg
+            dbus
+          ];
+        };
       });
 }
