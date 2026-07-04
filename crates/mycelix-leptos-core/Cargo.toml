@@ -28,6 +28,14 @@ web-sys = { version = "0.3", features = [
     "HtmlElement",
     "Element",
     "BatteryManager",
+    # identity_crypto.rs: passphrase-based encryption via SubtleCrypto
+    # (PBKDF2 key derivation + AES-GCM), not a hand-rolled or JS-`eval`'d
+    # cipher.
+    "SubtleCrypto",
+    "CryptoKey",
+    "Pbkdf2Params",
+    "AesDerivedKeyParams",
+    "AesGcmParams",
 ] }
 gloo-timers = { version = "0.3", features = ["futures"] }
 
@@ -37,3 +45,9 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 # OsRng, so no extra getrandom backend wiring is needed for this crate.
 ed25519-dalek = "2.1"
 base64 = "0.22"
+
+[dev-dependencies]
+# identity_crypto.rs's WebCrypto calls only run for real in a browser, so
+# its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser
+# (`wasm-pack test --headless --firefox`), not plain `cargo test`.
+wasm-bindgen-test = "0.3"

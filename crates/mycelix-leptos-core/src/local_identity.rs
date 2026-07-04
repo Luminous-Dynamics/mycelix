@@ -3,7 +3,7 @@
 
 //! Local agent identity — per-visitor cryptographic DID stored in localStorage.
 //!
-//! # Step 1 of the recoverable-identity roadmap
+//! # Steps 1–2 of the recoverable-identity roadmap
 //!
 //! This module used to mint a `did:mycelix:<random>` label from
 //! `js_sys::Math::random()` — **not** a CSPRNG, and not backed by any real
@@ -11,19 +11,20 @@
 //! nonce: it could not sign anything, could not be recovered, and had no
 //! cryptographic binding to the DID string it produced.
 //!
-//! This pass fixes that: `local_did()` now generates a genuine Ed25519
-//! keypair in-browser (seeded from the Web Crypto CSPRNG,
-//! `crypto.getRandomValues`, NOT `Math.random()`) and derives the DID
-//! deterministically from the public key.
+//! Step 1 fixed that: `local_did()` generates a genuine Ed25519 keypair
+//! in-browser (seeded from the Web Crypto CSPRNG, `crypto.getRandomValues`,
+//! NOT `Math.random()`) and derives the DID deterministically from the
+//! public key.
 //!
-//! Full trajectory (this pass is only step 1):
+//! Full trajectory:
 //!
-//! 1. **DONE (this pass)**: real Ed25519 keypair; DID derived from the
-//!    public key instead of random noise.
-//! 2. Passphrase-wrapped encryption of the private key at rest (WebCrypto
-//!    AES-GCM + a real KDF such as PBKDF2/Argon2), instead of storing raw
-//!    key bytes in `localStorage`. See the "Storage" note below — this is
-//!    the biggest remaining gap versus a real wallet.
+//! 1. **DONE**: real Ed25519 keypair; DID derived from the public key
+//!    instead of random noise.
+//! 2. **DONE (this pass)**: opt-in passphrase-wrapped encryption of the
+//!    private key at rest ([`protect_with_passphrase`] /
+//!    [`unlock_with_passphrase`] / [`remove_passphrase_protection`], backed
+//!    by [`crate::identity_crypto`]'s WebCrypto AES-256-GCM + PBKDF2). See
+//!    "Storage" below for exactly what this does and doesn't change.
 //! 3. Standards-correct BIP-39 seed phrase export/import for manual/offline
 //!    backup (with a proper wordlist + checksum, not an ad hoc scheme).
 //! 4. Wire the local public key into a real
@@ -38,23 +39,35 @@
 //! 6. Multi-device pairing (QR / link-code handoff of an *authorization*,
 //!    never of the raw private key).
 //!
-//! None of steps 2–6 are implemented here. `mycelix-crypto`'s `wasm` feature
+//! None of steps 3–6 are implemented here. `mycelix-crypto`'s `wasm` feature
 //! (see `mycelix-identity/crates/mycelix-crypto/`) was evaluated for this
 //! but only exposes types/validation under `wasm32` — all signing/keygen
 //! there is `#[cfg(feature = "native")]` — so it cannot back in-browser
 //! keygen as-is. `ed25519-dalek` is used directly instead, matching the
 //! pattern already proven in `mycelix-pulse/apps/leptos/src/crypto.rs`.
 //!
-//! ## Storage (interim state — matches today's baseline risk, not worse)
+//! ## Storage (opt-in protection, not a breaking change)
 //!
-//! The Ed25519 secret key is currently persisted as base64 in
-//! `localStorage`, **unencrypted**. This carries the same at-rest risk
-//! profile the old code already had for its (fake) identity token — anything
-//! in `localStorage` is readable by any script with page access — so this
-//! pass has not made storage-at-rest *worse*. What changed is that the key
-//! material is now real instead of nonexistent. Step 2 above is the fix for
-//! this gap and should slot in via [`store_signing_key`] /
-//! [`load_signing_key`] without touching the public API below.
+//! By default, the Ed25519 secret key is still persisted as base64 in
+//! `localStorage`, **unencrypted** — identical to step 1's behavior, and to
+//! the old (fake) identity token's storage before that. Nothing about the
+//! synchronous [`ensure_keypair`]/[`local_did`]/[`sign_with_local_identity`]/
+//! [`provide_local_identity`] API changed, and none of the four apps
+//! consuming it need to change anything to keep working exactly as before.
+//!
+//! Protection is opt-in and asynchronous (WebCrypto's `SubtleCrypto` is
+//! Promise-based, so it can't be bolted onto the existing sync API without
+//! breaking it): an app adds a "protect your identity" UI action that calls
+//! [`protect_with_passphrase`], and on every later visit calls
+//! [`unlock_with_passphrase`] once (e.g. behind a passphrase prompt at
+//! startup) before touching the sync API. Once unlocked, the decrypted key
+//! is cached in memory for the rest of the session — subsequent
+//! [`ensure_keypair`] calls hit the cache, not `SubtleCrypto`, again.
+//!
+//! If an identity is protected but [`ensure_keypair`] is called before
+//! [`unlock_with_passphrase`] has run this session, it panics rather than
+//! silently minting (and thereby orphaning) a brand-new keypair over the
+//! real one — see [`ensure_keypair`]'s docs.
 //!
 //! ## Migration from the old insecure DID
 //!
@@ -67,8 +80,10 @@
 //! once — acceptable since they never had real cryptographic backing to
 //! begin with.
 
+use crate::identity_crypto::{self, EncryptedBlob};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use leptos::prelude::*;
+use std::cell::RefCell;
 
 /// Legacy key: pre-2026-07 builds stored a `did:mycelix:<12-random-bytes-hex>`
 /// string here directly, generated from `js_sys::Math::random()` (not a
@@ -77,11 +92,54 @@ use leptos::prelude::*;
 /// once that happens.
 const LEGACY_DID_KEY: &str = "mycelix_local_did";
 
-/// Base64-encoded 32-byte Ed25519 secret key seed.
+/// Base64-encoded 32-byte Ed25519 secret key seed. Absent when the identity
+/// is passphrase-protected (see [`IDENTITY_SECRET_ENCRYPTED_KEY`]).
 const IDENTITY_SECRET_KEY: &str = "mycelix_identity_secret_ed25519_b64";
 /// Base64-encoded 32-byte Ed25519 public key (cached alongside the secret;
 /// derivable from it, stored for cheap reads).
 const IDENTITY_PUBLIC_KEY: &str = "mycelix_identity_public_ed25519_b64";
+/// JSON-encoded [`EncryptedBlobWire`] — present only once
+/// [`protect_with_passphrase`] has been called. Its presence is what
+/// [`is_passphrase_protected`] checks.
+const IDENTITY_SECRET_ENCRYPTED_KEY: &str = "mycelix_identity_secret_ed25519_encrypted_v1";
+
+thread_local! {
+    // WASM is single-threaded, so a thread-local is a plain per-session
+    // cache: populated by `ensure_keypair` (unprotected path) or
+    // `unlock_with_passphrase` (protected path), cleared only on page
+    // reload. Never persisted — the whole point is that the decrypted key
+    // lives in memory only, not back in `localStorage`.
+    static UNLOCKED_KEY: RefCell<Option<SigningKey>> = const { RefCell::new(None) };
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct EncryptedBlobWire {
+    salt_b64: String,
+    iv_b64: String,
+    ciphertext_b64: String,
+}
+
+impl From<&EncryptedBlob> for EncryptedBlobWire {
+    fn from(blob: &EncryptedBlob) -> Self {
+        Self {
+            salt_b64: base64_encode(&blob.salt),
+            iv_b64: base64_encode(&blob.iv),
+            ciphertext_b64: base64_encode(&blob.ciphertext),
+        }
+    }
+}
+
+impl TryFrom<&EncryptedBlobWire> for EncryptedBlob {
+    type Error = String;
+
+    fn try_from(wire: &EncryptedBlobWire) -> Result<Self, String> {
+        Ok(EncryptedBlob {
+            salt: base64_decode(&wire.salt_b64).ok_or("corrupt salt")?,
+            iv: base64_decode(&wire.iv_b64).ok_or("corrupt iv")?,
+            ciphertext: base64_decode(&wire.ciphertext_b64).ok_or("corrupt ciphertext")?,
+        })
+    }
+}
 
 /// Generate or retrieve the local agent DID.
 ///
@@ -98,13 +156,120 @@ pub fn local_did() -> String {
 /// Exposed (not just used internally) so future callers — e.g. a
 /// `did_registry::create_did` zome call, or a recovery flow — can get at
 /// the real key material without re-deriving storage logic.
+///
+/// # Panics
+///
+/// Panics if the identity is passphrase-protected (see
+/// [`protect_with_passphrase`]) and [`unlock_with_passphrase`] hasn't
+/// succeeded yet this session. This is deliberate: the alternative would be
+/// silently minting a fresh keypair over a protected-but-locked identity,
+/// which permanently orphans the real one. Since protection is opt-in and
+/// nothing in this crate calls [`protect_with_passphrase`] on its own, this
+/// can only happen if a consuming app added passphrase protection without
+/// also gating its startup on an unlock prompt.
 pub fn ensure_keypair() -> SigningKey {
-    if let Some(signing_key) = load_signing_key() {
+    if let Some(signing_key) = UNLOCKED_KEY.with(|cell| cell.borrow().clone()) {
         return signing_key;
+    }
+    if let Some(signing_key) = load_signing_key() {
+        UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+        return signing_key;
+    }
+    if is_passphrase_protected() {
+        panic!(
+            "Local identity is passphrase-protected but locked this session. \
+             Call `unlock_with_passphrase()` before `ensure_keypair()` \
+             (directly or via `local_did()`/`sign_with_local_identity()`/ \
+             `provide_local_identity()`, which all call it)."
+        );
     }
     let signing_key = generate_signing_key();
     store_signing_key(&signing_key);
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
     signing_key
+}
+
+/// Is the local identity currently passphrase-protected?
+///
+/// True once [`protect_with_passphrase`] has succeeded, until
+/// [`remove_passphrase_protection`] is called. Does not indicate whether
+/// it's currently *unlocked* this session — check that by whether
+/// [`ensure_keypair`] would panic, or track it in the caller's own UI state
+/// after a successful [`unlock_with_passphrase`].
+pub fn is_passphrase_protected() -> bool {
+    load_string(IDENTITY_SECRET_ENCRYPTED_KEY).is_some()
+}
+
+/// Encrypt the local identity's secret key with `passphrase` and switch
+/// storage over to the encrypted form.
+///
+/// Generates the keypair first (via [`ensure_keypair`]) if none exists yet
+/// — so this can be the very first thing a fresh visitor does, going
+/// straight from "no identity" to "protected identity" with no unprotected
+/// window from the caller's perspective (there's a brief one internally,
+/// same as any "generate, then protect" flow).
+///
+/// Idempotent-ish: calling again with a new passphrase re-encrypts under
+/// the new one (effectively a passphrase change), since it always starts
+/// from the in-memory key, not the stored ciphertext.
+///
+/// # Errors
+///
+/// Returns an error if `passphrase` is empty, or if the underlying
+/// WebCrypto calls fail (see [`identity_crypto::encrypt`]).
+pub async fn protect_with_passphrase(passphrase: &str) -> Result<(), String> {
+    if passphrase.is_empty() {
+        return Err("Passphrase must not be empty".to_string());
+    }
+    let signing_key = ensure_keypair();
+    let blob = identity_crypto::encrypt(passphrase, signing_key.as_bytes()).await?;
+    save_json(
+        IDENTITY_SECRET_ENCRYPTED_KEY,
+        &EncryptedBlobWire::from(&blob),
+    );
+    remove_item(IDENTITY_SECRET_KEY); // no more plaintext secret at rest
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key));
+    Ok(())
+}
+
+/// Decrypt the passphrase-protected local identity and cache it in memory
+/// for the rest of the session.
+///
+/// Call this once at app startup (e.g. behind a passphrase prompt gated on
+/// [`is_passphrase_protected`]) before any code path that reaches
+/// [`ensure_keypair`].
+///
+/// # Errors
+///
+/// Returns an error if there's no protected identity to unlock, if the
+/// passphrase is wrong, or if the stored ciphertext is corrupt — a wrong
+/// passphrase and corrupt ciphertext are deliberately indistinguishable
+/// (see [`identity_crypto`] module docs).
+pub async fn unlock_with_passphrase(passphrase: &str) -> Result<SigningKey, String> {
+    let wire: EncryptedBlobWire = load_json(IDENTITY_SECRET_ENCRYPTED_KEY)
+        .ok_or_else(|| "No passphrase-protected identity found".to_string())?;
+    let blob = EncryptedBlob::try_from(&wire)?;
+    let secret_bytes = identity_crypto::decrypt(passphrase, &blob).await?;
+    let secret_array: [u8; 32] = secret_bytes
+        .try_into()
+        .map_err(|_| "Corrupt key material (wrong length after decrypt)".to_string())?;
+    let signing_key = SigningKey::from_bytes(&secret_array);
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+    Ok(signing_key)
+}
+
+/// Reverse [`protect_with_passphrase`]: decrypt with `passphrase`, restore
+/// plaintext storage, and drop the encrypted blob.
+///
+/// # Errors
+///
+/// Same failure modes as [`unlock_with_passphrase`] (this calls it
+/// internally) — wrong passphrase, no protected identity, or corrupt blob.
+pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String> {
+    let signing_key = unlock_with_passphrase(passphrase).await?;
+    store_signing_key(&signing_key);
+    remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    Ok(())
 }
 
 /// Sign an arbitrary message with the local identity's private key.

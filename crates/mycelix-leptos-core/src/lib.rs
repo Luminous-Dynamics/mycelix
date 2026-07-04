@@ -57,6 +57,7 @@ pub mod error_boundary;
 pub mod flow_indicator;
 pub mod forms;
 pub mod graph_node;
+pub mod identity_crypto;
 pub mod indlela;
 pub mod loading;
 pub mod local_identity;
