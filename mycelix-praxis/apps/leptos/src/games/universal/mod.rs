@@ -4,8 +4,4 @@
 
 pub mod budget_sim;
 pub mod fallacy_detector;
-pub mod hdc_holograph;
-pub mod hdc_sandbox;
-pub mod moral_algebra;
 pub mod password_strength;
-pub mod water_stewardship;

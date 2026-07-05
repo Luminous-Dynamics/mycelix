@@ -56,7 +56,7 @@ pub enum ConductorState {
     Error(String),
 }
 
-/// Cognitive state from Soma sensors (or simulation).
+/// Consciousness state from Soma sensors (or simulation).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsciousnessState {
     /// Integrated Information (Phi proxy, 0.0-1.0)
@@ -143,7 +143,7 @@ async fn holochain_connect(
     };
 
     transport
-        .connect_native(config)
+        .connect_send(config)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -184,7 +184,7 @@ async fn call_zome(
     };
 
     let data = transport
-        .call_zome_native(&role, &zome, &fn_name, payload)
+        .call_zome_send(&role, &zome, &fn_name, payload)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -341,7 +341,7 @@ fn validate_bkt_state(claimed: f32, attempts: u32, correct: u32, tolerance: f32)
 
 // ============== Consciousness Commands ==============
 
-/// Get current cognitive state (from Soma or simulation).
+/// Get current consciousness state (from Soma or simulation).
 #[tauri::command]
 fn get_consciousness(state: tauri::State<AppState>) -> ConsciousnessState {
     state.consciousness.lock().unwrap().clone()
