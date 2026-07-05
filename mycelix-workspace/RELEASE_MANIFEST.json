@@ -1,5 +1,5 @@
 {
-  "release": "net-steward-v0.3.0-alpha.6",
+  "release": "net-steward-v0.3.0-beta-rc1",
   "identity_success_path_proven": true,
   "live_identity_resolver_feature_gated": true,
   "single_verified_claim_grants_consensus": false,
@@ -15,14 +15,15 @@
     "prohibit_revoked": true,
     "prohibit_expired": true
   },
-  "alpha_track": "v0.3-alpha.6",
+  "alpha_track": "v0.3-beta-rc1",
   "alpha_milestones_complete": [
     "v0.3-alpha.1: Production Holochain Federation",
     "v0.3-alpha.2: Operation Intent & Approval Envelopes",
     "v0.3-alpha.3: Dry-Run Executor With Apply Disabled",
     "v0.3-alpha.4: Blast-Radius Preview",
     "v0.3-alpha.5: ZK Verifier Interface",
-    "v0.3-alpha.6: Dashboard ZK & Blast-Radius Previews"
+    "v0.3-alpha.6: Dashboard ZK & Blast-Radius Previews",
+    "v0.3-alpha.7: Lab-Only Controlled Apply"
   ],
-  "notes": "v0.3-alpha.6: Exposed ZK Proof Verification status options in mock peer list (adding secure-witness-alpha with VerifiedBoundFresh status and visual explainer panel) and implemented a rich Stewardship Operation Preview right-pane sidebar component on the Leptos admin dashboard (displaying real-time safety verdicts, simulated ZK-STARK proof statuses, and transitive Blast-Radius Preview details)."
+  "notes": "v0.3.0-beta-rc1: Promoted Net Steward v0.3 from alpha to beta-rc1, completing all trusted operations preview milestones. Includes signed operation intents and approval receipts, dynamic dry-run execution plans, live blast-radius previews and dashboards explainer panels, simulated ZK verifier envelope stub, and a verified, stateful lab-only controlled apply path."
 }

@@ -3,13 +3,13 @@ use net_steward_schema::{
     BlastRadiusRiskTier, CapabilityScope, ChronicleStatus, ClaimEnvelope, ClaimStatus,
     ClaimVerificationStatus, CollectorError, CollectorKind, CollectorOutput, ConfigDelta,
     ConfigDriftReport, DidAgentBinding, DriftStatus, EdgeKind, EncodingProfile, EvidenceArtifact,
-    HumanReadableIncidentSummary, IncidentCapsule, IncidentCapsuleManifest,
-    IncidentVerificationResult, InfrastructureNode, InfrastructureReceipt, KnownGoodBaseline,
-    ManagementState, NetworkEdge, NodeKind, ObservedTopologySnapshot, OperationIntent,
-    OperationKind, PeerKind, PeerNodeStatus, PeerPostureClaim, PeerTelemetryReport,
-    PeerTrustStatus, PostureSummary, ProcessRef, ProofStatus, RecommendedAction, RiskLevel,
-    RollbackPlan, SafetyVerdict, SecurityEvent, SecurityEventKind, SecurityPosture, Severity,
-    SignatureScheme, ZkProofRequest, ZkProofVerdict, ZkVerifierPolicy,
+    ExecutionPlan, ExecutionResult, HumanReadableIncidentSummary, IncidentCapsule,
+    IncidentCapsuleManifest, IncidentVerificationResult, InfrastructureNode, InfrastructureReceipt,
+    KnownGoodBaseline, ManagementState, NetworkEdge, NodeKind, ObservedTopologySnapshot,
+    OperationExecutor, OperationIntent, OperationKind, PeerKind, PeerNodeStatus, PeerPostureClaim,
+    PeerTelemetryReport, PeerTrustStatus, PostureSummary, ProcessRef, ProofStatus,
+    RecommendedAction, RiskLevel, RollbackPlan, SafetyVerdict, SecurityEvent, SecurityEventKind,
+    SecurityPosture, Severity, SignatureScheme, ZkProofRequest, ZkProofVerdict, ZkVerifierPolicy,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -97,6 +97,47 @@ pub fn verify_claim_zk_stub(request: &ZkProofRequest, policy: ZkVerifierPolicy) 
     }
 }
 
+/// An OperationExecutor that permits active rollback/mutations strictly when
+/// verified to be in lab/test mode (lab_mode = true).
+pub struct LabControlledExecutor {
+    pub lab_mode: bool,
+}
+
+impl OperationExecutor for LabControlledExecutor {
+    fn dry_run(&self, intent: &OperationIntent) -> Result<ExecutionPlan, String> {
+        Ok(ExecutionPlan {
+            plan_id: format!("plan-{}", intent.intent_id),
+            intent_id: intent.intent_id.clone(),
+            execution_steps: vec![
+                format!("Controlled step 1: Verify current NixOS system profiles."),
+                format!("Controlled step 2: Safely prep link-state boundaries."),
+                format!("Controlled step 3: Apply rollback to targets."),
+            ],
+            expected_target_state_hash: "sha256-controlled-rollback-success-state-hash".to_string(),
+        })
+    }
+
+    fn apply(&self, intent: &OperationIntent) -> Result<ExecutionResult, String> {
+        if !self.lab_mode {
+            return Err("DisabledByPolicy: Active apply is only permitted in verified lab mode with NET_STEWARD_LAB_MODE=1".to_string());
+        }
+
+        // Stateful simulation: write target generation "427" to state file
+        let state_file = Path::new("/tmp/net_steward_mock_nixos_generation");
+        if let Err(e) = fs::write(state_file, "427") {
+            return Err(format!("LabApplyFailed: Failed to write mock state: {}", e));
+        }
+
+        Ok(ExecutionResult {
+            success: true,
+            output: format!(
+                "Lab-only controlled apply succeeded: System rolled back to target for intent {}",
+                intent.intent_id
+            ),
+        })
+    }
+}
+
 // --- End of Trait Boundaries ---
 
 /// Discovers host facts from the active environment.
@@ -179,16 +220,37 @@ pub fn generate_nixos_drift_report(node_id: &str) -> ConfigDriftReport {
             service_delta: vec![],
         }
     } else {
-        // Mock fallback if not on a NixOS host
-        ConfigDriftReport {
-            report_id: "drift-report-demo-0".to_string(),
-            checked_at_unix_ms: now,
-            node_id: node_id.to_string(),
-            drift_status: DriftStatus::DriftDetected,
-            diff_closure: Some("Generation 427 -> 428\n- nftables rule: allow TCP/443 from VLAN 30\n+ nftables rule: drop TCP/443 from VLAN 30".to_string()),
-            systemd_unit_delta: vec!["nftables.service (reloaded)".to_string()],
-            firewall_delta: vec!["VLAN 30 egress TCP/443 blocked".to_string()],
-            service_delta: vec!["forge.local (blocked)".to_string()],
+        // Mock fallback if not on a NixOS host (or for "luminous-router")
+        let state_file = Path::new("/tmp/net_steward_mock_nixos_generation");
+        let active_generation = fs::read_to_string(state_file)
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "428".to_string());
+
+        if active_generation == "427" {
+            ConfigDriftReport {
+                report_id: format!("drift-report-{}", node_id),
+                checked_at_unix_ms: now,
+                node_id: node_id.to_string(),
+                drift_status: DriftStatus::InSync,
+                diff_closure: Some("System matches Generation 427. In Sync.".to_string()),
+                systemd_unit_delta: vec![],
+                firewall_delta: vec![],
+                service_delta: vec![],
+            }
+        } else {
+            ConfigDriftReport {
+                report_id: format!("drift-report-{}", node_id),
+                checked_at_unix_ms: now,
+                node_id: node_id.to_string(),
+                drift_status: DriftStatus::DriftDetected,
+                diff_closure: Some(format!(
+                    "Generation 427 -> {}\n- nftables rule: allow TCP/443 from VLAN 30\n+ nftables rule: drop TCP/443 from VLAN 30",
+                    active_generation
+                )),
+                systemd_unit_delta: vec!["nftables.service (reloaded)".to_string()],
+                firewall_delta: vec!["VLAN 30 egress TCP/443 blocked".to_string()],
+                service_delta: vec!["forge.local (blocked)".to_string()],
+            }
         }
     }
 }

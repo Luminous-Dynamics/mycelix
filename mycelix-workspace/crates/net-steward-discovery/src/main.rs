@@ -7,19 +7,20 @@ use std::net::SocketAddr;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use net_steward_discovery::{
-    MockSafetyProofProvider, NoopVerifier, SafetyInput, SafetyProofProvider, SafetyProofVerifier,
-    create_incident_capsule, generate_audit_trail_ledger, generate_blast_radius_preview,
-    generate_comprehensive_demo_topology, generate_dry_run_rollback_plan,
-    generate_mock_known_good_baseline, generate_mock_peer_telemetry_report,
-    generate_mock_security_events, generate_mock_security_posture, generate_nixos_drift_report,
-    parse_linux_virtual_bridges, verify_incident_capsule,
+    LabControlledExecutor, MockSafetyProofProvider, NoopVerifier, SafetyInput, SafetyProofProvider,
+    SafetyProofVerifier, create_incident_capsule, generate_audit_trail_ledger,
+    generate_blast_radius_preview, generate_comprehensive_demo_topology,
+    generate_dry_run_rollback_plan, generate_mock_known_good_baseline,
+    generate_mock_peer_telemetry_report, generate_mock_security_events,
+    generate_mock_security_posture, generate_nixos_drift_report, parse_linux_virtual_bridges,
+    verify_incident_capsule,
 };
 use net_steward_schema::{
     BlastRadiusPreview, ClaimEnvelope, ConfigDriftReport, ConsensusPolicy, DaemonVersion,
-    DidAgentBinding, FederationStatus, HumanReadableIncidentSummary, IncidentCapsule,
-    IncidentVerificationResult, InfrastructureReceipt, KnownGoodBaseline, ObservedTopologySnapshot,
-    OperationIntent, PeerNodeStatus, PeerPostureClaim, PeerTelemetryReport, PostureConflict,
-    RollbackPlan, SecurityEvent, SecurityPosture,
+    DidAgentBinding, ExecutionResult, FederationStatus, HumanReadableIncidentSummary,
+    IncidentCapsule, IncidentVerificationResult, InfrastructureReceipt, KnownGoodBaseline,
+    ObservedTopologySnapshot, OperationIntent, PeerNodeStatus, PeerPostureClaim,
+    PeerTelemetryReport, PostureConflict, RollbackPlan, SecurityEvent, SecurityPosture,
 };
 
 #[tokio::main]
@@ -66,6 +67,11 @@ async fn main() {
             "/api/v1/operation/blast-radius-preview",
             post(post_blast_radius_preview).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
         )
+        // v0.3-alpha.7: Lab-Only Controlled Apply — mutation path gated to lab mode.
+        .route(
+            "/api/v1/operation/apply",
+            post(post_operation_apply).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
+        )
         .layer(cors);
 
     // Bind to localhost 127.0.0.1:3030 only by default for witness security
@@ -84,9 +90,10 @@ async fn healthz() -> &'static str {
 }
 
 async fn get_capabilities() -> Json<Value> {
+    let lab_mode = std::env::var("NET_STEWARD_LAB_MODE").unwrap_or_default() == "1";
     Json(json!({
-        "read_only": true,
-        "rollback_apply_enabled": false,
+        "read_only": !lab_mode,
+        "rollback_apply_enabled": lab_mode,
         "zk_verifier_enabled": false,
         "proof_mode": "simulated_envelope",
         "identity_success_path_proven": true,
@@ -301,4 +308,25 @@ async fn post_blast_radius_preview(
 
     let preview = generate_blast_radius_preview(&intent, &topology);
     Ok(Json(preview))
+}
+
+// --- v0.3-alpha.7: Lab-Only Controlled Apply Handler ---
+//
+// POST /api/v1/operation/apply
+//
+// Body: OperationIntent (JSON)
+// Returns: ExecutionResult (JSON)
+//
+// This handler permits applying operations/mutations strictly when the
+// environment is verified to be in lab/test mode (NET_STEWARD_LAB_MODE=1).
+async fn post_operation_apply(
+    Json(intent): Json<OperationIntent>,
+) -> Result<Json<ExecutionResult>, (axum::http::StatusCode, String)> {
+    let lab_mode = std::env::var("NET_STEWARD_LAB_MODE").unwrap_or_default() == "1";
+    let executor = LabControlledExecutor { lab_mode };
+    use net_steward_schema::OperationExecutor;
+    match executor.apply(&intent) {
+        Ok(res) => Ok(Json(res)),
+        Err(err) => Err((axum::http::StatusCode::FORBIDDEN, err)),
+    }
 }

@@ -42,9 +42,12 @@ pub fn NetStewardDashboard(
     let (telemetry_stats, set_telemetry_stats) = create_signal::<(u32, u32, u32)>((0, 0, 0));
     let (conflicts_sig, set_conflicts_sig) = create_signal::<Vec<PostureConflict>>(Vec::new());
     let (fed_status, set_fed_status) = create_signal::<Option<FederationStatus>>(None);
+    let (refresh_trigger, set_refresh_trigger) = create_signal::<u32>(0);
+    let (apply_status, set_apply_status) = create_signal::<Option<Result<String, String>>>(None);
 
     // 2. Spawn async listener query loop to retrieve live data from the witness daemon if running
     create_effect(move |_| {
+        refresh_trigger.get();
         spawn_local(async move {
             // Probe daemon version endpoint first to establish live status
             if let Ok(resp) = gloo_net::http::Request::get("http://127.0.0.1:3030/api/v1/version")
@@ -1347,6 +1350,80 @@ pub fn NetStewardDashboard(
                                             <div style="margin-top: 0.25rem; font-size: 0.7rem; color: #64748b; line-height: 1.4;">
                                                 "Gated constraint: ZkProofVerdict::Verified is blocked by verification policy. Apply mutations remain disabled."
                                             </div>
+                                        </div>
+
+                                        // 4. Lab-Only Controlled Apply Trigger
+                                        <div style="margin-top: 1rem; border-top: 1px solid #1e293b; padding-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                                            <button
+                                                style="
+                                                    width: 100%;
+                                                    padding: 0.75rem;
+                                                    border-radius: 0.375rem;
+                                                    border: none;
+                                                    background: #0284c7;
+                                                    color: #f8fafc;
+                                                    font-weight: 600;
+                                                    cursor: pointer;
+                                                    transition: background 0.15s ease;
+                                                "
+                                                on:click=move |_| {
+                                                    let intent = net_steward_schema::OperationIntent {
+                                                        intent_id: format!("intent-apply-{}", summary.incident_id),
+                                                        actor_did: "did:mycelix:tristan-laptop".to_string(),
+                                                        target_node_id: "luminous-router".to_string(),
+                                                        operation_kind: net_steward_schema::OperationKind::GenerateRollbackPlan,
+                                                        reason: "Lab-only controlled apply from dashboard".to_string(),
+                                                        evidence_refs: vec![],
+                                                        rollback_plan_ref: None,
+                                                        expires_at_unix_ms: 1719569000000,
+                                                    };
+                                                    set_apply_status.set(Some(Ok("Sending apply intent...".to_string())));
+                                                    spawn_local(async move {
+                                                        let apply_res = if let Ok(resp) = gloo_net::http::Request::post("http://127.0.0.1:3030/api/v1/operation/apply")
+                                                            .json(&intent) {
+                                                            if let Ok(res_call) = resp.send().await {
+                                                                if res_call.ok() {
+                                                                    if let Ok(res_val) = res_call.json::<net_steward_schema::ExecutionResult>().await {
+                                                                        Some(Ok(res_val.output))
+                                                                    } else {
+                                                                        Some(Err("Failed to parse response".to_string()))
+                                                                    }
+                                                                } else {
+                                                                    let err_text = res_call.text().await.unwrap_or_else(|_| "Forbidden".to_string());
+                                                                    Some(Err(err_text))
+                                                                }
+                                                            } else {
+                                                                Some(Err("Failed to send request".to_string()))
+                                                            }
+                                                        } else {
+                                                            Some(Err("Failed to build request".to_string()))
+                                                        };
+                                                        set_apply_status.set(apply_res);
+                                                        set_refresh_trigger.update(|n| *n += 1);
+                                                    });
+                                                }
+                                            >
+                                                "Execute Controlled Rollback (Lab Only)"
+                                            </button>
+
+                                            {move || {
+                                                if let Some(res) = apply_status.get() {
+                                                    match res {
+                                                        Ok(msg) => view! {
+                                                            <div style="font-family: monospace; font-size: 0.75rem; background: #064e3b; border: 1px solid #10b981; padding: 0.5rem 0.75rem; border-radius: 0.375rem; color: #a7f3d0; word-break: break-all;">
+                                                                <strong>"SUCCESS: "</strong> {msg}
+                                                            </div>
+                                                        }.into_view(),
+                                                        Err(err) => view! {
+                                                            <div style="font-family: monospace; font-size: 0.75rem; background: #4c1d1d; border: 1px solid #f43f5e; padding: 0.5rem 0.75rem; border-radius: 0.375rem; color: #fca5a5; word-break: break-all;">
+                                                                <strong>"REJECTED: "</strong> {err}
+                                                            </div>
+                                                        }.into_view(),
+                                                    }
+                                                } else {
+                                                    view! {}.into_view()
+                                                }
+                                            }}
                                         </div>
                                     </div>
                                 }.into_view()

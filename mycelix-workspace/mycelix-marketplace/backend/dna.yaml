@@ -42,6 +42,12 @@ integrity:
     - name: messaging_integrity
       path: zomes/messaging/messaging_integrity.wasm
 
+    - name: search_integrity
+      path: zomes/search/search_integrity.wasm
+
+    - name: security_integrity
+      path: zomes/security/security_integrity.wasm
+
 # Coordinator zomes implement business logic
 coordinator:
   zomes:
@@ -77,3 +83,13 @@ coordinator:
         - name: reputation_integrity
         - name: listings_integrity
         - name: transactions_integrity
+
+    - name: search
+      path: zomes/search/search_coordinator.wasm
+      dependencies:
+        - name: search_integrity
+
+    - name: security
+      path: zomes/security/security_coordinator.wasm
+      dependencies:
+        - name: security_integrity

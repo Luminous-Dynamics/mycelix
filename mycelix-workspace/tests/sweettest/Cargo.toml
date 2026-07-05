@@ -100,6 +100,10 @@ name = "marketplace_workflow"
 path = "tests/marketplace_workflow.rs"
 
 [[test]]
+name = "marketplace_search_security"
+path = "tests/marketplace_search_security.rs"
+
+[[test]]
 name = "climate_workflow"
 path = "tests/climate_workflow.rs"
 

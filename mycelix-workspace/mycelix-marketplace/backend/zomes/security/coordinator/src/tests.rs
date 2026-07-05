@@ -39,7 +39,10 @@ fn security_stats_output_construction() {
         total_events: 42,
         critical_events: 2,
         high_events: 5,
-        events_by_type: vec![("xss_attempt".into(), 10), ("rate_limit_exceeded".into(), 15)],
+        events_by_type: vec![
+            ("xss_attempt".into(), 10),
+            ("rate_limit_exceeded".into(), 15),
+        ],
         top_offenders: vec![],
     };
     assert_eq!(stats.total_events, 42);

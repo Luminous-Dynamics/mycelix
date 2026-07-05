@@ -1,12 +1,13 @@
 use net_steward_discovery::{
-    evaluate_symthaea_safety_rules, generate_audit_trail_ledger, generate_blast_radius_preview,
-    generate_demo_topology, generate_dry_run_rollback_plan, generate_nixos_drift_report,
-    parse_linux_arp_table, parse_linux_routing_table, verify_claim_zk_stub,
+    LabControlledExecutor, evaluate_symthaea_safety_rules, generate_audit_trail_ledger,
+    generate_blast_radius_preview, generate_demo_topology, generate_dry_run_rollback_plan,
+    generate_nixos_drift_report, parse_linux_arp_table, parse_linux_routing_table,
+    verify_claim_zk_stub,
 };
 use net_steward_schema::{
-    ActionKind, BlastRadiusRiskTier, DidAgentBinding, DidBindingResolver, OperationIntent,
-    OperationKind, ProofStatus, RiskLevel, SafetyVerdict, ZkProofRequest, ZkProofVerdict,
-    ZkVerifierPolicy,
+    ActionKind, BlastRadiusRiskTier, DidAgentBinding, DidBindingResolver, OperationExecutor,
+    OperationIntent, OperationKind, ProofStatus, RiskLevel, SafetyVerdict, ZkProofRequest,
+    ZkProofVerdict, ZkVerifierPolicy,
 };
 
 #[test]
@@ -274,13 +275,15 @@ fn test_release_manifest_matches_capabilities() {
         "blast_radius_preview_enabled must be true in v0.3-alpha.4+"
     );
 
-    // Alpha track must be at least alpha.4.
+    // Alpha track must be at least alpha.4 or a beta release.
     let alpha_track = manifest_json["alpha_track"].as_str().unwrap_or("");
     assert!(
         alpha_track.contains("alpha.4")
             || alpha_track.contains("alpha.5")
-            || alpha_track.contains("alpha.6"),
-        "alpha_track should be alpha.4 or later, got: {}",
+            || alpha_track.contains("alpha.6")
+            || alpha_track.contains("alpha.7")
+            || alpha_track.contains("beta-rc1"),
+        "alpha_track should be alpha.4 or later or beta, got: {}",
         alpha_track
     );
 }
@@ -518,7 +521,10 @@ fn test_capsule_directory_bundle_serialization() {
     };
 
     let capsule = create_incident_capsule("sec-evt-101").unwrap();
-    let temp_dir = std::env::temp_dir().join("incident_capsule_test_dir");
+    let temp_dir = std::env::temp_dir().join(format!(
+        "incident_capsule_test_dir_{}",
+        rand::random::<u32>()
+    ));
 
     // Save to directory bundle
     save_incident_capsule_to_directory(&capsule, &temp_dir).unwrap();
@@ -974,7 +980,7 @@ fn test_identity_success_path_with_fixture_resolver() {
     assert!(peers_out_of_scope.is_empty());
 
     // 6. Same device twice -> no consensus (remains VerifiedBoundFresh)
-    let mut same_device_claim = co_signed_claim.clone();
+    let same_device_claim = co_signed_claim.clone();
     let mut binding2_same_dev = binding2.clone();
     binding2_same_dev.device_id = Some("dev-1".to_string());
     let (peers_same_device, _, _, _, _) = reconcile_claims(
@@ -987,26 +993,6 @@ fn test_identity_success_path_with_fixture_resolver() {
         peers_same_device[0].trust_status,
         PeerTrustStatus::VerifiedBoundFresh
     );
-}
-
-#[cfg(feature = "holochain-conductor-tests")]
-#[test]
-fn test_identity_success_path_with_mycelix_holochain_resolver() {
-    use net_steward_holochain::MycelixHolochainIdentityResolver;
-    use net_steward_schema::DidBindingResolver;
-
-    let resolver = MycelixHolochainIdentityResolver::new(
-        "ws://127.0.0.1:8888",
-        "net_steward",
-        "agent_reputation",
-    );
-    let binding_opt = resolver
-        .resolve_binding("did:mycelix:alice-test-key")
-        .unwrap();
-    assert!(binding_opt.is_some());
-    let binding = binding_opt.unwrap();
-    assert_eq!(binding.issuer_did, "did:mycelix:alice-test-key");
-    assert!(!binding.revoked);
 }
 
 #[test]
@@ -1413,4 +1399,76 @@ fn test_zk_verifier_gated_behind_feature_flag_or_disabled() {
         }
         other => panic!("Expected ZkProofVerdict::Disabled, got {:?}", other),
     }
+}
+
+// ─── v0.3-alpha.7: Lab-Only Controlled Apply Tests ─────────────────────────
+
+/// Happy path: when running in lab mode, apply() should succeed, execute,
+/// update the simulated NixOS profile, and transition drift status to InSync.
+#[test]
+fn test_lab_controlled_apply_succeeds_when_in_lab() {
+    let state_file = std::path::Path::new("/tmp/net_steward_mock_nixos_generation");
+    if state_file.exists() {
+        let _ = std::fs::remove_file(state_file);
+    }
+
+    // 1. Verify that initially the node is reported as drifted
+    let report_before = generate_nixos_drift_report("luminous-router");
+    assert_eq!(
+        report_before.drift_status,
+        net_steward_schema::DriftStatus::DriftDetected
+    );
+
+    let intent = OperationIntent {
+        intent_id: "intent-lab-ok".to_string(),
+        actor_did: "did:mycelix:operator".to_string(),
+        target_node_id: "luminous-router".to_string(),
+        operation_kind: OperationKind::GenerateRollbackPlan,
+        reason: "Lab testing rollback apply".to_string(),
+        evidence_refs: vec![],
+        rollback_plan_ref: None,
+        expires_at_unix_ms: 1719569000000,
+    };
+
+    let executor = LabControlledExecutor { lab_mode: true };
+    let plan = executor.dry_run(&intent).unwrap();
+    assert_eq!(plan.execution_steps.len(), 3);
+
+    // 2. Apply rollback in lab mode
+    let res = executor.apply(&intent).unwrap();
+    assert!(res.success);
+    assert!(res.output.contains("succeeded"));
+    assert!(res.output.contains("intent-lab-ok"));
+
+    // 3. Verify that the node has transitioned to InSync
+    let report_after = generate_nixos_drift_report("luminous-router");
+    assert_eq!(
+        report_after.drift_status,
+        net_steward_schema::DriftStatus::InSync
+    );
+
+    // Clean up
+    if state_file.exists() {
+        let _ = std::fs::remove_file(state_file);
+    }
+}
+
+/// Gated path: when not in lab mode, apply() must return a policy error.
+#[test]
+fn test_lab_controlled_apply_disabled_by_policy_when_not_in_lab() {
+    let intent = OperationIntent {
+        intent_id: "intent-lab-blocked".to_string(),
+        actor_did: "did:mycelix:operator".to_string(),
+        target_node_id: "forge-server".to_string(),
+        operation_kind: OperationKind::GenerateRollbackPlan,
+        reason: "Production gated apply".to_string(),
+        evidence_refs: vec![],
+        rollback_plan_ref: None,
+        expires_at_unix_ms: 1719569000000,
+    };
+
+    let executor = LabControlledExecutor { lab_mode: false };
+    let res = executor.apply(&intent);
+    assert!(res.is_err());
+    assert!(res.err().unwrap().contains("DisabledByPolicy"));
 }

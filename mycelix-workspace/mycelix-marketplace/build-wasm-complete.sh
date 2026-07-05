@@ -28,7 +28,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "1️⃣  Building Integrity Zomes..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-for zome in listings reputation transactions arbitration messaging; do
+for zome in listings reputation transactions arbitration messaging search security; do
     echo "  📦 Building ${zome}_integrity..."
     cargo build --release --target wasm32-unknown-unknown -p "${zome}_integrity"
 done
@@ -49,9 +49,11 @@ declare -A LIB_NAME=(
     [transactions]="transactions_coordinator"
     [arbitration]="arbitration_coordinator"
     [messaging]="messaging"
+    [search]="search"
+    [security]="security_coordinator"
 )
 
-for zome in listings reputation transactions arbitration messaging; do
+for zome in listings reputation transactions arbitration messaging search security; do
     echo "  📦 Building ${zome}_coordinator..."
     cargo build --release --target wasm32-unknown-unknown -p "${zome}_coordinator"
 done
@@ -62,14 +64,14 @@ echo "3️⃣  Copying WASM Files..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Create zome directories
-for zome in listings reputation transactions arbitration messaging; do
+for zome in listings reputation transactions arbitration messaging search security; do
     mkdir -p "zomes/${zome}"
 done
 
 # Copy integrity zomes. Destination filenames must be globally unique
 # (dna.yaml's basename-keyed bundle resources — see the note there), so
 # these are named "${zome}_integrity.wasm", not the old "integrity.wasm".
-for zome in listings reputation transactions arbitration messaging; do
+for zome in listings reputation transactions arbitration messaging search security; do
     echo "  📁 Copying ${zome}_integrity.wasm..."
     cp "target/wasm32-unknown-unknown/release/${zome}_integrity.wasm" \
        "zomes/${zome}/${zome}_integrity.wasm"
@@ -78,7 +80,7 @@ done
 # Copy coordinator zomes (source filename is the crate's [lib] name, not
 # necessarily the zome name — see LIB_NAME map above). Destination is
 # "${zome}_coordinator.wasm" to keep bundle resource basenames unique.
-for zome in listings reputation transactions arbitration messaging; do
+for zome in listings reputation transactions arbitration messaging search security; do
     lib_name="${LIB_NAME[$zome]}"
     echo "  📁 Copying ${lib_name}.wasm..."
     cp "target/wasm32-unknown-unknown/release/${lib_name}.wasm" \
@@ -106,7 +108,7 @@ echo "📦 Output files:"
 echo "  - backend/dna.dna (DNA bundle)"
 echo "  - backend/mycelix_marketplace.happ (hApp bundle)"
 echo ""
-echo "🎉 All 10 zomes successfully built and packaged!"
+echo "🎉 All 14 zomes successfully built and packaged!"
 echo ""
 echo "📊 Build Statistics:"
 find backend/zomes -name "*.wasm" -type f -exec ls -lh {} \; | awk '{print "  - "$9" ("$5")"}'

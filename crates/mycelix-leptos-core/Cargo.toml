@@ -29,32 +29,5 @@ web-sys = { version = "0.3", features = [
     "HtmlElement",
     "Element",
     "BatteryManager",
-    # identity_crypto.rs: passphrase-based encryption via SubtleCrypto
-    # (PBKDF2 key derivation + AES-GCM), not a hand-rolled or JS-`eval`'d
-    # cipher.
-    "SubtleCrypto",
-    "CryptoKey",
-    "Pbkdf2Params",
-    "AesDerivedKeyParams",
-    "AesGcmParams",
 ] }
 gloo-timers = { version = "0.3", features = ["futures"] }
-
-# Real local identity keypair (local_identity.rs) — Ed25519, matches the
-# pattern already proven in mycelix-pulse/apps/leptos/src/crypto.rs. Keygen
-# is seeded from the Web Crypto CSPRNG (web-sys `Crypto`, above), not rand's
-# OsRng, so no extra getrandom backend wiring is needed for this crate.
-ed25519-dalek = "2.1"
-base64 = "0.22"
-
-# Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
-# correct BIP-39 seed phrase export/import for manual/offline backup — the
-# standard English wordlist + checksum, not an ad hoc encoding. `zeroize`
-# wipes the phrase's memory on drop (defense in depth for secret material).
-bip39 = { version = "2", features = ["zeroize"] }
-
-[dev-dependencies]
-# identity_crypto.rs's WebCrypto calls only run for real in a browser, so
-# its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser
-# (`wasm-pack test --headless --firefox`), not plain `cargo test`.
-wasm-bindgen-test = "0.3"

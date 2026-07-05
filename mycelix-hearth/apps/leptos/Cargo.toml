@@ -57,8 +57,8 @@ hearth-leptos-types = { path = "../../crates/hearth-leptos-types" }
 personal-leptos-types = { path = "../../../mycelix-personal/crates/personal-leptos-types" }
 
 # Mycelix shared Leptos infrastructure
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
 
 [profile.release]
 opt-level = "z"
