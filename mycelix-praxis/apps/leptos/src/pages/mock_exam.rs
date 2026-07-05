@@ -91,7 +91,9 @@ pub fn MockExamPage() -> impl IntoView {
     };
 
     // Clear timer on component unmount
-    on_cleanup(move || { clear_timer(); });
+    on_cleanup(move || {
+        clear_timer();
+    });
 
     // Real NSC-style exam problems — hand-crafted, not templates
     let generate_problems = move |p: ExamPaper, quick: bool| {
@@ -164,7 +166,8 @@ pub fn MockExamPage() -> impl IntoView {
         let mut exam_problems = pool;
 
         // Shuffle deterministically (daily variety)
-        let day_seed = (js_sys::Date::new_0().get_date() as usize) * 31 + (js_sys::Date::new_0().get_month() as usize);
+        let day_seed = (js_sys::Date::new_0().get_date() as usize) * 31
+            + (js_sys::Date::new_0().get_month() as usize);
         for i in 0..exam_problems.len() {
             let j = (i + day_seed * 7 + i * 13) % exam_problems.len();
             exam_problems.swap(i, j);
@@ -178,7 +181,11 @@ pub fn MockExamPage() -> impl IntoView {
         let p = paper.get_untracked();
         let quick = quick_mode.get_untracked();
         let probs = generate_problems(p, quick);
-        let duration = if quick { p.short_duration_mins() } else { p.duration_mins() };
+        let duration = if quick {
+            p.short_duration_mins()
+        } else {
+            p.duration_mins()
+        };
 
         set_answers.set(vec![None; probs.len()]);
         set_problems.set(probs);

@@ -114,11 +114,11 @@ impl AuthenticatedProof {
     pub fn construct_signed_message(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self.metadata.domain_tag.as_bytes());
-        hasher.update(&self.metadata.protocol_version.to_le_bytes());
-        hasher.update(&self.metadata.client_id);
-        hasher.update(&self.metadata.timestamp.to_le_bytes());
-        hasher.update(&self.metadata.nonce);
-        hasher.update(&self.public_inputs_hash);
+        hasher.update(self.metadata.protocol_version.to_le_bytes());
+        hasher.update(self.metadata.client_id);
+        hasher.update(self.metadata.timestamp.to_le_bytes());
+        hasher.update(self.metadata.nonce);
+        hasher.update(self.public_inputs_hash);
         // Hash the proof itself (avoid signing huge proof directly)
         let proof_hash = Sha256::digest(&self.proof);
         hasher.update(proof_hash);

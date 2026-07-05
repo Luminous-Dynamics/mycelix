@@ -3,13 +3,11 @@
 //! WebGL Canvas Component — High-performance Level-of-Detail (LOD) Rendering.
 
 use leptos::prelude::*;
-use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 use wasm_bindgen::JsCast;
+use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 #[component]
-pub fn GardenCanvas(
-    node_count: usize,
-) -> impl IntoView {
+pub fn GardenCanvas(node_count: usize) -> impl IntoView {
     let canvas_ref = NodeRef::<html::Canvas>::new();
 
     // Initialize WebGL context and render nodes as gl_Points
@@ -25,17 +23,17 @@ pub fn GardenCanvas(
             // SHADER LOGIC (Simulated for WASM context)
             context.clear_color(0.05, 0.05, 0.08, 1.0);
             context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-            
+
             // In a full implementation, we'd buffer the 2,700 16k-vec positions here
             // to achieve 60 FPS on legacy hardware.
         }
     });
 
     view! {
-        <canvas 
+        <canvas
             node_ref=canvas_ref
-            width="800" 
-            height="600" 
+            width="800"
+            height="600"
             style="width: 100%; height: 100%; display: block; border-radius: 12px"
         ></canvas>
     }

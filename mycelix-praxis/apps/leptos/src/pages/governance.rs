@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Isibaya Governance — Local DAO interface for merit weighting and hardware access.
 
+use crate::curriculum::{Subject, curriculum_graph};
 use leptos::prelude::*;
-use crate::curriculum::{curriculum_graph, Subject};
 
 #[component]
 pub fn GovernancePage() -> impl IntoView {
     let (voting_active, set_voting_active) = signal(false);
-    
+
     view! {
         <div class="governance-page">
             <header class="gov-header">
@@ -22,7 +22,7 @@ pub fn GovernancePage() -> impl IntoView {
                     <p style="font-size: 0.8rem; color: var(--text-tertiary)">
                         "Vote to prioritize specific curriculum tracks based on local physical needs."
                     </p>
-                    
+
                     <div class="steering-list" style="margin-top: 1.5rem">
                         {move || {
                             let graph = curriculum_graph();
@@ -70,14 +70,14 @@ pub fn GovernancePage() -> impl IntoView {
                         </div>
                         <h4 style="margin: 0.5rem 0">"Proposal: Biomimetic Water Filter Prototype"</h4>
                         <p style="font-size: 0.85rem">"Will this design reduce turbidity by >15% within 48 hours?"</p>
-                        
+
                         <div class="prediction-distribution" style="margin: 1.5rem 0; height: 40px; display: flex; align-items: flex-end; gap: 2px">
                             {(0..20).map(|i| {
                                 let height = if i < 10 { i * 4 } else { (20 - i) * 4 };
                                 view! { <div style=format!("flex: 1; height: {}%; background: var(--primary-low); border-radius: 2px", height)></div> }
                             }).collect_view()}
                         </div>
-                        
+
                         <div style="display: flex; gap: 1rem; align-items: center">
                             <input type="number" placeholder="Stake PHI..." style="flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-low)" />
                             <button class="btn-primary">"Submit Prediction"</button>

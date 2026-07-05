@@ -47,41 +47,77 @@ struct ClassStats {
 // ---------------------------------------------------------------------------
 
 fn skill_names() -> Vec<String> {
-    crate::curriculum::curriculum_graph().subjects().iter().take(6).map(|s| {
-        if s.len() > 8 { format!("{}...", &s[..6]) } else { s.to_string() }
-    }).collect()
+    crate::curriculum::curriculum_graph()
+        .subjects()
+        .iter()
+        .take(6)
+        .map(|s| {
+            if s.len() > 8 {
+                format!("{}...", &s[..6])
+            } else {
+                s.to_string()
+            }
+        })
+        .collect()
 }
 
 fn skill_full_names() -> Vec<String> {
-    crate::curriculum::curriculum_graph().subjects().iter().take(6).map(|s| s.to_string()).collect()
+    crate::curriculum::curriculum_graph()
+        .subjects()
+        .iter()
+        .take(6)
+        .map(|s| s.to_string())
+        .collect()
 }
 
 fn real_students() -> Vec<StudentMastery> {
     let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
         .unwrap_or_default();
-    let profile = crate::persistence::load::<crate::student_profile::StudentProfile>("praxis_profile");
+    let profile =
+        crate::persistence::load::<crate::student_profile::StudentProfile>("praxis_profile");
     let name = profile.map(|p| p.name).unwrap_or_else(|| "Student".into());
     let name_static: &'static str = Box::leak(name.into_boxed_str());
 
     let graph = crate::curriculum::curriculum_graph();
     // Compute mastery per top subject (matching SKILL_NAMES)
-    let top_subjects: Vec<String> = graph.subjects().iter().take(6).map(|s| s.to_string()).collect();
-    let skills: Vec<u16> = top_subjects.iter().map(|subj| {
-        let nodes: Vec<_> = graph.nodes.iter().filter(|n| n.subject_area == *subj).collect();
-        if nodes.is_empty() { return 0; }
-        let total: u32 = nodes.iter().map(|n| progress.bkt(&n.id).p_mastery as u32 * 1000 / 1000).sum::<u32>();
-        let avg = total * 1000 / nodes.len() as u32;
-        avg.min(1000) as u16
-    }).collect();
+    let top_subjects: Vec<String> = graph
+        .subjects()
+        .iter()
+        .take(6)
+        .map(|s| s.to_string())
+        .collect();
+    let skills: Vec<u16> = top_subjects
+        .iter()
+        .map(|subj| {
+            let nodes: Vec<_> = graph
+                .nodes
+                .iter()
+                .filter(|n| n.subject_area == *subj)
+                .collect();
+            if nodes.is_empty() {
+                return 0;
+            }
+            let total: u32 = nodes
+                .iter()
+                .map(|n| progress.bkt(&n.id).p_mastery as u32 * 1000 / 1000)
+                .sum::<u32>();
+            let avg = total * 1000 / nodes.len() as u32;
+            avg.min(1000) as u16
+        })
+        .collect();
 
-    vec![StudentMastery { name: name_static, skills }]
+    vec![StudentMastery {
+        name: name_static,
+        skills,
+    }]
 }
 
 fn real_at_risk() -> Vec<AtRiskAlert> {
     let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
         .unwrap_or_default();
-    let tracker = crate::persistence::load::<crate::study_tracker::StudyTracker>("praxis_study_tracker")
-        .unwrap_or_default();
+    let tracker =
+        crate::persistence::load::<crate::study_tracker::StudyTracker>("praxis_study_tracker")
+            .unwrap_or_default();
 
     let mut alerts = Vec::new();
     let streak = tracker.current_streak();
@@ -97,12 +133,18 @@ fn real_at_risk() -> Vec<AtRiskAlert> {
     let weakest = progress.weakest_topics(1);
     if let Some((id, pct)) = weakest.first() {
         if *pct < 0.3 {
-            let title = crate::curriculum::curriculum_graph().node(id)
-                .map(|n| n.title.as_str()).unwrap_or("Unknown");
+            let title = crate::curriculum::curriculum_graph()
+                .node(id)
+                .map(|n| n.title.as_str())
+                .unwrap_or("Unknown");
             let title_static: &'static str = Box::leak(title.to_string().into_boxed_str());
             let reason: &'static str = Box::leak(
-                format!("Struggling with {} ({:.0}% mastery) — needs focused practice", title, pct * 100.0)
-                    .into_boxed_str()
+                format!(
+                    "Struggling with {} ({:.0}% mastery) — needs focused practice",
+                    title,
+                    pct * 100.0
+                )
+                .into_boxed_str(),
             );
             alerts.push(AtRiskAlert {
                 student: "Current student",
@@ -129,7 +171,11 @@ fn real_class_stats() -> ClassStats {
     let total_nodes = graph.nodes.len();
     let mastered = progress.mastered_count();
     let studying = progress.studying_count();
-    let avg = if total_nodes > 0 { (mastered * 100 / total_nodes) as u16 } else { 0 };
+    let avg = if total_nodes > 0 {
+        (mastered * 100 / total_nodes) as u16
+    } else {
+        0
+    };
 
     ClassStats {
         avg_mastery_pct: avg,
@@ -167,7 +213,11 @@ fn ClassHeader() -> impl IntoView {
     let profile = use_profile();
     let name = move || {
         let p = profile.get();
-        if p.name.is_empty() { "Teacher".to_string() } else { p.name.clone() }
+        if p.name.is_empty() {
+            "Teacher".to_string()
+        } else {
+            p.name.clone()
+        }
     };
     let grade_label = move || {
         let p = profile.get();
@@ -186,7 +236,10 @@ fn ClassHeader() -> impl IntoView {
         let status = js_sys::Reflect::get(
             &js_sys::global().unchecked_into::<js_sys::Object>(),
             &wasm_bindgen::JsValue::from_str("__HC_STATUS"),
-        ).ok().and_then(|v| v.as_string()).unwrap_or_default();
+        )
+        .ok()
+        .and_then(|v| v.as_string())
+        .unwrap_or_default();
         status != "connected"
     };
 
@@ -331,10 +384,12 @@ fn ClassStatsCard(stats: ClassStats) -> impl IntoView {
 fn SkillBreakdown(students: Vec<StudentMastery>) -> impl IntoView {
     // Compute per-skill class average
     let num = students.len() as u32;
-    let skill_avgs: Vec<u16> = (0..6).map(|i| {
-        let total: u32 = students.iter().map(|s| s.skills[i] as u32).sum();
-        if num > 0 { (total / num) as u16 } else { 0 }
-    }).collect();
+    let skill_avgs: Vec<u16> = (0..6)
+        .map(|i| {
+            let total: u32 = students.iter().map(|s| s.skills[i] as u32).sum();
+            if num > 0 { (total / num) as u16 } else { 0 }
+        })
+        .collect();
 
     view! {
         <div class="dash-section teacher-skill-breakdown">
@@ -416,8 +471,8 @@ fn ObligationSlider(label: &'static str) -> impl IntoView {
     view! {
         <div class="obligation-slider-row">
             <span class="obj-label">{label}</span>
-            <input 
-                type="range" 
+            <input
+                type="range"
                 min="0" max="1000" step="10"
                 prop:value=val
                 on:input=move |ev| set_val.set(event_target_value(&ev).parse().unwrap_or(0))
@@ -430,8 +485,9 @@ fn ObligationSlider(label: &'static str) -> impl IntoView {
 #[component]
 fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
     let (title, set_title) = signal("Highveld Soil Regeneration".to_string());
-    let (semantic_tags, set_semantic_tags) = signal("permaculture, soil-health, sustainable-ag".to_string());
-    
+    let (semantic_tags, set_semantic_tags) =
+        signal("permaculture, soil-health, sustainable-ag".to_string());
+
     // HDC Vector Preview (Mocked based on tags)
     let hdc_vector_id = move || title.get().to_lowercase().replace(' ', "_");
 
@@ -445,8 +501,8 @@ fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
             <div class="editor-body">
                 <div class="field-group">
                     <label>"Node Title (Local Name)"</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         prop:value=title
                         on:input=move |ev| set_title.set(event_target_value(&ev))
                     />
@@ -454,8 +510,8 @@ fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
 
                 <div class="field-group">
                     <label>"Semantic Mesh Binding (Keywords)"</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         placeholder="e.g. soil-science, biology, compost"
                         prop:value=semantic_tags
                         on:input=move |ev| set_semantic_tags.set(event_target_value(&ev))
@@ -466,7 +522,7 @@ fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
                 <div class="moral-algebra-section">
                     <h5>"\u{2696} Geometric Alignment (The 16 Obligations)"</h5>
                     <p class="field-hint">"Score your standard against the constitutive axioms of the Mycelix ecosystem."</p>
-                    
+
                     <div class="obligations-grid">
                         <div class="obligation-col">
                             <h6>"Perfect (Required)"</h6>
@@ -527,7 +583,7 @@ pub fn TeacherDashboardPage() -> impl IntoView {
                     <MasteryHeatmap students=students.clone() />
                     <CurriculumLab />
                 </div>
-                
+
                 <div class="right-col">
                     <AtRiskPanel alerts=at_risk />
                     <ClassStatsCard stats=stats />

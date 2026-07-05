@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Analytical Geometry Workbench — place points, see distance/midpoint/gradient live.
 
-use leptos::prelude::*;
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::games::shared::graph_renderer::{GraphArea, GraphConfig};
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use leptos::prelude::*;
 
 #[component]
 pub fn AnalyticalGeometryExplorer(node_id: String) -> impl IntoView {
@@ -28,10 +28,21 @@ pub fn AnalyticalGeometryExplorer(node_id: String) -> impl IntoView {
 
     let gradient = Memo::new(move |_| {
         let dx = x2.get() - x1.get();
-        if dx.abs() < 0.01 { f64::INFINITY } else { (y2.get() - y1.get()) / dx }
+        if dx.abs() < 0.01 {
+            f64::INFINITY
+        } else {
+            (y2.get() - y1.get()) / dx
+        }
     });
 
-    let config = GraphConfig { x_min: -8.0, x_max: 8.0, y_min: -8.0, y_max: 8.0, show_grid: true, grid_step: 2.0 };
+    let config = GraphConfig {
+        x_min: -8.0,
+        x_max: 8.0,
+        y_min: -8.0,
+        y_max: 8.0,
+        show_grid: true,
+        grid_step: 2.0,
+    };
 
     let check_challenge = {
         let node_id = node_id.clone();
@@ -43,10 +54,10 @@ pub fn AnalyticalGeometryExplorer(node_id: String) -> impl IntoView {
             let g = gradient.get_untracked();
 
             let passed = match idx {
-                0 => (d - 5.0).abs() < 0.3,              // Distance = 5
+                0 => (d - 5.0).abs() < 0.3,                            // Distance = 5
                 1 => (mx - 0.0).abs() < 0.3 && (my - 0.0).abs() < 0.3, // Midpoint at origin
-                2 => (g - 2.0).abs() < 0.2,              // Gradient = 2
-                3 => g.abs() > 100.0 || g.is_infinite(),  // Vertical line (undefined gradient)
+                2 => (g - 2.0).abs() < 0.2,                            // Gradient = 2
+                3 => g.abs() > 100.0 || g.is_infinite(), // Vertical line (undefined gradient)
                 _ => false,
             };
 
@@ -62,7 +73,9 @@ pub fn AnalyticalGeometryExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

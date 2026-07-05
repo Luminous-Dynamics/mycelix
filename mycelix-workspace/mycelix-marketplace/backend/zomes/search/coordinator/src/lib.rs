@@ -103,7 +103,10 @@ fn calculate_relevance_score(index_entry: &SearchIndexEntry, query_terms: &[Stri
 fn get_all_indices_links() -> ExternResult<Vec<Link>> {
     let path = Path::from("all_indices");
     let filter = LinkTypeFilter::try_from(LinkTypes::AllIndices)?;
-    get_links(LinkQuery::new(path.path_entry_hash()?, filter), GetStrategy::default())
+    get_links(
+        LinkQuery::new(path.path_entry_hash()?, filter),
+        GetStrategy::default(),
+    )
 }
 
 // ===== Public API =====
@@ -160,14 +163,19 @@ pub fn create_search_index(input: CreateIndexInput) -> ExternResult<ActionHash> 
 
     // Create entry
     let action_hash = create_entry(&EntryTypes::SearchIndexEntry(index_entry.clone()))?;
-    let entry_hash = hash_entry(&index_entry)?;
 
     // Create discovery links
+    //
+    // All three links target `action_hash`, not an entry hash: every reader
+    // below (and search_index_query) calls `link.target.into_action_hash()`,
+    // which returns `None` for an EntryHash target -- same class of bug
+    // found and fixed in the listings zome
+    // (mycelix-marketplace/backend/zomes/listings/coordinator/src/lib.rs).
 
     // 1. Entity -> Index
     create_link(
         input.entity_hash,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::EntityToIndex,
         (),
     )?;
@@ -176,7 +184,7 @@ pub fn create_search_index(input: CreateIndexInput) -> ExternResult<ActionHash> 
     let all_path = Path::from("all_indices");
     create_link(
         all_path.path_entry_hash()?,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::AllIndices,
         (),
     )?;
@@ -185,7 +193,7 @@ pub fn create_search_index(input: CreateIndexInput) -> ExternResult<ActionHash> 
     let type_path = Path::from(format!("indices.type.{:?}", index_entry.entity_type));
     create_link(
         type_path.path_entry_hash()?,
-        entry_hash,
+        action_hash.clone(),
         LinkTypes::EntityTypeToIndex,
         (),
     )?;

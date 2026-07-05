@@ -22,35 +22,119 @@ struct EquationInfo {
 fn all_equations() -> Vec<EquationInfo> {
     // Representative subset for the game
     vec![
-        EquationInfo { name: "Newton Second Law".into(), domain: "Classical Mechanics".into(), latex: r"F = ma".into() },
-        EquationInfo { name: "Mass-Energy Equivalence".into(), domain: "General Relativity".into(), latex: r"E = mc^2".into() },
-        EquationInfo { name: "Schrodinger Equation".into(), domain: "Quantum Mechanics".into(), latex: r"i\hbar\frac{\partial\psi}{\partial t} = \hat{H}\psi".into() },
-        EquationInfo { name: "Maxwell Gauss Law".into(), domain: "Electromagnetism".into(), latex: r"\nabla \cdot E = \rho/\varepsilon_0".into() },
-        EquationInfo { name: "Shannon Entropy".into(), domain: "Information Theory".into(), latex: r"H(X) = -\sum p(x)\log p(x)".into() },
-        EquationInfo { name: "Navier-Stokes".into(), domain: "Fluid Dynamics".into(), latex: r"\rho(\partial_t v + v\cdot\nabla v) = -\nabla p + \mu\nabla^2 v".into() },
-        EquationInfo { name: "Boltzmann Entropy".into(), domain: "Statistical Mechanics".into(), latex: r"S = k_B \ln W".into() },
-        EquationInfo { name: "Hodgkin-Huxley".into(), domain: "Biophysics".into(), latex: r"C\frac{dV}{dt} = -g_{Na}m^3h(V-E_{Na}) - g_Kn^4(V-E_K) + I".into() },
-        EquationInfo { name: "BCS Gap Equation".into(), domain: "Condensed Matter".into(), latex: r"\Delta = 2\hbar\omega_D e^{-1/(N(0)V)}".into() },
-        EquationInfo { name: "Yukawa Potential".into(), domain: "Nuclear Physics".into(), latex: r"V(r) = -g^2 e^{-\mu r}/(4\pi r)".into() },
-        EquationInfo { name: "Friedmann Equation".into(), domain: "Cosmology".into(), latex: r"H^2 = \frac{8\pi G\rho}{3}".into() },
-        EquationInfo { name: "Ideal Gas Law".into(), domain: "Thermodynamics".into(), latex: r"PV = nRT".into() },
-        EquationInfo { name: "Chandrasekhar Limit".into(), domain: "Astrophysics".into(), latex: r"M_{Ch} \approx 1.4 M_\odot".into() },
-        EquationInfo { name: "Debye Length".into(), domain: "Plasma Physics".into(), latex: r"\lambda_D = \sqrt{\varepsilon_0 kT / (ne^2)}".into() },
-        EquationInfo { name: "Snell Law".into(), domain: "Optics".into(), latex: r"n_1\sin\theta_1 = n_2\sin\theta_2".into() },
-        EquationInfo { name: "Euler Identity".into(), domain: "Mathematics".into(), latex: r"e^{i\pi} + 1 = 0".into() },
-        EquationInfo { name: "Doppler Effect".into(), domain: "Acoustics".into(), latex: r"f' = f\frac{v \pm v_{obs}}{v \mp v_{src}}".into() },
-        EquationInfo { name: "Drake Equation".into(), domain: "Astrophysics".into(), latex: r"N = R_* \times f_p \times n_e \times f_l \times f_i \times f_c \times L".into() },
+        EquationInfo {
+            name: "Newton Second Law".into(),
+            domain: "Classical Mechanics".into(),
+            latex: r"F = ma".into(),
+        },
+        EquationInfo {
+            name: "Mass-Energy Equivalence".into(),
+            domain: "General Relativity".into(),
+            latex: r"E = mc^2".into(),
+        },
+        EquationInfo {
+            name: "Schrodinger Equation".into(),
+            domain: "Quantum Mechanics".into(),
+            latex: r"i\hbar\frac{\partial\psi}{\partial t} = \hat{H}\psi".into(),
+        },
+        EquationInfo {
+            name: "Maxwell Gauss Law".into(),
+            domain: "Electromagnetism".into(),
+            latex: r"\nabla \cdot E = \rho/\varepsilon_0".into(),
+        },
+        EquationInfo {
+            name: "Shannon Entropy".into(),
+            domain: "Information Theory".into(),
+            latex: r"H(X) = -\sum p(x)\log p(x)".into(),
+        },
+        EquationInfo {
+            name: "Navier-Stokes".into(),
+            domain: "Fluid Dynamics".into(),
+            latex: r"\rho(\partial_t v + v\cdot\nabla v) = -\nabla p + \mu\nabla^2 v".into(),
+        },
+        EquationInfo {
+            name: "Boltzmann Entropy".into(),
+            domain: "Statistical Mechanics".into(),
+            latex: r"S = k_B \ln W".into(),
+        },
+        EquationInfo {
+            name: "Hodgkin-Huxley".into(),
+            domain: "Biophysics".into(),
+            latex: r"C\frac{dV}{dt} = -g_{Na}m^3h(V-E_{Na}) - g_Kn^4(V-E_K) + I".into(),
+        },
+        EquationInfo {
+            name: "BCS Gap Equation".into(),
+            domain: "Condensed Matter".into(),
+            latex: r"\Delta = 2\hbar\omega_D e^{-1/(N(0)V)}".into(),
+        },
+        EquationInfo {
+            name: "Yukawa Potential".into(),
+            domain: "Nuclear Physics".into(),
+            latex: r"V(r) = -g^2 e^{-\mu r}/(4\pi r)".into(),
+        },
+        EquationInfo {
+            name: "Friedmann Equation".into(),
+            domain: "Cosmology".into(),
+            latex: r"H^2 = \frac{8\pi G\rho}{3}".into(),
+        },
+        EquationInfo {
+            name: "Ideal Gas Law".into(),
+            domain: "Thermodynamics".into(),
+            latex: r"PV = nRT".into(),
+        },
+        EquationInfo {
+            name: "Chandrasekhar Limit".into(),
+            domain: "Astrophysics".into(),
+            latex: r"M_{Ch} \approx 1.4 M_\odot".into(),
+        },
+        EquationInfo {
+            name: "Debye Length".into(),
+            domain: "Plasma Physics".into(),
+            latex: r"\lambda_D = \sqrt{\varepsilon_0 kT / (ne^2)}".into(),
+        },
+        EquationInfo {
+            name: "Snell Law".into(),
+            domain: "Optics".into(),
+            latex: r"n_1\sin\theta_1 = n_2\sin\theta_2".into(),
+        },
+        EquationInfo {
+            name: "Euler Identity".into(),
+            domain: "Mathematics".into(),
+            latex: r"e^{i\pi} + 1 = 0".into(),
+        },
+        EquationInfo {
+            name: "Doppler Effect".into(),
+            domain: "Acoustics".into(),
+            latex: r"f' = f\frac{v \pm v_{obs}}{v \mp v_{src}}".into(),
+        },
+        EquationInfo {
+            name: "Drake Equation".into(),
+            domain: "Astrophysics".into(),
+            latex: r"N = R_* \times f_p \times n_e \times f_l \times f_i \times f_c \times L"
+                .into(),
+        },
     ]
 }
 
 /// Domain challenge: guess which domain an equation belongs to.
 fn domain_challenge_options() -> Vec<&'static str> {
     vec![
-        "Classical Mechanics", "Electromagnetism", "Quantum Mechanics",
-        "General Relativity", "Thermodynamics", "Fluid Dynamics",
-        "Information Theory", "Nuclear Physics", "Condensed Matter",
-        "Biophysics", "Cosmology", "Astrophysics", "Optics",
-        "Plasma Physics", "Mathematics", "Acoustics",
+        "Classical Mechanics",
+        "Electromagnetism",
+        "Quantum Mechanics",
+        "General Relativity",
+        "Thermodynamics",
+        "Fluid Dynamics",
+        "Information Theory",
+        "Nuclear Physics",
+        "Condensed Matter",
+        "Biophysics",
+        "Cosmology",
+        "Astrophysics",
+        "Optics",
+        "Plasma Physics",
+        "Mathematics",
+        "Acoustics",
     ]
 }
 
@@ -72,7 +156,10 @@ pub fn EquationExplorer(node_id: String) -> impl IntoView {
             eqs
         } else {
             eqs.into_iter()
-                .filter(|e| e.name.to_lowercase().contains(&search) || e.domain.to_lowercase().contains(&search))
+                .filter(|e| {
+                    e.name.to_lowercase().contains(&search)
+                        || e.domain.to_lowercase().contains(&search)
+                })
                 .collect()
         }
     };

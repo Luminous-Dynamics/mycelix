@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Somatic Theme Engine — UI Adaptation based on Nervous System Regulation.
 
+use crate::curriculum::{ProgressStatus, use_progress};
 use leptos::prelude::*;
-use crate::curriculum::{use_progress, ProgressStatus};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SomaticState {
@@ -13,24 +13,27 @@ pub enum SomaticState {
 }
 
 #[component]
-pub fn SomaticThemeHandler<F, IV>(
-    children: F,
-) -> impl IntoView 
-where 
+pub fn SomaticThemeHandler<F, IV>(children: F) -> impl IntoView
+where
     F: Fn() -> IV + 'static,
     IV: IntoView + 'static,
 {
     let progress = use_progress();
-    
+
     // Derived: Infer somatic state from recent activity and somatic milestones
     let somatic_state = Memo::new(move |_| {
         let p = progress.get();
-        let mastered_somatic = p.nodes.values()
+        let mastered_somatic = p
+            .nodes
+            .values()
             .filter(|n| n.status == ProgressStatus::Mastered && n.mastery_permille > 900)
             .count();
-            
-        if mastered_somatic > 5 { SomaticState::Regulated }
-        else { SomaticState::HyperVigilant }
+
+        if mastered_somatic > 5 {
+            SomaticState::Regulated
+        } else {
+            SomaticState::HyperVigilant
+        }
     });
 
     let theme_class = move || match somatic_state.get() {

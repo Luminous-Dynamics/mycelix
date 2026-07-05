@@ -19,12 +19,42 @@ struct ObligationState {
 #[component]
 pub fn MoralAlgebraLesson() -> impl IntoView {
     let (obligations, set_obligations) = signal(vec![
-        ObligationState { name: "Ahimsa", description: "Non-harm and reversibility of actions.", value: 850, is_perfect: true },
-        ObligationState { name: "Reciprocity", description: "Sacred reciprocity and mutual exchange.", value: 700, is_perfect: true },
-        ObligationState { name: "Truthfulness", description: "Epistemic humility and honest signaling.", value: 900, is_perfect: true },
-        ObligationState { name: "Sovereignty", description: "Respect for individual and collective agency.", value: 800, is_perfect: true },
-        ObligationState { name: "Eco-Stewardship", description: "Active care for the living substrate.", value: 600, is_perfect: false },
-        ObligationState { name: "Ubuntu", description: "I am because we are (Mentorship).", value: 750, is_perfect: false },
+        ObligationState {
+            name: "Ahimsa",
+            description: "Non-harm and reversibility of actions.",
+            value: 850,
+            is_perfect: true,
+        },
+        ObligationState {
+            name: "Reciprocity",
+            description: "Sacred reciprocity and mutual exchange.",
+            value: 700,
+            is_perfect: true,
+        },
+        ObligationState {
+            name: "Truthfulness",
+            description: "Epistemic humility and honest signaling.",
+            value: 900,
+            is_perfect: true,
+        },
+        ObligationState {
+            name: "Sovereignty",
+            description: "Respect for individual and collective agency.",
+            value: 800,
+            is_perfect: true,
+        },
+        ObligationState {
+            name: "Eco-Stewardship",
+            description: "Active care for the living substrate.",
+            value: 600,
+            is_perfect: false,
+        },
+        ObligationState {
+            name: "Ubuntu",
+            description: "I am because we are (Mentorship).",
+            value: 750,
+            is_perfect: false,
+        },
     ]);
 
     let aggregate_alignment = Memo::new(move |_| {
@@ -47,7 +77,7 @@ pub fn MoralAlgebraLesson() -> impl IntoView {
                 <div class="obligations-editor">
                     <h4>"The 16 Obligations (Ref. Test)"</h4>
                     <p class="instruction">"Adjust the alignment values to see how they impact the standard's promotion threshold."</p>
-                    
+
                     <div class="obligations-list">
                         {move || obligations.get().into_iter().enumerate().map(|(idx, obj)| {
                             let name = obj.name;
@@ -61,7 +91,7 @@ pub fn MoralAlgebraLesson() -> impl IntoView {
                                         <strong>{name}</strong>
                                     </div>
                                     <p class="obj-desc">{desc}</p>
-                                    <input 
+                                    <input
                                         type="range" min="0" max="1000" step="10"
                                         prop:value=obj.value
                                         on:input=move |ev| {
@@ -83,7 +113,7 @@ pub fn MoralAlgebraLesson() -> impl IntoView {
                             <div class="radar-fill" style=move || format!("transform: scale({})", aggregate_alignment.get() as f32 / 1000.0)></div>
                         </div>
                     </div>
-                    
+
                     <div class="audit-prediction">
                         <h5>"Symthaea Auditor Forecast:"</h5>
                         {move || {

@@ -8,7 +8,7 @@
 
 use leptos::prelude::*;
 
-use crate::curriculum::{curriculum_graph, use_progress, use_set_progress, ProgressStatus};
+use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress, use_set_progress};
 use crate::student_profile::use_profile;
 
 #[component]
@@ -21,7 +21,11 @@ pub fn ExamPrepPage() -> impl IntoView {
     // Use exam date from student profile if available, otherwise default
     let initial_date = {
         let p = profile.get_untracked();
-        if p.exam_date.is_empty() { "2026-10-26".to_string() } else { p.exam_date.clone() }
+        if p.exam_date.is_empty() {
+            "2026-10-26".to_string()
+        } else {
+            p.exam_date.clone()
+        }
     };
     let (exam_date, set_exam_date) = signal(initial_date);
     let (hours_per_day, set_hours_per_day) = signal(3u8);
@@ -30,8 +34,15 @@ pub fn ExamPrepPage() -> impl IntoView {
     // All Gr12 topics with exam weights, sorted by priority
     let exam_topics = Memo::new(move |_| {
         let p = progress.get();
-        let mut topics: Vec<_> = graph.nodes.iter()
-            .filter(|n| n.grade_levels.first().map(|g| g == "Grade12").unwrap_or(false))
+        let mut topics: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| {
+                n.grade_levels
+                    .first()
+                    .map(|g| g == "Grade12")
+                    .unwrap_or(false)
+            })
             .map(|n| {
                 let status = p.get(&n.id).status;
                 let mastery = p.get(&n.id).mastery_permille;
@@ -40,7 +51,18 @@ pub fn ExamPrepPage() -> impl IntoView {
                 let pct = n.exam_weight.as_ref().map(|w| w.percentage).unwrap_or(0.0);
                 // Priority = exam_weight * (1 - mastery/1000)
                 let priority = weight as f32 * (1.0 - mastery as f32 / 1000.0);
-                (n.id.clone(), n.title.clone(), n.subject_area.clone(), paper, weight, pct, mastery, status, priority, n.estimated_hours)
+                (
+                    n.id.clone(),
+                    n.title.clone(),
+                    n.subject_area.clone(),
+                    paper,
+                    weight,
+                    pct,
+                    mastery,
+                    status,
+                    priority,
+                    n.estimated_hours,
+                )
             })
             .collect();
         topics.sort_by(|a, b| b.8.partial_cmp(&a.8).unwrap_or(std::cmp::Ordering::Equal));
@@ -51,15 +73,24 @@ pub fn ExamPrepPage() -> impl IntoView {
     let math_stats = Memo::new(move |_| {
         let topics = exam_topics.get();
         let math: Vec<_> = topics.iter().filter(|t| t.2 == "Mathematics").collect();
-        let mastered = math.iter().filter(|t| t.7 == ProgressStatus::Mastered).count();
+        let mastered = math
+            .iter()
+            .filter(|t| t.7 == ProgressStatus::Mastered)
+            .count();
         (math.len(), mastered)
     });
 
     // Physics totals
     let phys_stats = Memo::new(move |_| {
         let topics = exam_topics.get();
-        let phys: Vec<_> = topics.iter().filter(|t| t.2 == "PhysicalSciences").collect();
-        let mastered = phys.iter().filter(|t| t.7 == ProgressStatus::Mastered).count();
+        let phys: Vec<_> = topics
+            .iter()
+            .filter(|t| t.2 == "PhysicalSciences")
+            .collect();
+        let mastered = phys
+            .iter()
+            .filter(|t| t.7 == ProgressStatus::Mastered)
+            .count();
         (phys.len(), mastered)
     });
 

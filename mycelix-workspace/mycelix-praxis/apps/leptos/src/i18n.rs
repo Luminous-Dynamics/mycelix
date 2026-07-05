@@ -6,50 +6,73 @@
 //! UI strings are translated; lesson content stays in English
 //! (content translation is a community governance task via DAO).
 
-use leptos::prelude::*;
 use crate::persistence;
+use leptos::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Lang {
-    En,    // English
-    Zu,    // isiZulu
-    Af,    // Afrikaans
-    St,    // Sesotho
-    Xh,    // isiXhosa
-    Tn,    // Setswana
-    Ns,    // Sepedi (Northern Sotho)
-    Ts,    // Xitsonga
-    Ss,    // siSwati
-    Ve,    // Tshivenda
-    Nr,    // isiNdebele
-    Fr,    // French
-    Pt,    // Portuguese
-    Es,    // Spanish
-    Sw,    // Kiswahili
-    Ar,    // Arabic
-    Hi,    // Hindi
-    Zh,    // Chinese (Simplified)
+    En, // English
+    Zu, // isiZulu
+    Af, // Afrikaans
+    St, // Sesotho
+    Xh, // isiXhosa
+    Tn, // Setswana
+    Ns, // Sepedi (Northern Sotho)
+    Ts, // Xitsonga
+    Ss, // siSwati
+    Ve, // Tshivenda
+    Nr, // isiNdebele
+    Fr, // French
+    Pt, // Portuguese
+    Es, // Spanish
+    Sw, // Kiswahili
+    Ar, // Arabic
+    Hi, // Hindi
+    Zh, // Chinese (Simplified)
 }
 
 impl Lang {
     pub fn code(&self) -> &'static str {
         match self {
-            Lang::En => "en", Lang::Zu => "zu", Lang::Af => "af", Lang::St => "st",
-            Lang::Xh => "xh", Lang::Tn => "tn", Lang::Ns => "nso", Lang::Ts => "ts",
-            Lang::Ss => "ss", Lang::Ve => "ve", Lang::Nr => "nr", Lang::Fr => "fr",
-            Lang::Pt => "pt", Lang::Es => "es", Lang::Sw => "sw", Lang::Ar => "ar",
-            Lang::Hi => "hi", Lang::Zh => "zh",
+            Lang::En => "en",
+            Lang::Zu => "zu",
+            Lang::Af => "af",
+            Lang::St => "st",
+            Lang::Xh => "xh",
+            Lang::Tn => "tn",
+            Lang::Ns => "nso",
+            Lang::Ts => "ts",
+            Lang::Ss => "ss",
+            Lang::Ve => "ve",
+            Lang::Nr => "nr",
+            Lang::Fr => "fr",
+            Lang::Pt => "pt",
+            Lang::Es => "es",
+            Lang::Sw => "sw",
+            Lang::Ar => "ar",
+            Lang::Hi => "hi",
+            Lang::Zh => "zh",
         }
     }
 
     pub fn label(&self) -> &'static str {
         match self {
-            Lang::En => "English", Lang::Zu => "isiZulu", Lang::Af => "Afrikaans",
-            Lang::St => "Sesotho", Lang::Xh => "isiXhosa", Lang::Tn => "Setswana",
-            Lang::Ns => "Sepedi", Lang::Ts => "Xitsonga", Lang::Ss => "siSwati",
-            Lang::Ve => "Tshivenda", Lang::Nr => "isiNdebele", Lang::Fr => "Fran\u{00E7}ais",
-            Lang::Pt => "Portugu\u{00EA}s", Lang::Es => "Espa\u{00F1}ol",
-            Lang::Sw => "Kiswahili", Lang::Ar => "\u{0627}\u{0644}\u{0639}\u{0631}\u{0628}\u{064A}\u{0629}",
+            Lang::En => "English",
+            Lang::Zu => "isiZulu",
+            Lang::Af => "Afrikaans",
+            Lang::St => "Sesotho",
+            Lang::Xh => "isiXhosa",
+            Lang::Tn => "Setswana",
+            Lang::Ns => "Sepedi",
+            Lang::Ts => "Xitsonga",
+            Lang::Ss => "siSwati",
+            Lang::Ve => "Tshivenda",
+            Lang::Nr => "isiNdebele",
+            Lang::Fr => "Fran\u{00E7}ais",
+            Lang::Pt => "Portugu\u{00EA}s",
+            Lang::Es => "Espa\u{00F1}ol",
+            Lang::Sw => "Kiswahili",
+            Lang::Ar => "\u{0627}\u{0644}\u{0639}\u{0631}\u{0628}\u{064A}\u{0629}",
             Lang::Hi => "\u{0939}\u{093F}\u{0928}\u{094D}\u{0926}\u{0940}",
             Lang::Zh => "\u{4E2D}\u{6587}",
         }
@@ -61,13 +84,32 @@ impl Lang {
 
     /// SA official languages
     pub fn sa_languages() -> &'static [Lang] {
-        &[Lang::En, Lang::Zu, Lang::Af, Lang::St, Lang::Xh, Lang::Tn,
-          Lang::Ns, Lang::Ts, Lang::Ss, Lang::Ve, Lang::Nr]
+        &[
+            Lang::En,
+            Lang::Zu,
+            Lang::Af,
+            Lang::St,
+            Lang::Xh,
+            Lang::Tn,
+            Lang::Ns,
+            Lang::Ts,
+            Lang::Ss,
+            Lang::Ve,
+            Lang::Nr,
+        ]
     }
 
     /// Global languages
     pub fn global_languages() -> &'static [Lang] {
-        &[Lang::Fr, Lang::Pt, Lang::Es, Lang::Sw, Lang::Ar, Lang::Hi, Lang::Zh]
+        &[
+            Lang::Fr,
+            Lang::Pt,
+            Lang::Es,
+            Lang::Sw,
+            Lang::Ar,
+            Lang::Hi,
+            Lang::Zh,
+        ]
     }
 }
 
@@ -125,7 +167,9 @@ fn t_en(key: &str) -> &'static str {
         "your_data_stays" => "Your learning data stays on your device. You own it.",
         "beyond_school" => "Beyond school?",
         "earlier_grades" => "Earlier grades or need to review basics?",
-        "deepest_roots" => "No shame in going back to strengthen foundations. The strongest trees have the deepest roots.",
+        "deepest_roots" => {
+            "No shame in going back to strengthen foundations. The strongest trees have the deepest roots."
+        }
         "language" => "Language",
         _ => "?",
     }
@@ -170,7 +214,9 @@ fn t_zu(key: &str) -> &'static str {
         "your_data_stays" => "Idatha yakho yokufunda ihlala kudivayisi yakho. Ngeyakho.",
         "beyond_school" => "Ngaphezulu kwesikole?",
         "earlier_grades" => "Amabanga angaphambili noma udinga ukubuyekeza izisekelo?",
-        "deepest_roots" => "Akukho mahloni ukubuyela emuva ukuze uqinise izisekelo. Imithi eqine kakhulu inezimpande ezijule kakhulu.",
+        "deepest_roots" => {
+            "Akukho mahloni ukubuyela emuva ukuze uqinise izisekelo. Imithi eqine kakhulu inezimpande ezijule kakhulu."
+        }
         "language" => "Ulimi",
         _ => t_en(key),
     }
@@ -215,7 +261,9 @@ fn t_af(key: &str) -> &'static str {
         "your_data_stays" => "Jou leerdata bly op jou toestel. Dit behoort aan jou.",
         "beyond_school" => "Verby skool?",
         "earlier_grades" => "Vroeër grade of moet jy basiese beginsels hersien?",
-        "deepest_roots" => "Geen skaamte om terug te gaan om fondamente te versterk nie. Die sterkste bome het die diepste wortels.",
+        "deepest_roots" => {
+            "Geen skaamte om terug te gaan om fondamente te versterk nie. Die sterkste bome het die diepste wortels."
+        }
         "language" => "Taal",
         _ => t_en(key),
     }

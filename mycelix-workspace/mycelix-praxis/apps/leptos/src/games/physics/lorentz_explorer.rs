@@ -16,7 +16,9 @@ pub fn LorentzExplorer(node_id: String) -> impl IntoView {
 
     let gamma = Memo::new(move |_| {
         let beta = v_fraction.get();
-        if beta >= 1.0 { return f64::INFINITY; }
+        if beta >= 1.0 {
+            return f64::INFINITY;
+        }
         1.0 / (1.0 - beta * beta).sqrt()
     });
 

@@ -136,7 +136,9 @@ fn yesterday_iso() -> String {
 
 fn parse_date_to_days(iso: &str) -> Option<i32> {
     let parts: Vec<&str> = iso.split('-').collect();
-    if parts.len() != 3 { return None; }
+    if parts.len() != 3 {
+        return None;
+    }
     let y: i32 = parts[0].parse().ok()?;
     let m: i32 = parts[1].parse().ok()?;
     let d: i32 = parts[2].parse().ok()?;
@@ -627,4 +629,3 @@ pub fn ExamPrediction() -> impl IntoView {
         }}
     }
 }
-

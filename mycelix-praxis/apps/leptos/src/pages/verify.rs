@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Verification Gateway — Employer Portal for Sovereign Credentials.
 
+use crate::curriculum::{CurriculumNode, curriculum_graph};
 use leptos::prelude::*;
-use crate::curriculum::{curriculum_graph, CurriculumNode};
 
 #[component]
 pub fn VerificationPage() -> impl IntoView {
@@ -14,11 +14,11 @@ pub fn VerificationPage() -> impl IntoView {
     let verify_hash = move |_| {
         set_is_verifying.set(true);
         let hash = input_hash.get();
-        
+
         // SIMULATED: Verification logic against DHT/Source Chain
         wasm_bindgen_futures::spawn_local(async move {
             gloo_timers::future::sleep(std::time::Duration::from_millis(1200)).await;
-            
+
             if hash.len() >= 8 {
                 set_verification_result.set(Some(true));
             } else {
@@ -38,14 +38,14 @@ pub fn VerificationPage() -> impl IntoView {
             <div class="verify-container">
                 <div class="verify-input-box">
                     <label>"Enter Mastery DID or Achievement Hash:"</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         placeholder="e.g. did:mycelix:praxis-alpha-student or 8f2b3c..."
                         prop:value=input_hash
                         on:input=move |ev| set_input_hash.set(event_target_value(&ev))
                     />
-                    <button 
-                        class="btn-primary" 
+                    <button
+                        class="btn-primary"
                         style="width: 100%; margin-top: 1rem"
                         on:click=verify_hash
                         disabled=move || is_verifying.get()

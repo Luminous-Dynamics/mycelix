@@ -2,21 +2,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Hardware Integration Components — WebBluetooth and Physical Presence.
 
+use crate::curriculum::{ProgressStatus, use_progress};
 use leptos::prelude::*;
-use crate::curriculum::{use_progress, ProgressStatus};
 
 #[component]
-pub fn HardwareScanner(
-    device_type: String,
-    on_linked: impl Fn(String) + 'static,
-) -> impl IntoView {
+pub fn HardwareScanner(device_type: String, on_linked: impl Fn(String) + 'static) -> impl IntoView {
     let (status, set_status) = signal("Ready to Connect".to_string());
     let (is_scanning, set_is_scanning) = signal(false);
 
     let start_handshake = move |_| {
         set_is_scanning.set(true);
         set_status.set(format!("Scanning for {}...", device_type));
-        
+
         // SIMULATED: WebBluetooth API Handshake
         wasm_bindgen_futures::spawn_local(async move {
             gloo_timers::future::sleep(std::time::Duration::from_millis(1500)).await;
@@ -33,8 +30,8 @@ pub fn HardwareScanner(
                     <strong>{device_type}</strong>
                     <div style="color: var(--text-tertiary); font-size: 0.7rem">{move || status.get()}</div>
                 </div>
-                <button 
-                    class="btn-sm btn-primary" 
+                <button
+                    class="btn-sm btn-primary"
                     on:click=start_handshake
                     disabled=move || is_scanning.get()
                 >
@@ -46,10 +43,7 @@ pub fn HardwareScanner(
 }
 
 #[component]
-pub fn PresenceValidator(
-    node_id: String,
-    on_verified: impl Fn() + 'static,
-) -> impl IntoView {
+pub fn PresenceValidator(node_id: String, on_verified: impl Fn() + 'static) -> impl IntoView {
     let (show_camera, set_show_camera) = signal(false);
 
     view! {
@@ -64,12 +58,12 @@ pub fn PresenceValidator(
                 view! {
                     <div class="camera-preview" style="width: 100%; height: 200px; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative">
                         <span style="color: #fff; font-size: 0.7rem">"Scanning for verification hash..."</span>
-                        <button 
+                        <button
                             style="position: absolute; top: 5px; right: 5px; background: none; border: none; color: white; cursor: pointer"
                             on:click=move |_| set_show_camera.set(false)
                         >"\u{00D7}"</button>
                         // Simulated QR Success
-                        <div 
+                        <div
                             style="width: 80%; height: 2px; background: var(--accent); position: absolute; animation: scan 2s infinite"
                             on:animationiteration=move |_| {
                                 set_show_camera.set(false);
@@ -84,10 +78,8 @@ pub fn PresenceValidator(
 }
 
 #[component]
-pub fn SafetyGuard<F, IV>(
-    children: F,
-) -> impl IntoView 
-where 
+pub fn SafetyGuard<F, IV>(children: F) -> impl IntoView
+where
     F: Fn() -> IV + 'static,
     IV: IntoView + 'static,
 {

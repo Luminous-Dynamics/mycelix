@@ -3,7 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 //! WebGL HDC Holograph — High-dimensional vector visualizer.
-//! Renders 16,384-dimensional vectors as holographic patterns to demonstrate 
+//! Renders 16,384-dimensional vectors as holographic patterns to demonstrate
 //! mathematical robustness to noise.
 
 use leptos::prelude::*;
@@ -13,11 +13,11 @@ use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
 #[component]
 pub fn HdcHolograph() -> impl IntoView {
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
-    
+
     // State: The 16,384-bit vector (128x128 grid)
     let (base_vector, _set_base_vector) = signal(generate_random_16k());
     let (noise_level, set_noise_level) = signal(0.0f32); // 0.0 to 1.0 (50% max entropy)
-    
+
     // Derived: Similarity score (Hamming distance based)
     let similarity = Memo::new(move |_| {
         1.0 - (noise_level.get() * 0.5) // Max noise (1.0) flips 50% of bits, making it orthogonal
@@ -49,25 +49,43 @@ pub fn HdcHolograph() -> impl IntoView {
                 );
             }
 
-            let vao = gl.create_vertex_array().ok_or("failed to create VAO").unwrap();
+            let vao = gl
+                .create_vertex_array()
+                .ok_or("failed to create VAO")
+                .unwrap();
             gl.bind_vertex_array(Some(&vao));
             let pos_loc = gl.get_attrib_location(&program, "position") as u32;
             gl.enable_vertex_attrib_array(pos_loc);
-            gl.vertex_attrib_pointer_with_i32(pos_loc, 2, WebGl2RenderingContext::FLOAT, false, 0, 0);
+            gl.vertex_attrib_pointer_with_i32(
+                pos_loc,
+                2,
+                WebGl2RenderingContext::FLOAT,
+                false,
+                0,
+                0,
+            );
 
             // Upload vector as texture
             let texture = gl.create_texture().unwrap();
             gl.bind_texture(WebGl2RenderingContext::TEXTURE_2D, Some(&texture));
-            
+
             // Texture parameters for sharp pixels
-            gl.tex_parameteri(WebGl2RenderingContext::TEXTURE_2D, WebGl2RenderingContext::TEXTURE_MIN_FILTER, WebGl2RenderingContext::NEAREST as i32);
-            gl.tex_parameteri(WebGl2RenderingContext::TEXTURE_2D, WebGl2RenderingContext::TEXTURE_MAG_FILTER, WebGl2RenderingContext::NEAREST as i32);
+            gl.tex_parameteri(
+                WebGl2RenderingContext::TEXTURE_2D,
+                WebGl2RenderingContext::TEXTURE_MIN_FILTER,
+                WebGl2RenderingContext::NEAREST as i32,
+            );
+            gl.tex_parameteri(
+                WebGl2RenderingContext::TEXTURE_2D,
+                WebGl2RenderingContext::TEXTURE_MAG_FILTER,
+                WebGl2RenderingContext::NEAREST as i32,
+            );
 
             // Render Loop (Simplified for Leptos reactive updates)
             let base = base_vector.get();
             let noise = noise_level.get();
             let mut display_data = base.clone();
-            
+
             // Inject noise (flip bits)
             if noise > 0.0 {
                 let flip_count = (16384.0 * noise * 0.5) as usize;
@@ -78,8 +96,11 @@ pub fn HdcHolograph() -> impl IntoView {
             }
 
             // Convert bools to grayscale bytes
-            let tex_bytes: Vec<u8> = display_data.iter().map(|&b| if b { 255 } else { 0 }).collect();
-            
+            let tex_bytes: Vec<u8> = display_data
+                .iter()
+                .map(|&b| if b { 255 } else { 0 })
+                .collect();
+
             gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
                 WebGl2RenderingContext::TEXTURE_2D,
                 0,
@@ -90,7 +111,8 @@ pub fn HdcHolograph() -> impl IntoView {
                 WebGl2RenderingContext::LUMINANCE,
                 WebGl2RenderingContext::UNSIGNED_BYTE,
                 Some(&tex_bytes),
-            ).unwrap();
+            )
+            .unwrap();
 
             gl.clear_color(0.0, 0.0, 0.0, 1.0);
             gl.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
@@ -101,10 +123,10 @@ pub fn HdcHolograph() -> impl IntoView {
     view! {
         <div class="hdc-holograph">
             <div class="holograph-container">
-                <canvas 
-                    node_ref=canvas_ref 
-                    width="256" 
-                    height="256" 
+                <canvas
+                    node_ref=canvas_ref
+                    width="256"
+                    height="256"
                     style="width: 100%; aspect-ratio: 1; image-rendering: pixelated; border: 1px solid var(--border); border-radius: 8px"
                 ></canvas>
                 <div class="holograph-overlay">
@@ -115,11 +137,11 @@ pub fn HdcHolograph() -> impl IntoView {
             <div class="holograph-controls">
                 <div class="control-row">
                     <label>"Noise Injection (Entropy)"</label>
-                    <input 
-                        type="range" 
-                        min="0" 
-                        max="1" 
-                        step="0.01" 
+                    <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
                         prop:value=move || noise_level.get()
                         on:input=move |ev| set_noise_level.set(event_target_value(&ev).parse().unwrap_or(0.0))
                     />
@@ -183,31 +205,55 @@ void main() {
 }
 "#;
 
-fn compile_shader(gl: &WebGl2RenderingContext, shader_type: u32, source: &str) -> Result<WebGlShader, String> {
-    let shader = gl.create_shader(shader_type).ok_or_else(|| String::from("Unable to create shader object"))?;
+fn compile_shader(
+    gl: &WebGl2RenderingContext,
+    shader_type: u32,
+    source: &str,
+) -> Result<WebGlShader, String> {
+    let shader = gl
+        .create_shader(shader_type)
+        .ok_or_else(|| String::from("Unable to create shader object"))?;
     gl.shader_source(&shader, source);
     gl.compile_shader(&shader);
 
-    if gl.get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS).as_bool().unwrap_or(false) {
+    if gl
+        .get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
         Ok(shader)
     } else {
-        Err(gl.get_shader_info_log(&shader).unwrap_or_else(|| String::from("Unknown error creating shader")))
+        Err(gl
+            .get_shader_info_log(&shader)
+            .unwrap_or_else(|| String::from("Unknown error creating shader")))
     }
 }
 
-fn link_program(gl: &WebGl2RenderingContext, vert_source: &str, frag_source: &str) -> Result<WebGlProgram, String> {
+fn link_program(
+    gl: &WebGl2RenderingContext,
+    vert_source: &str,
+    frag_source: &str,
+) -> Result<WebGlProgram, String> {
     let vert_shader = compile_shader(gl, WebGl2RenderingContext::VERTEX_SHADER, vert_source)?;
     let frag_shader = compile_shader(gl, WebGl2RenderingContext::FRAGMENT_SHADER, frag_source)?;
 
-    let program = gl.create_program().ok_or_else(|| String::from("Unable to create shader object"))?;
+    let program = gl
+        .create_program()
+        .ok_or_else(|| String::from("Unable to create shader object"))?;
 
     gl.attach_shader(&program, &vert_shader);
     gl.attach_shader(&program, &frag_shader);
     gl.link_program(&program);
 
-    if gl.get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS).as_bool().unwrap_or(false) {
+    if gl
+        .get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS)
+        .as_bool()
+        .unwrap_or(false)
+    {
         Ok(program)
     } else {
-        Err(gl.get_program_info_log(&program).unwrap_or_else(|| String::from("Unknown error linking program")))
+        Err(gl
+            .get_program_info_log(&program)
+            .unwrap_or_else(|| String::from("Unknown error linking program")))
     }
 }

@@ -53,9 +53,7 @@ pub fn provide_craft_context() {
         }
     });
 
-    provide_context(CraftContext {
-        get_vitality,
-    });
+    provide_context(CraftContext { get_vitality });
 }
 
 pub fn use_craft() -> CraftContext {
@@ -67,7 +65,7 @@ pub fn use_craft() -> CraftContext {
 pub fn VitalityIndicator(node_id: String) -> impl IntoView {
     let craft = use_craft();
     let vitality = move || (craft.get_vitality)(node_id.clone());
-    
+
     view! {
         {move || {
             let v = vitality();
@@ -77,10 +75,10 @@ pub fn VitalityIndicator(node_id: String) -> impl IntoView {
                             else { "var(--error)" };
                 let icon = if v.level_permille > 700 { "\u{1F33F}" } // Fresh leaf
                            else { "\u{1F342}" }; // Falling leaf
-                
+
                 view! {
-                    <span 
-                        class="vitality-badge" 
+                    <span
+                        class="vitality-badge"
                         title=format!("Craft Vitality: {}/1000 (Applied {} days ago)", v.level_permille, v.days_since_last_applied)
                         style=format!("color: {}; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.2rem", color)
                     >

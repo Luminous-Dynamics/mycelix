@@ -16,7 +16,9 @@ pub fn HubbleExplorer(node_id: String) -> impl IntoView {
     let recession_velocity = Memo::new(move |_| h0.get() * distance_mpc.get()); // km/s
     let recession_c = Memo::new(move |_| recession_velocity.get() / 299792.458); // fraction of c
     let age_gyr = Memo::new(move |_| {
-        if h0.get() < 0.1 { return 0.0; }
+        if h0.get() < 0.1 {
+            return 0.0;
+        }
         // t = 1/H₀ (Hubble time)
         // H₀ in km/s/Mpc → convert to 1/s → 1/H₀ in seconds → Gyr
         let h0_per_s = h0.get() / (3.086e19); // Mpc in km

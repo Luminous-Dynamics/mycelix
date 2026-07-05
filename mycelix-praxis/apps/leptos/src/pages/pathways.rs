@@ -8,60 +8,180 @@
 
 use leptos::prelude::*;
 
-use crate::curriculum::{curriculum_graph, use_progress, ProgressStatus};
+use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress};
 
 /// All subjects that have post-secondary nodes, with display names and descriptions.
 const PATHWAYS: &[(&str, &str, &str)] = &[
-    ("Cybersecurity", "Cybersecurity Career", "From security fundamentals to penetration testing and research"),
-    ("Computer Science", "Computer Science", "ACM CS2013 Body of Knowledge — algorithms, systems, AI"),
-    ("Financial Literacy", "Financial Literacy", "Earning, saving, investing, and protecting your money"),
-    ("Critical Thinking", "Critical Thinking", "Arguments, evidence, biases, and decision-making"),
-    ("Digital Literacy", "Digital Literacy", "Information, safety, creation, and citizenship online"),
-    ("Health", "Health Literacy", "Body, nutrition, mental health, and first aid"),
-    ("Emotional Intelligence", "Emotional Intelligence", "Self-awareness, empathy, and relationship skills"),
-    ("Communication", "Communication", "Writing, speaking, listening, and persuasion"),
-    ("Systems Thinking", "Systems Thinking", "Feedback loops, emergence, and leverage points"),
-    ("Sustainability", "Sustainability", "Climate, resources, and environmental justice"),
-    ("Learning Science", "Learning How to Learn", "Metacognition, spaced repetition, and deliberate practice"),
-    ("Statistics", "Statistics & Data", "Probability, inference, bias, and visualisation"),
-    ("Civic Literacy", "Civic Literacy", "Government, rights, voting, and engagement"),
-    ("Philosophy", "Philosophy", "Logic, ethics, epistemology, and metaphysics"),
-    ("Cognitive Computing", "Cognitive Computing", "HDC, IIT, active inference, and embodiment"),
-    ("Decentralized Systems", "Decentralized Systems", "Holochain, Mycelix governance, and identity"),
-    ("Economics", "Economics", "Micro, macro, behavioral, and policy"),
-    ("Mathematics", "University Mathematics", "Calculus, linear algebra, differential equations, and beyond"),
-    ("Physics", "University Physics", "Classical mechanics, E&M, quantum, and thermodynamics"),
+    (
+        "Cybersecurity",
+        "Cybersecurity Career",
+        "From security fundamentals to penetration testing and research",
+    ),
+    (
+        "Computer Science",
+        "Computer Science",
+        "ACM CS2013 Body of Knowledge — algorithms, systems, AI",
+    ),
+    (
+        "Financial Literacy",
+        "Financial Literacy",
+        "Earning, saving, investing, and protecting your money",
+    ),
+    (
+        "Critical Thinking",
+        "Critical Thinking",
+        "Arguments, evidence, biases, and decision-making",
+    ),
+    (
+        "Digital Literacy",
+        "Digital Literacy",
+        "Information, safety, creation, and citizenship online",
+    ),
+    (
+        "Health",
+        "Health Literacy",
+        "Body, nutrition, mental health, and first aid",
+    ),
+    (
+        "Emotional Intelligence",
+        "Emotional Intelligence",
+        "Self-awareness, empathy, and relationship skills",
+    ),
+    (
+        "Communication",
+        "Communication",
+        "Writing, speaking, listening, and persuasion",
+    ),
+    (
+        "Systems Thinking",
+        "Systems Thinking",
+        "Feedback loops, emergence, and leverage points",
+    ),
+    (
+        "Sustainability",
+        "Sustainability",
+        "Climate, resources, and environmental justice",
+    ),
+    (
+        "Learning Science",
+        "Learning How to Learn",
+        "Metacognition, spaced repetition, and deliberate practice",
+    ),
+    (
+        "Statistics",
+        "Statistics & Data",
+        "Probability, inference, bias, and visualisation",
+    ),
+    (
+        "Civic Literacy",
+        "Civic Literacy",
+        "Government, rights, voting, and engagement",
+    ),
+    (
+        "Philosophy",
+        "Philosophy",
+        "Logic, ethics, epistemology, and metaphysics",
+    ),
+    (
+        "Cognitive Computing",
+        "Cognitive Computing",
+        "HDC, IIT, active inference, and embodiment",
+    ),
+    (
+        "Decentralized Systems",
+        "Decentralized Systems",
+        "Holochain, Mycelix governance, and identity",
+    ),
+    (
+        "Economics",
+        "Economics",
+        "Micro, macro, behavioral, and policy",
+    ),
+    (
+        "Mathematics",
+        "University Mathematics",
+        "Calculus, linear algebra, differential equations, and beyond",
+    ),
+    (
+        "Physics",
+        "University Physics",
+        "Classical mechanics, E&M, quantum, and thermodynamics",
+    ),
     // Trades
-    ("Electrical Trade", "Electrical Trade", "Safety, domestic wiring, three-phase, solar PV, wireman's licence"),
-    ("Plumbing Trade", "Plumbing Trade", "Water supply, drainage, solar geysers"),
-    ("Welding Trade", "Welding Trade", "Arc, MIG, TIG — from basics to aluminium"),
-    ("Automotive Trade", "Automotive Trade", "Engines, electrical, brakes, diagnostics"),
-    ("Construction Trade", "Construction Trade", "Foundations, brickwork, roofing, plan reading"),
-    ("Agriculture", "Agriculture", "Crop production, small-scale farming, food gardens"),
-    ("IT Support", "IT Support", "Hardware, networking, help desk"),
-    ("Hospitality", "Hospitality", "Food safety, restaurant service, management"),
+    (
+        "Electrical Trade",
+        "Electrical Trade",
+        "Safety, domestic wiring, three-phase, solar PV, wireman's licence",
+    ),
+    (
+        "Plumbing Trade",
+        "Plumbing Trade",
+        "Water supply, drainage, solar geysers",
+    ),
+    (
+        "Welding Trade",
+        "Welding Trade",
+        "Arc, MIG, TIG — from basics to aluminium",
+    ),
+    (
+        "Automotive Trade",
+        "Automotive Trade",
+        "Engines, electrical, brakes, diagnostics",
+    ),
+    (
+        "Construction Trade",
+        "Construction Trade",
+        "Foundations, brickwork, roofing, plan reading",
+    ),
+    (
+        "Agriculture",
+        "Agriculture",
+        "Crop production, small-scale farming, food gardens",
+    ),
+    (
+        "IT Support",
+        "IT Support",
+        "Hardware, networking, help desk",
+    ),
+    (
+        "Hospitality",
+        "Hospitality",
+        "Food safety, restaurant service, management",
+    ),
     // Legal
-    ("Legal Awareness", "Legal Awareness", "Constitutional law, employment law, consumer rights, tax, data privacy, business registration"),
+    (
+        "Legal Awareness",
+        "Legal Awareness",
+        "Constitutional law, employment law, consumer rights, tax, data privacy, business registration",
+    ),
 ];
 
 /// Returns a CSS class suffix for the pathway category based on subject name.
 fn pathway_category_class(subject: &str) -> &'static str {
     match subject {
-        "Cybersecurity" | "Computer Science" | "Cognitive Computing"
-        | "Decentralized Systems" | "IT Support" => "pathway-card-tech",
+        "Cybersecurity"
+        | "Computer Science"
+        | "Cognitive Computing"
+        | "Decentralized Systems"
+        | "IT Support" => "pathway-card-tech",
 
-        "Critical Thinking" | "Philosophy" | "Learning Science" | "Statistics"
-        | "Economics" | "Mathematics" | "Physics" => "pathway-card-academic",
+        "Critical Thinking" | "Philosophy" | "Learning Science" | "Statistics" | "Economics"
+        | "Mathematics" | "Physics" => "pathway-card-academic",
 
-        "Financial Literacy" | "Health" | "Emotional Intelligence" | "Communication"
-        | "Civic Literacy" | "Digital Literacy" | "Legal Awareness"
+        "Financial Literacy"
+        | "Health"
+        | "Emotional Intelligence"
+        | "Communication"
+        | "Civic Literacy"
+        | "Digital Literacy"
+        | "Legal Awareness"
         | "Hospitality" => "pathway-card-life",
 
         "Sustainability" | "Agriculture" | "Systems Thinking" => "pathway-card-sustainability",
 
         // Trades default to tech
-        "Electrical Trade" | "Plumbing Trade" | "Welding Trade"
-        | "Automotive Trade" | "Construction Trade" => "pathway-card-tech",
+        "Electrical Trade" | "Plumbing Trade" | "Welding Trade" | "Automotive Trade"
+        | "Construction Trade" => "pathway-card-tech",
 
         _ => "",
     }
@@ -178,7 +298,11 @@ pub fn PathwaysPage() -> impl IntoView {
     }
 }
 
-fn render_level(label: &'static str, nodes: &[&crate::curriculum::CurriculumNode], progress: &crate::curriculum::ProgressStore) -> impl IntoView {
+fn render_level(
+    label: &'static str,
+    nodes: &[&crate::curriculum::CurriculumNode],
+    progress: &crate::curriculum::ProgressStore,
+) -> impl IntoView {
     if nodes.is_empty() {
         return view! { <span></span> }.into_any();
     }

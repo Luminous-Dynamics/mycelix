@@ -15,25 +15,31 @@ pub fn CoulombExplorer(node_id: String) -> impl IntoView {
     let e_charge = 1.602e-19_f64;
     let m_proton = 1.673e-27_f64;
 
-    let (q1_e, set_q1_e) = signal(1.0_f64);    // Charge 1 in units of e
-    let (q2_e, set_q2_e) = signal(-1.0_f64);   // Charge 2 in units of e
+    let (q1_e, set_q1_e) = signal(1.0_f64); // Charge 1 in units of e
+    let (q2_e, set_q2_e) = signal(-1.0_f64); // Charge 2 in units of e
     let (distance_nm, set_distance_nm) = signal(0.053_f64); // Bohr radius in nm
 
     let f_coulomb = Memo::new(move |_| {
         let r = distance_nm.get() * 1e-9;
-        if r < 1e-15 { return 0.0; }
+        if r < 1e-15 {
+            return 0.0;
+        }
         k_e * q1_e.get() * e_charge * q2_e.get() * e_charge / (r * r)
     });
 
     let f_gravity = Memo::new(move |_| {
         let r = distance_nm.get() * 1e-9;
-        if r < 1e-15 { return 0.0; }
+        if r < 1e-15 {
+            return 0.0;
+        }
         g * m_proton * m_proton / (r * r)
     });
 
     let ratio = Memo::new(move |_| {
         let fg = f_gravity.get().abs();
-        if fg < 1e-100 { return 0.0; }
+        if fg < 1e-100 {
+            return 0.0;
+        }
         f_coulomb.get().abs() / fg
     });
 

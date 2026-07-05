@@ -27,14 +27,23 @@ pub fn TimesTablesGame(node_id: String) -> impl IntoView {
             set_streak.update(|s| *s += 1);
             let s = streak.get() + 1;
             set_message.set(if s >= 5 {
-                format!("{}! {} × {} = {} — {} in a row!", 
-                    if s >= 10 { "AMAZING" } else { "Great" }, t, q, correct, s)
+                format!(
+                    "{}! {} × {} = {} — {} in a row!",
+                    if s >= 10 { "AMAZING" } else { "Great" },
+                    t,
+                    q,
+                    correct,
+                    s
+                )
             } else {
                 format!("{} × {} = {} ✓", t, q, correct)
             });
         } else {
             set_streak.set(0);
-            set_message.set(format!("{} × {} = {} (you said {})", t, q, correct, user_answer));
+            set_message.set(format!(
+                "{} × {} = {} (you said {})",
+                t, q, correct, user_answer
+            ));
         }
 
         // Next question

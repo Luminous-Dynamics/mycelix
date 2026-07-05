@@ -11,8 +11,8 @@ use wasm_bindgen::JsCast;
 pub fn IdealGasExplorer(node_id: String) -> impl IntoView {
     let r_gas = 8.314_f64; // J/(mol·K)
 
-    let (pressure, set_pressure) = signal(101325.0_f64);  // Pa (1 atm)
-    let (volume, set_volume) = signal(0.0224_f64);          // m³ (22.4 L at STP)
+    let (pressure, set_pressure) = signal(101325.0_f64); // Pa (1 atm)
+    let (volume, set_volume) = signal(0.0224_f64); // m³ (22.4 L at STP)
     let (moles, set_moles) = signal(1.0_f64);
     let (temperature, set_temperature) = signal(273.15_f64); // K (0°C)
     let (locked, set_locked) = signal("T".to_string()); // Which variable to compute
@@ -28,7 +28,11 @@ pub fn IdealGasExplorer(node_id: String) -> impl IntoView {
     let balance = Memo::new(move |_| {
         let diff = (pv.get() - nrt.get()).abs();
         let avg = (pv.get() + nrt.get()) / 2.0;
-        if avg < 0.001 { 100.0 } else { (1.0 - diff / avg) * 100.0 }
+        if avg < 0.001 {
+            100.0
+        } else {
+            (1.0 - diff / avg) * 100.0
+        }
     });
 
     view! {

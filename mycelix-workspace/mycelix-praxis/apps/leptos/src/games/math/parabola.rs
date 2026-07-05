@@ -6,10 +6,10 @@
 //! Five challenges guide discovery of parameter effects.
 //! Proven mechanic for building function intuition (PhET/Desmos research).
 
-use leptos::prelude::*;
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::games::shared::graph_renderer::{GraphArea, GraphConfig};
-use crate::curriculum::{use_set_progress, ProgressStatus};
 use crate::social_proof;
+use leptos::prelude::*;
 
 /// Generate SVG path data for a parabola y = a(x-p)² + q
 fn parabola_path(a: f64, p: f64, q: f64, x_min: f64, x_max: f64) -> String {
@@ -22,7 +22,9 @@ fn parabola_path(a: f64, p: f64, q: f64, x_min: f64, x_max: f64) -> String {
         let y = a * (x - p).powi(2) + q;
         let svg_y = -y; // SVG y-axis is inverted
 
-        if svg_y < -12.0 || svg_y > 12.0 { continue; } // clip
+        if svg_y < -12.0 || svg_y > 12.0 {
+            continue;
+        } // clip
 
         if path.is_empty() {
             path = format!("M {:.2} {:.2}", x, svg_y);
@@ -88,9 +90,7 @@ pub fn ParabolaExplorer(node_id: String) -> impl IntoView {
     let total_challenges = all_challenges.len();
 
     // Derived: SVG path
-    let curve_path = Memo::new(move |_| {
-        parabola_path(a.get(), p.get(), q.get(), -10.0, 10.0)
-    });
+    let curve_path = Memo::new(move |_| parabola_path(a.get(), p.get(), q.get(), -10.0, 10.0));
 
     // Derived: vertex position (SVG coords)
     let vertex_x = Memo::new(move |_| p.get());
@@ -112,8 +112,16 @@ pub fn ParabolaExplorer(node_id: String) -> impl IntoView {
         let av = a.get();
         let pv = p.get();
         let qv = q.get();
-        let p_sign = if pv >= 0.0 { format!("- {:.1}", pv) } else { format!("+ {:.1}", -pv) };
-        let q_sign = if qv >= 0.0 { format!("+ {:.1}", qv) } else { format!("- {:.1}", -qv) };
+        let p_sign = if pv >= 0.0 {
+            format!("- {:.1}", pv)
+        } else {
+            format!("+ {:.1}", -pv)
+        };
+        let q_sign = if qv >= 0.0 {
+            format!("+ {:.1}", qv)
+        } else {
+            format!("- {:.1}", -qv)
+        };
         format!("y = {:.1}(x {})² {}", av, p_sign, q_sign)
     });
 
@@ -123,13 +131,12 @@ pub fn ParabolaExplorer(node_id: String) -> impl IntoView {
         move || {
             let idx = challenge_idx.get_untracked();
             let challenges = challenges();
-            if idx >= challenges.len() { return; }
+            if idx >= challenges.len() {
+                return;
+            }
 
-            let passed = (challenges[idx].check)(
-                a.get_untracked(),
-                p.get_untracked(),
-                q.get_untracked(),
-            );
+            let passed =
+                (challenges[idx].check)(a.get_untracked(), p.get_untracked(), q.get_untracked());
 
             set_attempt_count.update(|c| *c += 1);
 

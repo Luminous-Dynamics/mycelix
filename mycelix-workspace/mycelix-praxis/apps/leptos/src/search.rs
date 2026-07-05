@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Offline Semantic Search — Local-WASM Vector Intent Matching.
 
-use leptos::prelude::*;
 use crate::curriculum::curriculum_graph;
+use leptos::prelude::*;
 
 #[component]
 pub fn SearchBar() -> impl IntoView {
@@ -22,8 +22,8 @@ pub fn SearchBar() -> impl IntoView {
 
     view! {
         <div class="search-container" style="position: relative; width: 100%; max-width: 400px">
-            <input 
-                type="text" 
+            <input
+                type="text"
                 placeholder="Search by intent (e.g. 'growing food')..."
                 style="width: 100%; padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border); background: var(--surface)"
                 prop:value=query

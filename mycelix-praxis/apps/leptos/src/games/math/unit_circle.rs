@@ -5,9 +5,9 @@
 //! Students rotate a point around the unit circle and see sin, cos, tan
 //! values update in real-time with visual projections.
 
-use leptos::prelude::*;
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::games::shared::graph_renderer::{GraphArea, GraphConfig};
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use leptos::prelude::*;
 
 struct Challenge {
     instruction: &'static str,
@@ -73,7 +73,11 @@ pub fn UnitCircleExplorer(node_id: String) -> impl IntoView {
     let sin_val = Memo::new(move |_| angle_rad.get().sin());
     let tan_val = Memo::new(move |_| {
         let c = cos_val.get();
-        if c.abs() < 0.01 { f64::NAN } else { sin_val.get() / c }
+        if c.abs() < 0.01 {
+            f64::NAN
+        } else {
+            sin_val.get() / c
+        }
     });
 
     let point_x = Memo::new(move |_| cos_val.get());
@@ -81,20 +85,37 @@ pub fn UnitCircleExplorer(node_id: String) -> impl IntoView {
 
     let quadrant = Memo::new(move |_| {
         let a = angle_deg.get() % 360.0;
-        if a < 90.0 { "Q1" } else if a < 180.0 { "Q2" } else if a < 270.0 { "Q3" } else { "Q4" }
+        if a < 90.0 {
+            "Q1"
+        } else if a < 180.0 {
+            "Q2"
+        } else if a < 270.0 {
+            "Q3"
+        } else {
+            "Q4"
+        }
     });
 
     // Unit circle path (full circle)
     let circle_path = "M 1 0 A 1 1 0 0 1 -1 0 A 1 1 0 0 1 1 0";
 
-    let config = GraphConfig { x_min: -1.8, x_max: 1.8, y_min: -1.8, y_max: 1.8, show_grid: false, grid_step: 0.5 };
+    let config = GraphConfig {
+        x_min: -1.8,
+        x_max: 1.8,
+        y_min: -1.8,
+        y_max: 1.8,
+        show_grid: false,
+        grid_step: 0.5,
+    };
 
     let check_challenge = {
         let node_id = node_id.clone();
         move || {
             let idx = challenge_idx.get_untracked();
             let ch = challenges();
-            if idx >= ch.len() { return; }
+            if idx >= ch.len() {
+                return;
+            }
             if (ch[idx].check)(angle_deg.get_untracked()) {
                 set_show_success.set(true);
                 set_completed_count.update(|c| *c += 1);
@@ -108,7 +129,9 @@ pub fn UnitCircleExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

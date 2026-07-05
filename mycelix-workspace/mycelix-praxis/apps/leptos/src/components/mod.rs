@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Shared UI components.
 
-pub mod hardware;
 pub mod gl_canvas;
+pub mod hardware;
+pub mod suggestion_overlay;
 pub mod sync_hud;
 pub mod voice_ops;

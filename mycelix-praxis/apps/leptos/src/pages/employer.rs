@@ -28,14 +28,14 @@ pub fn EmployerPortal() -> impl IntoView {
                 <div class="search-container">
                     <div class="search-input-wrapper">
                         <span class="search-icon">"\u{1F50D}"</span>
-                        <input 
-                            type="text" 
-                            placeholder="Enter ESCO code (e.g. 2512 for Software Dev)" 
+                        <input
+                            type="text"
+                            placeholder="Enter ESCO code (e.g. 2512 for Software Dev)"
                             prop:value=search_query
                             on:input=move |ev| set_search_query.set(event_target_value(&ev))
                         />
                     </div>
-                    <button 
+                    <button
                         class="btn-search"
                         on:click=move |_| {
                             set_is_searching.set(true);
@@ -78,13 +78,13 @@ pub fn EmployerPortal() -> impl IntoView {
                     </div>
 
                     <div class="results-grid">
-                        <TalentCard 
+                        <TalentCard
                             did="did:mycelix:x7f2...89a"
                             trust=880
                             skills=vec!["Software Developer", "Systems Architect"]
                             zk_verified=true
                         />
-                        <TalentCard 
+                        <TalentCard
                             did="did:mycelix:u9b4...22c"
                             trust=740
                             skills=vec!["Software Developer"]

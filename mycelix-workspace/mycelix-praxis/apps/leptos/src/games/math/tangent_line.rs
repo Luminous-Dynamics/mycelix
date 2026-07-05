@@ -6,15 +6,19 @@
 //! drawn in real-time. The gradient value updates live.
 //! Challenges: find turning points, identify increasing/decreasing intervals.
 
-use leptos::prelude::*;
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::games::shared::graph_renderer::{GraphArea, GraphConfig};
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use leptos::prelude::*;
 
 /// f(x) = x³ - 3x + 1
-fn f(x: f64) -> f64 { x * x * x - 3.0 * x + 1.0 }
+fn f(x: f64) -> f64 {
+    x * x * x - 3.0 * x + 1.0
+}
 
 /// f'(x) = 3x² - 3
-fn f_prime(x: f64) -> f64 { 3.0 * x * x - 3.0 }
+fn f_prime(x: f64) -> f64 {
+    3.0 * x * x - 3.0
+}
 
 fn curve_path(x_min: f64, x_max: f64) -> String {
     let steps = 200;
@@ -23,9 +27,14 @@ fn curve_path(x_min: f64, x_max: f64) -> String {
     for i in 0..=steps {
         let x = x_min + i as f64 * dx;
         let y = -f(x);
-        if y < -12.0 || y > 12.0 { continue; }
-        if path.is_empty() { path = format!("M {:.2} {:.2}", x, y); }
-        else { path.push_str(&format!(" L {:.2} {:.2}", x, y)); }
+        if y < -12.0 || y > 12.0 {
+            continue;
+        }
+        if path.is_empty() {
+            path = format!("M {:.2} {:.2}", x, y);
+        } else {
+            path.push_str(&format!(" L {:.2} {:.2}", x, y));
+        }
     }
     path
 }
@@ -86,20 +95,33 @@ pub fn TangentLineExplorer(node_id: String) -> impl IntoView {
 
     let gradient_color = Memo::new(move |_| {
         let g = gradient.get();
-        if g.abs() < 0.3 { "var(--warning)" }
-        else if g > 0.0 { "var(--success)" }
-        else { "var(--error)" }
+        if g.abs() < 0.3 {
+            "var(--warning)"
+        } else if g > 0.0 {
+            "var(--success)"
+        } else {
+            "var(--error)"
+        }
     });
 
     let static_curve = curve_path(-5.0, 5.0);
-    let config = GraphConfig { x_min: -5.0, x_max: 5.0, y_min: -5.0, y_max: 5.0, show_grid: true, grid_step: 1.0 };
+    let config = GraphConfig {
+        x_min: -5.0,
+        x_max: 5.0,
+        y_min: -5.0,
+        y_max: 5.0,
+        show_grid: true,
+        grid_step: 1.0,
+    };
 
     let check_challenge = {
         let node_id = node_id.clone();
         move || {
             let idx = challenge_idx.get_untracked();
             let ch = challenges();
-            if idx >= ch.len() { return; }
+            if idx >= ch.len() {
+                return;
+            }
             if (ch[idx].check)(x_pos.get_untracked()) {
                 set_show_success.set(true);
                 set_completed_count.update(|c| *c += 1);
@@ -113,7 +135,9 @@ pub fn TangentLineExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

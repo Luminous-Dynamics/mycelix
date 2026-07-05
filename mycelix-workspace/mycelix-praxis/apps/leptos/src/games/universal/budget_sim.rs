@@ -34,17 +34,26 @@ pub fn BudgetSimulator(node_id: String) -> impl IntoView {
     let health = Memo::new(move |_| {
         let s = savings.get();
         let n = needs.get();
-        if s >= 20 && n >= 40 && n <= 60 { "Healthy balance" }
-        else if s < 10 { "Warning: too little savings" }
-        else if n > 70 { "Warning: needs are too high" }
-        else { "Adjust to find your balance" }
+        if s >= 20 && n >= 40 && n <= 60 {
+            "Healthy balance"
+        } else if s < 10 {
+            "Warning: too little savings"
+        } else if n > 70 {
+            "Warning: needs are too high"
+        } else {
+            "Adjust to find your balance"
+        }
     });
 
     let health_color = Memo::new(move |_| {
         let s = savings.get();
-        if s >= 20 { "var(--mastery-green)" }
-        else if s >= 10 { "var(--warning)" }
-        else { "var(--error)" }
+        if s >= 20 {
+            "var(--mastery-green)"
+        } else if s >= 10 {
+            "var(--warning)"
+        } else {
+            "var(--error)"
+        }
     });
 
     view! {

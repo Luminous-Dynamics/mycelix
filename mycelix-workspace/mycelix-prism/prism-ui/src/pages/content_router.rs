@@ -6,6 +6,7 @@
 use crate::components::compare_view::CompareView;
 use crate::components::result_card::ResultCard;
 use crate::components::sentient_overlay;
+use crate::external_search::{self, ExternalResult, SearchStatus};
 use crate::pages::settings::SettingsPage;
 use crate::pages::submit_claim::SubmitClaimPage;
 use crate::state::{BrowserState, PageView};
@@ -166,6 +167,13 @@ fn SearchResultsPage(query: String, results: Vec<SearchResult>) -> impl IntoView
         .fold(0.0_f32, f32::max);
     let weak_results = max_sim < 0.08;
 
+    // "Ask Symthaea" — opt-in only, fires on click, never automatically.
+    // Deliberately not part of Compare mode's auto-firing engine set (see
+    // compare_view.rs): keeps volume low/high-signal. `None` = not yet
+    // asked (show the button); `Some(_)` = asked (show status/answer).
+    let (symthaea_result, set_symthaea_result) = signal(None::<ExternalResult>);
+    let symthaea_query = query.clone();
+
     view! {
         <div class="search-results">
             <div class="search-header">
@@ -216,6 +224,50 @@ fn SearchResultsPage(query: String, results: Vec<SearchResult>) -> impl IntoView
                                 "strong matches for this query. Results below are approximate matches "
                                 "and external sources \u{2014} treat them as unverified."
                             </p>
+                            <div class="ask-symthaea">
+                                {move || match symthaea_result.get() {
+                                    None => {
+                                        let q = symthaea_query.clone();
+                                        view! {
+                                            <button
+                                                class="ask-symthaea-button"
+                                                on:click=move |_| {
+                                                    let q = q.clone();
+                                                    set_symthaea_result.set(Some(ExternalResult::loading("Symthaea")));
+                                                    wasm_bindgen_futures::spawn_local(async move {
+                                                        let result = external_search::ask_symthaea(&q).await;
+                                                        set_symthaea_result.set(Some(result));
+                                                    });
+                                                }
+                                            >
+                                                "Ask Symthaea \u{2014} consult a deeper reasoning system"
+                                            </button>
+                                        }.into_any()
+                                    }
+                                    Some(r) if r.status == SearchStatus::Loading => view! {
+                                        <div class="ask-symthaea-loading">
+                                            <span class="spinner"></span>
+                                            " Symthaea is thinking\u{2026} (this can take a minute or two)"
+                                        </div>
+                                    }.into_any(),
+                                    Some(r) => {
+                                        if let SearchStatus::Error(msg) = &r.status {
+                                            view! { <div class="ask-symthaea-error">{msg.clone()}</div> }.into_any()
+                                        } else {
+                                            let hit = r.hits.first().cloned();
+                                            match hit {
+                                                Some(h) => view! {
+                                                    <div class="ask-symthaea-answer">
+                                                        <div class="ask-symthaea-answer-title">{h.title.clone()}</div>
+                                                        <p>{h.snippet.clone()}</p>
+                                                    </div>
+                                                }.into_any(),
+                                                None => view! { <div class="ask-symthaea-error">"No answer returned."</div> }.into_any(),
+                                            }
+                                        }
+                                    }
+                                }}
+                            </div>
                         </div>
                     </div>
                 }.into_any()
@@ -360,7 +412,7 @@ fn EpistemicDrawer(url: String) -> impl IntoView {
                     {if has_claims {
                         view! {
                             <div class="drawer-claims">
-                                {related_claims.into_iter().map(|r| {
+                                {related_claims.iter().map(|r| {
                                     let e_class = match r.empirical_level {
                                         prism_common::EmpiricalLevel::E4 => "e-badge e4",
                                         prism_common::EmpiricalLevel::E3 => "e-badge e3",

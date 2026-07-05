@@ -14,10 +14,12 @@ use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-use crate::curriculum::{curriculum_graph, use_progress, use_set_progress, ProgressStatus, BktState};
+use crate::curriculum::{
+    BktState, ProgressStatus, curriculum_graph, use_progress, use_set_progress,
+};
 use crate::games;
-use crate::social_proof;
 use crate::persistence;
+use crate::social_proof;
 
 // ============================================================
 // Lesson data types (from generated JSON)
@@ -117,13 +119,21 @@ async fn fetch_lesson(node_id: &str) -> Result<NodeContent, String> {
         Some("Undergraduate") | Some("Graduate") | Some("Doctoral") | Some("Adult") => {
             // Post-Gr12: use subject-based directory
             let subject_dir = node_meta
-                .map(|n| n.subject_area.to_lowercase().replace(' ', "-").replace('&', "and"))
+                .map(|n| {
+                    n.subject_area
+                        .to_lowercase()
+                        .replace(' ', "-")
+                        .replace('&', "and")
+                })
                 .unwrap_or_else(|| "general".into());
             format!("/curriculum/generated/{}/{}", subject_dir, filename)
         }
         _ => {
             // K-12: existing logic
-            let grade_num = (1..=12).rev().find(|g| id_lower.contains(&format!("gr{}", g))).unwrap_or(12);
+            let grade_num = (1..=12)
+                .rev()
+                .find(|g| id_lower.contains(&format!("gr{}", g)))
+                .unwrap_or(12);
             let subject_dir = if id_lower.contains("naturalsciences") {
                 format!("natsci-{}", grade_num)
             } else if id_lower.contains("physicalsciences") {
@@ -180,13 +190,19 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                 <h2>"Topic not found"</h2>
                 <p>"The topic "{node_id}" was not found in the curriculum."</p>
             </div>
-        }.into_any();
+        }
+        .into_any();
     };
 
     let title = node.title.clone();
     let description = node.description.clone();
     let subdomain = node.subdomain.clone();
-    let grade_label = node.grade_levels.first().cloned().unwrap_or_default().replace("Grade", "Grade ");
+    let grade_label = node
+        .grade_levels
+        .first()
+        .cloned()
+        .unwrap_or_default()
+        .replace("Grade", "Grade ");
     let bloom = node.bloom_level.clone();
     let hours = node.estimated_hours;
     let exam_weight = node.exam_weight.clone();

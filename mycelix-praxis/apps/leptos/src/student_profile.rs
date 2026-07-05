@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Student Profile management and civilizational role visualization.
 
+use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress};
+use crate::pages::careers::MetabolicSector;
+use crate::persistence;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::curriculum::{curriculum_graph, use_progress, ProgressStatus};
-use crate::persistence;
-use crate::pages::careers::MetabolicSector;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct StudentProfile {
@@ -22,12 +22,12 @@ pub struct StudentProfile {
 pub fn ProfilePage() -> impl IntoView {
     let progress = use_progress();
     let profile = persistence::load::<StudentProfile>("praxis_profile").unwrap_or_default();
-    
+
     // Derived: Metabolic Readiness Stats
     let metabolic_readiness = Memo::new(move |_| {
         let graph = curriculum_graph();
         let p = progress.get();
-        
+
         let sectors = vec![
             MetabolicSector::DigitalMesh,
             MetabolicSector::HabitatEngineering,
@@ -35,33 +35,70 @@ pub fn ProfilePage() -> impl IntoView {
             MetabolicSector::SovereignGovernance,
             MetabolicSector::IndustrialMetabolism,
         ];
-        
-        sectors.into_iter().map(|sector| {
-            let sector_certs: Vec<_> = graph.nodes.iter()
-                .filter(|n| !n.industry_mappings.is_empty())
-                .filter(|n| {
-                    match sector {
-                        MetabolicSector::DigitalMesh => n.subject_area.contains("Computer") || n.domain.contains("IT") || n.domain.contains("Cyber"),
-                        MetabolicSector::HabitatEngineering => n.subject_area.contains("Engineering") || n.domain.contains("Habitat") || n.domain.contains("Building"),
-                        MetabolicSector::BioregionalVitality => n.subject_area.contains("Health") || n.domain.contains("Vitality") || n.domain.contains("Care"),
-                        MetabolicSector::SovereignGovernance => n.subject_area.contains("Social") || n.domain.contains("Law") || n.domain.contains("Governance"),
-                        MetabolicSector::IndustrialMetabolism => n.subject_area.contains("Engineering") || n.domain.contains("Trades") || n.domain.contains("Industrial"),
+
+        sectors
+            .into_iter()
+            .map(|sector| {
+                let sector_certs: Vec<_> = graph
+                    .nodes
+                    .iter()
+                    .filter(|n| !n.industry_mappings.is_empty())
+                    .filter(|n| match sector {
+                        MetabolicSector::DigitalMesh => {
+                            n.subject_area.contains("Computer")
+                                || n.domain.contains("IT")
+                                || n.domain.contains("Cyber")
+                        }
+                        MetabolicSector::HabitatEngineering => {
+                            n.subject_area.contains("Engineering")
+                                || n.domain.contains("Habitat")
+                                || n.domain.contains("Building")
+                        }
+                        MetabolicSector::BioregionalVitality => {
+                            n.subject_area.contains("Health")
+                                || n.domain.contains("Vitality")
+                                || n.domain.contains("Care")
+                        }
+                        MetabolicSector::SovereignGovernance => {
+                            n.subject_area.contains("Social")
+                                || n.domain.contains("Law")
+                                || n.domain.contains("Governance")
+                        }
+                        MetabolicSector::IndustrialMetabolism => {
+                            n.subject_area.contains("Engineering")
+                                || n.domain.contains("Trades")
+                                || n.domain.contains("Industrial")
+                        }
                         _ => true,
-                    }
-                })
-                .collect();
-            
-            if sector_certs.is_empty() { return (sector, 0u8); }
-            
-            let total_coverage: f32 = sector_certs.iter().map(|n| {
-                let prereqs = graph.prereqs_for(&n.id);
-                if prereqs.is_empty() { return if p.get(&n.id).status == ProgressStatus::Mastered { 100.0 } else { 0.0 }; }
-                let mastered_count = prereqs.iter().filter(|pid| p.get(*pid).status == ProgressStatus::Mastered).count();
-                (mastered_count as f32 / prereqs.len() as f32) * 100.0
-            }).sum();
-            
-            (sector, (total_coverage / sector_certs.len() as f32) as u8)
-        }).collect::<Vec<_>>()
+                    })
+                    .collect();
+
+                if sector_certs.is_empty() {
+                    return (sector, 0u8);
+                }
+
+                let total_coverage: f32 = sector_certs
+                    .iter()
+                    .map(|n| {
+                        let prereqs = graph.prereqs_for(&n.id);
+                        if prereqs.is_empty() {
+                            return if p.get(&n.id).status == ProgressStatus::Mastered {
+                                100.0
+                            } else {
+                                0.0
+                            };
+                        }
+                        let mastered_count = prereqs
+                            .iter()
+                            .filter(|pid| p.get(*pid).status == ProgressStatus::Mastered)
+                            .count();
+                        (mastered_count as f32 / prereqs.len() as f32) * 100.0
+                    })
+                    .sum();
+
+                (sector, (total_coverage / sector_certs.len() as f32) as u8)
+            })
+            .collect::<Vec<_>>()
     });
 
     view! {
@@ -75,7 +112,7 @@ pub fn ProfilePage() -> impl IntoView {
             <section class="readiness-section">
                 <h3>"Metabolic Readiness Radar"</h3>
                 <p class="section-subtitle">"Your average match coverage across civilizational sectors."</p>
-                
+
                 <div class="radar-container" style="margin-top: 2rem">
                     {move || metabolic_readiness.get().into_iter().map(|(sector, score)| {
                         let color = match sector {
@@ -119,8 +156,8 @@ pub fn ProfilePage() -> impl IntoView {
                 <p style="font-size: 0.85rem; line-height: 1.5; color: var(--text)">
                     "You retain sovereign ownership of your knowledge graph. This failsafe ensures you can never be trapped by this protocol. One click to export your entire history, reputation, and artifacts."
                 </p>
-                <button 
-                    class="btn-primary" 
+                <button
+                    class="btn-primary"
                     style="margin-top: 1rem; background: var(--error); border-color: var(--error)"
                     on:click=move |_| {
                         // Trigger 1-click JSON/HDC export logic

@@ -30,7 +30,7 @@ pub fn WaterStewardshipGame() -> impl IntoView {
         set_state.update(|s| {
             // Natural evaporation and plant uptake
             s.soil_moisture_pct = s.soil_moisture_pct.saturating_sub(1);
-            
+
             // Automatic filtration flow
             if s.raw_greywater_liters > 0.1 && s.filter_clog_permille < 950 {
                 let flow = 0.5 * (1.0 - (s.filter_clog_permille as f32 / 1000.0));
@@ -79,7 +79,7 @@ pub fn WaterStewardshipGame() -> impl IntoView {
                             <div class="water-level" style=move || format!("height: {}%", (state.get().filtered_reservoir_liters * 2.0).min(100.0))></div>
                         </div>
                         <span class="tank-label">{move || format!("{:.1}L", state.get().filtered_reservoir_liters)}</span>
-                        <button 
+                        <button
                             class="btn-sm btn-primary"
                             disabled=move || state.get().filtered_reservoir_liters < 5.0
                             on:click=move |_| {
@@ -96,7 +96,7 @@ pub fn WaterStewardshipGame() -> impl IntoView {
                 <div class="water-logic">
                     <h4>"Stewardship Challenge"</h4>
                     <p>"Maintain soil moisture above 40% without letting the raw greywater tank overflow or the filter clog completely."</p>
-                    
+
                     <div class="proof-of-dirt-box">
                         <h5>"Proof of Dirt (IoT Forecast):"</h5>
                         {move || {

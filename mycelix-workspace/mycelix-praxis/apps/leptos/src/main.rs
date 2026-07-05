@@ -5,8 +5,12 @@
 use leptos::prelude::*;
 
 mod achievements;
+mod adaptivity_provider;
 mod app;
+mod cognitive_adaptivity;
 mod components;
+mod consciousness;
+mod consciousness_ui;
 mod craft;
 mod curriculum;
 mod games;
@@ -14,6 +18,7 @@ mod graph_cache;
 mod holochain;
 mod i18n;
 mod katex;
+mod learning_engine;
 mod ledger;
 mod location;
 mod mesh;

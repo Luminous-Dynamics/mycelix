@@ -24,9 +24,9 @@ static UNIFIED_GRAPH: OnceLock<CurriculumGraph> = OnceLock::new();
 /// Get the parsed unified graph (lazily initialized and merged with seeds).
 pub fn curriculum_graph() -> &'static CurriculumGraph {
     UNIFIED_GRAPH.get_or_init(|| {
-        let mut base_raw: RawCurriculumDocument = serde_json::from_str(UNIFIED_JSON)
-            .expect("base unified JSON must be valid");
-        
+        let mut base_raw: RawCurriculumDocument =
+            serde_json::from_str(UNIFIED_JSON).expect("base unified JSON must be valid");
+
         // Systematic merge of all vocational and professional seeds
         let seeds = vec![
             include_str!("../../../examples/curriculum/vocational/applied_resilience.json"),
@@ -68,23 +68,33 @@ pub fn curriculum_graph() -> &'static CurriculumGraph {
             include_str!("../../../examples/curriculum/vocational/industry_certs_resilient.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_elite.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_trades.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_comprehensive.json"),
+            include_str!(
+                "../../../examples/curriculum/vocational/industry_certs_comprehensive.json"
+            ),
             include_str!("../../../examples/curriculum/vocational/industry_certs_catalyst.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_market.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_momentum.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_momentum_v2.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_revenue.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_frontline_trades.json"),
+            include_str!(
+                "../../../examples/curriculum/vocational/industry_certs_frontline_trades.json"
+            ),
             include_str!("../../../examples/curriculum/vocational/industry_certs_specialty.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_tactical.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_vanguard.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_summit.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_ascendant.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_legacy_bridge.json"),
+            include_str!(
+                "../../../examples/curriculum/vocational/industry_certs_legacy_bridge.json"
+            ),
             include_str!("../../../examples/curriculum/vocational/industry_certs_nexus.json"),
             include_str!("../../../examples/curriculum/vocational/industry_certs_apex_today.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_practical_prosperity.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_global_citizen.json"),
+            include_str!(
+                "../../../examples/curriculum/vocational/industry_certs_practical_prosperity.json"
+            ),
+            include_str!(
+                "../../../examples/curriculum/vocational/industry_certs_global_citizen.json"
+            ),
             include_str!("../../../examples/curriculum/vocational/industry_certs_horizon.json"),
             include_str!("../../../examples/curriculum/vocational/universal_wisdom.json"),
             include_str!("../../../examples/curriculum/vocational/living_tradition.json"),
@@ -92,8 +102,8 @@ pub fn curriculum_graph() -> &'static CurriculumGraph {
         ];
 
         for seed_json in seeds {
-            let seed_raw: RawCurriculumDocument = serde_json::from_str(seed_json)
-                .expect("all curriculum seeds must be valid JSON");
+            let seed_raw: RawCurriculumDocument =
+                serde_json::from_str(seed_json).expect("all curriculum seeds must be valid JSON");
             base_raw.nodes.extend(seed_raw.nodes);
             base_raw.edges.extend(seed_raw.edges);
         }
@@ -161,29 +171,30 @@ pub struct CurriculumNode {
     pub gaia_target: Option<GaiaSignal>,
     #[serde(default)]
     pub apoptosis: Option<ApoptosisState>,
-    }
+}
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct ApoptosisState {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApoptosisState {
     pub last_accessed: u64,
     pub usage_velocity: f32,
     pub semantic_weight: u16,
-    }
+}
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct LineageAnchor {    pub creator_did: String,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LineageAnchor {
+    pub creator_did: String,
     pub mentor_dids: Vec<String>,
     pub generation: u32,
-    }
+}
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct GaiaSignal {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GaiaSignal {
     pub metric_type: String,
     pub target_delta: f32,
-    }
+}
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct WisdomBridge {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WisdomBridge {
     pub hardiness_zones: Vec<u8>,
     pub min_annual_rainfall_mm: Option<u32>,
     pub terrain_types: Vec<String>,
@@ -212,7 +223,9 @@ pub struct EconomicSignals {
     pub local_demand_multiplier: f32, // Controlled by Isibaya Governance
 }
 
-fn default_multiplier() -> f32 { 1.0 }
+fn default_multiplier() -> f32 {
+    1.0
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WisdomBridge {
@@ -304,12 +317,12 @@ pub struct CurriculumEdge {
 pub struct CurriculumGraph {
     pub nodes: Vec<CurriculumNode>,
     pub edges: Vec<CurriculumEdge>,
-    pub by_id: HashMap<String, usize>,         // node id -> index
+    pub by_id: HashMap<String, usize>, // node id -> index
     pub by_subject_grade: HashMap<(String, String), Vec<usize>>, // (subject, grade) -> indices
     pub prerequisites: HashMap<String, Vec<String>>, // node id -> prerequisite node ids
-    pub dependents: HashMap<String, Vec<String>>,    // node id -> nodes that depend on it
+    pub dependents: HashMap<String, Vec<String>>, // node id -> nodes that depend on it
     /// Cross-subject edges (AppliedIn/RelatedTo) indexed by node id
-    pub cross_subject: HashMap<String, Vec<usize>>,  // node id -> edge indices
+    pub cross_subject: HashMap<String, Vec<usize>>, // node id -> edge indices
 }
 
 impl CurriculumGraph {
@@ -349,8 +362,14 @@ impl CurriculumGraph {
 
             // Index cross-subject edges (AppliedIn/RelatedTo)
             if edge.edge_type == "AppliedIn" || edge.edge_type == "RelatedTo" {
-                cross_subject.entry(edge.from.clone()).or_default().push(edge_idx);
-                cross_subject.entry(edge.to.clone()).or_default().push(edge_idx);
+                cross_subject
+                    .entry(edge.from.clone())
+                    .or_default()
+                    .push(edge_idx);
+                cross_subject
+                    .entry(edge.to.clone())
+                    .or_default()
+                    .push(edge_idx);
             }
         }
 
@@ -388,16 +407,26 @@ impl CurriculumGraph {
 
     /// Get cross-subject connections for a node (AppliedIn/RelatedTo edges).
     /// Returns (neighbor_node, edge, is_outgoing) tuples.
-    pub fn cross_subject_neighbors(&self, node_id: &str) -> Vec<(&CurriculumNode, &CurriculumEdge)> {
+    pub fn cross_subject_neighbors(
+        &self,
+        node_id: &str,
+    ) -> Vec<(&CurriculumNode, &CurriculumEdge)> {
         self.cross_subject
             .get(node_id)
             .map(|edge_indices| {
-                edge_indices.iter().filter_map(|&ei| {
-                    let edge = &self.edges[ei];
-                    let neighbor_id = if edge.from == node_id { &edge.to } else { &edge.from };
-                    let neighbor = self.node(neighbor_id)?;
-                    Some((neighbor, edge))
-                }).collect()
+                edge_indices
+                    .iter()
+                    .filter_map(|&ei| {
+                        let edge = &self.edges[ei];
+                        let neighbor_id = if edge.from == node_id {
+                            &edge.to
+                        } else {
+                            &edge.from
+                        };
+                        let neighbor = self.node(neighbor_id)?;
+                        Some((neighbor, edge))
+                    })
+                    .collect()
             })
             .unwrap_or_default()
     }
@@ -409,7 +438,10 @@ impl CurriculumGraph {
     /// `mastered_ids` and (b) has every prerequisite satisfied (i.e. all prereqs
     /// are in `mastered_ids`).  If no such node exists, returns the first
     /// unmastered node with no prerequisites at all.
-    pub fn recommended_next(&self, mastered_ids: &std::collections::HashSet<String>) -> Option<&str> {
+    pub fn recommended_next(
+        &self,
+        mastered_ids: &std::collections::HashSet<String>,
+    ) -> Option<&str> {
         // Build a list of (index, exam_weight_pct) sorted by weight desc
         let mut candidates: Vec<(usize, f32)> = self
             .nodes
@@ -444,8 +476,12 @@ impl CurriculumGraph {
     }
 
     /// Get all unmastered nodes whose prerequisites are all met (the Zone of Proximal Development).
-    pub fn zpd_nodes(&self, mastered_ids: &std::collections::HashSet<String>) -> Vec<&CurriculumNode> {
-        self.nodes.iter()
+    pub fn zpd_nodes(
+        &self,
+        mastered_ids: &std::collections::HashSet<String>,
+    ) -> Vec<&CurriculumNode> {
+        self.nodes
+            .iter()
             .filter(|n| !mastered_ids.contains(&n.id))
             .filter(|n| {
                 let prereqs = self.prereqs_for(&n.id);
@@ -464,7 +500,11 @@ impl CurriculumGraph {
 
     /// All unique grades.
     pub fn grades(&self) -> Vec<&str> {
-        let mut grades: Vec<&str> = self.nodes.iter().flat_map(|n| n.grade_levels.iter().map(|g| g.as_str())).collect();
+        let mut grades: Vec<&str> = self
+            .nodes
+            .iter()
+            .flat_map(|n| n.grade_levels.iter().map(|g| g.as_str()))
+            .collect();
         grades.sort();
         grades.dedup();
         grades
@@ -525,10 +565,10 @@ pub struct ProgressStore {
 /// SM-2 spaced repetition state for a single flashcard.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SrsCardState {
-    pub ease_factor: f32,      // starts at 2.5
-    pub interval_days: u32,    // current interval
-    pub repetitions: u32,      // consecutive correct
-    pub next_review_ms: f64,   // JS timestamp of next review
+    pub ease_factor: f32,    // starts at 2.5
+    pub interval_days: u32,  // current interval
+    pub repetitions: u32,    // consecutive correct
+    pub next_review_ms: f64, // JS timestamp of next review
 }
 
 impl Default for SrsCardState {
@@ -561,7 +601,9 @@ impl SrsCardState {
         }
         // Update ease factor
         self.ease_factor += 0.1 - (5.0 - q) * (0.08 + (5.0 - q) * 0.02);
-        if self.ease_factor < 1.3 { self.ease_factor = 1.3; }
+        if self.ease_factor < 1.3 {
+            self.ease_factor = 1.3;
+        }
 
         // Set next review time
         let now = js_sys::Date::now();
@@ -595,23 +637,39 @@ impl ProgressStore {
     }
 
     pub fn mastered_count(&self) -> usize {
-        self.nodes.values().filter(|p| p.status == ProgressStatus::Mastered).count()
+        self.nodes
+            .values()
+            .filter(|p| p.status == ProgressStatus::Mastered)
+            .count()
     }
 
     pub fn studying_count(&self) -> usize {
-        self.nodes.values().filter(|p| p.status == ProgressStatus::Studying).count()
+        self.nodes
+            .values()
+            .filter(|p| p.status == ProgressStatus::Studying)
+            .count()
     }
 
     /// Mastery permille for a subject (0-1000).
     pub fn subject_mastery(&self, graph: &CurriculumGraph, subject: &str) -> u16 {
-        let nodes: Vec<&CurriculumNode> = graph.nodes.iter().filter(|n| n.subject_area == subject).collect();
-        if nodes.is_empty() { return 0; }
-        let total: u32 = nodes.iter().map(|n| self.get(&n.id).mastery_permille as u32).sum();
+        let nodes: Vec<&CurriculumNode> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.subject_area == subject)
+            .collect();
+        if nodes.is_empty() {
+            return 0;
+        }
+        let total: u32 = nodes
+            .iter()
+            .map(|n| self.get(&n.id).mastery_permille as u32)
+            .sum();
         (total / nodes.len() as u32) as u16
     }
 
     pub fn mastered_ids(&self) -> std::collections::HashSet<String> {
-        self.nodes.iter()
+        self.nodes
+            .iter()
             .filter(|(_, p)| p.status == ProgressStatus::Mastered)
             .map(|(id, _)| id.clone())
             .collect()
@@ -645,9 +703,9 @@ impl Default for BktState {
 
 impl BktState {
     // BKT parameters (Corbett & Anderson, 1995)
-    const P_TRANSIT: f32 = 0.1;   // P(T) — probability of learning per opportunity
-    const P_SLIP: f32 = 0.1;      // P(S) — probability of slip (knows but answers wrong)
-    const P_GUESS: f32 = 0.25;    // P(G) — probability of guessing correctly
+    const P_TRANSIT: f32 = 0.1; // P(T) — probability of learning per opportunity
+    const P_SLIP: f32 = 0.1; // P(S) — probability of slip (knows but answers wrong)
+    const P_GUESS: f32 = 0.25; // P(G) — probability of guessing correctly
 
     /// Update P(mastery) after observing a response (correct or incorrect).
     pub fn update(&mut self, correct: bool) {
@@ -732,7 +790,9 @@ impl ProgressStore {
 
     /// Topics sorted by weakness (lowest P(mastery) first), filtered to those with attempts.
     pub fn weakest_topics(&self, limit: usize) -> Vec<(String, f32)> {
-        let mut topics: Vec<(String, f32)> = self.bkt_states.iter()
+        let mut topics: Vec<(String, f32)> = self
+            .bkt_states
+            .iter()
             .filter(|(_, bkt)| bkt.attempts > 0)
             .map(|(id, bkt)| (id.clone(), bkt.p_mastery))
             .collect();
@@ -780,69 +840,150 @@ impl Subject {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Grade {
     Kindergarten,
-    Gr1, Gr2, Gr3, Gr4, Gr5, Gr6, Gr7, Gr8, Gr9, Gr10, Gr11, Gr12,
-    Undergraduate, Graduate, Doctoral, Adult,
+    Gr1,
+    Gr2,
+    Gr3,
+    Gr4,
+    Gr5,
+    Gr6,
+    Gr7,
+    Gr8,
+    Gr9,
+    Gr10,
+    Gr11,
+    Gr12,
+    Undergraduate,
+    Graduate,
+    Doctoral,
+    Adult,
 }
 
 impl Grade {
     pub fn as_str(&self) -> &'static str {
         match self {
             Grade::Kindergarten => "Kindergarten",
-            Grade::Gr1 => "Grade1", Grade::Gr2 => "Grade2", Grade::Gr3 => "Grade3",
-            Grade::Gr4 => "Grade4", Grade::Gr5 => "Grade5", Grade::Gr6 => "Grade6",
-            Grade::Gr7 => "Grade7", Grade::Gr8 => "Grade8", Grade::Gr9 => "Grade9",
-            Grade::Gr10 => "Grade10", Grade::Gr11 => "Grade11", Grade::Gr12 => "Grade12",
-            Grade::Undergraduate => "Undergraduate", Grade::Graduate => "Graduate",
-            Grade::Doctoral => "Doctoral", Grade::Adult => "Adult",
+            Grade::Gr1 => "Grade1",
+            Grade::Gr2 => "Grade2",
+            Grade::Gr3 => "Grade3",
+            Grade::Gr4 => "Grade4",
+            Grade::Gr5 => "Grade5",
+            Grade::Gr6 => "Grade6",
+            Grade::Gr7 => "Grade7",
+            Grade::Gr8 => "Grade8",
+            Grade::Gr9 => "Grade9",
+            Grade::Gr10 => "Grade10",
+            Grade::Gr11 => "Grade11",
+            Grade::Gr12 => "Grade12",
+            Grade::Undergraduate => "Undergraduate",
+            Grade::Graduate => "Graduate",
+            Grade::Doctoral => "Doctoral",
+            Grade::Adult => "Adult",
         }
     }
 
     pub fn label(&self) -> &'static str {
         match self {
             Grade::Kindergarten => "K",
-            Grade::Gr1 => "1", Grade::Gr2 => "2", Grade::Gr3 => "3",
-            Grade::Gr4 => "4", Grade::Gr5 => "5", Grade::Gr6 => "6",
-            Grade::Gr7 => "7", Grade::Gr8 => "8", Grade::Gr9 => "9",
-            Grade::Gr10 => "10", Grade::Gr11 => "11", Grade::Gr12 => "12",
-            Grade::Undergraduate => "Uni", Grade::Graduate => "Postgrad",
-            Grade::Doctoral => "PhD", Grade::Adult => "Life",
+            Grade::Gr1 => "1",
+            Grade::Gr2 => "2",
+            Grade::Gr3 => "3",
+            Grade::Gr4 => "4",
+            Grade::Gr5 => "5",
+            Grade::Gr6 => "6",
+            Grade::Gr7 => "7",
+            Grade::Gr8 => "8",
+            Grade::Gr9 => "9",
+            Grade::Gr10 => "10",
+            Grade::Gr11 => "11",
+            Grade::Gr12 => "12",
+            Grade::Undergraduate => "Uni",
+            Grade::Graduate => "Postgrad",
+            Grade::Doctoral => "PhD",
+            Grade::Adult => "Life",
         }
     }
 
     /// All grades including post-secondary.
     pub fn all() -> &'static [Grade] {
-        &[Grade::Kindergarten,
-          Grade::Gr1, Grade::Gr2, Grade::Gr3, Grade::Gr4, Grade::Gr5, Grade::Gr6,
-          Grade::Gr7, Grade::Gr8, Grade::Gr9, Grade::Gr10, Grade::Gr11, Grade::Gr12,
-          Grade::Undergraduate, Grade::Graduate, Grade::Doctoral, Grade::Adult]
+        &[
+            Grade::Kindergarten,
+            Grade::Gr1,
+            Grade::Gr2,
+            Grade::Gr3,
+            Grade::Gr4,
+            Grade::Gr5,
+            Grade::Gr6,
+            Grade::Gr7,
+            Grade::Gr8,
+            Grade::Gr9,
+            Grade::Gr10,
+            Grade::Gr11,
+            Grade::Gr12,
+            Grade::Undergraduate,
+            Grade::Graduate,
+            Grade::Doctoral,
+            Grade::Adult,
+        ]
     }
 
     /// K-12 grades only (including Kindergarten).
     pub fn k12() -> &'static [Grade] {
-        &[Grade::Kindergarten,
-          Grade::Gr1, Grade::Gr2, Grade::Gr3, Grade::Gr4, Grade::Gr5, Grade::Gr6,
-          Grade::Gr7, Grade::Gr8, Grade::Gr9, Grade::Gr10, Grade::Gr11, Grade::Gr12]
+        &[
+            Grade::Kindergarten,
+            Grade::Gr1,
+            Grade::Gr2,
+            Grade::Gr3,
+            Grade::Gr4,
+            Grade::Gr5,
+            Grade::Gr6,
+            Grade::Gr7,
+            Grade::Gr8,
+            Grade::Gr9,
+            Grade::Gr10,
+            Grade::Gr11,
+            Grade::Gr12,
+        ]
     }
 
     /// Post-secondary grades.
     pub fn post_secondary() -> &'static [Grade] {
-        &[Grade::Undergraduate, Grade::Graduate, Grade::Doctoral, Grade::Adult]
+        &[
+            Grade::Undergraduate,
+            Grade::Graduate,
+            Grade::Doctoral,
+            Grade::Adult,
+        ]
     }
 
     /// Convert from profile grade number to Grade enum.
     pub fn from_profile_grade(g: u8) -> Grade {
         match g {
             0 => Grade::Kindergarten,
-            1 => Grade::Gr1, 2 => Grade::Gr2, 3 => Grade::Gr3, 4 => Grade::Gr4,
-            5 => Grade::Gr5, 6 => Grade::Gr6, 7 => Grade::Gr7, 8 => Grade::Gr8,
-            9 => Grade::Gr9, 10 => Grade::Gr10, 11 => Grade::Gr11, 12 => Grade::Gr12,
-            13 => Grade::Undergraduate, 14 => Grade::Graduate, 15 => Grade::Doctoral,
-            16 => Grade::Adult, _ => Grade::Gr12,
+            1 => Grade::Gr1,
+            2 => Grade::Gr2,
+            3 => Grade::Gr3,
+            4 => Grade::Gr4,
+            5 => Grade::Gr5,
+            6 => Grade::Gr6,
+            7 => Grade::Gr7,
+            8 => Grade::Gr8,
+            9 => Grade::Gr9,
+            10 => Grade::Gr10,
+            11 => Grade::Gr11,
+            12 => Grade::Gr12,
+            13 => Grade::Undergraduate,
+            14 => Grade::Graduate,
+            15 => Grade::Doctoral,
+            16 => Grade::Adult,
+            _ => Grade::Gr12,
         }
     }
 
     pub fn is_post_secondary(&self) -> bool {
-        matches!(self, Grade::Undergraduate | Grade::Graduate | Grade::Doctoral | Grade::Adult)
+        matches!(
+            self,
+            Grade::Undergraduate | Grade::Graduate | Grade::Doctoral | Grade::Adult
+        )
     }
 }
 
@@ -851,13 +992,13 @@ pub fn provide_curriculum_context() {
     // Force parse on startup
     let _ = curriculum_graph();
 
-    let initial_progress = persistence::load::<ProgressStore>(PROGRESS_KEY)
-        .unwrap_or_default();
+    let initial_progress = persistence::load::<ProgressStore>(PROGRESS_KEY).unwrap_or_default();
 
     // Default grade from student profile (so constellation shows relevant content)
-    let profile_grade = persistence::load::<crate::student_profile::StudentProfile>("praxis_profile")
-        .map(|p| Grade::from_profile_grade(p.grade))
-        .unwrap_or(Grade::Gr12);
+    let profile_grade =
+        persistence::load::<crate::student_profile::StudentProfile>("praxis_profile")
+            .map(|p| Grade::from_profile_grade(p.grade))
+            .unwrap_or(Grade::Gr12);
     let default_subject = match profile_grade {
         Grade::Adult => "Financial Literacy",
         Grade::Undergraduate => "Computer Science",

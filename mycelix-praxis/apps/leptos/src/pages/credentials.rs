@@ -50,7 +50,9 @@ fn real_credentials() -> Vec<CredentialView> {
 
     for node in &graph.nodes {
         let np = progress.get(&node.id);
-        if np.status != crate::curriculum::ProgressStatus::Mastered { continue; }
+        if np.status != crate::curriculum::ProgressStatus::Mastered {
+            continue;
+        }
 
         cred_num += 1;
         let bkt = progress.bkt(&node.id);
@@ -65,8 +67,12 @@ fn real_credentials() -> Vec<CredentialView> {
         };
 
         let now = js_sys::Date::new_0();
-        let date = format!("{:04}-{:02}-{:02}T00:00:00Z",
-            now.get_full_year(), now.get_month() + 1, now.get_date());
+        let date = format!(
+            "{:04}-{:02}-{:02}T00:00:00Z",
+            now.get_full_year(),
+            now.get_month() + 1,
+            now.get_date()
+        );
 
         creds.push(CredentialView {
             credential_id: format!("vc:praxis:local_{}", cred_num),
@@ -79,10 +85,13 @@ fn real_credentials() -> Vec<CredentialView> {
             score_band: band.into(),
             proof_type: "LocalAttestation".into(),
             proof_created: date,
-            verification_method: "localStorage (will upgrade to did:key when conductor connects)".into(),
+            verification_method: "localStorage (will upgrade to did:key when conductor connects)"
+                .into(),
             proof_purpose: "assertionMethod".into(),
             proof_value: format!("local-bkt-mastery-{:.3}", bkt.p_mastery),
-            status_purpose: Some("Self-attested mastery — will become W3C VC when Holochain verifies".into()),
+            status_purpose: Some(
+                "Self-attested mastery — will become W3C VC when Holochain verifies".into(),
+            ),
             epistemic_empirical: Some(if bkt.attempts > 10 { 3 } else { 2 }),
             epistemic_normative: Some(1), // Self-attested
             epistemic_materiality: Some(2),
@@ -197,21 +206,21 @@ pub fn CredentialsPage() -> impl IntoView {
                     <h2>"Credential Center"</h2>
                     <p class="credentials-subtitle">"Manage your sovereign proofs and professional visibility."</p>
                 </div>
-                
+
                 <div class="praxis-tabs">
-                    <button 
+                    <button
                         class=move || if active_tab.get() == "achievements" { "praxis-tab active" } else { "praxis-tab" }
                         on:click=move |_| { set_active_tab.set("achievements"); set_selected.set(None); }
                     >
                         "\u{1F3C6} Achievements"
                     </button>
-                    <button 
+                    <button
                         class=move || if active_tab.get() == "switchboard" { "praxis-tab active" } else { "praxis-tab" }
                         on:click=move |_| { set_active_tab.set("switchboard"); set_selected.set(None); }
                     >
                         "\u{1F39B}\u{FE0F} Privacy Switchboard"
                     </button>
-                    <button 
+                    <button
                         class=move || if active_tab.get() == "records" { "praxis-tab active" } else { "praxis-tab" }
                         on:click=move |_| { set_active_tab.set("records"); set_selected.set(None); }
                     >
@@ -283,10 +292,7 @@ pub fn CredentialsPage() -> impl IntoView {
 // ---------------------------------------------------------------------------
 
 #[component]
-fn AchievementCard(
-    credential: CredentialView,
-    on_select: impl Fn() + 'static,
-) -> impl IntoView {
+fn AchievementCard(credential: CredentialView, on_select: impl Fn() + 'static) -> impl IntoView {
     let is_placeholder = credential.credential_id == "vc:praxis:placeholder";
     let trophy = trophy_for_band(&credential.score_band);
     let grade = grade_display(credential.score, &credential.score_band);
@@ -660,14 +666,14 @@ fn CardLoading() -> impl IntoView {
 fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl IntoView {
     let (selected_creds, set_selected_creds) = signal(std::collections::HashSet::<String>::new());
     let (clr_title, set_clr_title) = signal("My Professional Portfolio".to_string());
-    
+
     view! {
         <div class="privacy-switchboard">
             <div class="switchboard-grid">
                 <div class="selection-panel">
                     <h3>"Private Vault"</h3>
                     <p class="panel-desc">"Select the credentials you want to make public."</p>
-                    
+
                     <Suspense fallback=|| view! { <CardLoading /> }>
                         {move || {
                             credentials.get().map(|data| {
@@ -676,7 +682,7 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                                     let id_check = id.clone();
                                     let id_toggle = id.clone();
                                     let is_selected = move || selected_creds.get().contains(&id_check);
-                                    
+
                                     view! {
                                         <div class="vault-item" on:click=move |_| {
                                             set_selected_creds.update(|set| {
@@ -687,8 +693,8 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                                                 }
                                             });
                                         }>
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 prop:checked=is_selected
                                             />
                                             <div class="vault-item-info">
@@ -708,8 +714,8 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                     <div class="portfolio-config">
                         <div class="field-group">
                             <label>"Portfolio Title"</label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 prop:value=clr_title
                                 on:input=move |ev| set_clr_title.set(event_target_value(&ev))
                             />
@@ -729,7 +735,7 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                                             <span>" ready for disclosure"</span>
                                         </div>
                                         <p class="summary-hint">"This will generate a CLR 2.0 record with an aggregate MATL trust score."</p>
-                                        <button 
+                                        <button
                                             class="btn-primary"
                                             style="width: 100%; margin-top: 1rem"
                                             on:click=move |_| {
@@ -753,8 +759,8 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                         <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5">
                             "True Ahimsa means no trapping. You have the absolute right to leave this ecosystem at any time with your full professional identity intact."
                         </p>
-                        <button 
-                            class="btn-outline" 
+                        <button
+                            class="btn-outline"
                             style="width: 100%; border-color: var(--error); color: var(--error); margin-top: 0.5rem"
                             on:click=move |_| {
                                 // Trigger emancipate_my_data zome call and download JSON
@@ -781,7 +787,7 @@ fn PublicRecordsView() -> impl IntoView {
                 <span class="badge-clr">"CLR 2.0 Compliant"</span>
             </div>
             <p class="panel-desc">"These records are visible on the public DHT and can be shared with employers via their DIDs."</p>
-            
+
             <div class="records-grid">
                 <div class="record-card">
                     <div class="record-card-header">
@@ -791,7 +797,7 @@ fn PublicRecordsView() -> impl IntoView {
                             <p class="record-date">"Generated: March 20, 2026"</p>
                         </div>
                     </div>
-                    
+
                     <div class="record-stats">
                         <div class="record-stat">
                             <span class="stat-label">"MATL Trust"</span>

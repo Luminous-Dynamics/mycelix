@@ -23,9 +23,15 @@ pub fn SchwarzschildExplorer(node_id: String) -> impl IntoView {
     let comparisons = move || {
         let rs = r_s.get();
         let mut comps = Vec::new();
-        if rs < 0.01 { comps.push(("Atom", 1e-10)); }
-        if rs < 1.0 { comps.push(("Human hair", 5e-5)); }
-        if rs < 100.0 { comps.push(("Tennis ball", 0.033)); }
+        if rs < 0.01 {
+            comps.push(("Atom", 1e-10));
+        }
+        if rs < 1.0 {
+            comps.push(("Human hair", 5e-5));
+        }
+        if rs < 100.0 {
+            comps.push(("Tennis ball", 0.033));
+        }
         comps.push(("Earth radius", 6.371e6));
         comps.push(("Sun radius", 6.96e8));
         comps.push(("Earth orbit", 1.496e11));

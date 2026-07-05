@@ -34,10 +34,7 @@ impl Default for GraphConfig {
 /// Render an SVG coordinate system with axes, grid, and labels.
 /// Children are rendered inside the SVG (curves, points, etc.).
 #[component]
-pub fn GraphArea(
-    config: GraphConfig,
-    children: Children,
-) -> impl IntoView {
+pub fn GraphArea(config: GraphConfig, children: Children) -> impl IntoView {
     let width = config.x_max - config.x_min;
     let height = config.y_max - config.y_min;
     let view_box = format!("{} {} {} {}", config.x_min, config.y_min, width, height);
@@ -48,7 +45,8 @@ pub fn GraphArea(
         // Vertical grid lines
         let mut x = (config.x_min / config.grid_step).ceil() * config.grid_step;
         while x <= config.x_max {
-            if (x.abs()) > 0.01 { // skip axis
+            if (x.abs()) > 0.01 {
+                // skip axis
                 lines.push(view! {
                     <line
                         x1=x
@@ -88,7 +86,11 @@ pub fn GraphArea(
     let mut x = (config.x_min / tick_step).ceil() * tick_step;
     while x <= config.x_max {
         if x.abs() > 0.01 {
-            let label = if x == x.floor() { format!("{}", x as i32) } else { format!("{:.1}", x) };
+            let label = if x == x.floor() {
+                format!("{}", x as i32)
+            } else {
+                format!("{:.1}", x)
+            };
             x_labels.push(view! {
                 <text x=x y=0.8 class="graph-tick-label">{label}</text>
             });
@@ -100,7 +102,11 @@ pub fn GraphArea(
     let mut y = (config.y_min / tick_step).ceil() * tick_step;
     while y <= config.y_max {
         if y.abs() > 0.01 {
-            let label = if y == y.floor() { format!("{}", -(y as i32)) } else { format!("{:.1}", -y) };
+            let label = if y == y.floor() {
+                format!("{}", -(y as i32))
+            } else {
+                format!("{:.1}", -y)
+            };
             y_labels.push(view! {
                 <text x=0.3 y=y class="graph-tick-label">{label}</text>
             });

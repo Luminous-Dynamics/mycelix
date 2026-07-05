@@ -5,18 +5,18 @@
 //! Students adjust resistance and EMF, see current and voltage update live.
 //! Covers internal resistance (ε = I(R + r)) for Gr12.
 
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use leptos::prelude::*;
-use crate::curriculum::{use_set_progress, ProgressStatus};
 
 #[component]
 pub fn CircuitExplorer(node_id: String) -> impl IntoView {
     let set_progress = use_set_progress();
 
-    let (emf, set_emf) = signal(12.0_f64);       // Battery EMF (V)
-    let (r_int, set_r_int) = signal(0.5_f64);     // Internal resistance (Ω)
-    let (r1, set_r1) = signal(4.0_f64);            // Resistor 1 (Ω)
-    let (r2, set_r2) = signal(6.0_f64);            // Resistor 2 (Ω)
-    let (series, set_series) = signal(true);        // true = series, false = parallel
+    let (emf, set_emf) = signal(12.0_f64); // Battery EMF (V)
+    let (r_int, set_r_int) = signal(0.5_f64); // Internal resistance (Ω)
+    let (r1, set_r1) = signal(4.0_f64); // Resistor 1 (Ω)
+    let (r2, set_r2) = signal(6.0_f64); // Resistor 2 (Ω)
+    let (series, set_series) = signal(true); // true = series, false = parallel
 
     // Calculations
     let r_external = Memo::new(move |_| {
@@ -25,32 +25,56 @@ pub fn CircuitExplorer(node_id: String) -> impl IntoView {
         } else {
             let r1v = r1.get();
             let r2v = r2.get();
-            if r1v + r2v < 0.01 { 0.01 } else { (r1v * r2v) / (r1v + r2v) }
+            if r1v + r2v < 0.01 {
+                0.01
+            } else {
+                (r1v * r2v) / (r1v + r2v)
+            }
         }
     });
 
     let current = Memo::new(move |_| {
         let r_total = r_external.get() + r_int.get();
-        if r_total < 0.01 { 0.0 } else { emf.get() / r_total }
+        if r_total < 0.01 {
+            0.0
+        } else {
+            emf.get() / r_total
+        }
     });
 
     let v_terminal = Memo::new(move |_| emf.get() - current.get() * r_int.get());
     let v_lost = Memo::new(move |_| current.get() * r_int.get());
     let v_r1 = Memo::new(move |_| {
-        if series.get() { current.get() * r1.get() }
-        else { v_terminal.get() } // parallel: same voltage across both
+        if series.get() {
+            current.get() * r1.get()
+        } else {
+            v_terminal.get()
+        } // parallel: same voltage across both
     });
     let v_r2 = Memo::new(move |_| {
-        if series.get() { current.get() * r2.get() }
-        else { v_terminal.get() }
+        if series.get() {
+            current.get() * r2.get()
+        } else {
+            v_terminal.get()
+        }
     });
     let i_r1 = Memo::new(move |_| {
-        if series.get() { current.get() }
-        else if r1.get() < 0.01 { 0.0 } else { v_terminal.get() / r1.get() }
+        if series.get() {
+            current.get()
+        } else if r1.get() < 0.01 {
+            0.0
+        } else {
+            v_terminal.get() / r1.get()
+        }
     });
     let i_r2 = Memo::new(move |_| {
-        if series.get() { current.get() }
-        else if r2.get() < 0.01 { 0.0 } else { v_terminal.get() / r2.get() }
+        if series.get() {
+            current.get()
+        } else if r2.get() < 0.01 {
+            0.0
+        } else {
+            v_terminal.get() / r2.get()
+        }
     });
     let power_total = Memo::new(move |_| emf.get() * current.get());
 
@@ -64,10 +88,10 @@ pub fn CircuitExplorer(node_id: String) -> impl IntoView {
             let i = current.get_untracked();
             let vt = v_terminal.get_untracked();
             let passed = match idx {
-                0 => (i - 2.0).abs() < 0.15,                    // Current = 2A
-                1 => (vt - 10.0).abs() < 0.3,                   // Terminal voltage = 10V
+                0 => (i - 2.0).abs() < 0.15,                           // Current = 2A
+                1 => (vt - 10.0).abs() < 0.3,                          // Terminal voltage = 10V
                 2 => !series.get_untracked() && (i - 3.0).abs() < 0.3, // Parallel, I ≈ 3A
-                3 => (v_lost.get_untracked() - 2.0).abs() < 0.3,      // Lost volts = 2V
+                3 => (v_lost.get_untracked() - 2.0).abs() < 0.3,       // Lost volts = 2V
                 _ => false,
             };
             if passed {
@@ -82,7 +106,9 @@ pub fn CircuitExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

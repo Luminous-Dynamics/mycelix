@@ -26,7 +26,7 @@ pub enum MeshRadioStatus {
 pub struct MeshPeer {
     pub node_id: String,
     pub last_seen: u64,
-    pub rssi: i16,      // Signal strength
+    pub rssi: i16,         // Signal strength
     pub distance_est: f32, // Estimated distance in km
     pub is_pod_mate: bool,
 }
@@ -79,11 +79,11 @@ pub fn use_mesh() -> MeshContext {
 pub fn MeshStatusBadge() -> impl IntoView {
     let ctx = use_mesh();
     let (show_peers, set_show_peers) = signal(false);
-    
+
     view! {
         <div class="mesh-badge-container" style="position: relative">
-            <div 
-                class="mesh-badge" 
+            <div
+                class="mesh-badge"
                 title="Local Mycelial Mesh Status"
                 on:click=move |_| set_show_peers.update(|v| *v = !*v)
                 style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; background: var(--surface-low); border-radius: 20px; border: 1px solid var(--border)"
@@ -91,7 +91,7 @@ pub fn MeshStatusBadge() -> impl IntoView {
                 {move || match ctx.radio_status.get() {
                     MeshRadioStatus::Disabled => view! { <span class="mesh-icon disabled">"\u{1F4F6}"</span> }.into_any(),
                     MeshRadioStatus::Initializing => view! { <span class="mesh-icon loading">"\u{231B}"</span> }.into_any(),
-                    MeshRadioStatus::Ready => view! { 
+                    MeshRadioStatus::Ready => view! {
                         <div style="display: flex; align-items: center; gap: 0.35rem">
                             <span class="mesh-icon ready" style="color: var(--success)">"\u{1F4F6}"</span>
                             <span style="font-size: 0.75rem; font-weight: 700; color: var(--text)">

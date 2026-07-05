@@ -1043,7 +1043,7 @@ async fn test_trust_credential_on_chain_verify() {
 
     // Extract credential ID from the entry
     let cred_entry = creds[0].entry().as_option().unwrap();
-    let cred_bytes = cred_entry.as_bytes();
+    let cred_bytes = cred_entry.as_app_entry().unwrap().bytes();
     let cred_json: serde_json::Value = serde_json::from_slice(cred_bytes).unwrap();
     let cred_id = cred_json["id"].as_str().unwrap().to_string();
 

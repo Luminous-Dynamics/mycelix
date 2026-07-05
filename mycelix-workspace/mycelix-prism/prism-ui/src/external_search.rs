@@ -425,6 +425,60 @@ pub async fn query_perplexity(query: &str) -> ExternalResult {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SYMTHAEA — Deep-reasoning bridge (opt-in, same-origin, no client key)
+// ═══════════════════════════════════════════════════════════════
+//
+// Deliberately not part of Compare mode's auto-firing engine set (see
+// compare_view.rs) — this is a separate, always-individually-clicked
+// action, wired from the no-knowledge-banner in content_router.rs. The
+// bearer token lives server-side in prism-serve; the WASM frontend never
+// sees it. See Part 2 of /home/tstoltz/.claude/plans/fuzzy-beaming-brook.md.
+
+#[derive(Deserialize)]
+struct SymthaeaResponse {
+    content: String,
+    confidence: Option<f32>,
+}
+
+pub async fn ask_symthaea(query: &str) -> ExternalResult {
+    let body = serde_json::json!({ "content": query });
+
+    let request = match gloo_net::http::Request::post("/api/symthaea/query")
+        .header("Content-Type", "application/json")
+        .body(body.to_string())
+    {
+        Ok(r) => r,
+        Err(e) => return ExternalResult::error("Symthaea", &format!("Request build error: {}", e)),
+    };
+
+    match request.send().await {
+        Ok(resp) if resp.status() == 503 => {
+            ExternalResult::error("Symthaea", "Symthaea is busy, try again shortly")
+        }
+        Ok(resp) if !resp.ok() => ExternalResult::error(
+            "Symthaea",
+            &format!("Symthaea unavailable (HTTP {})", resp.status()),
+        ),
+        Ok(resp) => match resp.json::<SymthaeaResponse>().await {
+            Ok(data) => {
+                let confidence = data.confidence.unwrap_or(0.0);
+                ExternalResult::done(
+                    "Symthaea",
+                    vec![ExternalHit {
+                        title: format!("Symthaea (confidence {:.0}%)", confidence * 100.0),
+                        snippet: data.content,
+                        url: None,
+                        source_type: "ai-generated".to_string(),
+                    }],
+                )
+            }
+            Err(e) => ExternalResult::error("Symthaea", &format!("Parse error: {}", e)),
+        },
+        Err(e) => ExternalResult::error("Symthaea", &format!("Fetch failed: {}", e)),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
 

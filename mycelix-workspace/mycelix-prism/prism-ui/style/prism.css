@@ -653,6 +653,45 @@ body {
     line-height: 1.5;
 }
 
+.ask-symthaea { margin-top: 12px; }
+.ask-symthaea-button {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--prism-accent);
+    background: transparent;
+    color: var(--prism-accent);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.ask-symthaea-button:hover {
+    background: var(--prism-accent);
+    color: var(--chrome-surface);
+}
+.ask-symthaea-loading, .ask-symthaea-error {
+    font-size: 13px;
+    color: var(--content-text-secondary);
+}
+.ask-symthaea-answer {
+    padding: 12px 14px;
+    border-radius: 6px;
+    background: var(--content-code-bg);
+    border-left: 3px solid var(--prism-accent);
+}
+.ask-symthaea-answer-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--content-text);
+    margin-bottom: 4px;
+}
+.ask-symthaea-answer p {
+    font-size: 14px;
+    color: var(--content-text);
+    margin: 0;
+    line-height: 1.5;
+}
+
 .result-card {
     padding: 14px 18px;
     margin-bottom: 8px;

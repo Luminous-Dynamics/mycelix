@@ -1652,6 +1652,19 @@ pub fn generate_mock_peers() -> Vec<PeerNodeStatus> {
             capsule_refs: vec![],
             claimed_by: "unknown".to_string(),
         },
+        PeerNodeStatus {
+            peer_id: "peer-verified-steward".to_string(),
+            node_id: "secure-witness-alpha".to_string(),
+            display_name: "Secure Witness Alpha".to_string(),
+            peer_kind: PeerKind::Server,
+            posture_summary: PostureSummary::Healthy,
+            trust_status: PeerTrustStatus::VerifiedBoundFresh,
+            last_seen_unix_ms: 1719513615000,
+            staleness_ms: 100,
+            evidence_refs: vec!["zk_verifier_stub".to_string(), "tpm_binding".to_string()],
+            capsule_refs: vec!["capsule-zk-proven-9988".to_string()],
+            claimed_by: "did:mycelix:secure-witness-alpha-did".to_string(),
+        },
     ]
 }
 

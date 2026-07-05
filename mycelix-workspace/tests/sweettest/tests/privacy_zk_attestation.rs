@@ -13,7 +13,7 @@
 
 mod harness;
 
-use harness::{setup_test_agents, wait_for_dht_sync, DnaPaths};
+use harness::{DnaPaths, setup_test_agents, wait_for_dht_sync};
 use holochain::prelude::*;
 use serde::Serialize;
 use serial_test::serial;
@@ -39,12 +39,6 @@ pub struct ValidAttestationInput {
 
 // ZK Proof Attestation entry structure - used for deserialization when needed
 // Note: Full deserialization tests omitted as entry bytes format may vary by hApp version
-
-impl DnaPaths {
-    pub fn lucid() -> std::path::PathBuf {
-        Self::workspace_root().join("happs/lucid/lucid.dna")
-    }
-}
 
 /// Test submitting a ZK proof attestation
 #[tokio::test(flavor = "multi_thread")]
@@ -280,7 +274,10 @@ async fn test_multi_agent_attestation() {
         .call_zome_fn("privacy", "get_subject_attestations", subject_hash.clone())
         .await;
 
-    assert!(!attestations.is_empty(), "Agent 2 should see Agent 1's attestation");
+    assert!(
+        !attestations.is_empty(),
+        "Agent 2 should see Agent 1's attestation"
+    );
 
     // Verify the record exists with an entry
     assert!(

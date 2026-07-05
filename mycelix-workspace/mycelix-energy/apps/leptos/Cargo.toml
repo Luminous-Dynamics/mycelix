@@ -19,11 +19,11 @@ console_error_panic_hook = "0.1"
 js-sys = "0.3"
 
 # Mycelix shared
-mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client" }
-mycelix-leptos-i18n = { path = "../../../crates/mycelix-leptos-i18n" }
+mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client" }
+mycelix-leptos-i18n = { path = "../../../../crates/mycelix-leptos-i18n" }
 energy-leptos-types = { path = "../../crates/energy-leptos-types" }
-mycelix-mock-data = { path = "../../../crates/mycelix-mock-data" }
+mycelix-mock-data = { path = "../../../../crates/mycelix-mock-data" }
 
 [workspace]
 

@@ -83,6 +83,12 @@ pub struct NullifierSet {
     used: std::collections::HashSet<[u8; 32]>,
 }
 
+impl Default for NullifierSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NullifierSet {
     pub fn new() -> Self {
         Self {

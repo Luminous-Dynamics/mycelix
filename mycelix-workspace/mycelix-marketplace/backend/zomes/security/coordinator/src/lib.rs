@@ -44,7 +44,10 @@ pub struct SecurityStatsOutput {
 fn get_all_security_logs_links() -> ExternResult<Vec<Link>> {
     let path = Path::from("all_security_logs");
     let filter = LinkTypeFilter::try_from(LinkTypes::AllSecurityLogs)?;
-    get_links(LinkQuery::new(path.path_entry_hash()?, filter), GetStrategy::default())
+    get_links(
+        LinkQuery::new(path.path_entry_hash()?, filter),
+        GetStrategy::default(),
+    )
 }
 
 fn get_agent_security_logs_links(agent: AgentPubKey) -> ExternResult<Vec<Link>> {
@@ -94,14 +97,19 @@ pub fn log_security_event(input: CreateSecurityLogInput) -> ExternResult<ActionH
 
     // Create entry
     let action_hash = create_entry(&EntryTypes::SecurityLog(log.clone()))?;
-    let entry_hash = hash_entry(&log)?;
 
     // Create discovery links
+    //
+    // All three links target `action_hash`, not an entry hash: every reader
+    // below calls `link.target.into_action_hash()`, which returns `None`
+    // for an EntryHash target -- same class of bug found and fixed in the
+    // listings zome
+    // (mycelix-marketplace/backend/zomes/listings/coordinator/src/lib.rs).
 
     // 1. Agent -> SecurityLog
     create_link(
         agent_info.agent_initial_pubkey,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::AgentToSecurityLogs,
         (),
     )?;
@@ -110,7 +118,7 @@ pub fn log_security_event(input: CreateSecurityLogInput) -> ExternResult<ActionH
     let all_path = Path::from("all_security_logs");
     create_link(
         all_path.path_entry_hash()?,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::AllSecurityLogs,
         (),
     )?;
@@ -119,7 +127,7 @@ pub fn log_security_event(input: CreateSecurityLogInput) -> ExternResult<ActionH
     let event_type_path = Path::from(format!("security_logs.event_type.{:?}", log.event_type));
     create_link(
         event_type_path.path_entry_hash()?,
-        entry_hash,
+        action_hash.clone(),
         LinkTypes::EventTypeToLogs,
         (),
     )?;
@@ -142,10 +150,7 @@ pub fn get_security_log(log_hash: ActionHash) -> ExternResult<Option<SecurityLog
                     "Failed to deserialize security log".into()
                 )))?;
 
-            Ok(Some(SecurityLogOutput {
-                log_hash,
-                log,
-            }))
+            Ok(Some(SecurityLogOutput { log_hash, log }))
         }
         None => Ok(None),
     }
@@ -203,7 +208,10 @@ pub fn get_my_security_logs(_: ()) -> ExternResult<SecurityLogsResponse> {
 pub fn get_logs_by_event_type(event_type: SecurityEventType) -> ExternResult<SecurityLogsResponse> {
     let path = Path::from(format!("security_logs.event_type.{:?}", event_type));
     let filter = LinkTypeFilter::try_from(LinkTypes::EventTypeToLogs)?;
-    let links = get_links(LinkQuery::new(path.path_entry_hash()?, filter), GetStrategy::default())?;
+    let links = get_links(
+        LinkQuery::new(path.path_entry_hash()?, filter),
+        GetStrategy::default(),
+    )?;
 
     let mut logs = Vec::new();
 
@@ -228,8 +236,10 @@ pub fn get_security_stats(_: ()) -> ExternResult<SecurityStatsOutput> {
     let total_events = all_logs.total_count;
     let mut critical_events = 0u32;
     let mut high_events = 0u32;
-    let mut event_type_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
-    let mut agent_counts: std::collections::HashMap<AgentPubKey, u32> = std::collections::HashMap::new();
+    let mut event_type_counts: std::collections::HashMap<String, u32> =
+        std::collections::HashMap::new();
+    let mut agent_counts: std::collections::HashMap<AgentPubKey, u32> =
+        std::collections::HashMap::new();
 
     for log_output in all_logs.logs {
         // Count by severity

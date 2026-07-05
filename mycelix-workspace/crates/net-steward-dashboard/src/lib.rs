@@ -951,6 +951,13 @@ pub fn NetStewardDashboard(
                                                                         "• Claim freshness: valid."<br/>
                                                                         "• Capability scope: valid."
                                                                     </div>
+                                                                    <div style=move || format!("grid-column: span 2; background: #1e3a8a; border: 1px solid #1d4ed8; padding: 0.5rem; border-radius: 0.25rem; color: #93c5fd; font-size: 0.7rem; margin-top: 0.25rem; display: {};", if p.trust_status == PeerTrustStatus::VerifiedBoundFresh { "block" } else { "none" })>
+                                                                        <strong>"ZK Proof Verification Explainer:"</strong><br/>
+                                                                        "• ZK Verifier stub status: active."<br/>
+                                                                        "• Verification proof mode: simulated_envelope."<br/>
+                                                                        "• Subject Identity DID: bound to device public key."<br/>
+                                                                        "• State proof verdict: VerifiedBoundFresh."
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         }
@@ -1237,6 +1244,109 @@ pub fn NetStewardDashboard(
                                                     }.into_view()
                                                 }
                                             }}
+                                        </div>
+                                    </div>
+                                }.into_view()
+                            } else if let Some(summary) = incident_summary.get_value() {
+                                let verdict_color = match summary.safety_verdict {
+                                    SafetyVerdict::Safe => "#10b981",
+                                    SafetyVerdict::Warning => "#fbbf24",
+                                    SafetyVerdict::Blocked => "#f43f5e",
+                                };
+                                let verdict_bg = match summary.safety_verdict {
+                                    SafetyVerdict::Safe => "#064e3b",
+                                    SafetyVerdict::Warning => "#78350f",
+                                    SafetyVerdict::Blocked => "#4c1d1d",
+                                };
+
+                                // Hex formatting helpers
+                                let comm_hex = if let Some(comm) = summary.safety_commitment {
+                                    comm.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join("")
+                                } else {
+                                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string()
+                                };
+
+                                view! {
+                                    <div style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
+                                        <div>
+                                            <h2 style="margin: 0 0 0.25rem 0; color: #38bdf8; font-size: 1.25rem;">"Stewardship Operation Preview"</h2>
+                                            <p style="margin: 0; font-size: 0.75rem; color: #94a3b8;">"Real-time dry-run metrics & risk verification analysis"</p>
+                                        </div>
+
+                                        // 1. Safety Verdict Status
+                                        <div style=format!("background: {}; border: 1px solid {}; padding: 1rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;", verdict_bg, verdict_color)>
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <strong style=format!("color: {}; font-size: 0.9rem;", verdict_color)>
+                                                    {format!("VERDICT: {:?}", summary.safety_verdict).to_uppercase()}
+                                                </strong>
+                                                <span style="font-size: 0.7rem; font-family: monospace; color: #e2e8f0; opacity: 0.8;">
+                                                    "Scope: Controlled Lab Only"
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #e2e8f0; font-family: monospace;">
+                                                <strong>"Root Cause: "</strong> {summary.root_cause}
+                                            </div>
+                                            {if !summary.safety_violations.is_empty() {
+                                                let violations = summary.safety_violations.clone();
+                                                Some(view! {
+                                                    <div style="font-size: 0.75rem; color: #fda4af; font-family: monospace; border-top: 1px solid #7f1d1d; padding-top: 0.5rem; margin-top: 0.25rem;">
+                                                        <strong>"Violations: "</strong> {violations.join("; ")}
+                                                    </div>
+                                                })
+                                            } else {
+                                                None
+                                            }}
+                                        </div>
+
+                                        // 2. Blast-Radius Assessment Card
+                                        <div style="background: #18181b; border: 1px solid #27272a; padding: 1rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 0.5rem;">
+                                                <strong style="color: #fb923c; font-size: 0.875rem;">"Blast-Radius Risk Tier: MODERATE"</strong>
+                                                <span style="font-size: 0.7rem; color: #a1a1aa; border: 1px solid #3f3f46; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">
+                                                    "Witness Gate Required"
+                                                </span>
+                                            </div>
+
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.75rem; font-family: monospace; color: #a1a1aa;">
+                                                <div>"Impact Score: " <span style="color: #fb923c;">"0.40 / 1.0"</span></div>
+                                                <div>"Recovery Estimate: " <span style="color: #34d399;">"45 seconds"</span></div>
+                                                <div style="grid-column: span 2;">"Transitive Scope: " <span style="color: #60a5fa;">"luminous-router"</span></div>
+                                                <div style="grid-column: span 2; word-break: break-all; font-size: 0.7rem; opacity: 0.8;">
+                                                    "Preview Audit Commitment (SHA-256): "<br/>
+                                                    <span style="color: #cbd5e1;">{comm_hex}</span>
+                                                </div>
+                                            </div>
+
+                                            // Services breakdown
+                                            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
+                                                <div style="font-size: 0.75rem; font-weight: bold; color: #e4e4e7;">"Impacted Services & Network Paths:"</div>
+
+                                                <div style="background: #111827; border: 1px solid #1e293b; padding: 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.7rem;">
+                                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.15rem;">
+                                                        <strong style="color: #fca5a5;">"forge-build-worker (forge-server)"</strong>
+                                                        <span style="color: #ef4444;">"Interruption"</span>
+                                                    </div>
+                                                    <div style="color: #94a3b8;">"Active nix builds will be aborted during profile rollback."</div>
+                                                </div>
+
+                                                <div style="background: #111827; border: 1px solid #1e293b; padding: 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.7rem;">
+                                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.15rem;">
+                                                        <strong style="color: #93c5fd;">"wireguard-peer-mesh (luminous-router)"</strong>
+                                                        <span style="color: #3b82f6;">"Reconfigured"</span>
+                                                    </div>
+                                                    <div style="color: #94a3b8;">"Routing mesh metadata updated to point to restored generation."</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        // 3. ZK Proof Gating Details
+                                        <div style="background: #111827; border: 1px solid #1e293b; padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.75rem; color: #94a3b8; display: flex; flex-direction: column; gap: 0.25rem;">
+                                            <div style="font-weight: bold; color: #38bdf8;">"Zero-Knowledge Safety Proof (ZK-STARK)"</div>
+                                            <div>"Proof Verdict: " <strong style="color: #fbbf24;">"Simulated Envelope"</strong></div>
+                                            <div>"Verifier Mode: " <strong style="color: #a1a1aa;">"simulated_envelope (lab only)"</strong></div>
+                                            <div style="margin-top: 0.25rem; font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+                                                "Gated constraint: ZkProofVerdict::Verified is blocked by verification policy. Apply mutations remain disabled."
+                                            </div>
                                         </div>
                                     </div>
                                 }.into_view()

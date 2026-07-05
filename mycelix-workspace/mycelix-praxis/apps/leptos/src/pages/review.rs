@@ -52,7 +52,9 @@ enum Confidence {
 impl Confidence {
     fn is_calibrated(self, correct: bool) -> bool {
         match (self, correct) {
-            (Confidence::KnowIt, true) | (Confidence::NoIdea, false) | (Confidence::Maybe, _) => true,
+            (Confidence::KnowIt, true) | (Confidence::NoIdea, false) | (Confidence::Maybe, _) => {
+                true
+            }
             _ => false,
         }
     }
@@ -90,7 +92,9 @@ fn generate_dynamic_cards(subject: &str) -> Vec<MockFlashcard> {
     let mut cards: Vec<MockFlashcard> = Vec::new();
 
     for node in &graph.nodes {
-        if node.subject_area != subject { continue; }
+        if node.subject_area != subject {
+            continue;
+        }
 
         let bkt = progress.bkt(&node.id);
         let mastery = (bkt.p_mastery * 1000.0) as u16;
@@ -102,8 +106,11 @@ fn generate_dynamic_cards(subject: &str) -> Vec<MockFlashcard> {
         } else {
             node.description.clone()
         };
-        let tags = format!("{} · {}", node.subject_area,
-            node.grade_levels.first().cloned().unwrap_or_default());
+        let tags = format!(
+            "{} · {}",
+            node.subject_area,
+            node.grade_levels.first().cloned().unwrap_or_default()
+        );
 
         // Leak strings so they have 'static lifetime (acceptable for single-session app)
         let front_static: &'static str = Box::leak(front.into_boxed_str());
@@ -130,32 +137,117 @@ fn generate_dynamic_cards(subject: &str) -> Vec<MockFlashcard> {
 fn generate_curriculum_cards() -> Vec<MockFlashcard> {
     vec![
         // Algebra
-        MockFlashcard { front: "State the quadratic formula.", back: "x = (\u{2212}b \u{00b1} \u{221a}(b\u{00b2}\u{2212}4ac)) / 2a", tags: "Algebra", mastery_permille: 400 },
-        MockFlashcard { front: "What does the discriminant \u{0394} = b\u{00b2}\u{2212}4ac tell us?", back: "\u{0394} > 0: two distinct real roots. \u{0394} = 0: two equal roots. \u{0394} < 0: no real roots.", tags: "Algebra", mastery_permille: 350 },
+        MockFlashcard {
+            front: "State the quadratic formula.",
+            back: "x = (\u{2212}b \u{00b1} \u{221a}(b\u{00b2}\u{2212}4ac)) / 2a",
+            tags: "Algebra",
+            mastery_permille: 400,
+        },
+        MockFlashcard {
+            front: "What does the discriminant \u{0394} = b\u{00b2}\u{2212}4ac tell us?",
+            back: "\u{0394} > 0: two distinct real roots. \u{0394} = 0: two equal roots. \u{0394} < 0: no real roots.",
+            tags: "Algebra",
+            mastery_permille: 350,
+        },
         // Sequences & Series
-        MockFlashcard { front: "When does a geometric series converge?", back: "|r| < 1. Sum to infinity: a/(1\u{2212}r)", tags: "Sequences", mastery_permille: 300 },
-        MockFlashcard { front: "What is Tn for an arithmetic sequence?", back: "Tn = a + (n\u{2212}1)d, where a = first term, d = common difference", tags: "Sequences", mastery_permille: 350 },
+        MockFlashcard {
+            front: "When does a geometric series converge?",
+            back: "|r| < 1. Sum to infinity: a/(1\u{2212}r)",
+            tags: "Sequences",
+            mastery_permille: 300,
+        },
+        MockFlashcard {
+            front: "What is Tn for an arithmetic sequence?",
+            back: "Tn = a + (n\u{2212}1)d, where a = first term, d = common difference",
+            tags: "Sequences",
+            mastery_permille: 350,
+        },
         // Finance
-        MockFlashcard { front: "What is the present value annuity formula?", back: "P = x[1 \u{2212} (1+i)\u{207b}\u{207f}]/i", tags: "Finance", mastery_permille: 250 },
-        MockFlashcard { front: "Sinking fund or loan? Regular payments to accumulate a target amount.", back: "Sinking fund (future value annuity). Loans use present value.", tags: "Finance", mastery_permille: 300 },
+        MockFlashcard {
+            front: "What is the present value annuity formula?",
+            back: "P = x[1 \u{2212} (1+i)\u{207b}\u{207f}]/i",
+            tags: "Finance",
+            mastery_permille: 250,
+        },
+        MockFlashcard {
+            front: "Sinking fund or loan? Regular payments to accumulate a target amount.",
+            back: "Sinking fund (future value annuity). Loans use present value.",
+            tags: "Finance",
+            mastery_permille: 300,
+        },
         // Functions
-        MockFlashcard { front: "What is the turning point of y = a(x\u{2212}p)\u{00b2} + q?", back: "(p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.", tags: "Functions", mastery_permille: 400 },
+        MockFlashcard {
+            front: "What is the turning point of y = a(x\u{2212}p)\u{00b2} + q?",
+            back: "(p, q). If a > 0 it's a minimum; if a < 0 it's a maximum.",
+            tags: "Functions",
+            mastery_permille: 400,
+        },
         // Calculus
-        MockFlashcard { front: "What is the derivative of f(x) = ax\u{207f}?", back: "f'(x) = nax\u{207f}\u{207b}\u{00b9} (power rule)", tags: "Calculus", mastery_permille: 350 },
-        MockFlashcard { front: "How do you find turning points of a cubic?", back: "Set f'(x) = 0. Solve for x. Substitute back into f(x) for y-values.", tags: "Calculus", mastery_permille: 250 },
-        MockFlashcard { front: "What is the first principles definition of the derivative?", back: "f'(x) = lim[h\u{2192}0] (f(x+h) \u{2212} f(x))/h", tags: "Calculus", mastery_permille: 200 },
+        MockFlashcard {
+            front: "What is the derivative of f(x) = ax\u{207f}?",
+            back: "f'(x) = nax\u{207f}\u{207b}\u{00b9} (power rule)",
+            tags: "Calculus",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "How do you find turning points of a cubic?",
+            back: "Set f'(x) = 0. Solve for x. Substitute back into f(x) for y-values.",
+            tags: "Calculus",
+            mastery_permille: 250,
+        },
+        MockFlashcard {
+            front: "What is the first principles definition of the derivative?",
+            back: "f'(x) = lim[h\u{2192}0] (f(x+h) \u{2212} f(x))/h",
+            tags: "Calculus",
+            mastery_permille: 200,
+        },
         // Counting & Probability
-        MockFlashcard { front: "What is the formula for combinations (nCr)?", back: "nCr = n! / [r!(n\u{2212}r)!]", tags: "Counting", mastery_permille: 300 },
-        MockFlashcard { front: "Permutations vs Combinations: when does order matter?", back: "Permutations: order matters (arrangements). Combinations: order doesn't (selections).", tags: "Counting", mastery_permille: 350 },
+        MockFlashcard {
+            front: "What is the formula for combinations (nCr)?",
+            back: "nCr = n! / [r!(n\u{2212}r)!]",
+            tags: "Counting",
+            mastery_permille: 300,
+        },
+        MockFlashcard {
+            front: "Permutations vs Combinations: when does order matter?",
+            back: "Permutations: order matters (arrangements). Combinations: order doesn't (selections).",
+            tags: "Counting",
+            mastery_permille: 350,
+        },
         // Trigonometry
-        MockFlashcard { front: "Write cos2\u{03b1} in three forms.", back: "cos\u{00b2}\u{03b1} \u{2212} sin\u{00b2}\u{03b1} = 1 \u{2212} 2sin\u{00b2}\u{03b1} = 2cos\u{00b2}\u{03b1} \u{2212} 1", tags: "Trigonometry", mastery_permille: 250 },
-        MockFlashcard { front: "sin(A+B) = ?", back: "sinA\u{00b7}cosB + cosA\u{00b7}sinB. NOT sinA + sinB!", tags: "Trigonometry", mastery_permille: 300 },
+        MockFlashcard {
+            front: "Write cos2\u{03b1} in three forms.",
+            back: "cos\u{00b2}\u{03b1} \u{2212} sin\u{00b2}\u{03b1} = 1 \u{2212} 2sin\u{00b2}\u{03b1} = 2cos\u{00b2}\u{03b1} \u{2212} 1",
+            tags: "Trigonometry",
+            mastery_permille: 250,
+        },
+        MockFlashcard {
+            front: "sin(A+B) = ?",
+            back: "sinA\u{00b7}cosB + cosA\u{00b7}sinB. NOT sinA + sinB!",
+            tags: "Trigonometry",
+            mastery_permille: 300,
+        },
         // Geometry
-        MockFlashcard { front: "Opposite angles of a cyclic quadrilateral sum to?", back: "180\u{00b0} (supplementary)", tags: "Geometry", mastery_permille: 350 },
+        MockFlashcard {
+            front: "Opposite angles of a cyclic quadrilateral sum to?",
+            back: "180\u{00b0} (supplementary)",
+            tags: "Geometry",
+            mastery_permille: 350,
+        },
         // Analytical Geometry
-        MockFlashcard { front: "Equation of a circle with centre (a,b) and radius r?", back: "(x\u{2212}a)\u{00b2} + (y\u{2212}b)\u{00b2} = r\u{00b2}", tags: "Analytical Geometry", mastery_permille: 400 },
+        MockFlashcard {
+            front: "Equation of a circle with centre (a,b) and radius r?",
+            back: "(x\u{2212}a)\u{00b2} + (y\u{2212}b)\u{00b2} = r\u{00b2}",
+            tags: "Analytical Geometry",
+            mastery_permille: 400,
+        },
         // Statistics
-        MockFlashcard { front: "What is the formula for standard deviation?", back: "\u{03c3} = \u{221a}[\u{03a3}(xi \u{2212} x\u{0304})\u{00b2}/n]", tags: "Statistics", mastery_permille: 300 },
+        MockFlashcard {
+            front: "What is the formula for standard deviation?",
+            back: "\u{03c3} = \u{221a}[\u{03a3}(xi \u{2212} x\u{0304})\u{00b2}/n]",
+            tags: "Statistics",
+            mastery_permille: 300,
+        },
     ]
 }
 
@@ -163,19 +255,64 @@ fn generate_curriculum_cards() -> Vec<MockFlashcard> {
 fn generate_science_cards() -> Vec<MockFlashcard> {
     vec![
         // Momentum
-        MockFlashcard { front: "State the impulse-momentum theorem.", back: "Fnet\u{0394}t = \u{0394}p = m(vf \u{2212} vi). Net impulse equals change in momentum.", tags: "Momentum", mastery_permille: 350 },
-        MockFlashcard { front: "Is momentum conserved in all collisions?", back: "Only in isolated systems (no external net force). Kinetic energy is only conserved in elastic collisions.", tags: "Momentum", mastery_permille: 300 },
+        MockFlashcard {
+            front: "State the impulse-momentum theorem.",
+            back: "Fnet\u{0394}t = \u{0394}p = m(vf \u{2212} vi). Net impulse equals change in momentum.",
+            tags: "Momentum",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "Is momentum conserved in all collisions?",
+            back: "Only in isolated systems (no external net force). Kinetic energy is only conserved in elastic collisions.",
+            tags: "Momentum",
+            mastery_permille: 300,
+        },
         // Work, Energy, Power
-        MockFlashcard { front: "State the work-energy theorem.", back: "Wnet = \u{0394}Ek. The net work done equals the change in kinetic energy.", tags: "Energy", mastery_permille: 350 },
-        MockFlashcard { front: "What is the formula for power?", back: "P = W/\u{0394}t = Fv (work per unit time, or force times velocity)", tags: "Energy", mastery_permille: 400 },
+        MockFlashcard {
+            front: "State the work-energy theorem.",
+            back: "Wnet = \u{0394}Ek. The net work done equals the change in kinetic energy.",
+            tags: "Energy",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "What is the formula for power?",
+            back: "P = W/\u{0394}t = Fv (work per unit time, or force times velocity)",
+            tags: "Energy",
+            mastery_permille: 400,
+        },
         // Doppler Effect
-        MockFlashcard { front: "Write the Doppler effect formula for sound.", back: "fL = fs(v \u{00b1} vL)/(v \u{00b1} vs). Approaching = higher frequency.", tags: "Doppler", mastery_permille: 250 },
+        MockFlashcard {
+            front: "Write the Doppler effect formula for sound.",
+            back: "fL = fs(v \u{00b1} vL)/(v \u{00b1} vs). Approaching = higher frequency.",
+            tags: "Doppler",
+            mastery_permille: 250,
+        },
         // Electricity
-        MockFlashcard { front: "What is the relationship between EMF, terminal voltage, and internal resistance?", back: "\u{03b5} = Vterminal + Ir, or \u{03b5} = I(R + r)", tags: "Electricity", mastery_permille: 350 },
-        MockFlashcard { front: "State Faraday's law of electromagnetic induction.", back: "\u{03b5} = \u{2212}N\u{0394}\u{03a6}/\u{0394}t. An EMF is induced when magnetic flux through a coil changes.", tags: "Electrodynamics", mastery_permille: 250 },
+        MockFlashcard {
+            front: "What is the relationship between EMF, terminal voltage, and internal resistance?",
+            back: "\u{03b5} = Vterminal + Ir, or \u{03b5} = I(R + r)",
+            tags: "Electricity",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "State Faraday's law of electromagnetic induction.",
+            back: "\u{03b5} = \u{2212}N\u{0394}\u{03a6}/\u{0394}t. An EMF is induced when magnetic flux through a coil changes.",
+            tags: "Electrodynamics",
+            mastery_permille: 250,
+        },
         // Photoelectric Effect
-        MockFlashcard { front: "State Einstein's photoelectric equation.", back: "E = W0 + Ek(max), or hf = hf0 + \u{00bd}mv\u{00b2}(max)", tags: "Modern Physics", mastery_permille: 250 },
-        MockFlashcard { front: "Why can't wave theory explain the photoelectric effect?", back: "Wave theory predicts any frequency should cause emission given enough intensity, and there should be a delay. Both are wrong.", tags: "Modern Physics", mastery_permille: 200 },
+        MockFlashcard {
+            front: "State Einstein's photoelectric equation.",
+            back: "E = W0 + Ek(max), or hf = hf0 + \u{00bd}mv\u{00b2}(max)",
+            tags: "Modern Physics",
+            mastery_permille: 250,
+        },
+        MockFlashcard {
+            front: "Why can't wave theory explain the photoelectric effect?",
+            back: "Wave theory predicts any frequency should cause emission given enough intensity, and there should be a delay. Both are wrong.",
+            tags: "Modern Physics",
+            mastery_permille: 200,
+        },
     ]
 }
 
@@ -183,20 +320,70 @@ fn generate_science_cards() -> Vec<MockFlashcard> {
 fn generate_chemistry_cards() -> Vec<MockFlashcard> {
     vec![
         // Organic Chemistry
-        MockFlashcard { front: "What is the product of an esterification reaction?", back: "An ester + water. Alcohol + carboxylic acid \u{2192} ester + H2O.", tags: "Organic Chemistry", mastery_permille: 300 },
-        MockFlashcard { front: "What are the three types of organic reactions for alkenes?", back: "Addition reactions: HX, X2, H2O, H2 add across the C=C double bond.", tags: "Organic Chemistry", mastery_permille: 250 },
+        MockFlashcard {
+            front: "What is the product of an esterification reaction?",
+            back: "An ester + water. Alcohol + carboxylic acid \u{2192} ester + H2O.",
+            tags: "Organic Chemistry",
+            mastery_permille: 300,
+        },
+        MockFlashcard {
+            front: "What are the three types of organic reactions for alkenes?",
+            back: "Addition reactions: HX, X2, H2O, H2 add across the C=C double bond.",
+            tags: "Organic Chemistry",
+            mastery_permille: 250,
+        },
         // Reaction Rates
-        MockFlashcard { front: "How does a catalyst increase reaction rate?", back: "Provides an alternative pathway with lower activation energy. NOT consumed in the reaction.", tags: "Reaction Rates", mastery_permille: 350 },
+        MockFlashcard {
+            front: "How does a catalyst increase reaction rate?",
+            back: "Provides an alternative pathway with lower activation energy. NOT consumed in the reaction.",
+            tags: "Reaction Rates",
+            mastery_permille: 350,
+        },
         // Equilibrium
-        MockFlashcard { front: "Does a catalyst shift equilibrium?", back: "No. It speeds up both forward and reverse equally. Kc is unchanged.", tags: "Equilibrium", mastery_permille: 350 },
-        MockFlashcard { front: "State Le Chatelier's principle.", back: "A system at equilibrium shifts to counteract any imposed change (concentration, temperature, pressure).", tags: "Equilibrium", mastery_permille: 300 },
-        MockFlashcard { front: "What are the conditions for the Haber process?", back: "N2 + 3H2 \u{21cc} 2NH3. 450\u{00b0}C, 200 atm, iron catalyst.", tags: "Equilibrium", mastery_permille: 250 },
+        MockFlashcard {
+            front: "Does a catalyst shift equilibrium?",
+            back: "No. It speeds up both forward and reverse equally. Kc is unchanged.",
+            tags: "Equilibrium",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "State Le Chatelier's principle.",
+            back: "A system at equilibrium shifts to counteract any imposed change (concentration, temperature, pressure).",
+            tags: "Equilibrium",
+            mastery_permille: 300,
+        },
+        MockFlashcard {
+            front: "What are the conditions for the Haber process?",
+            back: "N2 + 3H2 \u{21cc} 2NH3. 450\u{00b0}C, 200 atm, iron catalyst.",
+            tags: "Equilibrium",
+            mastery_permille: 250,
+        },
         // Acids & Bases
-        MockFlashcard { front: "Strong acid vs weak acid?", back: "Strong: fully ionised (HCl). Weak: partially ionised (CH3COOH). Strength \u{2260} concentration.", tags: "Acids & Bases", mastery_permille: 350 },
-        MockFlashcard { front: "What is pH?", back: "pH = \u{2212}log[H3O+]. pH 7 = neutral, < 7 = acidic, > 7 = basic.", tags: "Acids & Bases", mastery_permille: 400 },
+        MockFlashcard {
+            front: "Strong acid vs weak acid?",
+            back: "Strong: fully ionised (HCl). Weak: partially ionised (CH3COOH). Strength \u{2260} concentration.",
+            tags: "Acids & Bases",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "What is pH?",
+            back: "pH = \u{2212}log[H3O+]. pH 7 = neutral, < 7 = acidic, > 7 = basic.",
+            tags: "Acids & Bases",
+            mastery_permille: 400,
+        },
         // Electrochemistry
-        MockFlashcard { front: "How do you calculate E\u{00b0}cell?", back: "E\u{00b0}cell = E\u{00b0}cathode \u{2212} E\u{00b0}anode. Positive = spontaneous.", tags: "Electrochemistry", mastery_permille: 300 },
-        MockFlashcard { front: "AN OX, RED CAT \u{2014} what does it mean?", back: "Anode = Oxidation, Reduction = Cathode. In galvanic cells, anode is negative.", tags: "Electrochemistry", mastery_permille: 350 },
+        MockFlashcard {
+            front: "How do you calculate E\u{00b0}cell?",
+            back: "E\u{00b0}cell = E\u{00b0}cathode \u{2212} E\u{00b0}anode. Positive = spontaneous.",
+            tags: "Electrochemistry",
+            mastery_permille: 300,
+        },
+        MockFlashcard {
+            front: "AN OX, RED CAT \u{2014} what does it mean?",
+            back: "Anode = Oxidation, Reduction = Cathode. In galvanic cells, anode is negative.",
+            tags: "Electrochemistry",
+            mastery_permille: 350,
+        },
     ]
 }
 
@@ -204,47 +391,183 @@ fn generate_chemistry_cards() -> Vec<MockFlashcard> {
 fn generate_foundations_cards() -> Vec<MockFlashcard> {
     vec![
         // Integers & Operations
-        MockFlashcard { front: "What is BODMAS?", back: "Brackets, Orders (exponents), Division, Multiplication, Addition, Subtraction \u{2014} the order of operations.", tags: "Numbers", mastery_permille: 600 },
-        MockFlashcard { front: "Why is it dark at night and bright during the day?", back: "Earth spins! When our side faces the Sun, it\u{2019}s day. When it faces away, it\u{2019}s night.", tags: "Space \u{00b7} Foundational", mastery_permille: 700 },
-        MockFlashcard { front: "Is the Sun a star?", back: "Yes! The Sun is a star \u{2014} the closest star to Earth. It looks bigger and brighter because it\u{2019}s much closer than other stars.", tags: "Space \u{00b7} Foundational", mastery_permille: 650 },
-        MockFlashcard { front: "How many planets are in our solar system?", back: "8 planets! Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune. (Pluto is a dwarf planet.)", tags: "Space \u{00b7} Foundational", mastery_permille: 600 },
-
+        MockFlashcard {
+            front: "What is BODMAS?",
+            back: "Brackets, Orders (exponents), Division, Multiplication, Addition, Subtraction \u{2014} the order of operations.",
+            tags: "Numbers",
+            mastery_permille: 600,
+        },
+        MockFlashcard {
+            front: "Why is it dark at night and bright during the day?",
+            back: "Earth spins! When our side faces the Sun, it\u{2019}s day. When it faces away, it\u{2019}s night.",
+            tags: "Space \u{00b7} Foundational",
+            mastery_permille: 700,
+        },
+        MockFlashcard {
+            front: "Is the Sun a star?",
+            back: "Yes! The Sun is a star \u{2014} the closest star to Earth. It looks bigger and brighter because it\u{2019}s much closer than other stars.",
+            tags: "Space \u{00b7} Foundational",
+            mastery_permille: 650,
+        },
+        MockFlashcard {
+            front: "How many planets are in our solar system?",
+            back: "8 planets! Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune. (Pluto is a dwarf planet.)",
+            tags: "Space \u{00b7} Foundational",
+            mastery_permille: 600,
+        },
         // Developing: Grade 3-5
-        MockFlashcard { front: "The Moon is about 384,400 km from Earth. Is that more or less than 1 million km?", back: "Less! It\u{2019}s about 384 thousand km \u{2014} not even half a million. But that\u{2019}s still really far!", tags: "Space \u{00b7} Developing", mastery_permille: 450 },
-        MockFlashcard { front: "Jupiter is about 11 times wider than Earth. If Earth is a grape, how big is Jupiter?", back: "About the size of a basketball! Jupiter is the biggest planet in our solar system.", tags: "Space \u{00b7} Developing", mastery_permille: 400 },
-        MockFlashcard { front: "Why don\u{2019}t we float off Earth into space?", back: "Gravity! Earth pulls everything toward its center. The bigger an object, the stronger its pull.", tags: "Space \u{00b7} Developing", mastery_permille: 500 },
-        MockFlashcard { front: "Why does the Moon seem to change shape each month?", back: "It doesn\u{2019}t change shape! We see different amounts of the lit-up side as the Moon orbits Earth. These are called phases.", tags: "Space \u{00b7} Developing", mastery_permille: 350 },
-        MockFlashcard { front: "Why do we have seasons?", back: "Earth is tilted! When your part of Earth tilts toward the Sun, you get summer. When it tilts away, winter.", tags: "Space \u{00b7} Developing", mastery_permille: 400 },
-
+        MockFlashcard {
+            front: "The Moon is about 384,400 km from Earth. Is that more or less than 1 million km?",
+            back: "Less! It\u{2019}s about 384 thousand km \u{2014} not even half a million. But that\u{2019}s still really far!",
+            tags: "Space \u{00b7} Developing",
+            mastery_permille: 450,
+        },
+        MockFlashcard {
+            front: "Jupiter is about 11 times wider than Earth. If Earth is a grape, how big is Jupiter?",
+            back: "About the size of a basketball! Jupiter is the biggest planet in our solar system.",
+            tags: "Space \u{00b7} Developing",
+            mastery_permille: 400,
+        },
+        MockFlashcard {
+            front: "Why don\u{2019}t we float off Earth into space?",
+            back: "Gravity! Earth pulls everything toward its center. The bigger an object, the stronger its pull.",
+            tags: "Space \u{00b7} Developing",
+            mastery_permille: 500,
+        },
+        MockFlashcard {
+            front: "Why does the Moon seem to change shape each month?",
+            back: "It doesn\u{2019}t change shape! We see different amounts of the lit-up side as the Moon orbits Earth. These are called phases.",
+            tags: "Space \u{00b7} Developing",
+            mastery_permille: 350,
+        },
+        MockFlashcard {
+            front: "Why do we have seasons?",
+            back: "Earth is tilted! When your part of Earth tilts toward the Sun, you get summer. When it tilts away, winter.",
+            tags: "Space \u{00b7} Developing",
+            mastery_permille: 400,
+        },
         // Proficient: Grade 6-8
-        MockFlashcard { front: "Light travels at 300,000 km/s. The Sun is 150 million km away. How long does sunlight take to reach Earth?", back: "500 seconds = about 8 minutes and 20 seconds (150,000,000 \u{00f7} 300,000 = 500)", tags: "Space \u{00b7} Proficient", mastery_permille: 250 },
-        MockFlashcard { front: "A light-year is the distance light travels in one year. Why do astronomers use this unit instead of kilometers?", back: "Because space is so vast! The nearest star (Proxima Centauri) is 4.24 light-years away \u{2014} that\u{2019}s about 40 TRILLION km. Light-years are easier to work with.", tags: "Space \u{00b7} Proficient", mastery_permille: 200 },
-        MockFlashcard { front: "How does a rocket work in the vacuum of space where there\u{2019}s nothing to push against?", back: "Newton\u{2019}s 3rd Law! The rocket pushes exhaust gas backward, and the gas pushes the rocket forward. Action and reaction \u{2014} no air needed.", tags: "Space \u{00b7} Proficient", mastery_permille: 200 },
-        MockFlashcard { front: "What\u{2019}s the difference between mass and weight?", back: "Mass is how much stuff you\u{2019}re made of (same everywhere). Weight is the force of gravity on your mass. You\u{2019}d weigh less on the Moon but your mass stays the same!", tags: "Space \u{00b7} Proficient", mastery_permille: 300 },
-
+        MockFlashcard {
+            front: "Light travels at 300,000 km/s. The Sun is 150 million km away. How long does sunlight take to reach Earth?",
+            back: "500 seconds = about 8 minutes and 20 seconds (150,000,000 \u{00f7} 300,000 = 500)",
+            tags: "Space \u{00b7} Proficient",
+            mastery_permille: 250,
+        },
+        MockFlashcard {
+            front: "A light-year is the distance light travels in one year. Why do astronomers use this unit instead of kilometers?",
+            back: "Because space is so vast! The nearest star (Proxima Centauri) is 4.24 light-years away \u{2014} that\u{2019}s about 40 TRILLION km. Light-years are easier to work with.",
+            tags: "Space \u{00b7} Proficient",
+            mastery_permille: 200,
+        },
+        MockFlashcard {
+            front: "How does a rocket work in the vacuum of space where there\u{2019}s nothing to push against?",
+            back: "Newton\u{2019}s 3rd Law! The rocket pushes exhaust gas backward, and the gas pushes the rocket forward. Action and reaction \u{2014} no air needed.",
+            tags: "Space \u{00b7} Proficient",
+            mastery_permille: 200,
+        },
+        MockFlashcard {
+            front: "What\u{2019}s the difference between mass and weight?",
+            back: "Mass is how much stuff you\u{2019}re made of (same everywhere). Weight is the force of gravity on your mass. You\u{2019}d weigh less on the Moon but your mass stays the same!",
+            tags: "Space \u{00b7} Proficient",
+            mastery_permille: 300,
+        },
         // Advanced: Grade 9-12
-        MockFlashcard { front: "The ISS orbits at 408 km altitude and 7.66 km/s. Why doesn\u{2019}t it fall down?", back: "It IS falling \u{2014} but it\u{2019}s moving forward so fast that Earth\u{2019}s surface curves away at the same rate. Orbit = falling around the planet.", tags: "Space \u{00b7} Advanced", mastery_permille: 150 },
-        MockFlashcard { front: "Kepler\u{2019}s 3rd Law says T\u{00b2} \u{221d} a\u{00b3} (period squared is proportional to semi-major axis cubed). Mars is 1.52 AU from the Sun. What\u{2019}s its orbital period?", back: "T\u{00b2} = (1.52)\u{00b3} = 3.51, so T = \u{221a}3.51 \u{2248} 1.87 years (actual: 1.88 years)", tags: "Space \u{00b7} Advanced", mastery_permille: 100 },
-        MockFlashcard { front: "What is the escape velocity from Earth\u{2019}s surface?", back: "About 11.2 km/s. This is the minimum speed needed to escape Earth\u{2019}s gravity without further propulsion. v = \u{221a}(2GM/r)", tags: "Space \u{00b7} Advanced", mastery_permille: 100 },
-
+        MockFlashcard {
+            front: "The ISS orbits at 408 km altitude and 7.66 km/s. Why doesn\u{2019}t it fall down?",
+            back: "It IS falling \u{2014} but it\u{2019}s moving forward so fast that Earth\u{2019}s surface curves away at the same rate. Orbit = falling around the planet.",
+            tags: "Space \u{00b7} Advanced",
+            mastery_permille: 150,
+        },
+        MockFlashcard {
+            front: "Kepler\u{2019}s 3rd Law says T\u{00b2} \u{221d} a\u{00b3} (period squared is proportional to semi-major axis cubed). Mars is 1.52 AU from the Sun. What\u{2019}s its orbital period?",
+            back: "T\u{00b2} = (1.52)\u{00b3} = 3.51, so T = \u{221a}3.51 \u{2248} 1.87 years (actual: 1.88 years)",
+            tags: "Space \u{00b7} Advanced",
+            mastery_permille: 100,
+        },
+        MockFlashcard {
+            front: "What is the escape velocity from Earth\u{2019}s surface?",
+            back: "About 11.2 km/s. This is the minimum speed needed to escape Earth\u{2019}s gravity without further propulsion. v = \u{221a}(2GM/r)",
+            tags: "Space \u{00b7} Advanced",
+            mastery_permille: 100,
+        },
         // Expert: University
         // Exponents
-        MockFlashcard { front: "Simplify: a\u{00b3} \u{00d7} a\u{2074}", back: "a\u{2077} (add the exponents when bases are the same)", tags: "Exponents", mastery_permille: 600 },
-        MockFlashcard { front: "What is a\u{2070}?", back: "1 (any non-zero number to the power 0 equals 1)", tags: "Exponents", mastery_permille: 550 },
+        MockFlashcard {
+            front: "Simplify: a\u{00b3} \u{00d7} a\u{2074}",
+            back: "a\u{2077} (add the exponents when bases are the same)",
+            tags: "Exponents",
+            mastery_permille: 600,
+        },
+        MockFlashcard {
+            front: "What is a\u{2070}?",
+            back: "1 (any non-zero number to the power 0 equals 1)",
+            tags: "Exponents",
+            mastery_permille: 550,
+        },
         // Algebra fundamentals
-        MockFlashcard { front: "Factorise: x\u{00b2} \u{2212} 9", back: "(x + 3)(x \u{2212} 3) \u{2014} difference of two squares", tags: "Algebra", mastery_permille: 500 },
-        MockFlashcard { front: "Solve: 3x + 7 = 22", back: "3x = 15, so x = 5", tags: "Algebra", mastery_permille: 600 },
-        MockFlashcard { front: "Expand: (x + 3)(x \u{2212} 2)", back: "x\u{00b2} + x \u{2212} 6", tags: "Algebra", mastery_permille: 500 },
+        MockFlashcard {
+            front: "Factorise: x\u{00b2} \u{2212} 9",
+            back: "(x + 3)(x \u{2212} 3) \u{2014} difference of two squares",
+            tags: "Algebra",
+            mastery_permille: 500,
+        },
+        MockFlashcard {
+            front: "Solve: 3x + 7 = 22",
+            back: "3x = 15, so x = 5",
+            tags: "Algebra",
+            mastery_permille: 600,
+        },
+        MockFlashcard {
+            front: "Expand: (x + 3)(x \u{2212} 2)",
+            back: "x\u{00b2} + x \u{2212} 6",
+            tags: "Algebra",
+            mastery_permille: 500,
+        },
         // Geometry
-        MockFlashcard { front: "State the theorem of Pythagoras.", back: "a\u{00b2} + b\u{00b2} = c\u{00b2}, where c is the hypotenuse of a right-angled triangle.", tags: "Geometry", mastery_permille: 550 },
-        MockFlashcard { front: "Angles on a straight line sum to?", back: "180\u{00b0}", tags: "Geometry", mastery_permille: 700 },
-        MockFlashcard { front: "Vertically opposite angles are?", back: "Equal", tags: "Geometry", mastery_permille: 650 },
+        MockFlashcard {
+            front: "State the theorem of Pythagoras.",
+            back: "a\u{00b2} + b\u{00b2} = c\u{00b2}, where c is the hypotenuse of a right-angled triangle.",
+            tags: "Geometry",
+            mastery_permille: 550,
+        },
+        MockFlashcard {
+            front: "Angles on a straight line sum to?",
+            back: "180\u{00b0}",
+            tags: "Geometry",
+            mastery_permille: 700,
+        },
+        MockFlashcard {
+            front: "Vertically opposite angles are?",
+            back: "Equal",
+            tags: "Geometry",
+            mastery_permille: 650,
+        },
         // Forces & Motion
-        MockFlashcard { front: "What is the formula for speed?", back: "speed = distance / time", tags: "Forces", mastery_permille: 600 },
-        MockFlashcard { front: "What is the formula for weight?", back: "w = mg (mass \u{00d7} gravitational acceleration, g \u{2248} 9.8 m/s\u{00b2})", tags: "Forces", mastery_permille: 500 },
+        MockFlashcard {
+            front: "What is the formula for speed?",
+            back: "speed = distance / time",
+            tags: "Forces",
+            mastery_permille: 600,
+        },
+        MockFlashcard {
+            front: "What is the formula for weight?",
+            back: "w = mg (mass \u{00d7} gravitational acceleration, g \u{2248} 9.8 m/s\u{00b2})",
+            tags: "Forces",
+            mastery_permille: 500,
+        },
         // Matter
-        MockFlashcard { front: "What is the difference between an element and a compound?", back: "Element: one type of atom. Compound: two or more elements chemically bonded.", tags: "Matter", mastery_permille: 550 },
-        MockFlashcard { front: "Name the three states of matter.", back: "Solid, liquid, gas. Particles are closest together in solids and furthest apart in gases.", tags: "Matter", mastery_permille: 650 },
+        MockFlashcard {
+            front: "What is the difference between an element and a compound?",
+            back: "Element: one type of atom. Compound: two or more elements chemically bonded.",
+            tags: "Matter",
+            mastery_permille: 550,
+        },
+        MockFlashcard {
+            front: "Name the three states of matter.",
+            back: "Solid, liquid, gas. Particles are closest together in solids and furthest apart in gases.",
+            tags: "Matter",
+            mastery_permille: 650,
+        },
     ]
 }
 
@@ -257,17 +580,41 @@ struct KidRating {
 }
 
 const KID_RATINGS: &[KidRating] = &[
-    KidRating { emoji: "\u{2716}", label: "Blackout", quality: 1, css_class: "kid-rate-red" },
-    KidRating { emoji: "\u{2753}", label: "Hard", quality: 2, css_class: "kid-rate-orange" },
-    KidRating { emoji: "\u{2714}", label: "Good", quality: 4, css_class: "kid-rate-green" },
-    KidRating { emoji: "\u{26a1}", label: "Easy", quality: 5, css_class: "kid-rate-gold" },
+    KidRating {
+        emoji: "\u{2716}",
+        label: "Blackout",
+        quality: 1,
+        css_class: "kid-rate-red",
+    },
+    KidRating {
+        emoji: "\u{2753}",
+        label: "Hard",
+        quality: 2,
+        css_class: "kid-rate-orange",
+    },
+    KidRating {
+        emoji: "\u{2714}",
+        label: "Good",
+        quality: 4,
+        css_class: "kid-rate-green",
+    },
+    KidRating {
+        emoji: "\u{26a1}",
+        label: "Easy",
+        quality: 5,
+        css_class: "kid-rate-gold",
+    },
 ];
 
 // ---------------------------------------------------------------------------
 // Helper: apply text complexity to card content
 // ---------------------------------------------------------------------------
 
-fn adapt_card_text(text: &str, adaptation: &ContentAdaptation, sovereignty: &SovereigntyLevel) -> String {
+fn adapt_card_text(
+    text: &str,
+    adaptation: &ContentAdaptation,
+    sovereignty: &SovereigntyLevel,
+) -> String {
     let rewrite = suggest_rewrite(sovereignty, text, &adaptation.text_complexity, 5);
     match rewrite {
         RewriteResult::Applied { rewritten, .. } => rewritten,
@@ -419,14 +766,23 @@ pub fn ReviewPage() -> impl IntoView {
                     // Tell adaptivity about the new card
                     let card = &deck[next_index];
                     rate_ctx.with_value(|ctx| ctx.set_skill(card.tags, card.mastery_permille));
-                    set_state.set(ReviewState::ShowingFront { card_index: next_index });
+                    set_state.set(ReviewState::ShowingFront {
+                        card_index: next_index,
+                    });
                 } else {
                     // Session complete
                     let r = ratings.get();
                     let correct_count = r.iter().filter(|&&q| q >= 3).count();
-                    let correct_count = if quality >= 3 { correct_count.max(1) } else { correct_count };
+                    let correct_count = if quality >= 3 {
+                        correct_count.max(1)
+                    } else {
+                        correct_count
+                    };
                     let reviewed = r.len();
-                    set_state.set(ReviewState::SessionComplete { reviewed, correct: correct_count });
+                    set_state.set(ReviewState::SessionComplete {
+                        reviewed,
+                        correct: correct_count,
+                    });
                 }
             });
         }

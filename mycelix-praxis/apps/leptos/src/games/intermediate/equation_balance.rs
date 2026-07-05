@@ -19,9 +19,8 @@ pub fn EquationBalance(node_id: String) -> impl IntoView {
     let (solved, set_solved) = signal(false);
     let (message, set_message) = signal(String::new());
 
-    let is_balanced = move || {
-        current_lhs_x.get() * target_x.get() + current_lhs_c.get() == current_rhs.get()
-    };
+    let is_balanced =
+        move || current_lhs_x.get() * target_x.get() + current_lhs_c.get() == current_rhs.get();
 
     view! {
         <div class="game-container equation-balance-game">

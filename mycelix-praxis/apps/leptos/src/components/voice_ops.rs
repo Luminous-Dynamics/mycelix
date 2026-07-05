@@ -30,7 +30,7 @@ pub fn VoiceCommandCenter() -> impl IntoView {
                         {move || if is_listening.get() { "Listening (Local-WASM)..." } else { format!("Last: {}", last_command.get()) }}
                     </div>
                 </div>
-                <button 
+                <button
                     class=move || if is_listening.get() { "btn-sm btn-primary pulse" } else { "btn-sm btn-outline" }
                     on:click=toggle_listen
                 >

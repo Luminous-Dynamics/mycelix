@@ -12,19 +12,23 @@ use wasm_bindgen::JsCast;
 pub fn GravityExplorer(node_id: String) -> impl IntoView {
     let g_const = 6.674e-11_f64; // m³/(kg·s²)
 
-    let (mass1, set_mass1) = signal(5.97e24_f64);  // Earth mass (kg)
-    let (mass2, set_mass2) = signal(7.35e22_f64);   // Moon mass (kg)
+    let (mass1, set_mass1) = signal(5.97e24_f64); // Earth mass (kg)
+    let (mass2, set_mass2) = signal(7.35e22_f64); // Moon mass (kg)
     let (distance, set_distance) = signal(3.84e8_f64); // Earth-Moon distance (m)
 
     let force = Memo::new(move |_| {
         let r = distance.get();
-        if r < 1.0 { return 0.0; }
+        if r < 1.0 {
+            return 0.0;
+        }
         g_const * mass1.get() * mass2.get() / (r * r)
     });
 
     let acceleration = Memo::new(move |_| {
         let m = mass2.get();
-        if m < 0.01 { return 0.0; }
+        if m < 0.01 {
+            return 0.0;
+        }
         force.get() / m
     });
 

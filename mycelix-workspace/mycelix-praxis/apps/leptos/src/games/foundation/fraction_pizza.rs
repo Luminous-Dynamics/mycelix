@@ -16,7 +16,11 @@ pub fn FractionPizzaGame(node_id: String) -> impl IntoView {
         let num_shaded = shaded.get().len() as u32;
         let target = target_numerator.get();
         if num_shaded == target {
-            set_message.set(format!("Correct! {}/{} of the pizza!", target, denominator.get()));
+            set_message.set(format!(
+                "Correct! {}/{} of the pizza!",
+                target,
+                denominator.get()
+            ));
         }
     };
 

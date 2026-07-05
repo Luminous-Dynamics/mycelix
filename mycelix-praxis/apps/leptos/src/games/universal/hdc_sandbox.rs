@@ -26,7 +26,10 @@ impl HdcVector {
 
     /// Binding (XOR)
     pub fn bind(&self, other: &Self) -> Self {
-        let bits = self.bits.iter().zip(other.bits.iter())
+        let bits = self
+            .bits
+            .iter()
+            .zip(other.bits.iter())
             .map(|(a, b)| a ^ b)
             .collect();
         Self { bits }
@@ -38,7 +41,9 @@ impl HdcVector {
         for i in 0..256 {
             let mut set_count = 0;
             for v in vectors {
-                if v.bits[i] { set_count += 1; }
+                if v.bits[i] {
+                    set_count += 1;
+                }
             }
             // Simple majority rule for binary HDC
             bits.push(set_count > (vectors.len() / 2));
@@ -60,7 +65,7 @@ pub fn HdcSandbox() -> impl IntoView {
     let (v_role, set_v_role) = signal(HdcVector::random());
     let (v_subject, set_v_role_subject) = signal(HdcVector::random());
     let (v_memory, set_v_memory) = signal::<Option<HdcVector>>(None);
-    
+
     // Step-by-step guidance
     let (current_step, set_step) = signal(1);
 
@@ -137,7 +142,7 @@ pub fn HdcSandbox() -> impl IntoView {
                             <div class="lesson-complete">
                                 <h4>"\u{2705} Mastery Proven"</h4>
                                 <p>"You have successfully manipulated high-dimensional meaning."</p>
-                                
+
                                 <div class="deep-dive">
                                     <h5>"Extra: 16k Deep Dive"</h5>
                                     <p>"See how 16,384 dimensions handle noise."</p>

@@ -2,33 +2,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-mod home;
+mod careers;
 mod courses;
-mod review;
+mod credentials;
 mod dashboard;
 mod employer;
-mod careers;
 mod exam_prep;
-mod mock_exam;
 mod governance;
-mod credentials;
+mod home;
+mod mock_exam;
 mod pathways;
+mod review;
 mod skill_map;
 mod study;
 mod teacher;
 mod verify;
 
-pub use home::HomePage;
+pub use careers::CareerPathPage;
 pub use courses::CoursesPage;
-pub use review::ReviewPage;
+pub use credentials::CredentialsPage;
 pub use dashboard::DashboardPage;
 pub use employer::EmployerPortal;
-pub use careers::CareerPathPage;
 pub use exam_prep::ExamPrepPage;
-pub use mock_exam::MockExamPage;
 pub use governance::GovernancePage;
-pub use credentials::CredentialsPage;
+pub use home::HomePage;
+pub use mock_exam::MockExamPage;
 pub use pathways::PathwaysPage;
+pub use review::ReviewPage;
 pub use skill_map::SkillMapPage;
 pub use study::StudyPage;
 pub use teacher::TeacherDashboardPage;

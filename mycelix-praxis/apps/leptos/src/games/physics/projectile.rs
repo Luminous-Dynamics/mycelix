@@ -5,9 +5,9 @@
 //! Students set initial velocity and observe position, velocity,
 //! and acceleration graphs in real-time. Covers CAPS Gr12 P1.MECH2.
 
-use leptos::prelude::*;
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::games::shared::graph_renderer::{GraphArea, GraphConfig};
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use leptos::prelude::*;
 
 const G: f64 = 9.8; // m/s²
 
@@ -43,12 +43,17 @@ fn trajectory_path(v0: f64, t_max: f64) -> String {
     for i in 0..=steps {
         let t = i as f64 * dt;
         let h = height(v0, t);
-        if h < 0.0 && i > 0 { break; }
+        if h < 0.0 && i > 0 {
+            break;
+        }
         // Map: x = time (0 to t_max), y = height (SVG inverted)
         let svg_x = t;
         let svg_y = -h;
-        if path.is_empty() { path = format!("M {:.3} {:.3}", svg_x, svg_y); }
-        else { path.push_str(&format!(" L {:.3} {:.3}", svg_x, svg_y)); }
+        if path.is_empty() {
+            path = format!("M {:.3} {:.3}", svg_x, svg_y);
+        } else {
+            path.push_str(&format!(" L {:.3} {:.3}", svg_x, svg_y));
+        }
     }
     path
 }
@@ -75,18 +80,19 @@ pub fn ProjectileExplorer(node_id: String) -> impl IntoView {
         velocity(v0.get(), t)
     });
 
-    let path = Memo::new(move |_| {
-        trajectory_path(v0.get(), t_total.get())
-    });
+    let path = Memo::new(move |_| trajectory_path(v0.get(), t_total.get()));
 
     // Graph config: x = time (0 to t_total), y = height (0 to h_max)
     let graph_config = Memo::new(move |_| {
         let tt = t_total.get().max(1.0);
         let hm = h_max.get().max(5.0);
         GraphConfig {
-            x_min: -0.2, x_max: tt + 0.5,
-            y_min: -(hm + 2.0), y_max: 2.0,
-            show_grid: true, grid_step: if tt > 6.0 { 2.0 } else { 1.0 },
+            x_min: -0.2,
+            x_max: tt + 0.5,
+            y_min: -(hm + 2.0),
+            y_max: 2.0,
+            show_grid: true,
+            grid_step: if tt > 6.0 { 2.0 } else { 1.0 },
         }
     });
 
@@ -96,9 +102,9 @@ pub fn ProjectileExplorer(node_id: String) -> impl IntoView {
             let idx = challenge_idx.get_untracked();
             let v = v0.get_untracked();
             let passed = match idx {
-                0 => (max_height(v) - 20.0).abs() < 1.5,       // Max height ≈ 20m
-                1 => (total_time(v) - 4.0).abs() < 0.3,        // Total time ≈ 4s
-                2 => (v - 30.0).abs() < 2.0,                   // v₀ = 30 m/s (discover relationship)
+                0 => (max_height(v) - 20.0).abs() < 1.5, // Max height ≈ 20m
+                1 => (total_time(v) - 4.0).abs() < 0.3,  // Total time ≈ 4s
+                2 => (v - 30.0).abs() < 2.0,             // v₀ = 30 m/s (discover relationship)
                 _ => false,
             };
             if passed {
@@ -113,7 +119,9 @@ pub fn ProjectileExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

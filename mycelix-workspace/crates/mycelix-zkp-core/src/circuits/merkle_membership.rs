@@ -79,8 +79,8 @@ pub fn compute_merkle_root(leaves: &[[u8; 32]]) -> [u8; 32] {
         let mut next_level = Vec::with_capacity(level.len() / 2);
         for pair in level.chunks(2) {
             let mut hasher = Sha256::new();
-            hasher.update(&pair[0]);
-            hasher.update(&pair[1]);
+            hasher.update(pair[0]);
+            hasher.update(pair[1]);
             let hash = hasher.finalize();
             let mut node = [0u8; 32];
             node.copy_from_slice(&hash);
@@ -106,15 +106,19 @@ pub fn generate_merkle_path(leaves: &[[u8; 32]], leaf_index: usize) -> Vec<([u8;
     let mut level = padded;
 
     while level.len() > 1 {
-        let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
-        let is_left = idx % 2 == 0;
+        let sibling_idx = if idx.is_multiple_of(2) {
+            idx + 1
+        } else {
+            idx - 1
+        };
+        let is_left = idx.is_multiple_of(2);
         path.push((level[sibling_idx], is_left));
 
         let mut next_level = Vec::with_capacity(level.len() / 2);
         for pair in level.chunks(2) {
             let mut hasher = Sha256::new();
-            hasher.update(&pair[0]);
-            hasher.update(&pair[1]);
+            hasher.update(pair[0]);
+            hasher.update(pair[1]);
             let hash = hasher.finalize();
             let mut node = [0u8; 32];
             node.copy_from_slice(&hash);
@@ -140,11 +144,11 @@ pub fn verify_merkle_path(
     for (sibling, is_left) in path {
         let mut hasher = Sha256::new();
         if *is_left {
-            hasher.update(&current);
+            hasher.update(current);
             hasher.update(sibling);
         } else {
             hasher.update(sibling);
-            hasher.update(&current);
+            hasher.update(current);
         }
         let hash = hasher.finalize();
         current.copy_from_slice(&hash);

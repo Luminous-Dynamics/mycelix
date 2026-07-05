@@ -18,11 +18,11 @@
 //! └─────────────────────┘    └──────────────────┘     └─────────────────┘
 //! ```
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{IdbDatabase, IdbObjectStore, IdbRequest, IdbTransaction, IdbTransactionMode};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 const DB_NAME: &str = "praxis_curriculum";
 const DB_VERSION: u32 = 1;
@@ -91,9 +91,7 @@ pub async fn load_chunk(db: &IdbDatabase, slug: &str) -> Result<Option<String>, 
         .map_err(|e| format!("store error: {:?}", e))?;
 
     let key = JsValue::from_str(slug);
-    let req = store
-        .get(&key)
-        .map_err(|e| format!("get error: {:?}", e))?;
+    let req = store.get(&key).map_err(|e| format!("get error: {:?}", e))?;
 
     let result = JsFuture::from(idb_request_to_promise(&req))
         .await
@@ -124,10 +122,7 @@ pub async fn list_cached(db: &IdbDatabase) -> Result<Vec<String>, String> {
         .map_err(|e| format!("keys failed: {:?}", e))?;
 
     let array: js_sys::Array = result.unchecked_into();
-    let keys: Vec<String> = array
-        .iter()
-        .filter_map(|v| v.as_string())
-        .collect();
+    let keys: Vec<String> = array.iter().filter_map(|v| v.as_string()).collect();
 
     Ok(keys)
 }
@@ -145,11 +140,9 @@ pub async fn fetch_chunk(slug: &str) -> Result<String, String> {
         return Err(format!("HTTP {}", resp.status()));
     }
 
-    let text = JsFuture::from(
-        resp.text().map_err(|_| "text() failed".to_string())?,
-    )
-    .await
-    .map_err(|e| format!("text error: {:?}", e))?;
+    let text = JsFuture::from(resp.text().map_err(|_| "text() failed".to_string())?)
+        .await
+        .map_err(|e| format!("text error: {:?}", e))?;
 
     text.as_string().ok_or("not a string".to_string())
 }
@@ -189,7 +182,12 @@ pub async fn load_or_fetch(slug: &str) -> Result<String, String> {
 
 fn idb_request_to_promise(req: &IdbRequest) -> js_sys::Promise {
     let req = req.clone();
-    let cb = Rc::new(RefCell::new(None::<(Closure<dyn FnMut(web_sys::Event)>, Closure<dyn FnMut(web_sys::Event)>)>));
+    let cb = Rc::new(RefCell::new(
+        None::<(
+            Closure<dyn FnMut(web_sys::Event)>,
+            Closure<dyn FnMut(web_sys::Event)>,
+        )>,
+    ));
 
     let promise = js_sys::Promise::new(&mut {
         let req = req.clone();
@@ -232,7 +230,8 @@ fn idb_transaction_to_promise(tx: &IdbTransaction) -> js_sys::Promise {
         });
 
         let on_error = Closure::once(move |_: web_sys::Event| {
-            let _ = reject_clone.call1(&JsValue::NULL, &JsValue::from_str("IDB transaction failed"));
+            let _ =
+                reject_clone.call1(&JsValue::NULL, &JsValue::from_str("IDB transaction failed"));
         });
 
         tx.set_oncomplete(Some(on_complete.as_ref().unchecked_ref()));

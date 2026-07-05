@@ -39,15 +39,31 @@ pub fn wise_error_message(concept: &str, attempt: u32, is_guardian: bool) -> Str
     let expected = 5; // average
     if is_guardian {
         if attempt <= 2 {
-            format!("Not quite — but that's exactly how understanding builds. {} usually takes a few tries.", concept)
+            format!(
+                "Not quite — but that's exactly how understanding builds. {} usually takes a few tries.",
+                concept
+            )
         } else {
-            format!("Keep going. Most students need {}-{} attempts for {}. You're getting closer.", expected - 1, expected + 1, concept)
+            format!(
+                "Keep going. Most students need {}-{} attempts for {}. You're getting closer.",
+                expected - 1,
+                expected + 1,
+                concept
+            )
         }
     } else {
         if attempt <= 2 {
-            format!("Attempt {}. Most students need {}-{} tries for this concept.", attempt, expected - 1, expected + 1)
+            format!(
+                "Attempt {}. Most students need {}-{} tries for this concept.",
+                attempt,
+                expected - 1,
+                expected + 1
+            )
         } else {
-            format!("Attempt {}. This is one of the harder concepts — persistence pays off.", attempt)
+            format!(
+                "Attempt {}. This is one of the harder concepts — persistence pays off.",
+                attempt
+            )
         }
     }
 }

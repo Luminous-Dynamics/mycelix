@@ -15,8 +15,8 @@ use wasm_bindgen::JsCast;
 
 use crate::adaptivity_provider::use_adaptivity;
 use crate::cognitive_adaptivity::*;
-use crate::curriculum::{use_progress, curriculum_graph};
-use crate::role::{use_set_role, UserRole};
+use crate::curriculum::{curriculum_graph, use_progress};
+use crate::role::{UserRole, use_set_role};
 use crate::student_profile::{use_profile, use_set_profile};
 
 fn event_target_value(ev: &leptos::ev::Event) -> String {

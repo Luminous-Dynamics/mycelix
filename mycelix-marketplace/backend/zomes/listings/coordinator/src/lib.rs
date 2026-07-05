@@ -26,27 +26,20 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
         match security::sanitize_ipfs_cid(cid) {
             Ok(clean_cid) => sanitized_cids.push(clean_cid),
             Err(e) => {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    format!("Invalid IPFS CID: {}", e)
-                )));
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid IPFS CID: {}",
+                    e
+                ))));
             }
         }
     }
 
     // Validate price and quantity
-    security::validate_price(input.price_cents).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid price: {}",
-            e
-        )))
-    })?;
+    security::validate_price(input.price_cents)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid price: {}", e))))?;
 
-    security::validate_quantity(input.quantity_available).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid quantity: {}",
-            e
-        )))
-    })?;
+    security::validate_quantity(input.quantity_available)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid quantity: {}", e))))?;
 
     // Build listing with Epistemic Charter classification
     let listing = Listing {
@@ -71,16 +64,23 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
 
     // Create entry on DHT
     let action_hash = create_entry(&EntryTypes::Listing(listing.clone()))?;
-    let entry_hash = hash_entry(&listing)?;
 
     // Create discovery links
+    //
+    // All four links target `action_hash`, not an entry hash: every reader
+    // (get_all_listings, get_my_listings, get_listings_by_category) calls
+    // `link.target.into_action_hash()`, which returns `None` for an
+    // EntryHash target -- an EntryHash-targeted link is silently invisible
+    // to every query. Discovered via marketplace_workflow.rs sweettest
+    // (test_list_active_listings): links created with the (then) entry hash
+    // target vanished from every listing/category/all-listings query.
 
     // 1. Agent -> Listing (seller's listings)
     // Clone to avoid move since we use agent_initial_pubkey again later
     let agent_path = agent_info.agent_initial_pubkey.clone();
     create_link(
         agent_path.clone(), // Clone here since we use agent_path again for monitoring
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::AgentToListings,
         (),
     )?;
@@ -90,7 +90,7 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
     // Note: HDK 0.6.0 - Path.ensure() removed, paths auto-created
     create_link(
         category_path.path_entry_hash()?,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::CategoryToListings,
         (),
     )?;
@@ -100,7 +100,7 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
     // Note: HDK 0.6.0 - Path.ensure() removed, paths auto-created
     create_link(
         status_path.path_entry_hash()?,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::StatusToListings,
         (),
     )?;
@@ -110,7 +110,7 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
     // Note: HDK 0.6.0 - Path.ensure() removed, paths auto-created
     create_link(
         all_path.path_entry_hash()?,
-        entry_hash.clone(),
+        action_hash.clone(),
         LinkTypes::AllListings,
         (),
     )?;
@@ -120,7 +120,10 @@ pub fn create_listing(input: CreateListingInput) -> ExternResult<ListingOutput> 
         monitoring::MetricType::ListingCreated,
         1.0,
         Some(agent_path.clone()),
-        Some(format!("category:{:?},price:{}", listing.category, listing.price_cents)),
+        Some(format!(
+            "category:{:?},price:{}",
+            listing.category, listing.price_cents
+        )),
     )?;
 
     Ok(ListingOutput {
@@ -204,7 +207,8 @@ pub fn get_my_listings(_: ()) -> ExternResult<ListingsResponse> {
 pub fn get_listings_by_category(category: ListingCategory) -> ExternResult<ListingsResponse> {
     let path = Path::from(format!("listings.category.{:?}", category));
     // Use shared utility for get_links
-    let links = link_queries::get_links_local(path.path_entry_hash()?, LinkTypes::CategoryToListings)?;
+    let links =
+        link_queries::get_links_local(path.path_entry_hash()?, LinkTypes::CategoryToListings)?;
 
     let mut listings = Vec::new();
 
@@ -223,10 +227,9 @@ pub fn get_listings_by_category(category: ListingCategory) -> ExternResult<Listi
 #[hdk_extern]
 pub fn update_listing(input: UpdateListingInput) -> ExternResult<ListingOutput> {
     // Get the original listing
-    let original_record = get(input.listing_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Listing not found".into()
-        )))?;
+    let original_record = get(input.listing_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Listing not found".into())),
+    )?;
 
     // Use shared utility for deserialization
     let mut listing: Listing = error_handling::deserialize_entry(&original_record)?;
@@ -302,13 +305,15 @@ pub fn search_listings(query: String) -> ExternResult<ListingsResponse> {
         .into_iter()
         .filter(|output| {
             output.listing.title.to_lowercase().contains(&query_lower)
-                || output.listing.description.to_lowercase().contains(&query_lower)
+                || output
+                    .listing
+                    .description
+                    .to_lowercase()
+                    .contains(&query_lower)
         })
         .collect();
 
-    Ok(ListingsResponse {
-        listings: filtered,
-    })
+    Ok(ListingsResponse { listings: filtered })
 }
 
 /// Get seller verification and trust information from Bridge
@@ -331,24 +336,29 @@ pub fn get_seller_verification(seller: AgentPubKey) -> ExternResult<SellerVerifi
         bridge::BridgeResult::Success(identity) => {
             (identity.verified, Some(identity.verification_level), None)
         }
-        bridge::BridgeResult::Unavailable => {
-            (false, None, Some("Bridge identity service unavailable".to_string()))
-        }
-        bridge::BridgeResult::Error(e) => {
-            (false, None, Some(e))
-        }
+        bridge::BridgeResult::Unavailable => (
+            false,
+            None,
+            Some("Bridge identity service unavailable".to_string()),
+        ),
+        bridge::BridgeResult::Error(e) => (false, None, Some(e)),
     };
 
-    let (cross_app_score, app_count, total_transactions, reputation_error) = match reputation_result {
-        bridge::BridgeResult::Success(rep) => {
-            (Some(rep.score), Some(rep.app_count), Some(rep.total_transactions), None)
-        }
-        bridge::BridgeResult::Unavailable => {
-            (None, None, None, Some("Bridge reputation service unavailable".to_string()))
-        }
-        bridge::BridgeResult::Error(e) => {
-            (None, None, None, Some(e))
-        }
+    let (cross_app_score, app_count, total_transactions, reputation_error) = match reputation_result
+    {
+        bridge::BridgeResult::Success(rep) => (
+            Some(rep.score),
+            Some(rep.app_count),
+            Some(rep.total_transactions),
+            None,
+        ),
+        bridge::BridgeResult::Unavailable => (
+            None,
+            None,
+            None,
+            Some("Bridge reputation service unavailable".to_string()),
+        ),
+        bridge::BridgeResult::Error(e) => (None, None, None, Some(e)),
     };
 
     Ok(SellerVerificationResponse {
@@ -374,10 +384,9 @@ pub fn get_seller_verification(seller: AgentPubKey) -> ExternResult<SellerVerifi
 #[hdk_extern]
 pub fn get_listing_with_trust(listing_hash: ActionHash) -> ExternResult<ListingWithTrustOutput> {
     // Get the listing
-    let listing_output = get_listing(listing_hash.clone())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Listing not found".into()
-        )))?;
+    let listing_output = get_listing(listing_hash.clone())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Listing not found".into())
+    ))?;
 
     // Get seller verification info
     let seller_verification = get_seller_verification(listing_output.seller_agent_id.clone())?;
@@ -577,7 +586,6 @@ pub struct SellerTrustCheckResult {
     /// Reason for failure (if any)
     pub reason: Option<String>,
 }
-
 
 // ===== Tests =====
 #[cfg(test)]

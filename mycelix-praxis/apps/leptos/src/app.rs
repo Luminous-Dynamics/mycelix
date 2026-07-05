@@ -4,25 +4,34 @@
 
 use leptos::prelude::*;
 use leptos_router::{
-    components::{Route, Router, Routes, A},
+    components::{A, Route, Router, Routes},
     hooks::use_params_map,
     path,
 };
 
+use crate::adaptivity_provider::AdaptivityProvider;
+use crate::consciousness::ConsciousnessProvider;
 use crate::curriculum::provide_curriculum_context;
-use crate::holochain::{HolochainProvider, ConnectionBadge};
+use crate::holochain::{ConnectionBadge, HolochainProvider};
+use crate::learning_engine::LearningEngineProvider;
 use crate::pages::*;
-use crate::role::{provide_role_context, UserRole};
+use crate::role::{UserRole, provide_role_context};
 use crate::student_profile::provide_profile_context;
-use crate::theme::{provide_theme_context, use_theme, use_set_theme};
+use crate::theme::{provide_theme_context, use_set_theme, use_theme};
 
 #[component]
 pub fn App() -> impl IntoView {
     view! {
         <HolochainProvider>
-            <crate::theme::SomaticThemeHandler>
-                <AppInner />
-            </crate::theme::SomaticThemeHandler>
+            <ConsciousnessProvider>
+            <LearningEngineProvider>
+            <AdaptivityProvider>
+                <crate::theme::SomaticThemeHandler>
+                    <AppInner />
+                </crate::theme::SomaticThemeHandler>
+            </AdaptivityProvider>
+            </LearningEngineProvider>
+            </ConsciousnessProvider>
         </HolochainProvider>
     }
 }
@@ -40,6 +49,9 @@ fn AppInner() -> impl IntoView {
     crate::tutor::provide_tutor_context();
     crate::study_tracker::provide_study_tracker();
     crate::i18n::provide_i18n();
+
+    // Wire consciousness signals to CSS custom properties
+    crate::consciousness_ui::init_consciousness_ui();
 
     view! {
         <Router>
@@ -106,23 +118,27 @@ fn RoleNav(role: ReadSignal<Option<UserRole>>) -> impl IntoView {
     move || match role.get() {
         None => view! {
             // No role selected — home page handles onboarding
-        }.into_any(),
+        }
+        .into_any(),
         Some(UserRole::Teacher) => view! {
             <A href="/teacher">"Dashboard"</A>
             <A href="/courses">"Courses"</A>
             <A href="/skill-map">"Knowledge Garden"</A>
             <A href="/credentials">"Assessments"</A>
-        }.into_any(),
+        }
+        .into_any(),
         Some(UserRole::Student) => view! {
             <A href="/dashboard">"Dashboard"</A>
             <A href="/skill-map">"Knowledge Garden"</A>
             <A href="/review">"Review"</A>
             <A href="/exam-prep">"Exam Prep"</A>
-        }.into_any(),
+        }
+        .into_any(),
         Some(UserRole::Parent) => view! {
             <A href="/dashboard">"Progress"</A>
             <A href="/credentials">"Reports"</A>
-        }.into_any(),
+        }
+        .into_any(),
     }
 }
 
@@ -187,9 +203,7 @@ fn MobileBottomNav() -> impl IntoView {
 #[component]
 fn StudyPageWrapper() -> impl IntoView {
     let params = use_params_map();
-    let node_id = move || {
-        params.read().get("id").unwrap_or_default()
-    };
+    let node_id = move || params.read().get("id").unwrap_or_default();
 
     view! {
         {move || {

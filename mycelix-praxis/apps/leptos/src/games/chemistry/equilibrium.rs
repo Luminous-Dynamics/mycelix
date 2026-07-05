@@ -6,9 +6,9 @@
 //! equilibrium shift in real-time. Bar charts show species concentrations.
 //! Covers CAPS Gr12 P2.EQUIL (25 marks).
 
-use leptos::prelude::*;
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::social_proof;
+use leptos::prelude::*;
 
 /// Simulates N₂ + 3H₂ ⇌ 2NH₃ (ΔH < 0, exothermic forward)
 /// Simplified model: Kc drives concentrations toward equilibrium
@@ -45,17 +45,25 @@ pub fn EquilibriumExplorer(node_id: String) -> impl IntoView {
     let shift_direction = Memo::new(move |_| {
         let q = qc.get();
         let k = kc.get();
-        if (q - k).abs() < 0.05 { "At equilibrium" }
-        else if q < k { "Shifts RIGHT → (more NH₃)" }
-        else { "Shifts LEFT ← (more N₂ + H₂)" }
+        if (q - k).abs() < 0.05 {
+            "At equilibrium"
+        } else if q < k {
+            "Shifts RIGHT → (more NH₃)"
+        } else {
+            "Shifts LEFT ← (more N₂ + H₂)"
+        }
     });
 
     let shift_color = Memo::new(move |_| {
         let q = qc.get();
         let k = kc.get();
-        if (q - k).abs() < 0.05 { "var(--success)" }
-        else if q < k { "var(--info)" }
-        else { "var(--error)" }
+        if (q - k).abs() < 0.05 {
+            "var(--success)"
+        } else if q < k {
+            "var(--info)"
+        } else {
+            "var(--error)"
+        }
     });
 
     // Challenge state
@@ -75,10 +83,10 @@ pub fn EquilibriumExplorer(node_id: String) -> impl IntoView {
             set_attempt_count.update(|c| *c += 1);
 
             let passed = match idx {
-                0 => q < k * 0.7,                          // Make reaction shift right
-                1 => q > k * 1.5,                          // Make reaction shift left
-                2 => t > 550.0 && q > k,                   // High temp shifts left (exothermic)
-                3 => (q - k).abs() / k < 0.15,             // Reach equilibrium (Qc ≈ Kc)
+                0 => q < k * 0.7,              // Make reaction shift right
+                1 => q > k * 1.5,              // Make reaction shift left
+                2 => t > 550.0 && q > k,       // High temp shifts left (exothermic)
+                3 => (q - k).abs() / k < 0.15, // Reach equilibrium (Qc ≈ Kc)
                 _ => false,
             };
 
@@ -95,7 +103,9 @@ pub fn EquilibriumExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });

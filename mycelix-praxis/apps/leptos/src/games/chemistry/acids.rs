@@ -5,25 +5,25 @@
 //! Students adjust concentration and acid type, see pH, [H₃O⁺], [OH⁻] update.
 //! Covers CAPS Gr12 P2.ACID (30 marks).
 
-use leptos::prelude::*;
-use crate::curriculum::{use_set_progress, ProgressStatus};
+use crate::curriculum::{ProgressStatus, use_set_progress};
 use crate::social_proof;
+use leptos::prelude::*;
 
 #[component]
 pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
     let set_progress = use_set_progress();
 
-    let (concentration, set_concentration) = signal(0.1_f64);  // mol/dm³
+    let (concentration, set_concentration) = signal(0.1_f64); // mol/dm³
     let (is_strong, set_is_strong) = signal(true);
     let (is_acid, set_is_acid) = signal(true);
-    let (ka_exponent, set_ka_exponent) = signal(-5.0_f64);  // Ka = 10^ka_exponent (for weak acids)
+    let (ka_exponent, set_ka_exponent) = signal(-5.0_f64); // Ka = 10^ka_exponent (for weak acids)
 
     // Calculations
     let h3o_concentration = Memo::new(move |_| {
         let c = concentration.get();
         if is_acid.get() {
             if is_strong.get() {
-                c  // fully ionised
+                c // fully ionised
             } else {
                 let ka = 10.0_f64.powf(ka_exponent.get());
                 // [H₃O⁺] = √(Ka × c) for weak acid
@@ -31,7 +31,9 @@ pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
             }
         } else {
             // Base: [OH⁻] = c (strong) or √(Kb×c) (weak), then [H₃O⁺] = Kw/[OH⁻]
-            let oh = if is_strong.get() { c } else {
+            let oh = if is_strong.get() {
+                c
+            } else {
                 let kb = 10.0_f64.powf(ka_exponent.get());
                 (kb * c).sqrt().min(c)
             };
@@ -39,9 +41,7 @@ pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
         }
     });
 
-    let oh_concentration = Memo::new(move |_| {
-        1.0e-14 / h3o_concentration.get()
-    });
+    let oh_concentration = Memo::new(move |_| 1.0e-14 / h3o_concentration.get());
 
     let ph = Memo::new(move |_| {
         let h = h3o_concentration.get();
@@ -52,11 +52,17 @@ pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
 
     let ph_color = Memo::new(move |_| {
         let p = ph.get();
-        if p < 3.0 { "var(--error)" }
-        else if p < 6.0 { "#f97316" }
-        else if p < 8.0 { "var(--success)" }
-        else if p < 11.0 { "var(--info)" }
-        else { "#8b5cf6" }
+        if p < 3.0 {
+            "var(--error)"
+        } else if p < 6.0 {
+            "#f97316"
+        } else if p < 8.0 {
+            "var(--success)"
+        } else if p < 11.0 {
+            "var(--info)"
+        } else {
+            "#8b5cf6"
+        }
     });
 
     let (challenge_idx, set_challenge_idx) = signal(0_usize);
@@ -75,10 +81,10 @@ pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
             set_attempt_count.update(|c| *c += 1);
 
             let passed = match idx {
-                0 => (p - 1.0).abs() < 0.2 && acid && strong,   // pH = 1 with strong acid
+                0 => (p - 1.0).abs() < 0.2 && acid && strong, // pH = 1 with strong acid
                 1 => (p - 13.0).abs() < 0.3 && !acid && strong, // pH = 13 with strong base
-                2 => !strong && acid && p > 2.0 && p < 5.0,      // Weak acid pH (not fully ionised)
-                3 => (p - 7.0).abs() < 0.5,                      // Neutral pH
+                2 => !strong && acid && p > 2.0 && p < 5.0,   // Weak acid pH (not fully ionised)
+                3 => (p - 7.0).abs() < 0.5,                   // Neutral pH
                 _ => false,
             };
 
@@ -95,7 +101,9 @@ pub fn AcidBaseExplorer(node_id: String) -> impl IntoView {
                         set_progress.update(|p| {
                             let e = p.nodes.entry(node_id).or_default();
                             e.mastery_permille = e.mastery_permille.max(800);
-                            if e.status == ProgressStatus::NotStarted { e.status = ProgressStatus::Studying; }
+                            if e.status == ProgressStatus::NotStarted {
+                                e.status = ProgressStatus::Studying;
+                            }
                         });
                     }
                 });
