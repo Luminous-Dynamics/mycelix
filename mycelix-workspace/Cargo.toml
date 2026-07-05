@@ -1,0 +1,900 @@
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+authors = ["Tristan Stoltz / Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/luminous-dynamics/mycelix"
+
+[workspace]
+exclude = [
+    "mycelix-identity/tests",
+    "mycelix-core/libs/identity-client",
+    "mycelix-music/apps/api-rust",
+    "mycelix-prism/mocks",
+    "mycelix-core/zomes/bridge",
+    "mycelix-core/zomes/federated_learning",
+    "crates/mycelix-fl",
+    "mycelix-care/zomes/bridge",
+    "mycelix-care/zomes/care-plans",
+    "mycelix-care/zomes/circles",
+    "mycelix-care/zomes/matching",
+    "mycelix-care/zomes/timebank",
+    "mycelix-mutualaid/zomes/circles",
+    "mycelix-mutualaid/zomes/governance",
+    "mycelix-mutualaid/zomes/needs",
+    "mycelix-mutualaid/zomes/pools",
+    "mycelix-mutualaid/zomes/requests",
+    "mycelix-mutualaid/zomes/resources",
+    "mycelix-mutualaid/zomes/timebank",
+    "mycelix-supplychain/rust/*",
+    "crates/mycelix-bevy",
+    "crates/mycelix-bridge-codegen",
+    "crates/mycelix-bridge-common/examples",
+    "crates/mycelix-bridge-common/fuzz",
+    "crates/mycelix-bridge-common/fuzz/artifacts",
+    "crates/mycelix-bridge-common/fuzz/artifacts/fuzz_consciousness_profile",
+    "crates/mycelix-bridge-common/fuzz/artifacts/fuzz_offline_credential",
+    "crates/mycelix-bridge-common/fuzz/corpus",
+    "crates/mycelix-bridge-common/fuzz/corpus/fuzz_consciousness_profile",
+    "crates/mycelix-bridge-common/fuzz/corpus/fuzz_offline_credential",
+    "crates/mycelix-bridge-common/fuzz/corpus/fuzz_routing_dispatch",
+    "crates/mycelix-bridge-common/fuzz/fuzz_targets",
+    "crates/mycelix-bridge-common/proptest-regressions",
+    "crates/mycelix-bridge-common",
+    "crates/mycelix-bridge-common/target",
+    "crates/mycelix-bridge-common/tests",
+    "crates/mycelix-bridge-entry-types",
+    "crates/mycelix-bridge-proc",
+    "crates/mycelix-claim-types",
+    "crates/mycelix-cluster-manifest",
+    "crates/mycelix-fl-core/benches",
+    "crates/mycelix-fl-core/examples",
+    "crates/mycelix-fl-core/fixtures",
+    "crates/mycelix-fl-core",
+    "crates/mycelix-fl-core/tests",
+    "crates/mycelix-fl-proofs",
+    "crates/mycelix-fl/benches",
+    "crates/mycelix-fl",
+    "crates/mycelix-fl/src/aggregation",
+    "crates/mycelix-fl/tests",
+    "crates/mycelix-leptos-client",
+    "crates/mycelix-leptos-client/tests",
+    "crates/mycelix-leptos-core",
+    "crates/mycelix-leptos-core/style",
+    "crates/mycelix-leptos-i18n",
+    "crates/mycelix-leptos-ui",
+    "crates/mycelix-mock-data",
+    "crates/mycelix-zkp-core/benches",
+    "crates/mycelix-zkp-core",
+    "crates/mycelix-zkp-core/src/circuits",
+    "crates/mycelix-zkp-core/target",
+    "crates/mycelix-zome-helpers",
+    "crates/sovereign-profile",
+    "crates/sovereign-profile/target",
+    "crates/sweettest-harness",
+    "happs/consensus/.cargo",
+    "happs/consensus/dna",
+    "happs/consensus/zomes",
+    "happs/consensus/zomes/rbbft",
+    "happs/epistemic-markets/.cargo",
+    "happs/epistemic-markets/.github",
+    "happs/epistemic-markets/.github/workflows",
+    "happs/epistemic-markets/docs",
+    "happs/epistemic-markets/genesis",
+    "happs/epistemic-markets/research/bin",
+    "happs/epistemic-markets/research/results",
+    "happs/epistemic-markets/sdk-ts",
+    "happs/epistemic-markets/sdk-ts",
+    "happs/epistemic-markets/simulations",
+    "happs/epistemic-markets/target",
+    "happs/epistemic-markets/tests",
+    "happs/epistemic-markets/zomes",
+    "happs/epistemic-markets/zomes/markets",
+    "happs/epistemic-markets/zomes/markets_bridge",
+    "happs/epistemic-markets/zomes/predictions",
+    "happs/epistemic-markets/zomes/question_markets",
+    "happs/epistemic-markets/zomes/resolution",
+    "happs/epistemic-markets/zomes/scoring",
+    "happs/fabrication/.cargo",
+    "happs/fabrication/crates",
+    "happs/fabrication/crates/fabrication_common",
+    "happs/fabrication/dna",
+    "happs/fabrication/docs",
+    "happs/fabrication/sdk-ts",
+    "happs/fabrication/sdk-ts",
+    "happs/fabrication/sdk-ts/src/clients",
+    "happs/fabrication/sdk-ts/src/types",
+    "happs/fabrication/target",
+    "happs/fabrication/tests",
+    "happs/fabrication/tests/sweettest/.cargo",
+    "happs/fabrication/zomes",
+    "happs/fabrication/zomes/bridge",
+    "happs/fabrication/zomes/designs",
+    "happs/fabrication/zomes/materials",
+    "happs/fabrication/zomes/printers",
+    "happs/fabrication/zomes/prints",
+    "happs/fabrication/zomes/symthaea",
+    "happs/fabrication/zomes/verification",
+    "happs/lucid/.cargo",
+    "happs/lucid/client",
+    "happs/lucid/client/dist",
+    "happs/lucid/client",
+    "happs/lucid/client/src/types",
+    "happs/lucid/client/src/utils",
+    "happs/lucid/client/src/zomes",
+    "happs/lucid/tests",
+    "happs/lucid/tests",
+    "happs/lucid/tests/sweettest",
+    "happs/lucid/tests/sweettest",
+    "happs/lucid/ui",
+    "happs/lucid/ui",
+    "happs/lucid/ui/src-tauri",
+    "happs/lucid/ui/src/assets",
+    "happs/lucid/ui/src/lib",
+    "happs/lucid/ui/src/routes",
+    "happs/lucid/zomes",
+    "happs/lucid/zomes/bridge",
+    "happs/lucid/zomes/collective",
+    "happs/lucid/zomes/lucid",
+    "happs/lucid/zomes/privacy",
+    "happs/lucid/zomes/reasoning",
+    "happs/lucid/zomes/sources",
+    "happs/lucid/zomes/temporal",
+    "happs/lucid/zomes/temporal-consciousness",
+    "mycelix-attribution/tests",
+    "mycelix-care/tests",
+    "mycelix-civic/crates/civic-types",
+    "mycelix-civic/zomes/bioregional-coordination/coordinator",
+    "mycelix-civic/zomes/bioregional-coordination/integrity",
+    "mycelix-civic/zomes/civic-bridge/coordinator",
+    "mycelix-civic/zomes/civic-bridge/integrity",
+    "mycelix-civic/zomes/emergency-comms/coordinator",
+    "mycelix-civic/zomes/emergency-comms/integrity",
+    "mycelix-civic/zomes/emergency-coordination/coordinator",
+    "mycelix-civic/zomes/emergency-coordination/integrity",
+    "mycelix-civic/zomes/emergency-incidents/coordinator",
+    "mycelix-civic/zomes/emergency-incidents/integrity",
+    "mycelix-civic/zomes/emergency-resources/coordinator",
+    "mycelix-civic/zomes/emergency-resources/integrity",
+    "mycelix-civic/zomes/emergency-shelters/coordinator",
+    "mycelix-civic/zomes/emergency-shelters/integrity",
+    "mycelix-civic/zomes/emergency-triage/coordinator",
+    "mycelix-civic/zomes/emergency-triage/integrity",
+    "mycelix-civic/zomes/justice-arbitration/coordinator",
+    "mycelix-civic/zomes/justice-arbitration/integrity",
+    "mycelix-civic/zomes/justice-cases/coordinator",
+    "mycelix-civic/zomes/justice-cases/integrity",
+    "mycelix-civic/zomes/justice-enforcement/coordinator",
+    "mycelix-civic/zomes/justice-enforcement/integrity",
+    "mycelix-civic/zomes/justice-evidence/coordinator",
+    "mycelix-civic/zomes/justice-evidence/integrity",
+    "mycelix-civic/zomes/justice-restorative/coordinator",
+    "mycelix-civic/zomes/justice-restorative/integrity",
+    "mycelix-civic/zomes/media-attribution/coordinator",
+    "mycelix-civic/zomes/media-attribution/integrity",
+    "mycelix-civic/zomes/media-curation/coordinator",
+    "mycelix-civic/zomes/media-curation/integrity",
+    "mycelix-civic/zomes/media-factcheck/coordinator",
+    "mycelix-civic/zomes/media-factcheck/integrity",
+    "mycelix-civic/zomes/media-publication/coordinator",
+    "mycelix-civic/zomes/media-publication/integrity",
+    "mycelix-civic/zomes/mediation/coordinator",
+    "mycelix-civic/zomes/mediation/integrity",
+    "mycelix-civic/zomes/resonance-feed/coordinator",
+    "mycelix-civic/zomes/resonance-feed/integrity",
+    "mycelix-civic/zomes/robotics-dispatch/coordinator",
+    "mycelix-civic/zomes/robotics-dispatch/integrity",
+    "mycelix-climate/crates/climate-leptos-types",
+    "mycelix-commons/crates/commons-leptos-types",
+    "mycelix-commons/crates/commons-types",
+    "mycelix-commons/crates/mutualaid-common",
+    "mycelix-commons/crates/support-types",
+    "mycelix-commons/zomes/boundary-contracts/coordinator",
+    "mycelix-commons/zomes/boundary-contracts/integrity",
+    "mycelix-commons/zomes/care-circles/coordinator",
+    "mycelix-commons/zomes/care-circles/integrity",
+    "mycelix-commons/zomes/care-credentials/coordinator",
+    "mycelix-commons/zomes/care-credentials/integrity",
+    "mycelix-commons/zomes/care-matching/coordinator",
+    "mycelix-commons/zomes/care-matching/integrity",
+    "mycelix-commons/zomes/care-plans/coordinator",
+    "mycelix-commons/zomes/care-plans/integrity",
+    "mycelix-commons/zomes/care-timebank/coordinator",
+    "mycelix-commons/zomes/care-timebank/integrity",
+    "mycelix-commons/zomes/circular-marketplace/coordinator",
+    "mycelix-commons/zomes/circular-marketplace/integrity",
+    "mycelix-commons/zomes/commons-bridge/coordinator",
+    "mycelix-commons/zomes/commons-bridge/integrity",
+    "mycelix-commons/zomes/community-calendar/coordinator",
+    "mycelix-commons/zomes/community-calendar/integrity",
+    "mycelix-commons/zomes/compost-control/coordinator",
+    "mycelix-commons/zomes/compost-control/integrity",
+    "mycelix-commons/zomes/food-distribution/coordinator",
+    "mycelix-commons/zomes/food-distribution/integrity",
+    "mycelix-commons/zomes/food-knowledge/coordinator",
+    "mycelix-commons/zomes/food-knowledge/integrity",
+    "mycelix-commons/zomes/food-preservation/coordinator",
+    "mycelix-commons/zomes/food-preservation/integrity",
+    "mycelix-commons/zomes/food-production/coordinator",
+    "mycelix-commons/zomes/food-production/integrity",
+    "mycelix-commons/zomes/housing-clt/coordinator",
+    "mycelix-commons/zomes/housing-clt/integrity",
+    "mycelix-commons/zomes/housing-finances/coordinator",
+    "mycelix-commons/zomes/housing-finances/integrity",
+    "mycelix-commons/zomes/housing-governance/coordinator",
+    "mycelix-commons/zomes/housing-governance/integrity",
+    "mycelix-commons/zomes/housing-maintenance/coordinator",
+    "mycelix-commons/zomes/housing-maintenance/integrity",
+    "mycelix-commons/zomes/housing-membership/coordinator",
+    "mycelix-commons/zomes/housing-membership/integrity",
+    "mycelix-commons/zomes/housing-units/coordinator",
+    "mycelix-commons/zomes/housing-units/integrity",
+    "mycelix-commons/zomes/mesh-time/coordinator",
+    "mycelix-commons/zomes/mesh-time/integrity",
+    "mycelix-commons/zomes/mutualaid-circles/coordinator",
+    "mycelix-commons/zomes/mutualaid-circles/integrity",
+    "mycelix-commons/zomes/mutualaid-governance/coordinator",
+    "mycelix-commons/zomes/mutualaid-governance/integrity",
+    "mycelix-commons/zomes/mutualaid-needs/coordinator",
+    "mycelix-commons/zomes/mutualaid-needs/integrity",
+    "mycelix-commons/zomes/mutualaid-pools/coordinator",
+    "mycelix-commons/zomes/mutualaid-pools/integrity",
+    "mycelix-commons/zomes/mutualaid-requests/coordinator",
+    "mycelix-commons/zomes/mutualaid-requests/integrity",
+    "mycelix-commons/zomes/mutualaid-resources/coordinator",
+    "mycelix-commons/zomes/mutualaid-resources/integrity",
+    "mycelix-commons/zomes/mutualaid-timebank/coordinator",
+    "mycelix-commons/zomes/mutualaid-timebank/integrity",
+    "mycelix-commons/zomes/property-commons/coordinator",
+    "mycelix-commons/zomes/property-commons/integrity",
+    "mycelix-commons/zomes/property-disputes/coordinator",
+    "mycelix-commons/zomes/property-disputes/integrity",
+    "mycelix-commons/zomes/property-registry/coordinator",
+    "mycelix-commons/zomes/property-registry/integrity",
+    "mycelix-commons/zomes/property-transfer/coordinator",
+    "mycelix-commons/zomes/property-transfer/integrity",
+    "mycelix-commons/zomes/resource-mesh/coordinator",
+    "mycelix-commons/zomes/resource-mesh/integrity",
+    "mycelix-commons/zomes/space/coordinator",
+    "mycelix-commons/zomes/space/integrity",
+    "mycelix-commons/zomes/support-diagnostics/coordinator",
+    "mycelix-commons/zomes/support-diagnostics/integrity",
+    "mycelix-commons/zomes/support-knowledge/coordinator",
+    "mycelix-commons/zomes/support-knowledge/integrity",
+    "mycelix-commons/zomes/support-tickets/coordinator",
+    "mycelix-commons/zomes/support-tickets/integrity",
+    "mycelix-commons/zomes/tool-library/coordinator",
+    "mycelix-commons/zomes/tool-library/integrity",
+    "mycelix-commons/zomes/transport-impact/coordinator",
+    "mycelix-commons/zomes/transport-impact/integrity",
+    "mycelix-commons/zomes/transport-routes/coordinator",
+    "mycelix-commons/zomes/transport-routes/integrity",
+    "mycelix-commons/zomes/transport-sharing/coordinator",
+    "mycelix-commons/zomes/transport-sharing/integrity",
+    "mycelix-commons/zomes/waste-collection/coordinator",
+    "mycelix-commons/zomes/waste-collection/integrity",
+    "mycelix-commons/zomes/waste-registry/coordinator",
+    "mycelix-commons/zomes/waste-registry/integrity",
+    "mycelix-commons/zomes/water-capture/coordinator",
+    "mycelix-commons/zomes/water-capture/integrity",
+    "mycelix-commons/zomes/water-flow/coordinator",
+    "mycelix-commons/zomes/water-flow/integrity",
+    "mycelix-commons/zomes/water-purity/coordinator",
+    "mycelix-commons/zomes/water-purity/integrity",
+    "mycelix-commons/zomes/water-steward/coordinator",
+    "mycelix-commons/zomes/water-steward/integrity",
+    "mycelix-commons/zomes/water-wisdom/coordinator",
+    "mycelix-commons/zomes/water-wisdom/integrity",
+    "mycelix-commons/zomes/wellbeing/coordinator",
+    "mycelix-commons/zomes/wellbeing/integrity",
+    "mycelix-core/libs/bootstrap",
+    "mycelix-core/libs/bootstrap/examples",
+    "mycelix-core/libs/differential-privacy/benches",
+    "mycelix-core/libs/differential-privacy",
+    "crates/feldman-dkg",
+    "mycelix-core/libs/fl-aggregator.archived-v0.1",
+    "mycelix-core/libs/fl-aggregator.archived-v0.1/integration_tests",
+    "mycelix-core/libs/homomorphic-encryption/benches",
+    "mycelix-core/libs/homomorphic-encryption",
+    "mycelix-core/libs/identity-client/rust",
+    "mycelix-core/libs/identity-client/rust/tests",
+    "mycelix-core/libs/identity-client",
+    "mycelix-core/libs/kvector-zkp/benches",
+    "mycelix-core/libs/kvector-zkp",
+    "mycelix-core/libs/luminous-nix/benches",
+    "mycelix-core/libs/luminous-nix/scripts",
+    "mycelix-core/libs/luminous-nix",
+    "mycelix-core/libs/luminous-nix/src/commands",
+    "mycelix-core/libs/luminous-nix/src/intent",
+    "mycelix-core/libs/luminous-nix/src/learning",
+    "mycelix-core/libs/luminous-nix/src/output",
+    "mycelix-core/libs/luminous-nix/tests",
+    "mycelix-core/libs/matl-bridge",
+    "mycelix-core/libs/matl-bridge/tests",
+    "crates/mycelix-core-types/examples",
+    "crates/mycelix-core-types",
+    "crates/mycelix-core-types/src/wisdom_engine",
+    "mycelix-core/libs/mycelix-fl/benches",
+    "mycelix-core/libs/mycelix-fl/docs",
+    "mycelix-core/libs/mycelix-fl/proto",
+    "mycelix-core/libs/mycelix-fl",
+    "mycelix-core/libs/mycelix-fl/src/bin",
+    "mycelix-core/libs/mycelix-fl/src/compression",
+    "mycelix-core/libs/mycelix-fl/src/coordinator",
+    "mycelix-core/libs/mycelix-fl/src/defenses",
+    "mycelix-core/libs/mycelix-fl/src/detection",
+    "mycelix-core/libs/mycelix-fl/src/grpc",
+    "mycelix-core/libs/mycelix-fl/src/pogq",
+    "mycelix-core/libs/mycelix-fl/src/python",
+    "mycelix-core/libs/mycelix-fl/target-native",
+    "mycelix-core/libs/mycelix-fl/target-native/debug",
+    "mycelix-core/libs/mycelix-fl/target-native/wasm32-unknown-unknown",
+    "mycelix-core/libs/mycelix-fl/target-native/x86_64-unknown-linux-gnu",
+    "mycelix-core/libs/mycelix-fl/tests",
+    "mycelix-core/libs/otel-tracing",
+    "mycelix-core/libs/proofs-commitment",
+    "mycelix-core/libs/proofs-config",
+    "mycelix-core/libs/rb-bft-consensus",
+    "mycelix-core/libs/redis-ratelimit",
+    "mycelix-core/zomes/agents/simple_zome",
+    "mycelix-core/zomes/agents/simple_zome",
+    "mycelix-core/zomes/agents",
+    "mycelix-core/zomes/bridge/coordinator",
+    "mycelix-core/zomes/bridge/integrity",
+    "mycelix-core/zomes/bridge/tests",
+    "mycelix-core/zomes/dkg",
+    "mycelix-core/zomes/dkg/coordinator",
+    "mycelix-core/zomes/dkg/integrity",
+    "mycelix-core/zomes/dkg/tests",
+    "mycelix-core/zomes/dkg/tests",
+    "mycelix-core/zomes/epistemic_storage",
+    "mycelix-core/zomes/epistemic_storage/coordinator",
+    "mycelix-core/zomes/epistemic_storage/integrity",
+    "mycelix-core/zomes/federated_learning/coordinator",
+    "mycelix-core/zomes/federated_learning/integrity",
+    "mycelix-core/zomes/pogq_validation",
+    "mycelix-core/zomes/pogq_validation/coordinator",
+    "mycelix-core/zomes/pogq_validation/integrity",
+    "mycelix-emergency/tests",
+    "mycelix-energy/crates/energy-leptos-types",
+    "mycelix-energy/tests",
+    "mycelix-finance/crates/finance-leptos-types",
+    "mycelix-finance/crates/finance-wire-types",
+    "mycelix-finance/types/fuzz/fuzz_targets",
+    "mycelix-finance/types",
+    "mycelix-finance/types/tests",
+    "mycelix-governance/crates/governance-leptos-types",
+    "mycelix-governance/crates/governance-utils",
+    "mycelix-governance/crates/sovereign-bridge",
+    "mycelix-governance/tests",
+    "mycelix-governance/zomes/aether_mirror/coordinator",
+    "mycelix-governance/zomes/aether_mirror/integrity",
+    "mycelix-governance/zomes/aether_mirror/integrity/target",
+    "mycelix-governance/zomes/autopoietic_amendment/coordinator",
+    "mycelix-governance/zomes/autopoietic_amendment/coordinator",
+    "mycelix-governance/zomes/autopoietic_amendment/integrity",
+    "mycelix-governance/zomes/autopoietic_amendment/integrity",
+    "mycelix-governance/zomes/biometric_resonance/coordinator",
+    "mycelix-governance/zomes/biometric_resonance/integrity",
+    "mycelix-governance/zomes/bridge/coordinator",
+    "mycelix-governance/zomes/bridge/integrity",
+    "mycelix-governance/zomes/budgeting/coordinator",
+    "mycelix-governance/zomes/budgeting/integrity",
+    "mycelix-governance/zomes/cognition/coordinator",
+    "mycelix-governance/zomes/cognition/integrity",
+    "mycelix-governance/zomes/constitution/coordinator",
+    "mycelix-governance/zomes/constitution/integrity",
+    "mycelix-governance/zomes/councils/coordinator",
+    "mycelix-governance/zomes/councils/integrity",
+    "mycelix-governance/zomes/dreamweaving/coordinator",
+    "mycelix-governance/zomes/dreamweaving/integrity",
+    "mycelix-governance/zomes/entropy_sink/coordinator",
+    "mycelix-governance/zomes/entropy_sink/integrity",
+    "mycelix-governance/zomes/evolutionary_simulation/coordinator",
+    "mycelix-governance/zomes/evolutionary_simulation/coordinator",
+    "mycelix-governance/zomes/evolutionary_simulation/integrity",
+    "mycelix-governance/zomes/evolutionary_simulation/integrity",
+    "mycelix-governance/zomes/execution/coordinator",
+    "mycelix-governance/zomes/execution/integrity",
+    "mycelix-governance/zomes/federation/coordinator",
+    "mycelix-governance/zomes/federation/integrity",
+    "mycelix-governance/zomes/intuition/coordinator",
+    "mycelix-governance/zomes/intuition/coordinator",
+    "mycelix-governance/zomes/intuition/integrity",
+    "mycelix-governance/zomes/intuition/integrity",
+    "mycelix-governance/zomes/jurisdiction/coordinator",
+    "mycelix-governance/zomes/jurisdiction/integrity",
+    "mycelix-governance/zomes/meme_factory/coordinator",
+    "mycelix-governance/zomes/meme_factory/integrity",
+    "mycelix-governance/zomes/mirror/coordinator",
+    "mycelix-governance/zomes/mirror/integrity",
+    "mycelix-governance/zomes/oracle_bridge/coordinator",
+    "mycelix-governance/zomes/oracle_bridge/integrity",
+    "mycelix-governance/zomes/proposals/coordinator",
+    "mycelix-governance/zomes/proposals/integrity",
+    "mycelix-governance/zomes/protocol_evolution/coordinator",
+    "mycelix-governance/zomes/protocol_evolution/integrity",
+    "mycelix-governance/zomes/restorative-justice/coordinator",
+    "mycelix-governance/zomes/restorative-justice/coordinator",
+    "mycelix-governance/zomes/restorative-justice/integrity",
+    "mycelix-governance/zomes/restorative-justice/integrity",
+    "mycelix-governance/zomes/rna_library/coordinator",
+    "mycelix-governance/zomes/rna_library/integrity",
+    "mycelix-governance/zomes/s2s_bridge/coordinator",
+    "mycelix-governance/zomes/s2s_bridge/coordinator",
+    "mycelix-governance/zomes/s2s_bridge/integrity",
+    "mycelix-governance/zomes/s2s_bridge/integrity",
+    "mycelix-governance/zomes/sentinel/coordinator",
+    "mycelix-governance/zomes/sentinel/coordinator",
+    "mycelix-governance/zomes/sentinel/integrity",
+    "mycelix-governance/zomes/sentinel/integrity",
+    "mycelix-governance/zomes/singularity/coordinator",
+    "mycelix-governance/zomes/singularity/coordinator",
+    "mycelix-governance/zomes/singularity/integrity",
+    "mycelix-governance/zomes/singularity/integrity",
+    "mycelix-governance/zomes/sovereign_beacon/coordinator",
+    "mycelix-governance/zomes/sovereign_beacon/coordinator",
+    "mycelix-governance/zomes/sovereign_beacon/integrity",
+    "mycelix-governance/zomes/sovereign_beacon/integrity",
+    "mycelix-governance/zomes/sovereign_ledger/coordinator",
+    "mycelix-governance/zomes/sovereign_ledger/coordinator",
+    "mycelix-governance/zomes/sovereign_ledger/integrity",
+    "mycelix-governance/zomes/sovereign_ledger/integrity",
+    "mycelix-governance/zomes/steward_consent/coordinator",
+    "mycelix-governance/zomes/steward_consent/coordinator",
+    "mycelix-governance/zomes/steward_consent/integrity",
+    "mycelix-governance/zomes/steward_consent/integrity",
+    "mycelix-governance/zomes/threshold-signing/coordinator",
+    "mycelix-governance/zomes/threshold-signing/integrity",
+    "mycelix-governance/zomes/voting/coordinator",
+    "mycelix-governance/zomes/voting/integrity",
+    "mycelix-hearth/crates/hearth-coordinator-common",
+    "mycelix-hearth/crates/hearth-leptos-types",
+    "mycelix-hearth/crates/hearth-types",
+    "mycelix-housing/tests",
+    "mycelix-identity/crates/eidas-zkp/demo",
+    "mycelix-identity/crates/eidas-zkp",
+    "mycelix-identity/crates/eidas-zkp/src/bin",
+    "mycelix-identity/crates/identity-leptos-types",
+    "mycelix-identity/crates/mycelix-crypto/benches",
+    "mycelix-identity/crates/mycelix-crypto",
+    "mycelix-identity/crates/mycelix-crypto/src/pqc",
+    "mycelix-identity/crates/mycelix-crypto/tests",
+    "mycelix-identity/crates/mycelix-trust-registry",
+    "mycelix-desci/zomes/desci_claim/coordinator",
+    "mycelix-desci/zomes/desci_claim/integrity",
+    "mycelix-position/lib/positioning",
+    "mycelix-identity/zomes/bridge/coordinator",
+    "mycelix-identity/zomes/bridge/integrity",
+    "mycelix-identity/zomes/credential_schema/coordinator",
+    "mycelix-identity/zomes/credential_schema/integrity",
+    "mycelix-identity/zomes/did_registry/coordinator",
+    "mycelix-identity/zomes/did_registry/integrity",
+    "mycelix-identity/zomes/education/coordinator",
+    "mycelix-identity/zomes/education/integrity",
+    "mycelix-identity/zomes/mfa/coordinator",
+    "mycelix-identity/zomes/mfa/integrity",
+    "mycelix-identity/zomes/name-registry/coordinator",
+    "mycelix-identity/zomes/name-registry/integrity",
+    "mycelix-identity/zomes/recovery/coordinator",
+    "mycelix-identity/zomes/recovery/integrity",
+    "mycelix-identity/zomes/reputation-aggregator/coordinator",
+    "mycelix-identity/zomes/reputation-aggregator/integrity",
+    "mycelix-identity/zomes/revocation/coordinator",
+    "mycelix-identity/zomes/revocation/integrity",
+    "mycelix-identity/zomes/trust_credential/coordinator",
+    "mycelix-identity/zomes/trust_credential/integrity",
+    "mycelix-identity/zomes/verifiable_credential/coordinator",
+    "mycelix-identity/zomes/verifiable_credential/integrity",
+    "mycelix-identity/zomes/web-of-trust/coordinator",
+    "mycelix-identity/zomes/web-of-trust/integrity",
+    "mycelix-justice/tests",
+    "mycelix-knowledge/crates/knowledge-leptos-types",
+    "mycelix-knowledge/tests",
+    "mycelix-manufacturing/crates/manufacturing_common",
+     # Note: music zome paths below were wrong (no Cargo.toml at zome/ level, only at coordinator/ & integrity/)
+     # These are now picked up by mycelix-music/dnas/mycelix-music/zomes/*/* glob in members
+     # "mycelix-music/dnas/mycelix-music/zomes/balances",
+     # "mycelix-music/dnas/mycelix-music/zomes/catalog",
+     # "mycelix-music/dnas/mycelix-music/zomes/music-bridge",
+     # "mycelix-music/dnas/mycelix-music/zomes/plays",
+     # "mycelix-music/dnas/mycelix-music/zomes/trust",
+    "mycelix-mutualaid/crates/mutualaid_common",
+    "mycelix-personal/crates/personal-leptos-types",
+    "mycelix-personal/crates/personal-types",
+    "mycelix-personal/crates/stress-tester",
+    "mycelix-personal/zomes/credential-wallet/coordinator",
+    "mycelix-personal/zomes/credential-wallet/integrity",
+    "mycelix-personal/zomes/data_preferences/coordinator",
+    "mycelix-personal/zomes/data_preferences/integrity",
+    "mycelix-personal/zomes/health-vault/coordinator",
+    "mycelix-personal/zomes/health-vault/integrity",
+    "mycelix-personal/zomes/identity-vault/coordinator",
+    "mycelix-personal/zomes/identity-vault/integrity",
+    "mycelix-personal/zomes/personal-bridge/coordinator",
+    "mycelix-personal/zomes/personal-bridge/integrity",
+    "mycelix-praxis/crates/mycelix-governance/docs",
+    "mycelix-praxis/crates/mycelix-governance",
+    "mycelix-praxis/crates/mycelix-governance/src/aggregation",
+    "mycelix-praxis/crates/mycelix-governance/src/execution",
+    "mycelix-praxis/crates/mycelix-governance/src/types",
+    "mycelix-praxis/crates/mycelix-governance/src/validation",
+    "mycelix-praxis/crates/praxis-agg/benches",
+    "mycelix-praxis/crates/praxis-agg",
+    "mycelix-praxis/crates/praxis-content-gen",
+    "mycelix-praxis/crates/praxis-content-gen/src/caps_content",
+    "mycelix-praxis/crates/praxis-content-gen/src/international_content",
+    "mycelix-praxis/crates/praxis-core",
+    "mycelix-praxis/crates/praxis-standards-ingest/data",
+    "mycelix-praxis/crates/praxis-standards-ingest",
+    "mycelix-praxis/crates/praxis-standards-ingest/src/sources",
+    "mycelix-prism/nix",
+    "mycelix-prism/prism-dom/fuzz/fuzz_targets",
+    "mycelix-prism/prism-ingest/claims",
+    "mycelix-prism/prism-ingest/src/bin",
+    "mycelix-prism/prism-search/benches",
+    "mycelix-prism/prism-search/src/bin",
+    "mycelix-prism/prism-search/tests",
+    "mycelix-prism/prism-shell/assets",
+    "mycelix-prism/prism-shell/assets/fonts",
+    "mycelix-prism/prism-tauri/gen",
+    "mycelix-prism/prism-tauri/gen/schemas",
+    "mycelix-prism/prism-tauri/icons",
+    "mycelix-prism/prism-ui/src/components",
+    "mycelix-prism/prism-ui/src/pages",
+    "mycelix-prism/prism-ui/static",
+    "mycelix-prism/prism-ui/style",
+    "mycelix-prism/prism-ui/tests",
+    "mycelix-prism/target",
+    "mycelix-pulse/crates/mail-leptos-types",
+    "mycelix-pulse/crates/pulse-smtp-gateway",
+    "mycelix-pulse/crates/pulse-smtp-gateway/tests",
+    "mycelix-pulse/desktop/scripts",
+    "mycelix-pulse/desktop/src-tauri/capabilities",
+    "mycelix-pulse/desktop/src-tauri/gen",
+    "mycelix-pulse/desktop/src-tauri/gen/schemas",
+    "mycelix-pulse/desktop/src-tauri/icons",
+    "mycelix-pulse/desktop/src-tauri",
+    "mycelix-pulse/holochain/crates/rate_limiter",
+    "mycelix-pulse/holochain/crates/stake",
+    "mycelix-pulse/tests",
+    "mycelix-sensorium/crates/domain-admin",
+    "mycelix-sensorium/crates/domain-commons",
+    "mycelix-sensorium/crates/domain-finance",
+    "mycelix-sensorium/crates/domain-governance",
+    "mycelix-sensorium/crates/domain-health",
+    "mycelix-sensorium/crates/domain-hearth",
+    "mycelix-sensorium/crates/domain-knowledge",
+    "mycelix-sensorium/crates/domain-lucid",
+    "mycelix-sensorium/crates/domain-mail",
+    "mycelix-sensorium/crates/domain-personal",
+    "mycelix-sensorium/crates/domain-praxis",
+    "mycelix-sensorium/crates/sensorium-domain-trait",
+    "mycelix-sensorium/crates/sensorium-games",
+    "mycelix-sensorium/crates/sensorium-games/src/math",
+    "mycelix-sensorium/crates/sensorium-games/src/physics",
+    "mycelix-sensorium/crates/sensorium-inference",
+    "mycelix-sensorium/crates/sensorium-shell",
+    "mycelix-sensorium/crates/sensorium-shell/src/ai",
+    "mycelix-sensorium/crates/sensorium-shell/src/background",
+    "mycelix-sensorium/crates/sensorium-shell/src/identity",
+    "mycelix-sensorium/crates/sensorium-shell/src/pages",
+    "mycelix-sensorium/crates/sensorium-viz",
+    "mycelix-space/lib/orbital-mechanics/benches",
+    "mycelix-space/lib/orbital-mechanics/proptest-regressions",
+    "mycelix-space/lib/orbital-mechanics",
+    "mycelix-space/tests",
+    "mycelix-space/tools/celestrak-demo",
+    "mycelix-space/tools/screening-daemon",
+    "mycelix-supplychain/crates/supplychain-leptos-types",
+    "mycelix-supplychain/rust/.sqlx",
+    "mycelix-supplychain/rust/claim-model",
+    "mycelix-supplychain/rust/cli",
+    "mycelix-supplychain/rust/cli/src/commands",
+    "mycelix-supplychain/rust/crypto",
+    "mycelix-supplychain/rust/migrations",
+    "mycelix-supplychain/rust/service/k8s",
+    "mycelix-supplychain/rust/service/migrations",
+    "mycelix-supplychain/rust/service",
+    "mycelix-supplychain/rust/service/src/auth",
+    "mycelix-supplychain/rust/service/src/crm",
+    "mycelix-supplychain/rust/service/src/fin",
+    "mycelix-supplychain/rust/service/src/hr",
+    "mycelix-supplychain/rust/service/src/integrations",
+    "mycelix-supplychain/rust/service/src/inventory",
+    "mycelix-supplychain/rust/service/src/middleware",
+    "mycelix-supplychain/rust/service/src/realtime",
+    "mycelix-supplychain/rust/service/tests",
+    "mycelix-supplychain/rust/service/tests/common",
+    "mycelix-water/tests",
+    "tests",
+    "tests/sweettest",
+    # Added 2026-07-02 (task #35): the "mycelix-*/zomes/shared" members glob
+    # below matched these 4 real crate roots, each also a member of its own
+    # cluster's independent local workspace — same double-membership shape
+    # as the /src-suffix entries above, just never had an exclude at all.
+    "mycelix-finance/zomes/shared",
+    "mycelix-space/zomes/shared",
+    "mycelix-property/zomes/shared",
+    "mycelix-energy/zomes/shared",
+    # DIAGNOSTIC TEST — mycelix-finance/types/fuzz has its own [workspace]
+    "mycelix-finance/types/fuzz",
+]
+
+resolver = "2"
+members = [
+    "sdk",
+    "crates/*",
+    "mycelix-prism/*",
+    # "mycelix-multiworld-sim", # pre-staged for task #40 — not yet migrated, dir doesn't exist here
+    # "mycelix-knowledge/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-space/tests",
+    # "mycelix-water/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "mycelix-attribution/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "mycelix-care/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-civic/tests",
+    # "mycelix-emergency/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+
+    "mycelix-energy/tests",
+    # "mycelix-finance/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "mycelix-governance/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-hearth/tests",
+    # "mycelix-housing/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "mycelix-justice/tests", # own [workspace] - cannot be a member of another workspace (task #35)
+
+    "mycelix-media/tests",
+    "mycelix-personal/tests",
+    # "mycelix-praxis/tests", # depends via path on mycelix-praxis/zomes/adaptive_zome/coordinator,
+    # which is a member of mycelix-praxis/Cargo.toml's own [workspace] — same structural conflict
+    # already fixed for governance/housing/justice above (task #35). Broke `cargo metadata`/`trunk
+    # build` for every crate in this outer workspace with "member of the wrong workspace" (found
+    # 2026-07-03 while rebuilding praxis's frontend dist). Build/test standalone instead:
+    # cargo test --manifest-path mycelix-praxis/tests/Cargo.toml -- --ignored
+    "mycelix-property/tests",
+    "mycelix-pulse/tests",
+
+    # "mycelix-pulse/happ/backend-rs", # depends on dna/integrity, which has its own [workspace] (WASM profile isolation) — structural conflict, build standalone instead (task #35)
+    # "mycelix-pulse/happ/cli", # pins holochain_conductor_api/holochain_types to the old 0.5 generation (vs 0.6 everywhere else) — internally inconsistent with its own holochain_client=0.7 pin, likely drifted rather than a deliberate compat target. Excluded rather than guessing at a bump; still builds standalone from its own directory (task #42)
+    "mycelix-pulse/crates/*",
+    "mycelix-pulse/desktop/*",
+    "mycelix-pulse/holochain/crates/*",
+    # "mycelix-climate/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-climate/crates/*",
+    # "mycelix-energy/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-energy/crates/*",
+    # "mycelix-finance/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-finance/crates/*",
+    "mycelix-finance/types/*",
+    # "mycelix-governance/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-governance/crates/*",
+    # "mycelix-identity/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-identity/crates/*",
+    "mycelix-mutualaid/crates/*",
+    "mycelix-civic/crates/*",
+    # "mycelix-civic/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-commons/crates/*",
+    # "mycelix-commons/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-craft/apps/leptos",
+    "mycelix-desci/apps/leptos",
+    "mycelix-hearth/crates/*",
+    # "mycelix-hearth/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "mycelix-legacy/crates/*", # legacy-types has no src/lib.rs — manifests-only scaffold, would break cargo check --workspace (task #43)
+    "mycelix-manufacturing/crates/*",
+    "mycelix-music/apps/leptos",
+    "mycelix-personal/crates/*",
+    # "mycelix-personal/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-praxis/apps/leptos",
+    "mycelix-praxis/crates/*",
+    # "mycelix-sensorium/crates/*", # sensorium deliberately stays top-level (cross-cutting dashboard), not migrated
+    "mycelix-supplychain/crates/*",
+    # "mycelix-supplychain/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-knowledge/crates/*",
+    # "mycelix-knowledge/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-space/lib/*",
+    "mycelix-space/tools/*",
+    "mycelix-position/lib/*",
+    "mycelix-core/libs/*",
+    "mycelix-core/zomes/*",
+    "mycelix-core/0TML/mycelix-hyperfeel",
+    # "mycelix-core/0TML/holochain/zerotrustml_credits_isolated", # own [workspace] - cannot be a member of another workspace (task #35)
+    "mycelix-*/zomes/shared",
+    "mycelix-justice/dna/integrity",
+    "mycelix-music/dnas/mycelix-music/zomes/*/*",
+    "mycelix-music/tests",
+
+    "mycelix-core/zomes/*/*",
+    "mycelix-identity/zomes/*/*",
+    "mycelix-governance/zomes/*/*",
+    "mycelix-commons/zomes/*/*",
+    "mycelix-civic/zomes/*/*",
+    "mycelix-personal/zomes/*/*",
+    # "mycelix-legacy/zomes/*/*", # manifests-only scaffold, no src/lib.rs anywhere in the cluster — would break cargo check --workspace until real implementation lands (task #43)
+    "mycelix-desci/zomes/*/*",
+
+    "happs/consensus/*",
+    "happs/consensus/*/*",
+    "happs/epistemic-markets/*",
+    "happs/epistemic-markets/*/*",
+    "happs/fabrication/*",
+    "happs/fabrication/*/*",
+    "happs/lucid/*",
+    "happs/lucid/*/*",
+    # "services/civic-happ/symthaea-bridge", # own [workspace] - cannot be a member of another workspace (task #35)
+    # "services/civic-happ/dna/zomes/*/*", # own [workspace] - cannot be a member of another workspace (task #35); was dual-resolving hdk 0.6.0 (own lock) vs 0.6.1 (root) into two ABI-incompatible WASM binaries from identical source
+    "mycelix-climate/apps/tauri/src-tauri",
+    "mycelix-energy/apps/tauri/src-tauri",
+    "mycelix-finance/apps/tauri/src-tauri",
+    "mycelix-praxis/apps/tauri/src-tauri",
+    "mycelix-knowledge/apps/tauri/src-tauri",
+    # "tests", # dead entry — tests/ has no Cargo.toml of its own, only tests/sweettest does
+    "tests/sweettest",
+
+
+]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.dependencies]
+
+log = "0.4"
+url = "2.5"
+# Cryptography
+# crypto-common — do NOT pin here; aead 0.6.0-rc.2 requires the rc.4 line (has os_rng); stable 0.2.x does not.
+aead = { version = "0.6.0-rc.2", default-features = false }
+aes-gcm = { version = "0.10.3", default-features = false }
+# ml-dsa = { version = "0.1.1", default-features = false }  # DISABLED: ml-dsa 0.1.1 uses crypto-common ^0.2 stable
+# which conflicts with aead 0.6.0-rc.2 (iroh-holochain) needing crypto-common 0.2.0-rc.4 (os_rng feature).
+# ml-kem = "0.3.0-rc.0"  # DISABLED: ml-kem → kem → crypto-common ^0.2 stable conflicts with aead 0.6.0-rc.2
+sha2 = "0.10"
+sha3 = "0.10"
+blake3 = "1.5"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+curve25519-dalek = "4.1"
+k256 = "0.13"
+p256 = "0.13"
+
+# Holochain
+hdk = "=0.6.1"
+hdi = "=0.7.1"
+holochain = "=0.6.1"
+holochain_types = "=0.6.1"
+holochain_zome_types = "=0.6.1"
+holochain_serialized_bytes = "=0.0.57"
+holo_hash = "=0.6.1"
+holochain_integrity_types = "=0.6.1"
+holochain_state = "=0.6.1"
+holochain_p2p = "=0.6.1"
+holochain_keystore = "=0.6.1"
+holochain_sqlite = "=0.6.1"
+holochain_wasmer_host = "=0.0.102"
+kitsune2 = "=0.4.1"
+lair_keystore = "=0.6.3"
+
+
+# Core
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "2.0"
+anyhow = "1.0"
+async-trait = "0.1"
+rand = "0.8"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
+
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "oldtime", "serde"] }
+bincode = "1.3"
+tracing = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde", "rng-rand"] }
+clap = { version = "4.0", features = ["derive"] }
+proptest = "1.4"
+base64 = "0.22"
+hex = "0.4"
+itertools = "0.13"
+futures = "0.3"
+parking_lot = "0.12"
+derive_more = "0.99"
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+ndarray = "0.15"
+petgraph = "0.7"
+num-traits = "0.2"
+num-derive = "0.4"
+sgp4 = "1.0"
+astro-coords = "0.1"
+planetary-ephemeris = "0.1"
+ammonia = "4.0"
+console_log = "1.0"
+console_error_panic_hook = "0.1"
+gloo-timers = "0.3"
+gloo-net = "0.3"
+gloo-utils = "0.2"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = "0.3"
+leptos = "0.8.19"
+leptos_router = "0.8.19"
+rmp-serde = "1.3"
+html5ever = "0.39.0"
+markup5ever = "0.39.0"
+taffy = "0.7.7"
+reqwest = "0.12"
+env_logger = "0.11"
+aho-corasick = "1.1"
+skrifa = "0.40.0"
+vello = "0.8.0"
+winit = "0.30.13"
+rand_chacha = "0.3"
+rand_distr = "0.4"
+statrs = "0.17"
+criterion = "0.5.1"
+jsonschema = "0.18"
+sqlx = { version = "0.8.5", default-features = false }
+argon2 = "0.5"
+axum = "0.8"
+axum-extra = "0.10"
+config = "0.14"
+jsonwebtoken = "9"
+rust_decimal = "1.35"
+tower = "0.5"
+tower-http = "0.6"
+tracing-subscriber = "0.3"
+subtle = "2.6"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Unified versioning for shared crates
+mycelix-sdk = { path = "sdk" }
+mycelix-fl-core = { path = "crates/mycelix-fl-core" }
+mycelix-bridge-common = { path = "crates/mycelix-bridge-common" }
+mycelix-claim-types = { path = "crates/mycelix-claim-types" }
+mycelix-zome-helpers = { path = "crates/mycelix-zome-helpers" }
+mycelix-zkp-core = { path = "crates/mycelix-zkp-core" }
+sweettest-harness = { path = "crates/sweettest-harness" }
+mycelix-bridge-entry-types = { path = "crates/mycelix-bridge-entry-types" }
+civic-types = { path = "mycelix-civic/crates/civic-types" }
+commons-types = { path = "mycelix-commons/crates/commons-types" }
+mutualaid-common = { path = "mycelix-commons/crates/mutualaid-common" }
+mutualaid_common = { path = "mycelix-mutualaid/crates/mutualaid_common" }
+
+support-types = { path = "mycelix-commons/crates/support-types" }
+mycelix-core-types = { path = "crates/mycelix-core-types" }
+governance-utils = { path = "mycelix-governance/crates/governance-utils" }
+hearth-types = { path = "mycelix-hearth/crates/hearth-types" }
+hearth-coordinator-common = { path = "mycelix-hearth/crates/hearth-coordinator-common" }
+mycelix-crypto = { path = "mycelix-identity/crates/mycelix-crypto" }
+personal-leptos-types = { path = "mycelix-personal/crates/personal-leptos-types" }
+personal-types = { path = "mycelix-personal/crates/personal-types" }
+
+
+
+
+
+
+
+
+
+

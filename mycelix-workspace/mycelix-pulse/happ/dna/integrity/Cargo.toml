@@ -1,7 +1,7 @@
 [package]
 name = "mycelix_mail_integrity"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,9 +11,12 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Holochain 0.6 - Integrity zomes use hdi
-hdi = "0.7.0"
+hdi = "=0.7.1"
+holochain_integrity_types = "=0.6.1"
+holo_hash = "=0.6.1"
+hdk_derive = "=0.6.1"
 serde = { version = "1.0", features = ["derive"] }
-holochain_serialized_bytes = "0.0.56"
+holochain_serialized_bytes = "=0.0.57"
 
 [profile.release]
 opt-level = "z"

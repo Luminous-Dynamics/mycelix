@@ -1,0 +1,13 @@
+{
+  "node_id": "forge-server",
+  "desired_generation": "Generation 427",
+  "expected_services": ["sshd.service", "nginx.service"],
+  "expected_open_ports": [22, 443],
+  "expected_users": ["root", "tristan", "operator"],
+  "expected_systemd_units": [
+    "network.service",
+    "sshd.service",
+    "nginx.service"
+  ],
+  "expected_firewall_policy_hash": "sha256-firewallknowncorrectpolicy1122"
+}

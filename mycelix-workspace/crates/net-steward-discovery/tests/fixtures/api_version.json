@@ -1,0 +1,8 @@
+{
+  "name": "net-steward-daemon",
+  "version": "0.1.0-alpha.4",
+  "mode": "read_only_witness",
+  "mutation_enabled": false,
+  "proof_mode": "simulated_envelope",
+  "bind": "127.0.0.1:3030"
+}

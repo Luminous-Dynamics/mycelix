@@ -1,0 +1,401 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+    "title": "CAPS.PhysicalSciences.Gr12.P2.ECHEM: Galvanic cells: spontaneous redox reactions, cell notatio...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Galvanic cells convert chemical energy to electrical energy using spontaneous redox reactions. The more reactive metal is the anode (oxidation), the less reactive is the cathode (reduction). E°cell = E°cathode − E°anode (must be positive for spontaneous). Electrolytic cells use external voltage to drive non-spontaneous reactions. In electrolysis: anode = oxidation (+), cathode = reduction (−) — opposite to galvanic.",
+    "examples": [
+      {
+        "problem": "Calculate E°cell for Zn|Zn²⁺||Cu²⁺|Cu. Given: E°(Zn²⁺/Zn) = −0.76 V, E°(Cu²⁺/Cu) = +0.34 V.",
+        "steps": [
+          {
+            "instruction": "Step 1: Zn is more reactive → anode (oxidation). Cu²⁺ → Cu at cathode (reduction)",
+            "result": "identify electrodes"
+          },
+          {
+            "instruction": "Step 2: E°cell = E°cathode − E°anode = 0.34 − (−0.76)",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 3: E°cell = 0.34 + 0.76 = 1.10 V",
+            "result": "calculate"
+          }
+        ],
+        "answer": "Answer: E°cell = 1.10 V (spontaneous, since E° > 0)",
+        "visual_description": null
+      },
+      {
+        "problem": "Calculate E°cell for Zn|Zn²⁺||Cu²⁺|Cu. Given: E°(Zn²⁺/Zn) = −0.76 V, E°(Cu²⁺/Cu) = +0.34 V.",
+        "steps": [
+          {
+            "instruction": "Step 1: Zn is more reactive → anode (oxidation). Cu²⁺ → Cu at cathode (reduction)",
+            "result": "identify electrodes"
+          },
+          {
+            "instruction": "Step 2: E°cell = E°cathode − E°anode = 0.34 − (−0.76)",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 3: E°cell = 0.34 + 0.76 = 1.10 V",
+            "result": "calculate"
+          }
+        ],
+        "answer": "Answer: E°cell = 1.10 V (spontaneous, since E° > 0)",
+        "visual_description": null
+      },
+      {
+        "problem": "Calculate E°cell for Zn|Zn²⁺||Cu²⁺|Cu. Given: E°(Zn²⁺/Zn) = −0.76 V, E°(Cu²⁺/Cu) = +0.34 V.",
+        "steps": [
+          {
+            "instruction": "Step 1: Zn is more reactive → anode (oxidation). Cu²⁺ → Cu at cathode (reduction)",
+            "result": "identify electrodes"
+          },
+          {
+            "instruction": "Step 2: E°cell = E°cathode − E°anode = 0.34 − (−0.76)",
+            "result": "apply formula"
+          },
+          {
+            "instruction": "Step 3: E°cell = 0.34 + 0.76 = 1.10 V",
+            "result": "calculate"
+          }
+        ],
+        "answer": "Answer: E°cell = 1.10 V (spontaneous, since E° > 0)",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Define oxidation and reduction in terms of electron transfer.",
+        "answer": "Oxidation is the loss of electrons. Reduction is the gain of electrons. (Remember: OIL RIG — Oxidation Is Loss, Reduction Is Gain.)",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "Which process involves losing electrons?",
+          "Use the mnemonic OIL RIG."
+        ],
+        "explanation": "In redox reactions, electrons transfer from the substance being oxidised to the substance being reduced.",
+        "distractors": [
+          "Oxidation is gain of electrons",
+          "Reduction is loss of electrons",
+          "Both involve gaining electrons"
+        ]
+      },
+      {
+        "question": "Calculate E°cell for Zn|Zn²⁺||Cu²⁺|Cu. Given: E°(Zn²⁺/Zn) = −0.76 V, E°(Cu²⁺/Cu) = +0.34 V.",
+        "answer": "E°cell = +1.10 V",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Zn is the anode (more reactive, lower E°). Cu is the cathode.",
+          "E°cell = E°cathode − E°anode."
+        ],
+        "explanation": "E°cell = E°(Cu²⁺/Cu) − E°(Zn²⁺/Zn) = 0.34 − (−0.76) = 1.10 V. Positive, so spontaneous.",
+        "distractors": [
+          "−1.10 V",
+          "0.42 V",
+          "0.34 V"
+        ]
+      },
+      {
+        "question": "Write the cell notation for a galvanic cell using Mg and Ag half-cells. Given: E°(Mg²⁺/Mg) = −2.37 V, E°(Ag⁺/Ag) = +0.80 V.",
+        "answer": "Mg|Mg²⁺||Ag⁺|Ag. E°cell = 0.80 − (−2.37) = +3.17 V.",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "The more reactive metal (lower E°) is the anode, written on the left.",
+          "Single line | = phase boundary. Double line || = salt bridge."
+        ],
+        "explanation": "Mg is more reactive (lower E°), so it is oxidised at the anode. Cell notation: anode|anode ion||cathode ion|cathode.",
+        "distractors": [
+          "Ag|Ag⁺||Mg²⁺|Mg",
+          "E°cell = −3.17 V",
+          "E°cell = 1.57 V"
+        ]
+      },
+      {
+        "question": "In a galvanic cell, explain the function of the salt bridge.",
+        "answer": "The salt bridge allows ions to flow between the two half-cells to maintain electrical neutrality. Without it, charge builds up (excess positive in cathode, excess negative in anode) and the cell stops working.",
+        "difficulty_permille": 500,
+        "bloom_level": "Understand",
+        "hints": [
+          "What happens to the charge balance as the cell operates?",
+          "Cations move toward the cathode compartment, anions toward the anode."
+        ],
+        "explanation": "As Cu²⁺ is reduced, the cathode solution loses positive ions. The salt bridge supplies K⁺ or Na⁺ ions. In the anode, excess Zn²⁺ is balanced by Cl⁻ or NO₃⁻ from the salt bridge.",
+        "distractors": [
+          "It allows electron flow",
+          "It increases voltage",
+          "It contains the electrodes"
+        ]
+      },
+      {
+        "question": "In the electrolysis of CuSO₄ solution with copper electrodes, describe what happens at each electrode and how the mass of each electrode changes.",
+        "answer": "Anode: Cu → Cu²⁺ + 2e⁻ (copper dissolves, mass decreases). Cathode: Cu²⁺ + 2e⁻ → Cu (copper deposits, mass increases). The concentration of CuSO₄ solution remains constant.",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "At which electrode does oxidation occur?",
+          "Where do the Cu²⁺ ions in solution come from?"
+        ],
+        "explanation": "Copper transfers from anode to cathode through the solution. This is the principle behind copper refining (electroplating).",
+        "distractors": [
+          "Both electrodes dissolve",
+          "Oxygen is produced at the cathode",
+          "The solution turns colourless"
+        ]
+      },
+      {
+        "question": "Using the table of standard reduction potentials, determine whether the reaction Fe(s) + Cu²⁺(aq) → Fe²⁺(aq) + Cu(s) is spontaneous. E°(Fe²⁺/Fe) = −0.44 V, E°(Cu²⁺/Cu) = +0.34 V.",
+        "answer": "E°cell = E°cathode − E°anode = 0.34 − (−0.44) = +0.78 V. Since E°cell > 0, the reaction is spontaneous.",
+        "difficulty_permille": 750,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Identify which species is oxidised and which is reduced.",
+          "If E°cell is positive, the reaction is spontaneous."
+        ],
+        "explanation": "Fe is oxidised (anode), Cu²⁺ is reduced (cathode). E°cell = +0.78 V > 0 → spontaneous. Fe will dissolve in CuSO₄ solution and copper will deposit.",
+        "distractors": [
+          "E°cell = −0.78 V (not spontaneous)",
+          "E°cell = 0.10 V",
+          "Fe²⁺ is reduced"
+        ]
+      },
+      {
+        "question": "Compare a galvanic cell and an electrolytic cell in terms of: (a) energy conversion, (b) spontaneity, (c) anode sign, and (d) one industrial application of each.",
+        "answer": "(a) Galvanic: chemical → electrical. Electrolytic: electrical → chemical. (b) Galvanic: spontaneous (E°cell > 0). Electrolytic: non-spontaneous (requires external voltage). (c) Galvanic: anode is negative. Electrolytic: anode is positive. (d) Galvanic: batteries. Electrolytic: electroplating or aluminium extraction.",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Think about which cell generates electricity and which uses it.",
+          "In both cells: oxidation occurs at the anode, but the sign of the anode differs."
+        ],
+        "explanation": "Both cells have oxidation at anode and reduction at cathode (AN OX, RED CAT). The key difference is energy source and spontaneity.",
+        "distractors": [
+          "Both are spontaneous",
+          "Anode is always negative",
+          "Electrolytic cells don't need a power supply"
+        ]
+      }
+    ],
+    "hints": [
+      "Remember: AN OX, RED CAT — Anode = Oxidation, Reduction = Cathode. In galvanic cells, anode is negative; in electrolytic, anode is positive.",
+      "Remember: AN OX, RED CAT — Anode = Oxidation, Reduction = Cathode. In galvanic cells, anode is negative; in electrolytic, anode is positive.",
+      "Remember: AN OX, RED CAT — Anode = Oxidation, Reduction = Cathode. In galvanic cells, anode is negative; in electrolytic, anode is positive."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "anode",
+        "definition": "The electrode where oxidation occurs",
+        "example_usage": "Zn → Zn²⁺ + 2e⁻ at the anode."
+      },
+      {
+        "term": "cathode",
+        "definition": "The electrode where reduction occurs",
+        "example_usage": "Cu²⁺ + 2e⁻ → Cu at the cathode."
+      },
+      {
+        "term": "salt bridge",
+        "definition": "Allows ion flow to maintain electrical neutrality",
+        "example_usage": "Without a salt bridge, the cell would stop working."
+      },
+      {
+        "term": "standard electrode potential",
+        "definition": "The voltage of a half-cell measured against the standard hydrogen electrode (SHE)",
+        "example_usage": "E°(Cu²⁺/Cu) = +0.34 V."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think the anode is always negative.",
+        "correction": "In a galvanic cell, the anode IS negative. But in an electrolytic cell, the anode is POSITIVE (connected to + terminal of battery).",
+        "why_students_think_this": "The signs are different because the energy source is different: chemical (galvanic) vs external battery (electrolytic)."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+    "title": "Assessment: Galvanic cells: spontaneous redox reactions, cell notation, standard hydrogen electrode, EMF calculation (E°cell = E°cathode − E°anode). Electrolytic cells: non-spontaneous, external voltage, anode/cathode identification. Faraday's laws. Applications: electroplating, refining of copper, chlor-alkali process. Comparison of galvanic and electrolytic cells",
+    "items": [
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare galvanic and electrolytic cells in terms of: energy conversion, spontaneity, and anode polarity.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Galvanic: chemical→electrical, spontaneous, anode negative. Electrolytic: electrical→chemical, non-spontaneous, anode positive.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "How do you calculate E°cell?",
+      "back": "E°cell = E°cathode − E°anode. If E°cell > 0, the reaction is spontaneous.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ECHEM",
+        "Grade12",
+        "Paper 2 — Electrochemistry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:24"
+}

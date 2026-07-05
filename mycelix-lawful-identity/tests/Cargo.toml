@@ -1,0 +1,26 @@
+[package]
+name = "mycelix_lawful_identity_tests"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+base64 = { workspace = true }
+legal_did_integrity = { path = "../zomes/legal-did/integrity" }
+issuer_trust_tier_integrity = { path = "../zomes/issuer-trust-tier/integrity" }
+cross_did_zkp_integrity = { path = "../zomes/cross-did-zkp/integrity" }
+
+[[test]]
+name = "scaffold_smoke"
+path = "src/scaffold_smoke.rs"
+
+[[test]]
+name = "link_resistance"
+path = "src/link_resistance.rs"
+
+[[test]]
+name = "unlinkability"
+path = "src/unlinkability.rs"

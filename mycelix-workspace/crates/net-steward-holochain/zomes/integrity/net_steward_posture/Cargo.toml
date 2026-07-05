@@ -1,0 +1,12 @@
+[package]
+name = "net_steward_posture_integrity"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = "0.5.0"
+serde = { version = "1.0", features = ["derive"] }
+net-steward-schema = { path = "../../../../net-steward-schema" }

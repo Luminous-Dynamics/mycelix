@@ -1,0 +1,23 @@
+{
+  "schema_version": "claim_envelope_v0.1",
+  "encoding_profile": "NetStewardCanonicalJsonV1",
+  "envelope_id": "env-out-of-scope",
+  "payload": {
+    "claim_id": "claim-out-of-scope",
+    "issuer_did": "did:mycelix:only-ports",
+    "subject_node_id": "forge-server",
+    "issued_at_unix_ms": 1719569000000,
+    "expires_at_unix_ms": 1719569600000,
+    "posture_summary": "Healthy",
+    "topology_refs": [],
+    "security_event_refs": [],
+    "evidence_refs": ["nixos_profile_collector"],
+    "capsule_refs": [],
+    "claim_status": "Valid"
+  },
+  "payload_hash": "hash-valid",
+  "issuer_did": "did:mycelix:only-ports",
+  "signature": "sig-valid",
+  "signature_scheme": "SimulatedEnvelope",
+  "verification_status": "VerifiedSignature"
+}

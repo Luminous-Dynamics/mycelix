@@ -1,0 +1,396 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+    "title": "CAPS.PhysicalSciences.Gr12.P2.ORG1: IUPAC naming: alkanes, alkenes, alkynes, alcohols (primar...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Organic chemistry studies carbon compounds. Key functional groups: alkanes (C−C), alkenes (C═C), alcohols (−OH), carboxylic acids (−COOH), esters (−COO−), amines (−NH₂), alkyl halides (−X). IUPAC naming: longest carbon chain + position of functional group + suffix. Key reactions: substitution (haloalkanes), elimination, addition (alkenes), esterification, combustion.",
+    "examples": [
+      {
+        "problem": "Name CH₃CH₂CH(OH)CH₃ using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with −OH group = 4 carbons → butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: −OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: −ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      },
+      {
+        "problem": "Name CH₃CH₂CH(OH)CH₃ using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with −OH group = 4 carbons → butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: −OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: −ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      },
+      {
+        "problem": "Name CH₃CH₂CH(OH)CH₃ using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with −OH group = 4 carbons → butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: −OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: −ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Name the functional group in CH₃CH₂OH and give the homologous series it belongs to.",
+        "answer": "Functional group: hydroxyl (−OH). Homologous series: alcohols.",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "Look for the group of atoms bonded to the carbon chain.",
+          "The suffix for this homologous series is −ol."
+        ],
+        "explanation": "The −OH (hydroxyl) group identifies the molecule as an alcohol. Ethanol is the second member of the alcohol series.",
+        "distractors": [
+          "Carboxyl group, carboxylic acids",
+          "Carbonyl group, ketones",
+          "Amino group, amines"
+        ]
+      },
+      {
+        "question": "Give the IUPAC name for CH₃CH₂CH(OH)CH₃.",
+        "answer": "Butan-2-ol",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Find the longest chain containing the −OH group.",
+          "Number from the end closest to the −OH group."
+        ],
+        "explanation": "Longest chain = 4 carbons (butane). −OH on carbon 2. Suffix: −ol. Name: butan-2-ol.",
+        "distractors": [
+          "Butan-3-ol",
+          "2-butanol",
+          "Propan-1-ol"
+        ]
+      },
+      {
+        "question": "Write the structural formula for 2-methylpropan-1-ol and classify it as primary, secondary, or tertiary.",
+        "answer": "(CH₃)₂CHCH₂OH. It is a primary alcohol (the C bonded to −OH is attached to only one other C).",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "The parent chain is propan-1-ol (3 carbons, OH on C1).",
+          "A methyl branch is on C2. Check how many carbons are bonded to the carbon bearing −OH."
+        ],
+        "explanation": "2-methylpropan-1-ol: CH₃−CH(CH₃)−CH₂−OH. The C bearing OH is bonded to only one other C → primary.",
+        "distractors": [
+          "Secondary alcohol",
+          "Tertiary alcohol",
+          "(CH₃)₃COH"
+        ]
+      },
+      {
+        "question": "Propan-1-ol and propan-2-ol are isomers. State the type of isomerism and explain the difference.",
+        "answer": "Positional isomers. They have the same molecular formula (C₃H₈O) and same functional group (−OH), but the −OH is on different carbon atoms (C1 vs C2).",
+        "difficulty_permille": 500,
+        "bloom_level": "Understand",
+        "hints": [
+          "They have the same functional group but it is in a different position.",
+          "What type of isomerism involves different positions of the same functional group?"
+        ],
+        "explanation": "Positional isomers: same molecular formula, same functional group, different position on the chain.",
+        "distractors": [
+          "Chain isomers",
+          "Functional group isomers",
+          "Geometric isomers"
+        ]
+      },
+      {
+        "question": "Draw and name all structural isomers with the molecular formula C₄H₉Cl.",
+        "answer": "Four isomers: 1-chlorobutane, 2-chlorobutane, 1-chloro-2-methylpropane, 2-chloro-2-methylpropane.",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Consider both straight-chain and branched-chain butyl groups.",
+          "Place the Cl on different positions of each chain."
+        ],
+        "explanation": "Straight chain (butane): Cl on C1 → 1-chlorobutane, Cl on C2 → 2-chlorobutane. Branched (2-methylpropane): Cl on C1 → 1-chloro-2-methylpropane, Cl on C2 → 2-chloro-2-methylpropane.",
+        "distractors": [
+          "Only two isomers exist",
+          "Three isomers",
+          "Five isomers"
+        ]
+      },
+      {
+        "question": "Give the IUPAC name for CH₃CH(CH₃)CH₂COOH.",
+        "answer": "3-methylbutanoic acid",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "The −COOH group gets carbon number 1.",
+          "Find the longest chain that includes the −COOH carbon."
+        ],
+        "explanation": "Longest chain including COOH = 4 carbons (butanoic acid). Methyl branch on C3. Name: 3-methylbutanoic acid.",
+        "distractors": [
+          "2-methylbutanoic acid",
+          "3-methylpropanoic acid",
+          "Pentanoic acid"
+        ]
+      },
+      {
+        "question": "Ethanol (C₂H₅OH) and methoxymethane (CH₃OCH₃) have the same molecular formula C₂H₆O. State the type of isomerism and explain why their physical properties differ significantly.",
+        "answer": "Functional group isomers: ethanol is an alcohol (−OH) while methoxymethane is an ether (−O−). Ethanol can form hydrogen bonds (higher boiling point, soluble in water). Methoxymethane cannot form H-bonds with itself (lower boiling point, less soluble).",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Different functional groups with the same molecular formula.",
+          "Which intermolecular forces can each molecule form?"
+        ],
+        "explanation": "Functional group isomers have the same molecular formula but different functional groups. The −OH in ethanol allows hydrogen bonding, giving it a higher boiling point (78°C vs −24°C for methoxymethane).",
+        "distractors": [
+          "Chain isomers",
+          "Positional isomers",
+          "They have the same properties"
+        ]
+      }
+    ],
+    "hints": [
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix.",
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix.",
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "functional group",
+        "definition": "The atom or group of atoms that determines a molecule's chemical properties",
+        "example_usage": "The −OH group makes a molecule an alcohol."
+      },
+      {
+        "term": "esterification",
+        "definition": "The reaction between an alcohol and a carboxylic acid to form an ester and water",
+        "example_usage": "Esterification requires an acid catalyst."
+      },
+      {
+        "term": "isomer",
+        "definition": "Molecules with the same molecular formula but different structural arrangements",
+        "example_usage": "Butan-1-ol and butan-2-ol are positional isomers."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students number the carbon chain from left to right regardless of functional group position.",
+        "correction": "Number from the end that gives the lowest locant to the functional group (or first point of difference).",
+        "why_students_think_this": "IUPAC rules require the lowest possible numbers for substituents and functional groups."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+    "title": "Assessment: IUPAC naming: alkanes, alkenes, alkynes, alcohols (primary/secondary/tertiary), carboxylic acids, esters, aldehydes, ketones, amines, amides, alkyl halides. Structural, condensed, and molecular formulae. Functional group identification. Isomers (structural, functional group, positional, chain)",
+    "items": [
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C₂H₄ + Br₂ → C₂H₄Br₂ (1,2-dibromoethane). Substitution: CH₃Br + NaOH → CH₃OH + NaBr.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH₃CH₂Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P2.ORG1",
+        "Grade12",
+        "Paper 2 — Organic Chemistry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:23"
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "receipt_id": "receipt-genesis-000",
+    "parent_hash": null,
+    "actor_did": "did:mycelix:system-genesis",
+    "target_node_id": "luminous-router",
+    "action_kind": "ApplyConfig",
+    "requested_at_unix_ms": 1782550000,
+    "approved_by": ["did:mycelix:admin-key-0"],
+    "evidence_hashes": ["sha256-genesis-proof-hash-value"],
+    "cryptographic_signature": "sig-ed25519-genesis-mock-signature-hash",
+    "rollback_ref": null,
+    "chronicle_status": "Committed"
+  }
+]

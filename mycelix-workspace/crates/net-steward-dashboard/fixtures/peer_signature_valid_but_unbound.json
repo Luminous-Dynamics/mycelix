@@ -1,0 +1,13 @@
+{
+  "peer_id": "peer-signature-valid-but-unbound",
+  "node_id": "forge-server",
+  "display_name": "Forge Build Server",
+  "peer_kind": "Server",
+  "posture_summary": "Healthy",
+  "trust_status": "SignedPeer",
+  "last_seen_unix_ms": 1719569000000,
+  "staleness_ms": 0,
+  "evidence_refs": ["nixos_profile_collector"],
+  "capsule_refs": [],
+  "claimed_by": "did:mycelix:unbound-witness"
+}

@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr7.DAT",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr7.DAT",
+    "title": "CAPS.Mathematics.Gr7.DAT: Mean, median, mode of grouped data. Scatter plots intro. ...",
+    "grade_level": "Grade7",
+    "bloom_level": "Understand",
+    "explanation": "Grade 7 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "The data is: 3, 5, 5, 7, 7, 7, 9. What is the mode?",
+        "answer": "7",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "The mode is the value that appears most often"
+        ],
+        "explanation": "7 appears 3 times, more than any other value.",
+        "distractors": [
+          "5",
+          "9",
+          "3"
+        ]
+      },
+      {
+        "question": "Find the mean of grouped data: class 1-5 (freq 3), 6-10 (freq 7). Use midpoints.",
+        "answer": "6.7",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Midpoints: 3, 8. Mean = (3x3 + 8x7)/(3+7)"
+        ],
+        "explanation": "(9 + 56)/10 = 65/10 = 6.5.",
+        "distractors": [
+          "5.5",
+          "7.0",
+          "4.0"
+        ]
+      },
+      {
+        "question": "What does a positive trend in a scatter plot show?",
+        "answer": "As one variable increases, the other also increases",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "Points slope upward from left to right"
+        ],
+        "explanation": "A positive trend means both variables increase together.",
+        "distractors": [
+          "Variables decrease together",
+          "No relationship",
+          "Variables are equal"
+        ]
+      },
+      {
+        "question": "Scores: 45, 50, 55, 60, 65, 70, 75, 80. Find the median.",
+        "answer": "62.5",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Even number of values: average the middle two"
+        ],
+        "explanation": "Middle two: 60 and 65. (60 + 65)/2 = 62.5.",
+        "distractors": [
+          "60",
+          "65",
+          "55"
+        ]
+      },
+      {
+        "question": "In a survey, P(rain) = 0.3. What is P(no rain)?",
+        "answer": "0.7",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Probabilities of all outcomes sum to 1"
+        ],
+        "explanation": "P(no rain) = 1 - 0.3 = 0.7.",
+        "distractors": [
+          "0.3",
+          "1.3",
+          "0.03"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 7 Mathematics?",
+      "Try the method for Grade 7 Mathematics.",
+      "Start with what you know about Grade 7 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 7 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 7 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr7.DAT",
+    "title": "Assessment: Mean, median, mode of grouped data. Scatter plots intro. Probability of combined events. Tree diagrams intro",
+    "items": [
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.DAT",
+        "Grade7",
+        "Data"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:48"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "claim_envelope_v0.1",
+  "encoding_profile": "NetStewardCanonicalJsonV1",
+  "envelope_id": "env-bad-hash",
+  "payload": {
+    "claim_id": "claim-bad-hash",
+    "issuer_did": "did:mycelix:trusted-1",
+    "subject_node_id": "forge-server",
+    "issued_at_unix_ms": 1719569000000,
+    "expires_at_unix_ms": 1719569600000,
+    "posture_summary": "Healthy",
+    "topology_refs": [],
+    "security_event_refs": [],
+    "evidence_refs": [],
+    "capsule_refs": [],
+    "claim_status": "Valid"
+  },
+  "payload_hash": "bad-hash-xyz",
+  "issuer_did": "did:mycelix:trusted-1",
+  "signature": "sig-valid",
+  "signature_scheme": "SimulatedEnvelope",
+  "verification_status": "VerifiedSignature"
+}

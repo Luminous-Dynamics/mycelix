@@ -1,0 +1,13 @@
+[package]
+name = "net-steward-dashboard"
+version = "0.1.0"
+edition = "2021"
+authors = ["Luminous Dynamics Core Team"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+leptos = { version = "0.6", features = ["csr"] }
+net-steward-schema = { path = "../net-steward-schema" }
+serde = { version = "1.0", features = ["derive"] }
+gloo-net = "0.6"
+serde_json = "1.0"

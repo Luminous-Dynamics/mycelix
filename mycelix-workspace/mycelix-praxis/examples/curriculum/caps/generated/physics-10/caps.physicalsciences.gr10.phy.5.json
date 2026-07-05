@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.PHY.5",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.5",
+    "title": "CAPS.PhysicalSciences.Gr10.PHY.5: Electromagnetic spectrum. Nature of EM waves. Properties:...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "A wave transfers energy without transferring matter. Transverse waves: particles vibrate perpendicular to wave direction (e.g., light, water waves). Longitudinal waves: particles vibrate parallel to wave direction (e.g., sound). Key properties: wavelength (\u03bb) is the distance between two consecutive crests, frequency (f) is the number of waves per second, wave speed v = f\u03bb, period T = 1/f.",
+    "examples": [
+      {
+        "problem": "Solve a Electromagnetic Radiation problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Electromagnetic Radiation problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Electromagnetic Radiation problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "List the electromagnetic spectrum in order of increasing frequency.",
+        "answer": "Radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays.",
+        "difficulty_permille": 200,
+        "bloom_level": "Remember",
+        "hints": [
+          "Start with the longest wavelength (lowest frequency).",
+          "A useful mnemonic: 'Rabbits Munch In Very Unusual X-ray Gardens'."
+        ],
+        "explanation": "All EM waves travel at c = 3 x 10^8 m/s. Higher frequency means shorter wavelength (c = f x lambda).",
+        "distractors": [
+          "Gamma, X-ray, UV, visible, IR, microwave, radio",
+          "Radio, infrared, microwave, visible, UV, X-ray, gamma",
+          "Visible, UV, IR, microwave, radio, X-ray, gamma"
+        ]
+      },
+      {
+        "question": "Calculate the frequency of red light with a wavelength of 700 nm. (c = 3 x 10^8 m/s)",
+        "answer": "f = c/lambda = 3 x 10^8 / 700 x 10^-9 = 4.29 x 10^14 Hz",
+        "difficulty_permille": 400,
+        "bloom_level": "Apply",
+        "hints": [
+          "Convert nm to m: 700 nm = 700 x 10^-9 m.",
+          "Use f = c/lambda."
+        ],
+        "explanation": "f = (3 x 10^8)/(7 x 10^-7) = 4.29 x 10^14 Hz.",
+        "distractors": [
+          "4.29 x 10^11 Hz",
+          "2.1 x 10^-15 Hz",
+          "4.29 x 10^17 Hz"
+        ]
+      },
+      {
+        "question": "Explain why UV radiation from the sun causes sunburn but visible light does not.",
+        "answer": "UV radiation has higher frequency and energy than visible light (E = hf). UV photons carry enough energy to damage DNA in skin cells, causing sunburn and increasing cancer risk. Visible light photons have lower energy and cannot cause this damage.",
+        "difficulty_permille": 500,
+        "bloom_level": "Understand",
+        "hints": [
+          "Higher frequency means higher energy per photon.",
+          "Think about why sunscreen blocks UV but not visible light."
+        ],
+        "explanation": "The energy of electromagnetic radiation increases with frequency. UV lies beyond violet in the spectrum and has enough energy per photon to break chemical bonds in DNA.",
+        "distractors": [
+          "UV has lower energy than visible light",
+          "Visible light also causes sunburn",
+          "Sunburn is caused by infrared"
+        ]
+      },
+      {
+        "question": "A radio station broadcasts at 94.5 MHz. Calculate the wavelength of its signal. (c = 3 x 10^8 m/s)",
+        "answer": "lambda = c/f = 3 x 10^8 / 94.5 x 10^6 = 3.17 m",
+        "difficulty_permille": 400,
+        "bloom_level": "Apply",
+        "hints": [
+          "Convert MHz to Hz: 94.5 MHz = 94.5 x 10^6 Hz.",
+          "Use lambda = c/f."
+        ],
+        "explanation": "lambda = (3 x 10^8)/(9.45 x 10^7) = 3.17 m. Radio waves have long wavelengths compared to visible light.",
+        "distractors": [
+          "0.317 m",
+          "31.7 m",
+          "2.83 x 10^16 m"
+        ]
+      },
+      {
+        "question": "Hospitals use X-rays and gamma rays in medicine. Explain one use of each and why safety precautions are necessary.",
+        "answer": "X-rays: diagnostic imaging (bones, chest). Gamma rays: cancer treatment (radiotherapy, targeting tumours). Both are ionising radiation with enough energy to damage cells and DNA, so lead shielding, minimised exposure time, and distance are essential safety measures.",
+        "difficulty_permille": 600,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Ionising radiation has enough energy to remove electrons from atoms.",
+          "The same property that makes them useful (penetrating tissue) also makes them dangerous."
+        ],
+        "explanation": "X-rays penetrate soft tissue but are absorbed by bone (useful for imaging). Gamma rays penetrate deeply and can destroy cancer cells. Both require careful dose management to minimise harm to healthy tissue.",
+        "distractors": [
+          "X-rays and gamma rays are completely safe in hospitals",
+          "Only gamma rays are ionising",
+          "Radio waves are used for X-ray imaging"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Electromagnetic Radiation applies here?",
+      "Apply the method for Electromagnetic Radiation step by step.",
+      "Start by writing down what you know about Electromagnetic Radiation."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "electromagnetic",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Electromagnetic Radiation.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.PHY.5",
+    "title": "Assessment: Electromagnetic spectrum. Nature of EM waves. Properties: wavelength, frequency, speed (c = 3\u00d710\u2078 m/s). Applications of different EM bands",
+    "items": [
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Electromagnetic Radiation.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Electromagnetic Radiation?",
+      "back": "The electromagnetic spectrum (from lowest to highest frequency): radio waves, microwaves, infrared, visible light, ultraviolet, X-rays, gamma rays",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.PHY.5",
+        "Grade10",
+        "Physics \u2014 Waves"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

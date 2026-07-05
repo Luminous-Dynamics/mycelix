@@ -1,0 +1,12 @@
+{
+  "node_id": "forge-server",
+  "active_systemd_units": [
+    "network.service",
+    "backdoord.service",
+    "sshd.service"
+  ],
+  "open_ports": [22, 443, 9999],
+  "active_users": ["root", "tristan"],
+  "firewall_policy_hash": "sha256-firewallmodifiedforbackdoor9988",
+  "nixos_generation": "Generation 428"
+}

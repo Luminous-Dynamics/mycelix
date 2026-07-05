@@ -1,0 +1,408 @@
+{
+  "node_id": "CAPS.Mathematics.Gr12.P2.GEOM",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr12.P2.GEOM",
+    "title": "CAPS.Mathematics.Gr12.P2.GEOM: Circle geometry theorems (prove examinable theorems, appl...",
+    "grade_level": "Grade12",
+    "bloom_level": "Apply",
+    "explanation": "Grade 12 Euclidean geometry focuses on circle theorems and proofs. You must prove and apply: angle at centre = 2 × angle at circumference, angles in the same segment are equal, opposite angles of a cyclic quad are supplementary, tangent ⊥ radius, tan-chord angle = angle in the alternate segment, and the proportionality theorem.",
+    "examples": [
+      {
+        "problem": "In the diagram, O is the centre. AB is a chord and OC ⊥ AB. If AB = 10 and OC = 12, find the radius.",
+        "steps": [
+          {
+            "instruction": "Step 1: OC ⊥ AB, so C is the midpoint of AB → AC = 5",
+            "result": "theorem: perpendicular from centre bisects chord"
+          },
+          {
+            "instruction": "Step 2: Triangle OCA is right-angled at C",
+            "result": "identify right triangle"
+          },
+          {
+            "instruction": "Step 3: OA² = OC² + AC² = 12² + 5² = 144 + 25 = 169",
+            "result": "Pythagoras"
+          },
+          {
+            "instruction": "Step 4: OA = √169 = 13",
+            "result": "take square root"
+          }
+        ],
+        "answer": "Answer: Radius = 13 units",
+        "visual_description": null
+      },
+      {
+        "problem": "In the diagram, O is the centre. AB is a chord and OC ⊥ AB. If AB = 10 and OC = 12, find the radius.",
+        "steps": [
+          {
+            "instruction": "Step 1: OC ⊥ AB, so C is the midpoint of AB → AC = 5",
+            "result": "theorem: perpendicular from centre bisects chord"
+          },
+          {
+            "instruction": "Step 2: Triangle OCA is right-angled at C",
+            "result": "identify right triangle"
+          },
+          {
+            "instruction": "Step 3: OA² = OC² + AC² = 12² + 5² = 144 + 25 = 169",
+            "result": "Pythagoras"
+          },
+          {
+            "instruction": "Step 4: OA = √169 = 13",
+            "result": "take square root"
+          }
+        ],
+        "answer": "Answer: Radius = 13 units",
+        "visual_description": null
+      },
+      {
+        "problem": "In the diagram, O is the centre. AB is a chord and OC ⊥ AB. If AB = 10 and OC = 12, find the radius.",
+        "steps": [
+          {
+            "instruction": "Step 1: OC ⊥ AB, so C is the midpoint of AB → AC = 5",
+            "result": "theorem: perpendicular from centre bisects chord"
+          },
+          {
+            "instruction": "Step 2: Triangle OCA is right-angled at C",
+            "result": "identify right triangle"
+          },
+          {
+            "instruction": "Step 3: OA² = OC² + AC² = 12² + 5² = 144 + 25 = 169",
+            "result": "Pythagoras"
+          },
+          {
+            "instruction": "Step 4: OA = √169 = 13",
+            "result": "take square root"
+          }
+        ],
+        "answer": "Answer: Radius = 13 units",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "AB is a diameter of circle O. Point C lies on the circumference. If angle BAC = 35°, find angle ACB.",
+        "answer": "angle ACB = 90° (angle in a semicircle).",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "What theorem applies when an angle is subtended by a diameter?",
+          "The angle in a semicircle is always 90°, regardless of where C is on the arc."
+        ],
+        "explanation": "AB is a diameter, so the angle subtended by AB at the circumference (angle ACB) equals 90° (angle in a semicircle theorem). Therefore angle ABC = 180° − 90° − 35° = 55°.",
+        "distractors": [
+          "angle ACB = 35°",
+          "angle ACB = 55°",
+          "angle ACB = 70°"
+        ]
+      },
+      {
+        "question": "PQRS is a cyclic quadrilateral. P̂ = 82° and R̂ = 98°. Determine Q̂ if Ŝ = 113°.",
+        "answer": "Q̂ = 67°",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Opposite angles of a cyclic quadrilateral are supplementary (sum to 180°).",
+          "Q̂ + Ŝ = 180°, so Q̂ = 180° − 113°."
+        ],
+        "explanation": "In cyclic quad PQRS, opposite angles are supplementary. P̂ + R̂ = 82° + 98° = 180° (confirmed cyclic). Q̂ + Ŝ = 180° → Q̂ = 180° − 113° = 67°.",
+        "distractors": [
+          "Q̂ = 82°",
+          "Q̂ = 98°",
+          "Q̂ = 113°"
+        ]
+      },
+      {
+        "question": "TA is a tangent to a circle at A. Chord AB makes an angle of 50° with the tangent. Find the angle subtended by chord AB in the alternate segment.",
+        "answer": "The angle in the alternate segment = 50°",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "The tangent-chord theorem states that the angle between a tangent and a chord equals the angle in the alternate segment.",
+          "Identify which segment is 'alternate' to the tangent-chord angle."
+        ],
+        "explanation": "By the tangent-chord (tan-chord) theorem, the angle between tangent TA and chord AB (50°) equals the inscribed angle in the alternate segment. Any angle subtended by AB on the opposite side of the chord from the tangent is 50°.",
+        "distractors": [
+          "100° (double the angle)",
+          "40° (complementary)",
+          "130° (supplementary)"
+        ]
+      },
+      {
+        "question": "Quadrilateral ABCD has vertices on a circle. Prove that ABCD is a cyclic quadrilateral given that the exterior angle at D equals the interior angle at B.",
+        "answer": "If the exterior angle at D equals the interior angle at B, then B̂ + D̂ = 180° (since the exterior angle at D and D̂ are supplementary). This satisfies the converse of the cyclic quad theorem.",
+        "difficulty_permille": 500,
+        "bloom_level": "Analyze",
+        "hints": [
+          "The exterior angle at D = 180° − D̂.",
+          "If exterior angle at D = B̂, then 180° − D̂ = B̂, which means B̂ + D̂ = 180°."
+        ],
+        "explanation": "Let the exterior angle at D = 180° − D̂. Given: 180° − D̂ = B̂. Rearranging: B̂ + D̂ = 180°. Since one pair of opposite angles is supplementary, ABCD is a cyclic quadrilateral (converse of the cyclic quad theorem).",
+        "distractors": [
+          "ABCD is cyclic because B̂ = D̂",
+          "ABCD is not cyclic because only one pair sums to 180°",
+          "ABCD is cyclic because all angles are equal"
+        ]
+      },
+      {
+        "question": "In the diagram, O is the centre of the circle. Chord AB = chord CD, OE ⊥ AB and OF ⊥ CD. Prove that OE = OF.",
+        "answer": "OE = OF (equal chords are equidistant from the centre).",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "A perpendicular from the centre to a chord bisects the chord.",
+          "Use Pythagoras in triangles OEA and OFC. Since AB = CD, their half-lengths are equal."
+        ],
+        "explanation": "OE ⊥ AB → AE = AB/2. OF ⊥ CD → CF = CD/2. Since AB = CD, we have AE = CF. In right triangle OEA: OE² = OA² − AE². In right triangle OFC: OF² = OC² − CF². Since OA = OC (radii) and AE = CF, we get OE² = OF², so OE = OF.",
+        "distractors": [
+          "OE = OF only if the chords are parallel",
+          "OE > OF because AB is closer to the centre",
+          "Cannot be proved without knowing the radius"
+        ]
+      },
+      {
+        "question": "In triangle ABC, D is on AB and E is on AC such that DE ∥ BC. If AD = 3, DB = 5, and AE = 4.5, find EC.",
+        "answer": "EC = 7.5",
+        "difficulty_permille": 750,
+        "bloom_level": "Apply",
+        "hints": [
+          "By the proportionality theorem (or basic proportionality theorem), DE ∥ BC implies AD/DB = AE/EC.",
+          "Substitute the known values and solve for EC."
+        ],
+        "explanation": "By the proportionality theorem: AD/DB = AE/EC. So 3/5 = 4.5/EC. EC = 5 × 4.5/3 = 22.5/3 = 7.5.",
+        "distractors": [
+          "EC = 6",
+          "EC = 5",
+          "EC = 9"
+        ]
+      },
+      {
+        "question": "In the diagram, TA is a tangent at A, and ABC is a secant. The circle has centre O. If angle TAB = 40° and ABDC is a cyclic quadrilateral with D on the major arc, find angle ADB and angle ACD. State all reasons.",
+        "answer": "angle ADB = 40° (tan-chord angle = angle in alternate segment). angle ACD = 140° (opposite angles of cyclic quad ABDC are supplementary: ACD + ADB... wait). More carefully: angle ABD is in the same segment as angle ACD. angle ADB = 40° (tan-chord). In cyclic quad ABDC: angle ADB + angle ACB = 180° is wrong since they are not opposite. Let angle in alternate segment = angle ADB = 40°. Then angle ACB = 40° (angles in same segment). angle ACD = 180° − 40° = 140° (angles on a straight line if BCD is straight) or use the cyclic quad property depending on configuration.",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Start with the tangent-chord theorem: angle TAB = angle in alternate segment.",
+          "Then use the cyclic quadrilateral property and angles in the same segment to find remaining angles."
+        ],
+        "explanation": "By the tan-chord theorem, angle TAB = angle ADB = 40° (angle in the alternate segment). In cyclic quad ABDC, angles ABD and ACD are in the same segment (subtended by arc AD), so angle ACD = angle ABD. Using the fact that angle ADB = 40° and applying the cyclic quad theorem (opposite angles supplementary), angle ABC + angle ADC = 180°. The multi-step reasoning requires careful identification of which angles are opposite in the cyclic quad.",
+        "distractors": [
+          "angle ADB = 80° (double the tangent angle)",
+          "angle ADB = 50° (complementary to 40°)",
+          "angle ACD = 40° (same as tan-chord angle)"
+        ]
+      }
+    ],
+    "hints": [
+      "Which circle theorem applies here? Look at the relationship between the angles.",
+      "Opposite angles of a cyclic quad sum to 180°. Check: 75° + 105° = ?",
+      "Opposite angles of a cyclic quad sum to 180°. Check: 75° + 105° = ?"
+    ],
+    "key_vocabulary": [
+      {
+        "term": "cyclic quadrilateral",
+        "definition": "A quadrilateral whose vertices all lie on a circle",
+        "example_usage": "ABCD is cyclic if a circle passes through A, B, C, and D."
+      },
+      {
+        "term": "tangent",
+        "definition": "A line that touches a circle at exactly one point",
+        "example_usage": "A tangent is perpendicular to the radius at the point of contact."
+      },
+      {
+        "term": "subtend",
+        "definition": "To form an angle by connecting endpoints of an arc to a point",
+        "example_usage": "Arc AB subtends angle AOB at the centre."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students confuse 'angle at centre' with 'angle in a semicircle'.",
+        "correction": "Angle at centre = 2× angle at circumference (for the same arc). Angle in a semicircle = 90° (special case where the arc is a diameter).",
+        "why_students_think_this": "The semicircle theorem IS the angle-at-centre theorem when the central angle is 180°: half of 180° = 90°."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr12.P2.GEOM",
+    "title": "Assessment: Circle geometry theorems (prove examinable theorems, apply all). Proportionality theorem. Similar and congruent triangles applied to circle geometry. Riders combining multiple theorems",
+    "items": [
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "6"
+      },
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "6"
+      },
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "6"
+      },
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "6"
+      },
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "6"
+      },
+      {
+        "question": "Prove that the angle subtended by an arc at the centre is twice the angle at the circumference.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Construction + proof using isosceles triangles and exterior angle theorem.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "6"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the relationship between opposite angles of a cyclic quadrilateral?",
+      "back": "They are supplementary (add up to 180°).",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P2.GEOM",
+        "Grade12",
+        "Paper 2 — Geometry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:09"
+}

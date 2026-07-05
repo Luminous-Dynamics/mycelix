@@ -1,0 +1,15 @@
+{
+  "plan_id": "rollback-plan-427",
+  "target_node_id": "luminous-router",
+  "current_generation": "Generation 428",
+  "rollback_generation": "Generation 427",
+  "expected_changes": [
+    {
+      "component": "Rollback Strategy 1 (Console)",
+      "delta_desc": "Reboot into prior generation from boot menu."
+    }
+  ],
+  "risk_level": "Low",
+  "requires_approval": true,
+  "evidence_refs": ["incident-analysis-428", "drift-report-demo-0"]
+}

@@ -3,7 +3,7 @@
 
 //! Local agent identity — per-visitor cryptographic DID stored in localStorage.
 //!
-//! # Steps 1–2 of the recoverable-identity roadmap
+//! # Steps 1–3 of the recoverable-identity roadmap
 //!
 //! This module used to mint a `did:mycelix:<random>` label from
 //! `js_sys::Math::random()` — **not** a CSPRNG, and not backed by any real
@@ -25,8 +25,12 @@
 //!    [`unlock_with_passphrase`] / [`remove_passphrase_protection`], backed
 //!    by [`crate::identity_crypto`]'s WebCrypto AES-256-GCM + PBKDF2). See
 //!    "Storage" below for exactly what this does and doesn't change.
-//! 3. Standards-correct BIP-39 seed phrase export/import for manual/offline
-//!    backup (with a proper wordlist + checksum, not an ad hoc scheme).
+//! 3. **DONE (this pass)**: standards-correct BIP-39 seed phrase
+//!    export/import for manual/offline backup
+//!    ([`export_seed_phrase`] / [`signing_key_from_seed_phrase`] /
+//!    [`restore_from_seed_phrase`]) — the real `bip39` crate's English
+//!    wordlist + checksum, not an ad hoc scheme. The 32-byte Ed25519 secret
+//!    key seed maps to exactly 24 words with no padding.
 //! 4. Wire the local public key into a real
 //!    `mycelix-identity/zomes/did_registry::create_did` zome call, so a
 //!    browser-generated DID becomes the *anchor* key of an actual on-DHT DID
@@ -39,7 +43,7 @@
 //! 6. Multi-device pairing (QR / link-code handoff of an *authorization*,
 //!    never of the raw private key).
 //!
-//! None of steps 3–6 are implemented here. `mycelix-crypto`'s `wasm` feature
+//! None of steps 4–6 are implemented here. `mycelix-crypto`'s `wasm` feature
 //! (see `mycelix-identity/crates/mycelix-crypto/`) was evaluated for this
 //! but only exposes types/validation under `wasm32` — all signing/keygen
 //! there is `#[cfg(feature = "native")]` — so it cannot back in-browser
@@ -272,6 +276,69 @@ pub async fn remove_passphrase_protection(passphrase: &str) -> Result<(), String
     Ok(())
 }
 
+/// Export the local identity's secret key as a standards-correct 24-word
+/// BIP-39 mnemonic (English wordlist), for manual/offline backup.
+///
+/// Takes the key explicitly rather than calling [`ensure_keypair`] itself,
+/// so this works the same way whether the identity is passphrase-protected
+/// or not — the caller (which already has to have unlocked it, if
+/// protected, to get a [`SigningKey`] at all) decides when export happens.
+///
+/// The 32-byte Ed25519 secret key seed is exactly one of BIP-39's defined
+/// entropy lengths (256 bits), so this always produces 24 words with no
+/// padding or truncation.
+pub fn export_seed_phrase(signing_key: &SigningKey) -> String {
+    bip39::Mnemonic::from_entropy(signing_key.as_bytes())
+        .expect("a 32-byte Ed25519 secret key is always valid BIP-39 entropy")
+        .to_string()
+}
+
+/// Validate and decode a BIP-39 seed phrase back into the [`SigningKey`] it
+/// encodes, without touching storage.
+///
+/// # Errors
+///
+/// Returns an error if the phrase has an invalid word count, contains a
+/// word not in the wordlist, fails its checksum (the most common case: a
+/// typo or a word transposed while copying it down), or doesn't decode to
+/// exactly 32 bytes (e.g. a valid-but-foreign 12-word BIP-39 phrase from
+/// something else entirely — this crate only ever mints 24-word phrases).
+pub fn signing_key_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
+    let mnemonic = bip39::Mnemonic::parse(phrase).map_err(|e| e.to_string())?;
+    let entropy = mnemonic.to_entropy();
+    let secret_array: [u8; 32] = entropy.try_into().map_err(|_| {
+        "Seed phrase does not encode a 32-byte key (wrong word count for a Mycelix identity?)"
+            .to_string()
+    })?;
+    Ok(SigningKey::from_bytes(&secret_array))
+}
+
+/// Restore the local identity from a BIP-39 backup phrase — the "I'm on a
+/// new or reset device/browser, but I wrote down my backup phrase" path.
+///
+/// Validates and decodes `phrase`, then persists the recovered key as this
+/// browser's local identity (unencrypted — call [`protect_with_passphrase`]
+/// afterward to re-enable protection). This **replaces** whatever identity
+/// (if any) is currently stored here; there's no merge or confirmation step
+/// at this layer; callers should confirm with the user before calling this,
+/// since it's effectively "log in as a different identity."
+///
+/// # Errors
+///
+/// Same failure modes as [`signing_key_from_seed_phrase`] (this calls it
+/// internally) — invalid word count, unknown word, bad checksum, or wrong
+/// decoded length.
+pub fn restore_from_seed_phrase(phrase: &str) -> Result<SigningKey, String> {
+    let signing_key = signing_key_from_seed_phrase(phrase)?;
+    store_signing_key(&signing_key);
+    // A freshly restored identity starts unprotected, same as a freshly
+    // generated one — any previous protection was on the *replaced*
+    // identity's ciphertext, which is now meaningless.
+    remove_item(IDENTITY_SECRET_ENCRYPTED_KEY);
+    UNLOCKED_KEY.with(|cell| *cell.borrow_mut() = Some(signing_key.clone()));
+    Ok(signing_key)
+}
+
 /// Sign an arbitrary message with the local identity's private key.
 ///
 /// Generates the keypair on first use if one does not already exist. This
@@ -355,12 +422,12 @@ fn load_signing_key() -> Option<SigningKey> {
 }
 
 fn base64_encode(bytes: &[u8]) -> String {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
     STANDARD.encode(bytes)
 }
 
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
     STANDARD.decode(s).ok()
 }
 
@@ -468,10 +535,12 @@ mod tests {
         let message = b"prove control of this DID";
         let signature = signing_key.sign(message);
 
-        assert!(signing_key
-            .verifying_key()
-            .verify(message, &signature)
-            .is_ok());
+        assert!(
+            signing_key
+                .verifying_key()
+                .verify(message, &signature)
+                .is_ok()
+        );
     }
 
     /// `short_name()` must still work with the new (longer, 64-hex-char)
@@ -485,5 +554,67 @@ mod tests {
         let short = identity.short_name();
         assert!(short.ends_with("..."));
         assert_eq!(short.len(), 11); // 8 chars + "..."
+    }
+
+    /// Exporting then re-parsing a seed phrase must recover the exact same
+    /// key — this is the core round-trip property a backup mechanism has
+    /// to guarantee, or it isn't a backup mechanism.
+    #[test]
+    fn seed_phrase_round_trips_the_signing_key() {
+        let signing_key = SigningKey::from_bytes(&[21u8; 32]);
+        let phrase = export_seed_phrase(&signing_key);
+
+        let recovered = signing_key_from_seed_phrase(&phrase).expect("valid phrase must parse");
+
+        assert_eq!(recovered.to_bytes(), signing_key.to_bytes());
+    }
+
+    /// A 32-byte Ed25519 seed is exactly 256 bits of BIP-39 entropy, which
+    /// standard says encodes to 24 words — not 12, 15, 18, or 21. If this
+    /// ever changed it would mean the key size assumption broke somewhere.
+    #[test]
+    fn exported_phrase_is_24_words() {
+        let signing_key = SigningKey::from_bytes(&[33u8; 32]);
+        let phrase = export_seed_phrase(&signing_key);
+        assert_eq!(phrase.split_whitespace().count(), 24);
+    }
+
+    /// A single mistyped word must fail the BIP-39 checksum rather than
+    /// silently decoding to a different (wrong) key — that would turn a
+    /// typo into silent identity corruption instead of a caught error.
+    #[test]
+    fn corrupted_seed_phrase_is_rejected() {
+        let signing_key = SigningKey::from_bytes(&[44u8; 32]);
+        let phrase = export_seed_phrase(&signing_key);
+
+        // Replace the first word with another valid wordlist word, which
+        // will almost certainly break the checksum (and very likely change
+        // the decoded entropy too).
+        let mut words: Vec<&str> = phrase.split_whitespace().collect();
+        words[0] = if words[0] == "abandon" {
+            "ability"
+        } else {
+            "abandon"
+        };
+        let corrupted = words.join(" ");
+
+        // Either the checksum catches it, or (extremely unlikely) it still
+        // parses but must then decode to a *different* key than the
+        // original — never silently succeed with the same key.
+        match signing_key_from_seed_phrase(&corrupted) {
+            Err(_) => {}
+            Ok(recovered) => {
+                assert_ne!(recovered.to_bytes(), signing_key.to_bytes());
+            }
+        }
+    }
+
+    /// Two different keys must never export to the same phrase — otherwise
+    /// the "backup" would be meaningless.
+    #[test]
+    fn different_keys_export_to_different_phrases() {
+        let phrase_a = export_seed_phrase(&SigningKey::from_bytes(&[1u8; 32]));
+        let phrase_b = export_seed_phrase(&SigningKey::from_bytes(&[2u8; 32]));
+        assert_ne!(phrase_a, phrase_b);
     }
 }

@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr7.ALG",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr7.ALG",
+    "title": "CAPS.Mathematics.Gr7.ALG: Variables and constants. Algebraic language. Evaluate exp...",
+    "grade_level": "Grade7",
+    "bloom_level": "Evaluate",
+    "explanation": "Grade 7 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 7 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Evaluate 3x + 2 when x = 4.",
+        "answer": "14",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Replace x with 4"
+        ],
+        "explanation": "3(4) + 2 = 12 + 2 = 14.",
+        "distractors": [
+          "10",
+          "12",
+          "15"
+        ]
+      },
+      {
+        "question": "Simplify: 5a + 3a - 2a",
+        "answer": "6a",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Combine like terms"
+        ],
+        "explanation": "5a + 3a - 2a = 6a.",
+        "distractors": [
+          "6",
+          "8a",
+          "10a"
+        ]
+      },
+      {
+        "question": "Simplify: 2x + 3y + 4x - y",
+        "answer": "6x + 2y",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "Group x-terms and y-terms"
+        ],
+        "explanation": "2x + 4x = 6x, 3y - y = 2y. Answer: 6x + 2y.",
+        "distractors": [
+          "6x + 4y",
+          "6xy",
+          "2x + 6y"
+        ]
+      },
+      {
+        "question": "Evaluate 2a^2 - 3b when a = 3 and b = 2.",
+        "answer": "12",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Substitute a = 3 and b = 2"
+        ],
+        "explanation": "2(3)^2 - 3(2) = 2(9) - 6 = 18 - 6 = 12.",
+        "distractors": [
+          "6",
+          "15",
+          "0"
+        ]
+      },
+      {
+        "question": "Write an expression for: five more than three times a number n.",
+        "answer": "3n + 5",
+        "difficulty_permille": 625,
+        "bloom_level": "Understand",
+        "hints": [
+          "Three times n means 3n; five more means + 5"
+        ],
+        "explanation": "Three times n is 3n, plus five gives 3n + 5.",
+        "distractors": [
+          "5n + 3",
+          "3(n + 5)",
+          "8n"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 7 Mathematics?",
+      "Try the method for Grade 7 Mathematics.",
+      "Start with what you know about Grade 7 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 7 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 7 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr7.ALG",
+    "title": "Assessment: Variables and constants. Algebraic language. Evaluate expressions by substitution. Simplify by collecting like terms",
+    "items": [
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 7 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 7 Mathematics?",
+      "back": "Grade 7 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr7.ALG",
+        "Grade7",
+        "Algebra"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:47"
+}

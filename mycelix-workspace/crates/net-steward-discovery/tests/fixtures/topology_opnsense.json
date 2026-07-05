@@ -1,0 +1,31 @@
+{
+  "snapshot_id": "fixture-topology-opnsense",
+  "observed_at_unix_ms": 1782550000,
+  "nodes": [
+    {
+      "node_id": "opnsense-firewall",
+      "hostname": "opnsense",
+      "node_kind": "Router",
+      "management_state": "Managed",
+      "owner_did": null,
+      "site_id": "luminous-hq",
+      "observed_at_unix_ms": 1782550000,
+      "source_collector": "opnsense_api_client",
+      "confidence": 1.0,
+      "staleness_ms": 0,
+      "evidence_hash": "sha256-opnsense"
+    }
+  ],
+  "edges": [
+    {
+      "source_node_id": "mac-00:11:22:33:44:55",
+      "target_node_id": "ip-192.168.1.100",
+      "edge_kind": "Lldp",
+      "confidence": 0.95,
+      "evidence_refs": ["opnsense-arp-interface-lan"],
+      "source_collector": "opnsense_arp_table",
+      "staleness_ms": 0,
+      "evidence_hash": "sha256-opnsense-arp"
+    }
+  ]
+}

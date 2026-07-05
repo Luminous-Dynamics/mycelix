@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr6.OPS",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr6.OPS",
+    "title": "CAPS.Mathematics.Gr6.OPS: All operations with whole numbers. Order of operations (B...",
+    "grade_level": "Grade6",
+    "bloom_level": "Apply",
+    "explanation": "Grade 6 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What is 12 + 3 x 4?",
+        "answer": "24",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "BODMAS: multiplication before addition"
+        ],
+        "explanation": "3 x 4 = 12 first, then 12 + 12 = 24.",
+        "distractors": [
+          "60",
+          "48",
+          "15"
+        ]
+      },
+      {
+        "question": "What is (8 + 2) x 5?",
+        "answer": "50",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Brackets first"
+        ],
+        "explanation": "(8 + 2) = 10, then 10 x 5 = 50.",
+        "distractors": [
+          "42",
+          "18",
+          "45"
+        ]
+      },
+      {
+        "question": "What is 24 / 4 + 3 x 2?",
+        "answer": "12",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "BODMAS: divide and multiply first, then add"
+        ],
+        "explanation": "24/4 = 6, 3x2 = 6, then 6 + 6 = 12.",
+        "distractors": [
+          "18",
+          "6",
+          "15"
+        ]
+      },
+      {
+        "question": "Simplify: 5 + 2 x (8 - 3)",
+        "answer": "15",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Brackets first, then multiply, then add"
+        ],
+        "explanation": "(8-3) = 5, 2 x 5 = 10, 5 + 10 = 15.",
+        "distractors": [
+          "35",
+          "25",
+          "45"
+        ]
+      },
+      {
+        "question": "What is 100 - 4^2 x 3?",
+        "answer": "52",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "BODMAS: exponent first, then multiply, then subtract"
+        ],
+        "explanation": "4^2 = 16, 16 x 3 = 48, 100 - 48 = 52.",
+        "distractors": [
+          "288",
+          "12",
+          "36"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 6 Mathematics?",
+      "Try the method for Grade 6 Mathematics.",
+      "Start with what you know about Grade 6 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 6 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 6 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr6.OPS",
+    "title": "Assessment: All operations with whole numbers. Order of operations (BODMAS). Multiply and divide by multiples of 10, 100",
+    "items": [
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.OPS",
+        "Grade6",
+        "Operations"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:46"
+}

@@ -1,0 +1,23 @@
+{
+  "verification_status": "VerifiedSignature",
+  "signature_scheme": "SimulatedEnvelope",
+  "signature": "sig-valid",
+  "issuer_did": "did:mycelix:trusted-1",
+  "payload_hash": "hash-valid",
+  "payload": {
+    "topology_refs": [],
+    "security_event_refs": [],
+    "posture_summary": "Healthy",
+    "evidence_refs": [],
+    "capsule_refs": [],
+    "claim_status": "Valid",
+    "expires_at_unix_ms": 1719569600000,
+    "issued_at_unix_ms": 1719569000000,
+    "subject_node_id": "forge-server",
+    "issuer_did": "did:mycelix:trusted-1",
+    "claim_id": "claim-valid-ed25519"
+  },
+  "envelope_id": "env-valid-ed25519",
+  "encoding_profile": "NetStewardCanonicalJsonV1",
+  "schema_version": "claim_envelope_v0.1"
+}

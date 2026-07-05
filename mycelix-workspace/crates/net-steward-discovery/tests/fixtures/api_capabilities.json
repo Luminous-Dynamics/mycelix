@@ -1,0 +1,6 @@
+{
+  "read_only": true,
+  "rollback_apply_enabled": false,
+  "zk_verifier_enabled": false,
+  "proof_mode": "simulated_envelope"
+}

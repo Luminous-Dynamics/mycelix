@@ -3,10 +3,10 @@
 
 //! Notification sounds + favicon badge (#5).
 
-use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use crate::mail_context::use_mail;
+use leptos::prelude::*;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy)]
 pub struct NotificationState {
@@ -32,10 +32,8 @@ pub fn provide_notification_context() {
         visible.set(!hidden);
     });
     let doc = web_sys::window().unwrap().document().unwrap();
-    let _ = doc.add_event_listener_with_callback(
-        "visibilitychange",
-        closure.as_ref().unchecked_ref(),
-    );
+    let _ =
+        doc.add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Reactive title update based on unread count
@@ -58,7 +56,7 @@ pub fn use_notifications() -> NotificationState {
 /// Request notification permission on first user interaction.
 pub fn request_notification_permission() {
     let _ = js_sys::eval(
-        "if('Notification' in window && Notification.permission==='default'){Notification.requestPermission()}"
+        "if('Notification' in window && Notification.permission==='default'){Notification.requestPermission()}",
     );
 }
 
@@ -76,11 +74,15 @@ pub fn show_desktop_notification(sender: &str, subject: &str) {
 /// Play a short notification beep using Web Audio API.
 pub fn play_notification_sound() {
     let state = use_notifications();
-    if !state.sound_enabled.get_untracked() { return; }
-    if state.tab_visible.get_untracked() { return; }
+    if !state.sound_enabled.get_untracked() {
+        return;
+    }
+    if state.tab_visible.get_untracked() {
+        return;
+    }
 
     // Use eval for simple Web Audio beep
     let _ = js_sys::eval(
-        "try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.type='sine';o.frequency.value=880;g.gain.value=0.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.1)}catch(e){}"
+        "try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.type='sine';o.frequency.value=880;g.gain.value=0.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.1)}catch(e){}",
     );
 }

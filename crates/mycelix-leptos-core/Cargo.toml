@@ -1,7 +1,7 @@
 [package]
 name = "mycelix-leptos-core"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Shared Leptos components for the Mycelix ecosystem"
 
@@ -11,8 +11,9 @@ leptos_router = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 mycelix-leptos-client = { path = "../mycelix-leptos-client" }
 serde_json = "1"
-personal-leptos-types = { path = "../../mycelix-personal/crates/personal-leptos-types" }
-sovereign-profile = { path = "../sovereign-profile" }
+personal-leptos-types = { path = "../../mycelix-workspace/mycelix-personal/crates/personal-leptos-types" }
+sovereign-profile = { version = "0.1.2" }
+mycelix-leptos-ui = { path = "../mycelix-leptos-ui" }
 send_wrapper = "0.6"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
@@ -45,6 +46,12 @@ gloo-timers = { version = "0.3", features = ["futures"] }
 # OsRng, so no extra getrandom backend wiring is needed for this crate.
 ed25519-dalek = "2.1"
 base64 = "0.22"
+
+# Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
+# correct BIP-39 seed phrase export/import for manual/offline backup — the
+# standard English wordlist + checksum, not an ad hoc encoding. `zeroize`
+# wipes the phrase's memory on drop (defense in depth for secret material).
+bip39 = { version = "2", features = ["zeroize"] }
 
 [dev-dependencies]
 # identity_crypto.rs's WebCrypto calls only run for real in a browser, so

@@ -1,0 +1,420 @@
+{
+  "node_id": "CAPS.Mathematics.Gr12.P1.FIN",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.FIN",
+    "title": "CAPS.Mathematics.Gr12.P1.FIN: Future value and present value annuities: F = x[(1+i)^n −...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Compound growth: A = P(1+i)^n. Compound decay: A = P(1-i)^n. Nominal rate is the stated annual rate; effective rate accounts for compounding: 1 + i_eff = (1 + i_nom/m)^m where m is compounding periods per year. Depreciation: straight-line (fixed amount per year) vs reducing balance (fixed percentage of current value). Always convert rates to match the compounding period.",
+    "examples": [
+      {
+        "problem": "You take out a loan of R200 000 at 12% p.a. compounded monthly. Calculate the monthly repayment over 5 years.",
+        "steps": [
+          {
+            "instruction": "Step 1: i = 0.12/12 = 0.01 per month, n = 5 × 12 = 60 months",
+            "result": "convert rate and period"
+          },
+          {
+            "instruction": "Step 2: P = x[1 − (1+i)⁻ⁿ]/i → 200000 = x[1 − (1.01)⁻⁶⁰]/0.01",
+            "result": "apply PV formula"
+          },
+          {
+            "instruction": "Step 3: (1.01)⁻⁶⁰ = 0.55045, so [1 − 0.55045]/0.01 = 44.955",
+            "result": "calculate bracket"
+          },
+          {
+            "instruction": "Step 4: x = 200000/44.955 = R4449.09",
+            "result": "solve for x"
+          }
+        ],
+        "answer": "Answer: Monthly repayment = R4 449.09",
+        "visual_description": null
+      },
+      {
+        "problem": "You save R500 per month at 9% p.a. compounded monthly. How much do you have after 3 years?",
+        "steps": [
+          {
+            "instruction": "Step 1: i = 0.09/12 = 0.0075, n = 36",
+            "result": "convert"
+          },
+          {
+            "instruction": "Step 2: F = 500[(1.0075)³⁶ − 1]/0.0075",
+            "result": "FV annuity formula"
+          },
+          {
+            "instruction": "Step 3: (1.0075)³⁶ = 1.30865, so [1.30865 − 1]/0.0075 = 41.153",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 4: F = 500 × 41.153 = R20 576.39",
+            "result": "multiply"
+          }
+        ],
+        "answer": "Answer: R20 576.39",
+        "visual_description": null
+      },
+      {
+        "problem": "You save R500 per month at 9% p.a. compounded monthly. How much do you have after 3 years?",
+        "steps": [
+          {
+            "instruction": "Step 1: i = 0.09/12 = 0.0075, n = 36",
+            "result": "convert"
+          },
+          {
+            "instruction": "Step 2: F = 500[(1.0075)³⁶ − 1]/0.0075",
+            "result": "FV annuity formula"
+          },
+          {
+            "instruction": "Step 3: (1.0075)³⁶ = 1.30865, so [1.30865 − 1]/0.0075 = 41.153",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 4: F = 500 × 41.153 = R20 576.39",
+            "result": "multiply"
+          }
+        ],
+        "answer": "Answer: R20 576.39",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Thandi invests R50 000 in a savings account at 8% p.a. compounded quarterly. How much will she have after 5 years?",
+        "answer": "R74 297.37",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use the compound interest formula A = P(1 + i)ⁿ.",
+          "Compounded quarterly means i = 0.08/4 = 0.02 per quarter, and n = 5 \u00d7 4 = 20 quarters."
+        ],
+        "explanation": "i = 0.08/4 = 0.02 per quarter, n = 5 \u00d7 4 = 20. A = 50\u202f000(1.02)²\u2070 = 50\u202f000 \u00d7 1.48595 = R74\u202f297.37.",
+        "distractors": [
+          "R70 000.00",
+          "R73 466.40",
+          "R74 012.21"
+        ]
+      },
+      {
+        "question": "A bank offers a nominal interest rate of 9.5% p.a. compounded monthly. Calculate the effective annual interest rate.",
+        "answer": "9.92% p.a.",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use the effective rate formula: 1 + i_eff = (1 + i_nom/m)^m.",
+          "Here m = 12 (monthly compounding) and i_nom = 0.095."
+        ],
+        "explanation": "i_eff = (1 + 0.095/12)^12 \u2212 1 = (1.007917)^12 \u2212 1 = 1.09924 \u2212 1 = 0.09924, so the effective rate is 9.92% p.a.",
+        "distractors": [
+          "9.50%",
+          "10.03%",
+          "9.75%"
+        ]
+      },
+      {
+        "question": "Sipho wants to save R365 000 for a deposit on a house in 8 years. He opens a sinking fund that earns 10% p.a. compounded monthly. What must his monthly payment be?",
+        "answer": "R2 497.01",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "This is a future value annuity (sinking fund). Use F = x[(1+i)ⁿ \u2212 1]/i.",
+          "i = 0.10/12 = 0.008333, n = 8 \u00d7 12 = 96. Solve for x."
+        ],
+        "explanation": "i = 0.10/12 = 0.008\u0305333, n = 96. F = x[(1.008333)^96 \u2212 1]/0.008333. (1.008333)^96 = 2.21964. Factor = [2.21964 \u2212 1]/0.008333 = 146.356. x = 365\u202f000/146.356 = R2\u202f497.01.",
+        "distractors": [
+          "R3 802.08",
+          "R2 250.00",
+          "R2 684.55"
+        ]
+      },
+      {
+        "question": "Naledi takes out a home loan of R800 000 at 11.5% p.a. compounded monthly, to be repaid over 20 years. Calculate her monthly repayment.",
+        "answer": "R8 524.14",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "This is a present value annuity (loan repayment). Use P = x[1 \u2212 (1+i)^(\u2212n)]/i.",
+          "i = 0.115/12 = 0.009583, n = 20 \u00d7 12 = 240. Solve for x."
+        ],
+        "explanation": "i = 0.115/12 = 0.009583\u0305, n = 240. (1.009583)^(\u2212240) = 0.10065. PV factor = [1 \u2212 0.10065]/0.009583 = 0.89935/0.009583 = 93.852. x = 800\u202f000/93.852 = R8\u202f524.14.",
+        "distractors": [
+          "R7 666.67",
+          "R9 103.50",
+          "R8 000.00"
+        ]
+      },
+      {
+        "question": "A loan of R500 000 is taken at 12% p.a. compounded monthly, to be repaid in equal monthly instalments over 20 years. Calculate the outstanding balance on the loan after 8 years of payments.",
+        "answer": "R419 633.13",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "First find the monthly payment using the PV annuity formula with n = 240.",
+          "The balance outstanding after k payments equals the PV of the remaining (n \u2212 k) payments. Use the same payment x with n = 240 \u2212 96 = 144."
+        ],
+        "explanation": "i = 0.01, n = 240. PV factor = [1 \u2212 (1.01)^(\u2212240)]/0.01 = [1 \u2212 0.09230]/0.01 = 90.770. x = 500\u202f000/90.770 = R5\u202f508.44. After 96 payments, 144 remain. Balance = 5\u202f508.44 \u00d7 [1 \u2212 (1.01)^(\u2212144)]/0.01 = 5\u202f508.44 \u00d7 76.180 = R419\u202f633.13.",
+        "distractors": [
+          "R450 000.00",
+          "R385 246.78",
+          "R500 000.00"
+        ]
+      },
+      {
+        "question": "Lerato considers two investment options. Option A: R1 000 per month into an account earning 9% p.a. compounded monthly for 10 years. Option B: A lump sum of R100 000 invested at 10% p.a. compounded annually for 10 years. Which option yields more, and by how much?",
+        "answer": "Option B yields more, by R65 859.98. (Option A = R193 514.27; Option B = R259 374.25)",
+        "difficulty_permille": 750,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "For Option A, use the FV annuity formula with i = 0.09/12 = 0.0075 and n = 120.",
+          "For Option B, use A = P(1+i)ⁿ with P = 100\u202f000, i = 0.10, n = 10.",
+          "Compare the two final amounts to determine the difference."
+        ],
+        "explanation": "Option A: i = 0.0075, n = 120. F = 1\u202f000 \u00d7 [(1.0075)^120 \u2212 1]/0.0075 = 1\u202f000 \u00d7 [2.45136 \u2212 1]/0.0075 = 1\u202f000 \u00d7 193.514 = R193\u202f514.27. Option B: A = 100\u202f000(1.10)^10 = 100\u202f000 \u00d7 2.59374 = R259\u202f374.25. Difference = R259\u202f374.25 \u2212 R193\u202f514.27 = R65\u202f859.98. Option B yields more.",
+        "distractors": [
+          "Option A by R12 450.00",
+          "Option B by R45 000.00",
+          "They are equal"
+        ]
+      },
+      {
+        "question": "A car costs R480 000. Kagiso pays a 10% deposit and agrees to a balloon payment of 20% of the original price at the end of the loan. The remaining amount is financed at 9.5% p.a. compounded monthly over 5 years. Calculate the monthly instalment and the total amount Kagiso pays for the car (deposit + instalments + balloon).",
+        "answer": "Monthly instalment = R7 803.11; Total paid = R612 186.60",
+        "difficulty_permille": 875,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Deposit = 10% of R480\u202f000 = R48\u202f000. Balloon = 20% of R480\u202f000 = R96\u202f000.",
+          "The loan amount is R480\u202f000 \u2212 R48\u202f000 = R432\u202f000, but you must subtract the present value of the balloon payment.",
+          "PV of balloon = 96\u202f000 \u00d7 (1.007917)^(\u221260). The annuity portion is R432\u202f000 \u2212 PV(balloon). Then use the PV annuity formula to find x."
+        ],
+        "explanation": "Deposit = R48\u202f000. Financed = R432\u202f000. i = 0.095/12 = 0.007917, n = 60. PV of balloon = 96\u202f000(1.007917)^(\u221260) = 96\u202f000 \u00d7 0.62225 = R59\u202f736.00. Annuity PV = 432\u202f000 \u2212 59\u202f736 = R372\u202f264. PV factor = [1 \u2212 (1.007917)^(\u221260)]/0.007917 = [1 \u2212 0.62225]/0.007917 = 47.714. x = 372\u202f264/47.714 = R7\u202f803.11. Total = 48\u202f000 + (7\u202f803.11 \u00d7 60) + 96\u202f000 = 48\u202f000 + 468\u202f186.60 + 96\u202f000 = R612\u202f186.60.",
+        "distractors": [
+          "R8 640.00 per month; R566 400.00 total",
+          "R7 200.00 per month; R580 000.00 total",
+          "R9 012.34 per month; R636 740.40 total"
+        ]
+      }
+    ],
+    "hints": [
+      "Are you saving (future value) or paying off a loan (present value)?",
+      "For loans, use P = x[1 − (1+i)⁻ⁿ]/i. Convert annual rate to monthly.",
+      "i = annual rate ÷ 12, n = years × 12. Substitute into the PV formula and solve for x."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "annuity",
+        "definition": "A series of regular, equal payments made at fixed intervals",
+        "example_usage": "A home loan with monthly payments is an annuity."
+      },
+      {
+        "term": "sinking fund",
+        "definition": "Money saved regularly to replace an asset or pay a future expense",
+        "example_usage": "The company set up a sinking fund for equipment replacement."
+      },
+      {
+        "term": "present value",
+        "definition": "The current worth of a future sum or series of payments",
+        "example_usage": "The present value of the loan determines your monthly payment."
+      },
+      {
+        "term": "nominal rate",
+        "definition": "The annual interest rate before adjusting for compounding frequency",
+        "example_usage": "A nominal rate of 12% p.a. compounded monthly means 1% per month."
+      },
+      {
+        "term": "effective rate",
+        "definition": "The actual annual rate after accounting for compounding",
+        "example_usage": "A nominal 12% monthly gives an effective rate of 12.68%."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students use the annual interest rate directly instead of converting to monthly.",
+        "correction": "If payments are monthly, divide the annual rate by 12: i = r/12.",
+        "why_students_think_this": "The payment period must match the compounding period in the formula."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr12.P1.FIN",
+    "title": "Assessment: Future value and present value annuities: F = x[(1+i)^n − 1]/i, P = x[1 − (1+i)^−n]/i. Sinking funds, loan repayments, outstanding balance. Effective vs nominal rates. Deferred payments. Pyramidal schemes",
+    "items": [
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain the difference between a future value annuity and a present value annuity. Give an example of each.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "FV: saving towards a goal (e.g., retirement fund). PV: paying off a loan (e.g., home bond).",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the present value annuity formula?",
+      "back": "P = x[1 − (1+i)⁻ⁿ]/i, where x = payment, i = rate per period, n = number of periods",
+      "tags": [
+        "CAPS.Mathematics.Gr12.P1.FIN",
+        "Grade12",
+        "Paper 1 — Finance"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:09"
+}

@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.CHM.4",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.4",
+    "title": "CAPS.PhysicalSciences.Gr10.CHM.4: Mole concept (n = m/M, n = cV, n = N/N\u2090). Balanced equati...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract. Covalent bonding: non-metal atoms share electron pairs. Draw Lewis dot structures to show bonding. VSEPR theory predicts molecular shapes: 2 bonding pairs = linear, 3 = trigonal planar, 4 = tetrahedral, 2 bonding + 2 lone pairs = bent/V-shape. Metallic bonding: positive metal ions in a 'sea' of delocalised electrons.",
+    "examples": [
+      {
+        "problem": "Solve a Stoichiometry problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Stoichiometry problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Stoichiometry problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Calculate the number of moles in 46 g of sodium (Na). (M_Na = 23 g/mol)",
+        "answer": "n = m/M = 46/23 = 2 mol",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use n = m/M.",
+          "M is the molar mass from the periodic table."
+        ],
+        "explanation": "n = 46/23 = 2 mol. This means there are 2 x 6.022 x 10^23 = 1.2 x 10^24 sodium atoms.",
+        "distractors": [
+          "0.5 mol",
+          "1058 mol",
+          "23 mol"
+        ]
+      },
+      {
+        "question": "How many molecules are in 0.5 mol of CO2? (N_A = 6.022 x 10^23)",
+        "answer": "N = nN_A = 0.5 x 6.022 x 10^23 = 3.011 x 10^23 molecules",
+        "difficulty_permille": 300,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use N = n x N_A.",
+          "Multiply the moles by Avogadro's number."
+        ],
+        "explanation": "N = 0.5 x 6.022 x 10^23 = 3.011 x 10^23 molecules of CO2.",
+        "distractors": [
+          "1.204 x 10^24",
+          "6.022 x 10^23",
+          "3.011 x 10^22"
+        ]
+      },
+      {
+        "question": "In the reaction 2H2 + O2 -> 2H2O, how many grams of water are produced from 4 g of hydrogen? (M_H2 = 2, M_H2O = 18)",
+        "answer": "36 g of water",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "First find moles of H2: n = m/M = 4/2 = 2 mol.",
+          "From the equation: 2 mol H2 produces 2 mol H2O (1:1 ratio)."
+        ],
+        "explanation": "n(H2) = 4/2 = 2 mol. Mole ratio H2:H2O = 2:2 = 1:1. So n(H2O) = 2 mol. m(H2O) = nM = 2 x 18 = 36 g.",
+        "distractors": [
+          "18 g",
+          "72 g",
+          "9 g"
+        ]
+      },
+      {
+        "question": "50 cm^3 of 0.2 mol/dm^3 NaOH is used in a titration. Calculate the number of moles of NaOH.",
+        "answer": "n = cV = 0.2 x 0.05 = 0.01 mol",
+        "difficulty_permille": 400,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use n = cV. Volume must be in dm^3.",
+          "Convert cm^3 to dm^3: divide by 1000. So 50 cm^3 = 0.05 dm^3."
+        ],
+        "explanation": "n = cV = (0.2)(0.05) = 0.01 mol. The most common error is forgetting to convert cm^3 to dm^3.",
+        "distractors": [
+          "10 mol",
+          "0.1 mol",
+          "0.004 mol"
+        ]
+      },
+      {
+        "question": "10 g of CaCO3 reacts with excess HCl: CaCO3 + 2HCl -> CaCl2 + H2O + CO2. Calculate the volume of CO2 produced at STP. (M_CaCO3 = 100, molar volume at STP = 22.4 dm^3/mol)",
+        "answer": "V = 2.24 dm^3",
+        "difficulty_permille": 650,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Find moles of CaCO3: n = m/M = 10/100.",
+          "Mole ratio CaCO3:CO2 = 1:1. Then use V = n x 22.4 dm^3."
+        ],
+        "explanation": "n(CaCO3) = 10/100 = 0.1 mol. From equation: 1 mol CaCO3 produces 1 mol CO2. So n(CO2) = 0.1 mol. V = 0.1 x 22.4 = 2.24 dm^3.",
+        "distractors": [
+          "22.4 dm^3",
+          "0.224 dm^3",
+          "4.48 dm^3"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Stoichiometry applies here?",
+      "Apply the method for Stoichiometry step by step.",
+      "Start by writing down what you know about Stoichiometry."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mole",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Stoichiometry.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.4",
+    "title": "Assessment: Mole concept (n = m/M, n = cV, n = N/N\u2090). Balanced equations. Limiting reagents. Percentage yield. Concentration (mol/dm\u00b3). Volume relationships (molar gas volume at STP)",
+    "items": [
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Stoichiometry.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Stoichiometry?",
+      "back": "The mole is the chemist's counting unit: 1 mol = 6",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.4",
+        "Grade10",
+        "Chemistry \u2014 Quantitative"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

@@ -1,0 +1,27 @@
+{
+  "release": "net-steward-v0.3.0-alpha.5",
+  "identity_success_path_proven": true,
+  "live_identity_resolver_feature_gated": true,
+  "single_verified_claim_grants_consensus": false,
+  "federated_consensus_requires_independent_witnesses": true,
+  "mutation_enabled": false,
+  "rollback_apply_enabled": false,
+  "zk_verifier_enabled": false,
+  "blast_radius_preview_enabled": true,
+  "proof_mode": "simulated_envelope",
+  "consensus_policy": {
+    "min_signers": 2,
+    "prohibit_simulated": true,
+    "prohibit_revoked": true,
+    "prohibit_expired": true
+  },
+  "alpha_track": "v0.3-alpha.5",
+  "alpha_milestones_complete": [
+    "v0.3-alpha.1: Production Holochain Federation",
+    "v0.3-alpha.2: Operation Intent & Approval Envelopes",
+    "v0.3-alpha.3: Dry-Run Executor With Apply Disabled",
+    "v0.3-alpha.4: Blast-Radius Preview",
+    "v0.3-alpha.5: ZK Verifier Interface"
+  ],
+  "notes": "v0.3-alpha.5: ZkVerifierPolicy, ZkProofRequest, and ZkProofVerdict types added to schema. verify_claim_zk_stub() function added to discovery engine, operating under ZkVerifierPolicy and always returning simulated_envelope proof mode (or rejected/disabled) in lab/alpha mode, never returning Verified. Integration tests cover happy-path simulated verification, feature gating, and disabled policy enforcement."
+}

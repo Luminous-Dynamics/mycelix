@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr2.MEA",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr2.MEA",
+    "title": "CAPS.Mathematics.Gr2.MEA: Length in cm and m. Mass in kg. Capacity in litres. Time:...",
+    "grade_level": "Grade2",
+    "bloom_level": "Understand",
+    "explanation": "Grade 2 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 2 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "How many centimetres are in 1 metre?",
+        "answer": "100",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "There are 100 cm in a metre"
+        ],
+        "explanation": "1 metre = 100 centimetres.",
+        "distractors": [
+          "10",
+          "50",
+          "1000"
+        ]
+      },
+      {
+        "question": "A pencil is 15 cm long and a pen is 12 cm long. How much longer is the pencil?",
+        "answer": "3 cm",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Subtract: 15 - 12"
+        ],
+        "explanation": "15 - 12 = 3 cm. The pencil is 3 cm longer.",
+        "distractors": [
+          "2 cm",
+          "4 cm",
+          "27 cm"
+        ]
+      },
+      {
+        "question": "What time does the clock show when the big hand is on 12 and the small hand is on 3?",
+        "answer": "3 o'clock",
+        "difficulty_permille": 375,
+        "bloom_level": "Remember",
+        "hints": [
+          "The small hand points to the hour"
+        ],
+        "explanation": "The small hand on 3 means it is 3 o'clock.",
+        "distractors": [
+          "12 o'clock",
+          "6 o'clock",
+          "9 o'clock"
+        ]
+      },
+      {
+        "question": "A bag of flour weighs 2 kg. How many kilograms do 3 bags weigh?",
+        "answer": "6 kg",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Multiply: 3 bags times 2 kg"
+        ],
+        "explanation": "3 x 2 = 6 kg.",
+        "distractors": [
+          "5 kg",
+          "8 kg",
+          "4 kg"
+        ]
+      },
+      {
+        "question": "A bottle holds 1 litre. How many bottles fill a 5-litre bucket?",
+        "answer": "5",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "How many times does 1 go into 5?"
+        ],
+        "explanation": "5 divided by 1 = 5 bottles.",
+        "distractors": [
+          "4",
+          "6",
+          "10"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 2 Mathematics?",
+      "Try the method for Grade 2 Mathematics.",
+      "Start with what you know about Grade 2 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 2 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 2 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr2.MEA",
+    "title": "Assessment: Length in cm and m. Mass in kg. Capacity in litres. Time: analogue clock to half-hour",
+    "items": [
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 2 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 2 Mathematics?",
+      "back": "Grade 2 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr2.MEA",
+        "Grade2",
+        "Measurement"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:28"
+}

@@ -1,0 +1,396 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+    "title": "CAPS.PhysicalSciences.Gr12.P1.MOD2: Atomic energy levels. Emission spectra (continuous, line/...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "The photoelectric effect demonstrates the particle nature of light. Photon energy E = hf = hc/λ (h = 6.63 × 10⁻³⁴ J·s). Einstein's equation: E = W₀ + Ek(max), where W₀ = hf₀ is the work function. Below threshold frequency f₀, no electrons are emitted regardless of intensity. Emission spectra: atoms emit photons at specific frequencies when electrons drop energy levels: E = hf.",
+    "examples": [
+      {
+        "problem": "Light of wavelength 400 nm strikes a metal with work function 3.0 eV. Find the maximum kinetic energy of ejected electrons.",
+        "steps": [
+          {
+            "instruction": "Step 1: E = hc/λ = (6.63×10⁻³⁴)(3×10⁸)/(400×10⁻⁹) = 4.97 × 10⁻¹⁹ J",
+            "result": "photon energy"
+          },
+          {
+            "instruction": "Step 2: Convert to eV: 4.97×10⁻¹⁹/1.6×10⁻¹⁹ = 3.11 eV",
+            "result": "convert units"
+          },
+          {
+            "instruction": "Step 3: Ek(max) = E − W₀ = 3.11 − 3.0 = 0.11 eV",
+            "result": "apply Einstein's equation"
+          }
+        ],
+        "answer": "Answer: Ek(max) = 0.11 eV (≈ 1.76 × 10⁻²⁰ J)",
+        "visual_description": null
+      },
+      {
+        "problem": "Light of wavelength 400 nm strikes a metal with work function 3.0 eV. Find the maximum kinetic energy of ejected electrons.",
+        "steps": [
+          {
+            "instruction": "Step 1: E = hc/λ = (6.63×10⁻³⁴)(3×10⁸)/(400×10⁻⁹) = 4.97 × 10⁻¹⁹ J",
+            "result": "photon energy"
+          },
+          {
+            "instruction": "Step 2: Convert to eV: 4.97×10⁻¹⁹/1.6×10⁻¹⁹ = 3.11 eV",
+            "result": "convert units"
+          },
+          {
+            "instruction": "Step 3: Ek(max) = E − W₀ = 3.11 − 3.0 = 0.11 eV",
+            "result": "apply Einstein's equation"
+          }
+        ],
+        "answer": "Answer: Ek(max) = 0.11 eV (≈ 1.76 × 10⁻²⁰ J)",
+        "visual_description": null
+      },
+      {
+        "problem": "Light of wavelength 400 nm strikes a metal with work function 3.0 eV. Find the maximum kinetic energy of ejected electrons.",
+        "steps": [
+          {
+            "instruction": "Step 1: E = hc/λ = (6.63×10⁻³⁴)(3×10⁸)/(400×10⁻⁹) = 4.97 × 10⁻¹⁹ J",
+            "result": "photon energy"
+          },
+          {
+            "instruction": "Step 2: Convert to eV: 4.97×10⁻¹⁹/1.6×10⁻¹⁹ = 3.11 eV",
+            "result": "convert units"
+          },
+          {
+            "instruction": "Step 3: Ek(max) = E − W₀ = 3.11 − 3.0 = 0.11 eV",
+            "result": "apply Einstein's equation"
+          }
+        ],
+        "answer": "Answer: Ek(max) = 0.11 eV (≈ 1.76 × 10⁻²⁰ J)",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Distinguish between an emission spectrum and an absorption spectrum.",
+        "answer": "An emission spectrum shows bright coloured lines on a dark background (from excited atoms emitting photons). An absorption spectrum shows dark lines on a continuous coloured background (photons absorbed by cool gas).",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "Think about what happens when atoms gain vs lose energy.",
+          "Which one has bright lines and which has dark lines?"
+        ],
+        "explanation": "Emission: electrons drop to lower energy levels, emitting photons of specific frequencies. Absorption: a continuous spectrum passes through cool gas, which absorbs specific frequencies.",
+        "distractors": [
+          "Both show bright lines",
+          "Absorption spectra come from hot gases",
+          "Emission spectra are continuous"
+        ]
+      },
+      {
+        "question": "An electron in a hydrogen atom drops from energy level E₃ = −1.51 eV to E₂ = −3.40 eV. Calculate the energy of the emitted photon in joules.",
+        "answer": "3.024 × 10⁻¹⁹ J",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Energy of photon = E_higher − E_lower.",
+          "Convert eV to joules: multiply by 1.6 × 10⁻¹⁹."
+        ],
+        "explanation": "ΔE = E₃ − E₂ = (−1.51) − (−3.40) = 1.89 eV = 1.89 × 1.6×10⁻¹⁹ = 3.024×10⁻¹⁹ J.",
+        "distractors": [
+          "4.91 × 10⁻¹⁹ J",
+          "1.51 × 10⁻¹⁹ J",
+          "7.85 × 10⁻¹⁹ J"
+        ]
+      },
+      {
+        "question": "Calculate the wavelength of the photon emitted when a hydrogen electron transitions from n = 3 (E = −1.51 eV) to n = 2 (E = −3.40 eV). (h = 6.63 × 10⁻³⁴ J·s, c = 3 × 10⁸ m·s⁻¹)",
+        "answer": "658 nm (red light — H-alpha line)",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "First find ΔE in joules.",
+          "Then use λ = hc/ΔE."
+        ],
+        "explanation": "ΔE = 1.89 eV = 3.024×10⁻¹⁹ J. λ = hc/ΔE = (6.63×10⁻³⁴)(3×10⁸)/(3.024×10⁻¹⁹) = 6.58×10⁻⁷ m = 658 nm.",
+        "distractors": [
+          "434 nm",
+          "486 nm",
+          "122 nm"
+        ]
+      },
+      {
+        "question": "Explain why hydrogen produces a line spectrum rather than a continuous spectrum.",
+        "answer": "Hydrogen atoms have discrete (quantised) energy levels. Electrons can only transition between these fixed levels, emitting photons of specific energies (and therefore specific frequencies/wavelengths).",
+        "difficulty_permille": 500,
+        "bloom_level": "Understand",
+        "hints": [
+          "What does 'quantised' mean for energy levels?",
+          "Can electrons exist between energy levels?"
+        ],
+        "explanation": "Since ΔE is fixed for each transition, E = hf gives specific frequencies. This produces discrete lines, not a continuous band.",
+        "distractors": [
+          "Hydrogen is a single element",
+          "The gas is too hot",
+          "Light diffracts in the prism"
+        ]
+      },
+      {
+        "question": "A flame test produces a yellow line at 589 nm. Calculate the energy difference between the two atomic energy levels responsible. (h = 6.63 × 10⁻³⁴ J·s, c = 3 × 10⁸ m·s⁻¹)",
+        "answer": "3.38 × 10⁻¹⁹ J (or 2.11 eV)",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use E = hc/λ.",
+          "Convert nm to m: 1 nm = 10⁻⁹ m."
+        ],
+        "explanation": "E = hc/λ = (6.63×10⁻³⁴)(3×10⁸)/(589×10⁻⁹) = 3.38×10⁻¹⁹ J = 2.11 eV.",
+        "distractors": [
+          "5.89 × 10⁻¹⁹ J",
+          "1.13 × 10⁻¹⁹ J",
+          "3.38 × 10⁻²⁰ J"
+        ]
+      },
+      {
+        "question": "Explain how astronomers determine the chemical composition of distant stars using absorption spectra.",
+        "answer": "Light from the star passes through its cooler outer atmosphere. Elements in the atmosphere absorb specific wavelengths. The dark absorption lines are compared to known emission spectra of elements on Earth to identify which elements are present.",
+        "difficulty_permille": 750,
+        "bloom_level": "Understand",
+        "hints": [
+          "What produces the dark lines in the absorption spectrum?",
+          "Each element has a unique set of spectral lines (like a fingerprint)."
+        ],
+        "explanation": "Each element absorbs unique wavelengths corresponding to its energy level transitions. By matching dark lines to known element spectra, we identify the star's composition.",
+        "distractors": [
+          "Stars emit only certain colours",
+          "Telescopes filter out specific wavelengths",
+          "Different elements glow at different temperatures"
+        ]
+      },
+      {
+        "question": "A hydrogen atom can undergo transitions from n = 4 to n = 1, n = 4 to n = 2, or n = 4 to n = 3. Which transition produces the photon with the (a) highest frequency and (b) longest wavelength? Given: E₁ = −13.6 eV, E₂ = −3.40 eV, E₃ = −1.51 eV, E₄ = −0.85 eV.",
+        "answer": "(a) n=4→n=1 (highest ΔE = 12.75 eV, so highest frequency). (b) n=4→n=3 (lowest ΔE = 0.66 eV, so longest wavelength).",
+        "difficulty_permille": 875,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Larger energy difference → higher frequency (E = hf).",
+          "Longer wavelength means lower frequency, which means smaller ΔE."
+        ],
+        "explanation": "ΔE(4→1) = 12.75 eV, ΔE(4→2) = 2.55 eV, ΔE(4→3) = 0.66 eV. Since E = hf, the largest ΔE gives the highest f (shortest λ). The smallest ΔE gives the lowest f (longest λ).",
+        "distractors": [
+          "n=4→n=3 has highest frequency",
+          "n=4→n=1 has longest wavelength",
+          "All transitions have the same frequency"
+        ]
+      }
+    ],
+    "hints": [
+      "Photon energy = hf or hc/λ. If E > W₀, photoelectrons are emitted with Ek = E − W₀.",
+      "Photon energy = hf or hc/λ. If E > W₀, photoelectrons are emitted with Ek = E − W₀.",
+      "Photon energy = hf or hc/λ. If E > W₀, photoelectrons are emitted with Ek = E − W₀."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "photoelectric effect",
+        "definition": "The emission of electrons when light strikes a metal surface",
+        "example_usage": "The photoelectric effect proves light behaves as particles."
+      },
+      {
+        "term": "work function",
+        "definition": "The minimum energy needed to remove an electron from a metal surface",
+        "example_usage": "W₀ = hf₀."
+      },
+      {
+        "term": "threshold frequency",
+        "definition": "The minimum frequency of light needed to cause photoemission",
+        "example_usage": "Below f₀, no electrons are emitted."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think increasing light intensity below the threshold frequency will eventually cause emission.",
+        "correction": "Below f₀, no electrons are emitted regardless of intensity. Each photon must individually have enough energy (hf ≥ W₀).",
+        "why_students_think_this": "One photon interacts with one electron. Many low-energy photons can't combine their energy."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+    "title": "Assessment: Atomic energy levels. Emission spectra (continuous, line/bright). Absorption spectra (dark lines). Bohr model. E = hf relationship for photon emission/absorption. Applications: stellar composition, flame tests",
+    "items": [
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Explain why the photoelectric effect cannot be explained by the wave theory of light.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Wave theory predicts: (1) any frequency should cause emission given enough intensity, (2) delay before emission as energy accumulates. Both are contradicted experimentally.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "State Einstein's photoelectric equation.",
+      "back": "E = W₀ + Ek(max), or hf = hf₀ + ½mv²(max)",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MOD2",
+        "Grade12",
+        "Paper 1 — Modern Physics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:22"
+}

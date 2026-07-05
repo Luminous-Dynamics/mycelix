@@ -1,0 +1,45 @@
+[
+  {
+    "event_id": "sec-evt-101",
+    "node_id": "forge-server",
+    "observed_at_unix_ms": 1719513600000,
+    "event_kind": "SystemdUnitChanged",
+    "severity": "High",
+    "confidence": 0.95,
+    "source_collector": "systemd_unit_collector",
+    "evidence_hash": "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "related_process": {
+      "pid": 1284,
+      "process_name": "backdoord",
+      "exe_path": "/usr/bin/backdoord"
+    },
+    "related_identity": "did:mycelix:unknown-attacker",
+    "related_network_edge": "laptop-router-link",
+    "recommended_action": [
+      "GenerateRollbackPlan",
+      "CreateEvidenceCapsule",
+      "RequestXeniaAdminSession"
+    ]
+  },
+  {
+    "event_id": "sec-evt-102",
+    "node_id": "forge-server",
+    "observed_at_unix_ms": 1719513612000,
+    "event_kind": "UnexpectedListeningPort",
+    "severity": "Critical",
+    "confidence": 0.88,
+    "source_collector": "listening_port_collector",
+    "evidence_hash": "sha256-f5a5e5d5c5b5a595857565554535251505f5e5d5c5b5a5958575655545352515",
+    "related_process": {
+      "pid": 1284,
+      "process_name": "backdoord",
+      "exe_path": "/usr/bin/backdoord"
+    },
+    "related_identity": null,
+    "related_network_edge": null,
+    "recommended_action": [
+      "GenerateIsolationPlan",
+      "CreateEvidenceCapsule"
+    ]
+  }
+]

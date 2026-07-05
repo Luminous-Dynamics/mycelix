@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr4.OPS",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr4.OPS",
+    "title": "CAPS.Mathematics.Gr4.OPS: All four operations. Long multiplication. Long division. ...",
+    "grade_level": "Grade4",
+    "bloom_level": "Understand",
+    "explanation": "Grade 4 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 4 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "What is 34 x 12?",
+        "answer": "408",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Use long multiplication: 34 x 10 + 34 x 2"
+        ],
+        "explanation": "34 x 10 = 340, 34 x 2 = 68. 340 + 68 = 408.",
+        "distractors": [
+          "368",
+          "418",
+          "448"
+        ]
+      },
+      {
+        "question": "What is 144 / 12?",
+        "answer": "12",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Think: 12 x ? = 144"
+        ],
+        "explanation": "12 x 12 = 144, so 144 / 12 = 12.",
+        "distractors": [
+          "11",
+          "13",
+          "14"
+        ]
+      },
+      {
+        "question": "A school has 156 learners split equally into 6 classes. How many learners per class?",
+        "answer": "26",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "Divide: 156 / 6"
+        ],
+        "explanation": "156 / 6 = 26 learners per class.",
+        "distractors": [
+          "24",
+          "28",
+          "25"
+        ]
+      },
+      {
+        "question": "What is 253 x 4?",
+        "answer": "1012",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Multiply each digit by 4, carrying where needed"
+        ],
+        "explanation": "253 x 4: 3x4=12(carry 1), 5x4+1=21(carry 2), 2x4+2=10. Answer: 1012.",
+        "distractors": [
+          "1002",
+          "1112",
+          "912"
+        ]
+      },
+      {
+        "question": "What is 875 / 5?",
+        "answer": "175",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Divide step by step: 8/5, then 37/5, then 25/5"
+        ],
+        "explanation": "875 / 5 = 175.",
+        "distractors": [
+          "165",
+          "185",
+          "170"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 4 Mathematics?",
+      "Try the method for Grade 4 Mathematics.",
+      "Start with what you know about Grade 4 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 4 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 4 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr4.OPS",
+    "title": "Assessment: All four operations. Long multiplication. Long division. Order of operations. Word problems",
+    "items": [
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 4 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 4 Mathematics?",
+      "back": "Grade 4 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr4.OPS",
+        "Grade4",
+        "Operations"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:38"
+}

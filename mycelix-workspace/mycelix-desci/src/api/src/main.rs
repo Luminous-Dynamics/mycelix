@@ -1,0 +1,194 @@
+// Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
+//! Mycelix-DeSci REST API Server
+//!
+//! Production-grade REST API for the Mycelix-DeSci platform.
+//! Provides HTTP interface for claims, queries, trust management, and more.
+
+use axum::{
+    Router,
+    extract::DefaultBodyLimit,
+    http::{HeaderValue, Method, header},
+    response::IntoResponse,
+};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tower::ServiceBuilder;
+use tower_governor::GovernorLayer;
+use tower_http::cors::AllowOrigin;
+use tower_http::{
+    compression::CompressionLayer, cors::CorsLayer, timeout::TimeoutLayer, trace::TraceLayer,
+};
+use tracing::info;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+
+mod background;
+mod error;
+mod handlers;
+mod metrics;
+mod middleware;
+mod models;
+mod routes;
+mod state;
+
+use error::Result;
+use middleware::{MetricsMiddleware, governor_config};
+use state::AppState;
+
+/// API version
+const API_VERSION: &str = "1.0.0";
+
+/// Main entry point
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize logging
+    init_logging();
+
+    info!("🚀 Starting Mycelix-DeSci API v{}", API_VERSION);
+
+    // Load configuration
+    let config = load_config()?;
+    info!("✅ Configuration loaded");
+
+    // Initialize application state
+    let state = Arc::new(AppState::new().await?);
+    info!("✅ Application state initialized");
+
+    // Start background workers
+    background::start_quantum_anchor(Arc::clone(&state));
+
+    // Build application
+    let app = create_app(Arc::clone(&state), &config.cors_allowed_origins);
+
+    // Create server address
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    info!("🌐 Server listening on http://{}", addr);
+    info!("📖 API docs available at http://{}/docs", addr);
+
+    // Start server
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Initialize logging with tracing-subscriber
+fn init_logging() {
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "mycelix_api=debug,tower_http=debug,axum=trace".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+}
+
+/// Default CORS allowlist for local development plus the DeSci production
+/// frontend domain. Overridable via `CORS_ORIGINS` (comma-separated).
+///
+/// `desci.mycelix.net` / port 8106 is the reserved Mycelix frontend slot for
+/// this cluster per `.claude/rules/PORTS.md` (alphabetical 81XX allocation);
+/// no DeSci-specific frontend config file was found in-repo pinning a
+/// different domain, so this is the documented convention rather than a
+/// discovered one — worth double-checking against actual deployment.
+const DEFAULT_CORS_ORIGINS: &str =
+    "http://localhost:3000,http://localhost:8106,https://desci.mycelix.net";
+
+/// Load configuration from environment
+fn load_config() -> Result<Config> {
+    Ok(Config {
+        port: std::env::var("PORT")
+            .unwrap_or_else(|_| "8080".to_string())
+            .parse()
+            .unwrap_or(8080),
+        cors_allowed_origins: std::env::var("CORS_ORIGINS")
+            .unwrap_or_else(|_| DEFAULT_CORS_ORIGINS.to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+    })
+}
+
+#[derive(Debug, Clone)]
+struct Config {
+    port: u16,
+    cors_allowed_origins: Vec<String>,
+}
+
+/// Create the Axum application with all routes and middleware
+fn create_app(state: Arc<AppState>, cors_allowed_origins: &[String]) -> Router {
+    // Create OpenAPI documentation
+    let openapi = routes::ApiDoc::openapi();
+
+    Router::new()
+        // Mount API routes at /api/v1
+        .nest("/api/v1", routes::api_routes())
+        // Swagger UI at /docs
+        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", openapi))
+        // Health check at root
+        .route(
+            "/health",
+            axum::routing::get(handlers::system::health_check),
+        )
+        // Metrics endpoint for Prometheus
+        .route("/metrics", axum::routing::get(metrics_handler))
+        // Application state
+        .with_state(state)
+        // Middleware stack (applied in reverse order)
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(CompressionLayer::new())
+                .layer(configure_cors(cors_allowed_origins))
+                .layer(TimeoutLayer::with_status_code(
+                    axum::http::StatusCode::REQUEST_TIMEOUT,
+                    std::time::Duration::from_secs(30),
+                ))
+                .layer(DefaultBodyLimit::max(10 * 1024 * 1024)), // 10MB max
+        )
+        // Add metrics middleware
+        .layer(axum::middleware::from_fn(MetricsMiddleware::track))
+        // Per-IP rate limiting (tower_governor, GCRA token bucket)
+        .layer(GovernorLayer::new(governor_config()))
+}
+
+/// Configure CORS middleware with an explicit origin allowlist.
+///
+/// Wildcard origin (`*`) combined with credential-bearing headers
+/// (`Authorization`) is a real vulnerability — it lets any website read
+/// responses made with a caller's bearer token. Origins are validated
+/// against the exact allowlist parsed from `CORS_ORIGINS`
+/// (see `DEFAULT_CORS_ORIGINS` for the local-dev + production default).
+fn configure_cors(allowed_origins: &[String]) -> CorsLayer {
+    let origins: Vec<HeaderValue> = allowed_origins
+        .iter()
+        .filter_map(|o| o.parse::<HeaderValue>().ok())
+        .collect();
+
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+}
+
+/// Metrics handler for Prometheus
+async fn metrics_handler() -> impl axum::response::IntoResponse {
+    match metrics::encode_metrics() {
+        Ok(metrics) => (
+            axum::http::StatusCode::OK,
+            [("content-type", "text/plain; version=0.0.4")],
+            metrics,
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to encode metrics: {}", e),
+        )
+            .into_response(),
+    }
+}

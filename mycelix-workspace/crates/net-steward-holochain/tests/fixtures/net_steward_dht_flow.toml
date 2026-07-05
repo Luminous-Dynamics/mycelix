@@ -1,0 +1,9 @@
+# Net Steward Conductor Integration Test Manifest
+
+dna_path = "crates/net-steward-holochain/dna/dna.yaml"
+role_id = "net_steward"
+zome_name = "net_steward_posture"
+alice_agent = "did:mycelix:alice-test-key"
+bob_agent = "did:mycelix:bob-test-key"
+claim_fixture = "env-test-999"
+expected_claim_id = "claim-test-999"

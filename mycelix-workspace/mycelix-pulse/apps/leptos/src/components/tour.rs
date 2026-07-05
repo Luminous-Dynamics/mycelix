@@ -88,8 +88,12 @@ pub fn OnboardingTour() -> impl IntoView {
         let s = current_step()?;
         // Try to find the target element and position the tooltip near it
         // Use JS eval to get bounding rect (avoids needing DomRect web-sys feature)
-        let js = format!("JSON.stringify(document.querySelector('{}')?.getBoundingClientRect())", s.selector.replace('\'', "\\'"));
-        let rect: Option<serde_json::Value> = js_sys::eval(&js).ok()
+        let js = format!(
+            "JSON.stringify(document.querySelector('{}')?.getBoundingClientRect())",
+            s.selector.replace('\'', "\\'")
+        );
+        let rect: Option<serde_json::Value> = js_sys::eval(&js)
+            .ok()
             .and_then(|v| v.as_string())
             .and_then(|json| serde_json::from_str(&json).ok());
 

@@ -1,7 +1,7 @@
 [package]
 name = "mycelix-sdk"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Mycelix SDK - Trust infrastructure for the Mycelix Conscious Ecosystem"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/luminous-dynamics/mycelix"
@@ -85,10 +85,10 @@ js-sys = { version = "0.3", optional = true }
 rayon = { version = "1.8", optional = true }
 
 # Thiserror for error handling
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Shared types with Holochain zomes
-mycelix_finance_types = { path = "../../mycelix-finance/types" }
+mycelix_finance_types = { path = "../mycelix-finance/types" }
 
 # Unified FL core (shared with Symthaea)
 mycelix-fl-core = { path = "../crates/mycelix-fl-core" }

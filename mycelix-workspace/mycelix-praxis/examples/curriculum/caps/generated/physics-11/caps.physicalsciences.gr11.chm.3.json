@@ -1,0 +1,371 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr11.CHM.3",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.CHM.3",
+    "title": "CAPS.PhysicalSciences.Gr11.CHM.3: Open and closed systems. Reversible reactions. Dynamic eq...",
+    "grade_level": "Grade11",
+    "bloom_level": "Understand",
+    "explanation": "Reaction rate measures how fast reactants are consumed or products formed. Rate = \u2212\u0394[reactant]/\u0394t = +\u0394[product]/\u0394t. Factors: concentration (more collisions), temperature (faster molecules, more exceed Ea), surface area (more exposed particles), catalysts (lower Ea, provide alternative pathway). Collision theory: reactions only occur when particles collide with sufficient energy (\u2265 Ea) and correct orientation.",
+    "examples": [
+      {
+        "problem": "For N\u2082(g) + 3H\u2082(g) \u21cc 2NH\u2083(g) (\u0394H < 0), predict the effect of increasing temperature.",
+        "steps": [
+          {
+            "instruction": "Step 1: The forward reaction is exothermic (\u0394H < 0)",
+            "result": "identify reaction type"
+          },
+          {
+            "instruction": "Step 2: Increasing temperature favours the endothermic direction (Le Chatelier)",
+            "result": "apply principle"
+          },
+          {
+            "instruction": "Step 3: Equilibrium shifts LEFT (reverse), producing more N\u2082 and H\u2082",
+            "result": "determine shift"
+          },
+          {
+            "instruction": "Step 4: Kc decreases (less product, more reactant at new equilibrium)",
+            "result": "effect on Kc"
+          }
+        ],
+        "answer": "Answer: Equilibrium shifts left. [NH\u2083] decreases. Kc decreases.",
+        "visual_description": null
+      },
+      {
+        "problem": "For N\u2082(g) + 3H\u2082(g) \u21cc 2NH\u2083(g) (\u0394H < 0), predict the effect of increasing temperature.",
+        "steps": [
+          {
+            "instruction": "Step 1: The forward reaction is exothermic (\u0394H < 0)",
+            "result": "identify reaction type"
+          },
+          {
+            "instruction": "Step 2: Increasing temperature favours the endothermic direction (Le Chatelier)",
+            "result": "apply principle"
+          },
+          {
+            "instruction": "Step 3: Equilibrium shifts LEFT (reverse), producing more N\u2082 and H\u2082",
+            "result": "determine shift"
+          },
+          {
+            "instruction": "Step 4: Kc decreases (less product, more reactant at new equilibrium)",
+            "result": "effect on Kc"
+          }
+        ],
+        "answer": "Answer: Equilibrium shifts left. [NH\u2083] decreases. Kc decreases.",
+        "visual_description": null
+      },
+      {
+        "problem": "For N\u2082(g) + 3H\u2082(g) \u21cc 2NH\u2083(g) (\u0394H < 0), predict the effect of increasing temperature.",
+        "steps": [
+          {
+            "instruction": "Step 1: The forward reaction is exothermic (\u0394H < 0)",
+            "result": "identify reaction type"
+          },
+          {
+            "instruction": "Step 2: Increasing temperature favours the endothermic direction (Le Chatelier)",
+            "result": "apply principle"
+          },
+          {
+            "instruction": "Step 3: Equilibrium shifts LEFT (reverse), producing more N\u2082 and H\u2082",
+            "result": "determine shift"
+          },
+          {
+            "instruction": "Step 4: Kc decreases (less product, more reactant at new equilibrium)",
+            "result": "effect on Kc"
+          }
+        ],
+        "answer": "Answer: Equilibrium shifts left. [NH\u2083] decreases. Kc decreases.",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "For the reaction N2(g) + 3H2(g) <=> 2NH3(g), write the expression for Kc.",
+        "answer": "Kc = [NH3]^2 / ([N2][H2]^3)",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Kc = products / reactants, each raised to the power of their coefficient.",
+          "Only gases and aqueous species appear in the expression."
+        ],
+        "explanation": "Kc = [NH3]^2 / ([N2] x [H2]^3). The exponents match the stoichiometric coefficients.",
+        "distractors": [
+          "Kc = [N2][H2]^3 / [NH3]^2",
+          "Kc = [NH3] / [N2][H2]",
+          "Kc = 2[NH3] / [N2] x 3[H2]"
+        ]
+      },
+      {
+        "question": "For N2 + 3H2 <=> 2NH3 (Delta H < 0), predict the effect of increasing pressure on the equilibrium position.",
+        "answer": "Increasing pressure shifts equilibrium toward the side with fewer gas moles. Reactants: 1+3=4 moles. Products: 2 moles. Equilibrium shifts RIGHT (toward NH3), increasing yield.",
+        "difficulty_permille": 400,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Le Chatelier's principle: the system opposes the change.",
+          "Higher pressure favours fewer gas moles."
+        ],
+        "explanation": "By shifting right (4 moles -> 2 moles), the system reduces the total moles of gas, partially counteracting the pressure increase. Kc is unchanged (only temperature changes Kc).",
+        "distractors": [
+          "Shifts left",
+          "No effect",
+          "Shifts right but Kc changes"
+        ]
+      },
+      {
+        "question": "A catalyst is added to the Haber process. Does it change the equilibrium position or Kc? Explain.",
+        "answer": "A catalyst does NOT change the equilibrium position or Kc. It speeds up both the forward and reverse reactions equally, so equilibrium is reached faster but at the same composition.",
+        "difficulty_permille": 350,
+        "bloom_level": "Understand",
+        "hints": [
+          "A catalyst lowers Ea for both directions equally.",
+          "Kc depends only on temperature."
+        ],
+        "explanation": "The catalyst helps the Haber process by reaching equilibrium faster, but the same yield of NH3 is obtained. To increase yield, change temperature or pressure.",
+        "distractors": [
+          "Catalyst shifts equilibrium right",
+          "Catalyst increases Kc",
+          "Catalyst only speeds forward reaction"
+        ]
+      },
+      {
+        "question": "At equilibrium, [N2] = 0.1, [H2] = 0.3, [NH3] = 0.2 (all in mol/dm^3). Calculate Kc.",
+        "answer": "Kc = (0.2)^2 / ((0.1)(0.3)^3) = 0.04 / (0.1 x 0.027) = 0.04/0.0027 = 14.8",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Substitute the equilibrium concentrations into the Kc expression.",
+          "Be careful with the exponents: [H2]^3 = (0.3)^3 = 0.027."
+        ],
+        "explanation": "Kc = [NH3]^2/([N2][H2]^3) = 0.04/(0.1 x 0.027) = 0.04/0.0027 = 14.8. A large Kc means products are favoured at equilibrium.",
+        "distractors": [
+          "0.067",
+          "1.48",
+          "148"
+        ]
+      },
+      {
+        "question": "The Haber process operates at 450C and 200 atm with an iron catalyst. The reaction is exothermic. Explain why a high temperature is used even though it reduces yield.",
+        "answer": "Lower temperature would increase yield (Le Chatelier: exothermic reaction favoured at low T), but would make the reaction too slow. The 450C compromise gives acceptable rate AND reasonable yield. The iron catalyst helps achieve equilibrium faster at this temperature. Unreacted N2 and H2 are recycled.",
+        "difficulty_permille": 700,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "There is a trade-off between rate and yield.",
+          "Industrial processes must consider both thermodynamics (yield) and kinetics (rate)."
+        ],
+        "explanation": "At 450C and 200 atm, yield is ~15%. The recycling of unreacted gases makes the process economically viable despite the relatively low per-pass yield.",
+        "distractors": [
+          "High temperature increases yield",
+          "The catalyst eliminates the temperature trade-off",
+          "200 atm reduces yield"
+        ]
+      }
+    ],
+    "hints": [
+      "For Le Chatelier: the system shifts to oppose the change. Add reactant \u2192 shifts right. Increase temp on exothermic \u2192 shifts left.",
+      "For Le Chatelier: the system shifts to oppose the change. Add reactant \u2192 shifts right. Increase temp on exothermic \u2192 shifts left.",
+      "For Le Chatelier: the system shifts to oppose the change. Add reactant \u2192 shifts right. Increase temp on exothermic \u2192 shifts left."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "dynamic equilibrium",
+        "definition": "Macroscopic properties are constant, but both forward and reverse reactions continue at equal rates",
+        "example_usage": "At equilibrium, concentrations don't change."
+      },
+      {
+        "term": "Le Chatelier's principle",
+        "definition": "A system at equilibrium will shift to counteract any imposed change",
+        "example_usage": "Adding more reactant shifts equilibrium to the right."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think adding a catalyst shifts equilibrium to the right.",
+        "correction": "A catalyst speeds up both forward and reverse reactions equally. It does NOT change the position of equilibrium or Kc.",
+        "why_students_think_this": "It helps the system reach equilibrium faster, but doesn't change where equilibrium lies."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.CHM.3",
+    "title": "Assessment: Open and closed systems. Reversible reactions. Dynamic equilibrium. Le Chatelier's principle (concentration, temperature, pressure). Equilibrium constant Kc. Equilibrium calculations",
+    "items": [
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "5"
+      },
+      {
+        "question": "Explain why the Haber process uses high pressure (200 atm) but moderate temperature (450\u00b0C) despite the reaction being exothermic.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "High pressure shifts equilibrium right (fewer gas moles on product side). Low temperature would favour NH\u2083 but make the reaction too slow. 450\u00b0C is a compromise between yield and rate.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "5"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "Does a catalyst change the value of Kc?",
+      "back": "No. A catalyst speeds up both forward and reverse reactions equally. It does not affect Kc or equilibrium position.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.3",
+        "Grade11",
+        "Chemistry \u2014 Equilibrium"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:17"
+}

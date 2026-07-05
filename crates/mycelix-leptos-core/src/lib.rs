@@ -46,29 +46,40 @@
 pub mod connection_status;
 pub mod holochain_provider;
 pub mod provider;
+// bridge_finance: unfinished proof-of-concept, never wired to any consumer —
+// imports `use_holochain`/`Record`/`ActionHash`/`SapBalanceResponse` that
+// don't exist in their claimed source crates, and calls
+// `create_server_action` (a server-function-only API) from a CSR-only
+// crate. Disabled rather than fixed since nothing depends on it; delete
+// outright once confirmed nobody's mid-flight on finishing it.
+// pub mod bridge_finance;
 
 // --- UI components ---
+pub mod activity_feed;
 pub mod app_shell;
-pub mod badge;
+pub mod availability_state;
+pub use mycelix_leptos_ui::badge;
 pub mod cluster_launcher;
-pub mod data_table;
-pub mod empty_state;
+pub use mycelix_leptos_ui::data_table;
+pub use mycelix_leptos_ui::empty_state;
 pub mod error_boundary;
 pub mod flow_indicator;
 pub mod forms;
+pub mod freshness;
 pub mod graph_node;
 pub mod identity_crypto;
 pub mod indlela;
-pub mod loading;
+pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
 pub mod modal;
-pub mod progress_bar;
+pub use mycelix_leptos_ui::progress_bar;
 pub mod search_bar;
 pub mod showcase;
-pub mod sovereign_radar;
+pub use mycelix_leptos_ui::sovereign_radar;
 pub mod spore_bridge;
-pub mod stat_card;
-pub mod tabs;
+pub use mycelix_leptos_ui::stat_card;
+pub mod summary_card;
+pub use mycelix_leptos_ui::tabs;
 pub mod telemetry_line;
 pub mod tier_gate;
 pub mod trust_badge;
@@ -80,7 +91,7 @@ pub mod consciousness_ui;
 pub mod homeostasis;
 pub mod theme;
 pub mod thermodynamic;
-pub mod toasts;
+pub use mycelix_leptos_ui::toasts;
 
 // --- Utilities ---
 pub mod util;
@@ -90,7 +101,7 @@ pub use holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderAuto,
     HolochainProviderConfig,
 };
-pub use provider::{use_holochain, use_zome_call, HolochainProvider};
+pub use provider::{HolochainProvider, use_holochain, use_zome_call};
 // Note: holochain_provider::use_holochain() returns concrete HolochainCtx,
 // while provider::use_holochain::<T>() is generic. Access the concrete one
 // via mycelix_leptos_core::holochain_provider::use_holochain().
@@ -111,32 +122,38 @@ pub use zome_call_button::ZomeCallButton;
 
 // Re-exports — reactive systems
 pub use consciousness::{
-    provide_consciousness_context, use_consciousness, ConsciousnessProfile, ConsciousnessState,
+    ConsciousnessProfile, ConsciousnessState, provide_consciousness_context, use_consciousness,
 };
 pub use consciousness_ui::init_consciousness_ui;
-pub use homeostasis::{provide_homeostasis_context, use_homeostasis, HomeostasisState};
-pub use theme::{provide_theme_context, use_theme_state, AppTheme, ThemeState};
-pub use thermodynamic::{provide_thermodynamic_context, use_thermodynamic, ThermodynamicState};
-pub use toasts::{provide_toast_context, use_toasts, Toast, ToastContainer, ToastKind, ToastState};
+pub use homeostasis::{HomeostasisState, provide_homeostasis_context, use_homeostasis};
+pub use theme::{AppTheme, ThemeState, provide_theme_context, use_theme_state};
+pub use thermodynamic::{ThermodynamicState, provide_thermodynamic_context, use_thermodynamic};
+pub use toasts::{Toast, ToastContainer, ToastKind, ToastState, provide_toast_context, use_toasts};
 
 // Re-exports — new components
+pub use activity_feed::{ActivityFeed, ActivityFeedItem};
 pub use app_shell::{AppNav, AppShell, MobileBottomNav, NavLink, NavTab};
+pub use availability_state::{AvailabilityState, AvailabilityStateKind};
 pub use badge::{Badge, BadgeVariant, StatusDot};
-pub use cluster_launcher::{default_clusters, ClusterLauncher, ClusterLink};
+pub use cluster_launcher::{ClusterLauncher, ClusterLink, default_clusters};
 pub use data_table::{Column, DataTable, Pagination};
 pub use empty_state::EmptyState;
 pub use flow_indicator::FlowIndicator;
 pub use forms::{Checkbox, FormField, Select, SelectOption, TextArea, TextInput};
+pub use freshness::{FreshnessBadge, FreshnessLevel};
 pub use graph_node::{GraphEdge, GraphNode, NodeEmphasis};
-pub use indlela::{community_warmth, knowledge_freshness, GrowthStage};
+pub use indlela::{GrowthStage, community_warmth, knowledge_freshness};
 pub use local_identity::{
-    load_json, local_did, provide_local_identity, save_json, use_local_identity, LocalIdentity,
+    LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
 };
 pub use modal::{ConfirmDialog, Modal, ModalSize};
 pub use search_bar::SearchBar;
 pub use showcase::Showcase;
 pub use sovereign_radar::{SovereignRadar, SovereignRadarSize};
-pub use spore_bridge::{provide_spore_bridge, use_spore, SporeState};
+pub use spore_bridge::{SporeState, provide_spore_bridge, use_spore};
+pub use summary_card::{
+    SummaryActionItem, SummaryAttentionItem, SummaryCard, SummaryMetricItem, SummaryStatusBadge,
+};
 pub use tabs::{TabPanel, Tabs};
 
 // Re-exports — utilities

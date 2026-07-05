@@ -1,0 +1,399 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+    "title": "CAPS.PhysicalSciences.Gr12.P1.MECH3: Work (W = FΔx cos θ, positive/negative/zero work). Work-e...",
+    "grade_level": "Grade12",
+    "bloom_level": "Understand",
+    "explanation": "Work W = FΔx cos θ (only the component of force in the direction of motion does work). Work-energy theorem: Wnet = ΔEk. Conservation of energy with friction: Wnc = ΔEk + ΔEp (non-conservative work equals total energy change). Power P = W/Δt = Fv (power is the rate of doing work). Efficiency = useful work output / total energy input × 100%.",
+    "examples": [
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      },
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      },
+      {
+        "problem": "A 2 kg ball moving at 6 m/s collides with a stationary 4 kg ball. After collision they move together. Find their velocity.",
+        "steps": [
+          {
+            "instruction": "Step 1: Before: p = m₁v₁ + m₂v₂ = 2(6) + 4(0) = 12 kg·m/s",
+            "result": "total initial momentum"
+          },
+          {
+            "instruction": "Step 2: After: p = (m₁ + m₂)vf = 6vf (they stick together)",
+            "result": "combined mass × final velocity"
+          },
+          {
+            "instruction": "Step 3: Conservation: 12 = 6vf → vf = 2 m/s",
+            "result": "apply conservation of momentum"
+          }
+        ],
+        "answer": "Answer: Combined velocity = 2 m/s in the original direction",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A ball is thrown vertically upward with an initial velocity of 19.6 m/s. Taking g = 9.8 m/s² (downward negative), calculate the time it takes to reach its maximum height.",
+        "answer": "2 s",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "At maximum height the velocity is zero.",
+          "Use v = u + at with v = 0, u = +19.6 m/s, a = -9.8 m/s²."
+        ],
+        "explanation": "At maximum height, v = 0. Using v = u + at: 0 = 19.6 + (-9.8)t, so 9.8t = 19.6, giving t = 2 s.",
+        "distractors": [
+          "1 s",
+          "4 s",
+          "19.6 s"
+        ]
+      },
+      {
+        "question": "A cricket ball is thrown vertically upward at 29.4 m/s. Taking g = 9.8 m/s² (downward negative), calculate the maximum height reached.",
+        "answer": "44.1 m",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "At maximum height, v = 0.",
+          "Use v² = u² + 2as to find the displacement s."
+        ],
+        "explanation": "Using v² = u² + 2as with v = 0, u = 29.4 m/s, a = -9.8 m/s²: 0 = (29.4)² + 2(-9.8)s, so 19.6s = 864.36, giving s = 44.1 m.",
+        "distractors": [
+          "88.2 m",
+          "29.4 m",
+          "22.05 m"
+        ]
+      },
+      {
+        "question": "A stone is thrown vertically upward at 14.7 m/s from ground level. Taking g = 9.8 m/s² (downward negative), calculate the total time of flight (time to return to the thrower's hand).",
+        "answer": "3 s",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "The stone returns to the same height, so displacement = 0.",
+          "Use s = ut + ½at² with s = 0."
+        ],
+        "explanation": "Using s = ut + ½at² with s = 0: 0 = 14.7t + ½(-9.8)t² = 14.7t - 4.9t². Factor: t(14.7 - 4.9t) = 0, so t = 0 (launch) or t = 14.7/4.9 = 3 s.",
+        "distractors": [
+          "1.5 s",
+          "6 s",
+          "4.9 s"
+        ]
+      },
+      {
+        "question": "A ball is thrown vertically upward. Its position-time graph is a downward-opening parabola that reaches a peak of 20 m at t = 2 s. What was the ball's initial velocity? (Use g = 9.8 m/s², downward negative.)",
+        "answer": "19.6 m/s",
+        "difficulty_permille": 500,
+        "bloom_level": "Analyze",
+        "hints": [
+          "The peak of the parabola corresponds to maximum height where v = 0.",
+          "At t = 2 s the velocity is zero. Use v = u + at to find u."
+        ],
+        "explanation": "At the peak (t = 2 s), v = 0. Using v = u + at: 0 = u + (-9.8)(2), so u = 19.6 m/s. Verification: s = ut + ½at² = 19.6(2) + ½(-9.8)(4) = 39.2 - 19.6 = 19.6 m (approximately 20 m, consistent with the graph).",
+        "distractors": [
+          "9.8 m/s",
+          "10 m/s",
+          "39.2 m/s"
+        ]
+      },
+      {
+        "question": "A velocity-time graph for a ball thrown vertically upward shows a straight line from +24.5 m/s at t = 0 to -24.5 m/s at t = 5 s. Use the area under the graph to determine the displacement of the ball during the first 2.5 s. (g = 9.8 m/s², downward negative.)",
+        "answer": "30.625 m",
+        "difficulty_permille": 625,
+        "bloom_level": "Analyze",
+        "hints": [
+          "The area under a v-t graph gives displacement.",
+          "From t = 0 to t = 2.5 s, the velocity goes from +24.5 to 0 (a triangle).",
+          "Area of a triangle = ½ x base x height."
+        ],
+        "explanation": "The line crosses v = 0 at t = 2.5 s (midpoint). From t = 0 to t = 2.5 s, the v-t graph forms a triangle with base = 2.5 s and height = 24.5 m/s. Displacement = area = ½ x 2.5 x 24.5 = 30.625 m upward.",
+        "distractors": [
+          "61.25 m",
+          "24.5 m",
+          "0 m"
+        ]
+      },
+      {
+        "question": "Ball A is dropped from rest from a height of 60 m. At the same instant, ball B is thrown vertically upward from the ground at 20 m/s. Taking g = 9.8 m/s² (downward negative) and upward as positive, at what time do the two balls pass each other?",
+        "answer": "3 s",
+        "difficulty_permille": 750,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "Set up position equations for both balls using the same reference point (e.g., ground level).",
+          "Ball A: starts at 60 m with u = 0 (dropped). Ball B: starts at 0 m with u = +20 m/s.",
+          "They meet when their positions are equal."
+        ],
+        "explanation": "Let upward be positive, ground = 0. Ball A (dropped from 60 m): y_A = 60 + 0 - ½(9.8)t² = 60 - 4.9t². Ball B (thrown up from ground): y_B = 20t - 4.9t². They meet when y_A = y_B: 60 - 4.9t² = 20t - 4.9t², so 60 = 20t, giving t = 3 s.",
+        "distractors": [
+          "2 s",
+          "4 s",
+          "6 s"
+        ]
+      },
+      {
+        "question": "A ball is thrown vertically upward at 15 m/s from the top of a 30 m tall building. Taking g = 9.8 m/s² (downward negative) and the top of the building as the origin (upward positive), calculate the time for the ball to hit the ground.",
+        "answer": "4.40 s",
+        "difficulty_permille": 875,
+        "bloom_level": "Evaluate",
+        "hints": [
+          "The ball hits the ground when its displacement from the top of the building is -30 m.",
+          "Use s = ut + ½at² with s = -30, u = +15, a = -9.8.",
+          "You will get a quadratic equation -- use the quadratic formula and take the positive root."
+        ],
+        "explanation": "Using s = ut + ½at² with s = -30 m (ground is 30 m below origin), u = +15 m/s, a = -9.8 m/s²: -30 = 15t - 4.9t², rearranging: 4.9t² - 15t - 30 = 0. Using the quadratic formula: t = [15 +/- sqrt(225 + 588)] / 9.8 = [15 +/- sqrt(813)] / 9.8 = [15 +/- 28.51] / 9.8. Taking the positive root: t = (15 + 28.51) / 9.8 = 43.51 / 9.8 = 4.40 s (to 2 decimal places).",
+        "distractors": [
+          "1.53 s",
+          "3.06 s",
+          "5.80 s"
+        ]
+      }
+    ],
+    "hints": [
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem.",
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem.",
+      "Draw a diagram showing before and after. List known quantities. Choose the right principle: momentum conservation or work-energy theorem."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "impulse",
+        "definition": "The product FΔt, equal to the change in momentum",
+        "example_usage": "A longer collision time reduces the force (e.g., airbags)."
+      },
+      {
+        "term": "elastic collision",
+        "definition": "A collision where kinetic energy is conserved",
+        "example_usage": "Billiard ball collisions are approximately elastic."
+      },
+      {
+        "term": "inelastic collision",
+        "definition": "A collision where kinetic energy is NOT conserved (but momentum is)",
+        "example_usage": "A car crash is inelastic — energy goes to deformation."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students think momentum is always conserved.",
+        "correction": "Momentum is only conserved in an isolated system (no external net force). Kinetic energy is only conserved in elastic collisions.",
+        "why_students_think_this": "External forces like friction change the total momentum of the system."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+    "title": "Assessment: Work (W = FΔx cos θ, positive/negative/zero work). Work-energy theorem (Wnet = ΔEk). Conservation of energy including non-conservative forces (Wnc = ΔEk + ΔEp). Power (P = W/Δt = Fv). Efficiency",
+    "items": [
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain why a cricket player pulls their hands back when catching a fast ball.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Pulling hands back increases Δt, reducing the force (FΔt = Δp, same Δp but larger Δt means smaller F).",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Create",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "State the impulse-momentum theorem.",
+      "back": "FnetΔt = Δp = m(vf − vi). The net impulse equals the change in momentum.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr12.P1.MECH3",
+        "Grade12",
+        "Paper 1 — Mechanics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:21"
+}

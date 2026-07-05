@@ -1,0 +1,36 @@
+[package]
+name = "mycelix-bridge-common"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Shared bridge dispatch types and utilities for Mycelix cluster DNAs"
+
+[features]
+default = ["hdk"]
+hdk = ["dep:hdk"]
+identity = ["ed25519-dalek"]
+# Extension modules — not needed by most clusters. Enable for specialized use.
+interplanetary = []     # earth_colony_protocol, interplanetary_bridge, mars_isru, planetary_governance, cross_planetary_fl
+federated = []          # terrain_fl, federated_genomics, consciousness_sync
+model-governance = []   # scoring_model, model_governance, shadow_evaluation
+infrastructure = []     # saga, migration, merkle_timestamp, timestamp_anchor, license_enforcement
+# All extensions at once
+extensions = ["interplanetary", "federated", "model-governance", "infrastructure"]
+
+[dependencies]
+hdk = { version = "=0.6.1", optional = true }
+holochain_zome_types = { version = "=0.6.1", optional = true }
+holochain_integrity_types = { version = "=0.6.1", optional = true }
+holo_hash = { version = "=0.6.1", optional = true }
+hdk_derive = { version = "=0.6.1", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+blake3 = "1"
+ed25519-dalek = { version = "2", optional = true }
+sovereign-profile = { version = "0.1.2", features = ["serde"] }
+
+[dev-dependencies]
+proptest = "1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

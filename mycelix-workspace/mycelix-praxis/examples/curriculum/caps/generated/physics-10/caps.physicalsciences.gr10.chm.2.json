@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr10.CHM.2",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.2",
+    "title": "CAPS.PhysicalSciences.Gr10.CHM.2: Ionic bonding (electron transfer, lattice structures). Co...",
+    "grade_level": "Grade10",
+    "bloom_level": "Understand",
+    "explanation": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it. Atomic number (Z) = number of protons = number of electrons (in a neutral atom). Mass number (A) = protons + neutrons. Isotopes are atoms of the same element with different numbers of neutrons. Electron configuration follows the Aufbau principle: fill lower energy levels first (2, 8, 18, 32 electrons per level).",
+    "examples": [
+      {
+        "problem": "Solve a Chemical Bonding problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Chemical Bonding problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Chemical Bonding problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Explain why NaCl has a high melting point.",
+        "answer": "NaCl is an ionic compound with strong electrostatic forces between Na+ and Cl- ions in a crystal lattice. Large amounts of energy are needed to overcome these strong ionic bonds, resulting in a high melting point (801 degrees C).",
+        "difficulty_permille": 300,
+        "bloom_level": "Understand",
+        "hints": [
+          "NaCl is ionic -- Na transfers an electron to Cl.",
+          "Think about the strength of the forces holding the lattice together."
+        ],
+        "explanation": "Ionic compounds form crystal lattices with strong electrostatic attractions in all directions. Breaking these requires significant energy.",
+        "distractors": [
+          "NaCl has weak bonds",
+          "NaCl is covalent",
+          "NaCl has metallic bonding"
+        ]
+      },
+      {
+        "question": "Draw the Lewis dot structure for water (H2O) and predict its molecular shape using VSEPR.",
+        "answer": "Oxygen has 2 bonding pairs (with H atoms) and 2 lone pairs. VSEPR predicts a bent/V-shape with a bond angle of approximately 104.5 degrees.",
+        "difficulty_permille": 400,
+        "bloom_level": "Apply",
+        "hints": [
+          "Oxygen has 6 valence electrons. Each H shares one electron.",
+          "2 bonding pairs + 2 lone pairs = 4 electron groups around O."
+        ],
+        "explanation": "4 electron groups give tetrahedral electron geometry, but the molecular shape (considering only atoms) is bent/V-shape because of the 2 lone pairs.",
+        "distractors": [
+          "Linear shape",
+          "Tetrahedral shape",
+          "Trigonal planar shape"
+        ]
+      },
+      {
+        "question": "Explain why metals are good conductors of electricity.",
+        "answer": "In metallic bonding, positive metal ions are surrounded by a 'sea' of delocalised electrons. These free electrons can move through the metal when a potential difference is applied, carrying electric current.",
+        "difficulty_permille": 300,
+        "bloom_level": "Understand",
+        "hints": [
+          "Metallic bonding involves delocalised (free) electrons.",
+          "Electrical conduction requires mobile charge carriers."
+        ],
+        "explanation": "The delocalised electron model explains electrical and thermal conductivity, malleability, and ductility of metals.",
+        "distractors": [
+          "Metals have ionic bonds",
+          "Protons carry the current",
+          "Metals have no bonds"
+        ]
+      },
+      {
+        "question": "Classify the following as polar or non-polar molecules: (a) CO2, (b) H2O, (c) CH4.",
+        "answer": "(a) CO2: non-polar (linear, symmetrical -- bond dipoles cancel). (b) H2O: polar (bent shape -- bond dipoles do NOT cancel). (c) CH4: non-polar (tetrahedral, symmetrical -- bond dipoles cancel).",
+        "difficulty_permille": 550,
+        "bloom_level": "Analyze",
+        "hints": [
+          "A molecule is polar if it has polar bonds AND an asymmetric shape.",
+          "Symmetric molecules (linear, tetrahedral) can be non-polar even with polar bonds."
+        ],
+        "explanation": "Molecular polarity depends on both bond polarity and molecular geometry. Symmetrical molecules have dipoles that cancel, making them non-polar overall.",
+        "distractors": [
+          "All three are polar",
+          "All three are non-polar",
+          "CO2 is polar, H2O is non-polar"
+        ]
+      },
+      {
+        "question": "Compare ionic bonding in NaCl with covalent bonding in Cl2 in terms of electron behavior, melting point, and electrical conductivity.",
+        "answer": "NaCl: electrons transferred (Na loses 1, Cl gains 1), high melting point (strong lattice), conducts when dissolved/molten (free ions). Cl2: electrons shared (single covalent bond), low melting point (weak London forces between molecules), does not conduct (no free charges).",
+        "difficulty_permille": 700,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Ionic = transfer of electrons; covalent = sharing of electrons.",
+          "Think about the forces between particles (not within them)."
+        ],
+        "explanation": "The key distinction is the type of bonding and the resulting intermolecular forces. Ionic substances have strong ion-ion forces; molecular covalent substances have weak intermolecular forces.",
+        "distractors": [
+          "Both have the same melting point",
+          "Cl2 conducts electricity",
+          "NaCl has covalent bonds"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Chemical Bonding applies here?",
+      "Apply the method for Chemical Bonding step by step.",
+      "Start by writing down what you know about Chemical Bonding."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "ionic bond",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Chemical Bonding.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr10.CHM.2",
+    "title": "Assessment: Ionic bonding (electron transfer, lattice structures). Covalent bonding (Lewis dot structures, molecular shapes \u2014 VSEPR). Metallic bonding. Bond polarity and molecular polarity",
+    "items": [
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Chemical Bonding.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Chemical Bonding?",
+      "back": "Ionic bonding: metal atoms transfer electrons to non-metal atoms, forming positive and negative ions that attract",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr10.CHM.2",
+        "Grade10",
+        "Chemistry \u2014 Bonding"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:12"
+}

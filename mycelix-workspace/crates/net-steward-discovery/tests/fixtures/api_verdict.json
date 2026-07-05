@@ -1,0 +1,17 @@
+{
+  "incident_id": "incident-analysis-428",
+  "safety_verdict": "Blocked",
+  "safety_violations": [
+    "Critical port block: TCP/443 (HTTPS egress) is restricted on a routing path."
+  ],
+  "root_cause": "NixOS generation 428 nftables modification applied by operator DID dropped port 443 packets from VLAN 30.",
+  "affected_services": ["forge.local"],
+  "affected_users": ["Tristan"],
+  "blast_radius_score": 0.78,
+  "confidence": 0.92,
+  "recommended_action": "Rollback firewall generation to 427, or add an explicit bypass rule.",
+  "rollback_path": "Generation 427",
+  "safety_proof": [83, 84, 65, 82, 75, 95, 80, 82, 79, 79, 70, 95, 66, 73, 78, 73],
+  "safety_commitment": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+  "proof_status": "SimulatedEnvelope"
+}

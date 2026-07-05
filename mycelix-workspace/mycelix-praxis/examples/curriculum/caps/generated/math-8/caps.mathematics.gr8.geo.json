@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr8.GEO",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr8.GEO",
+    "title": "CAPS.Mathematics.Gr8.GEO: Angles in triangles and quadrilaterals. Parallel lines cu...",
+    "grade_level": "Grade8",
+    "bloom_level": "Understand",
+    "explanation": "Grade 8 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 8 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "The angles of a triangle are x, 2x, and 3x. Find x.",
+        "answer": "x = 30 degrees",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Angles in triangle sum to 180"
+        ],
+        "explanation": "x + 2x + 3x = 180, 6x = 180, x = 30.",
+        "distractors": [
+          "x = 60",
+          "x = 45",
+          "x = 20"
+        ]
+      },
+      {
+        "question": "A right triangle has legs 3 cm and 4 cm. Find the hypotenuse.",
+        "answer": "5 cm",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Pythagoras: a^2 + b^2 = c^2"
+        ],
+        "explanation": "3^2 + 4^2 = 9 + 16 = 25. c = sqrt(25) = 5 cm.",
+        "distractors": [
+          "7 cm",
+          "6 cm",
+          "12 cm"
+        ]
+      },
+      {
+        "question": "Two parallel lines are cut by a transversal. A corresponding angle is 72 degrees. What is the other corresponding angle?",
+        "answer": "72 degrees",
+        "difficulty_permille": 375,
+        "bloom_level": "Remember",
+        "hints": [
+          "Corresponding angles are equal"
+        ],
+        "explanation": "Corresponding angles between parallel lines are equal = 72 degrees.",
+        "distractors": [
+          "108 degrees",
+          "18 degrees",
+          "144 degrees"
+        ]
+      },
+      {
+        "question": "A right triangle has hypotenuse 13 cm and one leg 5 cm. Find the other leg.",
+        "answer": "12 cm",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "a^2 + b^2 = c^2, solve for a"
+        ],
+        "explanation": "a^2 + 25 = 169, a^2 = 144, a = 12 cm.",
+        "distractors": [
+          "8 cm",
+          "18 cm",
+          "10 cm"
+        ]
+      },
+      {
+        "question": "Are triangles with sides 6,8,10 and 3,4,5 similar?",
+        "answer": "Yes (scale factor 2)",
+        "difficulty_permille": 625,
+        "bloom_level": "Understand",
+        "hints": [
+          "Check if sides are in the same ratio"
+        ],
+        "explanation": "6/3 = 8/4 = 10/5 = 2. All ratios equal, so the triangles are similar.",
+        "distractors": [
+          "No",
+          "Only if angles match",
+          "Cannot determine"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 8 Mathematics?",
+      "Try the method for Grade 8 Mathematics.",
+      "Start with what you know about Grade 8 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 8 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 8 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr8.GEO",
+    "title": "Assessment: Angles in triangles and quadrilaterals. Parallel lines cut by transversal. Pythagoras theorem. Congruency and similarity intro",
+    "items": [
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 8 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 8 Mathematics?",
+      "back": "Grade 8 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr8.GEO",
+        "Grade8",
+        "Geometry"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:52"
+}

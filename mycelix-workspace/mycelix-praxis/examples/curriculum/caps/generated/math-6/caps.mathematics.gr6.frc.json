@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr6.FRC",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr6.FRC",
+    "title": "CAPS.Mathematics.Gr6.FRC: Convert between fractions, decimals, percentages. Calcula...",
+    "grade_level": "Grade6",
+    "bloom_level": "Understand",
+    "explanation": "Grade 6 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 6 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Convert 3/5 to a percentage.",
+        "answer": "60%",
+        "difficulty_permille": 125,
+        "bloom_level": "Apply",
+        "hints": [
+          "Divide 3 by 5, then multiply by 100"
+        ],
+        "explanation": "3/5 = 0.6 = 60%.",
+        "distractors": [
+          "30%",
+          "35%",
+          "53%"
+        ]
+      },
+      {
+        "question": "Convert 0.45 to a percentage.",
+        "answer": "45%",
+        "difficulty_permille": 250,
+        "bloom_level": "Remember",
+        "hints": [
+          "Multiply by 100"
+        ],
+        "explanation": "0.45 x 100 = 45%.",
+        "distractors": [
+          "4.5%",
+          "450%",
+          "0.45%"
+        ]
+      },
+      {
+        "question": "What is 25% of 200?",
+        "answer": "50",
+        "difficulty_permille": 375,
+        "bloom_level": "Apply",
+        "hints": [
+          "25/100 x 200"
+        ],
+        "explanation": "25% of 200 = 0.25 x 200 = 50.",
+        "distractors": [
+          "25",
+          "75",
+          "100"
+        ]
+      },
+      {
+        "question": "Convert 7/8 to a decimal.",
+        "answer": "0.875",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Divide 7 by 8"
+        ],
+        "explanation": "7 / 8 = 0.875.",
+        "distractors": [
+          "0.78",
+          "0.87",
+          "0.7"
+        ]
+      },
+      {
+        "question": "A shirt costs R250 and is on sale for 20% off. What is the sale price?",
+        "answer": "R200",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "Find 20% of 250, then subtract"
+        ],
+        "explanation": "20% of 250 = 50. Sale price = 250 - 50 = R200.",
+        "distractors": [
+          "R230",
+          "R150",
+          "R50"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 6 Mathematics?",
+      "Try the method for Grade 6 Mathematics.",
+      "Start with what you know about Grade 6 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 6 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 6 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr6.FRC",
+    "title": "Assessment: Convert between fractions, decimals, percentages. Calculate percentage of amount. Ratio and rate intro",
+    "items": [
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 6 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Create",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 6 Mathematics?",
+      "back": "Grade 6 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr6.FRC",
+        "Grade6",
+        "Numbers"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:46"
+}

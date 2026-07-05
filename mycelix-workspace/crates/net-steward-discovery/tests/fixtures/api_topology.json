@@ -1,0 +1,31 @@
+{
+  "snapshot_id": "api-topology-contract",
+  "observed_at_unix_ms": 1782550000,
+  "nodes": [
+    {
+      "node_id": "node-localhost",
+      "hostname": "localhost",
+      "node_kind": "Workstation",
+      "management_state": "Unmanaged",
+      "owner_did": "did:mycelix:tristan",
+      "site_id": "luminous-hq",
+      "observed_at_unix_ms": 1782550000,
+      "source_collector": "local_host_discovery",
+      "confidence": 1.0,
+      "staleness_ms": 0,
+      "evidence_hash": "sha256-localhost"
+    }
+  ],
+  "edges": [
+    {
+      "source_node_id": "interface-eth0",
+      "target_node_id": "gateway-192.168.1.1",
+      "edge_kind": "Route",
+      "confidence": 0.95,
+      "evidence_refs": ["proc-net-route-dest-00000000"],
+      "source_collector": "linux_proc_net_route",
+      "staleness_ms": 1500,
+      "evidence_hash": "sha256-route-row-eth0"
+    }
+  ]
+}

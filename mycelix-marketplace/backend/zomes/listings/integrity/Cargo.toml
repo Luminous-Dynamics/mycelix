@@ -1,0 +1,21 @@
+[package]
+name = "listings_integrity"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "listings_integrity"
+
+[dependencies]
+hdi.workspace = true
+holochain_zome_types.workspace = true
+holochain_integrity_types.workspace = true
+holo_hash.workspace = true
+hdk_derive.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+holochain_serialized_bytes.workspace = true
+
+[dev-dependencies]
+serde_json = "1"

@@ -8,7 +8,11 @@
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // `mod tests;` in lib.rs already makes this file the `tests` module, so
+    // this inner `mod tests { ... }` double-nests everything one level
+    // deeper than intended. `use super::*` only reaches the (empty) outer
+    // `tests` module, not the crate root — hence `super::super::*`.
+    use super::super::*;
     use contacts_integrity::*;
 
     // ==================== TEST FIXTURES ====================
@@ -161,7 +165,10 @@ mod tests {
     }
 
     /// Creates a test GroupMembershipInput
-    fn test_group_membership_input(contact_hash: ActionHash, group_id: &str) -> GroupMembershipInput {
+    fn test_group_membership_input(
+        contact_hash: ActionHash,
+        group_id: &str,
+    ) -> GroupMembershipInput {
         GroupMembershipInput {
             contact_hash,
             group_id: group_id.to_string(),
@@ -291,14 +298,12 @@ mod tests {
 
         #[test]
         fn test_invalid_email_format() {
-            let invalid_emails = vec![
-                "notanemail",
-                "missing.at.sign",
-                "@nodomain.com",
-            ];
+            let invalid_emails = vec!["notanemail", "missing.at.sign", "@nodomain.com"];
 
             for email_str in invalid_emails {
-                let is_valid = email_str.contains('@');
+                let is_valid = email_str.contains('@')
+                    && !email_str.starts_with('@')
+                    && !email_str.ends_with('@');
                 assert!(!is_valid);
             }
         }
@@ -684,10 +689,7 @@ mod tests {
                 },
             ];
 
-            let active_contacts: Vec<_> = contacts
-                .iter()
-                .filter(|c| !c.is_blocked)
-                .collect();
+            let active_contacts: Vec<_> = contacts.iter().filter(|c| !c.is_blocked).collect();
 
             assert_eq!(active_contacts.len(), 2);
         }
@@ -916,7 +918,9 @@ mod tests {
             assert!(contact.is_favorite);
 
             // Add additional email
-            contact.emails.push(test_contact_email("secondary@example.com", false));
+            contact
+                .emails
+                .push(test_contact_email("secondary@example.com", false));
             assert_eq!(contact.emails.len(), 2);
 
             // Update metadata

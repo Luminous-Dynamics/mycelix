@@ -1,0 +1,13 @@
+manifest_version: "1"
+name: net_steward_posture_dna
+integrity:
+  origin_time: 2026-06-28T00:00:00.000000Z
+  zomes:
+    - name: net_steward_posture_integrity
+      hash: ~
+coordinator:
+  zomes:
+    - name: net_steward_posture_coordinator
+      hash: ~
+      dependencies:
+        - name: net_steward_posture_integrity

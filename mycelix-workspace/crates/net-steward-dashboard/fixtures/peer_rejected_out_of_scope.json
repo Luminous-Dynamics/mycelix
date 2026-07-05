@@ -1,0 +1,13 @@
+{
+  "peer_id": "peer-rejected-out-of-scope",
+  "node_id": "forge-server",
+  "display_name": "Forge Build Server",
+  "peer_kind": "Server",
+  "posture_summary": "Healthy",
+  "trust_status": "UnsignedPeer",
+  "last_seen_unix_ms": 1719569000000,
+  "staleness_ms": 0,
+  "evidence_refs": ["out_of_scope_collector"],
+  "capsule_refs": [],
+  "claimed_by": "did:mycelix:out-of-scope"
+}

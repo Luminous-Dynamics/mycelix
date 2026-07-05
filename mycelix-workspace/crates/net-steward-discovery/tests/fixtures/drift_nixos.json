@@ -1,0 +1,10 @@
+{
+  "report_id": "drift-report-demo-0",
+  "checked_at_unix_ms": 1782550000,
+  "node_id": "luminous-router",
+  "drift_status": "DriftDetected",
+  "diff_closure": "Generation 427 -> 428\n- nftables rule: allow TCP/443 from VLAN 30\n+ nftables rule: drop TCP/443 from VLAN 30",
+  "systemd_unit_delta": ["nftables.service (reloaded)"],
+  "firewall_delta": ["VLAN 30 egress TCP/443 blocked"],
+  "service_delta": ["forge.local (blocked)"]
+}

@@ -1,0 +1,359 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr11.PHY.3",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.PHY.3",
+    "title": "CAPS.PhysicalSciences.Gr11.PHY.3: Momentum (p = mv). Newton's second law in terms of moment...",
+    "grade_level": "Grade11",
+    "bloom_level": "Understand",
+    "explanation": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force. 2nd Law: Fnet = ma \u2014 acceleration is proportional to net force and inversely proportional to mass. 3rd Law: For every action, there is an equal and opposite reaction (forces act on different objects). Draw free-body diagrams showing all forces. Friction: f = \u03bcN where \u03bc is the coefficient of friction and N is the normal force.",
+    "examples": [
+      {
+        "problem": "Solve a Newton's Laws and Application problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Newton's Laws and Application problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Newton's Laws and Application problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Identify the given information",
+            "result": "read carefully"
+          },
+          {
+            "instruction": "Step 2: Apply the relevant formula or method",
+            "result": "show working"
+          },
+          {
+            "instruction": "Step 3: State the answer with units",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "A 1500 kg car travels at 20 m/s. Calculate its momentum.",
+        "answer": "p = mv = 1500 x 20 = 30000 kg.m/s",
+        "difficulty_permille": 200,
+        "bloom_level": "Apply",
+        "hints": [
+          "Momentum p = mv.",
+          "Units: kg.m/s."
+        ],
+        "explanation": "p = (1500)(20) = 30000 kg.m/s in the direction of motion.",
+        "distractors": [
+          "75 kg.m/s",
+          "300000 kg.m/s",
+          "1520 kg.m/s"
+        ]
+      },
+      {
+        "question": "A 0.15 kg cricket ball is bowled at 40 m/s and hit back at 30 m/s. Calculate the change in momentum and the impulse.",
+        "answer": "Taking bowling direction as positive: Delta p = m(v_f - v_i) = 0.15(-30 - 40) = 0.15(-70) = -10.5 kg.m/s. Impulse = -10.5 N.s.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Choose a positive direction carefully.",
+          "If the ball reverses direction, the final velocity is negative."
+        ],
+        "explanation": "Delta p = 0.15(-30 - 40) = -10.5 kg.m/s. The negative sign indicates the impulse is in the direction the ball was hit (opposite to bowling direction). Impulse = change in momentum.",
+        "distractors": [
+          "-1.5 kg.m/s",
+          "+10.5 kg.m/s",
+          "-70 kg.m/s"
+        ]
+      },
+      {
+        "question": "Explain why airbags reduce injuries in car crashes using the impulse-momentum theorem.",
+        "answer": "F_net x Delta t = Delta p. In a crash, Delta p is fixed (momentum change is the same). An airbag increases the time (Delta t) over which the person decelerates, which reduces the average force (F_net) on the body, reducing injuries.",
+        "difficulty_permille": 400,
+        "bloom_level": "Understand",
+        "hints": [
+          "Impulse = F x t = change in momentum.",
+          "If momentum change is constant, increasing time decreases force."
+        ],
+        "explanation": "Without an airbag: stopping in 0.01 s. With airbag: stopping in 0.1 s. For the same momentum change, the force is 10x smaller with the airbag.",
+        "distractors": [
+          "Airbags reduce the momentum change",
+          "Airbags increase the collision force",
+          "Time does not affect force"
+        ]
+      },
+      {
+        "question": "A 2 kg ball moving at 5 m/s collides head-on with a stationary 3 kg ball. After collision, the 2 kg ball bounces back at 1 m/s. Find the velocity of the 3 kg ball after collision.",
+        "answer": "By conservation of momentum: m1v1 + m2v2 = m1v1' + m2v2'. 2(5) + 3(0) = 2(-1) + 3(v2'). 10 = -2 + 3v2'. v2' = 4 m/s.",
+        "difficulty_permille": 550,
+        "bloom_level": "Apply",
+        "hints": [
+          "Total momentum before = total momentum after.",
+          "The 2 kg ball bounces back, so its final velocity is negative."
+        ],
+        "explanation": "10 + 0 = -2 + 3v2'. 12 = 3v2'. v2' = 4 m/s in the original direction of the 2 kg ball.",
+        "distractors": [
+          "2.67 m/s",
+          "5 m/s",
+          "3.33 m/s"
+        ]
+      },
+      {
+        "question": "A bullet (m = 0.02 kg) is fired at 400 m/s into a stationary wooden block (m = 2 kg) and embeds in it. Calculate the velocity of the block+bullet system after impact and the kinetic energy lost.",
+        "answer": "v = m1v1/(m1+m2) = 0.02(400)/2.02 = 3.96 m/s. KE_before = 1/2(0.02)(400^2) = 1600 J. KE_after = 1/2(2.02)(3.96^2) = 15.8 J. KE lost = 1584.2 J (99% lost to heat/deformation).",
+        "difficulty_permille": 700,
+        "bloom_level": "Analyze",
+        "hints": [
+          "This is a perfectly inelastic collision (objects stick together).",
+          "Momentum is conserved, but kinetic energy is NOT conserved in inelastic collisions."
+        ],
+        "explanation": "Momentum conserved: 8 = 2.02v, v = 3.96 m/s. Kinetic energy is mostly converted to heat and deformation. Only ~1% of KE remains as motion.",
+        "distractors": [
+          "v = 4 m/s, KE lost = 0 J",
+          "v = 200 m/s, KE lost = 800 J",
+          "v = 3.96 m/s, KE lost = 800 J"
+        ]
+      }
+    ],
+    "hints": [
+      "What concept from Newton's Laws and Application applies here?",
+      "Apply the method for Newton's Laws and Application step by step.",
+      "Start by writing down what you know about Newton's Laws and Application."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "Newton",
+        "definition": "A key term",
+        "example_usage": "Used in this topic."
+      },
+      {
+        "term": "concept",
+        "definition": "An important idea",
+        "example_usage": "Fundamental to understanding."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common error in Newton's Laws and Application.",
+        "correction": "The correct understanding.",
+        "why_students_think_this": "This mistake is common because students often skip a key step."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.PHY.3",
+    "title": "Assessment: Momentum (p = mv). Newton's second law in terms of momentum (Fnet\u0394t = \u0394p). Impulse-momentum theorem. Conservation of momentum in isolated systems. Elastic and inelastic collisions",
+    "items": [
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "3"
+      },
+      {
+        "question": "Explain Newton's Laws and Application.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Key concept answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "3"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the key idea in Newton's Laws and Application?",
+      "back": "Newton's 1st Law: An object remains at rest or moves at constant velocity unless acted on by a net force",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.PHY.3",
+        "Grade11",
+        "Physics \u2014 Mechanics"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:17"
+}

@@ -1,0 +1,12 @@
+{
+  "capsule_id": "capsule-for-sec-evt-101",
+  "schema_version": "incident_capsule_v0.1",
+  "hashes_valid": true,
+  "evidence_ledger_valid": true,
+  "rollback_plan_valid": true,
+  "security_events_valid": true,
+  "proof_status": "SimulatedEnvelope",
+  "mutation_claims_found": false,
+  "result_passed": true,
+  "verification_summary": "PASS: All evidence commitments validated successfully. Rollback dry-run rules verified."
+}

@@ -6,9 +6,9 @@
 //! Supports Gmail, Outlook, Yahoo, iCloud, ProtonMail Bridge, Fastmail,
 //! AOL, Zoho, GMX, Mail.de, and custom IMAP/SMTP servers.
 
+use crate::toasts::use_toasts;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
-use crate::toasts::use_toasts;
 
 const STORAGE_KEY: &str = "mycelix_mail_external_accounts";
 
@@ -49,9 +49,17 @@ pub enum Provider {
 
 impl Provider {
     pub const ALL: &[Provider] = &[
-        Self::Gmail, Self::Outlook, Self::Yahoo, Self::ICloud,
-        Self::ProtonMail, Self::Fastmail, Self::Aol, Self::Zoho,
-        Self::Gmx, Self::MailDe, Self::Custom,
+        Self::Gmail,
+        Self::Outlook,
+        Self::Yahoo,
+        Self::ICloud,
+        Self::ProtonMail,
+        Self::Fastmail,
+        Self::Aol,
+        Self::Zoho,
+        Self::Gmx,
+        Self::MailDe,
+        Self::Custom,
     ];
 
     pub fn label(&self) -> &'static str {
@@ -85,58 +93,102 @@ impl Provider {
     pub fn defaults(&self) -> ProviderDefaults {
         match self {
             Self::Gmail => ProviderDefaults {
-                imap_host: "imap.gmail.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.gmail.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.gmail.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.gmail.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Sign in with Google — no app password needed. OAuth2 handles authentication securely.",
             },
             Self::Outlook => ProviderDefaults {
-                imap_host: "outlook.office365.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.office365.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "outlook.office365.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.office365.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Sign in with Microsoft — no app password needed. OAuth2 handles authentication securely.",
             },
             Self::Yahoo => ProviderDefaults {
-                imap_host: "imap.mail.yahoo.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.mail.yahoo.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.mail.yahoo.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.mail.yahoo.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Generate App Password at login.yahoo.com/account/security",
             },
             Self::ICloud => ProviderDefaults {
-                imap_host: "imap.mail.me.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.mail.me.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.mail.me.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.mail.me.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Generate App-Specific Password at appleid.apple.com/account/manage",
             },
             Self::ProtonMail => ProviderDefaults {
-                imap_host: "127.0.0.1", imap_port: 1143, imap_tls: false,
-                smtp_host: "127.0.0.1", smtp_port: 1025, smtp_tls: false,
+                imap_host: "127.0.0.1",
+                imap_port: 1143,
+                imap_tls: false,
+                smtp_host: "127.0.0.1",
+                smtp_port: 1025,
+                smtp_tls: false,
                 note: "Requires ProtonMail Bridge running locally. Download from proton.me/mail/bridge",
             },
             Self::Fastmail => ProviderDefaults {
-                imap_host: "imap.fastmail.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.fastmail.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.fastmail.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.fastmail.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Generate App Password at fastmail.com/settings/security/tokens",
             },
             Self::Aol => ProviderDefaults {
-                imap_host: "imap.aol.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.aol.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.aol.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.aol.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Generate App Password in AOL account security settings",
             },
             Self::Zoho => ProviderDefaults {
-                imap_host: "imap.zoho.com", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.zoho.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.zoho.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.zoho.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Enable IMAP in Zoho Mail settings. Use App-Specific Password if 2FA enabled",
             },
             Self::Gmx => ProviderDefaults {
-                imap_host: "imap.gmx.com", imap_port: 993, imap_tls: true,
-                smtp_host: "mail.gmx.com", smtp_port: 587, smtp_tls: true,
+                imap_host: "imap.gmx.com",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "mail.gmx.com",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Enable IMAP/SMTP in GMX settings under E-Mail > POP3 & IMAP",
             },
             Self::MailDe => ProviderDefaults {
-                imap_host: "imap.mail.de", imap_port: 993, imap_tls: true,
-                smtp_host: "smtp.mail.de", smtp_port: 465, smtp_tls: true,
+                imap_host: "imap.mail.de",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "smtp.mail.de",
+                smtp_port: 465,
+                smtp_tls: true,
                 note: "Enable IMAP in Mail.de account settings",
             },
             Self::Custom => ProviderDefaults {
-                imap_host: "", imap_port: 993, imap_tls: true,
-                smtp_host: "", smtp_port: 587, smtp_tls: true,
+                imap_host: "",
+                imap_port: 993,
+                imap_tls: true,
+                smtp_host: "",
+                smtp_port: 587,
+                smtp_tls: true,
                 note: "Enter your mail server details manually",
             },
         }
@@ -195,18 +247,34 @@ pub fn AccountsPage() -> impl IntoView {
         if let Some(search) = web_sys::window().and_then(|w| w.location().search().ok()) {
             if search.contains("code=") {
                 // Extract authorization code
-                let code = search.split("code=").nth(1)
+                let code = search
+                    .split("code=")
+                    .nth(1)
                     .and_then(|s| s.split('&').next())
                     .unwrap_or("");
                 if !code.is_empty() {
-                    web_sys::console::log_1(&format!("[OAuth] Received auth code: {}...", &code[..code.len().min(10)]).into());
-                    toasts_oauth_cb.push("OAuth authorization received! Token exchange would happen here.", "success");
+                    web_sys::console::log_1(
+                        &format!(
+                            "[OAuth] Received auth code: {}...",
+                            &code[..code.len().min(10)]
+                        )
+                        .into(),
+                    );
+                    toasts_oauth_cb.push(
+                        "OAuth authorization received! Token exchange would happen here.",
+                        "success",
+                    );
                     // In production: exchange code for access_token via token endpoint
                     // Then save the token in the account config
                     // Clear the URL params
                     let _ = web_sys::window().and_then(|w| {
                         w.history().ok().and_then(|h| {
-                            h.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some("/accounts")).ok()
+                            h.replace_state_with_url(
+                                &wasm_bindgen::JsValue::NULL,
+                                "",
+                                Some("/accounts"),
+                            )
+                            .ok()
                         })
                     });
                 }
@@ -252,10 +320,18 @@ pub fn AccountsPage() -> impl IntoView {
             label: p.label().to_string(),
             email: e.clone(),
             provider: p,
-            imap_host: if imap_host.get_untracked().is_empty() { defaults.imap_host.to_string() } else { imap_host.get_untracked() },
+            imap_host: if imap_host.get_untracked().is_empty() {
+                defaults.imap_host.to_string()
+            } else {
+                imap_host.get_untracked()
+            },
             imap_port: imap_port.get_untracked(),
             imap_tls: defaults.imap_tls,
-            smtp_host: if smtp_host.get_untracked().is_empty() { defaults.smtp_host.to_string() } else { smtp_host.get_untracked() },
+            smtp_host: if smtp_host.get_untracked().is_empty() {
+                defaults.smtp_host.to_string()
+            } else {
+                smtp_host.get_untracked()
+            },
             smtp_port: smtp_port.get_untracked(),
             smtp_tls: defaults.smtp_tls,
             username: if u.is_empty() { e.clone() } else { u },

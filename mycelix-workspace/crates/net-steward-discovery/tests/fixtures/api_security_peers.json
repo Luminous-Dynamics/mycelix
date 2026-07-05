@@ -1,0 +1,54 @@
+{
+  "federation_mode": "local_fixture",
+  "transport_available": true,
+  "claims_fetched": 3,
+  "claims_accepted": 3,
+  "claims_rejected": 0,
+  "claims_stale": 1,
+  "conflict_count": 0,
+  "conflicts": [],
+  "peers": [
+    {
+      "peer_id": "peer-forge-server",
+      "node_id": "forge-server",
+      "display_name": "Forge Build Server",
+      "peer_kind": "Server",
+      "posture_summary": "Degraded",
+      "trust_status": "SignedPeer",
+      "last_seen_unix_ms": 1719513600000,
+      "staleness_ms": 12000,
+      "evidence_refs": ["systemd_unit_collector"],
+      "capsule_refs": ["capsule-for-sec-evt-101"],
+      "claimed_by": "did:mycelix:forge-operator-1122"
+    },
+    {
+      "peer_id": "peer-luminous-router",
+      "node_id": "luminous-router",
+      "display_name": "Primary Border Router",
+      "peer_kind": "Gateway",
+      "posture_summary": "Healthy",
+      "trust_status": "LocalSelf",
+      "last_seen_unix_ms": 1719513612000,
+      "staleness_ms": 500,
+      "evidence_refs": [
+        "listening_port_collector",
+        "nftables_ruleset"
+      ],
+      "capsule_refs": [],
+      "claimed_by": "did:mycelix:local-witness-daemon"
+    },
+    {
+      "peer_id": "peer-unsigned-node",
+      "node_id": "unknown-subnet-host",
+      "display_name": "Unsigned VLAN Node",
+      "peer_kind": "IoT",
+      "posture_summary": "Unknown",
+      "trust_status": "UnsignedPeer",
+      "last_seen_unix_ms": 1719513500000,
+      "staleness_ms": 120000,
+      "evidence_refs": [],
+      "capsule_refs": [],
+      "claimed_by": "unknown"
+    }
+  ]
+}

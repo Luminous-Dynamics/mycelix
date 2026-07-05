@@ -1,7 +1,7 @@
 [package]
 name = "trust_filter"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,13 +11,17 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Holochain 0.6 - Coordinator zomes use hdk
-hdk = "0.6.0"
+hdk = "=0.6.1"
+holochain_zome_types = "=0.6.1"
+holochain_integrity_types = "=0.6.1"
+holo_hash = "=0.6.1"
+hdk_derive = "=0.6.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 mycelix_mail_integrity = { path = "../../integrity" }
 
 # Mycelix SDK for MATL trust scoring and Bridge messaging
-mycelix-sdk = { path = "../../../../../mycelix-workspace/sdk" }
+mycelix-sdk = { path = "../../../../../sdk" }
 
 [profile.release]
 opt-level = "z"

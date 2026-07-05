@@ -1,0 +1,349 @@
+{
+  "node_id": "CAPS.Mathematics.Gr1.DAT",
+  "lesson": {
+    "standard_code": "CAPS.Mathematics.Gr1.DAT",
+    "title": "CAPS.Mathematics.Gr1.DAT: Collect and sort objects. Draw picture graphs. Answer que...",
+    "grade_level": "Grade1",
+    "bloom_level": "Understand",
+    "explanation": "Grade 1 mathematics content.",
+    "examples": [
+      {
+        "problem": "Solve a Grade 1 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 1 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      },
+      {
+        "problem": "Solve a Grade 1 Mathematics problem.",
+        "steps": [
+          {
+            "instruction": "Step 1: Read the question carefully",
+            "result": "understand"
+          },
+          {
+            "instruction": "Step 2: Show your working",
+            "result": "calculate"
+          },
+          {
+            "instruction": "Step 3: Check your answer",
+            "result": "verify"
+          }
+        ],
+        "answer": "Answer: See worked solution",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "3 children like cats, 5 like dogs. How many children in total?",
+        "answer": "8",
+        "difficulty_permille": 125,
+        "bloom_level": "Remember",
+        "hints": [
+          "Add the two groups"
+        ],
+        "explanation": "3 + 5 = 8 children.",
+        "distractors": [
+          "7",
+          "9",
+          "2"
+        ]
+      },
+      {
+        "question": "A picture graph shows 4 stars for Monday and 2 stars for Tuesday. Which day has more?",
+        "answer": "Monday",
+        "difficulty_permille": 250,
+        "bloom_level": "Understand",
+        "hints": [
+          "Compare the number of stars"
+        ],
+        "explanation": "Monday has 4 stars and Tuesday has 2. 4 is more than 2.",
+        "distractors": [
+          "Tuesday",
+          "They are equal",
+          "Wednesday"
+        ]
+      },
+      {
+        "question": "In a class, 6 children chose red, 3 chose blue, and 1 chose green. Which colour is most popular?",
+        "answer": "Red",
+        "difficulty_permille": 375,
+        "bloom_level": "Understand",
+        "hints": [
+          "Find the colour with the most votes"
+        ],
+        "explanation": "Red has 6 votes, which is more than blue (3) or green (1).",
+        "distractors": [
+          "Blue",
+          "Green",
+          "Yellow"
+        ]
+      },
+      {
+        "question": "A picture graph uses 1 smiley face for each child. If there are 5 smiley faces, how many children?",
+        "answer": "5",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Each smiley face represents 1 child"
+        ],
+        "explanation": "5 smiley faces means 5 children, since each face = 1 child.",
+        "distractors": [
+          "10",
+          "4",
+          "6"
+        ]
+      },
+      {
+        "question": "Sort these into 2 groups (round, not round): ball, box, coin, book. How many round things?",
+        "answer": "2",
+        "difficulty_permille": 625,
+        "bloom_level": "Apply",
+        "hints": [
+          "A ball and a coin are round"
+        ],
+        "explanation": "The ball and the coin are round, so there are 2 round things.",
+        "distractors": [
+          "1",
+          "3",
+          "4"
+        ]
+      }
+    ],
+    "hints": [
+      "What do you know about Grade 1 Mathematics?",
+      "Try the method for Grade 1 Mathematics.",
+      "Start with what you know about Grade 1 Mathematics."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "mathematics",
+        "definition": "A key word in this topic",
+        "example_usage": "Used in Grade 1 maths."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "A common mistake in Grade 1 Mathematics.",
+        "correction": "The correct way.",
+        "why_students_think_this": "Understanding why helps."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.Mathematics.Gr1.DAT",
+    "title": "Assessment: Collect and sort objects. Draw picture graphs. Answer questions about data",
+    "items": [
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "2"
+      },
+      {
+        "question": "Explain Grade 1 Mathematics.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Answer.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "2"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is important about Grade 1 Mathematics?",
+      "back": "Grade 1 mathematics content",
+      "tags": [
+        "CAPS.Mathematics.Gr1.DAT",
+        "Grade1",
+        "Data"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:17:22"
+}

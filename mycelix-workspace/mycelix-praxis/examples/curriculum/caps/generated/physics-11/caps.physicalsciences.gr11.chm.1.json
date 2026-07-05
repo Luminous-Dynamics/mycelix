@@ -1,0 +1,364 @@
+{
+  "node_id": "CAPS.PhysicalSciences.Gr11.CHM.1",
+  "lesson": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.CHM.1",
+    "title": "CAPS.PhysicalSciences.Gr11.CHM.1: Molecular and structural formulae. Functional groups: alk...",
+    "grade_level": "Grade11",
+    "bloom_level": "Understand",
+    "explanation": "Atoms consist of protons and neutrons in the nucleus, with electrons in energy levels around it. Atomic number (Z) = number of protons = number of electrons (in a neutral atom). Mass number (A) = protons + neutrons. Isotopes are atoms of the same element with different numbers of neutrons. Electron configuration follows the Aufbau principle: fill lower energy levels first (2, 8, 18, 32 electrons per level).",
+    "examples": [
+      {
+        "problem": "Name CH\u2083CH\u2082CH(OH)CH\u2083 using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with \u2212OH group = 4 carbons \u2192 butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: \u2212OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: \u2212ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      },
+      {
+        "problem": "Name CH\u2083CH\u2082CH(OH)CH\u2083 using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with \u2212OH group = 4 carbons \u2192 butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: \u2212OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: \u2212ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      },
+      {
+        "problem": "Name CH\u2083CH\u2082CH(OH)CH\u2083 using IUPAC nomenclature.",
+        "steps": [
+          {
+            "instruction": "Step 1: Longest chain with \u2212OH group = 4 carbons \u2192 butane backbone",
+            "result": "find longest chain"
+          },
+          {
+            "instruction": "Step 2: \u2212OH on carbon 2 (number from the end closest to OH)",
+            "result": "locate functional group"
+          },
+          {
+            "instruction": "Step 3: Suffix: \u2212ol (alcohol)",
+            "result": "identify suffix"
+          }
+        ],
+        "answer": "Answer: Butan-2-ol",
+        "visual_description": null
+      }
+    ],
+    "practice_problems": [
+      {
+        "question": "Name the following compound using IUPAC nomenclature: CH3CH2CH(OH)CH3.",
+        "answer": "Butan-2-ol",
+        "difficulty_permille": 250,
+        "bloom_level": "Apply",
+        "hints": [
+          "Find the longest carbon chain containing the -OH group.",
+          "Number from the end closest to the functional group."
+        ],
+        "explanation": "Longest chain = 4 carbons (butane). -OH on carbon 2. Suffix for alcohols: -ol. Name: butan-2-ol.",
+        "distractors": [
+          "Butan-1-ol",
+          "2-butanol",
+          "Propan-2-ol"
+        ]
+      },
+      {
+        "question": "Identify the functional group in CH3COOH and classify the compound.",
+        "answer": "Functional group: carboxyl group (-COOH). Classification: carboxylic acid. Name: ethanoic acid (acetic acid).",
+        "difficulty_permille": 200,
+        "bloom_level": "Remember",
+        "hints": [
+          "Look for the -COOH group (C double bonded to O, single bonded to OH).",
+          "Carboxylic acids have the suffix -anoic acid."
+        ],
+        "explanation": "The -COOH (carboxyl) group identifies carboxylic acids. CH3COOH has 2 carbons: ethanoic acid. Common name: acetic acid (found in vinegar).",
+        "distractors": [
+          "Alcohol",
+          "Aldehyde",
+          "Ester"
+        ]
+      },
+      {
+        "question": "Draw the structural formula and name the organic product when ethanol reacts with ethanoic acid in the presence of H2SO4.",
+        "answer": "Ethyl ethanoate (CH3COOCH2CH3) + water. This is an esterification reaction.",
+        "difficulty_permille": 450,
+        "bloom_level": "Apply",
+        "hints": [
+          "Alcohol + carboxylic acid -> ester + water.",
+          "The ester name: alcohol part (-yl) + acid part (-anoate)."
+        ],
+        "explanation": "Esterification: CH3COOH + CH3CH2OH -> CH3COOCH2CH3 + H2O. The H2SO4 acts as a catalyst. Esters are responsible for fruity smells.",
+        "distractors": [
+          "Ethanol",
+          "Ethanoic anhydride",
+          "Diethyl ether"
+        ]
+      },
+      {
+        "question": "Explain why ethanol (C2H5OH) has a higher boiling point than ethane (C2H6), despite having similar molecular masses.",
+        "answer": "Ethanol can form hydrogen bonds (due to the -OH group), which are much stronger than the London/dispersion forces between ethane molecules. Stronger intermolecular forces require more energy to overcome, resulting in a higher boiling point (ethanol: 78C vs ethane: -89C).",
+        "difficulty_permille": 550,
+        "bloom_level": "Analyze",
+        "hints": [
+          "Compare the intermolecular forces in each compound.",
+          "The -OH group enables hydrogen bonding."
+        ],
+        "explanation": "The hydroxyl (-OH) group in ethanol allows hydrogen bonding with other ethanol molecules and with water (which is why ethanol is miscible with water). Ethane has only weak London forces.",
+        "distractors": [
+          "Ethanol has stronger covalent bonds",
+          "Ethane has hydrogen bonds too",
+          "Molecular mass determines boiling point"
+        ]
+      },
+      {
+        "question": "Write the equation for the complete combustion of propan-1-ol (C3H7OH) and state the products.",
+        "answer": "2C3H7OH + 9O2 -> 6CO2 + 8H2O. Products: carbon dioxide and water. Energy is released (exothermic).",
+        "difficulty_permille": 500,
+        "bloom_level": "Apply",
+        "hints": [
+          "Complete combustion produces CO2 and H2O only.",
+          "Balance C first, then H, then O."
+        ],
+        "explanation": "C3H7OH has 3C, 8H, 1O. Products: 3CO2 (6O needed) + 4H2O (4O needed). Total O in products: 6+4=10. Minus 1 from alcohol = 9O needed from O2. 9/2 = 4.5 O2. Multiply by 2: 2C3H7OH + 9O2 -> 6CO2 + 8H2O.",
+        "distractors": [
+          "C3H7OH + 3O2 -> 3CO + 4H2O",
+          "C3H7OH + 5O2 -> 3CO2 + 4H2O",
+          "2C3H7OH + 7O2 -> 6CO2 + 8H2O"
+        ]
+      }
+    ],
+    "hints": [
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix.",
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix.",
+      "For naming: find the longest chain, number from the end nearest the functional group, add the correct suffix."
+    ],
+    "key_vocabulary": [
+      {
+        "term": "functional group",
+        "definition": "The atom or group of atoms that determines a molecule's chemical properties",
+        "example_usage": "The \u2212OH group makes a molecule an alcohol."
+      },
+      {
+        "term": "esterification",
+        "definition": "The reaction between an alcohol and a carboxylic acid to form an ester and water",
+        "example_usage": "Esterification requires an acid catalyst."
+      },
+      {
+        "term": "isomer",
+        "definition": "Molecules with the same molecular formula but different structural arrangements",
+        "example_usage": "Butan-1-ol and butan-2-ol are positional isomers."
+      }
+    ],
+    "misconceptions": [
+      {
+        "misconception": "Students number the carbon chain from left to right regardless of functional group position.",
+        "correction": "Number from the end that gives the lowest locant to the functional group (or first point of difference).",
+        "why_students_think_this": "IUPAC rules require the lowest possible numbers for substituents and functional groups."
+      }
+    ],
+    "generation_quality": {
+      "coherence": 0.87999994,
+      "hallucination_detected": false,
+      "veto_count": 0,
+      "epistemic_confidence": 0.87999994,
+      "needs_human_review": false
+    }
+  },
+  "assessment": {
+    "standard_code": "CAPS.PhysicalSciences.Gr11.CHM.1",
+    "title": "Assessment: Molecular and structural formulae. Functional groups: alkanes, alkenes, alkynes, alcohols, carboxylic acids, esters, aldehydes, ketones. IUPAC nomenclature. Physical properties and intermolecular forces",
+    "items": [
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 1,
+        "bloom_level": "Remember",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 2,
+        "bloom_level": "Understand",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 2,
+        "bloom_level": "Apply",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 3,
+        "bloom_level": "Analyze",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 3,
+        "bloom_level": "Evaluate",
+        "rubric": null,
+        "hint": "4"
+      },
+      {
+        "question": "Compare addition and substitution reactions. Give an example of each using a named organic compound.",
+        "item_type": "ShortAnswer",
+        "correct_answer": "Addition: C\u2082H\u2084 + Br\u2082 \u2192 C\u2082H\u2084Br\u2082 (1,2-dibromoethane). Substitution: CH\u2083Br + NaOH \u2192 CH\u2083OH + NaBr.",
+        "points": 4,
+        "bloom_level": "Create",
+        "rubric": null,
+        "hint": "4"
+      }
+    ],
+    "total_points": 15,
+    "estimated_minutes": 18,
+    "bloom_distribution": [
+      [
+        "Apply",
+        1
+      ],
+      [
+        "Evaluate",
+        1
+      ],
+      [
+        "Understand",
+        1
+      ],
+      [
+        "Remember",
+        1
+      ],
+      [
+        "Analyze",
+        1
+      ],
+      [
+        "Create",
+        1
+      ]
+    ]
+  },
+  "flashcards": [
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 111
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 222
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 333
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 444
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 555
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 666
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 777
+    },
+    {
+      "front": "What is the product of an addition reaction between ethene and HBr?",
+      "back": "Bromoethane (CH\u2083CH\u2082Br). The H and Br add across the double bond.",
+      "tags": [
+        "CAPS.PhysicalSciences.Gr11.CHM.1",
+        "Grade11",
+        "Chemistry \u2014 Organic"
+      ],
+      "difficulty_permille": 888
+    }
+  ],
+  "quality": {
+    "coherence": 0.87999994,
+    "hallucination_detected": false,
+    "needs_human_review": false,
+    "veto_count": 0
+  },
+  "generated_at": "2026-03-30T13:18:17"
+}

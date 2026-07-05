@@ -1,0 +1,31 @@
+{
+  "snapshot_id": "fixture-topology-openwrt",
+  "observed_at_unix_ms": 1782550000,
+  "nodes": [
+    {
+      "node_id": "openwrt-router",
+      "hostname": "gateway",
+      "node_kind": "Router",
+      "management_state": "Managed",
+      "owner_did": null,
+      "site_id": "luminous-hq",
+      "observed_at_unix_ms": 1782550000,
+      "source_collector": "openwrt_dhcp_leases",
+      "confidence": 1.0,
+      "staleness_ms": 0,
+      "evidence_hash": "sha256-openwrt"
+    }
+  ],
+  "edges": [
+    {
+      "source_node_id": "mac-aa:bb:cc:dd:ee:ff",
+      "target_node_id": "ip-192.168.1.150",
+      "edge_kind": "DhcpLease",
+      "confidence": 1.0,
+      "evidence_refs": ["openwrt-ubus-dhcp-lease"],
+      "source_collector": "openwrt_ubus_leases",
+      "staleness_ms": 0,
+      "evidence_hash": "sha256-ubus-lease"
+    }
+  ]
+}

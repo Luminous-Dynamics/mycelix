@@ -1,0 +1,23 @@
+[Unit]
+Description=Luminous Net Steward Witness Daemon
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/net-steward-daemon
+Restart=on-failure
+Environment=PORT=3030 BIND_ADDRESS=127.0.0.1 READ_ONLY=true
+
+# Security Hardening Sandbox Settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+DeviceAllow=/dev/null r
+DevicePolicy=strict
+
+[Install]
+WantedBy=multi-user.target
