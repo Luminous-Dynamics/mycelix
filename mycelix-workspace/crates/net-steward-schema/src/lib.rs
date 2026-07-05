@@ -289,7 +289,7 @@ pub enum SecurityEventKind {
     IdentityRiskObserved,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Severity {
     Info,
     Low,
@@ -415,7 +415,7 @@ pub struct ExecutionPlan {
 // ApprovalEnvelope.  The executor itself never writes to the network.
 
 /// Risk tier for an operation's potential impact.
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BlastRadiusRiskTier {
     /// No active services affected; safe to proceed without escalation.
     Negligible,
@@ -945,4 +945,58 @@ pub enum ZkProofVerdict {
         /// The proof mode resulting from the verification.
         proof_mode: String,
     },
+}
+
+/// Gating and execution mode for remediation.
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ExecutionMode {
+    /// Executes immediately if all constraints are met.
+    Autonomous,
+    /// Requires human operator approval signature.
+    OperatorApproval,
+    /// Read-only advisory mode, never executes automatically.
+    ManualOnly,
+}
+
+/// Matcher for specific events or system states to trigger a rule.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EventMatcher {
+    /// Node identifier (e.g. "luminous-router").
+    pub node_id: String,
+    /// Minimum severity level.
+    pub min_severity: Severity,
+    /// Optional target systemd unit name.
+    pub systemd_unit: Option<String>,
+    /// Optional minimum drift status.
+    pub max_drift_status: Option<DriftStatus>,
+}
+
+/// A rule mapping events to remediation execution policies.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RemediationRule {
+    /// Name/description of the rule.
+    pub rule_name: String,
+    /// Event matching pattern.
+    pub event_matcher: EventMatcher,
+    /// Execution mode (Autonomous, OperatorApproval, ManualOnly).
+    pub execution_mode: ExecutionMode,
+    /// Maximum allowed blast radius score [0.0 - 1.0].
+    pub max_allowed_blast_radius: f32,
+    /// Maximum risk tier allowed for execution.
+    pub max_allowed_risk_tier: BlastRadiusRiskTier,
+    /// Number of co-signing witness did bindings required.
+    pub required_witnesses: u32,
+    /// Optional specific rollback generation to transition to.
+    pub target_rollback_generation: Option<String>,
+}
+
+/// Configured policy defining autonomous boundaries and rules.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RemediationPolicy {
+    /// Policy identifier.
+    pub policy_id: String,
+    /// Schema version (e.g. "remediation_policy_v0.1").
+    pub version: String,
+    /// List of active remediation rules.
+    pub rules: Vec<RemediationRule>,
 }

@@ -43,13 +43,27 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
         ],
     };
 
-    let _: Record = call(
+    // Best-effort: substrate registration is a discovery convenience, not a
+    // precondition for this cell to function — don't fail cell init over it.
+    match call(
         CallTargetCell::Local,
-        "did_registry".into(),
-        "register_substrate".into(),
+        ZomeName::new("did_registry"),
+        FunctionName::new("register_substrate"),
         None,
         RegisterSubstrateInput { metadata },
-    )?;
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let _: Record = result.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode register_substrate response: {:?}",
+                    e
+                )))
+            })?;
+        }
+        Ok(_) | Err(_) => {
+            debug!("register_substrate failed during init (non-fatal)");
+        }
+    }
 
     Ok(InitCallbackResult::Pass)
 }
@@ -249,7 +263,7 @@ fn get_moral_resonance_score(did: &str) -> ExternResult<f64> {
                 .ok()
                 .flatten()
             {
-                if rep.cluster == "symthaea" {
+                if rep.source_happ == "symthaea" {
                     let age = (now.as_micros() as f64
                         - record.action().timestamp().as_micros() as f64)
                         .max(0.0);

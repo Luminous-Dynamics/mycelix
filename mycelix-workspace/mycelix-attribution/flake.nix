@@ -25,7 +25,7 @@
           overlays = [ rust-overlay.overlays.default ];
         };
 
-        holochainBase = import ../nix/modules/holochain-base.nix {
+        holochainBase = import ../../nix/modules/holochain-base.nix {
           inherit pkgs system;
           holochainPackages = holonix.packages.${system};
         };

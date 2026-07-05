@@ -275,15 +275,17 @@ fn test_release_manifest_matches_capabilities() {
         "blast_radius_preview_enabled must be true in v0.3-alpha.4+"
     );
 
-    // Alpha track must be at least alpha.4 or a beta release.
+    // Alpha track must be at least alpha.4 or a newer release.
     let alpha_track = manifest_json["alpha_track"].as_str().unwrap_or("");
     assert!(
         alpha_track.contains("alpha.4")
             || alpha_track.contains("alpha.5")
             || alpha_track.contains("alpha.6")
             || alpha_track.contains("alpha.7")
-            || alpha_track.contains("beta-rc1"),
-        "alpha_track should be alpha.4 or later or beta, got: {}",
+            || alpha_track.contains("beta-rc1")
+            || alpha_track.contains("v0.4-alpha.1")
+            || alpha_track.contains("v0.4"),
+        "alpha_track should be alpha.4 or later, got: {}",
         alpha_track
     );
 }
@@ -1471,4 +1473,140 @@ fn test_lab_controlled_apply_disabled_by_policy_when_not_in_lab() {
     let res = executor.apply(&intent);
     assert!(res.is_err());
     assert!(res.err().unwrap().contains("DisabledByPolicy"));
+}
+
+#[test]
+fn test_remediation_policy_evaluation() {
+    use net_steward_discovery::policy::{PolicyEvaluationVerdict, evaluate_policy};
+    use net_steward_schema::{
+        BlastRadiusRiskTier, DriftStatus, EventMatcher, ExecutionMode,
+        HumanReadableIncidentSummary, ProofStatus, RemediationPolicy, RemediationRule,
+        SafetyVerdict, Severity,
+    };
+
+    let policy = RemediationPolicy {
+        policy_id: "pol-test-101".to_string(),
+        version: "remediation_policy_v0.1".to_string(),
+        rules: vec![
+            // Rule 1: Autonomous low risk rollback
+            RemediationRule {
+                rule_name: "auto-router-drift".to_string(),
+                event_matcher: EventMatcher {
+                    node_id: "luminous-router".to_string(),
+                    min_severity: Severity::Low,
+                    systemd_unit: None,
+                    max_drift_status: Some(DriftStatus::DriftDetected),
+                },
+                execution_mode: ExecutionMode::Autonomous,
+                max_allowed_blast_radius: 0.3,
+                max_allowed_risk_tier: BlastRadiusRiskTier::Low,
+                required_witnesses: 1,
+                target_rollback_generation: Some("427".to_string()),
+            },
+            // Rule 2: Escalated higher risk rule
+            RemediationRule {
+                rule_name: "escalated-severe-incident".to_string(),
+                event_matcher: EventMatcher {
+                    node_id: "forge-server".to_string(),
+                    min_severity: Severity::High,
+                    systemd_unit: Some("backdoord.service".to_string()),
+                    max_drift_status: None,
+                },
+                execution_mode: ExecutionMode::OperatorApproval,
+                max_allowed_blast_radius: 0.8,
+                max_allowed_risk_tier: BlastRadiusRiskTier::High,
+                required_witnesses: 2,
+                target_rollback_generation: None,
+            },
+        ],
+    };
+
+    // Test Case A: Matches auto-router-drift autonomously
+    let incident_a = HumanReadableIncidentSummary {
+        incident_id: "luminous-router-drift-detected".to_string(),
+        safety_verdict: SafetyVerdict::Safe,
+        safety_violations: vec![],
+        root_cause: "System configuration drift observed in wireguard".to_string(),
+        affected_services: vec![],
+        affected_users: vec![],
+        blast_radius_score: 0.15,
+        confidence: 1.0,
+        recommended_action: "Roll back profile to generation 427".to_string(),
+        rollback_path: Some("427".to_string()),
+        safety_proof: None,
+        safety_commitment: None,
+        proof_status: ProofStatus::NotPresent,
+    };
+
+    let verdict_a = evaluate_policy(&policy, &incident_a);
+    assert_eq!(
+        verdict_a,
+        PolicyEvaluationVerdict::Matched {
+            rule_name: "auto-router-drift".to_string(),
+            execution_mode: ExecutionMode::Autonomous,
+            required_witnesses: 1,
+            target_rollback_generation: Some("427".to_string()),
+        }
+    );
+
+    // Test Case B: Matches auto-router-drift but exceeds blast radius limit (escalates)
+    let mut incident_b = incident_a.clone();
+    incident_b.blast_radius_score = 0.45; // exceeds max_allowed_blast_radius = 0.3
+    let verdict_b = evaluate_policy(&policy, &incident_b);
+    assert!(matches!(
+        verdict_b,
+        PolicyEvaluationVerdict::Escalated { .. }
+    ));
+    if let PolicyEvaluationVerdict::Escalated { rule_name, reason } = verdict_b {
+        assert_eq!(rule_name, "auto-router-drift");
+        assert!(reason.contains("Blast radius score"));
+    }
+
+    // Test Case C: Matches escalated-severe-incident (OperatorApproval)
+    let incident_c = HumanReadableIncidentSummary {
+        incident_id: "forge-server-critical-compromise".to_string(),
+        safety_verdict: SafetyVerdict::Warning,
+        safety_violations: vec!["backdoord.service is running".to_string()],
+        root_cause: "Unauthorized systemd unit backdoord.service found".to_string(),
+        affected_services: vec![],
+        affected_users: vec![],
+        blast_radius_score: 0.55,
+        confidence: 0.9,
+        recommended_action: "Requires operator investigation".to_string(),
+        rollback_path: None,
+        safety_proof: None,
+        safety_commitment: None,
+        proof_status: ProofStatus::NotPresent,
+    };
+
+    let verdict_c = evaluate_policy(&policy, &incident_c);
+    assert_eq!(
+        verdict_c,
+        PolicyEvaluationVerdict::Matched {
+            rule_name: "escalated-severe-incident".to_string(),
+            execution_mode: ExecutionMode::OperatorApproval,
+            required_witnesses: 2,
+            target_rollback_generation: None,
+        }
+    );
+
+    // Test Case D: Fallback default
+    let incident_d = HumanReadableIncidentSummary {
+        incident_id: "some-isolated-node".to_string(),
+        safety_verdict: SafetyVerdict::Safe,
+        safety_violations: vec![],
+        root_cause: "Healthy state".to_string(),
+        affected_services: vec![],
+        affected_users: vec![],
+        blast_radius_score: 0.0,
+        confidence: 1.0,
+        recommended_action: "No action".to_string(),
+        rollback_path: None,
+        safety_proof: None,
+        safety_commitment: None,
+        proof_status: ProofStatus::NotPresent,
+    };
+
+    let verdict_d = evaluate_policy(&policy, &incident_d);
+    assert_eq!(verdict_d, PolicyEvaluationVerdict::DefaultFallback);
 }

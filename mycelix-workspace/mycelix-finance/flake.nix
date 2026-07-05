@@ -45,7 +45,7 @@
         holochainPackages = holonix.packages.${system};
 
         # Import shared Holochain base configuration
-        holochainBase = import ../nix/modules/holochain-base.nix {
+        holochainBase = import ../../nix/modules/holochain-base.nix {
           inherit pkgs system;
           holochainPackages = holochainPackages;
         };

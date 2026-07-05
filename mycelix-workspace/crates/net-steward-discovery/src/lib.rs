@@ -18,6 +18,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod adapters;
+pub mod policy;
 pub mod reconciliation;
 
 // --- Trait Boundaries for Proof Generation & Verification ---

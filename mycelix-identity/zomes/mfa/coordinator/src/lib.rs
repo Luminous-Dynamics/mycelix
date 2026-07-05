@@ -908,7 +908,7 @@ fn verify_primary_key_pair(
     let expected_key_hash = {
         let mut hasher = Sha256::new();
         hasher.update(agent_pub_key.get_raw_39());
-        format!("sha256:{:x}", hasher.finalize())
+        format!("sha256:{}", hex_encode(&hasher.finalize()))
     };
 
     // Verify factor_id matches the agent's key (constant-time comparison)
@@ -981,12 +981,12 @@ fn verify_primary_key_pair(
         if known_pqc_sizes.contains(&sig_bytes.len()) {
             Ok(true) // Structural accept; real PQC verification happens off-chain
         } else {
-            Err(wasm_error!(WasmErrorInner::Guest(
-                format!(
-                    "Unrecognized signature length: {} bytes (expected {} for Ed25519 or {} for hybrid)",
-                    sig_bytes.len(), ed25519_size, hybrid_size
-                )
-            )))
+            Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Unrecognized signature length: {} bytes (expected {} for Ed25519 or {} for hybrid)",
+                sig_bytes.len(),
+                ed25519_size,
+                hybrid_size
+            ))))
         }
     }
 }
@@ -1638,7 +1638,7 @@ fn verify_security_questions(
         // Domain separation prefix prevents cross-protocol attacks
         hasher.update(b"mycelix-security-question-v1:");
         hasher.update(answer_hash.as_bytes());
-        format!("{:x}", hasher.finalize())
+        hex_encode(&hasher.finalize())
     };
 
     // Constant-time comparison to prevent timing side-channel attacks
@@ -1678,7 +1678,7 @@ fn verify_recovery_phrase(
                 let mut hasher = Sha256::new();
                 hasher.update(b"mycelix-recovery-phrase-v1:");
                 hasher.update(answer_hash.as_bytes());
-                format!("{:x}", hasher.finalize())
+                hex_encode(&hasher.finalize())
             };
 
             // Constant-time comparison
@@ -1875,12 +1875,10 @@ fn verify_reputation_attestation(
     }
 
     if valid_count < *threshold {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "Insufficient valid reputation attestations: {} cryptographically verified, {} required",
-                valid_count, threshold
-            )
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient valid reputation attestations: {} cryptographically verified, {} required",
+            valid_count, threshold
+        ))));
     }
 
     Ok(true)
