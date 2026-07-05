@@ -2,6 +2,7 @@ use net_steward_schema::{
     BlastRadiusRiskTier, DriftStatus, EventMatcher, ExecutionMode, HumanReadableIncidentSummary,
     RemediationPolicy, Severity,
 };
+use serde::{Deserialize, Serialize};
 
 /// Evaluates an observed incident summary against the active remediation policy rules.
 /// Returns the matched rule and execution verdict if a matching rule is found.
@@ -49,7 +50,7 @@ pub fn evaluate_policy(
     PolicyEvaluationVerdict::DefaultFallback
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PolicyEvaluationVerdict {
     /// Found a matching policy rule that can be processed.
     Matched {

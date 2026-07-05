@@ -1,5 +1,5 @@
 {
-  "release": "net-steward-v0.4.0-alpha.1",
+  "release": "net-steward-v0.4.0-alpha.2",
   "identity_success_path_proven": true,
   "live_identity_resolver_feature_gated": true,
   "single_verified_claim_grants_consensus": false,
@@ -15,7 +15,7 @@
     "prohibit_revoked": true,
     "prohibit_expired": true
   },
-  "alpha_track": "v0.4-alpha.1",
+  "alpha_track": "v0.4-alpha.2",
   "alpha_milestones_complete": [
     "v0.3-alpha.1: Production Holochain Federation",
     "v0.3-alpha.2: Operation Intent & Approval Envelopes",
@@ -24,7 +24,8 @@
     "v0.3-alpha.5: ZK Verifier Interface",
     "v0.3-alpha.6: Dashboard ZK & Blast-Radius Previews",
     "v0.3-alpha.7: Lab-Only Controlled Apply",
-    "v0.4-alpha.1: Remediation Policy Schema & Parser"
+    "v0.4-alpha.1: Remediation Policy Schema & Parser",
+    "v0.4-alpha.2: Policy Evaluator daemon integration"
   ],
-  "notes": "v0.4-alpha.1: Implemented the RemediationPolicy, RemediationRule, EventMatcher, and ExecutionMode schemas. Developed the PolicyEvaluator rule matcher and risk boundaries escalation engine, with full unit test coverage."
+  "notes": "v0.4-alpha.2: Integrated the policy evaluation API route (/api/v1/policy/evaluate) and handler in the discovery daemon, with full unit test coverage of the HTTP request payload and serialization boundaries."
 }

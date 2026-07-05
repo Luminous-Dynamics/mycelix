@@ -20,10 +20,10 @@ tokio = { version = "1", features = ["full"] }
 # a real conductor). Backs the `holochain_connect` / `call_zome` Tauri
 # commands that mycelix-leptos-client's TauriIpcTransport (used by the
 # Leptos frontend when running under Tauri) invokes.
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["native"] }
+mycelix-leptos-client = { path = "../../../../../crates/mycelix-leptos-client", features = ["native"] }
 
 # Consciousness engine (optional — enables real sensor data instead of simulation)
-# symthaea-soma = { path = "../../../../symthaea/crates/symthaea-soma", optional = true }
+# symthaea-soma = { path = "../../../../../symthaea/crates/symthaea-soma", optional = true }
 
 [features]
 default = ["custom-protocol"]

@@ -20,7 +20,8 @@ use net_steward_schema::{
     DidAgentBinding, ExecutionResult, FederationStatus, HumanReadableIncidentSummary,
     IncidentCapsule, IncidentVerificationResult, InfrastructureReceipt, KnownGoodBaseline,
     ObservedTopologySnapshot, OperationIntent, PeerNodeStatus, PeerPostureClaim,
-    PeerTelemetryReport, PostureConflict, RollbackPlan, SecurityEvent, SecurityPosture,
+    PeerTelemetryReport, PostureConflict, RemediationPolicy, RollbackPlan, SecurityEvent,
+    SecurityPosture,
 };
 
 #[tokio::main]
@@ -71,6 +72,11 @@ async fn main() {
         .route(
             "/api/v1/operation/apply",
             post(post_operation_apply).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
+        )
+        // v0.4-alpha.2: Policy Evaluator daemon integration
+        .route(
+            "/api/v1/policy/evaluate",
+            post(post_policy_evaluate).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
         )
         .layer(cors);
 
@@ -328,5 +334,83 @@ async fn post_operation_apply(
     match executor.apply(&intent) {
         Ok(res) => Ok(Json(res)),
         Err(err) => Err((axum::http::StatusCode::FORBIDDEN, err)),
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PolicyEvaluateRequest {
+    policy: RemediationPolicy,
+    incident: HumanReadableIncidentSummary,
+}
+
+async fn post_policy_evaluate(
+    Json(payload): Json<PolicyEvaluateRequest>,
+) -> Json<net_steward_discovery::policy::PolicyEvaluationVerdict> {
+    use net_steward_discovery::policy::evaluate_policy;
+    Json(evaluate_policy(&payload.policy, &payload.incident))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::Json;
+
+    #[tokio::test]
+    async fn test_api_policy_evaluate() {
+        use net_steward_discovery::policy::PolicyEvaluationVerdict;
+        use net_steward_schema::{
+            BlastRadiusRiskTier, DriftStatus, EventMatcher, ExecutionMode,
+            HumanReadableIncidentSummary, ProofStatus, RemediationPolicy, RemediationRule,
+            SafetyVerdict, Severity,
+        };
+
+        let policy = RemediationPolicy {
+            policy_id: "pol-test-101".to_string(),
+            version: "remediation_policy_v0.1".to_string(),
+            rules: vec![RemediationRule {
+                rule_name: "auto-router-drift".to_string(),
+                event_matcher: EventMatcher {
+                    node_id: "luminous-router".to_string(),
+                    min_severity: Severity::Low,
+                    systemd_unit: None,
+                    max_drift_status: Some(DriftStatus::DriftDetected),
+                },
+                execution_mode: ExecutionMode::Autonomous,
+                max_allowed_blast_radius: 0.3,
+                max_allowed_risk_tier: BlastRadiusRiskTier::Low,
+                required_witnesses: 1,
+                target_rollback_generation: Some("427".to_string()),
+            }],
+        };
+
+        let incident = HumanReadableIncidentSummary {
+            incident_id: "luminous-router-drift-detected".to_string(),
+            safety_verdict: SafetyVerdict::Safe,
+            safety_violations: vec![],
+            root_cause: "System configuration drift observed".to_string(),
+            affected_services: vec![],
+            affected_users: vec![],
+            blast_radius_score: 0.15,
+            confidence: 1.0,
+            recommended_action: "Roll back profile".to_string(),
+            rollback_path: Some("427".to_string()),
+            safety_proof: None,
+            safety_commitment: None,
+            proof_status: ProofStatus::NotPresent,
+        };
+
+        let payload = PolicyEvaluateRequest { policy, incident };
+        let response = post_policy_evaluate(Json(payload)).await;
+
+        let Json(verdict) = response;
+        assert_eq!(
+            verdict,
+            PolicyEvaluationVerdict::Matched {
+                rule_name: "auto-router-drift".to_string(),
+                execution_mode: ExecutionMode::Autonomous,
+                required_witnesses: 1,
+                target_rollback_generation: Some("427".to_string()),
+            }
+        );
     }
 }
