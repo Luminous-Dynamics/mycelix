@@ -24,6 +24,7 @@ jobs:
       attribution: ${{ steps.filter.outputs.attribution }}
       bridge: ${{ steps.filter.outputs.bridge }}
       sdk: ${{ steps.filter.outputs.sdk }}
+      prism: ${{ steps.filter.outputs.prism }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -59,6 +60,8 @@ jobs:
             sdk:
               - 'mycelix-workspace/sdk/**'
               - 'mycelix-workspace/sdk-ts/**'
+            prism:
+              - 'mycelix-workspace/mycelix-prism/**'
 
   # Format check (always runs)
   format:
@@ -266,6 +269,59 @@ jobs:
         continue-on-error: true
         run: cd mycelix-workspace/sdk-ts && npm ci && npm test
 
+  test-prism:
+    needs: changes
+    if: needs.changes.outputs.prism == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install system dependencies (winit/vello GUI deps for prism-shell, webkit for prism-tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev \
+            libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev librsvg2-dev libayatana-appindicator3-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace
+      # `cargo fmt --all` needs full-workspace `cargo metadata`, which
+      # currently fails workspace-wide (mycelix-personal/crates/stress-tester
+      # depends on a missing crates/luminous-sim-core -- unrelated to Prism).
+      # Per-package `-p` flags avoid that full-graph walk.
+      - name: Check formatting
+        run: |
+          cd mycelix-workspace/mycelix-prism
+          cargo fmt --check \
+            -p prism-common -p prism-dom -p prism-net -p prism-proxy -p prism-serve \
+            -p prism-ingest -p prism-search -p prism-layout -p prism-reflex -p prism-privacy \
+            -p prism-zkp -p prism-knowledge-bridge -p prism-bridge -p prism-shell -p prism-ui \
+            -p prism-tauri -p prism-node
+      - name: Build prism-ui for wasm32 (Trunk target)
+        run: cd mycelix-workspace/mycelix-prism/prism-ui && cargo build --target wasm32-unknown-unknown
+      # Each package is tested in its own `cargo test` invocation, not one
+      # combined `-p a -p b -p c` command: combining prism-shell and
+      # prism-ui in a single invocation triggers cross-package feature
+      # unification that pulls in an incompatible naga/termcolor pairing
+      # (naga 28.0.0 fails to compile against the resolved termcolor
+      # version) even though each crate builds and tests cleanly alone.
+      - name: Test Prism crates
+        run: |
+          cd mycelix-workspace/mycelix-prism
+          for pkg in prism-common prism-dom prism-net prism-proxy prism-serve \
+                     prism-ingest prism-search prism-layout prism-reflex prism-privacy \
+                     prism-zkp prism-knowledge-bridge prism-bridge prism-shell prism-ui; do
+            echo "=== Testing $pkg ==="
+            cargo test -p "$pkg"
+          done
+      - name: Check prism-tauri (desktop shell, compile-only)
+        run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
+
   # Summary gate
   ci-pass:
     if: always()
@@ -281,6 +337,7 @@ jobs:
       - test-attribution
       - test-bridge
       - test-sdk
+      - test-prism
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -296,9 +353,10 @@ jobs:
           echo "Attribution: ${{ needs.test-attribution.result }}"
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
+          echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}"; do
+          for result in "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
