@@ -73,12 +73,25 @@ jobs:
           components: rustfmt
       - name: Check formatting
         run: |
+          # Each check runs in a subshell `(cd "$dir" && ...)` rather than
+          # `cd "$dir" && ... && cd ..` -- the latter never runs the trailing
+          # `cd ..` when the fmt check itself fails (short-circuits on the
+          # first `&&`), leaving the script's cwd stuck inside that
+          # directory for every subsequent iteration and turning one real
+          # violation into a cascade of unrelated "No such file or
+          # directory" errors for every cluster checked after it. The
+          # subshell keeps cwd untouched regardless of outcome, and we keep
+          # checking every directory (not stop at the first failure) so a
+          # single CI run surfaces every cluster's violations at once,
+          # exiting non-zero at the end if any were found.
+          status=0
           for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
-            cd $dir && cargo fmt --all --check && cd ..
+            (cd "$dir" && cargo fmt --all --check) || status=1
           done
-          cd crates/mycelix-bridge-common && cargo fmt --all --check && cd ../..
-          cd crates/mycelix-bridge-entry-types && cargo fmt --all --check && cd ../..
+          (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
+          (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          exit $status
 
   # Per-cluster test jobs
   test-commons:
