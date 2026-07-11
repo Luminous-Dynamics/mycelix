@@ -124,7 +124,7 @@ pub fn apply_dp(gradient: &mut [f32], config: &DifferentialPrivacyConfig) {
 /// Generate a pair of Gaussian random numbers using Box-Muller transform
 fn box_muller_pair<R: Rng>(rng: &mut R, sigma: f32) -> (f32, f32) {
     let u1: f32 = rng.gen_range(1e-10_f32..1.0);
-    let u2: f32 = rng.gen();
+    let u2: f32 = rng.r#gen();
 
     let r = (-2.0 * u1.ln()).sqrt();
     let theta = 2.0 * std::f32::consts::PI * u2;
