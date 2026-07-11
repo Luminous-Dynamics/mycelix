@@ -20,11 +20,11 @@
 use crate::error::ClientError;
 use crate::transport::HolochainTransport;
 use crate::types::{
-    AppRequest, AppResponse, AuthenticateRequest, CallZomeRequestWire, CellId, CellInfoVariant,
-    ConnectConfig, ConnectionStatus, ReconnectConfig, WireAuthenticate, WireRequest, WireResponse,
+    AppRequest, AppResponse, CallZomeRequestWire, CellId, CellInfoVariant, ConnectConfig,
+    ConnectionStatus, ReconnectConfig, WireRequest, WireResponse,
 };
-use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine as _;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -33,8 +33,8 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use js_sys::{ArrayBuffer, Uint8Array};
-use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{MessageEvent, WebSocket};
 
@@ -500,34 +500,27 @@ impl HolochainTransport for BrowserWsTransport {
                 state.connect_config = Some(config.clone());
             }
 
-            // --- Authentication (Holochain 0.6 wire protocol) ---
-            //
-            // WARNING: constructed from holochain_websocket 0.6.0 source
-            // (WireMessage::Authenticate) — NOT yet verified against a live
-            // conductor. See PULSE_GOLDEN_PATH_2026-07-07.md Phase 2.
-            //
-            // Two things the previous code got wrong (→ 30s timeout, mock mode):
-            //   1. `authenticate` is fire-and-forget — the conductor sends NO
-            //      response, so awaiting one always timed out.
-            //   2. The frame is `WireMessage::Authenticate { data }` with NO id,
-            //      and `data` is msgpack(AppAuthenticationRequest { token }) — a
-            //      bare `{ token }`, NOT the AppRequest enum (which double-tagged
-            //      it as `{ type: "authenticate", data: { token } }`).
-            // The next request (app_info) implicitly confirms auth succeeded.
+            // --- Fix 1: Authentication ---
             if let Some(token) = config.auth_token {
-                let auth_inner = rmp_serde::to_vec_named(&AuthenticateRequest { token })
+                let auth_payload = AppRequest::Authenticate { token };
+                let auth_bytes = rmp_serde::to_vec_named(&auth_payload)
                     .map_err(|e| ClientError::SerializationError(e.to_string()))?;
-                let frame = rmp_serde::to_vec_named(&WireAuthenticate {
-                    msg_type: "authenticate".to_string(),
-                    data: auth_inner,
-                })
-                .map_err(|e| ClientError::SerializationError(e.to_string()))?;
 
-                let state = inner.borrow();
-                let ws = state.ws.as_ref().ok_or(ClientError::NotConnected)?;
-                ws.send_with_u8_array(&frame)
-                    .map_err(|e| ClientError::WebSocketError(format!("{e:?}")))?;
-                // Fire-and-forget: do NOT register a pending request or await.
+                let response_bytes = Self::send_request(&inner, "authenticate", auth_bytes).await?;
+
+                // The conductor responds with an empty success or an error.
+                // If we got here without error, authentication succeeded.
+                // Check for an explicit error in the response.
+                if let Ok(resp) = rmp_serde::from_slice::<AppResponse>(&response_bytes) {
+                    if let AppResponse::Error(e) = resp {
+                        let mut state = inner.borrow_mut();
+                        state.status = ConnectionStatus::Disconnected;
+                        if let Some(ws) = state.ws.take() {
+                            let _ = ws.close();
+                        }
+                        return Err(ClientError::AuthenticationFailed(e.message));
+                    }
+                }
             }
 
             // --- Fix 2: AppInfo discovery ---

@@ -251,7 +251,7 @@ impl RandomProjectionPlugin {
         // Sparse random projection: ~10% non-zero entries (JL-optimal sparsity)
         let scale = (10.0 / dim as f32).sqrt();
         for val in proj.iter_mut() {
-            let r: f32 = rng.r#gen();
+            let r: f32 = rng.gen();
             if r < 0.05 {
                 *val = scale;
             } else if r < 0.10 {

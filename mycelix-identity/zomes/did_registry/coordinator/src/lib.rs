@@ -10,7 +10,7 @@ use did_registry_integrity::*;
 use hdk::prelude::HdkPathExt;
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, CryptoError, TaggedPublicKey};
-use mycelix_zome_helpers::anchor_hash;
+use mycelix_zome_helpers as _;
 
 /// Get-or-create a deterministic Path anchor for a string key. Used as a
 /// link base for discovery indexes (e.g. substrate role -> providers).
@@ -254,7 +254,7 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
     let record = add_service_endpoint(service)?;
 
     // Create a global discovery link for this role
-    let anchor = anchor_hash(&format!("substrate:{}", input.metadata.role))?;
+    let anchor = create_anchor(&format!("substrate:{}", input.metadata.role))?;
     create_link(
         anchor,
         agent,
@@ -268,7 +268,7 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
 /// RESOLVE SUBSTRATE: Find all agents providing a specific substrate role.
 #[hdk_extern]
 pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
-    let anchor = anchor_hash(&format!("substrate:{}", role))?;
+    let anchor = create_anchor(&format!("substrate:{}", role))?;
     let links = get_links(
         LinkQuery::try_new(anchor, LinkTypes::DidToService)?,
         GetStrategy::default(),

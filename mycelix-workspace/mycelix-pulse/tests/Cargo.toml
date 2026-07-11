@@ -16,17 +16,14 @@ path = "sweettest_mail_security.rs"
 # empty — this crate is tests-only; all deps go under [dev-dependencies]
 
 [dev-dependencies]
-# Holochain sweettest harness. Version must match the conductor and the rest
-# of the workspace — see mycelix-workspace/Cargo.toml's
-# [workspace.dependencies] pins (the canonical source of truth; the
-# nix/modules/holochain-versions.nix this comment used to cite doesn't
-# exist). This crate had drifted to the pre-0.6.1 pin.
-holochain = { version = "=0.6.1", features = ["sweettest"] }
-holochain_types = { version = "=0.6.1" }
-holo_hash = { version = "=0.6.1" }
+# Holochain sweettest harness. Version must match the conductor (0.6.0) per
+# mycelix-workspace/nix/modules/holochain-versions.nix.
+holochain = { version = "=0.6.0", features = ["sweettest"] }
+holochain_types = { version = "=0.6.0" }
+holo_hash = { version = "=0.6.0" }
 
 # hdi for integrity-zome types imported into tests (Timestamp, AgentPubKey, etc.)
-hdi = "=0.7.1"
+hdi = "0.7"
 
 # Async runtime for #[tokio::test]
 tokio = { version = "1", features = ["full"] }

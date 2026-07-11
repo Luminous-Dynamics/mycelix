@@ -272,6 +272,7 @@ echo
 # Monorepo                                          → Standalone
 # crates/mycelix-bridge-common/                     → crates/mycelix-bridge-common/
 # crates/mycelix-bridge-entry-types/                → crates/mycelix-bridge-entry-types/
+# crates/luminous-sim-core/                         → crates/luminous-sim-core/
 # mycelix-core/libs/mycelix-core-types/             → crates/mycelix-core-types/
 # mycelix-core/libs/feldman-dkg/                    → crates/feldman-dkg/
 
@@ -287,7 +288,7 @@ info "=== Syncing shared crates ==="
 # inspection — if a future crate hits the same failure mode, grep for it:
 #   grep -rhoE '[a-z0-9_-]+ = \{ path = "\.\./crates/[a-z0-9_-]+"' mycelix-workspace --include="Cargo.toml"
 for crate_name in mycelix-bridge-common mycelix-bridge-entry-types mycelix-leptos-core mycelix-leptos-client \
-                   mycelix-zkp-core mycelix-bridge-proc; do
+                   mycelix-zkp-core mycelix-bridge-proc luminous-sim-core; do
     sync_dir \
         "${MONOREPO_ROOT}/crates/${crate_name}" \
         "${STANDALONE_REPO}/crates/${crate_name}"
@@ -398,6 +399,18 @@ if ! $DRY_RUN; then
             && grep -q 'mycelix-bridge-common = { path = "[^"]*"' "$toml_file" 2>/dev/null; then
             sed -i 's|mycelix-bridge-common = { path = "[^"]*"|mycelix-bridge-common = { path = "../mycelix-bridge-common"|' "$toml_file"
             ok "Rewrote mycelix-zome-helpers's mycelix-bridge-common path for standalone layout"
+        fi
+        if grep -q 'luminous-sim-core = { path = "[^"]*"' "$toml_file" 2>/dev/null; then
+            # Same depth-mismatch shape as sovereign-profile above: mycelix-personal
+            # syncs to standalone at two depths (top-level mycelix-personal/ and
+            # nested mycelix-workspace/mycelix-personal/), so stress-tester's
+            # relative path to crates/luminous-sim-core differs by depth. Unlike
+            # sovereign-profile, this isn't a published crate, so recompute the
+            # relative path instead of swapping to a version dependency.
+            crate_dir="$(dirname "$toml_file")"
+            rel_path="$(realpath --relative-to="$crate_dir" "${STANDALONE_REPO}/crates/luminous-sim-core")"
+            sed -i "s|luminous-sim-core = { path = \"[^\"]*\"|luminous-sim-core = { path = \"${rel_path}\"|" "$toml_file"
+            ok "Rewrote luminous-sim-core path in $(basename "$(dirname "$toml_file")")/Cargo.toml"
         fi
     done < <(find "${STANDALONE_REPO}" -name "Cargo.toml" -not -path "*/target/*" 2>/dev/null)
 fi

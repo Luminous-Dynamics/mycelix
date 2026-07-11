@@ -33,7 +33,7 @@ gloo-timers = "0.4"
 # Shared Mycelix Leptos infrastructure — provides StatCard, TelemetryLine,
 # GraphNode/Edge, FlowIndicator, SovereignRadar, Indlela, theme framework,
 # Showcase reference page, and the HolochainProvider auto-connect stack.
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
 
 [profile.release]
 opt-level = "z"

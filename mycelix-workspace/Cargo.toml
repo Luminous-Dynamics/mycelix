@@ -57,15 +57,12 @@ exclude = [
     "crates/mycelix-fl",
     "crates/mycelix-fl/src/aggregation",
     "crates/mycelix-fl/tests",
-    # mycelix-leptos-client/-core/-ui exclude entries removed here — those
-    # directories under crates/ (which the "crates/*" member glob below would
-    # otherwise have swept up) were an orphaned duplicate of the real,
-    # actively-maintained crates at the top-level crates/ (moved there in an
-    # earlier session; this workspace-local copy was never deleted, and PR
-    # #7/#9 found and fixed every consumer that was accidentally still
-    # resolving to it via a wrong relative-path depth). The directories are
-    # now deleted, so excluding them is moot.
+    "crates/mycelix-leptos-client",
+    "crates/mycelix-leptos-client/tests",
+    "crates/mycelix-leptos-core",
+    "crates/mycelix-leptos-core/style",
     "crates/mycelix-leptos-i18n",
+    "crates/mycelix-leptos-ui",
     "crates/mycelix-mock-data",
     "crates/mycelix-zkp-core/benches",
     "crates/mycelix-zkp-core",

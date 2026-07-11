@@ -146,28 +146,6 @@ pub(crate) struct WireResponse {
     pub error: Option<String>,
 }
 
-/// Holochain 0.6 `WireMessage::Authenticate { data }` — an un-id'd frame that
-/// the conductor never responds to (holochain_websocket 0.6). `data` is
-/// msgpack([`AuthenticateRequest`]). Distinct from [`WireRequest`], which
-/// carries an `id` and expects a response.
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct WireAuthenticate {
-    /// Always "authenticate".
-    #[serde(rename = "type")]
-    pub msg_type: String,
-    /// msgpack(AppAuthenticationRequest) bytes.
-    pub data: Vec<u8>,
-}
-
-/// `AppAuthenticationRequest { token }` (holochain_conductor_api 0.6) — the
-/// inner payload of a [`WireAuthenticate`] frame. A bare `{ token }`, NOT the
-/// externally-tagged [`AppRequest`] enum.
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct AuthenticateRequest {
-    /// The auth token issued by the conductor's admin API.
-    pub token: Vec<u8>,
-}
-
 // ---------------------------------------------------------------------------
 // AppRequest / AppResponse — conductor wire protocol enums
 // ---------------------------------------------------------------------------
@@ -631,8 +609,8 @@ mod tests {
 
     #[test]
     fn mock_transport_returns_not_connected() {
-        use crate::MockTransport;
         use crate::transport::HolochainTransport;
+        use crate::MockTransport;
 
         let mock = MockTransport::new();
         assert_eq!(mock.status(), ConnectionStatus::Disconnected);
