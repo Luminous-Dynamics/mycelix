@@ -72,6 +72,7 @@ exclude = [
     "crates/mycelix-zkp-core/src/circuits",
     "crates/mycelix-zkp-core/target",
     "crates/mycelix-zome-helpers",
+    "crates/orbital-mechanics",
     "crates/sovereign-profile",
     "crates/sovereign-profile/target",
     "crates/sweettest-harness",
@@ -583,9 +584,9 @@ exclude = [
     "mycelix-sensorium/crates/sensorium-shell/src/identity",
     "mycelix-sensorium/crates/sensorium-shell/src/pages",
     "mycelix-sensorium/crates/sensorium-viz",
-    "mycelix-space/lib/orbital-mechanics/benches",
-    "mycelix-space/lib/orbital-mechanics/proptest-regressions",
-    "mycelix-space/lib/orbital-mechanics",
+    # orbital-mechanics relocated 2026-07-07 to crates/orbital-mechanics (see
+    # its own exclude entry below, near the other standalone shared crates) —
+    # this is why these paths no longer exist under mycelix-space/lib.
     "mycelix-space/tests",
     "mycelix-space/tools/celestrak-demo",
     "mycelix-space/tools/screening-daemon",
@@ -693,7 +694,11 @@ members = [
     # "mycelix-supplychain/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
     "mycelix-knowledge/crates/*",
     # "mycelix-knowledge/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
-    "mycelix-space/lib/*",
+    # orbital-mechanics relocated 2026-07-07 to crates/orbital-mechanics (see
+    # the matching note in the exclude list above) — mycelix-space/lib is now
+    # empty, so this glob matched zero directories and broke every
+    # workspace-wide cargo command with "No such file or directory".
+    # "mycelix-space/lib/*",
     "mycelix-space/tools/*",
     "mycelix-position/lib/*",
     "mycelix-core/libs/*",

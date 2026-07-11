@@ -38,7 +38,12 @@ fn timestamp_to_i64(ts: Timestamp) -> i64 {
 
 /// Create a new knowledge node
 #[hdk_extern]
-pub fn create_node(node: KnowledgeNode) -> ExternResult<ActionHash> {
+pub fn create_node(mut node: KnowledgeNode) -> ExternResult<ActionHash> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim another agent authored their node (P0 author-binding
+    // gap; integrity validation now enforces this too, see knowledge_zome
+    // integrity's validate_create_node).
+    node.creator = agent_info()?.agent_initial_pubkey;
     let action_hash = create_entry(EntryTypes::KnowledgeNode(node.clone()))?;
 
     // Create path anchor for all nodes
@@ -257,7 +262,10 @@ pub fn update_node_status(input: UpdateNodeStatusInput) -> ExternResult<ActionHa
 
 /// Propose a new edge between nodes
 #[hdk_extern]
-pub fn propose_edge(edge: LearningEdge) -> ExternResult<ActionHash> {
+pub fn propose_edge(mut edge: LearningEdge) -> ExternResult<ActionHash> {
+    // Always the committing agent, never caller-supplied -- see create_node's
+    // identical fix above for the same P0 author-binding rationale.
+    edge.proposer = agent_info()?.agent_initial_pubkey;
     let action_hash = create_entry(EntryTypes::LearningEdge(edge.clone()))?;
 
     // Link from source node to edge

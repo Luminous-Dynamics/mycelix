@@ -169,9 +169,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_property(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     property: Property,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the property to its committer -- register_property already
+    // derives `owner_did` from agent_info() coordinator-side with zero user
+    // input, so this never rejects a legitimate registration; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    let expected_owner = format!("did:mycelix:{}", action.author());
+    if property.owner_did != expected_owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Property owner must be the committing agent (owner forgery)".to_string(),
+        ));
+    }
+
     if !property.owner_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be a valid DID".into(),
@@ -200,9 +212,29 @@ fn validate_create_property(
 }
 
 fn validate_update_property(
-    _action: Update,
+    action: Update,
     _property: Property,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the update to the PRE-update owner -- otherwise any agent could
+    // update (including transfer_ownership's update_entry call on) a
+    // property they don't own, since a modified coordinator could skip
+    // update_property_metadata/transfer_ownership's caller-side ownership
+    // checks entirely. Fetch the entry as it stood before this update and
+    // require the committing agent to be its owner (P0 author-binding gap).
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_property: Property = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid original property entry".to_string()
+        )))?;
+    let committer_did = format!("did:mycelix:{}", action.author);
+    if original_property.owner_did != committer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Property update must be committed by the current owner".to_string(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -210,10 +242,126 @@ fn validate_create_title_deed(
     _action: EntryCreationAction,
     deed: TitleDeed,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Deliberately NOT author-bound to deed.owner_did: a TitleDeed is
+    // legitimately minted by the OLD owner during transfer_ownership, naming
+    // the NEW owner as deed.owner_did -- author != owner_did is the expected
+    // case for a transfer deed, not forgery. The real ownership-forgery
+    // protection lives in validate_update_property above (the Property
+    // entry's owner_did can only be changed by its current owner); a deed
+    // is downstream of that already-enforced invariant. Verifying the
+    // deed's own provenance against the property/deed chain would need
+    // must_get chain-walking -- out of scope for this pass.
     if !deed.owner_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be a valid DID".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// The DID that matches `test_action()`'s author -- valid_property()
+    /// uses this so the new author-binding check passes for the
+    /// "otherwise valid" baseline case; the forgery test uses a different
+    /// author/action instead.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", test_action().author)
+    }
+
+    fn valid_property(owner_did: String) -> Property {
+        Property {
+            id: "property:test:0".to_string(),
+            property_type: PropertyType::Land,
+            title: "Test Parcel".to_string(),
+            description: "A test property".to_string(),
+            owner_did,
+            co_owners: vec![],
+            geolocation: None,
+            address: None,
+            metadata: PropertyMetadata {
+                appraised_value: None,
+                currency: None,
+                legal_description: None,
+                parcel_number: None,
+                attachments: vec![],
+            },
+            registered: Timestamp::from_micros(0),
+            last_transfer: None,
+        }
+    }
+
+    #[test]
+    fn test_create_property_valid() {
+        let property = valid_property(test_author_did());
+        let result =
+            validate_create_property(EntryCreationAction::Create(test_action()), property).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_property_owner_forgery_rejected() {
+        // owner_did claims test_author_did(), but the committing action's
+        // author is a different agent.
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let property = valid_property(test_author_did());
+        let result =
+            validate_create_property(EntryCreationAction::Create(forged_action), property).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_property_non_did_owner_rejected() {
+        let property = valid_property("not-a-did".to_string());
+        let result =
+            validate_create_property(EntryCreationAction::Create(test_action()), property).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_property_share_overflow_rejected() {
+        let mut property = valid_property(test_author_did());
+        property.co_owners = vec![CoOwner {
+            did: "did:mycelix:co-owner".to_string(),
+            share_percentage: 150.0,
+        }];
+        let result =
+            validate_create_property(EntryCreationAction::Create(test_action()), property).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_title_deed_valid() {
+        let deed = TitleDeed {
+            id: "deed:test:0".to_string(),
+            property_id: "property:test:0".to_string(),
+            owner_did: test_author_did(),
+            deed_type: DeedType::Original,
+            issued: Timestamp::from_micros(0),
+            previous_deed_id: None,
+            encumbrances: vec![],
+        };
+        let result =
+            validate_create_title_deed(EntryCreationAction::Create(test_action()), deed).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
 }

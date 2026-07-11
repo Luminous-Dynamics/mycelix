@@ -399,7 +399,27 @@ pub enum LinkTypes {
 // ============== Validation Functions ==============
 
 /// Validate pod creation
-pub fn validate_create_pod(pod: &LearningPod) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_pod(
+    author: &AgentPubKey,
+    pod: &LearningPod,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the pod to its committer -- create_pod already derives `creator`
+    // from agent_info() coordinator-side with zero user input, so this
+    // never rejects a legitimate pod; it's the real DHT-level enforcement a
+    // modified coordinator could otherwise bypass (P0 author-binding gap).
+    if &pod.creator != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Pod creator must be the committing agent (creator forgery)".to_string(),
+        ));
+    }
+    validate_pod_shape(pod)
+}
+
+/// Structural checks shared by create and update -- there is no update_pod
+/// coordinator extern yet, but a future one (e.g. status transitions) would
+/// legitimately preserve the original creator across agents, same rationale
+/// as knowledge_zome's validate_node_shape split.
+fn validate_pod_shape(pod: &LearningPod) -> ExternResult<ValidateCallbackResult> {
     // Pod name must not be empty
     if pod.name.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -438,6 +458,15 @@ pub fn validate_create_pod(pod: &LearningPod) -> ExternResult<ValidateCallbackRe
 }
 
 /// Validate membership creation
+///
+/// Deliberately NOT author-bound to `membership.member`, unlike
+/// validate_create_pod above: there is no coordinator extern that creates
+/// PodMembership yet (dead validator, no live path), and the real-world
+/// semantics are ambiguous -- an invite is legitimately committed by a pod
+/// admin/moderator naming someone else as `member` (MembershipStatus::Invited),
+/// not by the member themselves. Binding member == author here would
+/// foreclose that flow before it's even built. Revisit once an invite/join
+/// coordinator function lands and the actual on-behalf-of semantics are known.
 pub fn validate_create_membership(
     membership: &PodMembership,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -493,14 +522,14 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::LearningPod(pod) => validate_create_pod(&pod),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::LearningPod(pod) => validate_create_pod(&action.author, &pod),
                 EntryTypes::PodMembership(membership) => validate_create_membership(&membership),
                 EntryTypes::PeerTutoringSession(session) => validate_tutoring_session(&session),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::LearningPod(pod) => validate_create_pod(&pod),
+                EntryTypes::LearningPod(pod) => validate_pod_shape(&pod),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -531,5 +560,50 @@ mod tests {
     #[test]
     fn test_member_role_default() {
         assert_eq!(MemberRole::default(), MemberRole::Member);
+    }
+
+    fn test_agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    fn valid_pod(creator: AgentPubKey) -> LearningPod {
+        LearningPod {
+            name: "Rust Study Group".to_string(),
+            description: "Learning Rust together".to_string(),
+            creator,
+            target_courses: vec![],
+            min_members: 3,
+            max_members: 7,
+            status: PodStatus::Forming,
+            goals: vec!["Finish the book".to_string()],
+            target_completion: None,
+            share_progress: true,
+            private_discussions: false,
+            created_at: 0,
+            last_activity: 0,
+        }
+    }
+
+    #[test]
+    fn test_pod_valid() {
+        let pod = valid_pod(test_agent(0));
+        let result = validate_create_pod(&test_agent(0), &pod).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_pod_creator_forgery_rejected() {
+        // pod.creator claims agent 0, but agent 1 is the real committer.
+        let pod = valid_pod(test_agent(0));
+        let result = validate_create_pod(&test_agent(1), &pod).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_pod_empty_name_rejected() {
+        let mut pod = valid_pod(test_agent(0));
+        pod.name = "".to_string();
+        let result = validate_create_pod(&test_agent(0), &pod).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

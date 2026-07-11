@@ -632,34 +632,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RashomonAnalysis(analysis) => {
                     validate_create_rashomon_analysis(action, analysis)
                 }
-                EntryTypes::DarkSpot(dark_spot) => {
-                    validate_create_dark_spot(action, dark_spot)
-                }
+                EntryTypes::DarkSpot(dark_spot) => validate_create_dark_spot(action, dark_spot),
                 EntryTypes::HarmonicAlignment(alignment) => {
                     validate_create_harmonic_alignment(action, alignment)
                 }
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::KnowledgeQuery(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EpistemicResult(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ClaimReference(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::KnowledgeBridgeEvent(_) => Ok(ValidateCallbackResult::Valid),
-                // GIS entries: only DarkSpot can be updated (for resolution)
-                EntryTypes::GisClassification(_) => Ok(ValidateCallbackResult::Invalid(
-                    "GIS classifications are immutable".into(),
-                )),
-                EntryTypes::RashomonAnalysis(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Rashomon analyses are immutable".into(),
-                )),
-                EntryTypes::DarkSpot(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::HarmonicAlignment(_) => Ok(ValidateCallbackResult::Valid),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -698,34 +681,132 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This is the DHT op that was previously left fully permissive
+            // (`Ok(Valid)` unconditionally) -- meaning any agent could
+            // rewrite the content of ANY entry in this zome via a modified
+            // coordinator, regardless of what the StoreEntry-side
+            // validate_update_* functions checked. Found + fixed
+            // 2026-07-09 during the P0 author-binding pass. Route through
+            // the same per-type validators as the StoreEntry perspective so
+            // both DHT op views agree.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry for any entry type in this zome, but a
+            // modified coordinator could otherwise delete anyone's entries
+            // freely. Bind to the standard "only the original author can
+            // delete their own entries" convention used elsewhere in the
+            // codebase.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
-fn validate_create_query(_action: Create, query: KnowledgeQuery) -> ExternResult<ValidateCallbackResult> {
+/// Shared per-entry-type update validation, called from BOTH the StoreEntry
+/// (OpEntry::UpdateEntry) and RegisterUpdate DHT-op perspectives so they
+/// agree. Most entry types here are computed/audit records the coordinator
+/// never legitimately updates -- reject them outright (mirrors
+/// GisClassification/RashomonAnalysis's pre-existing immutability). Only
+/// DarkSpot has a real update flow (resolution, potentially by a DIFFERENT
+/// agent than the publisher), so it gets a dedicated content+author check
+/// instead of a blanket same-author rule.
+fn validate_update_entry_type(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::KnowledgeQuery(_) => Ok(ValidateCallbackResult::Invalid(
+            "Knowledge queries are immutable".into(),
+        )),
+        EntryTypes::EpistemicResult(_) => Ok(ValidateCallbackResult::Invalid(
+            "Epistemic results are immutable".into(),
+        )),
+        EntryTypes::ClaimReference(_) => Ok(ValidateCallbackResult::Invalid(
+            "Claim references are immutable".into(),
+        )),
+        EntryTypes::KnowledgeBridgeEvent(_) => Ok(ValidateCallbackResult::Invalid(
+            "Knowledge bridge events are immutable".into(),
+        )),
+        EntryTypes::GisClassification(_) => Ok(ValidateCallbackResult::Invalid(
+            "GIS classifications are immutable".into(),
+        )),
+        EntryTypes::RashomonAnalysis(_) => Ok(ValidateCallbackResult::Invalid(
+            "Rashomon analyses are immutable".into(),
+        )),
+        EntryTypes::DarkSpot(dark_spot) => validate_update_dark_spot(action, dark_spot),
+        EntryTypes::HarmonicAlignment(_) => Ok(ValidateCallbackResult::Invalid(
+            "Harmonic alignments are immutable (re-assess to create a new one)".into(),
+        )),
+    }
+}
+
+/// No author-binding possible: KnowledgeQuery has no self-declared
+/// owner/creator AgentPubKey or DID field -- `source_happ` is a free-text
+/// hApp-name label, not an agent-comparable identity (same reasoning as
+/// mycelix-identity/bridge's IdentityQuery). This is an audit-trail record
+/// of a cross-hApp lookup, not a self-declared identity claim. Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (a)/(b).
+fn validate_create_query(
+    _action: Create,
+    query: KnowledgeQuery,
+) -> ExternResult<ValidateCallbackResult> {
     if query.source_happ.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Source hApp required".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source hApp required".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_result(_action: Create, result: EpistemicResult) -> ExternResult<ValidateCallbackResult> {
+/// No author-binding possible: EpistemicResult has no self-declared
+/// owner/creator field at all -- it's a computed classification result
+/// (empirical/normative/mythic scores), not an identity claim. Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (a).
+fn validate_create_result(
+    _action: Create,
+    result: EpistemicResult,
+) -> ExternResult<ValidateCallbackResult> {
     if result.empirical < 0.0 || result.empirical > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid("Empirical must be 0.0-1.0".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Empirical must be 0.0-1.0".into(),
+        ));
     }
     if result.normative < 0.0 || result.normative > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid("Normative must be 0.0-1.0".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Normative must be 0.0-1.0".into(),
+        ));
     }
     if result.mythic < 0.0 || result.mythic > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid("Mythic must be 0.0-1.0".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mythic must be 0.0-1.0".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_event(_action: Create, event: KnowledgeBridgeEvent) -> ExternResult<ValidateCallbackResult> {
+/// No author-binding possible: `subject` names the DID/claim the event is
+/// ABOUT (a third party), not the committer, and `source_happ` is a
+/// free-text label -- same reasoning as mycelix-identity/bridge's
+/// BridgeEvent. Reviewed 2026-07-09 during the P0 author-binding pass;
+/// case (b).
+fn validate_create_event(
+    _action: Create,
+    event: KnowledgeBridgeEvent,
+) -> ExternResult<ValidateCallbackResult> {
     if event.source_happ.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Source hApp required".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source hApp required".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -735,7 +816,7 @@ fn validate_create_event(_action: Create, event: KnowledgeBridgeEvent) -> Extern
 // =============================================================================
 
 fn validate_create_gis_classification(
-    _action: Create,
+    action: Create,
     classification: GisClassification,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate ID format
@@ -783,11 +864,22 @@ fn validate_create_gis_classification(
         ));
     }
 
+    // Author-binding: the coordinator's classify_with_gis already derives
+    // `classifier` from agent_info(), so this is belt-and-suspenders
+    // against a modified coordinator forging a victim's DID as classifier.
+    // Found + fixed 2026-07-09 during the P0 author-binding pass.
+    let expected_classifier_did = format!("did:mycelix:{}", action.author);
+    if classification.classifier != expected_classifier_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Classifier DID must correspond to the committing agent".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_rashomon_analysis(
-    _action: Create,
+    action: Create,
     analysis: RashomonAnalysis,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate ID format
@@ -814,20 +906,16 @@ fn validate_create_rashomon_analysis(
     // Validate perspective confidences are in range
     for perspective in &analysis.perspectives {
         if perspective.confidence < 0.0 || perspective.confidence > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!(
-                    "Perspective confidence for {} must be 0.0-1.0",
-                    perspective.harmony
-                ),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Perspective confidence for {} must be 0.0-1.0",
+                perspective.harmony
+            )));
         }
         if perspective.relevance < 0.0 || perspective.relevance > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!(
-                    "Perspective relevance for {} must be 0.0-1.0",
-                    perspective.harmony
-                ),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Perspective relevance for {} must be 0.0-1.0",
+                perspective.harmony
+            )));
         }
     }
 
@@ -841,9 +929,10 @@ fn validate_create_rashomon_analysis(
     // Validate dissent divergence values
     for dissent in &analysis.preserved_dissents {
         if dissent.divergence < 0.0 || dissent.divergence > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("Dissent divergence for {} must be 0.0-1.0", dissent.harmony),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Dissent divergence for {} must be 0.0-1.0",
+                dissent.harmony
+            )));
         }
     }
 
@@ -854,11 +943,22 @@ fn validate_create_rashomon_analysis(
         ));
     }
 
+    // Author-binding: the coordinator's analyze_with_rashomon already
+    // derives `analyzer` from agent_info(), so this is belt-and-suspenders
+    // against a modified coordinator forging a victim's DID as analyzer.
+    // Found + fixed 2026-07-09 during the P0 author-binding pass.
+    let expected_analyzer_did = format!("did:mycelix:{}", action.author);
+    if analysis.analyzer != expected_analyzer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Analyzer DID must correspond to the committing agent".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_dark_spot(
-    _action: Create,
+    action: Create,
     dark_spot: DarkSpot,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate ID format
@@ -896,6 +996,18 @@ fn validate_create_dark_spot(
         ));
     }
 
+    // Author-binding: the coordinator's publish_dark_spot already derives
+    // `publisher` from agent_info() (it isn't part of PublishDarkSpotInput
+    // at all), so this is belt-and-suspenders against a modified
+    // coordinator forging a victim's DID as publisher. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let expected_publisher_did = format!("did:mycelix:{}", action.author);
+    if dark_spot.publisher != expected_publisher_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dark spot publisher DID must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate initial status is Active
     if dark_spot.status != DarkSpotStatus::Active {
         return Ok(ValidateCallbackResult::Invalid(
@@ -903,11 +1015,96 @@ fn validate_create_dark_spot(
         ));
     }
 
+    // A freshly created dark spot cannot already claim a resolver/resolution
+    if dark_spot.resolver.is_some()
+        || dark_spot.resolution.is_some()
+        || dark_spot.resolved_at.is_some()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New dark spots cannot have resolution fields set".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate dark spot resolution updates.
+///
+/// Unlike other entries in this zome, DarkSpot has a real, intentional
+/// cross-agent update flow: the coordinator's resolve_dark_spot lets a
+/// DIFFERENT agent than the original publisher resolve someone else's
+/// ignorance record (collective resolution is the whole point of the Dark
+/// Spot DHT). So this does NOT require author == original author -- instead
+/// it enforces content immutability on the core fields and binds the NEW
+/// `resolver` field to whoever is actually committing this update.
+fn validate_update_dark_spot(
+    action: Update,
+    dark_spot: DarkSpot,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: DarkSpot = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original dark spot not found".into()
+        )))?;
+
+    // Immutable core fields
+    if dark_spot.id != original.id
+        || dark_spot.query != original.query
+        || dark_spot.ignorance_type != original.ignorance_type
+        || dark_spot.domain != original.domain
+        || dark_spot.zk_signature != original.zk_signature
+        || dark_spot.publisher != original.publisher
+        || dark_spot.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dark spot core fields cannot be changed on resolution".into(),
+        ));
+    }
+
+    // Only valid transition: Active -> Resolved (or a no-op same-status update)
+    let valid_transition = match (&original.status, &dark_spot.status) {
+        (DarkSpotStatus::Active, DarkSpotStatus::Resolved) => true,
+        (a, b) if a == b => true,
+        _ => false,
+    };
+    if !valid_transition {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid dark spot status transition from {:?} to {:?}",
+            original.status, dark_spot.status
+        )));
+    }
+
+    // A resolution must set resolver/resolution/resolved_at together
+    if dark_spot.status == DarkSpotStatus::Resolved {
+        if dark_spot.resolution.is_none() || dark_spot.resolved_at.is_none() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Resolving a dark spot requires resolution and resolved_at".into(),
+            ));
+        }
+        // Resolver must be freshly bound to whoever is committing THIS
+        // update -- once set it's immutable (checked below).
+        if original.resolver.is_none() {
+            let expected_resolver_did = format!("did:mycelix:{}", action.author);
+            if dark_spot.resolver.as_deref() != Some(expected_resolver_did.as_str()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Dark spot resolver DID must correspond to the committing agent".into(),
+                ));
+            }
+        } else if dark_spot.resolver != original.resolver {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Dark spot resolver cannot be changed once set".into(),
+            ));
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_harmonic_alignment(
-    _action: Create,
+    action: Create,
     alignment: HarmonicAlignment,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate ID format
@@ -928,9 +1125,10 @@ fn validate_create_harmonic_alignment(
     for harmony in Harmony::all() {
         let score = alignment.harmony_scores.get(harmony);
         if score < 0.0 || score > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("Harmony score for {} must be 0.0-1.0", harmony),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Harmony score for {} must be 0.0-1.0",
+                harmony
+            )));
         }
     }
 
@@ -945,6 +1143,17 @@ fn validate_create_harmonic_alignment(
     if alignment.assessor.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Assessor agent required".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's assess_harmonic_alignment already
+    // derives `assessor` from agent_info(), so this is belt-and-suspenders
+    // against a modified coordinator forging a victim's DID as assessor.
+    // Found + fixed 2026-07-09 during the P0 author-binding pass.
+    let expected_assessor_did = format!("did:mycelix:{}", action.author);
+    if alignment.assessor != expected_assessor_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Assessor DID must correspond to the committing agent".into(),
         ));
     }
 
@@ -1033,13 +1242,28 @@ mod harmony_tests {
 
     #[test]
     fn test_harmony_epistemic_modes() {
-        assert_eq!(Harmony::ResonantCoherence.epistemic_mode(), "Integration-Knowing");
-        assert_eq!(Harmony::PanSentientFlourishing.epistemic_mode(), "Care-Knowing");
+        assert_eq!(
+            Harmony::ResonantCoherence.epistemic_mode(),
+            "Integration-Knowing"
+        );
+        assert_eq!(
+            Harmony::PanSentientFlourishing.epistemic_mode(),
+            "Care-Knowing"
+        );
         assert_eq!(Harmony::IntegralWisdom.epistemic_mode(), "Truth-Knowing");
         assert_eq!(Harmony::InfinitePlay.epistemic_mode(), "Play-Knowing");
-        assert_eq!(Harmony::UniversalInterconnectedness.epistemic_mode(), "Web-Knowing");
-        assert_eq!(Harmony::SacredReciprocity.epistemic_mode(), "Exchange-Knowing");
-        assert_eq!(Harmony::EvolutionaryProgression.epistemic_mode(), "Growth-Knowing");
+        assert_eq!(
+            Harmony::UniversalInterconnectedness.epistemic_mode(),
+            "Web-Knowing"
+        );
+        assert_eq!(
+            Harmony::SacredReciprocity.epistemic_mode(),
+            "Exchange-Knowing"
+        );
+        assert_eq!(
+            Harmony::EvolutionaryProgression.epistemic_mode(),
+            "Growth-Knowing"
+        );
     }
 
     #[test]
@@ -1051,7 +1275,10 @@ mod harmony_tests {
 
     #[test]
     fn test_harmony_display() {
-        assert_eq!(format!("{}", Harmony::PanSentientFlourishing), "Pan-Sentient Flourishing");
+        assert_eq!(
+            format!("{}", Harmony::PanSentientFlourishing),
+            "Pan-Sentient Flourishing"
+        );
         assert_eq!(format!("{}", Harmony::IntegralWisdom), "Integral Wisdom");
     }
 }
@@ -1123,7 +1350,7 @@ mod perspective_tests {
     fn test_harmonic_perspective_new() {
         let perspective = HarmonicPerspective::new(
             Harmony::IntegralWisdom,
-            "Truth-seeking perspective on the matter"
+            "Truth-seeking perspective on the matter",
         );
         assert_eq!(perspective.harmony, Harmony::IntegralWisdom);
         assert!(perspective.content.contains("Truth-seeking"));
@@ -1139,7 +1366,10 @@ mod dark_spot_tests {
     #[test]
     fn test_dark_spot_status_values() {
         assert_ne!(DarkSpotStatus::Active, DarkSpotStatus::Resolved);
-        assert_ne!(DarkSpotStatus::ResolutionInProgress, DarkSpotStatus::Expired);
+        assert_ne!(
+            DarkSpotStatus::ResolutionInProgress,
+            DarkSpotStatus::Expired
+        );
         assert_ne!(DarkSpotStatus::Impossible, DarkSpotStatus::Active);
     }
 }
@@ -1173,23 +1403,30 @@ mod workflow_tests {
     fn test_rashomon_synthesis_workflow() {
         let mut perspectives = Vec::new();
 
-        for harmony in &[Harmony::PanSentientFlourishing, Harmony::IntegralWisdom, Harmony::SacredReciprocity] {
+        for harmony in &[
+            Harmony::PanSentientFlourishing,
+            Harmony::IntegralWisdom,
+            Harmony::SacredReciprocity,
+        ] {
             let mut perspective = HarmonicPerspective::new(
                 *harmony,
-                &format!("{} perspective on the situation", harmony)
+                &format!("{} perspective on the situation", harmony),
             );
             perspective.relevance = 0.8;
             perspective.confidence = 0.7;
             perspectives.push(perspective);
         }
 
-        let avg_confidence: f64 = perspectives.iter().map(|p| p.confidence).sum::<f64>()
-            / perspectives.len() as f64;
-        let avg_relevance: f64 = perspectives.iter().map(|p| p.relevance).sum::<f64>()
-            / perspectives.len() as f64;
+        let avg_confidence: f64 =
+            perspectives.iter().map(|p| p.confidence).sum::<f64>() / perspectives.len() as f64;
+        let avg_relevance: f64 =
+            perspectives.iter().map(|p| p.relevance).sum::<f64>() / perspectives.len() as f64;
         let synthesis_confidence = (avg_confidence * 0.6 + avg_relevance * 0.4).min(1.0);
 
-        assert!(synthesis_confidence > 0.7, "Synthesis confidence should be high");
+        assert!(
+            synthesis_confidence > 0.7,
+            "Synthesis confidence should be high"
+        );
     }
 
     #[test]
@@ -1250,5 +1487,204 @@ mod edge_case_tests {
         let scores = HarmonicScores::new();
         let misalignments = scores.misalignments(0.6);
         assert_eq!(misalignments.len(), 7);
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn create_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn update_action(author: AgentPubKey, original_action_address: ActionHash) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address,
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_classification(classifier: String) -> GisClassification {
+        GisClassification {
+            id: "gis-1".into(),
+            claim_id: "claim-1".into(),
+            query: "is X true?".into(),
+            ignorance_type: IgnoranceType::KnownUnknown,
+            uncertainty: Uncertainty3D::new(0.3, 0.3, 0.3),
+            domain: QueryDomain::Physics,
+            eig: 0.5,
+            dark_spot_published: false,
+            dark_spot_signature: None,
+            classified_at: Timestamp::from_micros(0),
+            classifier,
+        }
+    }
+
+    #[test]
+    fn create_gis_classification_valid_when_classifier_matches_committer() {
+        let c = valid_classification(format!("did:mycelix:{}", me()));
+        let result = validate_create_gis_classification(create_action(me()), c).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_gis_classification_forgery_rejected() {
+        let c = valid_classification(format!("did:mycelix:{}", me()));
+        let result = validate_create_gis_classification(create_action(other_agent()), c).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_rashomon(analyzer: String) -> RashomonAnalysis {
+        RashomonAnalysis {
+            id: "rashomon-1".into(),
+            claim_id: "claim-1".into(),
+            situation: "a situation".into(),
+            domain: QueryDomain::Physics,
+            perspectives: vec![HarmonicPerspective {
+                harmony: Harmony::IntegralWisdom,
+                content: "perspective".into(),
+                insights: vec![],
+                concerns: vec![],
+                confidence: 0.7,
+                relevance: 0.7,
+            }],
+            unified_view: "unified".into(),
+            agreements: vec![],
+            preserved_dissents: vec![],
+            synthesis_confidence: 0.7,
+            n3_triggered: false,
+            analyzed_at: Timestamp::from_micros(0),
+            analyzer,
+        }
+    }
+
+    #[test]
+    fn create_rashomon_valid_when_analyzer_matches_committer() {
+        let a = valid_rashomon(format!("did:mycelix:{}", me()));
+        let result = validate_create_rashomon_analysis(create_action(me()), a).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_rashomon_forgery_rejected() {
+        let a = valid_rashomon(format!("did:mycelix:{}", me()));
+        let result = validate_create_rashomon_analysis(create_action(other_agent()), a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_dark_spot(publisher: String) -> DarkSpot {
+        DarkSpot {
+            id: "darkspot-1".into(),
+            query: "unknown thing".into(),
+            ignorance_type: IgnoranceType::UnknownUnknown,
+            domain: QueryDomain::Physics,
+            eig: 0.5,
+            zk_signature: "sig".into(),
+            status: DarkSpotStatus::Active,
+            resolution: None,
+            resolver: None,
+            created_at: Timestamp::from_micros(0),
+            resolved_at: None,
+            publisher,
+        }
+    }
+
+    #[test]
+    fn create_dark_spot_valid_when_publisher_matches_committer() {
+        let d = valid_dark_spot(format!("did:mycelix:{}", me()));
+        let result = validate_create_dark_spot(create_action(me()), d).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_dark_spot_publisher_forgery_rejected() {
+        let d = valid_dark_spot(format!("did:mycelix:{}", me()));
+        let result = validate_create_dark_spot(create_action(other_agent()), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_dark_spot_rejects_preset_resolution_fields() {
+        let mut d = valid_dark_spot(format!("did:mycelix:{}", me()));
+        d.resolver = Some(format!("did:mycelix:{}", me()));
+        let result = validate_create_dark_spot(create_action(me()), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_alignment(assessor: String) -> HarmonicAlignment {
+        HarmonicAlignment {
+            id: "align-1".into(),
+            subject: "did:mycelix:subject".into(),
+            subject_type: AlignmentSubjectType::Agent,
+            harmony_scores: HarmonicScores::new(),
+            overall_alignment: 0.6,
+            primary_harmony: Harmony::IntegralWisdom,
+            misalignments: vec![],
+            assessed_at: Timestamp::from_micros(0),
+            assessor,
+        }
+    }
+
+    #[test]
+    fn create_alignment_valid_when_assessor_matches_committer() {
+        let a = valid_alignment(format!("did:mycelix:{}", me()));
+        let result = validate_create_harmonic_alignment(create_action(me()), a).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_alignment_forgery_rejected() {
+        let a = valid_alignment(format!("did:mycelix:{}", me()));
+        let result = validate_create_harmonic_alignment(create_action(other_agent()), a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_knowledge_query_update() {
+        let query = KnowledgeQuery {
+            id: "q-1".into(),
+            query_type: KnowledgeQueryType::VerifyClaim,
+            source_happ: "mycelix-praxis".into(),
+            parameters: "{}".into(),
+            queried_at: Timestamp::from_micros(0),
+        };
+        let result = validate_update_entry_type(
+            update_action(me(), ActionHash::from_raw_36(vec![9u8; 36])),
+            EntryTypes::KnowledgeQuery(query),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

@@ -20,6 +20,17 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Create a relationship between two claims
 #[hdk_extern]
 pub fn create_relationship(relationship: Relationship) -> ExternResult<Record> {
+    // Derive creator from the caller rather than trusting the input
+    // struct's `creator` field -- otherwise any agent could create a
+    // relationship claiming an arbitrary victim DID as its creator. Found
+    // + fixed 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let creator = format!("did:mycelix:{}", caller);
+    let relationship = Relationship {
+        creator,
+        ..relationship
+    };
+
     let action_hash = create_entry(&EntryTypes::Relationship(relationship.clone()))?;
 
     // Create anchors and links for source claim
@@ -159,6 +170,17 @@ pub struct FindPathInput {
 /// Create an ontology
 #[hdk_extern]
 pub fn create_ontology(ontology: Ontology) -> ExternResult<Record> {
+    // Derive creator from the caller rather than trusting the input
+    // struct's `creator` field -- otherwise any agent could create an
+    // ontology claiming an arbitrary victim DID as its creator. Found +
+    // fixed 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let creator = format!("did:mycelix:{}", caller);
+    let ontology = Ontology {
+        creator,
+        ..ontology
+    };
+
     let action_hash = create_entry(&EntryTypes::Ontology(ontology))?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(

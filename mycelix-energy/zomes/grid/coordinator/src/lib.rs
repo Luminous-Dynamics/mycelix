@@ -11,7 +11,7 @@ use mycelix_energy_shared::batch::{filter_records_by, links_to_records};
 use mycelix_zome_helpers as _;
 
 #[hdk_extern]
-#[sovereign_gated(basic)]
+#[sovereign_gated(basic, "energy_bridge")]
 pub fn record_production(input: RecordProductionInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let production = EnergyProduction {
@@ -45,6 +45,46 @@ pub struct RecordProductionInput {
     pub meter_reading: Option<f64>,
 }
 
+/// Seconds per day, for bucketing offer-creation timestamps into daily
+/// shards. See `day_bucket`.
+const SECONDS_PER_DAY: i64 = 86_400;
+
+/// How many days of shards `get_active_offers` scans backward from today.
+/// Bounds the read cost to a fixed number of anchors regardless of how many
+/// offers have EVER been created -- the actual DHT-hotspot fix. Offers
+/// created further back than this are no longer discoverable via
+/// `get_active_offers` (they've long since expired via `available_until`
+/// in any realistic marketplace; this crate has no explicit archival path
+/// for offers open longer than this window).
+const OFFER_ANCHOR_LOOKBACK_DAYS: i64 = 30;
+
+/// Which day-bucket a timestamp falls into (days since the Unix epoch,
+/// UTC). Pure and unit-testable -- no HDK host calls.
+fn day_bucket(timestamp: Timestamp) -> i64 {
+    timestamp
+        .as_micros()
+        .div_euclid(SECONDS_PER_DAY * 1_000_000)
+}
+
+/// The topic-sharded, time-boxed anchor key for a given day-bucket. Linking
+/// every offer ever created to one static "active_energy_offers" anchor
+/// (the prior scheme) is exactly the DHT hotspot anti-pattern: one node
+/// ends up holding links for the marketplace's entire history. Sharding by
+/// creation day bounds each anchor's link count to roughly one day's worth
+/// of offers.
+fn offer_anchor_key(bucket: i64) -> String {
+    format!("active_energy_offers:{bucket}")
+}
+
+/// The list of day-bucket anchor keys `get_active_offers` scans, from
+/// `lookback_days` ago through today (inclusive). Pure and unit-testable.
+fn offer_anchor_keys_for_lookback(now: Timestamp, lookback_days: i64) -> Vec<String> {
+    let today = day_bucket(now);
+    ((today - lookback_days)..=today)
+        .map(offer_anchor_key)
+        .collect()
+}
+
 #[hdk_extern]
 pub fn create_trade_offer(input: CreateOfferInput) -> ExternResult<Record> {
     let now = sys_time()?;
@@ -68,7 +108,7 @@ pub fn create_trade_offer(input: CreateOfferInput) -> ExternResult<Record> {
         LinkTypes::SellerToOffers,
         (),
     )?;
-    let anchor = anchor_hash("active_energy_offers")?;
+    let anchor = anchor_hash(&offer_anchor_key(day_bucket(now)))?;
     create_link(anchor, action_hash.clone(), LinkTypes::ActiveOffers, ())?;
     get(action_hash, GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Not found".into())))
@@ -85,6 +125,13 @@ pub struct CreateOfferInput {
     pub available_until: Timestamp,
 }
 
+/// Whether a trade offer's availability window still covers `now`. Pure and
+/// unit-testable — no Holochain host calls, unlike `sys_time()` at the call
+/// sites.
+fn offer_not_expired(offer: &TradeOffer, now: Timestamp) -> bool {
+    offer.available_until >= now
+}
+
 #[hdk_extern]
 pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
     let filter = ChainQueryFilter::new()
@@ -96,6 +143,11 @@ pub fn execute_trade(input: ExecuteTradeInput) -> ExternResult<Record> {
         if let Some(offer) = record.entry().to_app_option::<TradeOffer>().ok().flatten() {
             if offer.id == input.offer_id && offer.status == OfferStatus::Active {
                 let now = sys_time()?;
+                if !offer_not_expired(&offer, now) {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Offer has expired".into()
+                    )));
+                }
                 let total_price = input.amount_kwh * offer.price_per_kwh;
 
                 let trade = Trade {
@@ -163,18 +215,113 @@ pub struct ExecuteTradeInput {
 /// Get all active trade offers
 ///
 /// OPTIMIZED: Uses batch query to avoid N+1 pattern
+///
+/// Expiry is enforced here on read rather than by mutating stored offers:
+/// only an offer's own seller agent can `update_entry` it in Holochain, so a
+/// getter called by any peer cannot durably transition someone else's offer
+/// to `Expired`. Offers past `available_until` are therefore excluded from
+/// the active set even though their persisted status still reads
+/// Active/PartiallyFilled.
+///
+/// Offers are linked from `OFFER_ANCHOR_LOOKBACK_DAYS`+1 daily-sharded
+/// anchors (see `offer_anchor_key`) rather than one global anchor, so this
+/// scans a fixed, bounded number of anchors regardless of how many offers
+/// have ever been created -- the DHT-hotspot fix per this repo's own
+/// scalability rules (topic/time-sharded anchors, never a "list of all X").
 #[hdk_extern]
 pub fn get_active_offers(_: ()) -> ExternResult<Vec<Record>> {
-    let anchor = anchor_hash("active_energy_offers")?;
-    let links = get_links(
-        LinkQuery::try_new(anchor, LinkTypes::ActiveOffers)?,
-        GetStrategy::default(),
-    )?;
-    // FIXED N+1: Batch fetch all records, then filter
-    let all_records = links_to_records(links)?;
+    let now = sys_time()?;
+    let mut all_records = Vec::new();
+    for key in offer_anchor_keys_for_lookback(now, OFFER_ANCHOR_LOOKBACK_DAYS) {
+        let anchor = anchor_hash(&key)?;
+        let links = get_links(
+            LinkQuery::try_new(anchor, LinkTypes::ActiveOffers)?,
+            GetStrategy::default(),
+        )?;
+        // FIXED N+1: Batch fetch all records per shard, then filter
+        all_records.extend(links_to_records(links)?);
+    }
     Ok(filter_records_by::<TradeOffer, _>(&all_records, |offer| {
-        offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled
+        (offer.status == OfferStatus::Active || offer.status == OfferStatus::PartiallyFilled)
+            && offer_not_expired(offer, now)
     }))
+}
+
+/// Micro-units per whole SAP/TEND, matching the display convention used
+/// throughout the finance cluster's frontend (`amount as f64 / 1_000_000.0`
+/// -- see e.g. `mycelix-finance/apps/leptos/src/pages/profile.rs`).
+const SAP_MICRO_UNITS_PER_UNIT: f64 = 1_000_000.0;
+
+/// Whether `currency` has a real settlement rail in this system --
+/// `payments::send_payment` only accepts "SAP" or "TEND". Pure and
+/// unit-testable (no HDK host calls), unlike `settle_via_finance` itself.
+fn currency_has_real_settlement_rail(currency: &str) -> bool {
+    currency == "SAP" || currency == "TEND"
+}
+
+/// Convert a whole-unit SAP/TEND amount (as stored in `Trade::total_price`)
+/// to the micro-unit integer `payments::send_payment` expects. Pure and
+/// unit-testable.
+fn whole_units_to_micro(whole_units: f64) -> u64 {
+    (whole_units * SAP_MICRO_UNITS_PER_UNIT).round() as u64
+}
+
+/// Attempt real settlement via the finance cluster's payment rail.
+///
+/// Only SAP and TEND can be settled this way -- they're the only
+/// currencies `payments::send_payment` accepts (`mycelix-finance/zomes/
+/// payments/coordinator/src/lib.rs`). P2P grid trades denominated in
+/// fiat-like currencies (USD, EUR, etc. -- used throughout this crate's
+/// existing tests and offer data) have no real settlement rail anywhere
+/// in this system; those fall back to the caller-supplied manual
+/// `payment_reference`, exactly as `settle_trade` behaved before this
+/// change.
+///
+/// Note: `send_payment` internally requires the CALLING agent's key to
+/// match `from_did` (`verify_caller_is_did`), so real settlement only
+/// succeeds when the buyer's own agent calls `settle_trade` -- this is
+/// the correct authorization boundary (a payer must authorize their own
+/// payment), not a bug to route around.
+///
+/// Returns `Some(payment_reference)` on a successful real payment, `None`
+/// if the currency isn't SAP/TEND or the finance cluster call fails --
+/// the caller falls back to the manual reference in either case.
+fn settle_via_finance(trade: &Trade) -> Option<String> {
+    if !currency_has_real_settlement_rail(&trade.currency) {
+        return None;
+    }
+    let micro_amount = whole_units_to_micro(trade.total_price);
+
+    #[derive(Serialize, Debug)]
+    struct SendPaymentPayload {
+        from_did: String,
+        to_did: String,
+        amount: u64,
+        currency: String,
+        payment_type: String,
+        memo: Option<String>,
+    }
+
+    match call(
+        CallTargetCell::OtherRole("finance".into()),
+        ZomeName::from("payments"),
+        FunctionName::from("send_payment"),
+        None,
+        SendPaymentPayload {
+            from_did: trade.buyer_did.clone(),
+            to_did: trade.seller_did.clone(),
+            amount: micro_amount,
+            currency: trade.currency.clone(),
+            payment_type: "Direct".to_string(),
+            memo: Some(format!("grid trade settlement: {}", trade.id)),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result
+            .decode::<Record>()
+            .ok()
+            .map(|record| format!("payments:{}", record.action_address())),
+        _ => None,
+    }
 }
 
 #[hdk_extern]
@@ -187,9 +334,11 @@ pub fn settle_trade(input: SettleTradeInput) -> ExternResult<Record> {
     for record in query(filter)? {
         if let Some(trade) = record.entry().to_app_option::<Trade>().ok().flatten() {
             if trade.id == input.trade_id {
+                let payment_reference =
+                    settle_via_finance(&trade).unwrap_or(input.payment_reference);
                 let settled_trade = Trade {
                     settled: true,
-                    payment_reference: Some(input.payment_reference),
+                    payment_reference: Some(payment_reference),
                     ..trade
                 };
                 let action_hash = update_entry(
@@ -262,9 +411,88 @@ pub fn get_offer_trades(offer_id: String) -> ExternResult<Vec<Record>> {
     links_to_records(links)
 }
 
+/// Wire-compatible mirror of `mycelix-identity`'s `trust_credential::TrustTier`
+/// (a local copy, not a shared-crate import, matching the same
+/// cross-hApp-call convention used by `settle_via_finance` -- separately
+/// deployable hApps don't share Rust types across a `call()` boundary,
+/// only the serde wire shape). Variant names and their absence of
+/// associated data must stay in sync with the real enum in
+/// `mycelix-identity/zomes/trust_credential/integrity/src/lib.rs`.
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq)]
+enum TrustTier {
+    Observer,
+    Basic,
+    Standard,
+    Elevated,
+    Guardian,
+}
+
+/// Parse a `did:mycelix:<agent_pub_key>` DID into its `AgentPubKey`, using
+/// the exact same convention `mycelix-identity`'s own `did_registry::resolve_did`
+/// uses (`did_registry/coordinator/src/lib.rs`) -- so this can be done
+/// locally, no cross-cluster call needed for this step. Returns `None` for
+/// any DID that isn't a real, well-formed mycelix DID (including this
+/// crate's own test-data placeholders like "did:mycelix:verifier1").
+fn agent_pub_key_from_did(did: &str) -> Option<AgentPubKey> {
+    let agent_str = did.strip_prefix("did:mycelix:")?;
+    AgentPubKey::try_from(agent_str).ok()
+}
+
+/// Minimum trust tier required to verify energy-production records.
+/// "Standard" (trust_credential's own doc comment: score >= 0.4, "can vote
+/// on major proposals") is a defensible, if tunable, policy choice: a
+/// meter-verifier attesting real-world kWh production for a P2P energy
+/// marketplace is a comparable trust responsibility to that tier's
+/// existing bar, not a rubber stamp (Observer/Basic) but also not
+/// requiring full governance rights (Guardian).
+fn tier_meets_verification_threshold(tier: TrustTier) -> bool {
+    matches!(
+        tier,
+        TrustTier::Standard | TrustTier::Elevated | TrustTier::Guardian
+    )
+}
+
+/// Look up a verifier's trust tier from the identity cluster's
+/// `trust_credential` zome (the real, DNA-registered credentialing zome --
+/// `web_of_trust`'s `get_trust_score` exists as source but is NOT wired
+/// into `mycelix-identity`'s actual `dna.yaml`, so it can't be called
+/// cross-cluster today). Returns `None` if the DID doesn't parse or the
+/// cross-cluster call fails.
+fn verifier_trust_tier(verifier_did: &str) -> Option<TrustTier> {
+    let agent = agent_pub_key_from_did(verifier_did)?;
+    match call(
+        CallTargetCell::OtherRole("identity".into()),
+        ZomeName::from("trust_credential"),
+        FunctionName::from("get_agent_trust_level"),
+        None,
+        agent,
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<TrustTier>().ok(),
+        _ => None,
+    }
+}
+
 /// Verify energy production (by verifier)
+///
+/// Previously an unauthenticated bool flip: any caller passing ANY
+/// `verifier_did` string could mark ANY production record verified,
+/// regardless of whether that DID belonged to a real, trusted identity.
+/// Now requires the claimed verifier to hold a real `trust_credential` at
+/// or above `tier_meets_verification_threshold` -- trust-weighted
+/// verification, not simple existence, per this repo's own DHT scalability
+/// rules (see feedback_dht_scalability_traps.md's "Translation Verification"
+/// section).
 #[hdk_extern]
 pub fn verify_production(input: VerifyProductionInput) -> ExternResult<Record> {
+    let trust_tier = verifier_trust_tier(&input.verifier_did);
+    if !trust_tier.is_some_and(tier_meets_verification_threshold) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verifier {} does not hold a trust credential meeting the tier required \
+             to verify production records (tier: {:?})",
+            input.verifier_did, trust_tier
+        ))));
+    }
+
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::EnergyProduction,
@@ -301,6 +529,220 @@ pub fn verify_production(input: VerifyProductionInput) -> ExternResult<Record> {
 pub struct VerifyProductionInput {
     pub production_id: String,
     pub verifier_did: String,
+}
+
+/// Wire-compatible partial mirror of `projects::EnergyProject` (a different
+/// Rust crate -- `grid` and `projects` are separate zome crates within the
+/// same energy hApp, and even same-hApp cross-zome calls go through
+/// serde/ExternIO, not shared Rust types). Only `project_type` is needed
+/// here. Holochain's entry serialization uses MessagePack struct-as-map
+/// (`with_struct_map()` in `holochain_serialized_bytes`), so a partial
+/// struct safely ignores the real type's many other fields rather than
+/// requiring an exact field-for-field mirror (map-based formats tolerate
+/// unknown keys; this would NOT be safe for a positional/array-based format).
+#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
+struct EnergyProjectTypeOnly {
+    project_type: ProjectType,
+}
+
+/// Wire-compatible mirror of `projects`' own `ProjectType` enum. Variant
+/// names and shapes (all fieldless except `Other`) must stay in sync with
+/// `mycelix-energy/zomes/projects/integrity/src/lib.rs`.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+enum ProjectType {
+    Solar,
+    Wind,
+    Hydro,
+    Nuclear,
+    Geothermal,
+    BatteryStorage,
+    PumpedHydro,
+    Hydrogen,
+    Biomass,
+    Other(String),
+}
+
+/// Whether a project type represents genuine renewable generation eligible
+/// for carbon-credit issuance. Nuclear is zero-carbon but deliberately
+/// excluded -- it is not renewable. BatteryStorage is storage, not
+/// generation. Hydrogen and Other are excluded because they don't carry an
+/// unambiguous displaced-fossil-fuel story (grey/blue/green hydrogen have
+/// very different real emissions profiles; "Other" is arbitrary).
+fn project_type_is_renewable_eligible(project_type: &ProjectType) -> bool {
+    matches!(
+        project_type,
+        ProjectType::Solar
+            | ProjectType::Wind
+            | ProjectType::Hydro
+            | ProjectType::Geothermal
+            | ProjectType::PumpedHydro
+            | ProjectType::Biomass
+    )
+}
+
+/// Illustrative default grid emission factor used to estimate avoided
+/// emissions from verified renewable generation, kg CO2e per kWh. This is a
+/// clearly-labeled DEFAULT approximating commonly-cited global grid
+/// averages, NOT a precise regional figure -- real deployments should use
+/// the actual emission factor for the project's interconnection region
+/// (e.g. eGRID subregion data, already vendored as a dataset in
+/// sol-atlas/terra-atlas-mvp/data/egrid2022.xlsx per this repo's own reuse
+/// map for this plan).
+const ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH: f64 = 0.4;
+
+/// Estimated tonnes of CO2e avoided by `amount_kwh` of verified renewable
+/// generation, using `ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH`.
+fn kwh_to_tonnes_co2e_avoided(amount_kwh: f64) -> f64 {
+    amount_kwh * ILLUSTRATIVE_GRID_EMISSION_FACTOR_KG_CO2_PER_KWH / 1000.0
+}
+
+/// Approximate calendar year for a production timestamp, for carbon-credit
+/// vintage labeling. Uses a 365.25-day average year length rather than
+/// exact calendar/leap-year arithmetic -- adequate for a REC-style vintage
+/// label (which conventionally tolerates being off by one near a Dec
+/// 31/Jan 1 boundary) but NOT a general-purpose date library replacement.
+fn approximate_vintage_year(timestamp: Timestamp) -> u32 {
+    const MICROS_PER_YEAR: f64 = 365.25 * 24.0 * 3600.0 * 1_000_000.0;
+    let years_since_epoch = timestamp.as_micros() as f64 / MICROS_PER_YEAR;
+    (1970.0 + years_since_epoch).floor() as u32
+}
+
+/// Issue a renewable-energy carbon credit for a verified `EnergyProduction`
+/// record.
+///
+/// Deliberately a separate extern from `verify_production` rather than an
+/// automatic side effect of verification: crediting is an economically
+/// consequential, auditable action that callers should trigger explicitly,
+/// not something that happens invisibly the moment a verifier signs off.
+///
+/// Requires: the production record is already verified (via the
+/// credentialed path in `verify_production`), and its linked project's type
+/// is renewable-eligible (`project_type_is_renewable_eligible`) -- checked
+/// via a real local cross-zome call to `projects::get_project`, not
+/// assumed. Issues the credit via a real cross-cluster call to
+/// `climate::carbon::create_carbon_credit`.
+#[hdk_extern]
+pub fn issue_renewable_carbon_credit(
+    input: IssueCarbonCreditInput,
+) -> ExternResult<CarbonCreditIssuance> {
+    let filter = ChainQueryFilter::new()
+        .entry_type(EntryType::App(AppEntryDef::try_from(
+            UnitEntryTypes::EnergyProduction,
+        )?))
+        .include_entries(true);
+
+    let production = query(filter)?
+        .into_iter()
+        .find_map(|record| {
+            record
+                .entry()
+                .to_app_option::<EnergyProduction>()
+                .ok()
+                .flatten()
+                .filter(|p| p.id == input.production_id)
+        })
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Production record not found".into())))?;
+
+    if !production.verified {
+        return Ok(CarbonCreditIssuance {
+            issued: false,
+            reason: Some("Production record is not verified".into()),
+            credit_id: None,
+        });
+    }
+
+    let project_record = match call(
+        CallTargetCell::Local,
+        ZomeName::from("projects"),
+        FunctionName::from("get_project"),
+        None,
+        production.project_id.clone(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().ok().flatten(),
+        _ => None,
+    };
+    let project_type = project_record.and_then(|record| {
+        record
+            .entry()
+            .to_app_option::<EnergyProjectTypeOnly>()
+            .ok()
+            .flatten()
+            .map(|p| p.project_type)
+    });
+    let Some(project_type) = project_type else {
+        return Ok(CarbonCreditIssuance {
+            issued: false,
+            reason: Some(format!(
+                "Could not resolve project {} to determine renewable eligibility",
+                production.project_id
+            )),
+            credit_id: None,
+        });
+    };
+    if !project_type_is_renewable_eligible(&project_type) {
+        return Ok(CarbonCreditIssuance {
+            issued: false,
+            reason: Some(format!(
+                "Project type {project_type:?} is not renewable-eligible for carbon-credit issuance"
+            )),
+            credit_id: None,
+        });
+    }
+
+    let tonnes_co2e = kwh_to_tonnes_co2e_avoided(production.amount_kwh);
+    let vintage_year = approximate_vintage_year(production.timestamp);
+    let credit_id = format!("credit:{}:{}", production.id, sys_time()?.as_micros());
+
+    #[derive(Serialize, Debug)]
+    struct CreateCreditPayload {
+        id: String,
+        project_id: String,
+        vintage_year: u32,
+        tonnes_co2e: f64,
+        owner_did: String,
+    }
+
+    match call(
+        CallTargetCell::OtherRole("climate".into()),
+        ZomeName::from("carbon"),
+        FunctionName::from("create_carbon_credit"),
+        None,
+        CreateCreditPayload {
+            id: credit_id.clone(),
+            project_id: production.project_id.clone(),
+            vintage_year,
+            tonnes_co2e,
+            owner_did: production.producer_did.clone(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => Ok(CarbonCreditIssuance {
+            issued: true,
+            reason: None,
+            credit_id: Some(credit_id),
+        }),
+        Ok(other) => Ok(CarbonCreditIssuance {
+            issued: false,
+            reason: Some(format!("Climate cluster returned: {other:?}")),
+            credit_id: None,
+        }),
+        Err(e) => Ok(CarbonCreditIssuance {
+            issued: false,
+            reason: Some(format!("Climate cluster unreachable: {e:?}")),
+            credit_id: None,
+        }),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IssueCarbonCreditInput {
+    pub production_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CarbonCreditIssuance {
+    pub issued: bool,
+    pub reason: Option<String>,
+    pub credit_id: Option<String>,
 }
 
 /// Cancel a trade offer (seller only, only if active)
@@ -709,6 +1151,156 @@ mod tests {
     }
 
     // =========================================================================
+    // Offer Expiry Tests (offer_not_expired)
+    // =========================================================================
+
+    fn offer_with_until(available_until: Timestamp) -> TradeOffer {
+        TradeOffer {
+            id: "offer:did:mycelix:seller1:123456789".to_string(),
+            seller_did: "did:mycelix:seller1".to_string(),
+            project_id: None,
+            amount_kwh: 100.0,
+            price_per_kwh: 0.1,
+            currency: "USD".to_string(),
+            available_from: create_test_timestamp(),
+            available_until,
+            status: OfferStatus::Active,
+            created: create_test_timestamp(),
+        }
+    }
+
+    #[test]
+    fn test_offer_not_expired_before_deadline() {
+        let offer = offer_with_until(Timestamp::from_micros(2_000_000_000_000));
+        let now = Timestamp::from_micros(1_000_000_000_000);
+        assert!(offer_not_expired(&offer, now));
+    }
+
+    #[test]
+    fn test_offer_not_expired_after_deadline() {
+        let offer = offer_with_until(Timestamp::from_micros(1_000_000_000_000));
+        let now = Timestamp::from_micros(2_000_000_000_000);
+        assert!(!offer_not_expired(&offer, now));
+    }
+
+    #[test]
+    fn test_offer_not_expired_exactly_at_deadline() {
+        // available_until >= now is inclusive: the deadline instant itself
+        // still counts as available.
+        let t = Timestamp::from_micros(1_500_000_000_000);
+        let offer = offer_with_until(t);
+        assert!(offer_not_expired(&offer, t));
+    }
+
+    // =========================================================================
+    // Renewable Carbon Credit Tests (project_type_is_renewable_eligible,
+    // kwh_to_tonnes_co2e_avoided, approximate_vintage_year) -- pure helpers,
+    // no HDK host calls.
+    // =========================================================================
+
+    #[test]
+    fn test_renewable_project_types_are_eligible() {
+        for pt in [
+            ProjectType::Solar,
+            ProjectType::Wind,
+            ProjectType::Hydro,
+            ProjectType::Geothermal,
+            ProjectType::PumpedHydro,
+            ProjectType::Biomass,
+        ] {
+            assert!(
+                project_type_is_renewable_eligible(&pt),
+                "{pt:?} should be renewable-eligible"
+            );
+        }
+    }
+
+    #[test]
+    fn test_non_renewable_project_types_are_not_eligible() {
+        // Nuclear is zero-carbon but not renewable -- deliberately excluded,
+        // not an oversight.
+        for pt in [
+            ProjectType::Nuclear,
+            ProjectType::BatteryStorage,
+            ProjectType::Hydrogen,
+            ProjectType::Other("coal".to_string()),
+        ] {
+            assert!(
+                !project_type_is_renewable_eligible(&pt),
+                "{pt:?} should NOT be renewable-eligible"
+            );
+        }
+    }
+
+    #[test]
+    fn test_kwh_to_tonnes_co2e_avoided_matches_hand_computation() {
+        // 1000 kWh * 0.4 kg/kWh = 400 kg = 0.4 tonnes
+        assert!((kwh_to_tonnes_co2e_avoided(1000.0) - 0.4).abs() < 1e-9);
+        assert_eq!(kwh_to_tonnes_co2e_avoided(0.0), 0.0);
+    }
+
+    #[test]
+    fn test_approximate_vintage_year_at_epoch() {
+        assert_eq!(approximate_vintage_year(Timestamp::from_micros(0)), 1970);
+    }
+
+    #[test]
+    fn test_approximate_vintage_year_ten_years_later() {
+        let ten_years_micros = (365.25 * 24.0 * 3600.0 * 1_000_000.0 * 10.0) as i64;
+        assert_eq!(
+            approximate_vintage_year(Timestamp::from_micros(ten_years_micros)),
+            1980
+        );
+    }
+
+    // =========================================================================
+    // Sharded Offer Anchor Tests (day_bucket, offer_anchor_key,
+    // offer_anchor_keys_for_lookback) -- pure helpers, no HDK host calls.
+    // =========================================================================
+
+    const MICROS_PER_DAY: i64 = 86_400_000_000;
+
+    #[test]
+    fn test_day_bucket_same_day_same_bucket() {
+        let start_of_day_5 = Timestamp::from_micros(MICROS_PER_DAY * 5);
+        let one_hour_into_day_5 = Timestamp::from_micros(MICROS_PER_DAY * 5 + 3_600_000_000);
+        assert_eq!(day_bucket(start_of_day_5), day_bucket(one_hour_into_day_5));
+        assert_eq!(day_bucket(start_of_day_5), 5);
+    }
+
+    #[test]
+    fn test_day_bucket_different_days_different_buckets() {
+        let day_5 = Timestamp::from_micros(MICROS_PER_DAY * 5);
+        let day_6 = Timestamp::from_micros(MICROS_PER_DAY * 6);
+        assert_ne!(day_bucket(day_5), day_bucket(day_6));
+        assert_eq!(day_bucket(day_6), 6);
+    }
+
+    #[test]
+    fn test_offer_anchor_key_format() {
+        assert_eq!(offer_anchor_key(5), "active_energy_offers:5");
+        assert_eq!(offer_anchor_key(0), "active_energy_offers:0");
+    }
+
+    #[test]
+    fn test_lookback_window_is_bounded_and_spans_expected_range() {
+        let now = Timestamp::from_micros(MICROS_PER_DAY * 100);
+        let keys = offer_anchor_keys_for_lookback(now, 30);
+        // Bounded: exactly lookback_days + 1 anchors, regardless of how
+        // long the marketplace has existed -- the actual hotspot fix.
+        assert_eq!(keys.len(), 31);
+        assert_eq!(keys.first().unwrap(), &offer_anchor_key(70));
+        assert_eq!(keys.last().unwrap(), &offer_anchor_key(100));
+    }
+
+    #[test]
+    fn test_lookback_window_zero_days_returns_only_today() {
+        let now = Timestamp::from_micros(MICROS_PER_DAY * 100);
+        let keys = offer_anchor_keys_for_lookback(now, 0);
+        assert_eq!(keys, vec![offer_anchor_key(100)]);
+    }
+
+    // =========================================================================
     // ExecuteTradeInput Tests
     // =========================================================================
 
@@ -764,6 +1356,43 @@ mod tests {
         assert!(!input.payment_reference.is_empty());
     }
 
+    // =========================================================================
+    // Real-settlement gating tests (currency_has_real_settlement_rail,
+    // whole_units_to_micro) -- pure helpers, no HDK host calls needed.
+    // =========================================================================
+
+    #[test]
+    fn test_sap_and_tend_have_real_settlement_rail() {
+        assert!(currency_has_real_settlement_rail("SAP"));
+        assert!(currency_has_real_settlement_rail("TEND"));
+    }
+
+    #[test]
+    fn test_fiat_like_currencies_have_no_real_settlement_rail() {
+        for currency in ["USD", "EUR", "GBP", "SOLAR", ""] {
+            assert!(
+                !currency_has_real_settlement_rail(currency),
+                "{currency} should not have a real settlement rail"
+            );
+        }
+    }
+
+    #[test]
+    fn test_whole_units_to_micro_matches_finance_frontend_convention() {
+        // Inverse of the display conversion used throughout
+        // mycelix-finance's frontend (amount as f64 / 1_000_000.0).
+        assert_eq!(whole_units_to_micro(1.0), 1_000_000);
+        assert_eq!(whole_units_to_micro(0.5), 500_000);
+        assert_eq!(whole_units_to_micro(123.45), 123_450_000);
+    }
+
+    #[test]
+    fn test_whole_units_to_micro_rounds_rather_than_truncates() {
+        // 0.1234565 * 1_000_000 = 123456.5 -- must round to the nearest
+        // integer micro-unit, not silently truncate and lose a fraction.
+        assert_eq!(whole_units_to_micro(0.1234565), 123_457);
+    }
+
     #[test]
     fn test_settle_trade_input_various_payment_refs() {
         let payment_refs = vec![
@@ -798,6 +1427,53 @@ mod tests {
         let input = valid_verify_production_input();
         assert!(!input.production_id.is_empty());
         assert!(input.verifier_did.starts_with("did:"));
+    }
+
+    // =========================================================================
+    // Credentialed Verifier Tests (agent_pub_key_from_did,
+    // tier_meets_verification_threshold) -- pure helpers, no HDK host calls.
+    // =========================================================================
+
+    #[test]
+    fn test_agent_pub_key_from_did_round_trips_a_real_agent_pub_key() {
+        // Genuine round-trip, not a hardcoded magic string: construct a real
+        // AgentPubKey, format it into a DID the same way trust_credential's
+        // get_agent_trust_level does (format!("did:mycelix:{}", agent)), then
+        // confirm parsing it back recovers the identical key.
+        //
+        // Must use from_raw_32 (which computes and appends the correct
+        // 4-byte DHT-location checksum), not from_raw_36 (which stores 36
+        // raw bytes as-is, including an arbitrary/incorrect location
+        // segment) -- HoloHash's TryFrom<&str> re-validates that checksum
+        // on decode, so a from_raw_36 key's Display output doesn't actually
+        // round-trip back through parsing, only a from_raw_32 key's does.
+        let agent = AgentPubKey::from_raw_32(vec![7u8; 32]);
+        let did = format!("did:mycelix:{agent}");
+        assert_eq!(agent_pub_key_from_did(&did), Some(agent));
+    }
+
+    #[test]
+    fn test_agent_pub_key_from_did_rejects_missing_prefix() {
+        assert_eq!(agent_pub_key_from_did("mycelix:verifier1"), None);
+    }
+
+    #[test]
+    fn test_agent_pub_key_from_did_rejects_non_pubkey_suffix() {
+        // This crate's own existing test data (valid_verify_production_input,
+        // valid_create_offer_input, etc.) uses placeholder DIDs like
+        // "did:mycelix:verifier1" -- not real encoded AgentPubKeys. Those
+        // must fail to parse (and therefore fail credentialed verification),
+        // which is the correct, intended behavior now.
+        assert_eq!(agent_pub_key_from_did("did:mycelix:verifier1"), None);
+    }
+
+    #[test]
+    fn test_tier_meets_verification_threshold() {
+        assert!(!tier_meets_verification_threshold(TrustTier::Observer));
+        assert!(!tier_meets_verification_threshold(TrustTier::Basic));
+        assert!(tier_meets_verification_threshold(TrustTier::Standard));
+        assert!(tier_meets_verification_threshold(TrustTier::Elevated));
+        assert!(tier_meets_verification_threshold(TrustTier::Guardian));
     }
 
     // =========================================================================

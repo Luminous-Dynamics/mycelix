@@ -385,17 +385,19 @@ pub fn create_revocation_list(input: CreateRevocationListInput) -> ExternResult<
             "List ID must be 1-256 characters".into()
         )));
     }
-    if input.issuer_did.is_empty() || !input.issuer_did.starts_with("did:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Issuer must be a valid DID".into()
-        )));
-    }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could create a revocation list claiming to be another agent's
+    // issuer identity (P0 author-binding gap; integrity validation now
+    // enforces this too, see revocation integrity's
+    // validate_create_revocation_list).
+    let issuer_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
 
     let now = sys_time()?;
 
     let list = RevocationList {
         id: input.id.clone(),
-        issuer: input.issuer_did.clone(),
+        issuer: issuer_did.clone(),
         revoked: Vec::new(),
         updated: now,
         version: 1,
@@ -404,7 +406,7 @@ pub fn create_revocation_list(input: CreateRevocationListInput) -> ExternResult<
     let action_hash = create_entry(&EntryTypes::RevocationList(list))?;
 
     // Link issuer to their revocation list
-    let issuer_hash = string_to_entry_hash(&input.issuer_did);
+    let issuer_hash = string_to_entry_hash(&issuer_did);
     create_link(
         issuer_hash,
         action_hash.clone(),
@@ -429,6 +431,8 @@ pub fn create_revocation_list(input: CreateRevocationListInput) -> ExternResult<
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateRevocationListInput {
     pub id: String,
+    /// Deliberately ignored -- issuer identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub issuer_did: String,
 }
 
@@ -655,7 +659,7 @@ fn add_to_revocation_list(
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "Revocation list '{}' not found",
                 list_id
-            ))))
+            ))));
         }
     };
 

@@ -87,8 +87,35 @@ pub enum LinkTypes {
 
 // ── Pure Validation Functions ────────────────────────────────────────
 
+/// Enforce that a `user_did` field is the committing agent's own DID. Pure
+/// so it can be unit-tested without a full action. Applies to CREATE for
+/// both UsageReceipt and UsageAttestation: both are always submitted by the
+/// user about their own usage (no on-behalf-of path in the coordinator), so
+/// binding unconditionally never rejects a legitimate creation.
+///
+/// NOTE (found, not yet fixed here): `validate_update_usage_attestation`'s
+/// dispatch in `validate()` below unconditionally returns `Valid` for ANY
+/// UsageAttestation update -- not just author, but ANY field, including
+/// `verified`/`verifier_pubkey`/`verifier_signature` (the coordinator's own
+/// `verify_usage_attestation` comment admits this: "the coordinator enforces
+/// that only verified/verifier fields change", i.e. the real check lives
+/// only in the bypassable coordinator). A correct fix needs
+/// `must_get_action(original_action_hash)` to compare the update's author
+/// against the ORIGINAL create's author, which needs a live DHT/conductor
+/// to unit-test properly (a sweettest, not a pure fn) -- left as a flagged
+/// follow-up rather than landing an unverified must_get-based change.
+fn require_user_is_author(user_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if user_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "user_did must be the committing agent (usage forgery). \
+             Expected '{author_did}', got '{user_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 pub fn validate_create_usage_receipt(
-    _action: Create,
+    action: Create,
     receipt: UsageReceipt,
 ) -> ExternResult<ValidateCallbackResult> {
     if receipt.id.is_empty() {
@@ -106,6 +133,12 @@ pub fn validate_create_usage_receipt(
             "user_did must start with 'did:'".into(),
         ));
     }
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_user_is_author(&receipt.user_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     if let Some(ref ctx) = receipt.context {
         if ctx.len() > 1000 {
             return Ok(ValidateCallbackResult::Invalid(
@@ -117,7 +150,7 @@ pub fn validate_create_usage_receipt(
 }
 
 pub fn validate_create_usage_attestation(
-    _action: Create,
+    action: Create,
     att: UsageAttestation,
 ) -> ExternResult<ValidateCallbackResult> {
     if att.id.is_empty() {
@@ -134,6 +167,11 @@ pub fn validate_create_usage_attestation(
         return Ok(ValidateCallbackResult::Invalid(
             "user_did must start with 'did:'".into(),
         ));
+    }
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_user_is_author(&att.user_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     if att.witness_commitment.len() != 32 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -246,7 +284,7 @@ mod tests {
     fn test_action() -> Create {
         Create {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -259,17 +297,25 @@ mod tests {
         }
     }
 
+    /// The DID that matches `test_action()`'s author -- valid_receipt() and
+    /// valid_attestation() use this so the new author-binding check passes
+    /// for the "otherwise valid" baseline case; forgery tests explicitly use
+    /// a DIFFERENT DID instead.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", test_action().author)
+    }
+
     fn valid_receipt() -> UsageReceipt {
         UsageReceipt {
             id: "usage-001".into(),
             dependency_id: "crate:serde:1.0".into(),
-            user_did: "did:mycelix:user123".into(),
+            user_did: test_author_did(),
             organization: Some("Acme Corp".into()),
             usage_type: UsageType::Production,
             scale: Some(UsageScale::Enterprise),
             version_range: Some(">=1.0.200".into()),
             context: Some("Core serialization layer".into()),
-            attested_at: Timestamp::now(),
+            attested_at: Timestamp::from_micros(0),
         }
     }
 
@@ -277,11 +323,11 @@ mod tests {
         UsageAttestation {
             id: "attest-001".into(),
             dependency_id: "crate:serde:1.0".into(),
-            user_did: "did:mycelix:user123".into(),
+            user_did: test_author_did(),
             witness_commitment: vec![0xAB; 32],
             proof_bytes: vec![0x01; 128],
             verified: false,
-            generated_at: Timestamp::now(),
+            generated_at: Timestamp::from_micros(0),
             expires_at: None,
             verifier_pubkey: None,
             verifier_signature: None,
@@ -512,7 +558,7 @@ mod tests {
     #[test]
     fn test_attestation_with_expiry_valid() {
         let mut a = valid_attestation();
-        a.expires_at = Some(Timestamp::now());
+        a.expires_at = Some(Timestamp::from_micros(0));
         let result = validate_create_usage_attestation(test_action(), a).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -556,5 +602,42 @@ mod tests {
         a.proof_bytes = vec![0x01];
         let result = validate_create_usage_attestation(test_action(), a).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    // ── Author-binding (P0) tests ────────────────────────────────────
+
+    #[test]
+    fn test_usage_receipt_forgery_rejected() {
+        // The P0 case: an agent commits a usage receipt claiming a
+        // DIFFERENT user_did than their own -- must be rejected (usage
+        // forgery / false adoption metrics).
+        let mut r = valid_receipt();
+        r.user_did = "did:mycelix:someone-else-entirely".into();
+        let result = validate_create_usage_receipt(test_action(), r).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_usage_attestation_forgery_rejected() {
+        // Same forgery check for attestations: user_did must match the
+        // committing agent.
+        let mut a = valid_attestation();
+        a.user_did = "did:mycelix:someone-else-entirely".into();
+        let result = validate_create_usage_attestation(test_action(), a).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_user_is_author_helper() {
+        let me = "did:mycelix:uhCAkSELF";
+        let victim = "did:mycelix:uhCAkVICTIM";
+        assert!(matches!(
+            require_user_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            require_user_is_author(victim, me),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 }

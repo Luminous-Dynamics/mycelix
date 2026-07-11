@@ -277,6 +277,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate hApp registration creation
+///
+/// No author-binding possible: HappRegistration has no self-declared
+/// owner/creator AgentPubKey or DID field -- it's an announcement that any
+/// agent can publish about an hApp cluster. Reviewed 2026-07-08 during the
+/// P0 author-binding pass; case (a), nothing to bind against.
 fn validate_create_happ_registration(
     _action: EntryCreationAction,
     registration: HappRegistration,
@@ -306,6 +311,11 @@ fn validate_create_happ_registration(
 }
 
 /// Validate hApp registration update
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `original.action().author() == action.author` for every entry type), so
+/// this function only needs to check content invariants, not identity.
 fn validate_update_happ_registration(
     action: Update,
     registration: HappRegistration,
@@ -342,6 +352,15 @@ fn validate_update_happ_registration(
 }
 
 /// Validate identity query creation
+///
+/// No author-binding possible: `did` names the DID being LOOKED UP (a third
+/// party), not the committer -- this is an audit-trail record of a lookup,
+/// not a self-declared identity claim. `source_happ` is a free-text label,
+/// not an agent-comparable identity, and can't be bound to action.author()
+/// either (see the report_reputation forgery note on
+/// validate_create_identity_reputation below for why that class of gap is
+/// architecturally different from simple author-binding). Reviewed
+/// 2026-07-08 during the P0 author-binding pass; case (b).
 fn validate_create_identity_query(
     _action: EntryCreationAction,
     query: IdentityQuery,
@@ -364,6 +383,21 @@ fn validate_create_identity_query(
 }
 
 /// Validate identity verification creation
+///
+/// No author-binding possible: `did` names the DID being verified (a third
+/// party), not the committer. This is a computed/cached result — the
+/// coordinator's `query_identity` derives `is_valid`/`matl_score`/
+/// `credential_count` from cross-zome lookups (did_registry, mfa,
+/// verifiable_credential) at call time. A malicious coordinator running on
+/// an attacker's own conductor could forge this entry's *contents* wholesale
+/// (e.g. claim `is_valid: true, matl_score: 1.0` for any DID) without
+/// running the real computation at all -- but that's a content-integrity
+/// problem the HDI validate() callback can't practically re-derive (it would
+/// require re-executing cross-zome calls during validation, which is
+/// unreliable across validating authorities). Same architectural class as
+/// the report_reputation forgery gap on validate_create_identity_reputation
+/// below. Reviewed 2026-07-08 during the P0 author-binding pass; flagged as
+/// a known limitation, not fixed here.
 fn validate_create_identity_verification(
     _action: EntryCreationAction,
     verification: IdentityVerification,
@@ -386,6 +420,12 @@ fn validate_create_identity_verification(
 }
 
 /// Validate bridge event creation
+///
+/// No author-binding possible: `subject` names the DID/agent the event is
+/// ABOUT (e.g. "this DID was created/deactivated"), not necessarily the
+/// committer -- these are notifications published by whichever local zome
+/// witnessed the underlying action, not self-attestations. Reviewed
+/// 2026-07-08 during the P0 author-binding pass; case (b).
 fn validate_create_bridge_event(
     _action: EntryCreationAction,
     event: BridgeEvent,
@@ -408,6 +448,26 @@ fn validate_create_bridge_event(
 }
 
 /// Validate identity reputation creation
+///
+/// KNOWN GAP, not fixable by simple author-binding (found 2026-07-08 during
+/// the P0 pass): the coordinator's `report_reputation` takes `did`,
+/// `source_happ`, `score`, and `interactions` entirely from caller input
+/// with zero derivation from `agent_info()` -- any agent can call it
+/// claiming to BE any `source_happ` (e.g. "mycelix-finance") reporting an
+/// arbitrary score/interaction count for any victim DID, and
+/// `get_aggregated_reputation`/`get_moral_resonance_score` fold these
+/// straight into a DID's computed MATL/resonance score. Unlike the
+/// self-declared-identity forgeries fixed elsewhere this pass (trust
+/// attestations, MFA state, DIDs), `source_happ` is a free-text hApp-name
+/// label, not an agent-comparable AgentPubKey/DID -- and because
+/// CallTargetCell::OtherRole cross-DNA calls within one hApp bundle all
+/// share the SAME agent key, action.author() can't distinguish "a call
+/// legitimately routed through mycelix-finance's own bridge zome" from "an
+/// arbitrary agent calling report_reputation directly." A real fix needs
+/// call-provenance / capability-grant infrastructure, not a field binding --
+/// same class of gap as mycelix-justice's Arbitration/Judgment needing
+/// must_get juror-authorization (see MASTER_ROADMAP.md P0 #1). Out of scope
+/// for this pass; flagging for a dedicated follow-up.
 fn validate_create_identity_reputation(
     _action: EntryCreationAction,
     reputation: IdentityReputation,
@@ -437,6 +497,13 @@ fn validate_create_identity_reputation(
 }
 
 /// Validate identity reputation update
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `original.action().author() == action.author` for every entry type).
+/// Note this does NOT close the create-path forgery gap documented on
+/// validate_create_identity_reputation above -- it only stops a DIFFERENT
+/// agent from hijacking an update to someone else's already-forged entry.
 fn validate_update_identity_reputation(
     action: Update,
     reputation: IdentityReputation,

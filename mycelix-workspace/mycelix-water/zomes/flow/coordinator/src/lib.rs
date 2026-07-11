@@ -31,7 +31,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 /// Register a new water source
 #[hdk_extern]
-pub fn register_source(source: WaterSource) -> ExternResult<Record> {
+pub fn register_source(mut source: WaterSource) -> ExternResult<Record> {
     if source.id.is_empty() || source.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Source ID must be 1-256 characters".into()
@@ -42,6 +42,12 @@ pub fn register_source(source: WaterSource) -> ExternResult<Record> {
             "Source name must be 1-256 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could register a source claiming another agent as steward (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // flow integrity's validate_create_water_source).
+    source.steward = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::WaterSource(source.clone()))?;
 

@@ -8,19 +8,33 @@
 
 use hdk::prelude::*;
 use justice_cases_integrity::*;
-use mycelix_bridge_common::{civic_requirement_proposal, GovernanceEligibility};
+use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_proposal};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
+
+/// Derives the caller's DID from the real committing agent (never trust a
+/// caller-supplied "acting agent" field). Found + fixed 2026-07-10 during
+/// the P0 author-binding pass: this coordinator previously took the whole
+/// entry (including `complainant`/`submitter`/`mediator`) verbatim from
+/// caller input, so anyone could file/act as anyone. Matches the pattern
+/// in `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
 
 /// File a new case
 
 #[hdk_extern]
-pub fn file_case(case: Case) -> ExternResult<Record> {
+pub fn file_case(mut case: Case) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_proposal(),
         "file_case",
     )?;
+
+    // Author-binding: the filer is always the committing agent.
+    case.complainant = my_did()?;
 
     let action_hash = create_entry(&EntryTypes::Case(case.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
@@ -164,12 +178,15 @@ pub struct AddPartyInput {
 
 /// Submit evidence for a case
 #[hdk_extern]
-pub fn submit_evidence(evidence: Evidence) -> ExternResult<Record> {
+pub fn submit_evidence(mut evidence: Evidence) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_proposal(),
         "submit_evidence",
     )?;
+
+    // Author-binding: the submitter is always the committing agent.
+    evidence.submitter = my_did()?;
 
     let action_hash = create_entry(&EntryTypes::Evidence(evidence.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
@@ -211,7 +228,10 @@ pub fn get_case_evidence(case_id: String) -> ExternResult<Vec<Record>> {
 
 /// Initiate mediation for a case
 #[hdk_extern]
-pub fn initiate_mediation(mediation: Mediation) -> ExternResult<Record> {
+pub fn initiate_mediation(mut mediation: Mediation) -> ExternResult<Record> {
+    // Author-binding: the mediator is always the committing agent.
+    mediation.mediator = my_did()?;
+
     let action_hash = create_entry(&EntryTypes::Mediation(mediation.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not get created mediation".into())

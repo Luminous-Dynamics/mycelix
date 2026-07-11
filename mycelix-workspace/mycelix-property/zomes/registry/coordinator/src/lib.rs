@@ -15,12 +15,17 @@ fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
 #[hdk_extern]
 pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could register a property claiming another agent as owner (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // registry integrity's validate_create_property).
+    let owner_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let property = Property {
-        id: format!("property:{}:{}", input.owner_did, now.as_micros()),
+        id: format!("property:{}:{}", owner_did, now.as_micros()),
         property_type: input.property_type,
         title: input.title,
         description: input.description,
-        owner_did: input.owner_did.clone(),
+        owner_did: owner_did.clone(),
         co_owners: input.co_owners,
         geolocation: input.geolocation.clone(),
         address: input.address,
@@ -31,7 +36,7 @@ pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::Property(property.clone()))?;
     create_link(
-        anchor_hash(&input.owner_did)?,
+        anchor_hash(&owner_did)?,
         action_hash.clone(),
         LinkTypes::OwnerToProperties,
         (),
@@ -56,7 +61,7 @@ pub fn register_property(input: RegisterPropertyInput) -> ExternResult<Record> {
     let deed = TitleDeed {
         id: format!("deed:{}:{}", property.id, now.as_micros()),
         property_id: property.id,
-        owner_did: input.owner_did,
+        owner_did,
         deed_type: DeedType::Original,
         issued: now,
         previous_deed_id: None,
@@ -79,6 +84,11 @@ pub struct RegisterPropertyInput {
     pub property_type: PropertyType,
     pub title: String,
     pub description: String,
+    /// Deliberately ignored by register_property -- owner_did is always
+    /// derived from the committing agent (P0 author-binding fix), never
+    /// trusted from caller input. Kept on the struct so existing clients
+    /// (sdk-ts PropertyClient) that still send this field don't break
+    /// deserialization.
     pub owner_did: String,
     pub co_owners: Vec<CoOwner>,
     pub geolocation: Option<GeoLocation>,
@@ -230,6 +240,11 @@ pub fn get_property_deeds(property_id: String) -> ExternResult<Vec<Record>> {
 /// Update property metadata
 #[hdk_extern]
 pub fn update_property_metadata(input: UpdateMetadataInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could pass someone else's DID as requester_did and edit a
+    // property they don't own (P0 author-binding gap; integrity validation
+    // now enforces this too, see registry integrity's validate_update_property).
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -240,7 +255,7 @@ pub fn update_property_metadata(input: UpdateMetadataInput) -> ExternResult<Reco
         if let Some(property) = record.entry().to_app_option::<Property>().ok().flatten() {
             if property.id == input.property_id {
                 // Only owner can update
-                if property.owner_did != input.requester_did {
+                if property.owner_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only owner can update metadata".into()
                     )));
@@ -267,6 +282,8 @@ pub fn update_property_metadata(input: UpdateMetadataInput) -> ExternResult<Reco
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateMetadataInput {
     pub property_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
     pub metadata: PropertyMetadata,
 }
@@ -338,6 +355,9 @@ pub fn get_properties_by_type(property_type: PropertyType) -> ExternResult<Vec<R
 /// Add a co-owner to property
 #[hdk_extern]
 pub fn add_co_owner(input: AddCoOwnerInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as update_property_metadata above.
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -348,7 +368,7 @@ pub fn add_co_owner(input: AddCoOwnerInput) -> ExternResult<Record> {
         if let Some(property) = record.entry().to_app_option::<Property>().ok().flatten() {
             if property.id == input.property_id {
                 // Only owner can add co-owners
-                if property.owner_did != input.requester_did {
+                if property.owner_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only owner can add co-owners".into()
                     )));
@@ -387,6 +407,8 @@ pub fn add_co_owner(input: AddCoOwnerInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddCoOwnerInput {
     pub property_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
     pub co_owner: CoOwner,
 }
@@ -394,6 +416,9 @@ pub struct AddCoOwnerInput {
 /// Remove a co-owner from property
 #[hdk_extern]
 pub fn remove_co_owner(input: RemoveCoOwnerInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as update_property_metadata above.
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Property,
@@ -404,7 +429,7 @@ pub fn remove_co_owner(input: RemoveCoOwnerInput) -> ExternResult<Record> {
         if let Some(property) = record.entry().to_app_option::<Property>().ok().flatten() {
             if property.id == input.property_id {
                 // Only owner can remove co-owners
-                if property.owner_did != input.requester_did {
+                if property.owner_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only owner can remove co-owners".into()
                     )));
@@ -438,6 +463,8 @@ pub fn remove_co_owner(input: RemoveCoOwnerInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RemoveCoOwnerInput {
     pub property_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
     pub co_owner_did: String,
 }
@@ -496,6 +523,11 @@ pub fn has_clear_title(property_id: String) -> ExternResult<bool> {
 #[hdk_extern]
 pub fn transfer_ownership(input: TransferOwnershipInput) -> ExternResult<TransferOwnershipResult> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could pass someone else's DID as from_did and transfer away
+    // property they don't own (P0 author-binding gap; integrity validation
+    // now enforces this too, see registry integrity's validate_update_property).
+    let from_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
 
     // 1. Get the current property
     let property_record = get_property(input.property_id.clone())?.ok_or(wasm_error!(
@@ -511,10 +543,10 @@ pub fn transfer_ownership(input: TransferOwnershipInput) -> ExternResult<Transfe
         )))?;
 
     // 2. Verify the current owner matches from_did
-    if property.owner_did != input.from_did {
+    if property.owner_did != from_did {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Current owner {} does not match from_did {}",
-            property.owner_did, input.from_did
+            property.owner_did, from_did
         ))));
     }
 
@@ -593,6 +625,8 @@ pub fn transfer_ownership(input: TransferOwnershipInput) -> ExternResult<Transfe
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TransferOwnershipInput {
     pub property_id: String,
+    /// Deliberately ignored -- the seller's identity is always derived from
+    /// the committing agent (P0 author-binding fix). Kept for client compat.
     pub from_did: String,
     pub to_did: String,
     /// Transfer type (Sale, Inheritance, Gift, CourtOrder)

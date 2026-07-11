@@ -198,6 +198,10 @@ struct Agent {
     // Tracking
     transactions_today: u32,
     sap_spent_today: f64,
+
+    // Amber: protected demurrage-exempt cap (0.0 = normal SAP). Shelters up to this
+    // many SAP from demurrage — models children/elders/multi-year projects.
+    amber_cap: f64,
 }
 
 impl Agent {
@@ -243,10 +247,12 @@ impl Agent {
     }
 
     fn apply_demurrage(&mut self, base_rate: f64, exempt_floor: f64) -> f64 {
-        if self.sap_balance <= exempt_floor {
+        // Amber shelters up to `amber_cap`, but never less than the universal floor.
+        let floor = exempt_floor.max(self.amber_cap);
+        if self.sap_balance <= floor {
             return 0.0;
         }
-        let eligible = self.sap_balance - exempt_floor;
+        let eligible = self.sap_balance - floor;
         let effective_rate = compute_effective_demurrage(base_rate, self.asset_classes);
         // Daily rate from annual
         let daily_decay = 1.0 - (1.0 - effective_rate).powf(1.0 / 365.0);
@@ -386,6 +392,35 @@ fn percentile(values: &mut [f64], p: f64) -> f64 {
 // SIMULATION
 // ============================================================================
 
+/// Who receives Amber in an experiment. `Low` proxies children/elders (small
+/// balances); `High` is the worst-case arbitrage (whales shelter from demurrage).
+#[derive(Clone, Copy, PartialEq)]
+enum AmberTarget {
+    Random,
+    Low,
+    High,
+}
+
+#[derive(Clone, Copy)]
+struct AmberConfig {
+    /// Fraction of agents granted Amber (0.0 = none).
+    frac: f64,
+    /// Per-agent sheltered SAP cap.
+    cap: f64,
+    target: AmberTarget,
+}
+
+impl AmberConfig {
+    /// No Amber — the baseline / sweep default.
+    fn none() -> Self {
+        Self {
+            frac: 0.0,
+            cap: 0.0,
+            target: AmberTarget::Random,
+        }
+    }
+}
+
 struct Simulation {
     agents: Vec<Agent>,
     day: u32,
@@ -409,7 +444,15 @@ struct Simulation {
 }
 
 impl Simulation {
-    fn new(n_agents: usize, seed: u64, inactive_rate_multiplier: f64, demurrage_rate: f64, jubilee_cycle_days: u32, exempt_floor: f64) -> Self {
+    fn new(
+        n_agents: usize,
+        seed: u64,
+        inactive_rate_multiplier: f64,
+        demurrage_rate: f64,
+        jubilee_cycle_days: u32,
+        exempt_floor: f64,
+        amber: AmberConfig,
+    ) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
         let mut agents = Vec::with_capacity(n_agents);
 
@@ -426,7 +469,7 @@ impl Simulation {
         ];
 
         for i in 0..n_agents {
-            let r: f64 = rng.gen();
+            let r: f64 = rng.r#gen();
             let mut cumulative = 0.0;
             let mut strategy = Strategy::Newcomer;
             for &(s, w) in &strategy_weights {
@@ -521,10 +564,44 @@ impl Simulation {
                 total_slashes: 0,
                 transactions_today: 0,
                 sap_spent_today: 0.0,
+                amber_cap: 0.0,
             };
             agent.update_mycel();
             agent.update_tier();
             agents.push(agent);
+        }
+
+        // Assign Amber to a cohort. `Low` targets the smallest balances (children/
+        // elders proxy); `High` is the worst-case arbitrage (whales shelter); `Random`
+        // is neutral. This is the experiment: does Amber shift SAP inequality, or just
+        // shelter the already-protected (whom the universal floor already covers)?
+        if amber.frac > 0.0 && amber.cap > 0.0 {
+            let n_amber = ((n_agents as f64) * amber.frac).round() as usize;
+            let mut idx: Vec<usize> = (0..n_agents).collect();
+            match amber.target {
+                AmberTarget::Random => {
+                    idx.shuffle(&mut rng);
+                }
+                AmberTarget::Low => {
+                    idx.sort_by(|&a, &b| {
+                        agents[a]
+                            .sap_balance
+                            .partial_cmp(&agents[b].sap_balance)
+                            .unwrap()
+                    });
+                }
+                AmberTarget::High => {
+                    idx.sort_by(|&a, &b| {
+                        agents[b]
+                            .sap_balance
+                            .partial_cmp(&agents[a].sap_balance)
+                            .unwrap()
+                    });
+                }
+            }
+            for &a in idx.iter().take(n_amber) {
+                agents[a].amber_cap = amber.cap;
+            }
         }
 
         Self {
@@ -599,7 +676,8 @@ impl Simulation {
         }
 
         // 7. Jubilee
-        let jubilee_applied = self.jubilee_cycle_days > 0 && self.day > 0 && self.day % self.jubilee_cycle_days == 0;
+        let jubilee_applied =
+            self.jubilee_cycle_days > 0 && self.day > 0 && self.day % self.jubilee_cycle_days == 0;
         if jubilee_applied {
             for agent in &mut self.agents {
                 agent.mycel_score *= JUBILEE_FACTOR;
@@ -645,12 +723,12 @@ impl Simulation {
     fn update_activity(&mut self) {
         for agent in &mut self.agents {
             let inactivity_prob = match agent.strategy {
-                Strategy::FreeRider => 0.05,  // 5% daily → ~82% monthly inactive
+                Strategy::FreeRider => 0.05, // 5% daily → ~82% monthly inactive
                 Strategy::Newcomer => 0.03,
                 Strategy::Saver => 0.01,
                 _ => 0.005,
             };
-            if self.rng.gen::<f64>() < inactivity_prob * self.inactive_rate_multiplier {
+            if self.rng.r#gen::<f64>() < inactivity_prob * self.inactive_rate_multiplier {
                 agent.active = false;
                 agent.days_inactive += 1;
             } else {
@@ -727,10 +805,10 @@ impl Simulation {
 
             // CommunityFirst agents use TEND more
             let should_exchange = match self.agents[i].strategy {
-                Strategy::CommunityFirst => self.rng.gen::<f64>() < 0.3,
-                Strategy::Spender => self.rng.gen::<f64>() < 0.15,
-                Strategy::FreeRider => self.rng.gen::<f64>() < 0.05,
-                _ => self.rng.gen::<f64>() < 0.10,
+                Strategy::CommunityFirst => self.rng.r#gen::<f64>() < 0.3,
+                Strategy::Spender => self.rng.r#gen::<f64>() < 0.15,
+                Strategy::FreeRider => self.rng.r#gen::<f64>() < 0.05,
+                _ => self.rng.r#gen::<f64>() < 0.10,
             };
 
             if !should_exchange {
@@ -785,7 +863,7 @@ impl Simulation {
                 _ => 0.05,
             };
 
-            if self.rng.gen::<f64>() < prob {
+            if self.rng.r#gen::<f64>() < prob {
                 let target = self.rng.gen_range(0..n);
                 if target != i {
                     let weight = self.agents[i].mycel_score * RECOGNITION_BASE_WEIGHT;
@@ -799,8 +877,7 @@ impl Simulation {
             // Accumulate recognition, normalize to [0,1] via diminishing returns
             let current = self.agents[receiver].recognition_received;
             self.agents[receiver].recognition_received = current + weight * 0.1 * (1.0 - current);
-            self.agents[receiver].community =
-                (self.agents[receiver].community + 0.005).min(1.0);
+            self.agents[receiver].community = (self.agents[receiver].community + 0.005).min(1.0);
             self.total_recognitions_today += 1;
         }
     }
@@ -816,7 +893,11 @@ impl Simulation {
 
         // TEND
         let tend_total_abs: i32 = self.agents.iter().map(|a| a.tend_balance.abs()).sum();
-        let tend_limit_sum: i32 = self.agents.iter().map(|a| a.tend_limit(self.metabolic_vitality)).sum();
+        let tend_limit_sum: i32 = self
+            .agents
+            .iter()
+            .map(|a| a.tend_limit(self.metabolic_vitality))
+            .sum();
         let tend_utilization = if tend_limit_sum > 0 {
             tend_total_abs as f64 / tend_limit_sum as f64
         } else {
@@ -890,6 +971,9 @@ fn main() {
     let mut demurrage_rate = DEMURRAGE_RATE;
     let mut jubilee_years = 4u32;
     let mut exempt_floor = 200.0f64; // Reduced from 1000 so demurrage actually affects behavior
+    let mut amber_frac = 0.0f64;
+    let mut amber_cap = 0.0f64;
+    let mut amber_target = AmberTarget::Random;
 
     let mut i = 1;
     while i < args.len() {
@@ -922,6 +1006,22 @@ fn main() {
                 i += 1;
                 exempt_floor = args[i].parse().unwrap_or(200.0);
             }
+            "--amber-frac" => {
+                i += 1;
+                amber_frac = args[i].parse().unwrap_or(0.0);
+            }
+            "--amber-cap" => {
+                i += 1;
+                amber_cap = args[i].parse().unwrap_or(0.0);
+            }
+            "--amber-target" => {
+                i += 1;
+                amber_target = match args[i].as_str() {
+                    "low" => AmberTarget::Low,
+                    "high" => AmberTarget::High,
+                    _ => AmberTarget::Random,
+                };
+            }
             "--help" | "-h" => {
                 eprintln!("Mycelix Multi-Currency Macro Economy Simulation");
                 eprintln!();
@@ -934,8 +1034,15 @@ fn main() {
                 eprintln!("  --seed <N>     Random seed (default: 42)");
                 eprintln!("  --inactive-rate <F>  Inactivity multiplier (default: 1.0, 0=none)");
                 eprintln!("  --demurrage-rate <F> Annual SAP demurrage rate (default: 0.02)");
-                eprintln!("  --jubilee-years <N>  Years between jubilee compression (default: 4, 0=never)");
+                eprintln!(
+                    "  --jubilee-years <N>  Years between jubilee compression (default: 4, 0=never)"
+                );
                 eprintln!("  --exempt-floor <F>   SAP exempt from demurrage (default: 200)");
+                eprintln!("  --amber-frac <F>     Fraction of agents granted Amber (default: 0)");
+                eprintln!("  --amber-cap <F>      Per-agent Amber sheltered SAP cap (default: 0)");
+                eprintln!(
+                    "  --amber-target <T>   Who gets Amber: random|low|high (default: random)"
+                );
                 std::process::exit(0);
             }
             _ => {}
@@ -946,8 +1053,25 @@ fn main() {
     eprintln!("=== Mycelix Macro Economy Simulation ===");
     eprintln!("Agents: {}, Days: {}, Seed: {}", n_agents, n_days, seed);
 
-    let jubilee_days = if jubilee_years == 0 { 0 } else { jubilee_years * 365 };
-    let mut sim = Simulation::new(n_agents, seed, inactive_rate, demurrage_rate, jubilee_days, exempt_floor);
+    let jubilee_days = if jubilee_years == 0 {
+        0
+    } else {
+        jubilee_years * 365
+    };
+    let amber = AmberConfig {
+        frac: amber_frac,
+        cap: amber_cap,
+        target: amber_target,
+    };
+    let mut sim = Simulation::new(
+        n_agents,
+        seed,
+        inactive_rate,
+        demurrage_rate,
+        jubilee_days,
+        exempt_floor,
+        amber,
+    );
 
     // Strategy distribution
     let mut strategy_counts: HashMap<&str, usize> = HashMap::new();
@@ -984,15 +1108,19 @@ fn main() {
     eprintln!("Total SAP: {:.2}", total_sap);
     eprintln!("TEND net imbalance: {} (should be 0)", tend_net);
     eprintln!("MYCEL mean: {:.4}", mycel_mean);
-    eprintln!("Compost pools: local={:.2}, regional={:.2}, global={:.2}",
-        sim.compost_local, sim.compost_regional, sim.compost_global);
+    eprintln!(
+        "Compost pools: local={:.2}, regional={:.2}, global={:.2}",
+        sim.compost_local, sim.compost_regional, sim.compost_global
+    );
 
     let mut tier_counts = [0usize; 5];
     for agent in &sim.agents {
         tier_counts[agent.tier as usize] += 1;
     }
-    eprintln!("Tier distribution: Observer={}, Participant={}, Citizen={}, Steward={}, Guardian={}",
-        tier_counts[0], tier_counts[1], tier_counts[2], tier_counts[3], tier_counts[4]);
+    eprintln!(
+        "Tier distribution: Observer={}, Participant={}, Citizen={}, Steward={}, Guardian={}",
+        tier_counts[0], tier_counts[1], tier_counts[2], tier_counts[3], tier_counts[4]
+    );
 
     // Per-strategy SAP
     eprintln!();
@@ -1001,14 +1129,18 @@ fn main() {
         let agents: Vec<&Agent> = sim.agents.iter().filter(|a| a.strategy == *s).collect();
         if !agents.is_empty() {
             let mean: f64 = agents.iter().map(|a| a.sap_balance).sum::<f64>() / agents.len() as f64;
-            let mycel: f64 = agents.iter().map(|a| a.mycel_score).sum::<f64>() / agents.len() as f64;
+            let mycel: f64 =
+                agents.iter().map(|a| a.mycel_score).sum::<f64>() / agents.len() as f64;
             eprintln!("  {}: SAP={:.2}, MYCEL={:.4}", s.as_str(), mean, mycel);
         }
     }
 
     // Invariant check
     if tend_net != 0 {
-        eprintln!("WARNING: TEND zero-sum invariant VIOLATED (net={})", tend_net);
+        eprintln!(
+            "WARNING: TEND zero-sum invariant VIOLATED (net={})",
+            tend_net
+        );
     } else {
         eprintln!("TEND zero-sum invariant: OK");
     }
@@ -1024,7 +1156,15 @@ mod tests {
 
     #[test]
     fn test_tend_zero_sum() {
-        let mut sim = Simulation::new(200, 42, 1.0, DEMURRAGE_RATE, JUBILEE_CYCLE_DAYS, EXEMPT_FLOOR);
+        let mut sim = Simulation::new(
+            200,
+            42,
+            1.0,
+            DEMURRAGE_RATE,
+            JUBILEE_CYCLE_DAYS,
+            EXEMPT_FLOOR,
+            AmberConfig::none(),
+        );
         for _ in 0..365 {
             sim.step();
         }
@@ -1034,7 +1174,15 @@ mod tests {
 
     #[test]
     fn test_sap_non_negative() {
-        let mut sim = Simulation::new(100, 42, 1.0, DEMURRAGE_RATE, JUBILEE_CYCLE_DAYS, EXEMPT_FLOOR);
+        let mut sim = Simulation::new(
+            100,
+            42,
+            1.0,
+            DEMURRAGE_RATE,
+            JUBILEE_CYCLE_DAYS,
+            EXEMPT_FLOOR,
+            AmberConfig::none(),
+        );
         for _ in 0..365 {
             sim.step();
         }
@@ -1050,7 +1198,15 @@ mod tests {
 
     #[test]
     fn test_mycel_bounded() {
-        let mut sim = Simulation::new(100, 42, 1.0, DEMURRAGE_RATE, JUBILEE_CYCLE_DAYS, EXEMPT_FLOOR);
+        let mut sim = Simulation::new(
+            100,
+            42,
+            1.0,
+            DEMURRAGE_RATE,
+            JUBILEE_CYCLE_DAYS,
+            EXEMPT_FLOOR,
+            AmberConfig::none(),
+        );
         for _ in 0..365 {
             sim.step();
         }
@@ -1068,7 +1224,15 @@ mod tests {
     fn test_tend_within_max_limit() {
         // TEND balances were valid when exchanged but vitality can shift tiers,
         // so we check against the maximum possible limit (EMERGENCY=120).
-        let mut sim = Simulation::new(100, 42, 1.0, DEMURRAGE_RATE, JUBILEE_CYCLE_DAYS, EXEMPT_FLOOR);
+        let mut sim = Simulation::new(
+            100,
+            42,
+            1.0,
+            DEMURRAGE_RATE,
+            JUBILEE_CYCLE_DAYS,
+            EXEMPT_FLOOR,
+            AmberConfig::none(),
+        );
         for _ in 0..365 {
             sim.step();
         }
@@ -1134,7 +1298,15 @@ mod tests {
 
     #[test]
     fn test_jubilee_reduces_mycel() {
-        let mut sim = Simulation::new(50, 42, 1.0, DEMURRAGE_RATE, JUBILEE_CYCLE_DAYS, EXEMPT_FLOOR);
+        let mut sim = Simulation::new(
+            50,
+            42,
+            1.0,
+            DEMURRAGE_RATE,
+            JUBILEE_CYCLE_DAYS,
+            EXEMPT_FLOOR,
+            AmberConfig::none(),
+        );
         // Run to just before jubilee
         for _ in 0..(JUBILEE_CYCLE_DAYS - 1) {
             sim.step();

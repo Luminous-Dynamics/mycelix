@@ -171,9 +171,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate revocation entry creation
 fn validate_create_revocation_entry(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     entry: RevocationEntry,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the revocation to its committer -- revoke_credential/
+    // suspend_credential already derive `issuer` from agent_info()
+    // coordinator-side with zero user input, so this never rejects a
+    // legitimate revocation; it's the real DHT-level enforcement a
+    // modified coordinator could otherwise bypass (P0 author-binding gap).
+    let expected_issuer = format!("did:mycelix:{}", action.author());
+    if entry.issuer != expected_issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revocation entry issuer must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate issuer is a DID
     if !entry.issuer.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -266,9 +278,19 @@ fn validate_update_revocation_entry(
 
 /// Validate revocation list creation
 fn validate_create_revocation_list(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     list: RevocationList,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the list to its committer -- create_revocation_list already
+    // derives `issuer` from agent_info() coordinator-side with zero user
+    // input, same rationale as validate_create_revocation_entry above.
+    let expected_issuer = format!("did:mycelix:{}", action.author());
+    if list.issuer != expected_issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revocation list issuer must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate issuer is a DID
     if !list.issuer.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -468,5 +490,96 @@ mod tests {
         assert_eq!(back.credential_id, "cred-001");
         assert_eq!(back.status, RevocationStatus::Revoked);
         assert_eq!(back.reason, Some("Expired".into()));
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_entry(issuer: String) -> RevocationEntry {
+        RevocationEntry {
+            credential_id: "cred-001".into(),
+            issuer,
+            status: RevocationStatus::Revoked,
+            reason: "Key compromise".into(),
+            effective_from: Timestamp::from_micros(0),
+            recorded_at: Timestamp::from_micros(0),
+            suspension_end: None,
+        }
+    }
+
+    #[test]
+    fn create_entry_valid_when_issuer_matches_committer() {
+        let entry = valid_entry(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_revocation_entry(EntryCreationAction::Create(test_action(me())), entry)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_entry_issuer_forgery_rejected() {
+        let entry = valid_entry(format!("did:mycelix:{}", me()));
+        let result = validate_create_revocation_entry(
+            EntryCreationAction::Create(test_action(other_agent())),
+            entry,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_list(issuer: String) -> RevocationList {
+        RevocationList {
+            id: "list-1".into(),
+            issuer,
+            revoked: vec![],
+            updated: Timestamp::from_micros(0),
+            version: 1,
+        }
+    }
+
+    #[test]
+    fn create_list_valid_when_issuer_matches_committer() {
+        let list = valid_list(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_revocation_list(EntryCreationAction::Create(test_action(me())), list)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_list_issuer_forgery_rejected() {
+        let list = valid_list(format!("did:mycelix:{}", me()));
+        let result = validate_create_revocation_list(
+            EntryCreationAction::Create(test_action(other_agent())),
+            list,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

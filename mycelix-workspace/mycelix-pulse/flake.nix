@@ -35,8 +35,13 @@
 
         holochainPkg = holochain-flake.packages.${system}.holochain;
 
-        # Rust toolchain with wasm target for Holochain DNA compilation
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
+        # truth), not stable.latest, so devShell builds can't silently drift from the pin
+        # and fragment sccache's cache (compiler binary is part of its cache key). Also
+        # reused below by the pulse-smtp-gateway package build.
+        rustToolchainToml = builtins.fromTOML (builtins.readFile ../rust-toolchain.toml);
+        rustChannel = rustToolchainToml.toolchain.channel;
+        rustToolchain = pkgs.rust-bin.stable.${rustChannel}.default.override {
           extensions = [ "rust-src" "rust-analyzer" ];
           targets = [ "wasm32-unknown-unknown" ];
         };
@@ -150,15 +155,15 @@
           # Phase 5A — sovereign SMTP gateway. The library + binary that
           # bridges legacy RFC 5322 mail to the Pulse DHT.
           #
-          # Uses rust-overlay's latest stable toolchain. nixos-24.05's stock
-          # cargo (1.77) is too old for several transitive deps that need
-          # edition2024 (cargo 1.85+). The toolchain bundle exposes
+          # Uses rust-overlay's pinned toolchain (rustChannel, see above).
+          # nixos-24.05's stock cargo (1.77) is too old for several transitive
+          # deps that need edition2024 (cargo 1.85+). The toolchain bundle exposes
           # `cargo` + `rustc` symlinks through one derivation; `makeRustPlatform`
           # accepts both pointing at the same combined toolchain — the
           # cargoSetupHook actually runs `cargo --version` from the bundle's
           # /bin so the bundle wins over the rustPlatform default.
           pulse-smtp-gateway = let
-            rustToolchainForBuild = pkgs.rust-bin.stable.latest.default;
+            rustToolchainForBuild = pkgs.rust-bin.stable.${rustChannel}.default;
           in (pkgs.makeRustPlatform {
             cargo = rustToolchainForBuild;
             rustc = rustToolchainForBuild;

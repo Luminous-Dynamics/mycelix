@@ -20,7 +20,8 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 /// Time credit representing hours of service owed or earned
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct TimeCredit {
     /// Amount in hours (can be fractional)
     pub hours: f64,
@@ -88,7 +89,8 @@ pub enum ServiceCategory {
 }
 
 /// A service offer in the time bank
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct ServiceOffer {
     /// Unique identifier
     pub id: String,
@@ -119,7 +121,8 @@ pub struct ServiceOffer {
 }
 
 /// A service request in the time bank
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct ServiceRequest {
     /// Unique identifier
     pub id: String,
@@ -146,7 +149,8 @@ pub struct ServiceRequest {
 }
 
 /// A completed time exchange
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct TimeExchange {
     /// Unique identifier
     pub id: String,
@@ -190,7 +194,8 @@ pub struct Rating {
 // =============================================================================
 
 /// A mutual credit circle
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct CreditCircle {
     /// Unique identifier
     pub id: String,
@@ -223,7 +228,8 @@ pub struct CreditCircle {
 }
 
 /// Credit line for a member within a circle
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct CreditLine {
     /// Link to the credit circle
     pub circle_hash: ActionHash,
@@ -259,7 +265,8 @@ pub enum CreditLineStatus {
 }
 
 /// A credit transaction within a circle
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct CreditTransaction {
     /// Unique identifier
     pub id: String,
@@ -303,7 +310,8 @@ pub enum TransactionType {
 }
 
 /// Current balance snapshot for a member
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Balance {
     /// Member agent
     pub member: AgentPubKey,
@@ -322,7 +330,8 @@ pub struct Balance {
 // =============================================================================
 
 /// A shared resource (tool, vehicle, space, equipment)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct SharedResource {
     /// Unique identifier
     pub id: String,
@@ -422,7 +431,8 @@ pub struct SharingModel {
 }
 
 /// A booking for a shared resource
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Booking {
     /// Unique identifier
     pub id: String,
@@ -470,7 +480,8 @@ pub enum PaymentMethod {
 }
 
 /// Usage record for tracking resource use
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Usage {
     /// Link to booking
     pub booking_hash: ActionHash,
@@ -489,7 +500,8 @@ pub struct Usage {
 }
 
 /// Maintenance record for shared resources
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Maintenance {
     /// Link to resource
     pub resource_hash: ActionHash,
@@ -527,7 +539,8 @@ pub enum MaintenanceType {
 // =============================================================================
 
 /// A need that a member has
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Need {
     /// Unique identifier
     pub id: String,
@@ -558,7 +571,8 @@ pub struct Need {
 }
 
 /// A offer to give something
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Offer {
     /// Unique identifier
     pub id: String,
@@ -654,7 +668,8 @@ pub enum OfferStatus {
 }
 
 /// A match between a need and an offer
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Match {
     /// Unique identifier
     pub id: String,
@@ -692,7 +707,8 @@ pub enum MatchStatus {
 }
 
 /// Record of a fulfilled match
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
 pub struct Fulfillment {
     /// Link to the match
     pub match_hash: ActionHash,

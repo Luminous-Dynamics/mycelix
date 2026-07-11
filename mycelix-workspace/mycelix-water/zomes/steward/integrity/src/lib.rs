@@ -255,13 +255,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Watershed(ws) => validate_update_watershed(ws, original_action_hash),
-                EntryTypes::WaterRight(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::WaterRight(right) => {
+                    validate_update_water_right(action, right, original_action_hash)
+                }
+                // Deliberately NOT author-bound: resolve_dispute has no
+                // restriction on who may resolve a water dispute today (not
+                // gated to complainant/respondent or any watershed-authority
+                // role) -- same class of gap as mycelix-property's dispute
+                // resolution and purity's alert resolution (see
+                // memory/mycelix_attribution_author_binding_jul8.md).
                 EntryTypes::WaterDispute(_) => Ok(ValidateCallbackResult::Valid),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
@@ -298,6 +306,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_watershed(
+    // No author-binding possible: Watershed has no per-agent identity field
+    // (see validate_update_watershed below for the same note).
     _action: Create,
     ws: Watershed,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -338,6 +348,10 @@ fn validate_create_watershed(
 }
 
 fn validate_update_watershed(
+    // No author-binding here: Watershed has no per-agent identity field at
+    // all (governance is modeled via `stewardship_type`/`governing_body`,
+    // not a single steward AgentPubKey), so there's nothing to bind against
+    // -- same as validate_create_watershed above.
     ws: Watershed,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -358,9 +372,22 @@ fn validate_update_watershed(
 }
 
 fn validate_create_water_right(
-    _action: Create,
+    action: Create,
     right: WaterRight,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the right to its committer -- register_water_right already
+    // derives `holder` from agent_info() coordinator-side with zero user
+    // input. This only stops cross-agent impersonation (Agent A can't
+    // register a right claiming Agent B holds it) -- there's no watershed-
+    // authority check at all in this coordinator, a separate deeper
+    // governance gap (see the coordinator's doc comment on
+    // register_water_right).
+    if right.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water right holder must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if right.volume_authorized_liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Authorized volume must be greater than zero".into(),
@@ -381,10 +408,51 @@ fn validate_create_water_right(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_update_water_right(
+    action: Update,
+    _right: WaterRight,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the update to the PRE-update holder -- transfer_right already
+    // checks `right.holder == caller` coordinator-side (the only path that
+    // updates WaterRight, marking it Transferred on a full transfer), but
+    // this is the real DHT-level enforcement a modified coordinator can't
+    // bypass (P0 author-binding gap).
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_right: WaterRight = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original water right not found".to_string()
+        )))?;
+    if action.author != original_right.holder {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water right update must be committed by its holder".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_right_transfer(
-    _action: Create,
+    action: Create,
     transfer: RightTransfer,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the transfer to its committer -- transfer_right already derives
+    // `from_holder` from agent_info() coordinator-side with zero user
+    // input (and checks it against the right's stored holder). to_holder
+    // is deliberately NOT bound -- legitimately the recipient, a third
+    // party. NOTE (disclosed, not fixed): `approved_by` is entirely
+    // caller-supplied and unverified -- any transfer can claim an arbitrary
+    // agent "approved" it, with no real approval flow to check against.
+    // Not gated on anything downstream today, but a real fix would need an
+    // actual approval extern + verification, out of scope for this pass.
+    if transfer.from_holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Right transfer from_holder must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if transfer.volume_liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Transfer volume must be greater than zero".into(),
@@ -399,9 +467,19 @@ fn validate_create_right_transfer(
 }
 
 fn validate_create_water_dispute(
-    _action: Create,
+    action: Create,
     dispute: WaterDispute,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the dispute to its filer -- file_dispute already derives
+    // `complainant` from agent_info() coordinator-side with zero user
+    // input. respondent is deliberately NOT bound -- legitimately names
+    // the OTHER party being disputed.
+    if dispute.complainant != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water dispute complainant must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if dispute.description.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Dispute description cannot be empty".into(),
@@ -423,4 +501,116 @@ fn validate_create_water_dispute(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_right(holder: AgentPubKey) -> WaterRight {
+        WaterRight {
+            watershed_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            holder,
+            right_type: RightType::Riparian,
+            volume_authorized_liters: 1000,
+            priority_date: None,
+            conditions: vec![],
+            status: RightStatus::Active,
+            transferable: true,
+        }
+    }
+
+    #[test]
+    fn test_create_water_right_valid() {
+        let right = valid_right(test_action().author);
+        let result = validate_create_water_right(test_action(), right).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_water_right_holder_forgery_rejected() {
+        let right = valid_right(other_agent());
+        let result = validate_create_water_right(test_action(), right).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_transfer(from_holder: AgentPubKey) -> RightTransfer {
+        RightTransfer {
+            right_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            from_holder,
+            to_holder: other_agent(),
+            volume_liters: 100,
+            transfer_type: TransferType::Sale,
+            approved_by: None,
+            transferred_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn test_create_right_transfer_valid() {
+        let transfer = valid_transfer(test_action().author);
+        let result = validate_create_right_transfer(test_action(), transfer).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_right_transfer_sender_forgery_rejected() {
+        let transfer = valid_transfer(other_agent());
+        let result = validate_create_right_transfer(test_action(), transfer).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn third_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![2u8; 36])
+    }
+
+    fn dispute_with(complainant: AgentPubKey, respondent: AgentPubKey) -> WaterDispute {
+        WaterDispute {
+            watershed_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            complainant,
+            respondent,
+            dispute_type: DisputeType::Allocation,
+            description: "Test dispute".to_string(),
+            evidence: vec![],
+            status: DisputeStatus::Filed,
+            resolution: None,
+        }
+    }
+
+    #[test]
+    fn test_create_water_dispute_valid() {
+        let dispute = dispute_with(test_action().author, other_agent());
+        let result = validate_create_water_dispute(test_action(), dispute).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_water_dispute_complainant_forgery_rejected() {
+        // complainant claims other_agent(), respondent is a third, distinct
+        // agent (so the complainant/respondent-collision check doesn't mask
+        // the forgery check under test).
+        let dispute = dispute_with(other_agent(), third_agent());
+        let result = validate_create_water_dispute(test_action(), dispute).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

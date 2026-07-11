@@ -71,8 +71,27 @@ pub enum LinkTypes {
 
 // ── Pure Validation Functions ────────────────────────────────────────
 
+/// Enforce that a dependency's `maintainer_did` is the committing agent's
+/// own DID. Pure so it can be unit-tested without a full action. Applies to
+/// BOTH create and update: the coordinator's `register_dependency` and
+/// `update_dependency` (via its own `require_author` check) both intend
+/// maintainer-only semantics with no on-behalf-of path -- there is no
+/// maintainer-transfer mechanism, so binding unconditionally on both never
+/// rejects a legitimate operation. The coordinator's check alone is not a
+/// real security boundary (bypassable by a modified coordinator); this is
+/// the actual DHT-level enforcement.
+fn require_maintainer_is_author(maintainer_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if maintainer_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Dependency maintainer_did must be the committing agent \
+             (maintainer forgery). Expected '{author_did}', got '{maintainer_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 pub fn validate_create_dependency(
-    _action: Create,
+    action: Create,
     dep: DependencyIdentity,
 ) -> ExternResult<ValidateCallbackResult> {
     if dep.id.is_empty() || dep.id.len() > 256 {
@@ -90,6 +109,12 @@ pub fn validate_create_dependency(
             "maintainer_did must start with 'did:'".into(),
         ));
     }
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_maintainer_is_author(&dep.maintainer_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     if let Some(ref url) = dep.repository_url {
         if !url.starts_with("http://") && !url.starts_with("https://") {
             return Ok(ValidateCallbackResult::Invalid(
@@ -106,7 +131,7 @@ pub fn validate_create_dependency(
 }
 
 pub fn validate_update_dependency(
-    _action: Update,
+    action: Update,
     dep: DependencyIdentity,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -125,6 +150,12 @@ pub fn validate_update_dependency(
         return Ok(ValidateCallbackResult::Invalid(
             "maintainer_did must start with 'did:'".into(),
         ));
+    }
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_maintainer_is_author(&dep.maintainer_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     if let Some(ref url) = dep.repository_url {
         if !url.starts_with("http://") && !url.starts_with("https://") {
@@ -205,7 +236,7 @@ mod tests {
     fn test_action() -> Create {
         Create {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -218,17 +249,25 @@ mod tests {
         }
     }
 
+    /// The DID that matches `test_action()`/`test_update_action()`'s shared
+    /// author -- valid_dep() uses this so the new author-binding check
+    /// passes for the "otherwise valid" baseline case; forgery tests
+    /// explicitly use a DIFFERENT DID instead.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", test_action().author)
+    }
+
     fn valid_dep() -> DependencyIdentity {
         DependencyIdentity {
             id: "crate:serde:1.0".into(),
             name: "serde".into(),
             ecosystem: DependencyEcosystem::RustCrate,
-            maintainer_did: "did:mycelix:abc123".into(),
+            maintainer_did: test_author_did(),
             repository_url: Some("https://github.com/serde-rs/serde".into()),
             license: Some("MIT OR Apache-2.0".into()),
             description: "A serialization framework for Rust".into(),
             version: Some("1.0.219".into()),
-            registered_at: Timestamp::now(),
+            registered_at: Timestamp::from_micros(0),
             verified: false,
         }
     }
@@ -380,7 +419,7 @@ mod tests {
     fn test_update_action() -> Update {
         Update {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 1,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -487,5 +526,46 @@ mod tests {
             "python_package"
         );
         assert_eq!(DependencyEcosystem::Other.to_string(), "other");
+    }
+
+    #[test]
+    fn test_create_maintainer_forgery_rejected() {
+        // The P0 case: an agent registers a dependency claiming a DIFFERENT
+        // maintainer_did than their own -- must be rejected (maintainer
+        // identity forgery / dependency squatting).
+        let mut dep = valid_dep();
+        dep.maintainer_did = "did:mycelix:someone-else-entirely".into();
+        let result = validate_create_dependency(test_action(), dep).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_update_maintainer_forgery_rejected() {
+        // Same forgery check on update: an agent must not be able to update
+        // someone else's dependency entry by committing an Update action
+        // whose maintainer_did doesn't match their own author key.
+        let mut dep = valid_dep();
+        dep.maintainer_did = "did:mycelix:someone-else-entirely".into();
+        let result = validate_update_dependency(
+            test_update_action(),
+            dep,
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_maintainer_is_author_helper() {
+        let me = "did:mycelix:uhCAkSELF";
+        let victim = "did:mycelix:uhCAkVICTIM";
+        assert!(matches!(
+            require_maintainer_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            require_maintainer_is_author(victim, me),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 }

@@ -25,7 +25,7 @@ pretty_assertions = "1.4"
 proptest = "1.4"
 
 # Orbital mechanics library
-orbital-mechanics = { path = "../lib/orbital-mechanics" }
+orbital-mechanics = { path = "../../crates/orbital-mechanics" }
 
 # Shared types (for Holochain zome integration tests)
 mycelix-space-shared = { path = "../zomes/shared" }

@@ -100,8 +100,7 @@ impl ProposalTier {
     /// Returns the minimum number of voters required for this tier
     /// given the total number of eligible voters.
     pub fn effective_quorum(&self, eligible_voters: u64) -> u64 {
-        let percentage_quorum =
-            (eligible_voters as f64 * self.quorum_requirement()).ceil() as u64;
+        let percentage_quorum = (eligible_voters as f64 * self.quorum_requirement()).ceil() as u64;
         percentage_quorum.max(self.absolute_quorum_floor())
     }
 
@@ -1181,19 +1180,13 @@ pub enum CircuitBreakerOutcome {
     Allow,
 
     /// Concern flagged but proposal proceeds. Logged on-chain for audit.
-    Advisory {
-        reason: String,
-        severity: u8,
-    },
+    Advisory { reason: String, severity: u8 },
 
     /// Proposal must meet the NEXT tier's thresholds to pass.
     /// Basic → Major thresholds (60% approval, 25% quorum).
     /// Major → Constitutional thresholds (67% approval, 40% quorum).
     /// Constitutional → cannot escalate further; triggers CoolingPeriod instead.
-    Escalate {
-        reason: String,
-        severity: u8,
-    },
+    Escalate { reason: String, severity: u8 },
 
     /// Proposal finalization blocked for `cooling_hours`.
     /// The proposal remains in "Approved-Pending-Review" status.
@@ -1205,10 +1198,7 @@ pub enum CircuitBreakerOutcome {
 
     /// Requires explicit review by agents who did NOT vote on this proposal.
     /// Triggered by compound risk: concentration + narrow margin.
-    MandatoryReview {
-        reason: String,
-        severity: u8,
-    },
+    MandatoryReview { reason: String, severity: u8 },
 }
 
 impl CircuitBreakerOutcome {
@@ -1437,11 +1427,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "Bloc detections cannot be updated".into(),
                     ))
                 }
-                EntryTypes::EthicsDisclosure(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "Ethics disclosures cannot be updated".into(),
-                    ))
-                }
+                EntryTypes::EthicsDisclosure(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Ethics disclosures cannot be updated".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -1492,12 +1480,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate vote creation
-fn validate_create_vote(_action: Create, vote: Vote) -> ExternResult<ValidateCallbackResult> {
+/// Enforce that a vote's `voter` DID is the committing agent's DID. Pure so it
+/// can be unit-tested without a full Create action.
+fn require_voter_is_author(voter: &str, author_did: &str) -> ValidateCallbackResult {
+    if voter != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Vote voter must be the committing agent (vote forgery). \
+             Expected '{author_did}', got '{voter}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_create_vote(action: Create, vote: Vote) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
     if !vote.voter.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Voter must be a valid DID".into(),
         ));
+    }
+
+    // Bind the vote to its committer — otherwise any agent can commit a Vote
+    // with `voter: "did:mycelix:<victim>"` and vote as someone else (the P0
+    // vote-forgery from the 2026-07-06 review). The coordinator's `cast_vote`
+    // always creates plain Votes with `delegated: false` (delegation uses the
+    // separate PhiWeightedVote entry type), so binding unconditionally never
+    // rejects a legitimate plain vote.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate weight is positive
@@ -1621,7 +1633,7 @@ fn validate_update_tally(
 
 /// Validate Φ-weighted vote creation
 fn validate_create_phi_vote(
-    _action: Create,
+    action: Create,
     vote: PhiWeightedVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
@@ -1629,6 +1641,17 @@ fn validate_create_phi_vote(
         return Ok(ValidateCallbackResult::Invalid(
             "Voter must be a valid DID".into(),
         ));
+    }
+
+    // Bind the Φ-weighted vote to its committer (P0 vote forgery). `voter` is
+    // always the casting agent — both the direct (`cast_phi_weighted_vote`) and
+    // delegated (`cast_delegated_phi_vote`) paths set `voter` to the caster and
+    // record any on-behalf origin separately in `delegator`. Same convention as
+    // the shipped `validate_create_vote` bind.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate Φ weight components are in valid range
@@ -1688,7 +1711,7 @@ fn validate_create_phi_vote(
 
 /// Validate quadratic vote creation
 fn validate_create_quadratic_vote(
-    _action: Create,
+    action: Create,
     vote: QuadraticVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate voter is a DID
@@ -1696,6 +1719,14 @@ fn validate_create_quadratic_vote(
         return Ok(ValidateCallbackResult::Invalid(
             "Voter must be a valid DID".into(),
         ));
+    }
+
+    // Bind the quadratic vote to its committer (P0 vote forgery). No delegation
+    // path for QuadraticVote — `voter` is always the caster.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_voter_is_author(&vote.voter, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate credits spent is reasonable
@@ -2171,6 +2202,93 @@ fn validate_update_proposal_reflection(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A minimal Create action whose author is a fixed non-zero key. Its derived
+    // DID `did:mycelix:{author}` will never equal the obviously-forged voter
+    // DIDs used below, so the author-binding check fires deterministically.
+    fn fake_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![3u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: EntryRateWeight::default(),
+        }
+    }
+
+    #[test]
+    fn phi_vote_forged_voter_rejected() {
+        // Malicious-coordinator forgery: commit a Φ-weighted vote as another DID.
+        let vote = PhiWeightedVote {
+            id: "v1".into(),
+            proposal_id: "p1".into(),
+            proposal_tier: ProposalTier::Basic,
+            voter: "did:mycelix:uhCAkVICTIM".into(),
+            choice: VoteChoice::For,
+            phi_weight: PhiWeight {
+                phi_score: 0.5,
+                phi_provenance: PhiProvenance::Snapshot,
+                k_trust: 0.5,
+                stake_weight: 0.5,
+                participation_score: 0.5,
+                domain_reputation: 0.5,
+            },
+            effective_weight: 0.5,
+            reason: None,
+            delegated: false,
+            delegator: None,
+            delegation_chain: vec![],
+            voted_at: Timestamp::from_micros(0),
+        };
+        assert!(matches!(
+            validate_create_phi_vote(fake_create(), vote),
+            Ok(ValidateCallbackResult::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn quadratic_vote_forged_voter_rejected() {
+        let vote = QuadraticVote {
+            id: "q1".into(),
+            proposal_id: "p1".into(),
+            voter: "did:mycelix:uhCAkVICTIM".into(),
+            choice: VoteChoice::For,
+            credits_spent: 4,
+            effective_weight: 2.0,
+            reason: None,
+            voted_at: Timestamp::from_micros(0),
+        };
+        assert!(matches!(
+            validate_create_quadratic_vote(fake_create(), vote),
+            Ok(ValidateCallbackResult::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn voter_must_be_committing_agent() {
+        let me = "did:mycelix:uhCAkSELF";
+        // Honest path: the voter DID is the committer's own.
+        assert!(matches!(
+            require_voter_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        // Forgery: committing a vote as another agent's DID is rejected.
+        match require_voter_is_author("did:mycelix:uhCAkVICTIM", me) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("forgery"),
+                    "reject reason should name the risk: {msg}"
+                );
+            }
+            other => panic!("forged voter must be Invalid, got {other:?}"),
+        }
+    }
 
     // ========================================================================
     // ProposalTier tests
@@ -2840,8 +2958,7 @@ mod tests {
     fn test_circuit_breaker_cooling_period_extreme_concern() {
         // Critical echo(4) + rapid(2) + fragment(2) + low harmony(2) + high central(1) = 11→10
         // → CoolingPeriod (severity >= 9)
-        let mut r =
-            make_reflection(EchoChamberRiskLevel::Critical, true, true, 0.1, 0.9, false);
+        let mut r = make_reflection(EchoChamberRiskLevel::Critical, true, true, 0.1, 0.9, false);
         // Don't trigger the compound MandatoryReview
         r.concentration_warning = false;
         r.narrow_margin_warning = false;
@@ -2976,9 +3093,9 @@ mod tests {
             make_vote_record("p4", VoteChoice::For),
         ];
         let votes_b = vec![
-            make_vote_record("p1", VoteChoice::For),   // agree
+            make_vote_record("p1", VoteChoice::For),     // agree
             make_vote_record("p2", VoteChoice::Against), // disagree
-            make_vote_record("p5", VoteChoice::For),   // not shared
+            make_vote_record("p5", VoteChoice::For),     // not shared
         ];
         // Shared: p1, p2 (2 proposals). Agreements: p1 (1).
         let (sim, shared, agreements, _sig) = jaccard_vote_similarity(&votes_a, &votes_b, 1);

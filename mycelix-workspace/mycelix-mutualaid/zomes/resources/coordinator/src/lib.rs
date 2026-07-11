@@ -227,9 +227,17 @@ pub fn search_resources(input: SearchResourcesInput) -> ExternResult<Vec<Record>
     Ok(results)
 }
 
+/// Input for updating resource availability
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SetResourceAvailabilityInput {
+    pub hash: ActionHash,
+    pub available: bool,
+}
+
 /// Update resource availability
 #[hdk_extern]
-pub fn set_resource_availability(hash: ActionHash, available: bool) -> ExternResult<Record> {
+pub fn set_resource_availability(input: SetResourceAvailabilityInput) -> ExternResult<Record> {
+    let SetResourceAvailabilityInput { hash, available } = input;
     let record = get(hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Resource not found".to_string())
     ))?;

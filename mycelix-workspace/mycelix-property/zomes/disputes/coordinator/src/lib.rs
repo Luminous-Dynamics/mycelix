@@ -16,11 +16,18 @@ fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
 #[hdk_extern]
 pub fn file_dispute(input: FileDisputeInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could file a dispute claiming to be someone else (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // disputes integrity's validate_create_property_dispute). respondent_did
+    // legitimately names the OTHER party being disputed, so it stays
+    // caller-supplied.
+    let claimant_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let dispute = PropertyDispute {
         id: format!("dispute:{}:{}", input.property_id, now.as_micros()),
         property_id: input.property_id.clone(),
         dispute_type: input.dispute_type,
-        claimant_did: input.claimant_did.clone(),
+        claimant_did: claimant_did.clone(),
         respondent_did: input.respondent_did,
         description: input.description,
         evidence_ids: input.evidence_ids,
@@ -38,7 +45,7 @@ pub fn file_dispute(input: FileDisputeInput) -> ExternResult<Record> {
         (),
     )?;
     create_link(
-        anchor_hash(&input.claimant_did)?,
+        anchor_hash(&claimant_did)?,
         action_hash.clone(),
         LinkTypes::ClaimantToDisputes,
         (),
@@ -51,6 +58,8 @@ pub fn file_dispute(input: FileDisputeInput) -> ExternResult<Record> {
 pub struct FileDisputeInput {
     pub property_id: String,
     pub dispute_type: DisputeType,
+    /// Deliberately ignored -- claimant identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub claimant_did: String,
     pub respondent_did: String,
     pub description: String,
@@ -60,10 +69,13 @@ pub struct FileDisputeInput {
 #[hdk_extern]
 pub fn file_ownership_claim(input: FileClaimInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as file_dispute above.
+    let claimant_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let claim = OwnershipClaim {
         id: format!("claim:{}:{}", input.property_id, now.as_micros()),
         property_id: input.property_id.clone(),
-        claimant_did: input.claimant_did.clone(),
+        claimant_did,
         claim_basis: input.claim_basis,
         supporting_documents: input.supporting_documents,
         status: ClaimStatus::Pending,
@@ -84,6 +96,8 @@ pub fn file_ownership_claim(input: FileClaimInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileClaimInput {
     pub property_id: String,
+    /// Deliberately ignored -- claimant identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub claimant_did: String,
     pub claim_basis: ClaimBasis,
     pub supporting_documents: Vec<String>,
@@ -343,6 +357,9 @@ pub struct UpdateClaimStatusInput {
 /// Add evidence to a dispute
 #[hdk_extern]
 pub fn add_dispute_evidence(input: AddEvidenceInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim to be a party to a dispute they're not.
+    let submitter_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::PropertyDispute,
@@ -358,8 +375,7 @@ pub fn add_dispute_evidence(input: AddEvidenceInput) -> ExternResult<Record> {
         {
             if dispute.id == input.dispute_id {
                 // Only parties can add evidence
-                if dispute.claimant_did != input.submitter_did
-                    && dispute.respondent_did != input.submitter_did
+                if dispute.claimant_did != submitter_did && dispute.respondent_did != submitter_did
                 {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only parties can add evidence".into()
@@ -391,6 +407,8 @@ pub fn add_dispute_evidence(input: AddEvidenceInput) -> ExternResult<Record> {
 pub struct AddEvidenceInput {
     pub dispute_id: String,
     pub evidence_id: String,
+    /// Deliberately ignored -- submitter identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub submitter_did: String,
 }
 
@@ -446,6 +464,9 @@ pub fn get_ownership_claim(claim_id: String) -> ExternResult<Option<Record>> {
 /// Add supporting document to ownership claim
 #[hdk_extern]
 pub fn add_claim_document(input: AddDocumentInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim to be the owner of a claim they didn't file.
+    let submitter_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::OwnershipClaim,
@@ -461,7 +482,7 @@ pub fn add_claim_document(input: AddDocumentInput) -> ExternResult<Record> {
         {
             if claim.id == input.claim_id {
                 // Only claimant can add documents
-                if claim.claimant_did != input.submitter_did {
+                if claim.claimant_did != submitter_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only claimant can add documents".into()
                     )));
@@ -490,6 +511,8 @@ pub fn add_claim_document(input: AddDocumentInput) -> ExternResult<Record> {
 pub struct AddDocumentInput {
     pub claim_id: String,
     pub document_id: String,
+    /// Deliberately ignored -- submitter identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub submitter_did: String,
 }
 

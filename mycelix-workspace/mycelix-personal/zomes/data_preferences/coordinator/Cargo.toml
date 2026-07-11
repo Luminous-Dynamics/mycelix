@@ -6,7 +6,7 @@ license = "AGPL-3.0-or-later"
 description = "Coordinator zome for per-user data sharing preferences"
 
 [dependencies]
-hdk = "=0.6.0"
+hdk = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 data_preferences_integrity = { path = "../integrity" }
 personal-leptos-types = { workspace = true }

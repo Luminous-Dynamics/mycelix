@@ -7,15 +7,27 @@
 // The zome stores the state a verifier needs to detect replay
 // (VerifierToNonce links anchor the nonces a given verifier has
 // issued; NonceHashToProof links anchor the proofs consumed by a
-// given nonce). The actual cryptographic verification of STARK proof
-// bytes happens client-side — the zome is only the coordination
-// surface.
+// given nonce). This zome is coordination surface ONLY: it never
+// parses, decodes, or verifies `proof_value` as a cryptographic proof.
+//
+// HONESTY NOTE (added after a 2026-07 audit): no function in this
+// crate calls out to any proof-verification logic, on-chain or
+// otherwise, and this crate has no cryptographic dependencies. A
+// caller of `submit_proof` is asserting "here is a claimed proof",
+// and that assertion is accepted and stored as-is. Any real
+// cryptographic verification (STARK, or otherwise) would need to be
+// implemented and wired in explicitly — it does not exist today.
+// Treat every stored `CrossDidProof` as unverified. See the
+// module-level HONESTY NOTE in `cross_did_zkp_integrity`'s
+// `integrity/src/lib.rs` for the full detail.
 //
 // Replay detection: when a verifier sees a proof, it (a) checks the
 // proof's nonce_hash does not already have a CrossDidProof linked
 // from it, and (b) checks the underlying nonce was actually issued
 // by this verifier (otherwise someone replayed a proof from a
-// different session). Both checks are cheap DHT queries.
+// different session). Both checks are cheap DHT queries and are
+// independent of whether the proof itself is ever cryptographically
+// verified.
 
 use cross_did_zkp_integrity::{CrossDidProof, EntryTypes, LinkTypes, NonceRequest};
 use hdk::prelude::*;
@@ -43,7 +55,7 @@ fn nonce_hash_path(nonce_hash: &str) -> Path {
 }
 
 fn base64_encode(bytes: &[u8]) -> String {
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use base64::{Engine, engine::general_purpose::STANDARD};
     STANDARD.encode(bytes)
 }
 
@@ -116,6 +128,13 @@ pub struct SubmitProofOutput {
     pub nonce_was_fresh: bool,
 }
 
+/// Stores a caller-submitted `CrossDidProof` and reports whether its
+/// `nonce_hash` was fresh (i.e. replay-check bookkeeping only).
+///
+/// **Does not verify `input.proof_value` cryptographically in any way.**
+/// This function accepts whatever bytes the caller provides and persists
+/// them; there is no proof-verification step, on-chain or otherwise, in
+/// this crate today. See the module-level HONESTY NOTE above.
 #[hdk_extern]
 pub fn submit_proof(input: SubmitProofInput) -> ExternResult<SubmitProofOutput> {
     if input.nonce_hash.is_empty() {

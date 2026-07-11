@@ -32,6 +32,13 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Submit a cross-hApp care query
 #[hdk_extern]
 pub fn query_care(query: CareQuery) -> ExternResult<Record> {
+    // Derive requester from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could submit a query claiming
+    // an arbitrary victim agent as requester. Found + fixed 2026-07-09
+    // during the P0 author-binding pass.
+    let requester = agent_info()?.agent_initial_pubkey;
+    let query = CareQuery { requester, ..query };
+
     let action_hash = create_entry(&EntryTypes::CareQuery(query.clone()))?;
 
     // Link to all queries
@@ -89,6 +96,16 @@ pub fn resolve_query(input: ResolveQueryInput) -> ExternResult<Record> {
 /// Broadcast a care event to the network
 #[hdk_extern]
 pub fn broadcast_event(event: CareEvent) -> ExternResult<Record> {
+    // Derive source_agent from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could broadcast an event
+    // claiming an arbitrary victim agent as the source. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let source_agent = agent_info()?.agent_initial_pubkey;
+    let event = CareEvent {
+        source_agent,
+        ..event
+    };
+
     let action_hash = create_entry(&EntryTypes::CareEvent(event.clone()))?;
 
     // Link to all events

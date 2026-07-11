@@ -92,13 +92,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CareMatch(care_match) => validate_update_match(care_match),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -110,19 +107,72 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         } => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDeleteLink {
             link_type: _,
-            original_action: _,
+            original_action,
             base_address: _,
             target_address: _,
             tag: _,
-            action: _,
-        } => Ok(ValidateCallbackResult::Valid),
+            action,
+        } => {
+            // Previously accepted unconditionally regardless of author --
+            // the coordinator never calls delete_link here, so this is
+            // pure hardening (zero functional impact). Found + fixed
+            // 2026-07-09 during the P0 author-binding pass.
+            if action.author != original_action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original link creator can delete a link".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 7th confirmed instance of this exact
+            // bug pattern this pass. Found + fixed 2026-07-09 during the P0
+            // author-binding pass. Route through the same per-type
+            // validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
+/// Shared per-entry-type update validation, called from BOTH the
+/// StoreEntry (OpEntry::UpdateEntry) and RegisterUpdate DHT-op
+/// perspectives so they agree.
+fn validate_update_entry_type(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::CareMatch(care_match) => validate_update_match(action, care_match),
+    }
+}
+
+/// No author-binding possible on `provider`/`requester`: the coordinator's
+/// suggest_match is explicitly "manual matching by an organizer or
+/// system" (see its doc comment) -- a legitimate third party (not
+/// necessarily either named agent) proposes the match, so both fields
+/// name third parties, not the committer. Reviewed 2026-07-09 during the
+/// P0 author-binding pass; case (b). Note this does mean any agent can
+/// currently suggest arbitrary matches (spam/clutter risk, not a
+/// privilege-escalation one -- matches only become consequential once
+/// accept_match is called, which IS gated to the named provider/requester
+/// in validate_update_match below).
 fn validate_create_match(
     _action: Create,
     care_match: CareMatch,
@@ -162,11 +212,111 @@ fn validate_create_match(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_match(care_match: CareMatch) -> ExternResult<ValidateCallbackResult> {
+/// Validate a CareMatch update (the coordinator's accept_match/
+/// decline_match both route through update_match_status, which already
+/// checks the caller is the named provider or requester).
+///
+/// Previously this had NO author check and never fetched the original --
+/// any agent could rewrite ANY field (including provider/requester/score)
+/// under the guise of "updating status". Hardened 2026-07-09 during the
+/// P0 author-binding pass to mirror update_match_status's own
+/// authorization (belt-and-suspenders against a modified coordinator) and
+/// restrict content to status/updated_at.
+fn validate_update_match(
+    action: Update,
+    care_match: CareMatch,
+) -> ExternResult<ValidateCallbackResult> {
     if care_match.score < 0.0 || care_match.score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Match score must be between 0.0 and 1.0".into(),
         ));
     }
+
+    if action.author != care_match.provider && action.author != care_match.requester {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the provider or requester can update a match".into(),
+        ));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: CareMatch = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original match not found".into()
+        )))?;
+
+    if care_match.offer_hash != original.offer_hash
+        || care_match.request_hash != original.request_hash
+        || care_match.provider != original.provider
+        || care_match.requester != original.requester
+        || care_match.score != original.score
+        || care_match.factors != original.factors
+        || care_match.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/updated_at can change on a match update".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn update_action(author: AgentPubKey) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_match(provider: AgentPubKey, requester: AgentPubKey) -> CareMatch {
+        CareMatch {
+            offer_hash: ActionHash::from_raw_36(vec![0u8; 36]),
+            request_hash: ActionHash::from_raw_36(vec![0u8; 36]),
+            provider,
+            requester,
+            score: 0.8,
+            factors: MatchFactors {
+                proximity_score: 0.8,
+                skill_alignment: 0.8,
+                schedule_compatibility: 0.8,
+                trust_score: 0.8,
+            },
+            status: MatchStatus::Suggested,
+            created_at: Timestamp::from_micros(0),
+            updated_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn update_match_rejects_uninvolved_agent() {
+        let m = valid_match(me(), other_agent());
+        let uninvolved = AgentPubKey::from_raw_36(vec![2u8; 36]);
+        let result = validate_update_match(update_action(uninvolved), m).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

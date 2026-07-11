@@ -27,8 +27,12 @@
           inherit system overlays;
         };
 
-        # Rust toolchain with wasm target
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
+        # truth), not stable.latest, so devShell builds can't silently drift from the pin
+        # and fragment sccache's cache (compiler binary is part of its cache key).
+        rustToolchainToml = builtins.fromTOML (builtins.readFile ../rust-toolchain.toml);
+        rustChannel = rustToolchainToml.toolchain.channel;
+        rustToolchain = pkgs.rust-bin.stable.${rustChannel}.default.override {
           targets = [ "wasm32-unknown-unknown" ];
         };
 
@@ -128,11 +132,14 @@
         };
 
         # Package the orbital-mechanics library (non-Holochain, can be used standalone)
+        # Relocated 2026-07-07 to mycelix-workspace/crates/orbital-mechanics — it's a
+        # standalone crate (no workspace membership) now, so it carries its own
+        # Cargo.lock rather than mycelix-space's workspace lockfile.
         packages.orbital-mechanics = pkgs.rustPlatform.buildRustPackage {
           pname = "orbital-mechanics";
           version = "0.1.0";
-          src = ./lib/orbital-mechanics;
-          cargoLock.lockFile = ./Cargo.lock;
+          src = ../crates/orbital-mechanics;
+          cargoLock.lockFile = ../crates/orbital-mechanics/Cargo.lock;
         };
       }
     );

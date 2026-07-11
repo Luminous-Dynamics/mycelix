@@ -68,8 +68,18 @@ impl Default for DifficultyLevel {
 pub enum GradeLevel {
     PreK,
     Kindergarten,
-    Grade1, Grade2, Grade3, Grade4, Grade5, Grade6,
-    Grade7, Grade8, Grade9, Grade10, Grade11, Grade12,
+    Grade1,
+    Grade2,
+    Grade3,
+    Grade4,
+    Grade5,
+    Grade6,
+    Grade7,
+    Grade8,
+    Grade9,
+    Grade10,
+    Grade11,
+    Grade12,
     College,
     /// Undergraduate (associate/bachelor's degree)
     Undergraduate,
@@ -141,7 +151,9 @@ impl GradeLevel {
 }
 
 impl Default for GradeLevel {
-    fn default() -> Self { GradeLevel::Adult }
+    fn default() -> Self {
+        GradeLevel::Adult
+    }
 }
 
 /// Bloom's Taxonomy level
@@ -156,7 +168,9 @@ pub enum BloomLevel {
 }
 
 impl Default for BloomLevel {
-    fn default() -> Self { BloomLevel::Understand }
+    fn default() -> Self {
+        BloomLevel::Understand
+    }
 }
 
 /// Academic standards framework
@@ -202,7 +216,9 @@ pub enum SubjectArea {
 }
 
 impl Default for SubjectArea {
-    fn default() -> Self { SubjectArea::Custom("General".to_string()) }
+    fn default() -> Self {
+        SubjectArea::Custom("General".to_string())
+    }
 }
 
 /// Knowledge Node - a single concept/skill in the knowledge graph
@@ -585,8 +601,27 @@ pub enum LinkTypes {
 
 // ============== Validation Functions ==============
 
-/// Validate knowledge node creation
-pub fn validate_create_node(node: &KnowledgeNode) -> ExternResult<ValidateCallbackResult> {
+/// Validate knowledge node creation -- binds the entry to its committing
+/// agent (create_node already derives `creator` from agent_info()
+/// coordinator-side with zero user input, so this never rejects a
+/// legitimate node; it's the real DHT-level enforcement a modified
+/// coordinator could otherwise bypass, P0 author-binding gap).
+pub fn validate_create_node(
+    author: &AgentPubKey,
+    node: &KnowledgeNode,
+) -> ExternResult<ValidateCallbackResult> {
+    if &node.creator != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Knowledge node creator must be the committing agent (creator forgery)".to_string(),
+        ));
+    }
+    validate_node_shape(node)
+}
+
+/// Structural checks shared by create and update (update legitimately
+/// preserves the original `creator` across agents, e.g. governance-driven
+/// status changes, so it must not go through the author-binding check above).
+fn validate_node_shape(node: &KnowledgeNode) -> ExternResult<ValidateCallbackResult> {
     // Title must not be empty
     if node.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -608,13 +643,45 @@ pub fn validate_create_node(node: &KnowledgeNode) -> ExternResult<ValidateCallba
         ));
     }
 
-    if node.description.len() > 10000 { return Ok(ValidateCallbackResult::Invalid("Node description too long (max 10000 characters)".to_string())); }
-    if node.domain.len() > 200 { return Ok(ValidateCallbackResult::Invalid("Domain name too long (max 200 characters)".to_string())); }
-    if let Some(ref sub) = node.subdomain { if sub.len() > 200 { return Ok(ValidateCallbackResult::Invalid("Subdomain name too long (max 200 characters)".to_string())); } }
-    if node.tags.len() > 50 { return Ok(ValidateCallbackResult::Invalid("Too many tags (max 50)".to_string())); }
-    for tag in &node.tags { if tag.len() > 100 { return Ok(ValidateCallbackResult::Invalid("Tag too long (max 100 characters)".to_string())); } }
-    if node.related_courses.len() > 100 { return Ok(ValidateCallbackResult::Invalid("Too many related courses (max 100)".to_string())); }
-    if node.skill_alignments.len() > 50 { return Ok(ValidateCallbackResult::Invalid("Too many skill alignments (max 50)".to_string())); }
+    if node.description.len() > 10000 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Node description too long (max 10000 characters)".to_string(),
+        ));
+    }
+    if node.domain.len() > 200 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Domain name too long (max 200 characters)".to_string(),
+        ));
+    }
+    if let Some(ref sub) = node.subdomain {
+        if sub.len() > 200 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Subdomain name too long (max 200 characters)".to_string(),
+            ));
+        }
+    }
+    if node.tags.len() > 50 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Too many tags (max 50)".to_string(),
+        ));
+    }
+    for tag in &node.tags {
+        if tag.len() > 100 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Tag too long (max 100 characters)".to_string(),
+            ));
+        }
+    }
+    if node.related_courses.len() > 100 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Too many related courses (max 100)".to_string(),
+        ));
+    }
+    if node.skill_alignments.len() > 50 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Too many skill alignments (max 50)".to_string(),
+        ));
+    }
 
     // Grade levels must not be excessive
     if node.grade_levels.len() > 21 {
@@ -646,8 +713,25 @@ pub fn validate_create_node(node: &KnowledgeNode) -> ExternResult<ValidateCallba
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate learning edge creation
-pub fn validate_create_edge(edge: &LearningEdge) -> ExternResult<ValidateCallbackResult> {
+/// Validate learning edge creation -- binds the entry to its committing
+/// agent (propose_edge already derives `proposer` from agent_info()
+/// coordinator-side with zero user input, same rationale as
+/// validate_create_node above).
+pub fn validate_create_edge(
+    author: &AgentPubKey,
+    edge: &LearningEdge,
+) -> ExternResult<ValidateCallbackResult> {
+    if &edge.proposer != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Learning edge proposer must be the committing agent (proposer forgery)".to_string(),
+        ));
+    }
+    validate_edge_shape(edge)
+}
+
+/// Structural checks shared by create and update (votes/status transitions
+/// legitimately come from agents other than the original proposer).
+fn validate_edge_shape(edge: &LearningEdge) -> ExternResult<ValidateCallbackResult> {
     // Can't create self-loops
     if edge.source_node == edge.target_node {
         return Ok(ValidateCallbackResult::Invalid(
@@ -676,14 +760,14 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::KnowledgeNode(node) => validate_create_node(&node),
-                EntryTypes::LearningEdge(edge) => validate_create_edge(&edge),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::KnowledgeNode(node) => validate_create_node(&action.author, &node),
+                EntryTypes::LearningEdge(edge) => validate_create_edge(&action.author, &edge),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::KnowledgeNode(node) => validate_create_node(&node),
-                EntryTypes::LearningEdge(edge) => validate_create_edge(&edge),
+                EntryTypes::KnowledgeNode(node) => validate_node_shape(&node),
+                EntryTypes::LearningEdge(edge) => validate_edge_shape(&edge),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -718,24 +802,107 @@ mod tests {
 
     #[test]
     fn test_node_valid() {
-        let node = KnowledgeNode { title: "Rust".to_string(), description: "Learn Rust".to_string(), node_type: NodeType::Course, difficulty: DifficultyLevel::Beginner, domain: "Programming".to_string(), subdomain: None, tags: vec!["rust".to_string()], estimated_hours: 40, skill_alignments: vec![], related_courses: vec![], creator: AgentPubKey::from_raw_36(vec![0u8; 36]), status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1, grade_levels: vec![], bloom_level: None, subject_area: None, academic_standards: vec![] };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Valid));
+        let node = KnowledgeNode {
+            title: "Rust".to_string(),
+            description: "Learn Rust".to_string(),
+            node_type: NodeType::Course,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "Programming".to_string(),
+            subdomain: None,
+            tags: vec!["rust".to_string()],
+            estimated_hours: 40,
+            skill_alignments: vec![],
+            related_courses: vec![],
+            creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
+            grade_levels: vec![],
+            bloom_level: None,
+            subject_area: None,
+            academic_standards: vec![],
+        };
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
     }
     #[test]
     fn test_node_description_too_long() {
-        let node = KnowledgeNode { title: "T".to_string(), description: "x".repeat(10001), node_type: NodeType::Concept, difficulty: DifficultyLevel::Beginner, domain: "T".to_string(), subdomain: None, tags: vec![], estimated_hours: 10, skill_alignments: vec![], related_courses: vec![], creator: AgentPubKey::from_raw_36(vec![0u8; 36]), status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1, grade_levels: vec![], bloom_level: None, subject_area: None, academic_standards: vec![] };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Invalid(_)));
+        let node = KnowledgeNode {
+            title: "T".to_string(),
+            description: "x".repeat(10001),
+            node_type: NodeType::Concept,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "T".to_string(),
+            subdomain: None,
+            tags: vec![],
+            estimated_hours: 10,
+            skill_alignments: vec![],
+            related_courses: vec![],
+            creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
+            grade_levels: vec![],
+            bloom_level: None,
+            subject_area: None,
+            academic_standards: vec![],
+        };
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
     #[test]
     fn test_node_too_many_tags() {
-        let node = KnowledgeNode { title: "T".to_string(), description: "T".to_string(), node_type: NodeType::Concept, difficulty: DifficultyLevel::Beginner, domain: "T".to_string(), subdomain: None, tags: (0..51).map(|i| format!("t{}", i)).collect(), estimated_hours: 10, skill_alignments: vec![], related_courses: vec![], creator: AgentPubKey::from_raw_36(vec![0u8; 36]), status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1, grade_levels: vec![], bloom_level: None, subject_area: None, academic_standards: vec![] };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Invalid(_)));
+        let node = KnowledgeNode {
+            title: "T".to_string(),
+            description: "T".to_string(),
+            node_type: NodeType::Concept,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "T".to_string(),
+            subdomain: None,
+            tags: (0..51).map(|i| format!("t{}", i)).collect(),
+            estimated_hours: 10,
+            skill_alignments: vec![],
+            related_courses: vec![],
+            creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
+            grade_levels: vec![],
+            bloom_level: None,
+            subject_area: None,
+            academic_standards: vec![],
+        };
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
     #[test]
     fn test_edge_self_loop() {
         let h = ActionHash::from_raw_36(vec![1u8; 36]);
-        let edge = LearningEdge { source_node: h.clone(), target_node: h, edge_type: EdgeType::Requires, strength_permille: 800, rationale: "T".to_string(), proposer: AgentPubKey::from_raw_36(vec![0u8; 36]), status: EdgeStatus::Proposed, upvotes: 0, downvotes: 0, created_at: 0 };
-        assert!(matches!(validate_create_edge(&edge).unwrap(), ValidateCallbackResult::Invalid(_)));
+        let edge = LearningEdge {
+            source_node: h.clone(),
+            target_node: h,
+            edge_type: EdgeType::Requires,
+            strength_permille: 800,
+            rationale: "T".to_string(),
+            proposer: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: EdgeStatus::Proposed,
+            upvotes: 0,
+            downvotes: 0,
+            created_at: 0,
+        };
+        assert!(matches!(
+            validate_create_edge(&AgentPubKey::from_raw_36(vec![0u8; 36]), &edge).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
@@ -772,18 +939,30 @@ mod tests {
 
     #[test]
     fn test_subject_area_default() {
-        assert_eq!(SubjectArea::default(), SubjectArea::Custom("General".to_string()));
+        assert_eq!(
+            SubjectArea::default(),
+            SubjectArea::Custom("General".to_string())
+        );
     }
 
     #[test]
     fn test_node_with_grade_levels_valid() {
         let node = KnowledgeNode {
-            title: "Fractions".to_string(), description: "Learn fractions".to_string(),
-            node_type: NodeType::Concept, difficulty: DifficultyLevel::Beginner,
-            domain: "Math".to_string(), subdomain: None, tags: vec![],
-            estimated_hours: 10, skill_alignments: vec![], related_courses: vec![],
+            title: "Fractions".to_string(),
+            description: "Learn fractions".to_string(),
+            node_type: NodeType::Concept,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "Math".to_string(),
+            subdomain: None,
+            tags: vec![],
+            estimated_hours: 10,
+            skill_alignments: vec![],
+            related_courses: vec![],
             creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1,
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
             grade_levels: vec![GradeLevel::Grade3, GradeLevel::Grade4, GradeLevel::Grade5],
             bloom_level: Some(BloomLevel::Understand),
             subject_area: Some(SubjectArea::Mathematics),
@@ -794,34 +973,62 @@ mod tests {
                 grade_level: GradeLevel::Grade3,
             }],
         };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Valid));
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     #[test]
     fn test_node_too_many_grade_levels() {
         let node = KnowledgeNode {
-            title: "T".to_string(), description: "T".to_string(),
-            node_type: NodeType::Concept, difficulty: DifficultyLevel::Beginner,
-            domain: "T".to_string(), subdomain: None, tags: vec![],
-            estimated_hours: 1, skill_alignments: vec![], related_courses: vec![],
+            title: "T".to_string(),
+            description: "T".to_string(),
+            node_type: NodeType::Concept,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "T".to_string(),
+            subdomain: None,
+            tags: vec![],
+            estimated_hours: 1,
+            skill_alignments: vec![],
+            related_courses: vec![],
             creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1,
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
             grade_levels: vec![GradeLevel::PreK; 22],
-            bloom_level: None, subject_area: None, academic_standards: vec![],
+            bloom_level: None,
+            subject_area: None,
+            academic_standards: vec![],
         };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_node_standard_code_too_long() {
         let node = KnowledgeNode {
-            title: "T".to_string(), description: "T".to_string(),
-            node_type: NodeType::Concept, difficulty: DifficultyLevel::Beginner,
-            domain: "T".to_string(), subdomain: None, tags: vec![],
-            estimated_hours: 1, skill_alignments: vec![], related_courses: vec![],
+            title: "T".to_string(),
+            description: "T".to_string(),
+            node_type: NodeType::Concept,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "T".to_string(),
+            subdomain: None,
+            tags: vec![],
+            estimated_hours: 1,
+            skill_alignments: vec![],
+            related_courses: vec![],
             creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            status: NodeStatus::Proposed, created_at: 0, modified_at: 0, version: 1,
-            grade_levels: vec![], bloom_level: None, subject_area: None,
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
+            grade_levels: vec![],
+            bloom_level: None,
+            subject_area: None,
             academic_standards: vec![AcademicStandard {
                 framework: StandardFramework::CommonCore,
                 code: "x".repeat(101),
@@ -829,6 +1036,58 @@ mod tests {
                 grade_level: GradeLevel::Grade1,
             }],
         };
-        assert!(matches!(validate_create_node(&node).unwrap(), ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_create_node(&AgentPubKey::from_raw_36(vec![0u8; 36]), &node).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_node_creator_forgery_rejected() {
+        // node.creator claims agent 0, but agent 1 is the real committer.
+        let node = KnowledgeNode {
+            title: "Rust".to_string(),
+            description: "Learn Rust".to_string(),
+            node_type: NodeType::Course,
+            difficulty: DifficultyLevel::Beginner,
+            domain: "Programming".to_string(),
+            subdomain: None,
+            tags: vec![],
+            estimated_hours: 40,
+            skill_alignments: vec![],
+            related_courses: vec![],
+            creator: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: NodeStatus::Proposed,
+            created_at: 0,
+            modified_at: 0,
+            version: 1,
+            grade_levels: vec![],
+            bloom_level: None,
+            subject_area: None,
+            academic_standards: vec![],
+        };
+        let result = validate_create_node(&AgentPubKey::from_raw_36(vec![1u8; 36]), &node).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_edge_proposer_forgery_rejected() {
+        // edge.proposer claims agent 0, but agent 1 is the real committer.
+        let h1 = ActionHash::from_raw_36(vec![1u8; 36]);
+        let h2 = ActionHash::from_raw_36(vec![2u8; 36]);
+        let edge = LearningEdge {
+            source_node: h1,
+            target_node: h2,
+            edge_type: EdgeType::Requires,
+            strength_permille: 800,
+            rationale: "T".to_string(),
+            proposer: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            status: EdgeStatus::Proposed,
+            upvotes: 0,
+            downvotes: 0,
+            created_at: 0,
+        };
+        let result = validate_create_edge(&AgentPubKey::from_raw_36(vec![1u8; 36]), &edge).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

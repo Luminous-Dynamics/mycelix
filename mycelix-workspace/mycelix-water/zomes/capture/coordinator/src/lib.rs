@@ -29,7 +29,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 /// Register a new water harvesting system
 #[hdk_extern]
-pub fn register_harvest_system(system: HarvestSystem) -> ExternResult<Record> {
+pub fn register_harvest_system(mut system: HarvestSystem) -> ExternResult<Record> {
     if system.id.is_empty() || system.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "System ID must be 1-256 characters".into()
@@ -40,6 +40,12 @@ pub fn register_harvest_system(system: HarvestSystem) -> ExternResult<Record> {
             "System name must be 1-256 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could register a harvest system claiming another agent as owner
+    // (P0 author-binding gap; integrity validation now enforces this too,
+    // see capture integrity's validate_create_harvest_system).
+    system.owner = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::HarvestSystem(system.clone()))?;
 
@@ -102,7 +108,7 @@ pub fn get_all_systems(_: ()) -> ExternResult<Vec<Record>> {
 
 /// Register a new storage tank
 #[hdk_extern]
-pub fn register_tank(tank: StorageTank) -> ExternResult<Record> {
+pub fn register_tank(mut tank: StorageTank) -> ExternResult<Record> {
     if tank.id.is_empty() || tank.id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Tank ID must be 1-256 characters".into()
@@ -113,6 +119,10 @@ pub fn register_tank(tank: StorageTank) -> ExternResult<Record> {
             "Tank name must be 1-256 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as register_harvest_system above.
+    tank.owner = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::StorageTank(tank.clone()))?;
 
@@ -198,7 +208,14 @@ pub struct UpdateTankLevelInput {
 
 /// Record a water harvest from a system
 #[hdk_extern]
-pub fn record_harvest(harvest: HarvestRecord) -> ExternResult<Record> {
+pub fn record_harvest(mut harvest: HarvestRecord) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could credit another agent's account for a harvest they didn't
+    // perform (P0 author-binding gap; harvest credits feed H2O credits
+    // downstream in the flow zome, so this is an economic-fraud vector, not
+    // just cosmetic misattribution).
+    harvest.credited_to = agent_info()?.agent_initial_pubkey;
+
     let action_hash = create_entry(&EntryTypes::HarvestRecord(harvest.clone()))?;
 
     // Link system to harvest record

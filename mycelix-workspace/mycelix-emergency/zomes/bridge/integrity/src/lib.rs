@@ -89,16 +89,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EmergencyQuery(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EmergencyEvent(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Emergency events are immutable".into(),
-                )),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -114,26 +108,83 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::HappToQuery => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink {
-            link_type,
-            original_action: _,
-            base_address: _,
-            target_address: _,
-            tag: _,
-            action: _,
-        } => match link_type {
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
+            original_action,
+            action,
+            ..
+        } => {
+            // Previously accepted unconditionally regardless of author --
+            // the coordinator never calls delete_link here, so this is
+            // pure hardening (zero functional impact). Found + fixed
+            // 2026-07-09 during the P0 author-binding pass.
+            if action.author != original_action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original link creator can delete a link".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 9th confirmed instance of this exact
+            // bug pattern this pass. Found + fixed 2026-07-09 during the P0
+            // author-binding pass. Route through the same per-type
+            // validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+    }
+}
+
+/// Shared per-entry-type update validation, called from BOTH the
+/// StoreEntry (OpEntry::UpdateEntry) and RegisterUpdate DHT-op
+/// perspectives so they agree.
+fn validate_update_entry_type(
+    _action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        // Both types are immutable: confirmed via grep that no coordinator
+        // function ever calls update_entry for either. Found + fixed
+        // 2026-07-09 during the P0 author-binding pass -- EmergencyQuery
+        // previously accepted any field change unconditionally.
+        EntryTypes::EmergencyQuery(_) => Ok(ValidateCallbackResult::Invalid(
+            "Emergency queries are immutable".into(),
+        )),
+        EntryTypes::EmergencyEvent(_) => Ok(ValidateCallbackResult::Invalid(
+            "Emergency events are immutable".into(),
+        )),
     }
 }
 
 fn validate_create_query(
-    _action: Create,
+    action: Create,
     query: EmergencyQuery,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's query_emergency already derives
+    // requested_by from agent_info(), so this is belt-and-suspenders
+    // against a modified coordinator forging a victim agent as requester.
+    // Found + fixed 2026-07-09 during the P0 author-binding pass.
+    if query.requested_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Query requested_by must correspond to the committing agent".into(),
+        ));
+    }
+
     if query.query_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Query ID cannot be empty".into(),
@@ -153,9 +204,19 @@ fn validate_create_query(
 }
 
 fn validate_create_event(
-    _action: Create,
+    action: Create,
     event: EmergencyEvent,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's broadcast_event already derives
+    // emitted_by from agent_info(), so this is belt-and-suspenders against
+    // a modified coordinator forging a victim agent as emitter. Found +
+    // fixed 2026-07-09 during the P0 author-binding pass.
+    if event.emitted_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Event emitted_by must correspond to the committing agent".into(),
+        ));
+    }
+
     if event.event_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Event ID cannot be empty".into(),
@@ -172,4 +233,108 @@ fn validate_create_event(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn create_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_query(requested_by: AgentPubKey) -> EmergencyQuery {
+        EmergencyQuery {
+            query_id: "q-1".into(),
+            source_happ: "mycelix-health".into(),
+            query_type: QueryType::ResourceAvailability,
+            parameters: "{}".into(),
+            requested_by,
+            requested_at: Timestamp::from_micros(0),
+            response: None,
+            responded_at: None,
+        }
+    }
+
+    #[test]
+    fn create_query_valid_when_requester_matches_committer() {
+        let q = valid_query(me());
+        let result = validate_create_query(create_action(me()), q).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_query_forgery_rejected() {
+        let q = valid_query(me());
+        let result = validate_create_query(create_action(other_agent()), q).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_event(emitted_by: AgentPubKey) -> EmergencyEvent {
+        EmergencyEvent {
+            event_id: "e-1".into(),
+            event_type: EventType::AllClear,
+            disaster_hash: None,
+            payload: "{}".into(),
+            emitted_by,
+            emitted_at: Timestamp::from_micros(0),
+            target_happs: vec!["mycelix-health".into()],
+        }
+    }
+
+    #[test]
+    fn create_event_valid_when_emitter_matches_committer() {
+        let e = valid_event(me());
+        let result = validate_create_event(create_action(me()), e).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_event_forgery_rejected() {
+        let e = valid_event(me());
+        let result = validate_create_event(create_action(other_agent()), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_query_update() {
+        let q = valid_query(me());
+        let action = Update {
+            author: me(),
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_update_entry_type(action, EntryTypes::EmergencyQuery(q)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

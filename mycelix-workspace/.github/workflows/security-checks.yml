@@ -69,6 +69,57 @@ jobs:
             echo "All OtherRole dispatch sites reference routing_registry."
           fi
 
+  # ── integrity author-binding: entries must be bound to their committer ──────
+  #
+  # The #1 finding of the 2026-07-06 comprehensive review: integrity
+  # `validate_create_*` / `validate_update_*` callbacks that never reference
+  # `action.author()`. Under Holochain's "malicious agent runs a modified
+  # coordinator" threat model, a validator that doesn't bind an owned entry to
+  # its committing key enforces nothing — enabling vote forgery, DID takeover,
+  # and balance self-mint. As of the review only 3 identity zomes bound author
+  # at all (648/652 validators unbound workspace-wide).
+  #
+  # Advisory (like routing-registry-adoption above): not every validator needs
+  # binding (pure link-tag / structural validators legitimately don't) and the
+  # existing backlog is large, so this REPORTS rather than fails — it must not
+  # block unrelated PRs on a pre-existing debt. The hard ratchet (fail if the
+  # count GROWS past a frozen baseline) lives in
+  # scripts/audit-integrity-provenance.sh (--check); run that locally / add it
+  # as a separate required check once the baseline is agreed.
+  integrity-author-binding:
+    name: integrity author-binding (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Report validators missing action.author()
+        run: |
+          set -uo pipefail
+          # Standalone repo root == mycelix-workspace content, so cluster dirs
+          # are at the root (mycelix-*/zomes/.../integrity/src/*.rs).
+          FILES=$(find . -path '*/integrity/src/*.rs' 2>/dev/null \
+            | grep -v '/target/' | grep -v legacy-archive | grep -v _archive || true)
+          TOTAL=0; UNBOUND=0; IGNORED=""
+          # grep -c already prints a count (0 on no match); do NOT add `|| echo 0`
+          # — that double-prints "0\n0" on zero-match files and corrupts the sum.
+          for f in $FILES; do
+            n=$(grep -cE 'fn validate_(create|update)_[a-z0-9_]+' "$f" 2>/dev/null); n=${n:-0}
+            TOTAL=$((TOTAL + n))
+            if ! grep -q '\.author(' "$f"; then
+              UNBOUND=$((UNBOUND + n))
+            fi
+            # The blatant subset: action parameter explicitly discarded.
+            HITS=$(grep -nE 'fn validate_(create|update)_[a-z0-9_]+\(\s*_action|fn validate_(create|update)_[a-z0-9_]+\(\s*_\s*:' "$f" 2>/dev/null || true)
+            if [ -n "$HITS" ]; then
+              IGNORED="${IGNORED}${f}:\n${HITS}\n"
+            fi
+          done
+          echo "::warning::${UNBOUND} of ${TOTAL} integrity validators never reference action.author() — review owned-entry validators (see memory/mycelix_comprehensive_review_jul6.md)."
+          if [ -n "$IGNORED" ]; then
+            echo "::warning::Validators that explicitly ignore the action parameter (_action) — cannot bind provenance. Fix: require e.g. entry.owner_did == format!(\"did:mycelix:{}\", action.author())."
+            printf "%b" "$IGNORED"
+          fi
+
   # ── cargo audit gate ───────────────────────────────────────────────────────
   #
   # Required by BETA_PROMOTION_CRITERIA.md's own promotion checklist, but as

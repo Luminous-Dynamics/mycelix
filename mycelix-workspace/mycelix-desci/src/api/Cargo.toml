@@ -57,7 +57,7 @@ governor = "0.10"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 
 # Project dependencies
-mycelix-desci-core = { path = "../core" }
+mycelix-desci-core = { path = "../core", features = ["holochain"] }
 mycelix-zkp-core = { workspace = true }
 
 [dev-dependencies]

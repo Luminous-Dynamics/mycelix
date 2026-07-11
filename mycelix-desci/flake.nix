@@ -18,9 +18,14 @@
           inherit system overlays;
         };
 
-        # Pinned Rust toolchain for maximum reproducibility
-        # Updated to 1.83.0 for edition2024 support (required by base64ct)
-        rustToolchain = pkgs.rust-bin.stable."1.83.0".default.override {
+        # Pinned Rust toolchain for maximum reproducibility - read from
+        # rust-toolchain.toml (single source of truth) rather than a second
+        # hardcoded version string, so the two can't silently drift apart.
+        # Bumped 1.83.0 -> 1.96.0 (2026-07): build+clippy+test all verified
+        # clean under 1.96.0 despite the version jump (284 tests pass).
+        rustToolchainToml = builtins.fromTOML (builtins.readFile ./rust-toolchain.toml);
+        rustChannel = rustToolchainToml.toolchain.channel;
+        rustToolchain = pkgs.rust-bin.stable.${rustChannel}.default.override {
           extensions = [ "rust-src" "rust-analyzer" ];
         };
 

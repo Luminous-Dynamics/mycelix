@@ -82,12 +82,28 @@ pub fn get_all_watersheds(_: ()) -> ExternResult<Vec<Record>> {
 // ============================================================================
 
 /// Register a new water right within a watershed
+///
+/// NOTE (P0 scope, disclosed not fixed): registration has no watershed-
+/// authority/governance check at all today -- unlike flow's WaterSource
+/// (which has a `steward` gate on allocation), there's no equivalent
+/// authority concept here, so binding `holder` to the caller only stops
+/// cross-agent impersonation (Agent A can't register a right claiming
+/// Agent B holds it). It does NOT stop any agent self-registering an
+/// unlimited water right -- that's a separate, deeper governance gap,
+/// same class as commons' create_common_resource / grant_usage_right
+/// authority gaps noted elsewhere in this pass.
 #[hdk_extern]
-pub fn register_water_right(right: WaterRight) -> ExternResult<Record> {
+pub fn register_water_right(mut right: WaterRight) -> ExternResult<Record> {
     // Verify watershed exists
     let _ws_record = get(right.watershed_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Watershed not found".into())),
     )?;
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could register a right claiming another agent as holder (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // steward integrity's validate_create_water_right).
+    right.holder = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::WaterRight(right.clone()))?;
 
@@ -239,12 +255,18 @@ pub struct TransferRightInput {
 
 /// File a water dispute within a watershed
 #[hdk_extern]
-pub fn file_dispute(dispute: WaterDispute) -> ExternResult<Record> {
+pub fn file_dispute(mut dispute: WaterDispute) -> ExternResult<Record> {
     if dispute.description.is_empty() || dispute.description.len() > 8192 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Description must be 1-8192 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could file a dispute claiming another agent as complainant (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // steward integrity's validate_create_water_dispute).
+    dispute.complainant = agent_info()?.agent_initial_pubkey;
 
     // Verify watershed exists
     let _ws = get(dispute.watershed_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(

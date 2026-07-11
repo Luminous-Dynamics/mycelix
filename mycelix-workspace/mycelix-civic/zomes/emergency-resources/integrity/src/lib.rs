@@ -189,10 +189,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -232,9 +229,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_resource(
-    _action: Create,
+    action: Create,
     resource: EmergencyResource,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `owner` is set to the committing agent by the coordinator.
+    if resource.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EmergencyResource owner must match the committing agent".into(),
+        ));
+    }
     if resource.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Resource ID cannot be empty".into(),
@@ -308,9 +311,15 @@ fn validate_update_resource(resource: EmergencyResource) -> ExternResult<Validat
 }
 
 fn validate_create_request(
-    _action: Create,
+    action: Create,
     request: ResourceRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `requesting_team` is set to the committing agent by the coordinator.
+    if request.requesting_team != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ResourceRequest requesting_team must match the committing agent".into(),
+        ));
+    }
     if request.quantity_needed == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Quantity needed must be greater than 0".into(),
@@ -570,6 +579,22 @@ mod tests {
     fn create_resource_valid_passes() {
         let result = validate_create_resource(fake_create(), make_resource());
         assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn create_resource_forged_owner_rejected() {
+        let mut r = make_resource();
+        r.owner = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_resource(fake_create(), r);
+        assert!(is_invalid(&result));
+    }
+
+    #[test]
+    fn create_request_forged_requesting_team_rejected() {
+        let mut req = make_request();
+        req.requesting_team = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_request(fake_create(), req);
+        assert!(is_invalid(&result));
     }
 
     #[test]

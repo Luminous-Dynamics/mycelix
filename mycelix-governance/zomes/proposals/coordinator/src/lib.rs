@@ -54,7 +54,7 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
 
 /// Create a new proposal
 #[hdk_extern]
-#[sovereign_gated(proposal)]
+#[sovereign_gated(proposal, "governance_bridge")]
 pub fn create_proposal(proposal: Proposal) -> ExternResult<Record> {
     // Input validation
     if proposal.title.is_empty() || proposal.title.len() > 256 {
@@ -498,7 +498,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Add a contribution to a proposal's discussion
 #[hdk_extern]
-#[sovereign_gated(basic)]
+#[sovereign_gated(basic, "governance_bridge")]
 pub fn add_contribution(input: AddContributionInput) -> ExternResult<Record> {
     // Input validation
     if input.proposal_id.is_empty() || input.proposal_id.len() > 256 {
@@ -667,7 +667,7 @@ pub fn get_replies(contribution_id: String) -> ExternResult<Vec<Record>> {
 ///
 /// This mirrors how the conversation looks - not whether it's "good" or "bad"
 #[hdk_extern]
-#[sovereign_gated(proposal)]
+#[sovereign_gated(proposal, "governance_bridge")]
 pub fn reflect_on_discussion(proposal_id: String) -> ExternResult<Record> {
     let now = sys_time()?;
 

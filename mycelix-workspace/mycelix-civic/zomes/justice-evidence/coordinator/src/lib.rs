@@ -5,7 +5,7 @@
 use hdk::prelude::*;
 use justice_evidence_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_proposal, civic_requirement_voting, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_proposal, civic_requirement_voting,
 };
 use mycelix_zome_helpers::records_from_links;
 
@@ -17,15 +17,28 @@ fn anchor_hash(s: &str) -> ExternResult<EntryHash> {
     Ok(EntryHash::from_raw_32(hash.to_vec()))
 }
 
+/// Derives the caller's DID from the real committing agent (never trust a
+/// caller-supplied "acting agent" field). Found + fixed 2026-07-10 during
+/// the P0 author-binding pass. Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
+
 /// Helper to get records from links
 
 #[hdk_extern]
-pub fn submit_evidence(evidence: Evidence) -> ExternResult<Record> {
+pub fn submit_evidence(mut evidence: Evidence) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_proposal(),
         "submit_evidence",
     )?;
+
+    // Author-binding: the submitter is always the committing agent.
+    evidence.submitter = my_did()?;
+
     if evidence.title.is_empty() || evidence.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -82,12 +95,16 @@ pub fn get_complaint_evidence(complaint_id: String) -> ExternResult<Vec<Record>>
 
 /// Verify evidence (by a juror or arbitrator)
 #[hdk_extern]
-pub fn verify_evidence(input: VerifyEvidenceInput) -> ExternResult<Record> {
+pub fn verify_evidence(mut input: VerifyEvidenceInput) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_voting(),
         "verify_evidence",
     )?;
+
+    // Author-binding: the verifier is always the committing agent.
+    input.verifier = my_did()?;
+
     if input.evidence_id.is_empty() || input.evidence_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Evidence ID must be 1-256 characters".into()
@@ -138,12 +155,16 @@ pub struct VerifyEvidenceInput {
 
 /// Dispute evidence (challenge its validity)
 #[hdk_extern]
-pub fn dispute_evidence(input: DisputeEvidenceInput) -> ExternResult<Record> {
+pub fn dispute_evidence(mut input: DisputeEvidenceInput) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_proposal(),
         "dispute_evidence",
     )?;
+
+    // Author-binding: the disputant is always the committing agent.
+    input.disputant = my_did()?;
+
     if input.evidence_id.is_empty() || input.evidence_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Evidence ID must be 1-256 characters".into()

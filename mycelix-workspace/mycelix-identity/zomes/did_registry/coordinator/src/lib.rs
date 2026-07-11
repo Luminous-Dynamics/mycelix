@@ -7,9 +7,19 @@
 //! Updated to use HDK 0.6 patterns
 
 use did_registry_integrity::*;
+use hdk::prelude::HdkPathExt;
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, CryptoError, TaggedPublicKey};
 use mycelix_zome_helpers::anchor_hash;
+
+/// Get-or-create a deterministic Path anchor for a string key. Used as a
+/// link base for discovery indexes (e.g. substrate role -> providers).
+fn create_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
+    let path = Path::from(anchor_str);
+    let typed_path = path.typed(LinkTypes::DidToService)?;
+    typed_path.ensure()?;
+    typed_path.path.path_entry_hash()
+}
 
 /// API version for cross-zome compatibility detection.
 /// Increment when making breaking changes to extern signatures or types.

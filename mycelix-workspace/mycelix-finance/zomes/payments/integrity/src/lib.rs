@@ -5,7 +5,9 @@
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
-pub use mycelix_finance_types::{SapMintCapCounter, SapMintSource, SuccessionPreference};
+pub use mycelix_finance_types::{
+    AMBER_MAX_CAP_MICRO_SAP, AmberExemption, SapMintCapCounter, SapMintSource, SuccessionPreference,
+};
 
 // =============================================================================
 // CONSTANTS — Fee Proportionality (Commons Charter)
@@ -116,6 +118,11 @@ pub struct SapBalance {
     pub balance: u64,
     /// Timestamp of last demurrage application
     pub last_demurrage_at: Timestamp,
+    /// Optional Amber exemption: a protected, demurrage-exempt tranche for
+    /// children, elders, or multi-year projects. `None` = normal SAP.
+    /// `#[serde(default)]` keeps pre-Amber balances deserializable.
+    #[serde(default)]
+    pub exemption: Option<AmberExemption>,
 }
 
 /// Record of a member exit, coordinating across all currencies
@@ -666,6 +673,35 @@ fn validate_sap_balance(bal: &SapBalance) -> ExternResult<ValidateCallbackResult
             "Member must be a valid DID".into(),
         ));
     }
+
+    // Amber exemption: structural anti-arbitrage gate. Deterministic checks only —
+    // issuer *authenticity* (a real child/elder credential / governance approval) is
+    // verified at grant time in the coordinator, since integrity cannot call out.
+    if let Some(ex) = &bal.exemption {
+        if ex.issuer.len() > MAX_DID_LEN || !ex.issuer.starts_with("did:") {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Amber exemption issuer must be a valid DID".into(),
+            ));
+        }
+        // No self-issue: a holder can never grant themselves demurrage exemption.
+        if ex.issuer == bal.member_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Amber exemption cannot be self-issued".into(),
+            ));
+        }
+        // Cap bounded by the governance ceiling (whale-loophole guard).
+        if ex.cap_micro_sap > AMBER_MAX_CAP_MICRO_SAP {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Amber exemption cap exceeds governance ceiling".into(),
+            ));
+        }
+        // Must expire — no permanent, uncapped shelters.
+        if ex.expires_at_secs == 0 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Amber exemption must have a nonzero expiry".into(),
+            ));
+        }
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -823,6 +859,7 @@ mod tests {
             member_did: "did:mycelix:alice".into(),
             balance: 5_000_000,
             last_demurrage_at: ts(1_000_000),
+            exemption: None,
         }
     }
 
@@ -1058,6 +1095,75 @@ mod tests {
         bal.member_did = "not-a-did".into();
         let result = validate_sap_balance(&bal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- 19b. Amber exemption structural validation ----
+
+    fn valid_amber() -> AmberExemption {
+        AmberExemption {
+            class: mycelix_finance_types::AmberClass::Custodial,
+            issuer: "did:mycelix:steward".into(),
+            cap_micro_sap: 50_000_000_000,
+            expires_at_secs: 9_000_000_000,
+        }
+    }
+
+    #[test]
+    fn test_valid_amber_exemption_accepted() {
+        let mut bal = valid_sap_balance();
+        bal.exemption = Some(valid_amber());
+        assert!(matches!(
+            validate_sap_balance(&bal).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_amber_self_issue_rejected() {
+        let mut bal = valid_sap_balance();
+        let mut ex = valid_amber();
+        ex.issuer = bal.member_did.clone(); // holder issues to self
+        bal.exemption = Some(ex);
+        assert!(matches!(
+            validate_sap_balance(&bal).unwrap(),
+            ValidateCallbackResult::Invalid(msg) if msg.contains("self-issued")
+        ));
+    }
+
+    #[test]
+    fn test_amber_cap_over_ceiling_rejected() {
+        let mut bal = valid_sap_balance();
+        let mut ex = valid_amber();
+        ex.cap_micro_sap = AMBER_MAX_CAP_MICRO_SAP + 1;
+        bal.exemption = Some(ex);
+        assert!(matches!(
+            validate_sap_balance(&bal).unwrap(),
+            ValidateCallbackResult::Invalid(msg) if msg.contains("ceiling")
+        ));
+    }
+
+    #[test]
+    fn test_amber_zero_expiry_rejected() {
+        let mut bal = valid_sap_balance();
+        let mut ex = valid_amber();
+        ex.expires_at_secs = 0;
+        bal.exemption = Some(ex);
+        assert!(matches!(
+            validate_sap_balance(&bal).unwrap(),
+            ValidateCallbackResult::Invalid(msg) if msg.contains("expiry")
+        ));
+    }
+
+    #[test]
+    fn test_amber_invalid_issuer_did_rejected() {
+        let mut bal = valid_sap_balance();
+        let mut ex = valid_amber();
+        ex.issuer = "steward".into(); // not a DID
+        bal.exemption = Some(ex);
+        assert!(matches!(
+            validate_sap_balance(&bal).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- 20. Valid SapMintRecord ----

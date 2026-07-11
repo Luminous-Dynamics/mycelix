@@ -372,6 +372,11 @@ fn validate_create_recovery_config(
 }
 
 /// Validate recovery config update
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `original.action().author() == action.author` for every entry type), so
+/// this function only needs to check content invariants, not identity.
 fn validate_update_recovery_config(
     action: Update,
     config: RecoveryConfig,
@@ -439,7 +444,7 @@ fn validate_update_recovery_config(
 
 /// Validate recovery request creation
 fn validate_create_recovery_request(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     request: RecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate DID format
@@ -453,6 +458,20 @@ fn validate_create_recovery_request(
     if !request.initiated_by.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Initiator must be a valid DID".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's initiate_recovery already checks
+    // `input.initiator_did != caller_did` ("Caller does not own the
+    // initiator DID") before creating the entry, but that check is
+    // bypassable by a modified coordinator -- the integrity validator is
+    // the real security boundary. Without this, any agent could commit a
+    // RecoveryRequest naming an arbitrary trustee as initiator, forging
+    // trustee-initiated identity recovery. Bind here as belt-and-suspenders.
+    let expected_initiator_did = format!("did:mycelix:{}", action.author());
+    if request.initiated_by != expected_initiator_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request initiator DID must correspond to the committing agent".into(),
         ));
     }
 
@@ -474,6 +493,25 @@ fn validate_create_recovery_request(
 }
 
 /// Validate recovery request update (status transitions)
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()`: only the SAME agent
+/// who created the RecoveryRequest can commit an Update to it.
+///
+/// KNOWN GAP found while reviewing this path (2026-07-08, out of scope to
+/// fix in this pass): the coordinator's `check_and_update_request_status`
+/// (called after every `vote_on_recovery`) locates the RecoveryRequest via
+/// `query()`, which only searches the CALLING agent's own local source
+/// chain -- not the DHT. Since the request entry only lives on whichever
+/// agent originally called `initiate_recovery`, this lookup returns `None`
+/// (and silently no-ops) for every trustee except that original initiator.
+/// In a real multi-agent deployment this likely means threshold-reached
+/// auto-approval never actually fires except in the degenerate case where
+/// the initiator is also the vote that crosses the threshold. This is a
+/// functional/availability bug in vote tallying, not a security-binding
+/// gap -- flagging for a dedicated follow-up (would need
+/// `check_and_update_request_status` to look up the request via its DHT
+/// link, the same way `get_recovery_votes` does, rather than local `query()`).
 fn validate_update_recovery_request(
     action: Update,
     request: RecoveryRequest,
@@ -600,6 +638,25 @@ fn validate_create_self_recovery_config(
 }
 
 /// Validate self-recovery request creation
+///
+/// Deliberately NOT author-bound (reviewed 2026-07-08, P0 pass): binding
+/// this to action.author() would be architecturally WRONG, not just
+/// unnecessary. Self-recovery exists specifically for when the DID owner's
+/// ORIGINAL agent key is unreachable -- the whole point is that the
+/// committing agent is necessarily a *different* key (a new device/session)
+/// than the one being recovered from. Its actual security comes from
+/// anchor-possession proof (verified_anchors must match
+/// SelfRecoveryConfig.anchors, checked coordinator-side in
+/// initiate_self_recovery/verify_self_recovery_anchor), not agent identity.
+///
+/// KNOWN GAP found while reviewing this path (out of scope to fix here):
+/// `verify_self_recovery_anchor` checks anchor possession by comparing the
+/// caller-supplied hash against the enrolled hash list with no actual
+/// proof-of-control (no signature challenge) -- anyone who knows/guesses/
+/// leaks the phone/email hash can "verify" that anchor. This is a
+/// proof-of-possession gap, architecturally different from the
+/// author-identity forgeries fixed elsewhere this pass (same class as the
+/// report_reputation forgery gap documented in the bridge zome).
 fn validate_create_self_recovery_request(
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -622,6 +679,14 @@ fn validate_create_self_recovery_request(
 }
 
 /// Validate self-recovery request updates (same state machine as social recovery)
+///
+/// Author-binding for updates is enforced universally by this crate's
+/// `FlatOp::RegisterUpdate` handler (same author as original creator).
+/// This is consistent with self-recovery's model: since verify_self_recovery_anchor
+/// is called by the SAME requesting agent repeatedly (accumulating verified
+/// anchors), requiring the same author across updates is correct here --
+/// unlike RecoveryRequest's cross-trustee tallying, there's no legitimate
+/// need for a DIFFERENT agent to update a SelfRecoveryRequest.
 fn validate_update_self_recovery_request(
     action: Update,
     request: SelfRecoveryRequest,
@@ -864,7 +929,7 @@ mod tests {
 
 /// Validate recovery vote creation
 fn validate_create_recovery_vote(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     vote: RecoveryVote,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate trustee is a DID
@@ -881,5 +946,112 @@ fn validate_create_recovery_vote(
         ));
     }
 
+    // Author-binding: the coordinator's vote_on_recovery already checks
+    // `input.trustee_did != caller_did` ("Caller must be the claimed
+    // trustee") before creating the entry, but that check is bypassable by
+    // a modified coordinator -- the integrity validator is the real
+    // security boundary. Without this, any agent could commit a
+    // RecoveryVote claiming to be an arbitrary trustee, forging approval
+    // votes for unauthorized DID/identity takeover. Bind here as
+    // belt-and-suspenders.
+    let expected_trustee_did = format!("did:mycelix:{}", action.author());
+    if vote.trustee != expected_trustee_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery vote trustee DID must correspond to the committing agent".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_request(initiated_by: String) -> RecoveryRequest {
+        RecoveryRequest {
+            id: "req-1".into(),
+            did: "did:mycelix:owner".into(),
+            new_agent: me(),
+            initiated_by,
+            reason: "Owner lost device".into(),
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(0),
+            time_lock_expires: None,
+        }
+    }
+
+    #[test]
+    fn create_request_valid_when_initiator_matches_committer() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_recovery_request(EntryCreationAction::Create(test_action(me())), req)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_request_initiator_forgery_rejected() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result = validate_create_recovery_request(
+            EntryCreationAction::Create(test_action(other_agent())),
+            req,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_vote(trustee: String) -> RecoveryVote {
+        RecoveryVote {
+            request_id: "req-1".into(),
+            trustee,
+            vote: VoteDecision::Approve,
+            comment: None,
+            voted_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_vote_valid_when_trustee_matches_committer() {
+        let vote = valid_vote(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_recovery_vote(EntryCreationAction::Create(test_action(me())), vote)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_vote_trustee_forgery_rejected() {
+        let vote = valid_vote(format!("did:mycelix:{}", me()));
+        let result = validate_create_recovery_vote(
+            EntryCreationAction::Create(test_action(other_agent())),
+            vote,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

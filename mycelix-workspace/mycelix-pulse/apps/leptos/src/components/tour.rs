@@ -23,7 +23,7 @@ const STEPS: &[TourStep] = &[
     },
     TourStep {
         title: "Compose",
-        body: "Send PQC-encrypted emails. Tab to autocomplete contacts, Ctrl+Enter to send.",
+        body: "Send end-to-end encrypted emails (post-quantum ready; classical X25519 in transit today). Tab to autocomplete contacts, Ctrl+Enter to send.",
         selector: ".compose-btn, .bottom-nav-item:nth-child(2)",
         position: "right",
     },

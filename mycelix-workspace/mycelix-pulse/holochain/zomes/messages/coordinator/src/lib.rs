@@ -245,8 +245,24 @@ pub fn send_email(input: SendEmailInput) -> ExternResult<SendEmailOutput> {
         _ => None,
     });
 
-    let _trust_score = sender_trust.map(|(s, _)| s).unwrap_or(0.3);
+    let trust_score = sender_trust.map(|(s, _)| s).unwrap_or(0.3);
     let _trust_confidence = sender_trust.map(|(_, c)| c).unwrap_or(0.0);
+
+    // Send-side spam gate: reject senders with explicitly negative trust
+    // (blocklisted / repeatedly flagged). Unknown senders default to 0.3 and
+    // are allowed, so a first-time legitimate sender is not blocked. This is
+    // the cheapest real gate — the score is already fetched above and was
+    // previously computed and discarded. Note: cooperative, not Sybil-proof
+    // (a modified coordinator could skip it); a per-agent volume cap and
+    // integrity-level enforcement are the follow-ons. See
+    // PULSE_GOLDEN_PATH_2026-07-07.md Phase 4.
+    const MIN_SEND_TRUST: f64 = 0.0;
+    if trust_score < MIN_SEND_TRUST {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Send blocked: sender trust {trust_score:.3} is below the minimum \
+             {MIN_SEND_TRUST:.1} (blocklisted or repeatedly flagged)"
+        ))));
+    }
 
     // Create email entry for each recipient (they need their own copy to decrypt)
     for recipient in &all_recipients {

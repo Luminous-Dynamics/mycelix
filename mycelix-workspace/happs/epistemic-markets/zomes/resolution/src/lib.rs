@@ -103,7 +103,7 @@ pub struct EvidenceLink {
     pub source: String,
     pub url: Option<String>,
     pub description: String,
-    pub epistemic_level: u8, // 0-4 matching EmpiricalLevel
+    pub epistemic_level: u8, // 0-4 matching the markets zome's VerificationTier
 }
 
 // ============================================================================
@@ -172,10 +172,7 @@ pub enum ResolutionState {
     /// Not yet started
     Pending,
     /// Voting in progress
-    Voting {
-        started_at: u64,
-        deadline: u64,
-    },
+    Voting { started_at: u64, deadline: u64 },
     /// Consensus reached
     Resolved {
         outcome: String,
@@ -190,13 +187,9 @@ pub enum ResolutionState {
         escalation_level: u32,
     },
     /// Escalated to governance
-    EscalatedToGovernance {
-        proposal_id: EntryHash,
-    },
+    EscalatedToGovernance { proposal_id: EntryHash },
     /// Failed to resolve (no consensus)
-    Failed {
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
 /// Resolution process for a market
@@ -265,10 +258,7 @@ pub enum ByzantineRecommendation {
 
 impl ByzantineAnalysis {
     /// Analyze votes for Byzantine behavior
-    pub fn analyze(
-        votes: &[OracleVote],
-        config: &ResolutionConfig,
-    ) -> Self {
+    pub fn analyze(votes: &[OracleVote], config: &ResolutionConfig) -> Self {
         let mut suspicious = Vec::new();
 
         // Group votes by outcome
@@ -359,7 +349,12 @@ pub fn start_resolution(market_id: EntryHash) -> ExternResult<EntryHash> {
         None,
         market_id.clone(),
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to get market data: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to get market data: {:?}",
+            e
+        )))
+    })?;
 
     let market_data: Option<MarketData> = match response {
         ZomeCallResponse::Ok(extern_io) => extern_io.decode().ok(),
@@ -402,7 +397,12 @@ pub fn start_resolution(market_id: EntryHash) -> ExternResult<EntryHash> {
     let _action_hash = create_entry(&EntryTypes::ResolutionProcess(process))?;
 
     // Link to market
-    create_link(market_id.clone(), entry_hash.clone(), LinkTypes::MarketToResolution, ())?;
+    create_link(
+        market_id.clone(),
+        entry_hash.clone(),
+        LinkTypes::MarketToResolution,
+        (),
+    )?;
 
     // Emit signal for oracle notification
     emit_signal(serde_json::json!({
@@ -559,15 +559,16 @@ pub fn finalize_resolution(resolution_id: EntryHash) -> ExternResult<ResolutionR
     }
 
     // Find winning outcome
-    let total_weight: f64 = process.outcome_tallies.iter().map(|t| t.weighted_votes).sum();
-    let winning_tally = process
+    let total_weight: f64 = process
         .outcome_tallies
         .iter()
-        .max_by(|a, b| {
-            a.weighted_votes
-                .partial_cmp(&b.weighted_votes)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        .map(|t| t.weighted_votes)
+        .sum();
+    let winning_tally = process.outcome_tallies.iter().max_by(|a, b| {
+        a.weighted_votes
+            .partial_cmp(&b.weighted_votes)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     if let Some(winner) = winning_tally {
         let consensus_ratio = winner.weighted_votes / total_weight;
@@ -701,14 +702,9 @@ pub enum PayoutExecutionStatus {
     /// All payouts executed successfully
     Completed,
     /// Partial execution (some failed)
-    PartiallyCompleted {
-        successful: u32,
-        failed: u32,
-    },
+    PartiallyCompleted { successful: u32, failed: u32 },
     /// Execution failed
-    Failed {
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
 /// Input for payout calculation
@@ -788,9 +784,11 @@ pub fn calculate_payouts(input: CalculatePayoutsInput) -> ExternResult<PayoutRec
 
     // Verify resolution is complete
     let (winning_outcome, resolution_confidence) = match &process.state {
-        ResolutionState::Resolved { outcome, confidence, .. } => {
-            (outcome.clone(), *confidence)
-        }
+        ResolutionState::Resolved {
+            outcome,
+            confidence,
+            ..
+        } => (outcome.clone(), *confidence),
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Cannot calculate payouts: resolution not complete".into()
@@ -853,11 +851,14 @@ pub fn calculate_payouts(input: CalculatePayoutsInput) -> ExternResult<PayoutRec
 
         // Get MATL score for bonus calculation
         let matl_score = get_oracle_matl(&position.agent)?;
-        let matl_bonus = (base_payout as f64 * config.max_matl_bonus_pct * matl_score.composite) as u64;
+        let matl_bonus =
+            (base_payout as f64 * config.max_matl_bonus_pct * matl_score.composite) as u64;
 
         // Calculate early prediction bonus
         let market_duration = pool_data.closes_at.saturating_sub(pool_data.created_at);
-        let prediction_timing = position.first_purchase_at.saturating_sub(pool_data.created_at);
+        let prediction_timing = position
+            .first_purchase_at
+            .saturating_sub(pool_data.created_at);
         let early_ratio = 1.0 - (prediction_timing as f64 / market_duration as f64).min(1.0);
         let early_bonus = if early_ratio > 0.75 {
             // Prediction in first 25% of market gets full bonus
@@ -950,7 +951,11 @@ pub fn execute_payouts(payout_record_id: EntryHash) -> ExternResult<PayoutExecut
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Payout record entry not found".into())))?;
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Payout record entry not found".into()
+            ))
+        })?;
 
     let action_hash = record.action_hashed().hash.clone();
 
@@ -1017,10 +1022,7 @@ pub fn execute_payouts(payout_record_id: EntryHash) -> ExternResult<PayoutExecut
     }
 
     // Execute protocol share (to treasury)
-    let _ = execute_protocol_fee_transfer(
-        payout_record.protocol_share,
-        &payout_record.market_id,
-    );
+    let _ = execute_protocol_fee_transfer(payout_record.protocol_share, &payout_record.market_id);
 
     // Update execution status
     payout_record.execution_status = if failed == 0 {
@@ -1102,11 +1104,20 @@ fn get_market_pool_data(market_id: &EntryHash) -> ExternResult<MarketPoolData> {
         None,
         market_id.clone(),
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to get market pool: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to get market pool: {:?}",
+            e
+        )))
+    })?;
 
     let pool_data: MarketPoolData = match response {
-        ZomeCallResponse::Ok(extern_io) => extern_io.decode()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to decode pool data: {:?}", e))))?,
+        ZomeCallResponse::Ok(extern_io) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode pool data: {:?}",
+                e
+            )))
+        })?,
         _ => {
             // Return default if call fails (for development/testing)
             MarketPoolData {
@@ -1132,7 +1143,12 @@ fn get_predictor_positions(market_id: &EntryHash) -> ExternResult<Vec<PredictorP
         None,
         market_id.clone(),
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to get positions: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to get positions: {:?}",
+            e
+        )))
+    })?;
 
     let positions: Vec<PredictorPosition> = match response {
         ZomeCallResponse::Ok(extern_io) => extern_io.decode().unwrap_or_default(),
@@ -1179,16 +1195,22 @@ fn execute_kredit_transfer(
         None,
         transfer_input,
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("KREDIT transfer failed: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "KREDIT transfer failed: {:?}",
+            e
+        )))
+    })?;
 
     match response {
         ZomeCallResponse::Ok(_) => Ok(()),
-        ZomeCallResponse::Unauthorized(_, _, _, _) => {
-            Err(wasm_error!(WasmErrorInner::Guest("Unauthorized transfer".into())))
-        }
-        ZomeCallResponse::NetworkError(e) => {
-            Err(wasm_error!(WasmErrorInner::Guest(format!("Network error: {}", e))))
-        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "Unauthorized transfer".into()
+        ))),
+        ZomeCallResponse::NetworkError(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Network error: {}",
+            e
+        )))),
         _ => Err(wasm_error!(WasmErrorInner::Guest("Transfer failed".into()))),
     }
 }
@@ -1216,7 +1238,12 @@ fn execute_protocol_fee_transfer(amount: u64, market_id: &EntryHash) -> ExternRe
         None,
         fee_input,
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Protocol fee transfer failed: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Protocol fee transfer failed: {:?}",
+            e
+        )))
+    })?;
 
     match response {
         ZomeCallResponse::Ok(_) => Ok(()),
@@ -1313,9 +1340,7 @@ pub fn get_resolution_process(hash: EntryHash) -> ExternResult<Option<Resolution
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or_else(|| {
-                    wasm_error!(WasmErrorInner::Guest("Resolution not found".into()))
-                })?;
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Resolution not found".into())))?;
             Ok(Some(process))
         }
         None => Ok(None),
@@ -1348,7 +1373,8 @@ fn update_outcome_tallies(process: &mut ResolutionProcess, vote: &OracleVote) {
             .map(|e| e.epistemic_level as f64 / 4.0)
             .sum::<f64>()
             / vote.evidence.len().max(1) as f64;
-        tally.evidence_score = (old_weight * tally.evidence_score + vote.matl_weight * evidence_quality)
+        tally.evidence_score = (old_weight * tally.evidence_score
+            + vote.matl_weight * evidence_quality)
             / (old_weight + vote.matl_weight);
     } else {
         let evidence_quality: f64 = vote
@@ -1369,7 +1395,11 @@ fn update_outcome_tallies(process: &mut ResolutionProcess, vote: &OracleVote) {
 }
 
 fn check_consensus(process: &mut ResolutionProcess) -> ExternResult<()> {
-    let total_weight: f64 = process.outcome_tallies.iter().map(|t| t.weighted_votes).sum();
+    let total_weight: f64 = process
+        .outcome_tallies
+        .iter()
+        .map(|t| t.weighted_votes)
+        .sum();
 
     for tally in &process.outcome_tallies {
         let ratio = tally.weighted_votes / total_weight;
@@ -1419,18 +1449,25 @@ fn get_oracle_matl(oracle: &AgentPubKey) -> ExternResult<MatlScore> {
         None,
         oracle.clone(),
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to get MATL score: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to get MATL score: {:?}",
+            e
+        )))
+    })?;
 
     let matl_result: Result<MatlScore, _> = match response {
         ZomeCallResponse::Ok(extern_io) => extern_io.decode(),
-        _ => Err(holochain_serialized_bytes::SerializedBytesError::Deserialize(
-            "Call failed".to_string()
-        )),
+        _ => Err(
+            holochain_serialized_bytes::SerializedBytesError::Deserialize(
+                "Call failed".to_string(),
+            ),
+        ),
     };
 
     // Return the MATL score or a default if the call fails
     Ok(matl_result.unwrap_or_else(|_| MatlScore {
-        quality: 0.5,  // Conservative default
+        quality: 0.5, // Conservative default
         consistency: 0.5,
         reputation: 0.5,
         composite: 0.5,
@@ -1452,9 +1489,11 @@ struct GovernanceEscalationInput {
 fn escalate_to_governance(process: &ResolutionProcess) -> ExternResult<EntryHash> {
     // Extract dispute reason from current state
     let (dispute_reason, escalation_level) = match &process.state {
-        ResolutionState::Disputed { reason, escalation_level, .. } => {
-            (reason.clone(), *escalation_level)
-        }
+        ResolutionState::Disputed {
+            reason,
+            escalation_level,
+            ..
+        } => (reason.clone(), *escalation_level),
         _ => ("Escalated due to Byzantine activity".to_string(), 0),
     };
 
@@ -1477,22 +1516,41 @@ fn escalate_to_governance(process: &ResolutionProcess) -> ExternResult<EntryHash
         None,
         escalation_input,
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to escalate to governance: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to escalate to governance: {:?}",
+            e
+        )))
+    })?;
 
     let proposal_id: EntryHash = match response {
-        ZomeCallResponse::Ok(extern_io) => extern_io.decode()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to decode proposal ID: {:?}", e))))?,
+        ZomeCallResponse::Ok(extern_io) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode proposal ID: {:?}",
+                e
+            )))
+        })?,
         ZomeCallResponse::Unauthorized(_, _, _, _) => {
-            return Err(wasm_error!(WasmErrorInner::Guest("Unauthorized to escalate to governance".into())));
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Unauthorized to escalate to governance".into()
+            )));
         }
         ZomeCallResponse::NetworkError(e) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!("Network error: {}", e))));
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Network error: {}",
+                e
+            ))));
         }
         ZomeCallResponse::CountersigningSession(e) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!("Countersigning error: {}", e))));
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Countersigning error: {}",
+                e
+            ))));
         }
         ZomeCallResponse::AuthenticationFailed(_, _) => {
-            return Err(wasm_error!(WasmErrorInner::Guest("Authentication failed".into())));
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Authentication failed".into()
+            )));
         }
     };
 
@@ -1524,7 +1582,10 @@ struct BatchReputationUpdate {
     pub source: String,
 }
 
-fn update_oracle_reputations(process: &ResolutionProcess, winning_outcome: &str) -> ExternResult<()> {
+fn update_oracle_reputations(
+    process: &ResolutionProcess,
+    winning_outcome: &str,
+) -> ExternResult<()> {
     // Collect all votes to determine which oracles voted correctly
     let votes = collect_votes(process)?;
 
@@ -1549,9 +1610,15 @@ fn update_oracle_reputations(process: &ResolutionProcess, winning_outcome: &str)
             domain: "epistemic_markets".to_string(),
             delta: base_delta,
             reason: if voted_correctly {
-                format!("Correct oracle vote on market resolution (confidence: {:.2})", confidence_factor)
+                format!(
+                    "Correct oracle vote on market resolution (confidence: {:.2})",
+                    confidence_factor
+                )
             } else {
-                format!("Incorrect oracle vote on market resolution (stake: {:.2})", stake_factor)
+                format!(
+                    "Incorrect oracle vote on market resolution (stake: {:.2})",
+                    stake_factor
+                )
             },
             market_id: process.market_id.clone(),
             staked_amount: vote.reputation_stake,
@@ -1572,7 +1639,12 @@ fn update_oracle_reputations(process: &ResolutionProcess, winning_outcome: &str)
         None,
         batch_update,
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to update reputations: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to update reputations: {:?}",
+            e
+        )))
+    })?;
 
     let _result: () = match response {
         ZomeCallResponse::Ok(extern_io) => extern_io.decode().unwrap_or(()),

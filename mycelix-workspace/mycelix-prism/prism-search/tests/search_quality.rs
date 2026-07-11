@@ -6,7 +6,7 @@
 //! These tests verify that the epistemic search engine returns
 //! relevant results for various query types.
 
-use prism_search::{encode_text, SearchEngine};
+use prism_search::{SearchEngine, encode_text};
 
 fn engine() -> SearchEngine {
     SearchEngine::with_seed_claims()

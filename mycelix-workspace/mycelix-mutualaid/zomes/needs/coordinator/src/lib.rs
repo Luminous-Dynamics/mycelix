@@ -542,13 +542,22 @@ pub fn accept_match(match_hash: ActionHash) -> ExternResult<Record> {
     )))
 }
 
+/// Input for scheduling a handoff for a match
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ScheduleHandoffInput {
+    pub match_hash: ActionHash,
+    pub scheduled_time: Timestamp,
+    pub location: String,
+}
+
 /// Schedule handoff for a match
 #[hdk_extern]
-pub fn schedule_handoff(
-    match_hash: ActionHash,
-    scheduled_time: Timestamp,
-    location: String,
-) -> ExternResult<Record> {
+pub fn schedule_handoff(input: ScheduleHandoffInput) -> ExternResult<Record> {
+    let ScheduleHandoffInput {
+        match_hash,
+        scheduled_time,
+        location,
+    } = input;
     let record = get(match_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Match not found".to_string())
     ))?;

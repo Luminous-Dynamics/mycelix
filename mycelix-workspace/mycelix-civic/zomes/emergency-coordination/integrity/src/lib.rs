@@ -246,10 +246,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -289,6 +286,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_team(_action: Create, team: Team) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding reviewed 2026-07-10 during the P0 author-binding pass:
+    // `lead` is deliberately NOT bound to the committing agent. The
+    // coordinator's form_team takes `lead` from caller input (not
+    // agent_info()), so an authorized organizer can legitimately form a
+    // team led by someone else. No forgeable "acting" field exists here.
     if team.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Team ID cannot be empty".into(),
@@ -323,9 +325,19 @@ fn validate_create_team(_action: Create, team: Team) -> ExternResult<ValidateCal
 }
 
 fn validate_create_assignment(
-    _action: Create,
+    action: Create,
     assignment: Assignment,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `assigned_by` is set to the committing agent by the
+    // coordinator (assign_to_zone uses agent_info()). Found + fixed
+    // 2026-07-10 during the P0 author-binding pass: this field was
+    // previously unbound, letting any agent forge an assignment as
+    // another's.
+    if assignment.assigned_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Assignment assigned_by must match the committing agent".into(),
+        ));
+    }
     if assignment.objective.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Assignment objective cannot be empty".into(),
@@ -381,9 +393,18 @@ fn validate_create_sitrep(
 }
 
 fn validate_create_checkpoint(
-    _action: Create,
+    action: Create,
     checkpoint: Checkpoint,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `agent` is set to the committing agent by the
+    // coordinator (checkin uses agent_info()). Found + fixed 2026-07-10
+    // during the P0 author-binding pass: this field was previously
+    // unbound, letting any agent forge a location check-in as another's.
+    if checkpoint.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Checkpoint agent must match the committing agent".into(),
+        ));
+    }
     // NaN/Infinity guard: NaN comparisons silently pass range checks
     if !checkpoint.lat.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -444,7 +465,10 @@ mod tests {
 
     fn fake_create() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            // Matches agent() below so that fixtures whose "acting agent"
+            // field (Assignment.assigned_by, Checkpoint.agent) is set to
+            // agent() pass the new author-binding check by default.
+            author: AgentPubKey::from_raw_36(vec![1u8; 36]),
             timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -646,6 +670,18 @@ mod tests {
     }
 
     #[test]
+    fn assignment_forged_assigned_by_rejected() {
+        let mut assignment = make_assignment();
+        assignment.assigned_by = agent3();
+        let result = validate_create_assignment(fake_create(), assignment);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Assignment assigned_by must match the committing agent"
+        );
+    }
+
+    #[test]
     fn assignment_empty_objective_rejected() {
         let mut assignment = make_assignment();
         assignment.objective = "".into();
@@ -748,6 +784,18 @@ mod tests {
     fn valid_checkpoint_passes() {
         let result = validate_create_checkpoint(fake_create(), make_checkpoint());
         assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn checkpoint_forged_agent_rejected() {
+        let mut cp = make_checkpoint();
+        cp.agent = agent3();
+        let result = validate_create_checkpoint(fake_create(), cp);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Checkpoint agent must match the committing agent"
+        );
     }
 
     #[test]

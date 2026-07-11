@@ -120,14 +120,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CareCircle(circle) => validate_update_circle(circle),
-                EntryTypes::CircleMembership(_) => Ok(ValidateCallbackResult::Valid),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -139,23 +135,119 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         } => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDeleteLink {
             link_type: _,
-            original_action: _,
+            original_action,
             base_address: _,
             target_address: _,
             tag: _,
-            action: _,
-        } => Ok(ValidateCallbackResult::Valid),
+            action,
+        } => {
+            // Previously accepted unconditionally regardless of author --
+            // the coordinator never calls delete_link here, so this is
+            // pure hardening (zero functional impact). Found + fixed
+            // 2026-07-09 during the P0 author-binding pass.
+            if action.author != original_action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original link creator can delete a link".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 6th confirmed instance of this exact
+            // bug pattern this pass. Found + fixed 2026-07-09 during the P0
+            // author-binding pass. Route through the same per-type
+            // validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
+/// Shared per-entry-type update validation, called from BOTH the
+/// StoreEntry (OpEntry::UpdateEntry) and RegisterUpdate DHT-op
+/// perspectives so they agree.
+fn validate_update_entry_type(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::CareCircle(_) => Ok(ValidateCallbackResult::Invalid(
+            "Care circles are immutable".into(),
+        )),
+        EntryTypes::CircleMembership(membership) => validate_update_membership(action, membership),
+    }
+}
+
+/// Validate a CircleMembership update (the coordinator's leave_circle
+/// deactivates a membership; both creation paths -- create_circle's
+/// auto-join and join_circle -- always set `member` to the committing
+/// agent themselves, so the original author IS always the member).
+/// Content is restricted to the `active` flag flipping true -> false.
+fn validate_update_membership(
+    action: Update,
+    membership: CircleMembership,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: CircleMembership = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original membership not found".into()
+        )))?;
+
+    if membership.circle_hash != original.circle_hash
+        || membership.member != original.member
+        || membership.role != original.role
+        || membership.joined_at != original.joined_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the active flag can change on a membership update".into(),
+        ));
+    }
+
+    if !(original.active && !membership.active) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Membership updates may only deactivate an active membership".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_circle(
-    _action: Create,
+    action: Create,
     circle: CareCircle,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's create_circle now derives
+    // created_by from agent_info() rather than trusting caller input, but
+    // that's bypassable by a modified coordinator -- the integrity
+    // validator is the real security boundary. Without this, any agent
+    // could commit a CareCircle claiming an arbitrary victim as creator
+    // (who would then be auto-enrolled as Organizer). Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    if circle.created_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "created_by must correspond to the committing agent".into(),
+        ));
+    }
+
     if circle.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Circle name cannot be empty".into(),
@@ -199,25 +291,125 @@ fn validate_create_circle(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_circle(circle: CareCircle) -> ExternResult<ValidateCallbackResult> {
-    if circle.name.is_empty() {
+fn validate_create_membership(
+    action: Create,
+    membership: CircleMembership,
+) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: both creation paths (create_circle's auto-join of
+    // its own creator, and join_circle) always set `member` to the
+    // committing agent themselves -- neither ever enrolls a third party.
+    // Without this, any agent could commit a CircleMembership claiming an
+    // arbitrary victim as member. Found + fixed 2026-07-09 during the P0
+    // author-binding pass.
+    if membership.member != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "Circle name cannot be empty".into(),
+            "Membership member must correspond to the committing agent".into(),
         ));
     }
-    if circle.max_members < 2 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Circle must allow at least 2 members".into(),
-        ));
-    }
+
+    // Membership content validation (circle exists, member count, etc.)
+    // is otherwise handled at the coordinator level.
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_membership(
-    _action: Create,
-    _membership: CircleMembership,
-) -> ExternResult<ValidateCallbackResult> {
-    // Membership validation is primarily handled at the coordinator level
-    // (checking circle exists, member count, etc.)
-    Ok(ValidateCallbackResult::Valid)
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn create_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_circle(created_by: AgentPubKey) -> CareCircle {
+        CareCircle {
+            name: "Neighbors".into(),
+            description: "Mutual aid for the block".into(),
+            location: "Block 5".into(),
+            max_members: 20,
+            created_by,
+            circle_type: CircleType::Neighborhood,
+            active: true,
+            created_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_circle_valid_when_creator_matches_committer() {
+        let c = valid_circle(me());
+        let result = validate_create_circle(create_action(me()), c).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_circle_forgery_rejected() {
+        let c = valid_circle(me());
+        let result = validate_create_circle(create_action(other_agent()), c).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_membership(member: AgentPubKey) -> CircleMembership {
+        CircleMembership {
+            circle_hash: ActionHash::from_raw_36(vec![0u8; 36]),
+            member,
+            role: MemberRole::Member,
+            joined_at: Timestamp::from_micros(0),
+            active: true,
+        }
+    }
+
+    #[test]
+    fn create_membership_valid_when_member_matches_committer() {
+        let m = valid_membership(me());
+        let result = validate_create_membership(create_action(me()), m).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_membership_forgery_rejected() {
+        let m = valid_membership(me());
+        let result = validate_create_membership(create_action(other_agent()), m).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_circle_update() {
+        let c = valid_circle(me());
+        let action = Update {
+            author: me(),
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_update_entry_type(action, EntryTypes::CareCircle(c)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

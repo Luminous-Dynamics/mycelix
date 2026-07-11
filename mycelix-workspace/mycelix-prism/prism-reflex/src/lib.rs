@@ -402,10 +402,11 @@ mod tests {
         };
         let v = arc().post_parse(&dom, &pre);
         assert!(!v.threats.is_empty());
-        assert!(v
-            .threats
-            .iter()
-            .any(|t| t.threat_type == ThreatType::Adversarial));
+        assert!(
+            v.threats
+                .iter()
+                .any(|t| t.threat_type == ThreatType::Adversarial)
+        );
         assert!(v.safety_level >= SafetyLevel::Yellow);
     }
 
@@ -420,10 +421,11 @@ mod tests {
             reason: "test",
         };
         let v = arc().post_parse(&dom, &pre);
-        assert!(v
-            .threats
-            .iter()
-            .any(|t| t.threat_type == ThreatType::Harmful));
+        assert!(
+            v.threats
+                .iter()
+                .any(|t| t.threat_type == ThreatType::Harmful)
+        );
     }
 
     #[test]
@@ -455,10 +457,11 @@ mod tests {
             reason: "test",
         };
         let v = arc().post_parse(&dom, &pre);
-        assert!(v
-            .threats
-            .iter()
-            .any(|t| t.threat_type == ThreatType::Boundary));
+        assert!(
+            v.threats
+                .iter()
+                .any(|t| t.threat_type == ThreatType::Boundary)
+        );
     }
 
     #[test]

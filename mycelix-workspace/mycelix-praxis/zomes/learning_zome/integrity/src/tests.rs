@@ -63,18 +63,15 @@ mod course_validation_tests {
     #[test]
     fn test_valid_course() {
         let course = create_valid_course();
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_empty_title() {
         let mut course = create_valid_course();
         course.title = "".to_string();
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -85,7 +82,7 @@ mod course_validation_tests {
     fn test_course_whitespace_only_title() {
         let mut course = create_valid_course();
         course.title = "   \t\n  ".to_string();
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -96,7 +93,7 @@ mod course_validation_tests {
     fn test_course_title_too_long() {
         let mut course = create_valid_course();
         course.title = "a".repeat(201); // Max is 200
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -107,18 +104,15 @@ mod course_validation_tests {
     fn test_course_title_exactly_max_length() {
         let mut course = create_valid_course();
         course.title = "a".repeat(200); // Exactly max
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_empty_description() {
         let mut course = create_valid_course();
         course.description = "".to_string();
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -129,7 +123,7 @@ mod course_validation_tests {
     fn test_course_description_too_long() {
         let mut course = create_valid_course();
         course.description = "a".repeat(5001); // Max is 5000
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -140,11 +134,8 @@ mod course_validation_tests {
     fn test_course_description_exactly_max_length() {
         let mut course = create_valid_course();
         course.description = "a".repeat(5000); // Exactly max
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -152,7 +143,7 @@ mod course_validation_tests {
         let mut course = create_valid_course();
         course.created_at = 2000;
         course.updated_at = 1000; // Before created
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -164,18 +155,15 @@ mod course_validation_tests {
         let mut course = create_valid_course();
         course.created_at = 1000;
         course.updated_at = 1000; // Same time is valid
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_too_many_tags() {
         let mut course = create_valid_course();
         course.tags = (0..11).map(|i| format!("tag-{}", i)).collect(); // Max is 10
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -186,18 +174,15 @@ mod course_validation_tests {
     fn test_course_exactly_max_tags() {
         let mut course = create_valid_course();
         course.tags = (0..10).map(|i| format!("tag-{}", i)).collect(); // Exactly max
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_empty_tag() {
         let mut course = create_valid_course();
         course.tags = vec!["valid".to_string(), "".to_string()];
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -208,7 +193,7 @@ mod course_validation_tests {
     fn test_course_whitespace_only_tag() {
         let mut course = create_valid_course();
         course.tags = vec!["valid".to_string(), "  \t  ".to_string()];
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -219,7 +204,7 @@ mod course_validation_tests {
     fn test_course_tag_too_long() {
         let mut course = create_valid_course();
         course.tags = vec!["a".repeat(51)]; // Max is 50
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -230,29 +215,23 @@ mod course_validation_tests {
     fn test_course_tag_exactly_max_length() {
         let mut course = create_valid_course();
         course.tags = vec!["a".repeat(50)]; // Exactly max
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_no_tags() {
         let mut course = create_valid_course();
         course.tags = vec![];
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_minimal_valid() {
         let course = Course {
             course_id: CourseId("min".to_string()),
-            title: "A".to_string(), // 1 char is valid
+            title: "A".to_string(),       // 1 char is valid
             description: "B".to_string(), // 1 char is valid
             creator: "c".to_string(),
             tags: vec![],
@@ -261,11 +240,8 @@ mod course_validation_tests {
             updated_at: 0,
             metadata: None,
         };
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 }
 
@@ -280,18 +256,15 @@ mod learner_progress_validation_tests {
     #[test]
     fn test_valid_progress() {
         let progress = create_valid_progress();
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_progress_negative_percent() {
         let mut progress = create_valid_progress();
         progress.progress_percent = -1.0;
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -302,29 +275,23 @@ mod learner_progress_validation_tests {
     fn test_progress_zero_percent() {
         let mut progress = create_valid_progress();
         progress.progress_percent = 0.0; // Valid
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_progress_hundred_percent() {
         let mut progress = create_valid_progress();
         progress.progress_percent = 100.0; // Valid
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_progress_over_hundred_percent() {
         let mut progress = create_valid_progress();
         progress.progress_percent = 100.1;
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -335,18 +302,15 @@ mod learner_progress_validation_tests {
     fn test_progress_fractional_percent() {
         let mut progress = create_valid_progress();
         progress.progress_percent = 42.7; // Valid
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_progress_too_many_completed_items() {
         let mut progress = create_valid_progress();
         progress.completed_items = (0..1001).map(|i| format!("item-{}", i)).collect(); // Max is 1000
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -357,22 +321,16 @@ mod learner_progress_validation_tests {
     fn test_progress_exactly_max_completed_items() {
         let mut progress = create_valid_progress();
         progress.completed_items = (0..1000).map(|i| format!("item-{}", i)).collect(); // Exactly max
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_progress_no_completed_items() {
         let mut progress = create_valid_progress();
         progress.completed_items = vec![];
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -386,11 +344,8 @@ mod learner_progress_validation_tests {
             last_active: 0,
             metadata: None,
         };
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 }
 
@@ -406,10 +361,7 @@ mod learning_activity_validation_tests {
     fn test_valid_activity() {
         let activity = create_valid_activity();
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -472,10 +424,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.duration_secs = 86400; // Exactly 24 hours
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -483,10 +432,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.duration_secs = 0; // Valid
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -505,10 +451,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.outcome = Some(0.0); // Valid
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -516,10 +459,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.outcome = Some(100.0); // Valid
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -538,10 +478,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.outcome = Some(73.5); // Valid
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -549,10 +486,7 @@ mod learning_activity_validation_tests {
         let mut activity = create_valid_activity();
         activity.outcome = None; // Valid (outcome is optional)
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -560,16 +494,13 @@ mod learning_activity_validation_tests {
         let activity = LearningActivity {
             course_id: CourseId("c".to_string()),
             activity_type: "t".to_string(), // 1 char is valid
-            item_id: "i".to_string(), // 1 char is valid
+            item_id: "i".to_string(),       // 1 char is valid
             outcome: None,
             duration_secs: 0,
             timestamp: 0,
         };
         let result = validate_learning_activity(&activity);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 }
 
@@ -585,22 +516,16 @@ mod edge_case_tests {
     fn test_course_with_special_characters_in_title() {
         let mut course = create_valid_course();
         course.title = "C++ & Rust: A ❤️ Story (2024) [Tutorial]".to_string();
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_with_unicode_in_description() {
         let mut course = create_valid_course();
         course.description = "学习编程 - Learn programming 学习 🚀".to_string();
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -610,12 +535,9 @@ mod edge_case_tests {
             "module-1".to_string(),
             "module-1".to_string(), // Duplicate (validation doesn't prevent this)
         ];
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         // Validation allows duplicates (business logic decision)
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -624,10 +546,7 @@ mod edge_case_tests {
         activity.activity_type = "a".repeat(1000); // Very long but no max limit
         let result = validate_learning_activity(&activity);
         // No length limit on activity_type (only non-empty check)
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 }
 
@@ -645,7 +564,7 @@ mod security_validation_tests {
     fn test_progress_nan_rejected() {
         let mut progress = create_valid_progress();
         progress.progress_percent = f32::NAN;
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -656,7 +575,7 @@ mod security_validation_tests {
     fn test_progress_inf_rejected() {
         let mut progress = create_valid_progress();
         progress.progress_percent = f32::INFINITY;
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -667,7 +586,7 @@ mod security_validation_tests {
     fn test_progress_neg_inf_rejected() {
         let mut progress = create_valid_progress();
         progress.progress_percent = f32::NEG_INFINITY;
-        let result = validate_learner_progress(&progress);
+        let result = validate_learner_progress_shape(&progress);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -677,11 +596,8 @@ mod security_validation_tests {
     #[test]
     fn test_progress_valid_passes() {
         let progress = create_valid_progress();
-        let result = validate_learner_progress(&progress);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     // ---- LearningActivity NaN/Inf guards ----
@@ -724,18 +640,15 @@ mod security_validation_tests {
     #[test]
     fn test_course_valid_passes() {
         let course = create_valid_course();
-        let result = validate_course(&course);
-        assert!(matches!(
-            result.unwrap(),
-            ValidateCallbackResult::Valid
-        ));
+        let result = validate_course_shape(&course);
+        assert!(matches!(result.unwrap(), ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_course_title_too_long_rejected() {
         let mut course = create_valid_course();
         course.title = "x".repeat(201);
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -746,7 +659,7 @@ mod security_validation_tests {
     fn test_course_empty_title_rejected() {
         let mut course = create_valid_course();
         course.title = "".to_string();
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
@@ -757,10 +670,57 @@ mod security_validation_tests {
     fn test_course_empty_description_rejected() {
         let mut course = create_valid_course();
         course.description = "".to_string();
-        let result = validate_course(&course);
+        let result = validate_course_shape(&course);
         assert!(matches!(
             result.unwrap(),
             ValidateCallbackResult::Invalid(_)
         ));
+    }
+}
+
+// =================================================================================
+// Author-binding (P0 forgery) Tests
+// =================================================================================
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    #[test]
+    fn test_course_valid_with_matching_author() {
+        let mut course = create_valid_course();
+        course.creator = format!("did:mycelix:{}", test_agent(0));
+        let result = validate_course(&test_agent(0), &course).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_course_creator_forgery_rejected() {
+        // course.creator claims agent 0, but agent 1 is the real committer.
+        let mut course = create_valid_course();
+        course.creator = format!("did:mycelix:{}", test_agent(0));
+        let result = validate_course(&test_agent(1), &course).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_progress_valid_with_matching_author() {
+        let mut progress = create_valid_progress();
+        progress.learner = format!("did:mycelix:{}", test_agent(0));
+        let result = validate_learner_progress(&test_agent(0), &progress).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_progress_learner_forgery_rejected() {
+        // progress.learner claims agent 0, but agent 1 is the real committer.
+        let mut progress = create_valid_progress();
+        progress.learner = format!("did:mycelix:{}", test_agent(0));
+        let result = validate_learner_progress(&test_agent(1), &progress).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

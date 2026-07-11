@@ -10,6 +10,8 @@ members = [
     "zomes/disputes/coordinator",
     "zomes/commons/integrity",
     "zomes/commons/coordinator",
+    "zomes/bridge/integrity",
+    "zomes/bridge/coordinator",
 ]
 exclude = ["tests"]
 

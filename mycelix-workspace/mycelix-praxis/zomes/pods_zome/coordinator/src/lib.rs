@@ -12,7 +12,12 @@ use mycelix_zome_helpers as _;
 use pods_integrity::*;
 
 #[hdk_extern]
-pub fn create_pod(pod: LearningPod) -> ExternResult<ActionHash> {
+pub fn create_pod(mut pod: LearningPod) -> ExternResult<ActionHash> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim another agent founded their pod (P0 author-binding
+    // gap; integrity validation now enforces this too, see pods_zome
+    // integrity's validate_create_pod).
+    pod.creator = agent_info()?.agent_initial_pubkey;
     create_entry(EntryTypes::LearningPod(pod))
 }
 

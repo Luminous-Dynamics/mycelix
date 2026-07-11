@@ -241,10 +241,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -297,9 +294,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_disaster(
-    _action: Create,
+    action: Create,
     disaster: Disaster,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `declared_by` is set to the committing agent by the
+    // coordinator. Unbound, any agent could forge a disaster declaration in
+    // another's name (malicious-coordinator threat model).
+    if disaster.declared_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Disaster declared_by must match the committing agent".into(),
+        ));
+    }
     if disaster.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Disaster ID cannot be empty".into(),
@@ -522,9 +527,15 @@ fn validate_update_disaster(disaster: Disaster) -> ExternResult<ValidateCallback
 }
 
 fn validate_create_update(
-    _action: Create,
+    action: Create,
     update: IncidentUpdate,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `author` is set to the committing agent by the coordinator.
+    if update.author != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "IncidentUpdate author must match the committing agent".into(),
+        ));
+    }
     if update.content.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Update content cannot be empty".into(),
@@ -811,6 +822,14 @@ mod tests {
         let disaster = valid_disaster();
         let result = validate_create_disaster(fake_create(), disaster);
         assert!(is_valid(result));
+    }
+
+    #[test]
+    fn test_validate_create_disaster_forged_declared_by_rejected() {
+        let mut disaster = valid_disaster();
+        disaster.declared_by = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_disaster(fake_create(), disaster);
+        assert!(is_invalid(result));
     }
 
     #[test]
@@ -1442,6 +1461,14 @@ mod tests {
         let update = valid_incident_update();
         let result = validate_create_update(fake_create(), update);
         assert!(is_valid(result));
+    }
+
+    #[test]
+    fn test_validate_create_update_forged_author_rejected() {
+        let mut update = valid_incident_update();
+        update.author = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_update(fake_create(), update);
+        assert!(is_invalid(result));
     }
 
     #[test]

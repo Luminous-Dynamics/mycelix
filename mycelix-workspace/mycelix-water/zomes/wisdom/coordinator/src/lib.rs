@@ -29,7 +29,7 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 /// Record a traditional water management practice
 #[hdk_extern]
-pub fn record_practice(practice: TraditionalPractice) -> ExternResult<Record> {
+pub fn record_practice(mut practice: TraditionalPractice) -> ExternResult<Record> {
     if practice.title.is_empty() || practice.title.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Title must be 1-256 characters".into()
@@ -40,6 +40,12 @@ pub fn record_practice(practice: TraditionalPractice) -> ExternResult<Record> {
             "Description must be 1-8192 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could record a practice claiming another agent as recorder (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // wisdom integrity's validate_create_practice).
+    practice.recorded_by = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::TraditionalPractice(practice.clone()))?;
 
@@ -182,7 +188,7 @@ pub fn get_conservation_methods(_: ()) -> ExternResult<Vec<Record>> {
 
 /// Record an observed climate-water pattern
 #[hdk_extern]
-pub fn record_climate_pattern(pattern: ClimateWaterPattern) -> ExternResult<Record> {
+pub fn record_climate_pattern(mut pattern: ClimateWaterPattern) -> ExternResult<Record> {
     if pattern.region.is_empty() || pattern.region.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Region must be 1-256 characters".into()
@@ -193,6 +199,12 @@ pub fn record_climate_pattern(pattern: ClimateWaterPattern) -> ExternResult<Reco
             "Description must be 1-4096 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could record an observation claiming another agent as observer
+    // (P0 author-binding gap; integrity validation now enforces this too,
+    // see wisdom integrity's validate_create_climate_pattern).
+    pattern.observed_by = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::ClimateWaterPattern(pattern.clone()))?;
 

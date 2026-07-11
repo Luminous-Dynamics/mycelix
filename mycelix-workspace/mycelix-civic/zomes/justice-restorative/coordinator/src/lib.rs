@@ -9,20 +9,37 @@
 use hdk::prelude::*;
 use justice_restorative_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
 };
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
 
+/// Derives the caller's DID from the real committing agent (never trust a
+/// caller-supplied "acting agent" field). Found + fixed 2026-07-10 during
+/// the P0 author-binding pass. Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
+
 /// Create a restorative circle
 
 #[hdk_extern]
-pub fn create_circle(circle: RestorativeCircle) -> ExternResult<Record> {
+pub fn create_circle(mut circle: RestorativeCircle) -> ExternResult<Record> {
     mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_basic(),
         "create_circle",
     )?;
+
+    // Author-binding: the facilitator is always the committing agent.
+    // (create_restitution_agreement's integrity check requires a
+    // RestitutionAgreement's circle_hash to resolve to a circle whose
+    // facilitator matches the committer, so this also keeps that path
+    // usable for legitimate facilitators.)
+    circle.facilitator = my_did()?;
+
     let action_hash = create_entry(&EntryTypes::RestorativeCircle(circle.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not get created circle".into())

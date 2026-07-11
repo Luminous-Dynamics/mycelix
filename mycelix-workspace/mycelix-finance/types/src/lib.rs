@@ -959,6 +959,84 @@ pub fn compute_minted_demurrage(balance: i32, rate: f64, seconds_elapsed: u64) -
 }
 
 // =============================================================================
+// AMBER — protected, demurrage-exempt SAP (children, elders, multi-year projects)
+// =============================================================================
+//
+// Amber is a demurrage-exempt tranche of SAP for holders who cannot circulate
+// (children, elders) or whose SAP is supposed to sit still (a multi-year project's
+// runway). It shelters up to `cap_micro_sap` of a balance from demurrage while the
+// exemption is active; the excess above the cap decays at the normal rate. This is
+// the commons-pool "waqf" exemption extended to protected individuals and projects.
+//
+// SECURITY: any exemption is a demurrage-dodge arbitrage vector, so Amber is only
+// safe if eligibility is *attested* (never self-declared), *capped*, and *expiring*.
+// The holder must never be the issuer; the cap is ceilinged; the exemption expires.
+
+/// Per-person cap for Custodial Amber (5,000 SAP). Governance-tunable.
+///
+/// Sized from the macro-economy ABM (`simulations/macro-economy`, 2026-07-10): demurrage
+/// revenue is concentrated in large balances, so a loose cap that shelters big holders
+/// halves commons compost. 5,000 SAP protects a genuine child/elder fund while bounding
+/// per-account compost leakage. Project Amber uses the higher `AMBER_MAX_CAP_MICRO_SAP`.
+pub const AMBER_CUSTODIAL_CAP_MICRO_SAP: u64 = 5_000_000_000;
+/// Absolute ceiling on any Amber exemption cap — a governance guard against using
+/// Amber as a whale-scale demurrage loophole (1,000,000 SAP).
+pub const AMBER_MAX_CAP_MICRO_SAP: u64 = 1_000_000_000_000;
+
+/// Which kind of protected holder an Amber exemption covers.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum AmberClass {
+    /// A protected person (child or elder), keyed to an identity credential.
+    Custodial,
+    /// A governance-approved, milestone-current multi-year project pool.
+    Project,
+}
+
+/// A demurrage exemption attached to a SAP balance ("Amber").
+///
+/// While active (unexpired), the first `cap_micro_sap` of the balance is sheltered
+/// from demurrage; any balance above the cap decays normally. An expired exemption
+/// falls back to the universal exempt floor (fail-safe: exemptions never *widen* the
+/// tax base, but a lapsed one simply stops sheltering).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AmberExemption {
+    pub class: AmberClass,
+    /// DID of the authority that granted this exemption. MUST differ from the holder.
+    pub issuer: String,
+    /// Micro-SAP sheltered from demurrage while active.
+    pub cap_micro_sap: u64,
+    /// Unix seconds at which the exemption lapses. `0` = inactive (never shelters).
+    pub expires_at_secs: u64,
+}
+
+impl AmberExemption {
+    /// Active iff not yet expired at `now_secs`. `expires_at_secs == 0` is inactive.
+    pub fn is_active(&self, now_secs: u64) -> bool {
+        self.expires_at_secs > now_secs
+    }
+}
+
+/// Compute demurrage on a SAP balance, honoring an optional Amber exemption.
+///
+/// With an active exemption, the sheltered amount is `max(cap, exempt_floor)` (Amber
+/// never shelters *less* than the universal floor); only the excess decays. An absent
+/// or expired exemption falls back to the plain floor. Pure function.
+pub fn compute_demurrage_with_exemption(
+    balance: u64,
+    exemption: Option<&AmberExemption>,
+    now_secs: u64,
+    exempt_floor: u64,
+    rate: f64,
+    seconds_elapsed: u64,
+) -> u64 {
+    let effective_floor = match exemption {
+        Some(ex) if ex.is_active(now_secs) => ex.cap_micro_sap.max(exempt_floor),
+        _ => exempt_floor,
+    };
+    compute_demurrage_deduction(balance, effective_floor, rate, seconds_elapsed)
+}
+
+// =============================================================================
 // CURRENCY FACTORY: Community-Minted Mutual Credit
 // =============================================================================
 
@@ -1144,6 +1222,107 @@ mod tests {
         assert_eq!(format!("{}", Currency::Mycel), "MYCEL");
         assert_eq!(format!("{}", Currency::Sap), "SAP");
         assert_eq!(format!("{}", Currency::Tend), "TEND");
+    }
+
+    // ---- Amber (protected demurrage-exempt SAP) ----
+
+    fn amber(cap: u64, expires: u64) -> AmberExemption {
+        AmberExemption {
+            class: AmberClass::Custodial,
+            issuer: "did:mycelix:issuer".into(),
+            cap_micro_sap: cap,
+            expires_at_secs: expires,
+        }
+    }
+
+    // 100,000 SAP balance, 1 year elapsed, 2% rate.
+    const BAL: u64 = 100_000_000_000;
+    const YEAR: u64 = 31_536_000;
+    const CAP: u64 = 50_000_000_000; // 50,000 SAP
+
+    #[test]
+    fn amber_shelters_up_to_cap() {
+        let now = 1_000_000;
+        let with = compute_demurrage_with_exemption(
+            BAL,
+            Some(&amber(CAP, now + YEAR)),
+            now,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            YEAR,
+        );
+        // Only the excess above the cap should decay.
+        let expected = compute_demurrage_deduction(BAL, CAP, DEMURRAGE_RATE, YEAR);
+        assert_eq!(with, expected);
+        // And it must be strictly less than the un-exempted decay.
+        let without =
+            compute_demurrage_deduction(BAL, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, YEAR);
+        assert!(
+            with < without,
+            "Amber must shelter more than the plain floor"
+        );
+    }
+
+    #[test]
+    fn amber_zero_when_balance_below_cap() {
+        let now = 1_000_000;
+        let ded = compute_demurrage_with_exemption(
+            CAP - 1,
+            Some(&amber(CAP, now + YEAR)),
+            now,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            YEAR,
+        );
+        assert_eq!(ded, 0, "balance within the cap must not decay");
+    }
+
+    #[test]
+    fn expired_amber_falls_back_to_floor() {
+        let now = 2_000_000;
+        let with_expired = compute_demurrage_with_exemption(
+            BAL,
+            Some(&amber(CAP, now - 1)), // already expired
+            now,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            YEAR,
+        );
+        let plain = compute_demurrage_deduction(BAL, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, YEAR);
+        assert_eq!(
+            with_expired, plain,
+            "expired Amber must behave like no exemption"
+        );
+    }
+
+    #[test]
+    fn none_exemption_equals_plain_floor() {
+        let plain = compute_demurrage_deduction(BAL, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, YEAR);
+        let via = compute_demurrage_with_exemption(
+            BAL,
+            None,
+            1_000_000,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            YEAR,
+        );
+        assert_eq!(via, plain);
+    }
+
+    #[test]
+    fn amber_cap_below_floor_uses_floor() {
+        // A pathological sub-floor cap must never *increase* decay below the floor.
+        let now = 1_000_000;
+        let ded = compute_demurrage_with_exemption(
+            BAL,
+            Some(&amber(1, now + YEAR)),
+            now,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            YEAR,
+        );
+        let plain = compute_demurrage_deduction(BAL, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, YEAR);
+        assert_eq!(ded, plain);
     }
 
     #[test]

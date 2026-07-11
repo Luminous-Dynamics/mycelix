@@ -495,6 +495,19 @@ fn validate_create_mfa_state(
         ));
     }
 
+    // Validate `did` actually corresponds to the owner/author -- binding
+    // `owner` alone isn't sufficient, since `did` is an independent string
+    // field that could otherwise name a victim's identity while `owner`
+    // still (correctly) points at the real committing agent. create_mfa_state
+    // already enforces this coordinator-side (self-registration only); this
+    // is the real DHT-level enforcement a modified coordinator can't bypass.
+    let expected_did = format!("did:mycelix:{}", action.author());
+    if state.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "MFA state DID must correspond to the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate initial version
     if state.version != 1 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -591,9 +604,23 @@ fn validate_update_mfa_state(
 
 /// Validate factor enrollment creation
 fn validate_create_factor_enrollment(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     enrollment: FactorEnrollment,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the enrollment to its committer -- create_mfa_state/enroll_factor/
+    // revoke_factor all fetch the MfaState via the caller-supplied `did` and
+    // require `current_state.owner == caller` before recording an
+    // enrollment against that same `did`; combined with validate_create_
+    // mfa_state's new did<->owner binding, this transitively guarantees
+    // `did` always corresponds to the real committing agent. This is the
+    // real DHT-level enforcement a modified coordinator can't bypass.
+    let expected_did = format!("did:mycelix:{}", action.author());
+    if enrollment.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Factor enrollment DID must correspond to the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate DID format
     if !enrollment.did.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -620,9 +647,20 @@ fn validate_create_factor_enrollment(
 
 /// Validate factor verification creation
 fn validate_create_factor_verification(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     verification: FactorVerification,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the verification to its committer -- verify_factor requires
+    // `current_state.owner == caller` (fetched via the same `did` used
+    // here) before recording either a success or failure verification;
+    // same rationale as validate_create_factor_enrollment above.
+    let expected_did = format!("did:mycelix:{}", action.author());
+    if verification.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Factor verification DID must correspond to the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate DID format
     if !verification.did.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -645,6 +683,9 @@ fn validate_create_factor_verification(
 
 /// Validate encrypted entry creation
 fn validate_create_encrypted_entry(entry: EncryptedEntry) -> ExternResult<ValidateCallbackResult> {
+    // No author-binding possible: EncryptedEntry has no self-declared
+    // owner/creator AgentPubKey or DID field at all -- `recipient_key_id`
+    // names who the ciphertext is addressed TO, not who committed it.
     // Validate entry type tag is non-empty
     if entry.entry_type_tag.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1392,5 +1433,159 @@ mod tests {
             (back_to_u32 as i64 - over_boundary as i64).abs() <= 1,
             "f32 precision loss should be at most 1 at this boundary"
         );
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn primary_factor() -> EnrolledFactor {
+        EnrolledFactor {
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "key-1".into(),
+            enrolled_at: Timestamp::from_micros(0),
+            last_verified: Timestamp::from_micros(0),
+            metadata: "{}".into(),
+            effective_strength: 1.0,
+            active: true,
+        }
+    }
+
+    fn valid_state(did: String, owner: AgentPubKey) -> MfaState {
+        MfaState {
+            did,
+            owner,
+            factors: vec![primary_factor()],
+            assurance_level: AssuranceLevel::Basic,
+            effective_strength: 1.0,
+            category_count: 1,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+            version: 1,
+        }
+    }
+
+    #[test]
+    fn create_mfa_state_valid_when_did_and_owner_match_committer() {
+        let state = valid_state(format!("did:mycelix:{}", me()), me());
+        let result =
+            validate_create_mfa_state(EntryCreationAction::Create(test_action(me())), state)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_mfa_state_owner_forgery_rejected() {
+        // owner claims a different agent than the actual committer.
+        let state = valid_state(format!("did:mycelix:{}", me()), other_agent());
+        let result =
+            validate_create_mfa_state(EntryCreationAction::Create(test_action(me())), state)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_mfa_state_did_forgery_rejected() {
+        // did names a victim's identity while owner correctly points at the
+        // real committer -- the gap found via manual review, not the audit
+        // heuristic (validate_create_mfa_state already referenced
+        // action.author() for `owner`, just not for `did`).
+        let victim_did = format!("did:mycelix:{}", other_agent());
+        let state = valid_state(victim_did, me());
+        let result =
+            validate_create_mfa_state(EntryCreationAction::Create(test_action(me())), state)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_enrollment(did: String) -> FactorEnrollment {
+        FactorEnrollment {
+            did,
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "key-1".into(),
+            action: EnrollmentAction::Enroll,
+            timestamp: Timestamp::from_micros(0),
+            reason: "test".into(),
+        }
+    }
+
+    #[test]
+    fn create_enrollment_valid_when_did_matches_committer() {
+        let enrollment = valid_enrollment(format!("did:mycelix:{}", me()));
+        let result = validate_create_factor_enrollment(
+            EntryCreationAction::Create(test_action(me())),
+            enrollment,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_enrollment_did_forgery_rejected() {
+        let enrollment = valid_enrollment(format!("did:mycelix:{}", other_agent()));
+        let result = validate_create_factor_enrollment(
+            EntryCreationAction::Create(test_action(me())),
+            enrollment,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_verification(did: String) -> FactorVerification {
+        FactorVerification {
+            did,
+            factor_type: FactorType::PrimaryKeyPair,
+            factor_id: "key-1".into(),
+            success: true,
+            timestamp: Timestamp::from_micros(0),
+            new_strength: 1.0,
+        }
+    }
+
+    #[test]
+    fn create_verification_valid_when_did_matches_committer() {
+        let verification = valid_verification(format!("did:mycelix:{}", me()));
+        let result = validate_create_factor_verification(
+            EntryCreationAction::Create(test_action(me())),
+            verification,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_verification_did_forgery_rejected() {
+        let verification = valid_verification(format!("did:mycelix:{}", other_agent()));
+        let result = validate_create_factor_verification(
+            EntryCreationAction::Create(test_action(me())),
+            verification,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

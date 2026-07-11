@@ -29,7 +29,13 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 
 /// Submit a new water quality reading
 #[hdk_extern]
-pub fn submit_reading(reading: QualityReading) -> ExternResult<Record> {
+pub fn submit_reading(mut reading: QualityReading) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could submit a reading claiming another agent took the sample
+    // (P0 author-binding gap; integrity validation now enforces this too,
+    // see purity integrity's validate_create_reading).
+    reading.sampler = agent_info()?.agent_initial_pubkey;
+
     let action_hash = create_entry(&EntryTypes::QualityReading(reading.clone()))?;
 
     // Link source to reading
@@ -157,12 +163,18 @@ pub struct PotabilityResult {
 
 /// Raise a contamination alert for a water source
 #[hdk_extern]
-pub fn raise_alert(alert: ContaminationAlert) -> ExternResult<Record> {
+pub fn raise_alert(mut alert: ContaminationAlert) -> ExternResult<Record> {
     if alert.contaminant.is_empty() || alert.contaminant.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Contaminant name must be 1-256 characters".into()
         )));
     }
+
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could raise an alert claiming another agent reported it (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // purity integrity's validate_create_alert).
+    alert.reported_by = agent_info()?.agent_initial_pubkey;
 
     let action_hash = create_entry(&EntryTypes::ContaminationAlert(alert.clone()))?;
 

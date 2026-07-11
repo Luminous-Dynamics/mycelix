@@ -224,7 +224,10 @@ fn execute_plan(plan: &QueryPlan, _parameters: &Option<String>) -> ExternResult<
                         )));
                     }
                     other => {
-                        debug!("Cross-zome call to claims::get_claims_by_tag returned unexpected response: {:?}", other);
+                        debug!(
+                            "Cross-zome call to claims::get_claims_by_tag returned unexpected response: {:?}",
+                            other
+                        );
                     }
                 }
             }
@@ -250,7 +253,10 @@ fn execute_plan(plan: &QueryPlan, _parameters: &Option<String>) -> ExternResult<
                         }
                     }
                     ZomeCallResponse::NetworkError(e) => {
-                        debug!("Cross-zome call to claims::get_claims_by_author failed (network): {:?}", e);
+                        debug!(
+                            "Cross-zome call to claims::get_claims_by_author failed (network): {:?}",
+                            e
+                        );
                     }
                     ZomeCallResponse::Unauthorized(_, _, _, _) => {
                         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -259,7 +265,10 @@ fn execute_plan(plan: &QueryPlan, _parameters: &Option<String>) -> ExternResult<
                         )));
                     }
                     other => {
-                        debug!("Cross-zome call to claims::get_claims_by_author returned unexpected response: {:?}", other);
+                        debug!(
+                            "Cross-zome call to claims::get_claims_by_author returned unexpected response: {:?}",
+                            other
+                        );
                     }
                 }
             }
@@ -279,6 +288,14 @@ fn execute_plan(plan: &QueryPlan, _parameters: &Option<String>) -> ExternResult<
 /// Save a query for reuse
 #[hdk_extern]
 pub fn save_query(query: SavedQuery) -> ExternResult<Record> {
+    // Derive creator from the caller rather than trusting the input struct's
+    // `creator` field -- otherwise any agent could save a query claiming an
+    // arbitrary victim DID as its creator. Found + fixed 2026-07-09 during
+    // the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let creator = format!("did:mycelix:{}", caller);
+    let query = SavedQuery { creator, ..query };
+
     let action_hash = create_entry(&EntryTypes::SavedQuery(query.clone()))?;
 
     // Create anchor and link creator to query

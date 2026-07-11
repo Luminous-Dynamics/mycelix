@@ -6,15 +6,21 @@ use crate::curriculum::{ProgressStatus, use_progress};
 use leptos::prelude::*;
 
 #[component]
-pub fn HardwareScanner(device_type: String, on_linked: impl Fn(String) + 'static) -> impl IntoView {
+pub fn HardwareScanner(
+    device_type: String,
+    on_linked: impl Fn(String) + Send + 'static,
+) -> impl IntoView {
     let (status, set_status) = signal("Ready to Connect".to_string());
     let (is_scanning, set_is_scanning) = signal(false);
+    let on_linked = std::sync::Arc::new(on_linked);
 
+    let device_type_for_view = device_type.clone();
     let start_handshake = move |_| {
         set_is_scanning.set(true);
         set_status.set(format!("Scanning for {}...", device_type));
 
         // SIMULATED: WebBluetooth API Handshake
+        let on_linked = on_linked.clone();
         wasm_bindgen_futures::spawn_local(async move {
             gloo_timers::future::sleep(std::time::Duration::from_millis(1500)).await;
             set_status.set("\u{1F7E2} LINK ESTABLISHED".to_string());
@@ -27,7 +33,7 @@ pub fn HardwareScanner(device_type: String, on_linked: impl Fn(String) + 'static
         <div class="hardware-scanner-ui" style="margin-top: 1rem">
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--surface-low); border-radius: 8px">
                 <div style="font-size: 0.8rem">
-                    <strong>{device_type}</strong>
+                    <strong>{device_type_for_view}</strong>
                     <div style="color: var(--text-tertiary); font-size: 0.7rem">{move || status.get()}</div>
                 </div>
                 <button
@@ -43,12 +49,18 @@ pub fn HardwareScanner(device_type: String, on_linked: impl Fn(String) + 'static
 }
 
 #[component]
-pub fn PresenceValidator(node_id: String, on_verified: impl Fn() + 'static) -> impl IntoView {
+pub fn PresenceValidator(
+    node_id: String,
+    on_verified: impl Fn() + Send + Sync + 'static,
+) -> impl IntoView {
     let (show_camera, set_show_camera) = signal(false);
+    let on_verified = std::sync::Arc::new(on_verified);
 
     view! {
         <div class="presence-validator" style="margin-top: 1rem">
-            {move || if !show_camera.get() {
+            {move || {
+                let on_verified = on_verified.clone();
+                if !show_camera.get() {
                 view! {
                     <button class="btn-sm btn-outline" style="width: 100%" on:click=move |_| set_show_camera.set(true)>
                         "\u{1F4F7} Scan Workbench QR"
@@ -72,6 +84,7 @@ pub fn PresenceValidator(node_id: String, on_verified: impl Fn() + 'static) -> i
                         ></div>
                     </div>
                 }.into_any()
+            }
             }}
         </div>
     }
@@ -80,7 +93,7 @@ pub fn PresenceValidator(node_id: String, on_verified: impl Fn() + 'static) -> i
 #[component]
 pub fn SafetyGuard<F, IV>(children: F) -> impl IntoView
 where
-    F: Fn() -> IV + 'static,
+    F: Fn() -> IV + Send + 'static,
     IV: IntoView + 'static,
 {
     let progress = use_progress();

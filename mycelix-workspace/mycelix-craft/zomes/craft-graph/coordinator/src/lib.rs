@@ -6,9 +6,43 @@
 //!
 //! Implements business logic for the craft/workforce graph.
 
+use base64::Engine;
 use craft_graph_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
+
+/// Same canonical byte layout as mycelix-praxis's
+/// `credential_zome::credential_signing_payload` — independently defined
+/// here since these are separate DNAs/crates with no shared dependency, but
+/// must produce byte-identical output for signature verification to work.
+/// Signed/verified via literal bytes (`sign_raw`/`verify_signature_raw` on
+/// the Praxis/this side respectively), not a serde envelope, so there's no
+/// cross-crate serialization-format risk.
+fn credential_signing_payload(
+    issuer: &AgentPubKey,
+    subject: &AgentPubKey,
+    course_id: &str,
+    credential_type: &[String],
+    issuance_date: &str,
+) -> Vec<u8> {
+    format!(
+        "mycelix-credential-v1|{issuer}|{subject}|{course_id}|{}|{issuance_date}",
+        credential_type.join(",")
+    )
+    .into_bytes()
+}
+
+/// Parse a `did:mycelix:<agent-pubkey>` DID into the underlying `AgentPubKey`.
+fn agent_pubkey_from_did(did: &str) -> ExternResult<AgentPubKey> {
+    let raw = did
+        .strip_prefix("did:mycelix:")
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("Not a mycelix DID: {did}"))))?;
+    AgentPubKey::try_from(raw).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid agent pubkey in DID: {e:?}"
+        )))
+    })
+}
 
 /// Create or update the agent's craft profile.
 #[hdk_extern]
@@ -51,9 +85,65 @@ pub struct CreateProfileInput {
 }
 
 /// Publish a credential to the craft graph.
+///
+/// If `proof` is supplied, verifies the credential was genuinely issued by
+/// `issuer_did` for the caller (as subject) via the same Ed25519 signature
+/// mycelix-praxis's `credential_zome::issue_credential` computes — this is a
+/// pure local cryptographic check, no cross-DNA call needed. `verified` is
+/// only ever set from the outcome of that check; a claim with no `proof`, or
+/// a `proof` that fails verification, is rejected outright rather than
+/// silently accepted as unverified (a partially-fabricated "unverified"
+/// credential sitting in the DHT is worse than no credential at all).
+///
+/// NOTE: `mastery_permille` itself is still caller-supplied and NOT part of
+/// what's cryptographically verified here — Praxis's credential model has no
+/// numeric mastery field to sign over yet (that lives in `adaptive_zome`'s
+/// BKT scores, a separate, larger integration). This fix verifies that a
+/// *real Praxis-issued credential* for this exact (issuer, subject, course,
+/// type, issuance_date) exists and was presented by its actual subject; it
+/// does not yet verify the claimed mastery score matches Praxis's records.
 #[hdk_extern]
 pub fn publish_credential(input: PublishCredentialInput) -> ExternResult<ActionHash> {
     let now = sys_time()?;
+    let agent = agent_info()?.agent_initial_pubkey;
+
+    let verified = match &input.proof {
+        Some(proof) => {
+            let issuer = agent_pubkey_from_did(&input.issuer_did)?;
+            if proof.subject_did != agent.to_string() {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Only the credential's own subject may present/publish it".into()
+                )));
+            }
+            let subject = agent_pubkey_from_did(&proof.subject_did)?;
+            let payload = credential_signing_payload(
+                &issuer,
+                &subject,
+                &proof.course_id,
+                &proof.credential_type,
+                &proof.issuance_date,
+            );
+            let sig_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&proof.signature)
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Invalid signature encoding: {e}"
+                    )))
+                })?;
+            let signature = Signature::try_from(sig_bytes).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid signature length: {e:?}"
+                )))
+            })?;
+            if !verify_signature_raw(issuer, signature, payload)? {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Credential signature verification failed".into()
+                )));
+            }
+            true
+        }
+        None => false,
+    };
 
     let credential = PublishedCredential {
         credential_hash: input.credential_hash.clone(),
@@ -75,16 +165,29 @@ pub fn publish_credential(input: PublishCredentialInput) -> ExternResult<ActionH
         epistemic_code: input.epistemic_code,
         fl_model_version: input.fl_model_version,
         mastery_permille: Some(input.mastery_permille),
-        verified: None,
+        verified: Some(verified),
     };
 
     let action_hash = create_entry(EntryTypes::PublishedCredential(credential))?;
 
     // Link from agent to credential
-    let agent = agent_info()?.agent_initial_pubkey;
     create_link(agent, action_hash.clone(), LinkTypes::AgentToCredential, ())?;
 
     Ok(action_hash)
+}
+
+/// Cryptographic proof accompanying a `PublishCredentialInput`, mirroring
+/// the fields mycelix-praxis's `credential_zome::issue_credential` signs
+/// over. Optional so existing unverified-credential callers (guild-issued,
+/// self-attested, etc.) still work — see `publish_credential`'s doc comment.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CredentialProof {
+    pub subject_did: String,
+    pub course_id: String,
+    pub credential_type: Vec<String>,
+    pub issuance_date: String,
+    /// Base64-encoded Ed25519 signature over `credential_signing_payload`.
+    pub signature: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -94,6 +197,7 @@ pub struct PublishCredentialInput {
     pub visibility: String,
     pub title: String,
     pub summary: Option<String>,
+    pub proof: Option<CredentialProof>,
     pub mastery_permille: u16,
     pub guild_id: Option<String>,
     pub guild_name: Option<String>,

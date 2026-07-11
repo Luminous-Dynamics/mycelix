@@ -5,13 +5,40 @@
 //! Treasury Coordinator Zome
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    anchor_hash, follow_update_chain, links_to_records, validate_id, verify_caller_is_did,
-    verify_citizen_tier,
+    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, links_to_records, validate_id,
+    verify_caller_is_did, verify_citizen_tier, verify_governance_or_bootstrap_from_links,
 };
 use treasury_integrity::*;
 
 use mycelix_zome_helpers as _;
 const DEFAULT_LIST_LIMIT: usize = 100;
+
+/// Verify the caller is a registered governance agent, or allow any agent during
+/// bootstrap (before the first governance agent is registered) — the same pattern
+/// used by recognition/staking/tend. Gates commons-pool allocations.
+fn verify_governance_or_bootstrap() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::GovernanceAgents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    verify_governance_or_bootstrap_from_links(gov_links)
+}
+
+/// Register a governance agent authorized for commons-pool allocations. Only an
+/// existing governance agent may register new ones (any agent during bootstrap).
+#[hdk_extern]
+pub fn register_governance_agent(agent: AgentPubKey) -> ExternResult<ActionHash> {
+    verify_governance_or_bootstrap()?;
+    create_link(
+        anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+        agent,
+        LinkTypes::GovernanceAgents,
+        (),
+    )
+}
 
 /// Maximum retries for optimistic-locking read-modify-write loops (RC-6 through RC-8).
 const MAX_RETRIES: u8 = 3;
@@ -1232,6 +1259,13 @@ pub struct ReceiveCompostInput {
 /// reserve ratio remains at or above 25% after the allocation.
 #[hdk_extern]
 pub fn request_allocation(input: RequestCommonsAllocationInput) -> ExternResult<Record> {
+    // AUTHORIZATION: commons-pool allocations are governance-gated. Previously this
+    // extern had NO check — any agent could decrement any pool's available_balance to
+    // the 25% reserve floor with no recipient (pure griefing/drain). Bind the requester
+    // to the caller and require a governance agent (bootstrap-open until one is set up).
+    verify_caller_is_did(&input.requester_did)?;
+    verify_governance_or_bootstrap()?;
+
     for attempt in 0..=MAX_RETRIES {
         let (record, pool) = get_commons_pool_record(&input.commons_pool_id)?;
 

@@ -297,9 +297,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_water_source(
-    _action: Create,
+    action: Create,
     source: WaterSource,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the source to its committer -- register_source already derives
+    // `steward` from agent_info() coordinator-side with zero user input, so
+    // this never rejects a legitimate registration; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    if source.steward != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water source steward must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if source.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Water source ID cannot be empty".into(),
@@ -329,7 +340,7 @@ fn validate_create_water_source(
 }
 
 fn validate_update_water_source(
-    _action: Update,
+    action: Update,
     source: WaterSource,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -341,6 +352,16 @@ fn validate_update_water_source(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original water source not found".into()
         )))?;
+
+    // Bind the update to the PRE-update steward -- update_source_status
+    // already checks this coordinator-side, but that trusts the
+    // coordinator; this is the real DHT-level enforcement a modified
+    // coordinator can't bypass (P0 author-binding gap).
+    if action.author != original_source.steward {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water source update must be committed by its steward".to_string(),
+        ));
+    }
 
     if source.id != original_source.id {
         return Ok(ValidateCallbackResult::Invalid(
@@ -356,9 +377,29 @@ fn validate_update_water_source(
 }
 
 fn validate_create_water_share(
-    _action: Create,
+    action: Create,
     share: WaterShare,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the allocation to the source's steward -- allocate_shares already
+    // checks `source.steward == caller` coordinator-side, but that trusts
+    // the coordinator; this is the real DHT-level enforcement a modified
+    // coordinator can't bypass (P0 author-binding gap). holder is
+    // deliberately NOT bound to the committer -- allocation is legitimately
+    // steward-to-third-party.
+    let source_record = must_get_valid_record(share.source_hash.clone())?;
+    let source: WaterSource = source_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Water source not found".to_string()
+        )))?;
+    if action.author != source.steward {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water share must be allocated by the source's steward".to_string(),
+        ));
+    }
+
     if share.volume_per_period_liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Share volume must be greater than zero".into(),
@@ -373,24 +414,51 @@ fn validate_create_water_share(
 }
 
 fn validate_create_h2o_credit(
-    _action: Create,
-    _credit: H2OCredit,
+    action: Create,
+    credit: H2OCredit,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the credit balance to its committer -- get_my_balance only ever
+    // initializes a balance for the calling agent itself, with zero user
+    // input on `holder` (P0 author-binding gap).
+    if credit.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "H2O credit holder must be the committing agent (forgery)".to_string(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_update_h2o_credit(
-    _action: Update,
-    _credit: H2OCredit,
+    action: Update,
+    credit: H2OCredit,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the update to its committer -- transfer_credits/record_usage
+    // only ever debit/credit the calling agent's OWN balance; holder never
+    // changes across updates in this design, so checking the new entry
+    // directly (no must_get needed) is sufficient.
+    if credit.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "H2O credit update must be committed by its holder (forgery)".to_string(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_water_transaction(
-    _action: Create,
+    action: Create,
     tx: WaterTransaction,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the transaction to its sender -- transfer_credits already
+    // derives `from_agent` from agent_info() coordinator-side with zero
+    // user input. to_agent is deliberately NOT bound -- it legitimately
+    // names the recipient, a third party.
+    if tx.from_agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transaction from_agent must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if tx.liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Transaction volume must be greater than zero".into(),
@@ -405,13 +473,185 @@ fn validate_create_water_transaction(
 }
 
 fn validate_create_usage_record(
-    _action: Create,
+    action: Create,
     usage: UsageRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the record to its committer -- record_usage already derives
+    // `agent` from agent_info() coordinator-side with zero user input.
+    if usage.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Usage record agent must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if usage.liters_used == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Usage liters must be greater than zero".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_source(steward: AgentPubKey) -> WaterSource {
+        WaterSource {
+            id: "source-1".to_string(),
+            name: "Community Well".to_string(),
+            source_type: WaterSourceType::Well,
+            max_capacity_liters: 10000,
+            recharge_rate_liters_per_day: 100,
+            location_lat: 10.0,
+            location_lon: 20.0,
+            steward,
+            status: SourceStatus::Active,
+        }
+    }
+
+    #[test]
+    fn test_create_water_source_valid() {
+        let source = valid_source(test_action().author);
+        let result = validate_create_water_source(test_action(), source).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_water_source_steward_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = other_agent();
+        let source = valid_source(test_action().author);
+        let result = validate_create_water_source(forged_action, source).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_h2o_credit_valid() {
+        let credit = H2OCredit {
+            holder: test_action().author,
+            balance_liters: 0,
+            total_earned: 0,
+            total_spent: 0,
+        };
+        let result = validate_create_h2o_credit(test_action(), credit).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_h2o_credit_holder_forgery_rejected() {
+        let credit = H2OCredit {
+            holder: other_agent(),
+            balance_liters: 0,
+            total_earned: 0,
+            total_spent: 0,
+        };
+        let result = validate_create_h2o_credit(test_action(), credit).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_update_h2o_credit_holder_forgery_rejected() {
+        let action = Update {
+            author: test_action().author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        };
+        let credit = H2OCredit {
+            holder: other_agent(),
+            balance_liters: 100,
+            total_earned: 100,
+            total_spent: 0,
+        };
+        let result =
+            validate_update_h2o_credit(action, credit, ActionHash::from_raw_36(vec![0u8; 36]))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_water_transaction_valid() {
+        let tx = WaterTransaction {
+            from_agent: test_action().author,
+            to_agent: other_agent(),
+            liters: 10,
+            credit_type: TransactionType::Transfer,
+            timestamp: Timestamp::from_micros(0),
+            source_hash: None,
+        };
+        let result = validate_create_water_transaction(test_action(), tx).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_water_transaction_sender_forgery_rejected() {
+        let tx = WaterTransaction {
+            from_agent: other_agent(),
+            to_agent: test_action().author,
+            liters: 10,
+            credit_type: TransactionType::Transfer,
+            timestamp: Timestamp::from_micros(0),
+            source_hash: None,
+        };
+        let result = validate_create_water_transaction(test_action(), tx).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_usage_record_valid() {
+        let usage = UsageRecord {
+            agent: test_action().author,
+            source_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            liters_used: 10,
+            usage_category: WaterClassification::Potable,
+            recorded_at: Timestamp::from_micros(0),
+            meter_reference: None,
+        };
+        let result = validate_create_usage_record(test_action(), usage).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_usage_record_agent_forgery_rejected() {
+        let usage = UsageRecord {
+            agent: other_agent(),
+            source_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            liters_used: 10,
+            usage_category: WaterClassification::Potable,
+            recorded_at: Timestamp::from_micros(0),
+            meter_reference: None,
+        };
+        let result = validate_create_usage_record(test_action(), usage).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

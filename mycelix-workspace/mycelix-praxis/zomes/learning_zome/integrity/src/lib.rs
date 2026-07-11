@@ -130,6 +130,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_store_entry(store_entry: StoreEntry) -> ExternResult<ValidateCallbackResult> {
+    // The committing agent -- create_course/update_progress already derive
+    // creator/learner from agent_info() coordinator-side with zero user
+    // input, so binding never rejects a legitimate entry; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    let author = store_entry.action.hashed.content.author().clone();
     let entry = store_entry.entry;
 
     match entry {
@@ -138,13 +144,15 @@ fn validate_store_entry(store_entry: StoreEntry) -> ExternResult<ValidateCallbac
 
             // Try to deserialize as each entry type
             if let Ok(course) = Course::try_from(bytes.clone()) {
-                validate_course(&course)
+                validate_course(&author, &course)
             } else if let Ok(progress) = LearnerProgress::try_from(bytes.clone()) {
-                validate_learner_progress(&progress)
+                validate_learner_progress(&author, &progress)
             } else if let Ok(activity) = LearningActivity::try_from(bytes) {
                 validate_learning_activity(&activity)
             } else {
-                Ok(ValidateCallbackResult::Invalid("Unknown entry type".to_string()))
+                Ok(ValidateCallbackResult::Invalid(
+                    "Unknown entry type".to_string(),
+                ))
             }
         }
         _ => Ok(ValidateCallbackResult::Valid),
@@ -152,6 +160,11 @@ fn validate_store_entry(store_entry: StoreEntry) -> ExternResult<ValidateCallbac
 }
 
 fn validate_update_entry(register_update: RegisterUpdate) -> ExternResult<ValidateCallbackResult> {
+    // Update path deliberately skips author-binding: there's no
+    // authorization model yet for who may edit a Course/LearnerProgress
+    // (update_course has no ownership check at all today), so forcing a
+    // committing-agent match here would be a new, undiscussed restriction
+    // rather than closing a forgery gap. Structural checks only.
     let entry = register_update.new_entry;
 
     match entry {
@@ -160,11 +173,13 @@ fn validate_update_entry(register_update: RegisterUpdate) -> ExternResult<Valida
 
             // Validate the new entry
             if let Ok(course) = Course::try_from(bytes.clone()) {
-                validate_course(&course)
+                validate_course_shape(&course)
             } else if let Ok(progress) = LearnerProgress::try_from(bytes) {
-                validate_learner_progress(&progress)
+                validate_learner_progress_shape(&progress)
             } else {
-                Ok(ValidateCallbackResult::Invalid("Cannot update activity entries".to_string()))
+                Ok(ValidateCallbackResult::Invalid(
+                    "Cannot update activity entries".to_string(),
+                ))
             }
         }
         _ => Ok(ValidateCallbackResult::Valid),
@@ -177,7 +192,9 @@ fn validate_delete_entry(_register_delete: RegisterDelete) -> ExternResult<Valid
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_link(register_create_link: RegisterCreateLink) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_link(
+    register_create_link: RegisterCreateLink,
+) -> ExternResult<ValidateCallbackResult> {
     let link_type = match LinkTypes::from_type(
         register_create_link.create_link.hashed.content.zome_index,
         register_create_link.create_link.hashed.content.link_type,
@@ -198,7 +215,9 @@ fn validate_create_link(register_create_link: RegisterCreateLink) -> ExternResul
     }
 }
 
-fn validate_delete_link(register_delete_link: RegisterDeleteLink) -> ExternResult<ValidateCallbackResult> {
+fn validate_delete_link(
+    register_delete_link: RegisterDeleteLink,
+) -> ExternResult<ValidateCallbackResult> {
     let link_type = match LinkTypes::from_type(
         register_delete_link.create_link.zome_index,
         register_delete_link.create_link.link_type,
@@ -247,17 +266,22 @@ fn validate_all_courses_link(link: &RegisterCreateLink) -> ExternResult<Validate
     let is_entry = EntryHash::try_from(target.clone()).is_ok();
 
     if !is_action && !is_entry {
-        return Err(wasm_error!("AllCourses link target must be ActionHash or EntryHash"));
+        return Err(wasm_error!(
+            "AllCourses link target must be ActionHash or EntryHash"
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate CourseToEnrolled link (from Course to Agent)
-fn validate_course_to_enrolled_link(link: &RegisterCreateLink) -> ExternResult<ValidateCallbackResult> {
+fn validate_course_to_enrolled_link(
+    link: &RegisterCreateLink,
+) -> ExternResult<ValidateCallbackResult> {
     // Base should be ActionHash of Course entry
-    let _course_hash = ActionHash::try_from(link.create_link.hashed.content.base_address.clone())
-        .map_err(|_| wasm_error!("CourseToEnrolled base must be a Course ActionHash"))?;
+    let _course_hash =
+        ActionHash::try_from(link.create_link.hashed.content.base_address.clone())
+            .map_err(|_| wasm_error!("CourseToEnrolled base must be a Course ActionHash"))?;
 
     // Target should be AgentPubKey
     let _agent = AgentPubKey::try_from(link.create_link.hashed.content.target_address.clone())
@@ -270,7 +294,9 @@ fn validate_course_to_enrolled_link(link: &RegisterCreateLink) -> ExternResult<V
 }
 
 /// Validate EnrolledCourses link (from Agent to Course)
-fn validate_enrolled_courses_link(link: &RegisterCreateLink) -> ExternResult<ValidateCallbackResult> {
+fn validate_enrolled_courses_link(
+    link: &RegisterCreateLink,
+) -> ExternResult<ValidateCallbackResult> {
     // Base should be AgentPubKey
     let _agent = AgentPubKey::try_from(link.create_link.hashed.content.base_address.clone())
         .map_err(|_| wasm_error!("EnrolledCourses base must be an AgentPubKey"))?;
@@ -294,72 +320,127 @@ fn validate_enrolled_courses_link(link: &RegisterCreateLink) -> ExternResult<Val
 }
 
 /// Validate CourseToProgress link (from Course to LearnerProgress)
-fn validate_course_to_progress_link(link: &RegisterCreateLink) -> ExternResult<ValidateCallbackResult> {
+fn validate_course_to_progress_link(
+    link: &RegisterCreateLink,
+) -> ExternResult<ValidateCallbackResult> {
     // Base should be ActionHash of Course entry
-    let _course_hash = ActionHash::try_from(link.create_link.hashed.content.base_address.clone())
-        .map_err(|_| wasm_error!("CourseToProgress base must be a Course ActionHash"))?;
+    let _course_hash =
+        ActionHash::try_from(link.create_link.hashed.content.base_address.clone())
+            .map_err(|_| wasm_error!("CourseToProgress base must be a Course ActionHash"))?;
 
     // Target should be ActionHash of LearnerProgress entry
-    let _progress_hash = ActionHash::try_from(link.create_link.hashed.content.target_address.clone())
-        .map_err(|_| wasm_error!("CourseToProgress target must be a LearnerProgress ActionHash"))?;
+    let _progress_hash = ActionHash::try_from(
+        link.create_link.hashed.content.target_address.clone(),
+    )
+    .map_err(|_| wasm_error!("CourseToProgress target must be a LearnerProgress ActionHash"))?;
 
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a Course entry
-fn validate_course(course: &Course) -> ExternResult<ValidateCallbackResult> {
+/// Validate a Course entry -- binds the entry to its committing agent.
+fn validate_course(author: &AgentPubKey, course: &Course) -> ExternResult<ValidateCallbackResult> {
+    if course.creator != format!("did:mycelix:{}", author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Course creator must be the committing agent (creator forgery)".to_string(),
+        ));
+    }
+    validate_course_shape(course)
+}
+
+/// Structural checks shared by create and update.
+fn validate_course_shape(course: &Course) -> ExternResult<ValidateCallbackResult> {
     // Title must not be empty
     if course.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Course title cannot be empty".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Course title cannot be empty".to_string(),
+        ));
     }
 
     // Title must be reasonable length (1-200 chars)
     if course.title.len() > 200 {
-        return Ok(ValidateCallbackResult::Invalid("Course title too long (max 200 characters)".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Course title too long (max 200 characters)".to_string(),
+        ));
     }
 
     // Description must not be empty
     if course.description.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Course description cannot be empty".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Course description cannot be empty".to_string(),
+        ));
     }
 
     // Description has reasonable length (max 5000 chars)
     if course.description.len() > 5000 {
-        return Ok(ValidateCallbackResult::Invalid("Course description too long (max 5000 characters)".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Course description too long (max 5000 characters)".to_string(),
+        ));
     }
 
     // Updated timestamp must be >= created timestamp
     if course.updated_at < course.created_at {
-        return Ok(ValidateCallbackResult::Invalid("Update time cannot be before creation time".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Update time cannot be before creation time".to_string(),
+        ));
     }
 
     // Validate tags (max 10, each max 50 chars)
     if course.tags.len() > 10 {
-        return Ok(ValidateCallbackResult::Invalid("Too many tags (max 10)".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Too many tags (max 10)".to_string(),
+        ));
     }
 
     for tag in &course.tags {
         if tag.trim().is_empty() {
-            return Ok(ValidateCallbackResult::Invalid("Tags cannot be empty".to_string()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Tags cannot be empty".to_string(),
+            ));
         }
         if tag.len() > 50 {
-            return Ok(ValidateCallbackResult::Invalid("Tag too long (max 50 characters)".to_string()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Tag too long (max 50 characters)".to_string(),
+            ));
         }
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a LearnerProgress entry
-fn validate_learner_progress(progress: &LearnerProgress) -> ExternResult<ValidateCallbackResult> {
+/// Validate a LearnerProgress entry -- binds the entry to its committing
+/// agent (update_progress already derives `learner` from agent_info()
+/// coordinator-side with zero user input, same rationale as validate_course).
+fn validate_learner_progress(
+    author: &AgentPubKey,
+    progress: &LearnerProgress,
+) -> ExternResult<ValidateCallbackResult> {
+    if progress.learner != format!("did:mycelix:{}", author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Learner progress learner must be the committing agent (learner forgery)".to_string(),
+        ));
+    }
+    validate_learner_progress_shape(progress)
+}
+
+/// Structural checks shared by create and update.
+fn validate_learner_progress_shape(
+    progress: &LearnerProgress,
+) -> ExternResult<ValidateCallbackResult> {
     // Progress percentage must be 0-100
-    if !progress.progress_percent.is_finite() || progress.progress_percent < 0.0 || progress.progress_percent > 100.0 {
-        return Ok(ValidateCallbackResult::Invalid("Progress must be between 0 and 100".to_string()));
+    if !progress.progress_percent.is_finite()
+        || progress.progress_percent < 0.0
+        || progress.progress_percent > 100.0
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Progress must be between 0 and 100".to_string(),
+        ));
     }
 
     // Completed items must be reasonable (max 1000)
     if progress.completed_items.len() > 1000 {
-        return Ok(ValidateCallbackResult::Invalid("Too many completed items (max 1000)".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Too many completed items (max 1000)".to_string(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -369,23 +450,31 @@ fn validate_learner_progress(progress: &LearnerProgress) -> ExternResult<Validat
 fn validate_learning_activity(activity: &LearningActivity) -> ExternResult<ValidateCallbackResult> {
     // Activity type must not be empty
     if activity.activity_type.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Activity type cannot be empty".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Activity type cannot be empty".to_string(),
+        ));
     }
 
     // Item ID must not be empty
     if activity.item_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Item ID cannot be empty".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Item ID cannot be empty".to_string(),
+        ));
     }
 
     // Duration must be reasonable (max 24 hours = 86400 seconds)
     if activity.duration_secs > 86400 {
-        return Ok(ValidateCallbackResult::Invalid("Activity duration too long (max 24 hours)".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Activity duration too long (max 24 hours)".to_string(),
+        ));
     }
 
     // Outcome (if present) should be 0-100 for scores
     if let Some(outcome) = activity.outcome {
         if !outcome.is_finite() || outcome < 0.0 || outcome > 100.0 {
-            return Ok(ValidateCallbackResult::Invalid("Activity outcome must be between 0 and 100".to_string()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Activity outcome must be between 0 and 100".to_string(),
+            ));
         }
     }
 

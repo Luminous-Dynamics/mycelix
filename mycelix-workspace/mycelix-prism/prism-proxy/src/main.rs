@@ -222,10 +222,18 @@ async fn main() {
     env_logger::init();
 
     let allowed_origins = AllowOrigin::list([
-        "http://localhost:8130".parse().unwrap(),
-        "https://prism.mycelix.net".parse().unwrap(),
-        "https://prism.luminousdynamics.io".parse().unwrap(),
-        "https://app.mycelix.net".parse().unwrap(),
+        "http://localhost:8130"
+            .parse()
+            .expect("hardcoded CORS origin literal is malformed"),
+        "https://prism.mycelix.net"
+            .parse()
+            .expect("hardcoded CORS origin literal is malformed"),
+        "https://prism.luminousdynamics.io"
+            .parse()
+            .expect("hardcoded CORS origin literal is malformed"),
+        "https://app.mycelix.net"
+            .parse()
+            .expect("hardcoded CORS origin literal is malformed"),
     ]);
 
     let cors = CorsLayer::new()

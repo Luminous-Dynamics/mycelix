@@ -53,6 +53,13 @@ pub enum LinkTypes {
     WorkOrderToMrpRuns,
 }
 
+/// **P0 author-binding pass, 2026-07-09**: no identity field exists on
+/// any of these 3 entries (case a). No coordinator function calls
+/// `update_entry` for any of them (confirmed via grep -- this zome is
+/// create-only, MRP planning runs are always re-run fresh) so updates
+/// are now rejected outright, closing the wide-open RegisterUpdate/
+/// RegisterDelete bug that previously routed both through the
+/// unconditional `_ => Valid` catch-all.
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -80,6 +87,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { .. }) => Ok(ValidateCallbackResult::Invalid(
+            "Planning records are immutable".into(),
+        )),
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Planning records are immutable".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

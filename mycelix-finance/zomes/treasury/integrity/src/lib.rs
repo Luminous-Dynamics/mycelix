@@ -139,6 +139,9 @@ pub enum LinkTypes {
     AllocationIdToAllocation,
     PoolIdToPool,
     CommonsPoolIdToPool,
+    /// Registered governance agents authorized for commons-pool allocations
+    /// (appended last so existing link-type indices are unchanged).
+    GovernanceAgents,
 }
 
 /// Genesis self-check
@@ -251,6 +254,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
+                // Anchor → governance-agent pubkey registration (authorizes commons
+                // allocations). Enforcement of who may register lives in the coordinator.
+                LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
             }
         }
         FlatOp::RegisterDeleteLink { link_type, .. } => {

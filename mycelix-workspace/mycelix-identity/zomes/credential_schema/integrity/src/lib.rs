@@ -191,9 +191,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate schema creation
 fn validate_create_credential_schema(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     schema: CredentialSchema,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the schema to its committer -- create_schema already has a
+    // coordinator-side "capability guard" checking author == caller, but
+    // that trusts the coordinator; this is the real DHT-level enforcement
+    // a modified coordinator could otherwise bypass (P0 author-binding gap).
+    let expected_author = format!("did:mycelix:{}", action.author());
+    if schema.author != expected_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Schema author must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate schema ID format
     if !schema.id.starts_with("mycelix:schema:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -287,9 +298,19 @@ fn validate_update_credential_schema(
 
 /// Validate endorsement creation
 fn validate_create_schema_endorsement(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     endorsement: SchemaEndorsement,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the endorsement to its committer -- endorse_schema already has a
+    // coordinator-side "capability guard" checking endorser == caller,
+    // same rationale as validate_create_credential_schema above.
+    let expected_endorser = format!("did:mycelix:{}", action.author());
+    if endorsement.endorser != expected_endorser {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Schema endorser must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Validate trust level range
     if !(0.0..=1.0).contains(&endorsement.trust_level) {
         return Ok(ValidateCallbackResult::Invalid(
@@ -540,5 +561,87 @@ mod tests {
         assert!(!"https://example.com".starts_with("did:"));
         assert!("did:mycelix:abc".starts_with("did:"));
         assert!("did:web:example.com".starts_with("did:"));
+    }
+
+    // --- Author-binding (P0) ---
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: ts(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    #[test]
+    fn create_schema_valid_when_author_matches_committer() {
+        let me = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let mut schema = valid_schema();
+        schema.author = format!("did:mycelix:{me}");
+        let result =
+            validate_create_credential_schema(EntryCreationAction::Create(test_action(me)), schema)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_schema_author_forgery_rejected() {
+        // schema.author claims a victim's DID, but the actual committer is
+        // a different agent entirely.
+        let victim = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let mut schema = valid_schema();
+        schema.author = format!("did:mycelix:{victim}");
+        let result = validate_create_credential_schema(
+            EntryCreationAction::Create(test_action(other_agent())),
+            schema,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_endorsement(endorser: String) -> SchemaEndorsement {
+        SchemaEndorsement {
+            schema_id: "mycelix:schema:education:degree:v1".into(),
+            endorser,
+            trust_level: 0.9,
+            comment: None,
+            endorsed_at: ts(0),
+        }
+    }
+
+    #[test]
+    fn create_endorsement_valid_when_endorser_matches_committer() {
+        let me = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let endorsement = valid_endorsement(format!("did:mycelix:{me}"));
+        let result = validate_create_schema_endorsement(
+            EntryCreationAction::Create(test_action(me)),
+            endorsement,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_endorsement_forgery_rejected() {
+        let victim = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let endorsement = valid_endorsement(format!("did:mycelix:{victim}"));
+        let result = validate_create_schema_endorsement(
+            EntryCreationAction::Create(test_action(other_agent())),
+            endorsement,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

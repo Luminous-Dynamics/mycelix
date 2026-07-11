@@ -9,7 +9,7 @@
 use hdk::prelude::*;
 use justice_enforcement_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_constitutional, civic_requirement_voting, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_constitutional, civic_requirement_voting,
 };
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
@@ -30,15 +30,29 @@ pub struct CaseVerificationResult {
     pub error: Option<String>,
 }
 
+/// Derives the caller's DID from the real committing agent (never trust a
+/// caller-supplied "acting agent" field). Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
+
 /// Create an enforcement action
 
 #[hdk_extern]
-pub fn create_enforcement(enforcement: Enforcement) -> ExternResult<Record> {
+pub fn create_enforcement(mut enforcement: Enforcement) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_voting(),
         "create_enforcement",
     )?;
+
+    // Author-binding: found + fixed 2026-07-10 during the P0
+    // author-binding pass. The enforcer is always the committing agent
+    // (may legitimately be an automated/system agent's own DID).
+    enforcement.enforcer = my_did()?;
+
     let action_hash = create_entry(&EntryTypes::Enforcement(enforcement.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not get created enforcement".into())
@@ -328,7 +342,67 @@ pub fn get_enforcements_by_status(status: EnforcementStatus) -> ExternResult<Vec
     Ok(records)
 }
 
-/// Execute cross-hApp enforcement action
+/// Determines whether `action_type` is something civic can genuinely execute
+/// under its own authority right now, or whether it requires cross-happ
+/// dispatch that does not exist yet.
+///
+/// This is the honesty gate for `execute_cross_happ_action`. Before this fix,
+/// that function accepted *any* `action_type` and recorded the caller-supplied
+/// free-text `result` as if the action had actually happened — for
+/// `FundsTransfer`/`AssetFreeze` (needs mycelix-finance), `AccessRevocation`
+/// (needs mycelix-identity), and `ReputationUpdate` (civic has no local
+/// reputation store — `civic-bridge::verify_reputation_proof` only *reads*
+/// reputation via `identity_bridge::get_reputation_score`; there is no write
+/// path), that was a fabricated success. Only `Notification` (via a real,
+/// local `emit_signal`) and `ManualRequired` (an honest "a human must do this"
+/// marker, already used by `mark_enforcement_failed`) are genuinely
+/// actionable within civic's own authority today.
+fn check_action_type_executable(action_type: &EnforcementActionType) -> ExternResult<()> {
+    match action_type {
+        EnforcementActionType::Notification | EnforcementActionType::ManualRequired => Ok(()),
+        EnforcementActionType::FundsTransfer | EnforcementActionType::AssetFreeze => {
+            Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "{:?} requires cross-happ dispatch into mycelix-finance, which does not exist yet. \
+                 Record this as EnforcementActionType::ManualRequired (e.g. via `record_action` or \
+                 `mark_enforcement_failed`) until finance dispatch is wired.",
+                action_type
+            ))))
+        }
+        EnforcementActionType::AccessRevocation => Err(wasm_error!(WasmErrorInner::Guest(
+            "AccessRevocation requires cross-happ dispatch into mycelix-identity, which does not \
+             exist yet. Record this as EnforcementActionType::ManualRequired until identity \
+             dispatch is wired."
+                .into()
+        ))),
+        EnforcementActionType::ReputationUpdate => Err(wasm_error!(WasmErrorInner::Guest(
+            "ReputationUpdate requires cross-happ dispatch into mycelix-identity's reputation \
+             system (civic has no local reputation store of its own — civic-bridge only reads \
+             reputation via identity_bridge::get_reputation_score), which does not exist yet. \
+             Record this as EnforcementActionType::ManualRequired until identity dispatch is wired."
+                .into()
+        ))),
+        EnforcementActionType::CrossHappAction => Err(wasm_error!(WasmErrorInner::Guest(
+            "CrossHappAction has no defined target zome or dispatch path — it is a generic \
+             catch-all, not an executable action. Use a specific action_type (e.g. Notification), \
+             or record this as EnforcementActionType::ManualRequired."
+                .into()
+        ))),
+    }
+}
+
+/// Execute an enforcement action for real, or fail honestly.
+///
+/// `Notification` is genuinely executed: it pushes a live `emit_signal` to
+/// connected clients (the same pattern verified real in
+/// `mycelix-hearth/zomes/hearth-emergency`'s `raise_alert`), using the shared
+/// `mycelix_bridge_common::notifications::NotificationSignal` already used by
+/// `civic-bridge`'s own `broadcast_event`/cross-cluster notification fanout.
+///
+/// All other action types that would require calling into another hApp's
+/// cluster (mycelix-finance, mycelix-identity) — or have no defined target at
+/// all (`CrossHappAction`) — return an explicit error instead of silently
+/// recording a caller-supplied `result` string as if something happened. See
+/// `check_action_type_executable` for the exact gate.
 #[hdk_extern]
 pub fn execute_cross_happ_action(input: CrossHappActionInput) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
@@ -336,6 +410,10 @@ pub fn execute_cross_happ_action(input: CrossHappActionInput) -> ExternResult<Re
         &civic_requirement_constitutional(),
         "execute_cross_happ_action",
     )?;
+
+    // Honesty gate: only proceed for action types civic can actually execute.
+    check_action_type_executable(&input.action_type)?;
+
     let record = get(input.enforcement_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Enforcement not found".into())
     ))?;
@@ -348,9 +426,24 @@ pub fn execute_cross_happ_action(input: CrossHappActionInput) -> ExternResult<Re
             "Invalid enforcement entry".into()
         )))?;
 
-    // Record the cross-hApp action
+    // Genuinely execute Notification: emit a real signal to connected clients.
+    if matches!(input.action_type, EnforcementActionType::Notification) {
+        let signal = mycelix_bridge_common::notifications::NotificationSignal {
+            signal_type: "justice_enforcement_notification".into(),
+            source_cluster: "civic".into(),
+            event_type: input
+                .target_entry
+                .clone()
+                .unwrap_or_else(|| "enforcement_notification".into()),
+            payload: input.result.clone(),
+            priority: 2,
+        };
+        emit_signal(&signal)?;
+    }
+
+    // Record what actually happened.
     let action = EnforcementAction {
-        action_type: EnforcementActionType::CrossHappAction,
+        action_type: input.action_type,
         target_happ: Some(input.target_happ),
         target_entry: input.target_entry,
         executed_at: sys_time()?,
@@ -368,6 +461,9 @@ pub fn execute_cross_happ_action(input: CrossHappActionInput) -> ExternResult<Re
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CrossHappActionInput {
     pub enforcement_hash: ActionHash,
+    /// What kind of action this is. Only `Notification` and `ManualRequired`
+    /// are genuinely executable today — see `check_action_type_executable`.
+    pub action_type: EnforcementActionType,
     pub target_happ: String,
     pub target_entry: Option<String>,
     pub result: String,
@@ -699,12 +795,14 @@ mod tests {
     fn cross_happ_action_input_serde_roundtrip() {
         let input = CrossHappActionInput {
             enforcement_hash: fake_action_hash(),
+            action_type: EnforcementActionType::FundsTransfer,
             target_happ: "mycelix-commons".into(),
             target_entry: Some("property-entry-42".into()),
             result: "Property transfer initiated".into(),
         };
         let json = serde_json::to_string(&input).unwrap();
         let input2: CrossHappActionInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(input2.action_type, EnforcementActionType::FundsTransfer);
         assert_eq!(input2.target_happ, "mycelix-commons");
         assert_eq!(input2.target_entry.as_deref(), Some("property-entry-42"));
         assert_eq!(input2.result, "Property transfer initiated");
@@ -714,13 +812,107 @@ mod tests {
     fn cross_happ_action_input_serde_no_target_entry() {
         let input = CrossHappActionInput {
             enforcement_hash: fake_action_hash(),
+            action_type: EnforcementActionType::Notification,
             target_happ: "mycelix-civic".into(),
             target_entry: None,
             result: "Broadcast notification".into(),
         };
         let json = serde_json::to_string(&input).unwrap();
         let input2: CrossHappActionInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(input2.action_type, EnforcementActionType::Notification);
         assert!(input2.target_entry.is_none());
+    }
+
+    // ========================================================================
+    // check_action_type_executable — the honesty gate
+    // ========================================================================
+    //
+    // These are pure-function tests: `check_action_type_executable` builds
+    // plain `WasmError`/`ExternResult` values without touching any HDK host
+    // function, so it's testable here without a live conductor. Actually
+    // observing a real `emit_signal` call requires a sweettest against a
+    // running conductor (as with hearth-emergency's `raise_alert`, which has
+    // no such unit test either — only serde-roundtrip tests exist there
+    // too), so these tests instead prove the dispatch *decision*: which
+    // action types are allowed to reach the `emit_signal`/record path, and
+    // which are honestly rejected before ever touching the DHT.
+
+    #[test]
+    fn notification_is_executable() {
+        assert!(check_action_type_executable(&EnforcementActionType::Notification).is_ok());
+    }
+
+    #[test]
+    fn manual_required_is_executable() {
+        assert!(check_action_type_executable(&EnforcementActionType::ManualRequired).is_ok());
+    }
+
+    #[test]
+    fn funds_transfer_is_honestly_rejected() {
+        let err = check_action_type_executable(&EnforcementActionType::FundsTransfer)
+            .expect_err("FundsTransfer must not be silently accepted");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("mycelix-finance"), "got: {msg}");
+    }
+
+    #[test]
+    fn asset_freeze_is_honestly_rejected() {
+        let err = check_action_type_executable(&EnforcementActionType::AssetFreeze)
+            .expect_err("AssetFreeze must not be silently accepted");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("mycelix-finance"), "got: {msg}");
+    }
+
+    #[test]
+    fn access_revocation_is_honestly_rejected() {
+        let err = check_action_type_executable(&EnforcementActionType::AccessRevocation)
+            .expect_err("AccessRevocation must not be silently accepted");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("mycelix-identity"), "got: {msg}");
+    }
+
+    #[test]
+    fn reputation_update_is_honestly_rejected() {
+        let err = check_action_type_executable(&EnforcementActionType::ReputationUpdate)
+            .expect_err("ReputationUpdate must not be silently accepted");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("mycelix-identity"), "got: {msg}");
+        assert!(
+            msg.contains("no local reputation store"),
+            "should explain civic has no local reputation store, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn cross_happ_action_generic_is_honestly_rejected() {
+        let err = check_action_type_executable(&EnforcementActionType::CrossHappAction)
+            .expect_err("bare CrossHappAction must not be silently accepted");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("no defined target"), "got: {msg}");
+    }
+
+    #[test]
+    fn only_notification_and_manual_required_are_executable() {
+        let all = vec![
+            EnforcementActionType::FundsTransfer,
+            EnforcementActionType::AssetFreeze,
+            EnforcementActionType::ReputationUpdate,
+            EnforcementActionType::AccessRevocation,
+            EnforcementActionType::Notification,
+            EnforcementActionType::ManualRequired,
+            EnforcementActionType::CrossHappAction,
+        ];
+        let executable: Vec<_> = all
+            .into_iter()
+            .filter(|at| check_action_type_executable(at).is_ok())
+            .collect();
+        assert_eq!(
+            executable,
+            vec![
+                EnforcementActionType::Notification,
+                EnforcementActionType::ManualRequired,
+            ]
+        );
     }
 
     // ========================================================================
@@ -851,6 +1043,7 @@ mod tests {
         let long_result = "x".repeat(10_000);
         let input = CrossHappActionInput {
             enforcement_hash: fake_action_hash(),
+            action_type: EnforcementActionType::CrossHappAction,
             target_happ: "mycelix-economic".into(),
             target_entry: Some("entry-long".into()),
             result: long_result.clone(),

@@ -423,9 +423,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Inference(inference) => validate_create_inference(action, inference),
-                EntryTypes::CredibilityScore(score) => validate_create_credibility_score(action, score),
+                EntryTypes::CredibilityScore(score) => {
+                    validate_create_credibility_score(action, score)
+                }
                 EntryTypes::Pattern(pattern) => validate_create_pattern(action, pattern),
-                EntryTypes::EnhancedCredibilityScore(score) => validate_create_enhanced_credibility(action, score),
+                EntryTypes::EnhancedCredibilityScore(score) => {
+                    validate_create_enhanced_credibility(action, score)
+                }
                 EntryTypes::AuthorReputation(rep) => validate_create_author_reputation(action, rep),
             },
             OpEntry::UpdateEntry {
@@ -433,14 +437,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Inference(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CredibilityScore(score) => validate_update_credibility_score(action, score),
-                EntryTypes::Pattern(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EnhancedCredibilityScore(score) => validate_update_enhanced_credibility(action, score),
-                EntryTypes::AuthorReputation(rep) => validate_update_author_reputation(action, rep),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -474,13 +471,68 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- meaning any agent could rewrite the
+            // content of ANY entry in this zome via a modified coordinator,
+            // regardless of what the StoreEntry-side validate_update_*
+            // functions checked. Found + fixed 2026-07-09 during the P0
+            // author-binding pass (same class of gap as
+            // mycelix-knowledge/bridge's identical issue). Route through
+            // the same per-type validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry for any entry type in this zome, but a
+            // modified coordinator could otherwise delete anyone's entries
+            // freely. Bind to the standard "only the original author can
+            // delete their own entries" convention used elsewhere.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+    }
+}
+
+/// Shared per-entry-type update validation, called from BOTH the StoreEntry
+/// (OpEntry::UpdateEntry) and RegisterUpdate DHT-op perspectives so they
+/// agree.
+fn validate_update_entry_type(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::Inference(inference) => validate_update_inference(action, inference),
+        EntryTypes::CredibilityScore(_) => Ok(ValidateCallbackResult::Invalid(
+            "Credibility scores are immutable (re-assess to create a new one)".into(),
+        )),
+        EntryTypes::Pattern(_) => Ok(ValidateCallbackResult::Invalid(
+            "Patterns are immutable (re-detect to create a new one)".into(),
+        )),
+        EntryTypes::EnhancedCredibilityScore(_) => Ok(ValidateCallbackResult::Invalid(
+            "Enhanced credibility scores are immutable (re-assess to create a new one)".into(),
+        )),
+        EntryTypes::AuthorReputation(rep) => validate_update_author_reputation(action, rep),
     }
 }
 
 /// Validate inference creation
-fn validate_create_inference(_action: Create, inference: Inference) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: Inference has no self-declared owner/
+/// creator field -- it's a computed ML-inference result (source_claims,
+/// conclusion, model), not an identity claim. Reviewed 2026-07-09 during
+/// the P0 author-binding pass; case (a).
+fn validate_create_inference(
+    _action: Create,
+    inference: Inference,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate confidence range
     if inference.confidence < 0.0 || inference.confidence > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -506,7 +558,15 @@ fn validate_create_inference(_action: Create, inference: Inference) -> ExternRes
 }
 
 /// Validate credibility score creation
-fn validate_create_credibility_score(_action: Create, score: CredibilityScore) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: CredibilityScore has no self-declared
+/// owner/creator field -- it's a computed assessment (`subject` names the
+/// claim/source being scored, a third party, not the committer). Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (a)/(b).
+fn validate_create_credibility_score(
+    _action: Create,
+    score: CredibilityScore,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate overall score range
     if score.score < 0.0 || score.score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -524,9 +584,10 @@ fn validate_create_credibility_score(_action: Create, score: CredibilityScore) -
         ("corroboration", components.corroboration),
     ] {
         if value < 0.0 || value > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("{} must be between 0.0 and 1.0", name),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{} must be between 0.0 and 1.0",
+                name
+            )));
         }
     }
 
@@ -534,7 +595,14 @@ fn validate_create_credibility_score(_action: Create, score: CredibilityScore) -
 }
 
 /// Validate pattern creation
-fn validate_create_pattern(_action: Create, pattern: Pattern) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: Pattern has no self-declared owner/creator
+/// field -- it's a computed detection result across claims. Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (a).
+fn validate_create_pattern(
+    _action: Create,
+    pattern: Pattern,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate strength range
     if pattern.strength < 0.0 || pattern.strength > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -553,7 +621,14 @@ fn validate_create_pattern(_action: Create, pattern: Pattern) -> ExternResult<Va
 }
 
 /// Validate enhanced credibility score creation
-fn validate_create_enhanced_credibility(_action: Create, score: EnhancedCredibilityScore) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: same reasoning as CredibilityScore --
+/// computed assessment, `subject` names a third party. Reviewed 2026-07-09
+/// during the P0 author-binding pass; case (a)/(b).
+fn validate_create_enhanced_credibility(
+    _action: Create,
+    score: EnhancedCredibilityScore,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate overall score range
     if score.overall_score < 0.0 || score.overall_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -580,7 +655,20 @@ fn validate_create_enhanced_credibility(_action: Create, score: EnhancedCredibil
 }
 
 /// Validate author reputation creation
-fn validate_create_author_reputation(_action: Create, rep: AuthorReputation) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: `author_did` names the THIRD PARTY whose
+/// reputation this profile tracks, not the committer -- the coordinator's
+/// get_author_reputation creates a fresh neutral-default profile for
+/// whatever author_did is requested (a "get or create" cache pattern, not
+/// a self-attestation). See the KNOWN GAP note on
+/// validate_update_author_reputation below for the related content-forgery
+/// risk on the *update* path, which is a different, harder problem than
+/// author-binding. Reviewed 2026-07-09 during the P0 author-binding pass;
+/// case (b).
+fn validate_create_author_reputation(
+    _action: Create,
+    rep: AuthorReputation,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate overall score range
     if rep.overall_score < 0.0 || rep.overall_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -605,33 +693,213 @@ fn validate_create_author_reputation(_action: Create, rep: AuthorReputation) -> 
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate credibility score update
-fn validate_update_credibility_score(_action: Update, score: CredibilityScore) -> ExternResult<ValidateCallbackResult> {
-    // Same validation as creation
-    if score.score < 0.0 || score.score > 1.0 {
+/// Validate inference update (verify_inference marks an inference
+/// verified/unverified and adjusts confidence).
+///
+/// No author-binding: the coordinator's verify_inference is an
+/// intentionally cross-agent flow (a different agent than the inference's
+/// original creator can mark it verified -- that's the point of
+/// independent verification) and Inference doesn't even store a
+/// "verifier" identity field to bind. Instead this enforces content
+/// integrity: only `confidence` and `verified` may change; everything else
+/// is immutable.
+fn validate_update_inference(
+    action: Update,
+    inference: Inference,
+) -> ExternResult<ValidateCallbackResult> {
+    if inference.confidence < 0.0 || inference.confidence > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Score must be between 0.0 and 1.0".into(),
+            "Confidence must be between 0.0 and 1.0".into(),
         ));
     }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Inference = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original inference not found".into()
+        )))?;
+
+    if inference.id != original.id
+        || inference.inference_type != original.inference_type
+        || inference.source_claims != original.source_claims
+        || inference.conclusion != original.conclusion
+        || inference.reasoning != original.reasoning
+        || inference.model != original.model
+        || inference.created != original.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only confidence/verified can change on an inference update".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate enhanced credibility score update
-fn validate_update_enhanced_credibility(_action: Update, score: EnhancedCredibilityScore) -> ExternResult<ValidateCallbackResult> {
-    if score.overall_score < 0.0 || score.overall_score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Overall score must be between 0.0 and 1.0".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-/// Validate author reputation update
-fn validate_update_author_reputation(_action: Update, rep: AuthorReputation) -> ExternResult<ValidateCallbackResult> {
+/// Validate author reputation update.
+///
+/// KNOWN GAP, not fixable by simple author-binding (found 2026-07-09
+/// during the P0 pass): the coordinator's update_author_reputation takes
+/// `author_did` and score deltas (claims_added/verified_true/
+/// verified_false/matl_trust_update) entirely from caller input with zero
+/// derivation from or check against agent_info() -- any agent can inflate
+/// or deflate ANY other author's reputation by calling it with a forged
+/// `author_did`. Unlike the self-declared-identity forgeries fixed
+/// elsewhere this pass, `author_did` here legitimately names a THIRD PARTY
+/// (the subject whose reputation this profile tracks), not the committer
+/// -- so binding it to action.author() would be wrong, not just
+/// insufficient. Same architectural class as the report_reputation
+/// forgery gap documented in the mycelix-identity/bridge zome commit
+/// (`ea30870f92`). Out of scope for this pass; flagging for a dedicated
+/// follow-up (needs call-provenance / capability-grant infrastructure, or
+/// restricting updates to the identity zome's own verified claim-
+/// verification events).
+///
+/// What IS fixed here: content-integrity hardening. `id`/`author_did` are
+/// now immutable, `updated_at` must advance, and the three claim counters
+/// can only increase (matches the "counts can't decrease" convention used
+/// elsewhere in this codebase for monotonic tallies).
+fn validate_update_author_reputation(
+    action: Update,
+    rep: AuthorReputation,
+) -> ExternResult<ValidateCallbackResult> {
     if rep.overall_score < 0.0 || rep.overall_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Overall score must be between 0.0 and 1.0".into(),
         ));
     }
+    if rep.historical_accuracy < 0.0 || rep.historical_accuracy > 1.0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Historical accuracy must be between 0.0 and 1.0".into(),
+        ));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: AuthorReputation = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original author reputation not found".into()
+        )))?;
+
+    if rep.id != original.id || rep.author_did != original.author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Author reputation id/author_did cannot be changed".into(),
+        ));
+    }
+    if rep.updated_at <= original.updated_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Author reputation updated_at must advance".into(),
+        ));
+    }
+    if rep.claims_authored < original.claims_authored
+        || rep.claims_verified_true < original.claims_verified_true
+        || rep.claims_verified_false < original.claims_verified_false
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Author reputation claim counters cannot decrease".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn update_action(author: AgentPubKey) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    #[test]
+    fn update_entry_type_rejects_credibility_score_update() {
+        let score = CredibilityScore {
+            id: "score-1".into(),
+            subject: "claim-1".into(),
+            subject_type: CredibilitySubjectType::Claim,
+            score: 0.5,
+            components: CredibilityComponents {
+                accuracy: 0.5,
+                consistency: 0.5,
+                transparency: 0.5,
+                track_record: 0.5,
+                corroboration: 0.5,
+            },
+            factors: vec![],
+            assessed_at: Timestamp::from_micros(0),
+            expires_at: None,
+        };
+        let result =
+            validate_update_entry_type(update_action(me()), EntryTypes::CredibilityScore(score))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_pattern_update() {
+        let pattern = Pattern {
+            id: "pattern-1".into(),
+            pattern_type: PatternType::Cluster,
+            description: "desc".into(),
+            claims: vec!["c1".into(), "c2".into()],
+            strength: 0.5,
+            detected_at: Timestamp::from_micros(0),
+        };
+        let result =
+            validate_update_entry_type(update_action(me()), EntryTypes::Pattern(pattern)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_enhanced_credibility_update() {
+        let score = EnhancedCredibilityScore {
+            id: "enh-1".into(),
+            subject: "claim-1".into(),
+            subject_type: CredibilitySubjectType::Claim,
+            overall_score: 0.5,
+            components: CredibilityComponents {
+                accuracy: 0.5,
+                consistency: 0.5,
+                transparency: 0.5,
+                track_record: 0.5,
+                corroboration: 0.5,
+            },
+            matl: MatlCredibilityComponents::default(),
+            evidence_strength: EvidenceStrengthComponents::default(),
+            author_reputation: None,
+            factors: vec![],
+            assessed_at: Timestamp::from_micros(0),
+            expires_at: None,
+            assessment_model: "v1".into(),
+            assessment_confidence: 0.5,
+        };
+        let result = validate_update_entry_type(
+            update_action(me()),
+            EntryTypes::EnhancedCredibilityScore(score),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

@@ -146,10 +146,79 @@ pub fn get_consciousness_credential(did: String) -> ExternResult<bridge::Conscio
     })
 }
 
-/// Bootstrap sovereign credential for the Craft cluster.
+/// Parse a `did:mycelix:<agent-pubkey>` DID into the underlying `AgentPubKey`.
+fn agent_pubkey_from_did(did: &str) -> ExternResult<AgentPubKey> {
+    let raw = did
+        .strip_prefix("did:mycelix:")
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!("Not a mycelix DID: {did}"))))?;
+    AgentPubKey::try_from(raw).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid agent pubkey in DID: {e:?}"
+        )))
+    })
+}
+
+/// Attempt to fetch a real credential from mycelix-identity's bridge zome via
+/// `CallTargetCell::OtherRole("identity")`, following the same dispatch
+/// pattern mycelix-finance's `consciousness_gating::check_tier` uses.
 ///
-/// Returns a development credential with Steward-level scores so all civic
-/// gates pass during standalone testing. In production, fetches from identity.
+/// Returns `None` on ANY failure — unresolvable role (identity isn't
+/// installed as a role in Craft's current standalone `happ.yaml`, so this is
+/// the common case today), network error, or decode error — so the caller
+/// can fall back to the existing bootstrap stub rather than hard-failing.
+/// Unlike finance's tier-check gate (a boolean permission check, safe to
+/// fail closed), this function's result feeds guild join/promote/create —
+/// hard-failing here whenever identity is unreachable would break Craft's
+/// standalone deployment entirely, which is worse than the acknowledged-fake
+/// bootstrap fallback it would replace.
+fn fetch_remote_sovereign_credential(
+    did: &str,
+) -> Option<bridge::sovereign_gate::SovereignCredential> {
+    let agent = agent_pubkey_from_did(did).ok()?;
+    let response = call(
+        CallTargetCell::OtherRole("identity".into()),
+        ZomeName::new("bridge"),
+        FunctionName::new("get_agent_profile_remote"),
+        None,
+        agent,
+    )
+    .ok()?;
+    let ZomeCallResponse::Ok(extern_io) = response else {
+        return None;
+    };
+    let profile: bridge::ConsciousnessProfile = extern_io.decode().ok()?;
+    let now_us = sys_time().ok()?.as_micros() as u64;
+    let credential = bridge::ConsciousnessCredential {
+        did: did.to_string(),
+        profile: profile.clone(),
+        tier: bridge::ConsciousnessTier::from_score(profile.combined_score()),
+        issued_at: now_us,
+        expires_at: now_us + 24 * 60 * 60 * 1_000_000,
+        issuer: "did:mycelix:identity-bridge".into(),
+        trajectory_commitment: None,
+        extensions: Default::default(),
+    };
+    let sovereign_profile = bridge::sovereign_gate::sovereign_from_credential(&credential);
+    let weights = bridge::sovereign_gate::DimensionWeights::governance();
+    let tier = sovereign_profile.tier(&weights);
+    Some(bridge::sovereign_gate::SovereignCredential {
+        did: did.to_string(),
+        profile: sovereign_profile,
+        tier,
+        issued_at: now_us,
+        expires_at: now_us + 24 * 60 * 60 * 1_000_000,
+        issuer: "did:mycelix:identity-bridge".into(),
+        extensions: vec![],
+    })
+}
+
+/// Sovereign credential for the Craft cluster.
+///
+/// Tries a real cross-DNA fetch from mycelix-identity first
+/// (`fetch_remote_sovereign_credential`); falls back to a development
+/// credential with Steward-level scores (so civic gates still pass during
+/// standalone testing/deployment, where identity isn't installed as a role)
+/// when that's unreachable.
 #[hdk_extern]
 pub fn get_sovereign_credential(
     did: String,
@@ -160,6 +229,11 @@ pub fn get_sovereign_credential(
     } else {
         did
     };
+
+    if let Some(real) = fetch_remote_sovereign_credential(&actual_did) {
+        return Ok(real);
+    }
+
     let profile = bridge::sovereign_gate::SovereignProfile {
         epistemic_integrity: 0.7,
         thermodynamic_yield: 0.5,

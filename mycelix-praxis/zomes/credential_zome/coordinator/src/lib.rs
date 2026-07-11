@@ -8,11 +8,34 @@
 //! Manages issuance, verification, and selective disclosure of educational
 //! credentials (badges, degrees, skill attestations).
 
+use base64::Engine;
 use credential_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
 use praxis_core::{AuditResult, CourseId};
 use std::collections::{BTreeSet, HashSet};
+
+/// Canonical bytes signed over when issuing a credential, and re-derived by
+/// any verifier (e.g. mycelix-craft's `publish_credential`) holding the same
+/// (issuer, subject, course, type, issuance_date) tuple — these are exactly
+/// the fields carried in `VerifiableCredential` that identify *this specific*
+/// credential, so a verifier that doesn't share this crate's types can
+/// reconstruct the identical byte string independently. Signed/verified via
+/// `sign_raw`/`verify_signature_raw` (literal bytes, no serde envelope) so
+/// the format is stable across independently-compiled crates.
+fn credential_signing_payload(
+    issuer: &AgentPubKey,
+    subject: &AgentPubKey,
+    course_id: &str,
+    credential_type: &[String],
+    issuance_date: &str,
+) -> Vec<u8> {
+    format!(
+        "mycelix-credential-v1|{issuer}|{subject}|{course_id}|{}|{issuance_date}",
+        credential_type.join(",")
+    )
+    .into_bytes()
+}
 
 /// Issue a new verifiable credential.
 #[hdk_extern]
@@ -23,6 +46,16 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<ActionHash>
     let now = sys_time()?;
     let issuance_date = format!("{:?}", now);
     let expiration_date = input.expires_at.map(|t| format!("{:?}", t));
+
+    let payload = credential_signing_payload(
+        &issuer_pubkey,
+        &input.subject,
+        &input.course_id.0,
+        &input.credential_type,
+        &issuance_date,
+    );
+    let signature = sign_raw(issuer_pubkey.clone(), payload)?;
+    let proof_value = base64::engine::general_purpose::STANDARD.encode(signature.0);
 
     let credential = VerifiableCredential {
         context: "https://www.w3.org/2018/credentials/v1".into(),
@@ -45,7 +78,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<ActionHash>
         proof_created: format!("{:?}", now),
         verification_method: format!("{}/keys/1", issuer_pubkey),
         proof_purpose: "assertionMethod".into(),
-        proof_value: "signed-on-client".into(),
+        proof_value,
         industry_mappings: Vec::new(),
         epistemic_empirical: Some(3),   // Cryptographic
         epistemic_normative: Some(1),   // Communal

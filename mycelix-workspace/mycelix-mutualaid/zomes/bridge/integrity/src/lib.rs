@@ -283,7 +283,9 @@ fn validate_trust_score(score: f64) -> ExternResult<()> {
     Ok(())
 }
 
-/// Validate an AidQuery entry
+/// requester_did/subject_did are NOT bound to the committer -- see the
+/// zome-wide disclosed-gap note on validate_update_entry_type above.
+/// Reviewed 2026-07-09 during the P0 author-binding pass; case (d).
 fn validate_aid_query(query: &AidQuery) -> ExternResult<ValidateCallbackResult> {
     // Validate IDs
     validate_id(&query.id, "Query ID")?;
@@ -318,7 +320,11 @@ fn validate_aid_result(result: &AidResult) -> ExternResult<ValidateCallbackResul
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a MatlReputation entry
+/// Validate a MatlReputation entry. member_did is NOT bound to the
+/// committer and the coordinator's update_reputation has ZERO caller
+/// check at all -- see the zome-wide disclosed-gap note on
+/// validate_update_entry_type above (the most severe instance of this
+/// gap class found in the whole pass). Case (d).
 fn validate_matl_reputation(reputation: &MatlReputation) -> ExternResult<ValidateCallbackResult> {
     // Validate DID
     validate_did(&reputation.member_did)?;
@@ -332,7 +338,9 @@ fn validate_matl_reputation(reputation: &MatlReputation) -> ExternResult<Validat
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a VerificationRecord entry
+/// Validate a VerificationRecord entry. subject_did/verifier_happ are
+/// NOT bound to the committer -- see the zome-wide disclosed-gap note on
+/// validate_update_entry_type above. Case (d).
 fn validate_verification_record(
     record: &VerificationRecord,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -381,16 +389,20 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::AidQuery(query) => validate_aid_query(&query),
-                    EntryTypes::AidResult(result) => validate_aid_result(&result),
-                    EntryTypes::MatlReputation(reputation) => validate_matl_reputation(&reputation),
-                    EntryTypes::VerificationRecord(record) => validate_verification_record(&record),
-                    EntryTypes::BridgeConfig(config) => validate_bridge_config(&config),
-                }
-            }
+            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::AidQuery(query) => validate_aid_query(&query),
+                EntryTypes::AidResult(result) => validate_aid_result(&result),
+                EntryTypes::MatlReputation(reputation) => validate_matl_reputation(&reputation),
+                EntryTypes::VerificationRecord(record) => validate_verification_record(&record),
+                EntryTypes::BridgeConfig(config) => validate_bridge_config(&config),
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                action,
+                original_action_hash,
+                ..
+            } => validate_update_entry_type(action, original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
@@ -402,6 +414,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::SourceHappToQuery
             | LinkTypes::TargetHappToQuery => Ok(ValidateCallbackResult::Valid),
         },
+        // Deliberately left fully permissive for ALL link types (reviewed
+        // 2026-07-09 during the P0 author-binding pass, not a gap):
+        // submit_result deletes an AnchorToPendingQuery link when a
+        // cross-hApp responder marks a query complete/failed, and that
+        // responder need not be the original querying agent (and thus
+        // not the link's original creator).
         FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
             LinkTypes::AnchorToQuery
             | LinkTypes::QueryToResult
@@ -411,9 +429,232 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::SourceHappToQuery
             | LinkTypes::TargetHappToQuery => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_)
-        | FlatOp::RegisterUpdate(_)
-        | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 27th confirmed instance of this
+            // exact bug pattern this pass. Found + fixed 2026-07-09
+            // during the P0 author-binding pass. Route through the same
+            // per-type validators as the StoreEntry perspective.
+            OpUpdate::Entry {
+                app_entry, action, ..
+            } => validate_update_entry_type(
+                action.clone(),
+                action.original_action_address,
+                app_entry,
+            ),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+    }
+}
+
+/// **Zome-wide disclosed, NOT-fixed gap**: every identity-bearing field in
+/// this zome (`AidQuery.requester_did`/`subject_did`,
+/// `MatlReputation.member_did`, `VerificationRecord.subject_did`/
+/// `verifier_happ`) is a free-form `String` DID/hApp-name asserted by the
+/// caller, with NO local convention anywhere in this coordinator for
+/// deriving or verifying a DID string from the committing agent's real
+/// `action.author` (unlike zomes elsewhere in this pass that use a
+/// `format!("did:mycelix:{}", author)` convention -- no such convention
+/// exists in this hApp; DIDs here appear to originate from an external
+/// identity system this bridge doesn't itself validate against).
+/// Reviewed 2026-07-09 during the P0 author-binding pass; same class of
+/// gap as mycelix-identity/bridge's `report_reputation` and
+/// mycelix-knowledge/inference's `author_reputation` -- needs real
+/// call-provenance/capability-grant infrastructure, not simple
+/// author-binding, and inventing an unverified DID-format convention here
+/// would be worse than leaving it honestly undone. **Most severe
+/// instance of this gap class found in the whole pass so far**:
+/// `update_reputation` has ZERO check of ANY kind (not even the DID
+/// itself, no caller-derivation attempt) -- any agent can set ANY other
+/// agent's MATL trust-score components (contribution/fulfillment/
+/// engagement/pools_count/totals) to arbitrary values, and
+/// `BridgeConfig.min_trust_score` elsewhere in this hApp gates real
+/// query-acceptance decisions on this score. This is a live
+/// reputation-forgery/self-mint vector, not merely theoretical. Flagged
+/// prominently for dedicated follow-up.
+fn validate_update_entry_type(
+    action: Update,
+    original_action_hash: ActionHash,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::AidQuery(query) => {
+            validate_update_aid_query(action, original_action_hash, query)
+        }
+        // No live update_entry call for AidResult (confirmed via grep) --
+        // previously silently accepted any field change. Made explicitly
+        // immutable.
+        EntryTypes::AidResult(_) => Ok(ValidateCallbackResult::Invalid(
+            "Aid results are immutable".into(),
+        )),
+        EntryTypes::MatlReputation(reputation) => {
+            validate_update_reputation(action, original_action_hash, reputation)
+        }
+        // No live update_entry call for VerificationRecord either.
+        EntryTypes::VerificationRecord(_) => Ok(ValidateCallbackResult::Invalid(
+            "Verification records are immutable; create a new one".into(),
+        )),
+        // BridgeConfig has no live create OR update call at all
+        // (confirmed via grep -- imported but never constructed by this
+        // coordinator). Made explicitly immutable as defense-in-depth.
+        EntryTypes::BridgeConfig(_) => Ok(ValidateCallbackResult::Invalid(
+            "Bridge config is immutable".into(),
+        )),
+    }
+}
+
+/// No author requirement: submit_result has zero caller-identity check
+/// (a cross-hApp responder may legitimately be a different agent than
+/// the original requester) -- case (c). Content is restricted to status
+/// only -- this closes the wide-open bug that previously let
+/// subject_did/requester_did/purpose/source_happ/target_happ/parameters/
+/// expires_at change unconditionally on update too.
+fn validate_update_aid_query(
+    action: Update,
+    original_action_hash: ActionHash,
+    query: AidQuery,
+) -> ExternResult<ValidateCallbackResult> {
+    let _ = &action;
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: AidQuery = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original query not found".into()
+        )))?;
+
+    if query.id != original.id
+        || query.subject_did != original.subject_did
+        || query.requester_did != original.requester_did
+        || query.purpose != original.purpose
+        || query.source_happ != original.source_happ
+        || query.target_happ != original.target_happ
+        || query.parameters != original.parameters
+        || query.created_at != original.created_at
+        || query.expires_at != original.expires_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change on a query update".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Content restricted to member_did staying the SAME (everything else
+/// may legitimately change -- update_reputation recomputes nearly every
+/// field). This does NOT fix the disclosed gap above (anyone can still
+/// update anyone's reputation with arbitrary values), but it does close
+/// a distinct, narrower wide-open-update issue: previously a modified
+/// coordinator could also silently reassign a reputation record to a
+/// DIFFERENT member_did entirely.
+fn validate_update_reputation(
+    action: Update,
+    original_action_hash: ActionHash,
+    reputation: MatlReputation,
+) -> ExternResult<ValidateCallbackResult> {
+    let _ = &action;
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: MatlReputation = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original reputation not found".into()
+        )))?;
+
+    if reputation.member_did != original.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "member_did cannot change on a reputation update".into(),
+        ));
+    }
+
+    validate_matl_reputation(&reputation)
+}
+
+#[cfg(test)]
+mod content_integrity_tests {
+    use super::*;
+
+    fn update_action(author: AgentPubKey) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    #[test]
+    fn update_entry_type_rejects_aid_result_update() {
+        // No live update_entry call exists for AidResult -- dead-path
+        // immutability, testable without must_get_valid_record.
+        let result = AidResult {
+            query_id: "q-1".into(),
+            success: true,
+            data: None,
+            error: None,
+            provider_trust_score: 0.9,
+            created_at: Timestamp::from_micros(0),
+        };
+        let action = update_action(me());
+        let result = validate_update_entry_type(
+            action.clone(),
+            action.original_action_address,
+            EntryTypes::AidResult(result),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_bridge_config_update() {
+        let config = BridgeConfig {
+            id: "cfg-1".into(),
+            trusted_happs: vec![],
+            min_trust_score: 0.5,
+            query_timeout_seconds: 30,
+            max_concurrent_queries: 10,
+            allow_anonymous: false,
+            updated_at: Timestamp::from_micros(0),
+        };
+        let action = update_action(me());
+        let result = validate_update_entry_type(
+            action.clone(),
+            action.original_action_address,
+            EntryTypes::BridgeConfig(config),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

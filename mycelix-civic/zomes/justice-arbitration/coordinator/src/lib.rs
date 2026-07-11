@@ -9,10 +9,18 @@
 use hdk::prelude::*;
 use justice_arbitration_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_proposal, civic_requirement_voting, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_proposal, civic_requirement_voting,
 };
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
+
+/// Derives the caller's DID from the real committing agent (never trust a
+/// caller-supplied "acting agent" field). Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
 
 /// Create an arbitration panel for a case
 
@@ -191,13 +199,17 @@ pub fn get_case_decisions(case_id: String) -> ExternResult<Vec<Record>> {
 
 /// File an appeal
 #[hdk_extern]
-pub fn file_appeal(appeal: Appeal) -> ExternResult<Record> {
+pub fn file_appeal(mut appeal: Appeal) -> ExternResult<Record> {
     // Consciousness gate: Participant tier + identity >= 0.25
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_proposal(),
         "file_appeal",
     )?;
+
+    // Author-binding: found + fixed 2026-07-10 during the P0
+    // author-binding pass. The appellant is always the committing agent.
+    appeal.appellant = my_did()?;
 
     let action_hash = create_entry(&EntryTypes::Appeal(appeal.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(

@@ -100,15 +100,20 @@ pub struct GrantRightInput {
 #[hdk_extern]
 pub fn log_usage(input: LogUsageInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could log usage against another agent's quota (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // commons integrity's validate_create_usage_log).
+    let user_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let log = UsageLog {
         id: format!(
             "usage:{}:{}:{}",
             input.resource_id,
-            input.user_did,
+            user_did,
             now.as_micros()
         ),
         resource_id: input.resource_id.clone(),
-        user_did: input.user_did,
+        user_did,
         usage_type: input.usage_type,
         quantity: input.quantity,
         unit: input.unit,
@@ -129,6 +134,8 @@ pub fn log_usage(input: LogUsageInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LogUsageInput {
     pub resource_id: String,
+    /// Deliberately ignored -- user identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub user_did: String,
     pub usage_type: String,
     pub quantity: f64,
@@ -267,6 +274,11 @@ pub fn get_resource_rights(resource_id: String) -> ExternResult<Vec<Record>> {
 /// Revoke a usage right
 #[hdk_extern]
 pub fn revoke_usage_right(input: RevokeRightInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could revoke a right by simply naming an existing steward's DID
+    // as revoker_did, with zero proof of controlling that identity (P0
+    // author-binding gap).
+    let revoker_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::UsageRight,
@@ -289,7 +301,7 @@ pub fn revoke_usage_right(input: RevokeRightInput) -> ExternResult<Record> {
                         "Invalid resource data".into()
                     )))?;
 
-                if !resource_data.stewards.contains(&input.revoker_did) {
+                if !resource_data.stewards.contains(&revoker_did) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only stewards can revoke rights".into()
                     )));
@@ -314,12 +326,17 @@ pub fn revoke_usage_right(input: RevokeRightInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RevokeRightInput {
     pub right_id: String,
+    /// Deliberately ignored -- revoker identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub revoker_did: String,
 }
 
 /// Add a steward to a resource
 #[hdk_extern]
 pub fn add_steward(input: AddStewardInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as revoke_usage_right above.
+    let added_by_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -335,7 +352,7 @@ pub fn add_steward(input: AddStewardInput) -> ExternResult<Record> {
         {
             if resource.id == input.resource_id {
                 // Verify caller is a steward
-                if !resource.stewards.contains(&input.added_by_did) {
+                if !resource.stewards.contains(&added_by_did) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only stewards can add new stewards".into()
                     )));
@@ -378,12 +395,17 @@ pub fn add_steward(input: AddStewardInput) -> ExternResult<Record> {
 pub struct AddStewardInput {
     pub resource_id: String,
     pub new_steward_did: String,
+    /// Deliberately ignored -- adder identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub added_by_did: String,
 }
 
 /// Remove a steward from a resource (cannot remove last steward)
 #[hdk_extern]
 pub fn remove_steward(input: RemoveStewardInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as revoke_usage_right above.
+    let removed_by_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -399,7 +421,7 @@ pub fn remove_steward(input: RemoveStewardInput) -> ExternResult<Record> {
         {
             if resource.id == input.resource_id {
                 // Verify caller is a steward
-                if !resource.stewards.contains(&input.removed_by_did) {
+                if !resource.stewards.contains(&removed_by_did) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only stewards can remove stewards".into()
                     )));
@@ -444,6 +466,8 @@ pub fn remove_steward(input: RemoveStewardInput) -> ExternResult<Record> {
 pub struct RemoveStewardInput {
     pub resource_id: String,
     pub steward_did: String,
+    /// Deliberately ignored -- remover identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub removed_by_did: String,
 }
 
@@ -469,6 +493,9 @@ pub fn get_holder_rights(holder_did: String) -> ExternResult<Vec<Record>> {
 /// Update governance rules for a resource
 #[hdk_extern]
 pub fn update_governance_rules(input: UpdateGovernanceInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as revoke_usage_right above.
+    let steward_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::CommonResource,
@@ -484,7 +511,7 @@ pub fn update_governance_rules(input: UpdateGovernanceInput) -> ExternResult<Rec
         {
             if resource.id == input.resource_id {
                 // Verify caller is a steward
-                if !resource.stewards.contains(&input.steward_did) {
+                if !resource.stewards.contains(&steward_did) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only stewards can update governance".into()
                     )));
@@ -511,6 +538,8 @@ pub fn update_governance_rules(input: UpdateGovernanceInput) -> ExternResult<Rec
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateGovernanceInput {
     pub resource_id: String,
+    /// Deliberately ignored -- steward identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub steward_did: String,
     pub new_rules: GovernanceRules,
 }
@@ -588,6 +617,9 @@ pub struct UserUsageInput {
 /// Update usage right quota
 #[hdk_extern]
 pub fn update_right_quota(input: UpdateQuotaInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as revoke_usage_right above.
+    let steward_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::UsageRight,
@@ -610,7 +642,7 @@ pub fn update_right_quota(input: UpdateQuotaInput) -> ExternResult<Record> {
                         "Invalid resource data".into()
                     )))?;
 
-                if !resource_data.stewards.contains(&input.steward_did) {
+                if !resource_data.stewards.contains(&steward_did) {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only stewards can update quotas".into()
                     )));
@@ -635,6 +667,8 @@ pub fn update_right_quota(input: UpdateQuotaInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateQuotaInput {
     pub right_id: String,
+    /// Deliberately ignored -- steward identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub steward_did: String,
     pub new_quota: Option<f64>,
 }

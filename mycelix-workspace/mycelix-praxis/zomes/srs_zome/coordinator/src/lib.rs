@@ -9,7 +9,7 @@
 
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
-use praxis_core::errors::{srs_errors, EduNetError};
+use praxis_core::errors::{EduNetError, srs_errors};
 use srs_integrity::*;
 
 /// Convert an EduNetError to a WasmError
@@ -641,7 +641,7 @@ pub fn end_session(input: EndSessionInput) -> ExternResult<Record> {
 
     call(
         CallTargetCell::OtherRole("identity".into()),
-        "reputation_aggregator".into(),
+        "reputation_aggregator",
         "report_domain_score".into(),
         None,
         serde_json::json!({

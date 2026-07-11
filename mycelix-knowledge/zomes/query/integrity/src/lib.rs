@@ -125,7 +125,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::SavedQuery(query) => validate_update_query(action, query, original_action_hash),
+                EntryTypes::SavedQuery(query) => {
+                    validate_update_query(action, query, original_action_hash)
+                }
                 EntryTypes::QueryResult(_) => Ok(ValidateCallbackResult::Invalid(
                     "Query results cannot be updated".into(),
                 )),
@@ -188,7 +190,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_create_query(_action: Create, query: SavedQuery) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_query(
+    action: Create,
+    query: SavedQuery,
+) -> ExternResult<ValidateCallbackResult> {
     if query.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Query name cannot be empty".into(),
@@ -207,6 +212,19 @@ fn validate_create_query(_action: Create, query: SavedQuery) -> ExternResult<Val
         ));
     }
 
+    // Author-binding: the coordinator's save_query now derives `creator`
+    // from agent_info() rather than trusting the caller-supplied struct,
+    // but that's bypassable by a modified coordinator -- the integrity
+    // validator is the real security boundary. Without this, any agent
+    // could commit a SavedQuery claiming an arbitrary victim DID as its
+    // creator. Found + fixed 2026-07-09 during the P0 author-binding pass.
+    let expected_creator_did = format!("did:mycelix:{}", action.author);
+    if query.creator != expected_creator_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Query creator DID must correspond to the committing agent".into(),
+        ));
+    }
+
     if let Some(ref params) = query.parameters {
         if serde_json::from_str::<serde_json::Value>(params).is_err() {
             return Ok(ValidateCallbackResult::Invalid(
@@ -218,6 +236,11 @@ fn validate_create_query(_action: Create, query: SavedQuery) -> ExternResult<Val
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `update_action.author == *original.hashed.author()` for every entry
+/// type), so this function only needs to check content invariants, not
+/// identity.
 fn validate_update_query(
     _action: Update,
     query: SavedQuery,
@@ -242,7 +265,14 @@ fn validate_update_query(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_result(_action: Create, result: QueryResult) -> ExternResult<ValidateCallbackResult> {
+/// No author-binding possible: QueryResult is a cached execution result
+/// (query_id, count, data, timing) with no self-declared owner/creator
+/// AgentPubKey or DID field. Reviewed 2026-07-09 during the P0
+/// author-binding pass; case (a), nothing to bind against.
+fn validate_create_result(
+    _action: Create,
+    result: QueryResult,
+) -> ExternResult<ValidateCallbackResult> {
     if serde_json::from_str::<serde_json::Value>(&result.data).is_err() {
         return Ok(ValidateCallbackResult::Invalid(
             "Result data must be valid JSON".into(),
@@ -250,4 +280,61 @@ fn validate_create_result(_action: Create, result: QueryResult) -> ExternResult<
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_query(creator: String) -> SavedQuery {
+        SavedQuery {
+            id: "query-1".into(),
+            name: "My Query".into(),
+            description: "desc".into(),
+            query: "SELECT * FROM claims".into(),
+            parameters: None,
+            creator,
+            public: false,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_query_valid_when_creator_matches_committer() {
+        let query = valid_query(format!("did:mycelix:{}", me()));
+        let result = validate_create_query(test_action(me()), query).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_query_creator_forgery_rejected() {
+        let query = valid_query(format!("did:mycelix:{}", me()));
+        let result = validate_create_query(test_action(other_agent()), query).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

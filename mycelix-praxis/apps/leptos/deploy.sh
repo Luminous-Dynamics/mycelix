@@ -28,7 +28,26 @@ fi
 
 # 1. Build
 echo "[1/4] Building..."
-~/.cargo/bin/trunk build --release 2>&1 | tail -1
+
+# Trunk cleans dist/ before building (no `clean = false` in Trunk.toml), and the
+# tunnel serves directly from dist/ — a failed build would 404 the live site
+# with nothing to fall back to. Back it up first and restore on failure.
+BACKUP_DIR=""
+if [ -d "$DIST_DIR" ]; then
+  BACKUP_DIR="$(mktemp -d)/dist.bak"
+  cp -r "$DIST_DIR" "$BACKUP_DIR"
+fi
+
+if ! ~/.cargo/bin/trunk build --release 2>&1 | tail -1; then
+  echo "ERROR: trunk build failed."
+  if [ -n "$BACKUP_DIR" ]; then
+    echo "Restoring previous dist/ so the live site keeps serving the last good build."
+    rm -rf "$DIST_DIR"
+    mv "$BACKUP_DIR" "$DIST_DIR"
+  fi
+  exit 1
+fi
+[ -n "$BACKUP_DIR" ] && rm -rf "$BACKUP_DIR"
 
 # 2. Pin to IPFS
 echo "[2/4] Pinning to IPFS..."

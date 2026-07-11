@@ -226,9 +226,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_reading(
-    _action: Create,
+    action: Create,
     reading: QualityReading,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the reading to its committer -- submit_reading already derives
+    // `sampler` from agent_info() coordinator-side with zero user input, so
+    // this never rejects a legitimate reading; it's the real DHT-level
+    // enforcement a modified coordinator could otherwise bypass (P0
+    // author-binding gap).
+    if reading.sampler != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Quality reading sampler must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Potability score must be in [0, 1]
     if reading.potability_score < 0.0 || reading.potability_score > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -267,9 +278,18 @@ fn validate_create_reading(
 }
 
 fn validate_create_alert(
-    _action: Create,
+    action: Create,
     alert: ContaminationAlert,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the alert to its committer -- raise_alert already derives
+    // `reported_by` from agent_info() coordinator-side with zero user
+    // input, same rationale as validate_create_reading above.
+    if alert.reported_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Contamination alert reported_by must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if alert.contaminant.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Contaminant name cannot be empty".into(),
@@ -299,7 +319,11 @@ fn validate_update_alert(
     _alert: ContaminationAlert,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Allow updates (e.g., marking as resolved)
+    // Deliberately NOT author-bound: resolve_alert has no restriction on who
+    // may resolve a contamination alert today (not gated to reported_by or
+    // any water-authority role) -- there's no established identity model to
+    // bind against. Same class of gap as mycelix-property's dispute
+    // resolution paths (see memory/mycelix_attribution_author_binding_jul8.md).
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -307,6 +331,9 @@ fn validate_create_remediation(
     _action: Create,
     remediation: Remediation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // No author-binding possible here: Remediation has no "started_by"
+    // identity field at all -- only `verified_by`, which is set later by
+    // complete_remediation (bound in validate_update_remediation below).
     if remediation.method.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Remediation method cannot be empty".into(),
@@ -316,9 +343,178 @@ fn validate_create_remediation(
 }
 
 fn validate_update_remediation(
-    _action: Update,
-    _remediation: Remediation,
+    action: Update,
+    remediation: Remediation,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind verified_by to its committer -- complete_remediation already
+    // derives it from agent_info() coordinator-side with zero user input.
+    // Only enforced when set (the only coordinator path that populates
+    // verified_by is complete_remediation; no other update path exists for
+    // this entry type today).
+    if let Some(verifier) = &remediation.verified_by {
+        if *verifier != action.author {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Remediation verified_by must be the committing agent (forgery)".to_string(),
+            ));
+        }
+    }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_reading(sampler: AgentPubKey) -> QualityReading {
+        QualityReading {
+            source_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            sampler,
+            timestamp: Timestamp::from_micros(0),
+            temperature_celsius: Some(20.0),
+            turbidity_ntu: Some(1.0),
+            ph: Some(7.0),
+            tds_ppm: None,
+            dissolved_oxygen_mg_l: None,
+            nitrates_mg_l: None,
+            arsenic_ug_l: None,
+            lead_ug_l: None,
+            total_coliform_cfu: None,
+            e_coli_cfu: None,
+            chlorine_mg_l: None,
+            potability_score: 0.9,
+            meets_who_standards: true,
+            meets_epa_standards: true,
+        }
+    }
+
+    #[test]
+    fn test_create_reading_valid() {
+        let reading = valid_reading(test_action().author);
+        let result = validate_create_reading(test_action(), reading).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_reading_sampler_forgery_rejected() {
+        let reading = valid_reading(other_agent());
+        let result = validate_create_reading(test_action(), reading).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_alert(reported_by: AgentPubKey) -> ContaminationAlert {
+        ContaminationAlert {
+            source_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            severity: AlertSeverity::Warning,
+            contaminant: "Lead".to_string(),
+            measured_value: 15.0,
+            threshold_value: 10.0,
+            alert_type: AlertType::Chemical,
+            reported_by,
+            reported_at: Timestamp::from_micros(0),
+            resolved_at: None,
+            remediation_hash: None,
+        }
+    }
+
+    #[test]
+    fn test_create_alert_valid() {
+        let alert = valid_alert(test_action().author);
+        let result = validate_create_alert(test_action(), alert).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_alert_reported_by_forgery_rejected() {
+        let alert = valid_alert(other_agent());
+        let result = validate_create_alert(test_action(), alert).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn test_update_action() -> Update {
+        Update {
+            author: test_action().author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn valid_remediation(verified_by: Option<AgentPubKey>) -> Remediation {
+        Remediation {
+            alert_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            method: "Activated carbon filtration".to_string(),
+            started_at: Timestamp::from_micros(0),
+            completed_at: None,
+            verified_by,
+            post_treatment_reading: None,
+            cost_estimate: None,
+            notes: String::new(),
+        }
+    }
+
+    #[test]
+    fn test_update_remediation_no_verifier_valid() {
+        let remediation = valid_remediation(None);
+        let result = validate_update_remediation(
+            test_update_action(),
+            remediation,
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_update_remediation_verifier_valid() {
+        let remediation = valid_remediation(Some(test_update_action().author));
+        let result = validate_update_remediation(
+            test_update_action(),
+            remediation,
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_update_remediation_verifier_forgery_rejected() {
+        let remediation = valid_remediation(Some(other_agent()));
+        let result = validate_update_remediation(
+            test_update_action(),
+            remediation,
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

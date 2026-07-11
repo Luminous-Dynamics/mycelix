@@ -880,8 +880,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Enforce that a claim's declared author DID matches the agent that
+/// actually committed it. Without this, any agent could set `author` to an
+/// arbitrary victim DID and the DHT would accept the forged attribution --
+/// nothing previously checked it against the real cryptographic action
+/// author. Mirrors mycelix-identity's did_registry
+/// `require_did_id_matches_author`. Pure so it can be unit-tested without a
+/// full Create action.
+fn require_claim_author_matches_committer(
+    claim_author: &str,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if claim_author != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Claim author must equal the committing agent's DID (identifier \
+             takeover). Expected '{author_did}', got '{claim_author}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 /// Validate claim creation
-fn validate_create_claim(_action: Create, claim: Claim) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_claim(action: Create, claim: Claim) -> ExternResult<ValidateCallbackResult> {
     // Validate epistemic position ranges
     if claim.classification.empirical < 0.0 || claim.classification.empirical > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -911,6 +931,14 @@ fn validate_create_claim(_action: Create, claim: Claim) -> ExternResult<Validate
         return Ok(ValidateCallbackResult::Invalid(
             "Author must be a valid DID".into(),
         ));
+    }
+
+    // Bind the claim's declared author to the committing agent's own DID.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_claim_author_matches_committer(&claim.author, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate content is not empty
@@ -971,7 +999,7 @@ fn validate_update_claim(
 
 /// Validate evidence creation
 fn validate_create_evidence(
-    _action: Create,
+    action: Create,
     evidence: Evidence,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate strength range
@@ -988,6 +1016,20 @@ fn validate_create_evidence(
         ));
     }
 
+    // Author-binding: the coordinator's add_evidence now overwrites
+    // submitted_by with the caller's own derived DID before creating the
+    // entry, but that's bypassable by a modified coordinator -- the
+    // integrity validator is the real security boundary. Without this, any
+    // agent could commit Evidence claiming an arbitrary victim DID as
+    // submitter. Found + fixed 2026-07-09 during the P0 author-binding
+    // pass.
+    let expected_submitter_did = format!("did:mycelix:{}", action.author);
+    if evidence.submitted_by != expected_submitter_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Evidence submitted_by must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate source URI not empty
     if evidence.source_uri.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1000,13 +1042,25 @@ fn validate_create_evidence(
 
 /// Validate challenge creation
 fn validate_create_challenge(
-    _action: Create,
+    action: Create,
     challenge: ClaimChallenge,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate challenger is a DID
     if !challenge.challenger.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Challenger must be a valid DID".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's challenge_claim now derives
+    // challenger from agent_info() rather than trusting caller input, so
+    // this is belt-and-suspenders against a modified coordinator forging
+    // a challenge as an arbitrary victim challenger. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let expected_challenger_did = format!("did:mycelix:{}", action.author);
+    if challenge.challenger != expected_challenger_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Challenge challenger must correspond to the committing agent".into(),
         ));
     }
 
@@ -1028,17 +1082,25 @@ fn validate_create_challenge(
 }
 
 /// Validate challenge update
+/// ClaimChallenge is immutable: confirmed via grep that no coordinator
+/// function ever calls update_entry for this type. Made explicit
+/// 2026-07-09 during the P0 author-binding pass -- previously this
+/// function accepted ANY field change unconditionally (the `_challenge`
+/// parameter wasn't even used), so a modified coordinator could rewrite
+/// reason/challenger/counter_evidence freely under the guise of a
+/// "status update".
 fn validate_update_challenge(
     _action: Update,
     _challenge: ClaimChallenge,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Status updates are allowed
-    Ok(ValidateCallbackResult::Valid)
+    Ok(ValidateCallbackResult::Invalid(
+        "Claim challenges are immutable".into(),
+    ))
 }
 
 /// Validate market link creation
 fn validate_create_market_link(
-    _action: Create,
+    action: Create,
     link: ClaimMarketLink,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate claim_id not empty
@@ -1055,21 +1117,95 @@ fn validate_create_market_link(
         ));
     }
 
+    // Author-binding: the coordinator's spawn_verification_market already
+    // derives requested_by from agent_info(), so this is
+    // belt-and-suspenders against a modified coordinator forging a victim
+    // agent as requester. requested_by is typed as AgentPubKey directly
+    // (not a DID string), so it's compared to action.author directly.
+    // Found + fixed 2026-07-09 during the P0 author-binding pass.
+    if link.requested_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Market link requested_by must correspond to the committing agent".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate market link update
+/// Validate a ClaimMarketLink update (the coordinator's on_market_resolved
+/// transitions status to Resolved and records the resolution).
+///
+/// Previously this accepted ANY field change unconditionally (the `_link`
+/// parameter wasn't even used). Hardened 2026-07-09 during the P0
+/// author-binding pass: fetches the original and enforces content
+/// integrity -- id/claim_id/market_id/link_type/target_epistemic/
+/// requested_by/created_at are immutable, and only a valid status
+/// transition is allowed.
 fn validate_update_market_link(
-    _action: Update,
-    _link: ClaimMarketLink,
+    action: Update,
+    link: ClaimMarketLink,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Status updates are allowed
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ClaimMarketLink = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original market link not found".into()
+        )))?;
+
+    if link.id != original.id
+        || link.claim_id != original.claim_id
+        || link.market_id != original.market_id
+        || link.link_type != original.link_type
+        || link.target_epistemic != original.target_epistemic
+        || link.requested_by != original.requested_by
+        || link.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/resolved_at/resolution can change on a market link update".into(),
+        ));
+    }
+
+    let valid_transition = matches!(
+        (&original.status, &link.status),
+        (
+            MarketVerificationStatus::Pending,
+            MarketVerificationStatus::Active
+        ) | (
+            MarketVerificationStatus::Pending,
+            MarketVerificationStatus::Resolved
+        ) | (
+            MarketVerificationStatus::Pending,
+            MarketVerificationStatus::Cancelled
+        ) | (
+            MarketVerificationStatus::Active,
+            MarketVerificationStatus::Resolved
+        ) | (
+            MarketVerificationStatus::Active,
+            MarketVerificationStatus::Cancelled
+        )
+    ) || original.status == link.status;
+    if !valid_transition {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid market link status transition from {:?} to {:?}",
+            original.status, link.status
+        )));
+    }
+
+    if link.status == MarketVerificationStatus::Resolved && link.resolution.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolved market links must include a resolution".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate dependency creation
 fn validate_create_dependency(
-    _action: Create,
+    action: Create,
     dep: ClaimDependency,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate weight range
@@ -1086,22 +1222,36 @@ fn validate_create_dependency(
         ));
     }
 
-    Ok(ValidateCallbackResult::Valid)
-}
-
-/// Validate dependency update
-fn validate_update_dependency(
-    _action: Update,
-    dep: ClaimDependency,
-) -> ExternResult<ValidateCallbackResult> {
-    // Validate weight range
-    if dep.weight < 0.0 || dep.weight > 1.0 {
+    // Author-binding: the coordinator's register_dependency already
+    // derives established_by from agent_info(), so this is
+    // belt-and-suspenders against a modified coordinator forging a victim
+    // agent as establisher. established_by is typed as AgentPubKey
+    // directly, compared to action.author directly. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    if dep.established_by != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "Dependency weight must be between 0.0 and 1.0".into(),
+            "Dependency established_by must correspond to the committing agent".into(),
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate dependency update
+/// ClaimDependency is immutable: confirmed via grep that no coordinator
+/// function ever calls update_entry for this type (dependencies are
+/// created once via register_dependency; cascade_update reads `active`
+/// but never toggles it). Made explicit 2026-07-09 during the P0
+/// author-binding pass -- previously this function only checked the
+/// weight range and let every other field (including established_by)
+/// change freely.
+fn validate_update_dependency(
+    _action: Update,
+    _dep: ClaimDependency,
+) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Invalid(
+        "Claim dependencies are immutable".into(),
+    ))
 }
 
 // ============================================================================
@@ -1110,7 +1260,7 @@ fn validate_update_dependency(
 
 /// Validate classified claim creation
 fn validate_create_classified_claim(
-    _action: Create,
+    action: Create,
     claim: ClassifiedClaim,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate author is a DID
@@ -1118,6 +1268,14 @@ fn validate_create_classified_claim(
         return Ok(ValidateCallbackResult::Invalid(
             "Author must be a valid DID".into(),
         ));
+    }
+
+    // Bind the claim's declared author to the committing agent's own DID.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_claim_author_matches_committer(&claim.author, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate content is not empty
@@ -1199,9 +1357,24 @@ fn validate_update_classified_claim(
 
 /// Validate classification vote creation
 fn validate_create_classification_vote(
-    _action: Create,
+    action: Create,
     vote: ClassificationVote,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: no coordinator function in this crate currently
+    // creates a ClassificationVote (confirmed via grep -- this entry type
+    // is defined and validated but not yet wired to any #[hdk_extern]),
+    // so there's no existing coordinator-side derivation to mirror. Bound
+    // here defensively anyway, consistent with every other self-declared
+    // identity field fixed this pass, so whenever a create_vote-style
+    // function IS wired up it's covered from day one. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let expected_voter_did = format!("did:mycelix:{}", action.author);
+    if vote.voter != expected_voter_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote voter must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate voter is a DID
     if !vote.voter.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1250,6 +1423,13 @@ fn validate_create_classification_vote(
 }
 
 /// Validate classification consensus creation
+///
+/// No author-binding possible: ClassificationConsensus has no
+/// self-declared owner/creator field -- it's an aggregated result across
+/// multiple ClassificationVotes, not an identity claim. Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (a). (Like
+/// ClassificationVote, this entry type isn't wired to any coordinator
+/// function yet.)
 fn validate_create_classification_consensus(
     _action: Create,
     consensus: ClassificationConsensus,
@@ -1293,6 +1473,11 @@ fn validate_create_classification_consensus(
 }
 
 /// Validate classification consensus update
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (author ==
+/// original author for every entry type). Not currently exercised by any
+/// coordinator function (ClassificationConsensus isn't wired up yet), so
+/// this only checks content ranges, not identity.
 fn validate_update_classification_consensus(
     _action: Update,
     consensus: ClassificationConsensus,
@@ -1522,92 +1707,118 @@ mod tests {
 
     #[test]
     fn test_epistemic_classification_is_verified() {
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_verified());
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E1,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_verified());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E2,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_verified());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E3,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_verified());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E4,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_verified());
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_verified()
+        );
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E1,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_verified()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E2,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_verified()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E3,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_verified()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E4,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_verified()
+        );
     }
 
     #[test]
     fn test_epistemic_classification_has_consensus() {
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .has_consensus());
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N1,
-            MaterialityLevel::M0
-        )
-        .has_consensus());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N2,
-            MaterialityLevel::M0
-        )
-        .has_consensus());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N3,
-            MaterialityLevel::M0
-        )
-        .has_consensus());
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .has_consensus()
+        );
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N1,
+                MaterialityLevel::M0
+            )
+            .has_consensus()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N2,
+                MaterialityLevel::M0
+            )
+            .has_consensus()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N3,
+                MaterialityLevel::M0
+            )
+            .has_consensus()
+        );
     }
 
     #[test]
     fn test_epistemic_classification_is_practical() {
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M0
-        )
-        .is_practical());
-        assert!(!EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M1
-        )
-        .is_practical());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M2
-        )
-        .is_practical());
-        assert!(EpistemicClassification::new(
-            EmpiricalLevel::E0,
-            NormativeLevel::N0,
-            MaterialityLevel::M3
-        )
-        .is_practical());
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M0
+            )
+            .is_practical()
+        );
+        assert!(
+            !EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M1
+            )
+            .is_practical()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M2
+            )
+            .is_practical()
+        );
+        assert!(
+            EpistemicClassification::new(
+                EmpiricalLevel::E0,
+                NormativeLevel::N0,
+                MaterialityLevel::M3
+            )
+            .is_practical()
+        );
     }
 
     #[test]
@@ -1676,6 +1887,20 @@ mod tests {
     fn test_claim_author_must_be_did() {
         let claim = valid_claim();
         assert!(claim.author.starts_with("did:"));
+    }
+
+    #[test]
+    fn test_claim_author_must_match_committing_agent() {
+        // The honest path: declared author matches the committer's own DID.
+        let honest =
+            require_claim_author_matches_committer("did:mycelix:alice", "did:mycelix:alice");
+        assert_eq!(honest, ValidateCallbackResult::Valid);
+
+        // Forgery attempt: attributing the claim to a victim DID while
+        // committed by a different agent must be rejected.
+        let forged =
+            require_claim_author_matches_committer("did:mycelix:victim", "did:mycelix:mallory");
+        assert!(matches!(forged, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -2671,5 +2896,219 @@ mod tests {
         assert_eq!(default.empirical, 0.5);
         assert_eq!(default.normative, 0.5);
         assert_eq!(default.mythic, 0.5);
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_evidence(submitted_by: String) -> Evidence {
+        Evidence {
+            id: "ev-1".into(),
+            claim_id: "claim-1".into(),
+            evidence_type: EvidenceType::Document,
+            source_uri: "https://example.com/doc".into(),
+            content: "supporting text".into(),
+            strength: 0.7,
+            submitted_by,
+            submitted_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_evidence_valid_when_submitter_matches_committer() {
+        let e = valid_evidence(format!("did:mycelix:{}", me()));
+        let result = validate_create_evidence(test_action(me()), e).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_evidence_submitter_forgery_rejected() {
+        let e = valid_evidence(format!("did:mycelix:{}", me()));
+        let result = validate_create_evidence(test_action(other_agent()), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_challenge(challenger: String) -> ClaimChallenge {
+        ClaimChallenge {
+            id: "ch-1".into(),
+            claim_id: "claim-1".into(),
+            challenger,
+            reason: "disputed".into(),
+            counter_evidence: vec![],
+            status: ChallengeStatus::Pending,
+            created: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_challenge_valid_when_challenger_matches_committer() {
+        let c = valid_challenge(format!("did:mycelix:{}", me()));
+        let result = validate_create_challenge(test_action(me()), c).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_challenge_forgery_rejected() {
+        let c = valid_challenge(format!("did:mycelix:{}", me()));
+        let result = validate_create_challenge(test_action(other_agent()), c).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_market_link(requested_by: AgentPubKey) -> ClaimMarketLink {
+        ClaimMarketLink {
+            id: "link-1".into(),
+            claim_id: "claim-1".into(),
+            market_id: "market-1".into(),
+            link_type: MarketLinkType::VerificationMarket,
+            status: MarketVerificationStatus::Pending,
+            target_epistemic: EpistemicTarget::default(),
+            requested_by,
+            created_at: Timestamp::from_micros(0),
+            resolved_at: None,
+            resolution: None,
+        }
+    }
+
+    #[test]
+    fn create_market_link_valid_when_requester_matches_committer() {
+        let l = valid_market_link(me());
+        let result = validate_create_market_link(test_action(me()), l).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_market_link_forgery_rejected() {
+        let l = valid_market_link(me());
+        let result = validate_create_market_link(test_action(other_agent()), l).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_dependency(established_by: AgentPubKey) -> ClaimDependency {
+        ClaimDependency {
+            id: "dep-1".into(),
+            dependent_claim_id: "claim-1".into(),
+            dependency_claim_id: "claim-2".into(),
+            dependency_type: DependencyType::EvidentialSupport,
+            weight: 0.5,
+            influence: InfluenceDirection::Positive,
+            established_by,
+            created_at: Timestamp::from_micros(0),
+            active: true,
+            justification: None,
+        }
+    }
+
+    #[test]
+    fn create_dependency_valid_when_establisher_matches_committer() {
+        let d = valid_dependency(me());
+        let result = validate_create_dependency(test_action(me()), d).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_dependency_forgery_rejected() {
+        let d = valid_dependency(me());
+        let result = validate_create_dependency(test_action(other_agent()), d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_vote(voter: String) -> ClassificationVote {
+        ClassificationVote {
+            id: "vote-1".into(),
+            claim_id: "claim-1".into(),
+            voter,
+            proposed_e: EmpiricalLevel::E2,
+            proposed_n: NormativeLevel::N1,
+            proposed_m: MaterialityLevel::M1,
+            proposed_h: None,
+            confidence: 0.7,
+            justification: "reasoned".into(),
+            voter_k_trust: 0.5,
+            voted_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_vote_valid_when_voter_matches_committer() {
+        let v = valid_vote(format!("did:mycelix:{}", me()));
+        let result = validate_create_classification_vote(test_action(me()), v).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_vote_forgery_rejected() {
+        let v = valid_vote(format!("did:mycelix:{}", me()));
+        let result = validate_create_classification_vote(test_action(other_agent()), v).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_challenge_rejected_immutable() {
+        let c = valid_challenge(format!("did:mycelix:{}", me()));
+        let action = Update {
+            author: me(),
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_update_challenge(action, c).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_dependency_rejected_immutable() {
+        let d = valid_dependency(me());
+        let action = Update {
+            author: me(),
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        };
+        let result = validate_update_dependency(action, d).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

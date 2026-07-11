@@ -188,7 +188,8 @@ pub fn get_credentials_by_subject(subject_did: String) -> ExternResult<Vec<Actio
 /// Input for starting a legacy import
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StartLegacyImportInput {
-    /// Institution's DID
+    /// Institution's DID. Deliberately ignored -- see start_legacy_import.
+    /// Kept for client compat.
     pub institution_did: String,
     /// Source system name
     pub source_system: String,
@@ -203,9 +204,16 @@ pub struct StartLegacyImportInput {
 pub fn start_legacy_import(input: StartLegacyImportInput) -> ExternResult<String> {
     let batch_id = generate_batch_id()?;
 
+    // Derive institution_did from the caller rather than trusting
+    // input.institution_did -- otherwise any agent could start an import
+    // batch claiming to be any institution. Found + fixed 2026-07-08 during
+    // the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let institution_did = format!("did:mycelix:{}", caller);
+
     let import = LegacyBridgeImport {
         batch_id: batch_id.clone(),
-        institution_did: input.institution_did,
+        institution_did,
         source_system: input.source_system,
         import_timestamp: sys_time()?,
         total_credentials: input.total_credentials,

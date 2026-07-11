@@ -64,7 +64,7 @@ pub fn use_craft() -> CraftContext {
 #[component]
 pub fn VitalityIndicator(node_id: String) -> impl IntoView {
     let craft = use_craft();
-    let vitality = move || (craft.get_vitality)(node_id.clone());
+    let vitality = move || craft.get_vitality.run(node_id.clone());
 
     view! {
         {move || {

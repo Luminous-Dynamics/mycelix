@@ -14,10 +14,15 @@ fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
 #[hdk_extern]
 pub fn initiate_transfer(input: InitiateTransferInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could initiate a transfer claiming to be the seller of a
+    // property they don't own (P0 author-binding gap; integrity validation
+    // now enforces this too, see transfer integrity's validate_create_transfer).
+    let from_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let transfer = Transfer {
         id: format!("transfer:{}:{}", input.property_id, now.as_micros()),
         property_id: input.property_id.clone(),
-        from_did: input.from_did.clone(),
+        from_did: from_did.clone(),
         to_did: input.to_did.clone(),
         transfer_type: input.transfer_type,
         price: input.price,
@@ -36,7 +41,7 @@ pub fn initiate_transfer(input: InitiateTransferInput) -> ExternResult<Record> {
         (),
     )?;
     create_link(
-        anchor_hash(&input.from_did)?,
+        anchor_hash(&from_did)?,
         action_hash.clone(),
         LinkTypes::SellerToTransfers,
         (),
@@ -54,6 +59,8 @@ pub fn initiate_transfer(input: InitiateTransferInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InitiateTransferInput {
     pub property_id: String,
+    /// Deliberately ignored -- the seller's identity is always derived from
+    /// the committing agent (P0 author-binding fix). Kept for client compat.
     pub from_did: String,
     pub to_did: String,
     pub transfer_type: TransferType,
@@ -263,6 +270,9 @@ struct BroadcastOwnershipChangeInput {
 
 #[hdk_extern]
 pub fn satisfy_condition(input: SatisfyConditionInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim someone else verified a transfer condition.
+    let verifier_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Transfer,
@@ -273,7 +283,7 @@ pub fn satisfy_condition(input: SatisfyConditionInput) -> ExternResult<Record> {
             if transfer.id == input.transfer_id {
                 if let Some(condition) = transfer.conditions.get_mut(input.condition_index) {
                     condition.satisfied = true;
-                    condition.verified_by = Some(input.verifier_did);
+                    condition.verified_by = Some(verifier_did.clone());
                 }
                 let action_hash = update_entry(
                     record.action_address().clone(),
@@ -293,6 +303,8 @@ pub fn satisfy_condition(input: SatisfyConditionInput) -> ExternResult<Record> {
 pub struct SatisfyConditionInput {
     pub transfer_id: String,
     pub condition_index: usize,
+    /// Deliberately ignored -- verifier identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub verifier_did: String,
 }
 
@@ -375,6 +387,9 @@ pub fn get_property_transfers(property_id: String) -> ExternResult<Vec<Record>> 
 /// Cancel a transfer (only initiator can cancel, only before completion)
 #[hdk_extern]
 pub fn cancel_transfer(input: CancelTransferInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as initiate_transfer above.
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Transfer,
@@ -385,7 +400,7 @@ pub fn cancel_transfer(input: CancelTransferInput) -> ExternResult<Record> {
         if let Some(transfer) = record.entry().to_app_option::<Transfer>().ok().flatten() {
             if transfer.id == input.transfer_id {
                 // Only seller can cancel
-                if transfer.from_did != input.requester_did {
+                if transfer.from_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only seller can cancel transfer".into()
                     )));
@@ -419,12 +434,17 @@ pub fn cancel_transfer(input: CancelTransferInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CancelTransferInput {
     pub transfer_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
 }
 
 /// Accept a transfer (buyer accepts)
 #[hdk_extern]
 pub fn accept_transfer(input: AcceptTransferInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as initiate_transfer above.
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Transfer,
@@ -435,7 +455,7 @@ pub fn accept_transfer(input: AcceptTransferInput) -> ExternResult<Record> {
         if let Some(transfer) = record.entry().to_app_option::<Transfer>().ok().flatten() {
             if transfer.id == input.transfer_id {
                 // Only buyer can accept
-                if transfer.to_did != input.requester_did {
+                if transfer.to_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only buyer can accept transfer".into()
                     )));
@@ -476,6 +496,8 @@ pub fn accept_transfer(input: AcceptTransferInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AcceptTransferInput {
     pub transfer_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
 }
 
@@ -576,6 +598,9 @@ pub fn get_transfer_escrow(transfer_id: String) -> ExternResult<Option<Record>> 
 /// Mark transfer as disputed
 #[hdk_extern]
 pub fn dispute_transfer(input: DisputeTransferInput) -> ExternResult<Record> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as initiate_transfer above.
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::Transfer,
@@ -586,9 +611,7 @@ pub fn dispute_transfer(input: DisputeTransferInput) -> ExternResult<Record> {
         if let Some(transfer) = record.entry().to_app_option::<Transfer>().ok().flatten() {
             if transfer.id == input.transfer_id {
                 // Either party can dispute
-                if transfer.from_did != input.requester_did
-                    && transfer.to_did != input.requester_did
-                {
+                if transfer.from_did != requester_did && transfer.to_did != requester_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only parties can dispute transfer".into()
                     )));
@@ -623,6 +646,8 @@ pub fn dispute_transfer(input: DisputeTransferInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DisputeTransferInput {
     pub transfer_id: String,
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
 }
 

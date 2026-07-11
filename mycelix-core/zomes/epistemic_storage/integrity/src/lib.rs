@@ -152,12 +152,15 @@ pub enum LinkTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => validate_create_entry(app_entry),
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(&action.author.to_string(), app_entry)
+            }
             OpEntry::UpdateEntry {
                 app_entry,
+                action,
                 original_action_hash,
                 ..
-            } => validate_update_entry(app_entry, original_action_hash),
+            } => validate_update_entry(&action.author.to_string(), app_entry, original_action_hash),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -171,12 +174,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             validate_delete_link(link_type)
         }
         FlatOp::StoreRecord(store_record) => match store_record {
-            OpRecord::CreateEntry { app_entry, .. } => validate_create_entry(app_entry),
+            OpRecord::CreateEntry { app_entry, action } => {
+                validate_create_entry(&action.author.to_string(), app_entry)
+            }
             OpRecord::UpdateEntry {
                 app_entry,
+                action,
                 original_action_hash,
                 ..
-            } => validate_update_entry(app_entry, original_action_hash),
+            } => validate_update_entry(&action.author.to_string(), app_entry, original_action_hash),
             OpRecord::DeleteEntry { .. } => {
                 // Allow deletions (will be tombstoned)
                 Ok(ValidateCallbackResult::Valid)
@@ -187,9 +193,40 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+/// Enforce that `metadata.created_by` is the committing agent's own DID.
+/// Pure so it can be unit-tested without a full action. Applies to BOTH
+/// create and update: `store_epistemic_entry` takes `created_by` directly
+/// from caller input with zero derivation from `agent_info()` (a clean
+/// forgery case -- anyone could claim any `created_by`), and
+/// `delete_epistemic_entry` (the only update path -- tombstoning) never
+/// changes `created_by`, has no moderator/admin role, and doesn't check who
+/// is calling it at all. Binding both create and update to
+/// `created_by == author` therefore closes TWO real gaps with one check:
+/// creation-identity forgery, and "anyone can tombstone anyone's entry"
+/// (since after create is bound, only the true original creator's author
+/// key can ever match `created_by` on a later update).
+fn require_created_by_is_author(created_by: &str, author_did: &str) -> ValidateCallbackResult {
+    if created_by != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "EpistemicEntry metadata.created_by must be the committing agent \
+             (storage forgery / unauthorized retraction). Expected '{author_did}', \
+             got '{created_by}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_create_entry(
+    author_did: &str,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::EpistemicEntry(epistemic_entry) => {
+            if let ValidateCallbackResult::Invalid(msg) =
+                require_created_by_is_author(&epistemic_entry.metadata.created_by, author_did)
+            {
+                return Ok(ValidateCallbackResult::Invalid(msg));
+            }
             validate_epistemic_entry(&epistemic_entry)
         }
         EntryTypes::KeyAnchor(key_anchor) => validate_key_anchor(&key_anchor),
@@ -198,6 +235,7 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
 }
 
 fn validate_update_entry(
+    author_did: &str,
     entry: EntryTypes,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -208,6 +246,11 @@ fn validate_update_entry(
                 return Ok(ValidateCallbackResult::Invalid(
                     "E3+ entries are immutable and cannot be updated".to_string(),
                 ));
+            }
+            if let ValidateCallbackResult::Invalid(msg) =
+                require_created_by_is_author(&epistemic_entry.metadata.created_by, author_did)
+            {
+                return Ok(ValidateCallbackResult::Invalid(msg));
             }
             validate_epistemic_entry(&epistemic_entry)
         }
@@ -315,4 +358,122 @@ fn validate_create_link(
 fn validate_delete_link(_link_type: LinkTypes) -> ExternResult<ValidateCallbackResult> {
     // Allow link deletions (for tombstoning)
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ME: &str = "uhCAkSELF";
+    const VICTIM: &str = "uhCAkVICTIM";
+
+    fn valid_entry() -> EpistemicEntry {
+        EpistemicEntry {
+            key: "user:123:profile".into(),
+            data: "{\"name\":\"Ada\"}".into(),
+            metadata: StorageMetadata {
+                cid: "cid:abc123".into(),
+                classification: EpistemicClassification {
+                    empirical: 1,
+                    normative: 1,
+                    materiality: 1,
+                },
+                schema: SchemaIdentity {
+                    id: "user_profile".into(),
+                    version: "1.0.0".into(),
+                    family: None,
+                },
+                stored_at: 0,
+                modified_at: None,
+                version: 1,
+                expires_at: None,
+                size_bytes: 14,
+                created_by: ME.into(),
+                tombstone: false,
+                retracted_by: None,
+            },
+        }
+    }
+
+    #[test]
+    fn test_valid_entry_create() {
+        let result = validate_create_entry(ME, EntryTypes::EpistemicEntry(valid_entry())).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_forgery_rejected() {
+        // The P0 case: an agent stores an entry claiming a DIFFERENT
+        // created_by than their own -- must be rejected (storage identity
+        // forgery). store_epistemic_entry previously took created_by
+        // straight from caller input with zero derivation from
+        // agent_info(), so this was a clean forgery vector.
+        let mut entry = valid_entry();
+        entry.metadata.created_by = VICTIM.into();
+        let result = validate_create_entry(ME, EntryTypes::EpistemicEntry(entry)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_update_by_original_creator_valid() {
+        // The legitimate tombstone flow: the original creator retracts
+        // their own entry. created_by is unchanged from creation.
+        let mut entry = valid_entry();
+        entry.metadata.tombstone = true;
+        let result = validate_update_entry(
+            ME,
+            EntryTypes::EpistemicEntry(entry),
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_update_by_different_agent_rejected() {
+        // The second real gap this fix closes: delete_epistemic_entry
+        // never checked who was calling it, so anyone could tombstone
+        // anyone else's entry. Here the entry's created_by is VICTIM but
+        // the committing agent (author) is ME -- must be rejected.
+        let mut entry = valid_entry();
+        entry.metadata.created_by = VICTIM.into();
+        entry.metadata.tombstone = true;
+        let result = validate_update_entry(
+            ME,
+            EntryTypes::EpistemicEntry(entry),
+            ActionHash::from_raw_36(vec![0u8; 36]),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_created_by_is_author_helper() {
+        assert!(matches!(
+            require_created_by_is_author(ME, ME),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            require_created_by_is_author(VICTIM, ME),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_key_anchor_and_cid_anchor_unaffected() {
+        // Anchors have no created_by field -- confirm the new binding
+        // check doesn't spuriously touch these entry types.
+        let key_anchor = EntryTypes::KeyAnchor(KeyAnchor { key: "k".into() });
+        assert_eq!(
+            validate_create_entry(ME, key_anchor).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+        let cid_anchor = EntryTypes::CidAnchor(CidAnchor {
+            cid: "cid:x".into(),
+        });
+        assert_eq!(
+            validate_create_entry(ME, cid_anchor).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
 }

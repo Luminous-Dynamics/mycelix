@@ -39,6 +39,13 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Create a new service offer
 #[hdk_extern]
 pub fn create_service_offer(offer: ServiceOffer) -> ExternResult<Record> {
+    // Derive provider from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could post an offer claiming
+    // an arbitrary victim as provider. Found + fixed 2026-07-09 during the
+    // P0 author-binding pass.
+    let provider = agent_info()?.agent_initial_pubkey;
+    let offer = ServiceOffer { provider, ..offer };
+
     let action_hash = create_entry(&EntryTypes::ServiceOffer(offer.clone()))?;
 
     // Link agent to offer
@@ -144,6 +151,16 @@ pub fn search_offers(query: String) -> ExternResult<Vec<Record>> {
 /// Create a new service request
 #[hdk_extern]
 pub fn create_service_request(request: ServiceRequest) -> ExternResult<Record> {
+    // Derive requester from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could post a request claiming
+    // an arbitrary victim as requester. Found + fixed 2026-07-09 during
+    // the P0 author-binding pass.
+    let requester = agent_info()?.agent_initial_pubkey;
+    let request = ServiceRequest {
+        requester,
+        ..request
+    };
+
     let action_hash = create_entry(&EntryTypes::ServiceRequest(request.clone()))?;
 
     // Link agent to request
@@ -233,6 +250,27 @@ pub struct CompleteExchangeInput {
 /// Complete a service exchange, creating a TimeExchange record and updating credits
 #[hdk_extern]
 pub fn complete_exchange(input: CompleteExchangeInput) -> ExternResult<Record> {
+    // Require the caller to be one of the two named parties -- otherwise
+    // any uninvolved agent could record an exchange between two arbitrary
+    // victims and directly manipulate BOTH of their TimeCredit balances
+    // (update_agent_credit below credits the provider and debits the
+    // recipient unconditionally). This is a genuine financial-forgery
+    // vector, not just an identity one. Found + fixed 2026-07-09 during
+    // the P0 author-binding pass.
+    //
+    // KNOWN LIMITATION, not fully fixed here: this only requires the
+    // caller be ONE of the two parties, not both -- a single party can
+    // still unilaterally record an exchange (and its `hours`) without the
+    // other's consent. True mutual confirmation would need a Holochain
+    // countersigning session (both agents co-sign one action), which is a
+    // larger feature change out of scope for this pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != input.provider && caller != input.recipient {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller must be the provider or recipient to record an exchange".into()
+        )));
+    }
+
     let now = sys_time()?;
 
     let exchange = TimeExchange {

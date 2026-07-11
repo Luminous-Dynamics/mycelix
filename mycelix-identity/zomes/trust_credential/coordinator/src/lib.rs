@@ -287,7 +287,7 @@ pub fn revoke_credential(input: RevokeCredentialInput) -> ExternResult<Record> {
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Active credential not found".into()
-            )))
+            )));
         }
     };
 
@@ -339,8 +339,14 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
             "Purpose must be 1-2048 characters".into()
         )));
     }
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could present a credential claiming to be its subject (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // trust_credential integrity's validate_create_presentation).
+    let subject_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
     let now = sys_time()?;
-    let pres_id = format!("pres:{}:{}", input.subject_did, now.as_micros());
+    let pres_id = format!("pres:{}:{}", subject_did, now.as_micros());
 
     // Generate a nonce for replay protection
     let nonce = now.as_micros().to_le_bytes().to_vec();
@@ -348,7 +354,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
     let presentation = TrustPresentation {
         id: pres_id.clone(),
         credential_id: input.credential_id.clone(),
-        subject_did: input.subject_did.clone(),
+        subject_did,
         disclosed_tier: input.disclosed_tier,
         disclosed_range: input.disclose_range.then_some(input.trust_range),
         presentation_proof: input.presentation_proof,
@@ -378,6 +384,8 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreatePresentationInput {
     pub credential_id: String,
+    /// Deliberately ignored -- subject identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub subject_did: String,
     pub disclosed_tier: TrustTier,
     pub disclose_range: bool,
@@ -417,17 +425,23 @@ pub fn request_attestation(input: RequestAttestationInput) -> ExternResult<Recor
             )));
         }
     }
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could file an attestation request claiming another agent as
+    // requester (P0 author-binding gap; integrity validation now enforces
+    // this too, see trust_credential integrity's validate_create_request).
+    let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
     let now = sys_time()?;
     let req_id = format!(
         "req:{}:{}:{}",
-        input.requester_did,
+        requester_did,
         input.subject_did,
         now.as_micros()
     );
 
     let request = AttestationRequest {
         id: req_id.clone(),
-        requester_did: input.requester_did.clone(),
+        requester_did,
         subject_did: input.subject_did.clone(),
         components: input.components,
         min_trust_score: input.min_trust_score,
@@ -457,6 +471,8 @@ pub fn request_attestation(input: RequestAttestationInput) -> ExternResult<Recor
 /// Input for requesting attestation
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RequestAttestationInput {
+    /// Deliberately ignored -- requester identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub requester_did: String,
     pub subject_did: String,
     pub components: Vec<KVectorComponent>,
@@ -529,7 +545,7 @@ pub fn fulfill_attestation(
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Attestation request not found".into()
-            )))
+            )));
         }
     };
 
@@ -541,8 +557,14 @@ pub fn fulfill_attestation(
         ))));
     }
 
-    // Verify the fulfiller matches the subject
-    if req.subject_did != input.subject_did {
+    // Verify the fulfiller matches the subject -- compare against the
+    // CALLER's real DID, never input.subject_did (P0 severity: comparing
+    // req.subject_did to a caller-supplied input.subject_did is a no-op
+    // authorization check, since the attacker controls both sides of the
+    // comparison; any agent could fulfill any pending request targeting any
+    // subject by just echoing back the request's own subject_did).
+    let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+    if req.subject_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the attestation subject can fulfill the request".into()
         )));
@@ -581,11 +603,11 @@ pub fn fulfill_attestation(
         }
     }
 
-    // Issue the trust credential (caller attests in response to request)
-    let caller = agent_info()?.agent_initial_pubkey;
-    let caller_did = format!("did:mycelix:{}", caller);
+    // Issue the trust credential (caller attests in response to request).
+    // Use req.subject_did (verified above), not input.subject_did, so the
+    // credential's subject never depends on trusting caller input.
     let credential_record = issue_trust_credential(IssueTrustCredentialInput {
-        subject_did: input.subject_did.clone(),
+        subject_did: req.subject_did.clone(),
         issuer_did: caller_did, // Caller issues the credential
         kvector_commitment: input.kvector_commitment,
         range_proof: input.range_proof,
@@ -675,12 +697,17 @@ pub fn decline_attestation(input: DeclineAttestationInput) -> ExternResult<Recor
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Pending attestation request not found".into()
-            )))
+            )));
         }
     };
 
-    // Verify the decliner is the subject
-    if req.subject_did != input.subject_did {
+    // Verify the decliner is the subject -- compare against the CALLER's
+    // real DID, never input.subject_did (same P0 severity as
+    // fulfill_attestation's identical bug above: comparing req.subject_did
+    // to a caller-supplied input.subject_did is a no-op authorization
+    // check).
+    let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+    if req.subject_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the attestation subject can decline the request".into()
         )));

@@ -13,5 +13,5 @@
 pub mod ranking;
 pub mod similarity;
 
-pub use ranking::{generate_ranking_proof, verify_ranking_proof, RankingProof};
-pub use similarity::{generate_similarity_proof, verify_similarity_proof, SimilarityProof};
+pub use ranking::{RankingProof, generate_ranking_proof, verify_ranking_proof};
+pub use similarity::{SimilarityProof, generate_similarity_proof, verify_similarity_proof};

@@ -14,6 +14,14 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Submit a new maintenance request
 #[hdk_extern]
 pub fn submit_request(req: MaintenanceRequest) -> ExternResult<Record> {
+    // reported_by is derived from the real caller rather than trusted
+    // from input -- fixed 2026-07-09 during the P0 author-binding pass
+    // (previously any agent could forge a victim agent as reporter).
+    let req = MaintenanceRequest {
+        reported_by: agent_info()?.agent_initial_pubkey,
+        ..req
+    };
+
     let action_hash = create_entry(&EntryTypes::MaintenanceRequest(req.clone()))?;
 
     // Link to open requests
@@ -206,6 +214,14 @@ pub fn complete_work_order(input: CompleteWorkOrderInput) -> ExternResult<Record
 /// Schedule a building inspection
 #[hdk_extern]
 pub fn schedule_inspection(inspection: Inspection) -> ExternResult<Record> {
+    // inspector is derived from the real caller rather than trusted from
+    // input -- fixed 2026-07-09 during the P0 author-binding pass
+    // (previously any agent could forge a victim agent as inspector).
+    let inspection = Inspection {
+        inspector: agent_info()?.agent_initial_pubkey,
+        ..inspection
+    };
+
     let action_hash = create_entry(&EntryTypes::Inspection(inspection.clone()))?;
 
     create_link(

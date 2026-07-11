@@ -755,6 +755,17 @@ pub struct UpdateClaimInput {
 /// Add evidence to a claim
 #[hdk_extern]
 pub fn add_evidence(evidence: Evidence) -> ExternResult<Record> {
+    // Derive submitted_by from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could submit evidence claiming
+    // an arbitrary victim DID as the submitter. Found + fixed 2026-07-09
+    // during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let submitted_by = format!("did:mycelix:{}", caller);
+    let evidence = Evidence {
+        submitted_by,
+        ..evidence
+    };
+
     let action_hash = create_entry(&EntryTypes::Evidence(evidence.clone()))?;
 
     // Create and link claim anchor to evidence
@@ -797,13 +808,20 @@ pub fn get_claim_evidence(claim_id: String) -> ExternResult<Vec<Record>> {
 /// Challenge a claim
 #[hdk_extern]
 pub fn challenge_claim(input: ChallengeClaimInput) -> ExternResult<Record> {
+    // Derive challenger from the caller rather than trusting
+    // input.challenger_did -- otherwise any agent could file a challenge
+    // claiming to be an arbitrary victim challenger. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let challenger = format!("did:mycelix:{}", caller);
+
     let now = sys_time()?;
     let challenge_id = format!("challenge:{}:{}", input.claim_id, now.as_micros());
 
     let challenge = ClaimChallenge {
         id: challenge_id,
         claim_id: input.claim_id.clone(),
-        challenger: input.challenger_did,
+        challenger,
         reason: input.reason,
         counter_evidence: input.counter_evidence,
         status: ChallengeStatus::Pending,
@@ -831,6 +849,9 @@ pub fn challenge_claim(input: ChallengeClaimInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChallengeClaimInput {
     pub claim_id: String,
+    /// Deliberately ignored -- see challenge_claim, which derives the real
+    /// challenger DID from the caller's own agent key. Kept for client
+    /// compat.
     pub challenger_did: String,
     pub reason: String,
     pub counter_evidence: Vec<String>,

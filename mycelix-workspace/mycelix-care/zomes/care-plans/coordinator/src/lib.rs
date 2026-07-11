@@ -32,6 +32,21 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Create a new care plan
 #[hdk_extern]
 pub fn create_care_plan(plan: CarePlan) -> ExternResult<Record> {
+    // CarePlan has no dedicated "creator" field, but update_plan_status
+    // already restricts control to the recipient or an assigned caregiver
+    // -- so creation must follow the same invariant: the caller must be
+    // named as either the recipient or one of the caregivers. Without
+    // this, any agent could create a plan naming an arbitrary victim as
+    // recipient and themselves (or anyone) as caregiver, then leverage
+    // that caregiver standing to control the plan later. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != plan.recipient && !plan.caregivers.contains(&caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller must be the recipient or an assigned caregiver to create a care plan".into()
+        )));
+    }
+
     let action_hash = create_entry(&EntryTypes::CarePlan(plan.clone()))?;
 
     // Link to all plans
@@ -70,6 +85,18 @@ pub fn create_care_plan(plan: CarePlan) -> ExternResult<Record> {
 /// Log a care session against a plan
 #[hdk_extern]
 pub fn log_session(session: CareSession) -> ExternResult<Record> {
+    // Derive caregiver from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could log a session
+    // attributing hours to a DIFFERENT, real caregiver who never actually
+    // worked them (the only prior check was that the claimed caregiver is
+    // assigned to the plan, not that the caller IS that caregiver). Found
+    // + fixed 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let session = CareSession {
+        caregiver: caller,
+        ..session
+    };
+
     // Verify the plan exists
     let _plan_record = get(session.plan_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Care plan not found".into())),

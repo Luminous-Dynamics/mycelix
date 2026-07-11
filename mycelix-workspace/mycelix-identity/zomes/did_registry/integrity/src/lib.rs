@@ -184,6 +184,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate DID document creation
+/// Enforce that a DID document's identifier is derived from the committing
+/// agent's key. Pure so it can be unit-tested without a full Create action.
+fn require_did_id_matches_author(did_id: &str, author_did: &str) -> ValidateCallbackResult {
+    if did_id != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "DID id must equal the committing agent's DID (identifier takeover). \
+             Expected '{author_did}', got '{did_id}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_did_document(
     action: EntryCreationAction,
     did_doc: DidDocument,
@@ -201,6 +213,19 @@ fn validate_create_did_document(
         return Ok(ValidateCallbackResult::Invalid(
             "DID controller must be the author".into(),
         ));
+    }
+
+    // Bind the DID identifier itself to the committing agent. Without this, an
+    // attacker can mint a document whose `id` claims a victim's DID
+    // (did:mycelix:<victim>) while setting `controller` to their own key to pass
+    // the check above — then hijack resolution (resolve_did returns the newest
+    // document by timestamp). The coordinator always derives `id` from
+    // agent_info().agent_initial_pubkey, so this never rejects the honest path.
+    let author_did = format!("did:mycelix:{}", author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_id_matches_author(&did_doc.id, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate at least one verification method
@@ -285,7 +310,7 @@ fn validate_update_did_document(
 
 /// Validate DID deactivation creation
 fn validate_create_did_deactivation(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     deactivation: DidDeactivation,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate DID format
@@ -293,6 +318,22 @@ fn validate_create_did_deactivation(
         return Ok(ValidateCallbackResult::Invalid(
             "DID must start with 'did:mycelix:'".into(),
         ));
+    }
+
+    // Bind the deactivation to its committer -- deactivate_did only ever
+    // deactivates the CALLING agent's own DID (fetched via
+    // get_did_document(agent_pub_key)), never a third party's, so this
+    // never rejects the honest path. Without this, an attacker could mint a
+    // DidDeactivation naming a victim's DID, marking someone else's
+    // identity as deactivated (P0 author-binding gap -- the same
+    // takeover-shaped risk require_did_id_matches_author already guards
+    // against for DidDocument creation above).
+    let author = action.author();
+    let author_did = format!("did:mycelix:{}", author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_id_matches_author(&deactivation.did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
     // Validate reason provided
@@ -308,6 +349,27 @@ fn validate_create_did_deactivation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn did_id_must_match_committing_agent() {
+        let me = "did:mycelix:uhCAkSELF";
+        // Honest path: coordinator derives id from the committer's own key.
+        assert!(matches!(
+            require_did_id_matches_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        // Takeover attempt: an attacker committing as SELF cannot mint a
+        // document whose id claims a VICTIM's DID.
+        match require_did_id_matches_author("did:mycelix:uhCAkVICTIM", me) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("takeover"),
+                    "reject reason should name the risk: {msg}"
+                );
+            }
+            other => panic!("forged DID id must be Invalid, got {other:?}"),
+        }
+    }
 
     /// Verify that old snake_case MessagePack payloads deserialize through the
     /// new camelCase structs thanks to `#[serde(alias = "...")]` attributes.
@@ -586,5 +648,65 @@ mod tests {
             !json.contains("\"service_endpoint\""),
             "Should NOT use snake_case"
         );
+    }
+
+    // =========================================================================
+    // DID deactivation author-binding (P0)
+    // =========================================================================
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn deactivation_did_must_match_committing_agent() {
+        let me = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let deactivation = DidDeactivation {
+            did: format!("did:mycelix:{me}"),
+            reason: "compromised key".to_string(),
+            deactivated_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create_did_deactivation(
+            EntryCreationAction::Create(test_action(me)),
+            deactivation,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn deactivation_takeover_rejected() {
+        // did claims SELF's DID, but VICTIM is the actual committing agent --
+        // a modified coordinator trying to deactivate someone else's identity.
+        let victim = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let attacker = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let deactivation = DidDeactivation {
+            did: format!("did:mycelix:{victim}"),
+            reason: "malicious deactivation".to_string(),
+            deactivated_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create_did_deactivation(
+            EntryCreationAction::Create(test_action(attacker)),
+            deactivation,
+        )
+        .unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("takeover"), "reject reason: {msg}");
+            }
+            other => panic!("forged deactivation must be Invalid, got {other:?}"),
+        }
     }
 }

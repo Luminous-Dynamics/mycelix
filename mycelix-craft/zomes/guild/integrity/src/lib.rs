@@ -229,12 +229,32 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_entry_type(entry: &EntryTypes) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::Guild(guild) => validate_guild(guild),
+        EntryTypes::GuildMembership(membership) => validate_membership(membership),
+        EntryTypes::CertificationPath(path) => validate_certification_path(path),
+        EntryTypes::GuildFederationLink(_) | EntryTypes::GuildAnchor(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+    }
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreEntry(store_entry) => match store_entry {
+            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
+                validate_entry_type(&app_entry)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDeleteLink { original_action, action, .. } => {
+        FlatOp::RegisterDeleteLink {
+            original_action,
+            action,
+            ..
+        } => {
             if action.author != original_action.author {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the original author can delete this link".into(),
@@ -245,18 +265,26 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
+            let (action, new_entry) = match &update {
+                OpUpdate::Entry {
+                    action, app_entry, ..
+                } => (action, Some(app_entry)),
+                OpUpdate::PrivateEntry { action, .. }
                 | OpUpdate::Agent { action, .. }
                 | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
+                | OpUpdate::CapGrant { action, .. } => (action, None),
             };
             let original = must_get_action(action.original_action_address.clone())?;
             if *original.action().author() != action.author {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the original entry author can update their entries".into(),
                 ));
+            }
+            if let Some(entry) = new_entry {
+                let result = validate_entry_type(entry)?;
+                if !matches!(result, ValidateCallbackResult::Valid) {
+                    return Ok(result);
+                }
             }
             Ok(ValidateCallbackResult::Valid)
         }
@@ -269,32 +297,43 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
 fn validate_guild(guild: &Guild) -> ExternResult<ValidateCallbackResult> {
     if guild.name.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Guild name cannot be empty".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Guild name cannot be empty".into(),
+        ));
     }
     if guild.name.len() > 200 {
-        return Ok(ValidateCallbackResult::Invalid("Guild name exceeds 200 characters".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Guild name exceeds 200 characters".into(),
+        ));
     }
     if guild.description.len() > 2000 {
-        return Ok(ValidateCallbackResult::Invalid("Guild description exceeds 2000 characters".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Guild description exceeds 2000 characters".into(),
+        ));
     }
     if guild.professional_domain.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Professional domain cannot be empty".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Professional domain cannot be empty".into(),
+        ));
     }
     if guild.consciousness_minimum_permille > 1000 {
-        return Ok(ValidateCallbackResult::Invalid("Consciousness minimum cannot exceed 1000".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consciousness minimum cannot exceed 1000".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_membership(membership: &GuildMembership) -> ExternResult<ValidateCallbackResult> {
     if membership.consciousness_at_join_permille > 1000 {
-        return Ok(ValidateCallbackResult::Invalid("Consciousness score cannot exceed 1000".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Consciousness score cannot exceed 1000".into(),
+        ));
     }
     // Verify consciousness meets role minimum
     let role_min = membership.role.minimum_consciousness_permille();
@@ -309,17 +348,25 @@ fn validate_membership(membership: &GuildMembership) -> ExternResult<ValidateCal
 
 fn validate_certification_path(path: &CertificationPath) -> ExternResult<ValidateCallbackResult> {
     if path.name.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Certification path name cannot be empty".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certification path name cannot be empty".into(),
+        ));
     }
     if path.requirements.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid("Certification path must have at least one requirement".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certification path must have at least one requirement".into(),
+        ));
     }
     if path.required_assessors == 0 {
-        return Ok(ValidateCallbackResult::Invalid("At least one assessor is required".into()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "At least one assessor is required".into(),
+        ));
     }
     for req in &path.requirements {
         if req.minimum_vitality_permille > 1000 {
-            return Ok(ValidateCallbackResult::Invalid("Vitality requirement cannot exceed 1000".into()));
+            return Ok(ValidateCallbackResult::Invalid(
+                "Vitality requirement cannot exceed 1000".into(),
+            ));
         }
     }
     Ok(ValidateCallbackResult::Valid)
@@ -572,7 +619,13 @@ mod tests {
 
     #[test]
     fn guild_role_serialization_roundtrip() {
-        for role in [GuildRole::Observer, GuildRole::Apprentice, GuildRole::Journeyman, GuildRole::Master, GuildRole::Elder] {
+        for role in [
+            GuildRole::Observer,
+            GuildRole::Apprentice,
+            GuildRole::Journeyman,
+            GuildRole::Master,
+            GuildRole::Elder,
+        ] {
             let json = serde_json::to_string(&role).unwrap();
             let deserialized: GuildRole = serde_json::from_str(&json).unwrap();
             assert_eq!(role, deserialized);

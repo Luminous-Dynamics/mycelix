@@ -76,6 +76,60 @@ pub fn VerificationPage() -> impl IntoView {
     }
 }
 
+/// Shareable verification link — auto-verifies the `:id` from the URL instead
+/// of requiring manual hash entry (see `VerificationPage`, whose simulated
+/// verification logic this mirrors).
+#[component]
+pub fn VerificationPortal() -> impl IntoView {
+    let params = leptos_router::hooks::use_params_map();
+    let id = move || params.read().get("id").unwrap_or_default();
+
+    let (is_verifying, set_is_verifying) = signal(true);
+    let (verification_result, set_verification_result) = signal(None);
+
+    Effect::new(move |_| {
+        let hash = id();
+        set_is_verifying.set(true);
+        set_verification_result.set(None);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            gloo_timers::future::sleep(std::time::Duration::from_millis(1200)).await;
+
+            set_verification_result.set(Some(hash.len() >= 8));
+            set_is_verifying.set(false);
+        });
+    });
+
+    view! {
+        <div class="verify-page">
+            <header class="verify-header">
+                <h2>"Verification Gateway"</h2>
+                <p>"Verifying Sovereign Proof-of-Learning via Mycelix Praxis."</p>
+            </header>
+
+            <div class="verify-container">
+                <div class="verify-result-area">
+                    {move || match (is_verifying.get(), verification_result.get()) {
+                        (true, _) => view! { <div class="loading-spinner"></div> }.into_any(),
+                        (false, Some(true)) => view! { <VerificationSuccess /> }.into_any(),
+                        (false, Some(false)) => view! { <div class="verify-fail">"No record found for this hash."</div> }.into_any(),
+                        _ => view! { <div class="verify-placeholder">"Resolving link..."</div> }.into_any(),
+                    }}
+                </div>
+            </div>
+
+            <section class="verify-footer">
+                <p>"All credentials verified via CLR 2.0 (Comprehensive Learner Record) standards."</p>
+                <div class="standard-badges">
+                    <span class="badge">"Holochain Verifiable"</span>
+                    <span class="badge">"W3C DID Compliant"</span>
+                    <span class="badge">"AGPL-3.0 Licensed"</span>
+                </div>
+            </section>
+        </div>
+    }
+}
+
 #[component]
 fn VerificationSuccess() -> impl IntoView {
     view! {

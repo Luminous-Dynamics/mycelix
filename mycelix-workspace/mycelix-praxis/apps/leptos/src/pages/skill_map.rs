@@ -141,8 +141,8 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                 view! {
                     <div class="wisdom-bridge-box" style="margin: 1.5rem 0; padding: 1rem; background: var(--surface-low); border-left: 4px solid var(--accent); border-radius: 4px">
                         <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--accent); font-weight: 700">"Ancestral Root"</div>
-                        <h5 style="margin: 0.2rem 0">{&w.tradition}": "{&w.pattern_name}</h5>
-                        <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; font-style: italic">{&w.description}</p>
+                        <h5 style="margin: 0.2rem 0">{w.tradition.clone()}": "{w.pattern_name.clone()}</h5>
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; font-style: italic">{w.description.clone()}</p>
                     </div>
                 }
             })}

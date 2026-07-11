@@ -182,7 +182,23 @@ fn sovereign_to_legacy_profile(
 /// `SovereignCredential` from the local bridge first. Falls back to the legacy
 /// `ConsciousnessCredential` path if the bridge doesn't support it yet.
 ///
-/// Returns `Ok(GovernanceEligibility)` — eligible or ineligible with reasons.
+/// Returns `Ok(GovernanceEligibility)` if the caller meets `requirement`,
+/// `Err` (with the ineligibility reasons in the message) otherwise. Every
+/// real call site across this codebase (~475, spanning nearly every
+/// cluster) does `gate_civic(...)?;`/`require_civic(...)?;` as a bare
+/// statement and relies on `?` alone to enforce the gate — until
+/// 2026-07-08 this function instead returned `Ok(GovernanceEligibility {
+/// eligible: false, .. })` for a normal "doesn't meet the tier" result,
+/// which is NOT an `Err`, so `?` never fired and the gate silently let
+/// every caller through regardless of tier. Fixed to match the sibling
+/// `gate_consciousness()`'s already-correct hard-reject behavior (its own
+/// doc comment always specified "Reject with WasmError if ineligible") --
+/// see feedback_sovereign_gated_hardcoded_zome_bug memory for the full
+/// investigation. If a caller genuinely needs the raw eligibility struct
+/// (e.g. to use `weight_bp` for graduated access) rather than hard
+/// enforcement, no such caller exists in this codebase today; add a
+/// separate `try_gate_civic` returning the raw struct rather than
+/// reintroducing this footgun here.
 #[cfg(feature = "hdk")]
 pub fn gate_civic(
     bridge_zome: &str,
@@ -214,6 +230,15 @@ pub fn gate_civic(
                 ConsciousnessTier::Guardian => 4,
             };
             crate::metrics::record_gate_check(result.eligible, tier_index, 0);
+
+            if !result.eligible {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Sovereign gate denied for '{}': tier {:?} does not meet requirement. Reasons: {}",
+                    action_name,
+                    result.tier,
+                    result.reasons.join(", ")
+                ))));
+            }
 
             return Ok(result);
         }

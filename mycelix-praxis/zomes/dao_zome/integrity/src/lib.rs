@@ -257,7 +257,21 @@ pub enum LinkTypes {
 // Validation
 // ============================================================================
 
-pub fn validate_create_proposal(proposal: &Proposal) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_proposal(
+    author: &AgentPubKey,
+    proposal: &Proposal,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the proposal to its committer -- create_proposal already derives
+    // `proposer` from agent_info() coordinator-side with zero user input,
+    // so this never rejects a legitimate proposal; it's the real DHT-level
+    // enforcement a modified coordinator could otherwise bypass (P0
+    // author-binding gap).
+    if proposal.proposer != author.to_string() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Proposal proposer must be the committing agent (proposal forgery)".to_string(),
+        ));
+    }
+
     // Validate title
     if proposal.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -345,7 +359,21 @@ pub fn validate_create_proposal(proposal: &Proposal) -> ExternResult<ValidateCal
     Ok(ValidateCallbackResult::Valid)
 }
 
-pub fn validate_create_vote(vote: &Vote) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_vote(
+    author: &AgentPubKey,
+    vote: &Vote,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the vote to its committer -- otherwise any agent can commit a
+    // Vote with `voter: "<victim>"` and vote as someone else (the classic
+    // P0 vote-forgery pattern). cast_vote already derives `voter` from
+    // agent_info() coordinator-side with zero user input, so this never
+    // rejects a legitimate vote.
+    if vote.voter != author.to_string() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote voter must be the committing agent (vote forgery)".to_string(),
+        ));
+    }
+
     // Validate proposal ID is not empty
     if vote.proposal_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -381,14 +409,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op {
         Op::StoreEntry(store_entry) => match store_entry.action.hashed.content.entry_type() {
             EntryType::App(app_entry_def) => {
+                let author = store_entry.action.hashed.content.author().clone();
                 let entry = store_entry.entry;
                 match EntryTypes::deserialize_from_type(
                     app_entry_def.zome_index,
                     app_entry_def.entry_index,
                     &entry,
                 )? {
-                    Some(EntryTypes::Proposal(proposal)) => validate_create_proposal(&proposal),
-                    Some(EntryTypes::Vote(vote)) => validate_create_vote(&vote),
+                    Some(EntryTypes::Proposal(proposal)) => {
+                        validate_create_proposal(&author, &proposal)
+                    }
+                    Some(EntryTypes::Vote(vote)) => validate_create_vote(&author, &vote),
                     Some(EntryTypes::Reputation(_)) => Ok(ValidateCallbackResult::Valid),
                     None => Ok(ValidateCallbackResult::Valid),
                 }
@@ -407,13 +438,24 @@ mod tests {
     // Test Helpers
     // =============================================================================
 
+    /// The committing agent used by all "valid" fixtures below -- proposer/voter
+    /// fields are derived from this so the author-binding check passes.
+    fn test_author() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    /// A different agent, used to prove forgery attempts are rejected.
+    fn test_victim() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![2u8; 36])
+    }
+
     fn create_valid_proposal() -> Proposal {
         let now = chrono::Utc::now().timestamp();
         Proposal {
             proposal_id: "prop_001".to_string(),
             title: "Test Proposal".to_string(),
             description: "This is a test proposal description".to_string(),
-            proposer: "did:example:proposer123".to_string(),
+            proposer: test_author().to_string(),
             proposal_type: ProposalType::Normal,
             category: ProposalCategory::Curriculum,
             status: ProposalStatus::Active,
@@ -434,7 +476,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         Vote {
             proposal_id: "prop_001".to_string(),
-            voter: "did:example:voter456".to_string(),
+            voter: test_author().to_string(),
             choice: VoteChoice::For,
             justification: Some("I support this proposal".to_string()),
             timestamp: now,
@@ -486,7 +528,7 @@ mod tests {
     #[test]
     fn test_valid_proposal() {
         let proposal = create_valid_proposal();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -494,7 +536,7 @@ mod tests {
     fn test_proposal_empty_title() {
         let mut proposal = create_valid_proposal();
         proposal.title = "".to_string();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -502,7 +544,7 @@ mod tests {
     fn test_proposal_title_too_long() {
         let mut proposal = create_valid_proposal();
         proposal.title = "x".repeat(201);
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -510,7 +552,7 @@ mod tests {
     fn test_proposal_empty_description() {
         let mut proposal = create_valid_proposal();
         proposal.description = "".to_string();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -518,7 +560,7 @@ mod tests {
     fn test_proposal_description_too_long() {
         let mut proposal = create_valid_proposal();
         proposal.description = "x".repeat(10001);
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -526,7 +568,7 @@ mod tests {
     fn test_proposal_deadline_in_past() {
         let mut proposal = create_valid_proposal();
         proposal.voting_deadline = chrono::Utc::now().timestamp() - 3600; // 1 hour ago
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -537,7 +579,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         proposal.created_at = now;
         proposal.voting_deadline = now + (48 * 3600); // 2 days
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -548,7 +590,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         proposal.created_at = now;
         proposal.voting_deadline = now + (12 * 3600); // 12 hours (< 24 minimum)
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -559,7 +601,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         proposal.created_at = now;
         proposal.voting_deadline = now + (96 * 3600); // 4 days (> 72 maximum)
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -570,7 +612,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         proposal.created_at = now;
         proposal.voting_deadline = now + (7 * 24 * 3600); // 7 days
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -581,7 +623,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp();
         proposal.created_at = now;
         proposal.voting_deadline = now + (14 * 24 * 3600); // 14 days
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -589,7 +631,7 @@ mod tests {
     fn test_proposal_empty_id() {
         let mut proposal = create_valid_proposal();
         proposal.proposal_id = "".to_string();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -597,7 +639,7 @@ mod tests {
     fn test_proposal_invalid_json() {
         let mut proposal = create_valid_proposal();
         proposal.actions_json = "not valid json {".to_string();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -605,7 +647,7 @@ mod tests {
     fn test_proposal_nonzero_votes() {
         let mut proposal = create_valid_proposal();
         proposal.for_votes = 5;
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -613,7 +655,7 @@ mod tests {
     fn test_proposal_not_active_status() {
         let mut proposal = create_valid_proposal();
         proposal.status = ProposalStatus::Approved;
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -624,7 +666,7 @@ mod tests {
     #[test]
     fn test_valid_vote() {
         let vote = create_valid_vote();
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -632,7 +674,7 @@ mod tests {
     fn test_vote_empty_proposal_id() {
         let mut vote = create_valid_vote();
         vote.proposal_id = "".to_string();
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -640,7 +682,7 @@ mod tests {
     fn test_vote_empty_voter() {
         let mut vote = create_valid_vote();
         vote.voter = "".to_string();
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -648,7 +690,7 @@ mod tests {
     fn test_vote_justification_too_long() {
         let mut vote = create_valid_vote();
         vote.justification = Some("x".repeat(1001));
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
@@ -656,7 +698,7 @@ mod tests {
     fn test_vote_no_justification() {
         let mut vote = create_valid_vote();
         vote.justification = None;
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -664,7 +706,7 @@ mod tests {
     fn test_vote_timestamp_in_future() {
         let mut vote = create_valid_vote();
         vote.timestamp = chrono::Utc::now().timestamp() + 3600; // Future timestamps are allowed at validation layer
-        let result = validate_create_vote(&vote).unwrap();
+        let result = validate_create_vote(&test_author(), &vote).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -675,23 +717,45 @@ mod tests {
         let mut vote_for = base_vote.clone();
         vote_for.choice = VoteChoice::For;
         assert_eq!(
-            validate_create_vote(&vote_for).unwrap(),
+            validate_create_vote(&test_author(), &vote_for).unwrap(),
             ValidateCallbackResult::Valid
         );
 
         let mut vote_against = base_vote.clone();
         vote_against.choice = VoteChoice::Against;
         assert_eq!(
-            validate_create_vote(&vote_against).unwrap(),
+            validate_create_vote(&test_author(), &vote_against).unwrap(),
             ValidateCallbackResult::Valid
         );
 
         let mut vote_abstain = base_vote.clone();
         vote_abstain.choice = VoteChoice::Abstain;
         assert_eq!(
-            validate_create_vote(&vote_abstain).unwrap(),
+            validate_create_vote(&test_author(), &vote_abstain).unwrap(),
             ValidateCallbackResult::Valid
         );
+    }
+
+    // =============================================================================
+    // Author-binding (P0 forgery) Tests
+    // =============================================================================
+
+    #[test]
+    fn test_proposal_forgery_rejected() {
+        // proposer field says test_author(), but the committing agent is
+        // test_victim() -- must be rejected regardless of otherwise-valid content.
+        let proposal = create_valid_proposal();
+        let result = validate_create_proposal(&test_victim(), &proposal).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_vote_forgery_rejected() {
+        // voter field says test_author(), but the committing agent is
+        // test_victim() -- must be rejected (classic vote-forgery pattern).
+        let vote = create_valid_vote();
+        let result = validate_create_vote(&test_victim(), &vote).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     // =============================================================================
@@ -715,7 +779,7 @@ mod tests {
             proposal.category = category;
             proposal.created_at = now;
             proposal.voting_deadline = now + (7 * 24 * 3600);
-            let result = validate_create_proposal(&proposal).unwrap();
+            let result = validate_create_proposal(&test_author(), &proposal).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid);
         }
     }
@@ -725,7 +789,7 @@ mod tests {
         let mut proposal = create_valid_proposal();
         proposal.actions_json =
             r#"[{"type":"update_param","param":"max_learners","value":100}]"#.to_string();
-        let result = validate_create_proposal(&proposal).unwrap();
+        let result = validate_create_proposal(&test_author(), &proposal).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 }

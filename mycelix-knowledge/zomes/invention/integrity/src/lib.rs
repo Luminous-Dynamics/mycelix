@@ -90,9 +90,7 @@ impl InventionStatus {
                 InventionStatus::Verified,
                 InventionStatus::Revoked,
             ],
-            InventionStatus::Verified => {
-                &[InventionStatus::Superseded, InventionStatus::Revoked]
-            }
+            InventionStatus::Verified => &[InventionStatus::Superseded, InventionStatus::Revoked],
             InventionStatus::Superseded => &[],
             InventionStatus::Revoked => &[],
         }
@@ -344,9 +342,25 @@ pub enum LinkTypes {
 // ── Pure Validation Functions ──────────────────────────────────────────
 
 pub fn validate_create_invention_claim(
-    _action: Create,
+    action: Create,
     claim: InventionClaim,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's register_invention now derives
+    // inventor_did from agent_info() rather than trusting caller input,
+    // but that's bypassable by a modified coordinator -- the integrity
+    // validator is the real security boundary. Without this, any agent
+    // could register an invention naming an arbitrary victim (or a
+    // fabricated) DID as inventor, which would defeat the entire
+    // "provable priority without a central authority" purpose of the
+    // witness commitment. Found + fixed 2026-07-09 during the P0
+    // author-binding pass.
+    let expected_inventor_did = format!("did:mycelix:{}", action.author);
+    if claim.inventor_did != expected_inventor_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "inventor_did must correspond to the committing agent".into(),
+        ));
+    }
+
     // Title length
     if claim.title.is_empty() || claim.title.len() > 256 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -443,8 +457,26 @@ pub fn validate_create_invention_claim(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate an InventionClaim update.
+///
+/// Two distinct, legitimate update flows share this entry type:
+/// - The SAME agent as the original inventor, via the coordinator's
+///   update_invention, which may change any field (title/description/
+///   co_inventors/prior_art_refs/evidence_hashes/license_terms/domain/
+///   classification/status).
+/// - A DIFFERENT agent (a challenger, via challenge_invention, or anyone,
+///   via verify_invention), which may ONLY advance `status` -- everything
+///   else must stay identical to the original.
+///
+/// Previously this function only re-ran the create-time field checks and
+/// never fetched the original entry at all -- meaning status-transition
+/// validity and "who's allowed to change what" were enforced ONLY in the
+/// coordinator (a comment here said as much), which a modified coordinator
+/// could simply skip. Fixed 2026-07-09 during the P0 author-binding pass:
+/// this now does the must_get_valid_record fetch and enforces both rules
+/// at the integrity layer, the real security boundary.
 pub fn validate_update_invention_claim(
-    _action: Update,
+    action: Update,
     claim: InventionClaim,
 ) -> ExternResult<ValidateCallbackResult> {
     // Same field validations as create
@@ -498,18 +530,66 @@ pub fn validate_update_invention_claim(
             "materiality must be 0-3".into(),
         ));
     }
-    // Note: author-only enforcement and status-transition checks happen in
-    // the coordinator, since they require must_get_valid_record (host access).
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: InventionClaim = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original invention claim not found".into()
+        )))?;
+
+    if !original.status.can_transition_to(&claim.status) && original.status != claim.status {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid invention status transition from {:?} to {:?}",
+            original.status, claim.status
+        )));
+    }
+
+    let is_original_author = action.author == *original_record.action().author();
+    if !is_original_author {
+        // A different agent (challenger/verifier) may ONLY change status.
+        if claim.title != original.title
+            || claim.description != original.description
+            || claim.inventor_did != original.inventor_did
+            || claim.co_inventors != original.co_inventors
+            || claim.prior_art_refs != original.prior_art_refs
+            || claim.evidence_hashes != original.evidence_hashes
+            || claim.witness_commitment != original.witness_commitment
+            || claim.license_terms != original.license_terms
+            || claim.domain != original.domain
+            || claim.classification != original.classification
+            || claim.created_at != original.created_at
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Only the original inventor can change invention fields other than status".into(),
+            ));
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 pub fn validate_create_invention_challenge(
-    _action: Create,
+    action: Create,
     challenge: InventionChallenge,
 ) -> ExternResult<ValidateCallbackResult> {
     if !challenge.challenger_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "challenger_did must start with 'did:'".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's challenge_invention now derives
+    // challenger_did from agent_info() rather than trusting caller input,
+    // so this is belt-and-suspenders against a modified coordinator
+    // forging a challenge as an arbitrary victim challenger. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let expected_challenger_did = format!("did:mycelix:{}", action.author);
+    if challenge.challenger_did != expected_challenger_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "challenger_did must correspond to the committing agent".into(),
         ));
     }
     for (i, eh) in challenge.evidence.iter().enumerate() {
@@ -530,8 +610,20 @@ pub fn validate_create_invention_challenge(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate an InventionChallenge update.
+///
+/// The coordinator's resolve_challenge is deliberately open to ANY agent
+/// (per its own doc comment: "Currently any agent can resolve (in
+/// production, this would be restricted to arbitrators...)") -- so this
+/// does NOT require author == original author. Instead it enforces
+/// content integrity: only `status` may change (Filed/UnderReview ->
+/// Upheld/Dismissed), everything else is immutable. Hardened 2026-07-09
+/// during the P0 author-binding pass -- previously this function never
+/// fetched the original at all, so a modified coordinator could rewrite
+/// invention_hash/challenger_did/reason/evidence/created_at freely on
+/// "resolution".
 pub fn validate_update_invention_challenge(
-    _action: Update,
+    action: Update,
     challenge: InventionChallenge,
 ) -> ExternResult<ValidateCallbackResult> {
     // Only status changes are allowed; field validation still applies
@@ -548,9 +640,50 @@ pub fn validate_update_invention_challenge(
             )));
         }
     }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: InventionChallenge = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original invention challenge not found".into()
+        )))?;
+
+    if challenge.invention_hash != original.invention_hash
+        || challenge.challenger_did != original.challenger_did
+        || challenge.reason != original.reason
+        || challenge.evidence != original.evidence
+        || challenge.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change when resolving a challenge".into(),
+        ));
+    }
+
+    let valid_transition = matches!(
+        (&original.status, &challenge.status),
+        (ChallengeStatus::Filed, ChallengeStatus::UnderReview)
+            | (ChallengeStatus::Filed, ChallengeStatus::Upheld)
+            | (ChallengeStatus::Filed, ChallengeStatus::Dismissed)
+            | (ChallengeStatus::UnderReview, ChallengeStatus::Upheld)
+            | (ChallengeStatus::UnderReview, ChallengeStatus::Dismissed)
+    ) || original.status == challenge.status;
+    if !valid_transition {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid challenge status transition from {:?} to {:?}",
+            original.status, challenge.status
+        )));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// No author-binding on `receiver_did`: it names the payee destination
+/// (which the coordinator's create_royalty_rule -- already gated to the
+/// invention's own author -- may legitimately set to a third party, e.g. a
+/// DAO treasury, not necessarily the caller themselves). Reviewed
+/// 2026-07-09 during the P0 author-binding pass; case (b).
 pub fn validate_create_royalty_rule(
     _action: Create,
     rule: InventionRoyaltyRule,
@@ -585,41 +718,38 @@ pub fn validate_create_royalty_rule(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// InventionRoyaltyRule is immutable: confirmed via grep that no
+/// coordinator function ever calls update_entry for this type (rules are
+/// created once via create_royalty_rule and never modified). Made
+/// explicit 2026-07-09 during the P0 author-binding pass -- previously
+/// this function re-ran the create-time field checks but never fetched
+/// the original, so a modified coordinator could rewrite any field
+/// (including receiver_did, redirecting royalties) freely.
 pub fn validate_update_royalty_rule(
     _action: Update,
-    rule: InventionRoyaltyRule,
+    _rule: InventionRoyaltyRule,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Same field validations as create
-    if rule.id.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "royalty rule id must not be empty".into(),
-        ));
-    }
-    if rule.invention_id.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "invention_id must not be empty".into(),
-        ));
-    }
-    if !(0.0..=100.0).contains(&rule.percentage) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "percentage must be 0.0-100.0".into(),
-        ));
-    }
-    if let Some(min) = rule.minimum_amount_tend {
-        if min < 0.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "minimum_amount_tend must be non-negative".into(),
-            ));
-        }
-    }
-    if !rule.receiver_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "receiver_did must start with 'did:'".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(ValidateCallbackResult::Invalid(
+        "Royalty rules are immutable".into(),
+    ))
 }
 
+/// KNOWN GAP, not fixable by simple author-binding (found 2026-07-09
+/// during the P0 pass): the coordinator's record_royalty_event takes
+/// `payer_did` entirely from caller input with zero derivation from or
+/// check against agent_info() -- any agent can create a
+/// RoyaltyLedgerEntry claiming an arbitrary victim owes a royalty. Unlike
+/// the self-declared-identity forgeries fixed elsewhere this pass, it's
+/// genuinely ambiguous whether `payer_did` should be the committer (a
+/// self-report: "I used this, I owe you") or a third party (the receiver
+/// recording someone else's observed usage) -- the doc comment doesn't
+/// disambiguate and there's no existing access control to infer intent
+/// from. Binding it to action.author() could break a legitimate
+/// receiver-reports-third-party-usage flow if that's the intended design.
+/// Same architectural class as the report_reputation forgery gap
+/// documented in the mycelix-identity/bridge zome commit (`ea30870f92`).
+/// Out of scope for this pass; flagging for a dedicated follow-up once the
+/// intended access model is clarified.
 pub fn validate_create_ledger_entry(
     _action: Create,
     entry: RoyaltyLedgerEntry,
@@ -662,8 +792,20 @@ pub fn validate_create_ledger_entry(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate a RoyaltyLedgerEntry update.
+///
+/// The coordinator's mark_royalty_paid/waive_royalty are deliberately open
+/// to ANY agent (per their own doc comments -- DID<->agent mapping is
+/// external, so identity is left to the application layer). This does NOT
+/// require author == original author. Instead it enforces content
+/// integrity: only `status`/`paid_at` may change (Pending -> Paid or
+/// Pending -> Waived), everything else is immutable. Hardened 2026-07-09
+/// during the P0 author-binding pass -- previously this function never
+/// fetched the original, so a modified coordinator could rewrite
+/// payer_did/receiver_did/amount_tend freely under the guise of "marking
+/// paid".
 pub fn validate_update_ledger_entry(
-    _action: Update,
+    action: Update,
     entry: RoyaltyLedgerEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     if entry.id.is_empty() {
@@ -686,6 +828,43 @@ pub fn validate_update_ledger_entry(
             "amount_tend must be non-negative".into(),
         ));
     }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: RoyaltyLedgerEntry = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original ledger entry not found".into()
+        )))?;
+
+    if entry.id != original.id
+        || entry.royalty_rule_id != original.royalty_rule_id
+        || entry.invention_id != original.invention_id
+        || entry.payer_did != original.payer_did
+        || entry.receiver_did != original.receiver_did
+        || entry.amount_tend != original.amount_tend
+        || entry.trigger_event != original.trigger_event
+        || entry.trigger_action_hash != original.trigger_action_hash
+        || entry.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/paid_at can change on a ledger entry update".into(),
+        ));
+    }
+
+    let valid_transition = matches!(
+        (&original.status, &entry.status),
+        (RoyaltyStatus::Pending, RoyaltyStatus::Paid)
+            | (RoyaltyStatus::Pending, RoyaltyStatus::Waived)
+    ) || original.status == entry.status;
+    if !valid_transition {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid royalty status transition from {:?} to {:?}",
+            original.status, entry.status
+        )));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -697,9 +876,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::InventionClaim(claim) => {
-                    validate_create_invention_claim(action, claim)
-                }
+                EntryTypes::InventionClaim(claim) => validate_create_invention_claim(action, claim),
                 EntryTypes::InventionChallenge(challenge) => {
                     validate_create_invention_challenge(action, challenge)
                 }
@@ -717,9 +894,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::InventionClaim(claim) => {
-                    validate_update_invention_claim(action, claim)
-                }
+                EntryTypes::InventionClaim(claim) => validate_update_invention_claim(action, claim),
                 EntryTypes::InventionChallenge(challenge) => {
                     validate_update_invention_challenge(action, challenge)
                 }
@@ -752,27 +927,77 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::RegisterDeleteLink {
             link_type,
-            original_action: _,
+            original_action,
             base_address: _,
             target_address: _,
             tag: _,
-            action: _,
-        } => match link_type {
-            LinkTypes::InventionToChallenge
-            | LinkTypes::IdToInvention
-            | LinkTypes::InventorToInvention
-            | LinkTypes::DomainToInvention
-            | LinkTypes::AllInventions
-            | LinkTypes::InventionRateLimit
-            | LinkTypes::InventionToRoyaltyRule
-            | LinkTypes::RoyaltyRuleToLedger
-            | LinkTypes::AgentToRoyaltyOwed
-            | LinkTypes::AgentToRoyaltyReceivable => Ok(ValidateCallbackResult::Valid),
+            action,
+        } => {
+            // Previously accepted unconditionally regardless of author --
+            // the coordinator never calls delete_link here, so this is
+            // pure hardening (zero functional impact). Bind to the
+            // standard "only the original link creator can delete it"
+            // convention used elsewhere. Found + fixed 2026-07-09 during
+            // the P0 author-binding pass.
+            if action.author != original_action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original link creator can delete a link".into(),
+                ));
+            }
+            match link_type {
+                LinkTypes::InventionToChallenge
+                | LinkTypes::IdToInvention
+                | LinkTypes::InventorToInvention
+                | LinkTypes::DomainToInvention
+                | LinkTypes::AllInventions
+                | LinkTypes::InventionRateLimit
+                | LinkTypes::InventionToRoyaltyRule
+                | LinkTypes::RoyaltyRuleToLedger
+                | LinkTypes::AgentToRoyaltyOwed
+                | LinkTypes::AgentToRoyaltyReceivable => Ok(ValidateCallbackResult::Valid),
+            }
+        }
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- meaning any agent could rewrite the
+            // content of ANY entry in this zome via a modified coordinator,
+            // regardless of what the StoreEntry-side validate_update_*
+            // functions checked (which themselves, before this pass, never
+            // even fetched the original entry -- see the per-function doc
+            // comments above). Found + fixed 2026-07-09 during the P0
+            // author-binding pass. Route through the same per-type
+            // validators as the StoreEntry perspective so both DHT op
+            // views agree.
+            OpUpdate::Entry { app_entry, action } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::InventionClaim(claim) => validate_update_invention_claim(action, claim),
+                EntryTypes::InventionChallenge(challenge) => {
+                    validate_update_invention_challenge(action, challenge)
+                }
+                EntryTypes::InventionRoyaltyRule(rule) => {
+                    validate_update_royalty_rule(action, rule)
+                }
+                EntryTypes::RoyaltyLedgerEntry(entry) => {
+                    validate_update_ledger_entry(action, entry)
+                }
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_)
-        | FlatOp::RegisterUpdate(_)
-        | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. No coordinator function in
+            // this zome ever calls delete_entry, so this is pure hardening
+            // against a modified coordinator, zero functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
@@ -782,10 +1007,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 mod tests {
     use super::*;
 
+    fn test_author() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", test_author())
+    }
+
     fn test_action() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            author: test_author(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -800,8 +1033,8 @@ mod tests {
 
     fn test_update_action() -> Update {
         Update {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            author: test_author(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 1,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -833,7 +1066,7 @@ mod tests {
             id: "inv-001".into(),
             title: "Hyperdimensional Liquid Time-Constant Neuron".into(),
             description: "A unified neuron model combining HDC and LTC dynamics.".into(),
-            inventor_did: "did:mycelix:alice".into(),
+            inventor_did: test_author_did(),
             co_inventors: vec![],
             prior_art_refs: vec![],
             evidence_hashes: vec![EvidenceHash {
@@ -850,15 +1083,15 @@ mod tests {
                 materiality: 2,
             },
             status: InventionStatus::Draft,
-            created_at: Timestamp::now(),
-            updated_at: Timestamp::now(),
+            created_at: Timestamp::from_micros(0),
+            updated_at: Timestamp::from_micros(0),
         }
     }
 
     fn valid_challenge() -> InventionChallenge {
         InventionChallenge {
             invention_hash: ActionHash::from_raw_36(vec![0u8; 36]),
-            challenger_did: "did:mycelix:bob".into(),
+            challenger_did: test_author_did(),
             reason: ChallengeReason::PriorArt {
                 existing_ref: "abc123def456".into(),
             },
@@ -868,7 +1101,7 @@ mod tests {
                 evidence_type: EvidenceType::Paper,
             }],
             status: ChallengeStatus::Filed,
-            created_at: Timestamp::now(),
+            created_at: Timestamp::from_micros(0),
         }
     }
 
@@ -940,6 +1173,14 @@ mod tests {
     fn test_invalid_inventor_did_rejected() {
         let mut c = valid_claim();
         c.inventor_did = "not-a-did".into();
+        let result = validate_create_invention_claim(test_action(), c).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_inventor_did_forgery_rejected() {
+        let mut c = valid_claim();
+        c.inventor_did = "did:mycelix:someone-else".into();
         let result = validate_create_invention_claim(test_action(), c).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -1084,13 +1325,15 @@ mod tests {
     }
 
     // ── Update validation ──────────────────────────────────────────
-
-    #[test]
-    fn test_valid_update() {
-        let result =
-            validate_update_invention_claim(test_update_action(), valid_claim()).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
-    }
+    //
+    // Note: a "fully valid update" case for validate_update_invention_claim
+    // can't be exercised as a plain unit test anymore -- it now calls
+    // must_get_valid_record to fetch the original entry and check the
+    // author/status-transition rules, which needs a live HDI host this
+    // crate's tests don't mock. Coverage for the "valid" path needs a
+    // sweettest / live-conductor check instead. Field-validation rejections
+    // that fail BEFORE the must_get_valid_record call (like the title check
+    // below) are still directly testable.
 
     #[test]
     fn test_update_bad_title_rejected() {
@@ -1104,8 +1347,7 @@ mod tests {
 
     #[test]
     fn test_valid_challenge() {
-        let result =
-            validate_create_invention_challenge(test_action(), valid_challenge()).unwrap();
+        let result = validate_create_invention_challenge(test_action(), valid_challenge()).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -1113,6 +1355,14 @@ mod tests {
     fn test_challenge_bad_did_rejected() {
         let mut ch = valid_challenge();
         ch.challenger_did = "not-did".into();
+        let result = validate_create_invention_challenge(test_action(), ch).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_challenger_did_forgery_rejected() {
+        let mut ch = valid_challenge();
+        ch.challenger_did = "did:mycelix:someone-else".into();
         let result = validate_create_invention_challenge(test_action(), ch).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -1364,10 +1614,12 @@ mod tests {
     }
 
     #[test]
-    fn test_royalty_rule_update_valid() {
+    fn test_royalty_rule_update_rejected_immutable() {
+        // Royalty rules are now immutable (2026-07-09 P0 pass) -- no
+        // coordinator function ever updates one.
         let result =
             validate_update_royalty_rule(test_update_action(), valid_royalty_rule()).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     // ── RoyaltyLedgerEntry validation ────────────────────────────────
@@ -1466,12 +1718,12 @@ mod tests {
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
-    #[test]
-    fn test_ledger_entry_update_valid() {
-        let result =
-            validate_update_ledger_entry(test_update_action(), valid_ledger_entry()).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
-    }
+    // Note: a "fully valid update" case for validate_update_ledger_entry
+    // can't be exercised as a plain unit test anymore -- it now calls
+    // must_get_valid_record to fetch the original entry and check the
+    // status-transition rules, which needs a live HDI host this crate's
+    // tests don't mock. Coverage for the "valid" path needs a sweettest /
+    // live-conductor check instead.
 
     // ── Royalty enum serde roundtrips ─────────────────────────────────
 

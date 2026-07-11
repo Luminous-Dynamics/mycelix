@@ -132,10 +132,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -220,9 +217,16 @@ fn validate_triage_fields(
 }
 
 fn validate_create_triage(
-    _action: Create,
+    action: Create,
     record: TriageRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: `triaged_by` is set to the committing agent by the
+    // coordinator. `patient_id` is a subject reference, deliberately not bound.
+    if record.triaged_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TriageRecord triaged_by must match the committing agent".into(),
+        ));
+    }
     validate_triage_fields(&record, true)
 }
 
@@ -416,6 +420,14 @@ mod tests {
         let record = valid_triage_record();
         let result = validate_create_triage(fake_create(), record);
         assert!(is_valid(result));
+    }
+
+    #[test]
+    fn test_validate_create_triage_forged_triaged_by_rejected() {
+        let mut record = valid_triage_record();
+        record.triaged_by = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_triage(fake_create(), record);
+        assert!(is_invalid(result));
     }
 
     #[test]

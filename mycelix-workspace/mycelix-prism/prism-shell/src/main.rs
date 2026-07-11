@@ -207,8 +207,9 @@ fn load_html(
     vh: f32,
 ) -> (String, String, Vec<PaintRect>, SecurityState) {
     let dom = prism_dom::parse_html(html);
-    let url =
-        url::Url::parse(url_str).unwrap_or_else(|_| url::Url::parse("prism://error").unwrap());
+    let url = url::Url::parse(url_str).unwrap_or_else(|_| {
+        url::Url::parse("prism://error").expect("hardcoded fallback URL literal is malformed")
+    });
     let title = dom.title().unwrap_or_else(|| "Untitled".to_string());
     let pre = reflex.pre_fetch(&url, false, false);
     let post = reflex.post_parse(&dom, &pre);
@@ -618,7 +619,7 @@ impl ApplicationHandler for PrismApp {
 fn run_text_mode() {
     let reflex = ReflexArc::new();
     let search = SearchEngine::with_seed_claims();
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime for text mode");
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║             SYMTHAEA PRISM v0.2.0 — Text Mode                  ║");

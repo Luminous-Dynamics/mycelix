@@ -193,7 +193,8 @@ fn validate_id(id: &str, field_name: &str) -> ExternResult<()> {
     Ok(())
 }
 
-/// Validate an AidRequest entry
+/// requester_did is NOT bound to the committer -- see the zome-wide
+/// disclosed-gap note on validate_update_entry_type above. Case (d).
 fn validate_aid_request(request: &AidRequest) -> ExternResult<ValidateCallbackResult> {
     // Validate requester DID
     validate_did(&request.requester_did)?;
@@ -220,7 +221,8 @@ fn validate_aid_request(request: &AidRequest) -> ExternResult<ValidateCallbackRe
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate an AidOffer entry
+/// offerer_did is NOT bound to the committer -- see the zome-wide
+/// disclosed-gap note on validate_update_entry_type above. Case (d).
 fn validate_aid_offer(offer: &AidOffer) -> ExternResult<ValidateCallbackResult> {
     // Validate offerer DID
     validate_did(&offer.offerer_did)?;
@@ -243,13 +245,16 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::AidRequest(request) => validate_aid_request(&request),
-                    EntryTypes::AidOffer(offer) => validate_aid_offer(&offer),
-                }
-            }
+            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::AidRequest(request) => validate_aid_request(&request),
+                EntryTypes::AidOffer(offer) => validate_aid_offer(&offer),
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                ..
+            } => validate_update_entry_type(original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
@@ -261,6 +266,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::RequesterToRequest
             | LinkTypes::OffererToOffer => Ok(ValidateCallbackResult::Valid),
         },
+        // Deliberately left fully permissive for ALL link types (reviewed
+        // 2026-07-09 during the P0 author-binding pass, not a gap):
+        // update_request_status deletes/recreates StatusToRequest links
+        // on every status transition, and the coordinator's own doc
+        // comments for cancel_request/withdraw_offer ("only by the
+        // requester"/"only by the offerer") describe an authorization
+        // intent that was never actually implemented in code (see the
+        // zome-wide disclosed-gap note below) -- so there's no reliable
+        // notion of "the real requester" to restrict link deletion to
+        // even if we wanted to.
         FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
             LinkTypes::AnchorToRequest
             | LinkTypes::TypeToRequest
@@ -270,9 +285,118 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::RequesterToRequest
             | LinkTypes::OffererToOffer => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_)
-        | FlatOp::RegisterUpdate(_)
-        | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 28th confirmed instance of this
+            // exact bug pattern this pass. Found + fixed 2026-07-09
+            // during the P0 author-binding pass. Route through the same
+            // per-type validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => {
+                validate_update_entry_type(action.original_action_address, app_entry)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
+}
+
+/// **Zome-wide disclosed, NOT-fixed gap**: `AidRequest.requester_did`/
+/// `AidOffer.offerer_did` are free-form String DIDs asserted by the
+/// caller with NO local convention anywhere in this coordinator for
+/// deriving or verifying a DID string from the committing agent's real
+/// `action.author` (same gap as mycelix-mutualaid/bridge, fixed just
+/// before this zome). Notably, the coordinator's OWN doc comments for
+/// `cancel_request`/`withdraw_offer` claim "only by the
+/// requester"/"only by the offerer" restrictions that were NEVER
+/// actually implemented in code -- both functions just call
+/// `update_request_status`/`update_offer_status` directly, which have
+/// zero caller-identity checks of any kind. Reviewed 2026-07-09 during
+/// the P0 author-binding pass; case (d), needs real
+/// call-provenance/capability-grant infrastructure. Content is still
+/// restricted below (status/fulfilled_amount/updated_at for requests;
+/// status/updated_at for offers) to at least prevent unrelated-field
+/// tampering, matching the pattern established for mycelix-mutualaid/bridge.
+fn validate_update_entry_type(
+    original_action_hash: ActionHash,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::AidRequest(request) => {
+            validate_update_aid_request(original_action_hash, request)
+        }
+        EntryTypes::AidOffer(offer) => validate_update_aid_offer(original_action_hash, offer),
+    }
+}
+
+fn validate_update_aid_request(
+    original_action_hash: ActionHash,
+    request: AidRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: AidRequest = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original request not found".into()
+        )))?;
+
+    if request.id != original.id
+        || request.requester_did != original.requester_did
+        || request.request_type != original.request_type
+        || request.description != original.description
+        || request.urgency != original.urgency
+        || request.location != original.location
+        || request.amount_needed != original.amount_needed
+        || request.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/fulfilled_amount/updated_at can change on a request update".into(),
+        ));
+    }
+
+    validate_aid_request(&request)
+}
+
+fn validate_update_aid_offer(
+    original_action_hash: ActionHash,
+    offer: AidOffer,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: AidOffer = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original offer not found".into()
+        )))?;
+
+    if offer.id != original.id
+        || offer.request_id != original.request_id
+        || offer.offerer_did != original.offerer_did
+        || offer.amount != original.amount
+        || offer.message != original.message
+        || offer.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/updated_at can change on an offer update".into(),
+        ));
+    }
+
+    validate_aid_offer(&offer)
 }

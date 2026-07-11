@@ -185,10 +185,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -228,9 +225,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_message(
-    _action: Create,
+    action: Create,
     msg: EmergencyMessage,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator sets `sender` to the committing agent, so
+    // an unbound sender would let any agent forge a message in another's name.
+    if msg.sender != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EmergencyMessage sender must match the committing agent".into(),
+        ));
+    }
     if msg.content.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Message content cannot be empty".into(),
@@ -272,9 +276,15 @@ fn validate_create_message(
 }
 
 fn validate_create_channel(
-    _action: Create,
+    action: Create,
     channel: EmergencyChannel,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator sets `created_by` to the committing agent.
+    if channel.created_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "EmergencyChannel created_by must match the committing agent".into(),
+        ));
+    }
     if channel.name.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Channel name cannot be empty".into(),
@@ -294,9 +304,19 @@ fn validate_create_channel(
 }
 
 fn validate_create_broadcast(
-    _action: Create,
+    action: Create,
     broadcast: Broadcast,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: a Broadcast is an authoritative emergency order
+    // (evacuation / all-clear). Under the malicious-coordinator threat model,
+    // an unbound `issued_by` lets any agent forge an order in another's name.
+    // The coordinator sets `issued_by = agent_info().agent_initial_pubkey`, so
+    // the committer is always the legitimate issuer — enforce that here.
+    if broadcast.issued_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Broadcast issued_by must match the committing agent".into(),
+        ));
+    }
     if broadcast.content.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Broadcast content cannot be empty".into(),
@@ -1007,6 +1027,32 @@ mod tests {
     fn create_broadcast_valid_passes() {
         let result = validate_create_broadcast(fake_create(), make_broadcast());
         assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn create_broadcast_forged_issued_by_rejected() {
+        // Malicious-coordinator forgery: commit a Broadcast whose issued_by
+        // names a DIFFERENT agent than the committer. Must be rejected.
+        let mut b = make_broadcast();
+        b.issued_by = AgentPubKey::from_raw_36(vec![7u8; 36]); // != fake_create() author (zero key)
+        let result = validate_create_broadcast(fake_create(), b);
+        assert!(is_invalid(&result));
+    }
+
+    #[test]
+    fn create_message_forged_sender_rejected() {
+        let mut m = make_message();
+        m.sender = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_message(fake_create(), m);
+        assert!(is_invalid(&result));
+    }
+
+    #[test]
+    fn create_channel_forged_created_by_rejected() {
+        let mut c = make_channel();
+        c.created_by = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_create_channel(fake_create(), c);
+        assert!(is_invalid(&result));
     }
 
     #[test]

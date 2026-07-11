@@ -200,7 +200,10 @@ pub enum CascadeRecommendation {
 
 impl CascadeAnalysis {
     /// Analyze predictions for cascade behavior
-    pub fn analyze(predictions: &[PredictionRecord], information_events: &[InformationEvent]) -> Self {
+    pub fn analyze(
+        predictions: &[PredictionRecord],
+        information_events: &[InformationEvent],
+    ) -> Self {
         let mut cascade_events = Vec::new();
         let mut total_cascade_score = 0.0;
 
@@ -239,7 +242,8 @@ impl CascadeAnalysis {
                     new_information: new_info,
                 });
 
-                total_cascade_score += avg_similarity * (rest.len() as f64 / predictions.len() as f64);
+                total_cascade_score +=
+                    avg_similarity * (rest.len() as f64 / predictions.len() as f64);
             }
         }
 
@@ -258,7 +262,10 @@ impl CascadeAnalysis {
         }
     }
 
-    fn generate_recommendations(score: f64, _events: &[CascadeEvent]) -> Vec<CascadeRecommendation> {
+    fn generate_recommendations(
+        score: f64,
+        _events: &[CascadeEvent],
+    ) -> Vec<CascadeRecommendation> {
         let mut recs = Vec::new();
 
         if score > 0.7 {
@@ -359,8 +366,8 @@ pub struct Crux {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CruxStatus {
     Proposed,
-    Acknowledged,    // Other side agrees this is important
-    BeingTested,     // Evidence gathering
+    Acknowledged, // Other side agrees this is important
+    BeingTested,  // Evidence gathering
     Resolved { outcome: bool },
     Rejected { reason: String },
 }
@@ -478,11 +485,11 @@ pub struct LongHorizonTracker {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum HorizonCategory {
-    Immediate,  // < 1 week
-    Short,      // 1 week - 1 month
-    Medium,     // 1-6 months
-    Long,       // 6 months - 2 years
-    Extended,   // 2-10 years
+    Immediate,    // < 1 week
+    Short,        // 1 week - 1 month
+    Medium,       // 1-6 months
+    Long,         // 6 months - 2 years
+    Extended,     // 2-10 years
     Generational, // 10+ years
 }
 
@@ -541,10 +548,7 @@ impl LongHorizonTracker {
     }
 
     fn overall_accuracy(&self) -> f64 {
-        let total_count: usize = self
-            .accuracy_by_horizon
-            .values()
-            .count();
+        let total_count: usize = self.accuracy_by_horizon.values().count();
         if total_count == 0 {
             return 0.5;
         }
@@ -668,8 +672,10 @@ pub struct RecordOutcomeInput {
 #[hdk_extern]
 pub fn get_calibration_profile(agent: AgentPubKey) -> ExternResult<Option<CalibrationProfile>> {
     let anchor = calibration_anchor(&agent)?;
-    let links =
-        get_links(LinkQuery::try_new(anchor, LinkTypes::AgentToProfile)?, GetStrategy::default())?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::AgentToProfile)?,
+        GetStrategy::default(),
+    )?;
 
     if let Some(link) = links.first() {
         let hash = link.target.clone().into_entry_hash().unwrap();
@@ -681,17 +687,36 @@ pub fn get_calibration_profile(agent: AgentPubKey) -> ExternResult<Option<Calibr
     Ok(None)
 }
 
+/// Input for `analyze_cascade`. `information_events` is caller-supplied
+/// rather than fetched via a cross-DNA call: mycelix-knowledge has no
+/// concept of a generic timestamped "event with an impact estimate" (it
+/// has structured epistemic claims instead), so there's no honest way to
+/// derive one automatically. This mirrors the markets_bridge zome's own
+/// `PredictionRequest.context: serde_json::Value` pattern of letting the
+/// caller attach whatever external context it already has, rather than
+/// this zome reaching into another DNA for it.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AnalyzeCascadeInput {
+    pub market_id: EntryHash,
+    pub information_events: Vec<InformationEvent>,
+}
+
 #[hdk_extern]
-pub fn analyze_cascade(market_id: EntryHash) -> ExternResult<CascadeAnalysis> {
+pub fn analyze_cascade(input: AnalyzeCascadeInput) -> ExternResult<CascadeAnalysis> {
     // Fetch predictions for market via bridge call to predictions zome
     let response = call(
         CallTargetCell::Local,
         ZomeName::new("predictions"),
         FunctionName::new("get_predictions_for_market"),
         None,
-        market_id.clone(),
+        input.market_id.clone(),
     )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to fetch predictions: {:?}", e))))?;
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to fetch predictions: {:?}",
+            e
+        )))
+    })?;
 
     // HDK 0.6: Handle ZomeCallResponse variants
     let predictions: Vec<PredictionRecord> = match response {
@@ -702,27 +727,8 @@ pub fn analyze_cascade(market_id: EntryHash) -> ExternResult<CascadeAnalysis> {
         ZomeCallResponse::AuthenticationFailed(_, _) => vec![],
     };
 
-    // Fetch information events from knowledge hApp for context
-    let info_response = call(
-        CallTargetCell::OtherRole("knowledge".into()),
-        ZomeName::new("knowledge_base"),
-        FunctionName::new("get_information_events"),
-        None,
-        market_id.clone(),
-    )
-    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Failed to fetch information events: {:?}", e))))?;
-
-    // HDK 0.6: Handle ZomeCallResponse variants
-    let information_events: Vec<InformationEvent> = match info_response {
-        ZomeCallResponse::Ok(extern_io) => extern_io.decode().unwrap_or_else(|_| vec![]),
-        ZomeCallResponse::Unauthorized(_, _, _, _) => vec![],
-        ZomeCallResponse::NetworkError(_) => vec![],
-        ZomeCallResponse::CountersigningSession(_) => vec![],
-        ZomeCallResponse::AuthenticationFailed(_, _) => vec![],
-    };
-
-    let mut analysis = CascadeAnalysis::analyze(&predictions, &information_events);
-    analysis.market_id = market_id;
+    let mut analysis = CascadeAnalysis::analyze(&predictions, &input.information_events);
+    analysis.market_id = input.market_id;
     analysis.analysis_timestamp = sys_time()?.as_micros() as u64;
 
     Ok(analysis)
@@ -749,7 +755,12 @@ pub fn propose_crux(input: ProposeCruxInput) -> ExternResult<EntryHash> {
     let _action_hash = create_entry(&EntryTypes::Crux(crux))?;
 
     // Link to market
-    create_link(input.market_id.clone(), entry_hash.clone(), LinkTypes::MarketToCrux, ())?;
+    create_link(
+        input.market_id.clone(),
+        entry_hash.clone(),
+        LinkTypes::MarketToCrux,
+        (),
+    )?;
 
     emit_signal(serde_json::json!({
         "type": "crux_proposed",
@@ -773,8 +784,10 @@ pub struct ProposeCruxInput {
 #[hdk_extern]
 pub fn get_leaderboard(input: LeaderboardInput) -> ExternResult<Vec<LeaderboardEntry>> {
     let anchor = anchor_hash("all_profiles")?;
-    let links =
-        get_links(LinkQuery::try_new(anchor, LinkTypes::AnchorToProfile)?, GetStrategy::default())?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::AnchorToProfile)?,
+        GetStrategy::default(),
+    )?;
 
     let mut entries = Vec::new();
     for link in links {
@@ -888,8 +901,10 @@ fn get_or_create_calibration_profile(agent: AgentPubKey) -> ExternResult<Calibra
 
 fn update_calibration_profile(profile: &CalibrationProfile) -> ExternResult<EntryHash> {
     let anchor = calibration_anchor(&profile.agent)?;
-    let links =
-        get_links(LinkQuery::try_new(anchor, LinkTypes::AgentToProfile)?, GetStrategy::default())?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::AgentToProfile)?,
+        GetStrategy::default(),
+    )?;
 
     if let Some(link) = links.first() {
         let entry_hash = link.target.clone().into_entry_hash().unwrap();
@@ -908,10 +923,9 @@ fn calibration_anchor(agent: &AgentPubKey) -> ExternResult<EntryHash> {
 }
 
 fn anchor_hash(anchor: &str) -> ExternResult<EntryHash> {
-    use hdk::prelude::{hash_entry, Entry, AppEntryBytes, SerializedBytes, UnsafeBytes};
-    let anchor_bytes = SerializedBytes::from(UnsafeBytes::from(
-        format!("anchor:{}", anchor).into_bytes()
-    ));
+    use hdk::prelude::{AppEntryBytes, Entry, SerializedBytes, UnsafeBytes, hash_entry};
+    let anchor_bytes =
+        SerializedBytes::from(UnsafeBytes::from(format!("anchor:{}", anchor).into_bytes()));
     hash_entry(Entry::App(AppEntryBytes(anchor_bytes)))
 }
 

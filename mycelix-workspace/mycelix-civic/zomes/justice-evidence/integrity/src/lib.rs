@@ -77,8 +77,40 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. })
-        | FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            // Author-binding checks below found + fixed 2026-07-10 during
+            // the P0 author-binding pass: these "acting agent" DID fields
+            // were previously self-reported and only checked for a "did:"
+            // prefix, never bound to the real committing agent.
+            EntryTypes::Evidence(evidence) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if evidence.submitter != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "submitter must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_evidence(&evidence)
+            }
+            EntryTypes::EvidenceVerification(v) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if v.verifier != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "verifier must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_evidence_verification(&v)
+            }
+            EntryTypes::EvidenceDispute(d) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if d.disputant != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "disputant must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_evidence_dispute(&d)
+            }
+        },
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Evidence(evidence) => validate_evidence(&evidence),
             EntryTypes::EvidenceVerification(v) => validate_evidence_verification(&v),
             EntryTypes::EvidenceDispute(d) => validate_evidence_dispute(&d),

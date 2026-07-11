@@ -146,7 +146,7 @@ pub fn ProfilePage() -> impl IntoView {
                 <div class="detail-card">
                     <h4>"Core Interests"</h4>
                     <div class="interest-pills">
-                        {profile.primary_interests.iter().map(|i| view! { <span class="interest-pill">{i}</span> }).collect_view()}
+                        {profile.primary_interests.iter().map(|i| { let i = i.clone(); view! { <span class="interest-pill">{i}</span> } }).collect_view()}
                     </div>
                 </div>
             </section>

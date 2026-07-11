@@ -140,11 +140,37 @@ pub enum LinkTypes {
 
 // ============== Validation Functions ==============
 
-pub fn validate_create_profile(profile: &CraftProfile) -> ExternResult<ValidateCallbackResult> {
+/// Enforce that a profile's `agent_did` is the committing agent's own DID.
+/// Pure so it can be unit-tested without a full Create action. The
+/// coordinator's `create_profile` already derives `agent_did` entirely from
+/// `agent_info()` (no user input at all, no on-behalf path), so binding
+/// unconditionally never rejects a legitimate profile -- this just makes
+/// that coordinator-side guarantee real at the DHT level too (a modified
+/// coordinator could otherwise set `agent_did` to anything).
+fn require_profile_agent_is_author(agent_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if agent_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "CraftProfile agent_did must be the committing agent (profile \
+             identity forgery). Expected '{author_did}', got '{agent_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
+pub fn validate_create_profile(
+    action: &Create,
+    profile: &CraftProfile,
+) -> ExternResult<ValidateCallbackResult> {
     if profile.mastery_level > 1000 {
         return Ok(ValidateCallbackResult::Invalid(
             "Mastery level must be in 0..1000".into(),
         ));
+    }
+    let author_did = action.author.to_string();
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_profile_agent_is_author(&profile.agent_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -163,8 +189,8 @@ pub fn validate_create_skill_endorsement(
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(entry) => match entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::CraftProfile(profile) => validate_create_profile(&profile),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::CraftProfile(profile) => validate_create_profile(&action, &profile),
                 EntryTypes::SkillEndorsement(endorsement) => {
                     validate_create_skill_endorsement(&endorsement)
                 }
@@ -178,5 +204,89 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// The DID string that matches `test_action()`'s author -- craft-graph's
+    /// `agent_did` is the raw `AgentPubKey::to_string()` (NOT prefixed with
+    /// "did:mycelix:", unlike mycelix-attribution's zomes -- matches the
+    /// coordinator's own `agent.to_string()` in `create_profile`).
+    fn test_author_agent_did() -> String {
+        test_action().author.to_string()
+    }
+
+    fn valid_profile() -> CraftProfile {
+        CraftProfile {
+            agent_did: test_author_agent_did(),
+            display_name: "Ada".into(),
+            headline: "Rust + Holochain".into(),
+            bio: "Building sovereign infrastructure.".into(),
+            location: "Remote".into(),
+            website: "https://example.com".into(),
+            avatar_url: "https://example.com/avatar.png".into(),
+            primary_skill: "Rust".into(),
+            mastery_level: 800,
+            endorsements_count: 0,
+            updated_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn test_valid_profile() {
+        let result = validate_create_profile(&test_action(), &valid_profile()).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_mastery_level_over_1000_rejected() {
+        let mut p = valid_profile();
+        p.mastery_level = 1001;
+        let result = validate_create_profile(&test_action(), &p).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_profile_identity_forgery_rejected() {
+        // The P0 case: an agent commits a CraftProfile claiming a DIFFERENT
+        // agent_did than their own -- must be rejected (profile identity
+        // forgery / impersonation).
+        let mut p = valid_profile();
+        p.agent_did = "someone-else-entirely".into();
+        let result = validate_create_profile(&test_action(), &p).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_profile_agent_is_author_helper() {
+        let me = "uhCAkSELF";
+        let victim = "uhCAkVICTIM";
+        assert!(matches!(
+            require_profile_agent_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            require_profile_agent_is_author(victim, me),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 }

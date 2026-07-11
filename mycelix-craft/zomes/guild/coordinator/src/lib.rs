@@ -72,6 +72,45 @@ fn anchor_hash(anchor_text: &str) -> ExternResult<EntryHash> {
     hash_entry(&anchor)
 }
 
+/// Fetch an agent's sovereign credential from craft-bridge and reduce it to a
+/// single 0-1000 permille score (average of the 8 dimensions), for comparison
+/// against guild/role consciousness thresholds.
+///
+/// NOTE: craft-bridge's `get_sovereign_credential` is currently a bootstrap stub
+/// (fixed Steward-level profile for any DID) pending real identity-cluster
+/// integration — see craft-bridge/coordinator's doc comment. This function
+/// routes through the real dispatch path so it starts reflecting truth with no
+/// further changes here once that stub is replaced.
+fn fetch_consciousness_permille(agent: &AgentPubKey) -> ExternResult<u16> {
+    let did = format!("did:mycelix:{}", agent);
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("craft_bridge"),
+        FunctionName::new("get_sovereign_credential"),
+        None,
+        did,
+    )?;
+    let ZomeCallResponse::Ok(extern_io) = response else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Could not fetch sovereign credential from craft_bridge".into()
+        )));
+    };
+    let cred: bridge::sovereign_gate::SovereignCredential = extern_io
+        .decode()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Decode credential: {e:?}"))))?;
+    let p = &cred.profile;
+    let avg = (p.epistemic_integrity
+        + p.thermodynamic_yield
+        + p.network_resilience
+        + p.economic_velocity
+        + p.civic_participation
+        + p.stewardship_care
+        + p.semantic_resonance
+        + p.domain_competence)
+        / 8.0;
+    Ok((avg * 1000.0).round() as u16)
+}
+
 fn get_my_role_in_guild(
     guild_id: &ActionHash,
 ) -> ExternResult<Option<(ActionHash, GuildMembership)>> {
@@ -199,8 +238,19 @@ pub fn join_guild(guild_id: ActionHash) -> ExternResult<ActionHash> {
         )));
     }
 
-    let now = sys_time()?;
     let agent = agent_info()?.agent_initial_pubkey;
+
+    // Consciousness gate: must actually meet the guild's minimum, verified via
+    // a real credential lookup rather than assumed.
+    let my_consciousness = fetch_consciousness_permille(&agent)?;
+    if my_consciousness < guild.consciousness_minimum_permille {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Consciousness {} below this guild's minimum {}",
+            my_consciousness, guild.consciousness_minimum_permille
+        ))));
+    }
+
+    let now = sys_time()?;
 
     let membership = GuildMembership {
         guild_id: guild_id.clone(),
@@ -208,7 +258,7 @@ pub fn join_guild(guild_id: ActionHash) -> ExternResult<ActionHash> {
         role: GuildRole::Observer,
         joined_at: now,
         last_role_change: now,
-        consciousness_at_join_permille: guild.consciousness_minimum_permille,
+        consciousness_at_join_permille: my_consciousness,
     };
 
     let membership_hash = create_entry(EntryTypes::GuildMembership(membership))?;
@@ -269,8 +319,21 @@ pub fn promote_member(input: PromoteMemberInput) -> ExternResult<ActionHash> {
         )));
     }
 
+    // Re-derive the target member's consciousness from a real credential
+    // lookup rather than trusting the caller's requested role blindly, and
+    // enforce the new role's threshold against it.
+    let member_consciousness = fetch_consciousness_permille(&membership.member)?;
+    let role_min = input.new_role.minimum_consciousness_permille();
+    if member_consciousness < role_min {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Member's consciousness {} insufficient for {:?} role (minimum {})",
+            member_consciousness, input.new_role, role_min
+        ))));
+    }
+
     // Update role
     membership.role = input.new_role;
+    membership.consciousness_at_join_permille = member_consciousness;
     membership.last_role_change = sys_time()?;
 
     let new_hash = update_entry(input.membership_hash, &membership)?;

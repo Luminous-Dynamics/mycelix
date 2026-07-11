@@ -9,11 +9,17 @@ members = [
     "zomes/matching/coordinator",
     "zomes/care-plans/integrity",
     "zomes/care-plans/coordinator",
-    "zomes/credentials/integrity",
-    "zomes/credentials/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
 ]
+# Note: "zomes/credentials/{integrity,coordinator}" were listed here and in
+# dna/dna.yaml but the directories never existed (confirmed 2026-07-09 while
+# fixing an unrelated P0 author-binding pass -- this workspace could not
+# build/test at all until these phantom members were removed). dna.yaml's
+# credentials/credentials_integrity zome references are left as-is since
+# that's a hApp-packaging concern, not a cargo build blocker; a real
+# credentials zome may need to be implemented or the DNA manifest cleaned up
+# separately.
 
 [workspace.dependencies]
 # Holochain 0.6 compatible (per official compatibility table)

@@ -26,45 +26,49 @@
 //! - Zero-knowledge verification proofs
 
 pub mod claims;
-pub mod pogq;
-pub mod trust;
-pub mod storage;
-pub mod error;
 pub mod config;
+pub mod error;
 pub mod hash;
+#[cfg(feature = "holochain")]
+pub mod knowledge_storage;
 pub mod logging;
+pub mod pogq;
 pub mod query;
+pub mod storage;
+pub mod trust;
 pub mod utils;
 
 // Epistemic modules (Phase 1 - v0.3.0)
-pub mod evolution;
-pub mod dispute;
 pub mod cartel;
-pub mod reproducibility;
-pub mod prediction;
-pub mod semantic;
 pub mod decay;
+pub mod dispute;
+pub mod evolution;
+pub mod prediction;
+pub mod reproducibility;
+pub mod semantic;
 
 // Advanced epistemic modules (Phase 2 - v0.4.0)
-pub mod inference;
-pub mod citation;
-pub mod expertise;
-pub mod consensus;
-pub mod meta;
 pub mod bayesian;
+pub mod citation;
+pub mod consensus;
+pub mod expertise;
+pub mod inference;
+pub mod meta;
 pub mod zkproof;
 
 // Core claim types
-pub use claims::{DesciClaim, EpistemicPosition, EpistemicTier, Provenance, ClaimContent, Verification};
+pub use claims::{
+    ClaimContent, DesciClaim, EpistemicPosition, EpistemicTier, Provenance, Verification,
+};
 
 // Layer 1: LEM Cube (Charter v2.0)
-pub use claims::{LEMCube, EmpiricalAxis, NormativeAxis, MaterialityAxis};
+pub use claims::{EmpiricalAxis, LEMCube, MaterialityAxis, NormativeAxis};
 
 // Layer 3: Quality Metrics
 pub use claims::QualityMetrics;
 
 // Layer 4: Network Position
-pub use claims::{NetworkPosition, ClaimRelation, ClaimRelationType};
+pub use claims::{ClaimRelation, ClaimRelationType, NetworkPosition};
 
 // MATL Integration
 pub use claims::MATLTrust;
@@ -73,92 +77,82 @@ pub use claims::MATLTrust;
 pub use claims::EpistemicFingerprint;
 
 // Claim Evolution (Constitution Schema v2.0)
-pub use evolution::{ClaimEvolution, EvolutionType, ClaimStatus};
+pub use evolution::{ClaimEvolution, ClaimStatus, EvolutionType};
 
 // Dispute Resolution (Epistemic Charter §5)
 pub use dispute::{
-    Dispute, DisputeStatus, ChallengeType, Resolution, ResolutionOutcome,
-    Evidence, EvidenceType, AuthorResponse, RequiredAction, ActionType,
+    ActionType, AuthorResponse, ChallengeType, Dispute, DisputeStatus, Evidence, EvidenceType,
+    RequiredAction, Resolution, ResolutionOutcome,
 };
 
 // Cartel Detection (Anti-Collusion)
 pub use cartel::{
-    CartelDetector, CartelDetectionConfig, CartelDetectionResult,
-    CartelPattern, CartelRecommendation, VerificationEvent,
+    CartelDetectionConfig, CartelDetectionResult, CartelDetector, CartelPattern,
+    CartelRecommendation, VerificationEvent,
 };
 
 // Reproducibility Tracking
 pub use reproducibility::{
-    ReplicationAttempt, ReplicationStatus, ReplicationOutcome,
-    MethodologyMatch, ReproducibilityStats, ReproducibilityRegistry,
+    MethodologyMatch, ReplicationAttempt, ReplicationOutcome, ReplicationStatus,
+    ReproducibilityRegistry, ReproducibilityStats,
 };
 
 // Prediction Markets
 pub use prediction::{
-    PredictionMarket, PredictionMarketRegistry, MarketType, MarketState,
-    Position, Settlement, MarketError, ResolutionMethod,
+    MarketError, MarketState, MarketType, Position, PredictionMarket, PredictionMarketRegistry,
+    ResolutionMethod, Settlement,
 };
 
 // Semantic Similarity
 pub use semantic::{
-    SimilarityEngine, SimilarityScore, SimilarityComponents,
-    SimilarityRelationship, DuplicateCheckResult, DuplicateRecommendation,
-    ClaimContent as SemanticClaimContent,
+    ClaimContent as SemanticClaimContent, DuplicateCheckResult, DuplicateRecommendation,
+    SimilarityComponents, SimilarityEngine, SimilarityRelationship, SimilarityScore,
 };
 
 // Decay Mechanics
-pub use decay::{
-    DecayCalculator, DecayConfig, DecayFunction, DecayStats,
-    DecayingAccumulator,
-};
+pub use decay::{DecayCalculator, DecayConfig, DecayFunction, DecayStats, DecayingAccumulator};
 
 // Cross-Claim Inference Engine
 pub use inference::{
-    ClaimGraph, ClaimNode, ClaimEdge, InferenceEngine,
-    InferredRelation, InferenceRule, ContradictionReport, ContradictionType,
-    SuggestedRelation,
+    ClaimEdge, ClaimGraph, ClaimNode, ContradictionReport, ContradictionType, InferenceEngine,
+    InferenceRule, InferredRelation, SuggestedRelation,
 };
 
 // Citation Graph Analysis
 pub use citation::{
-    CitationGraph, Citation, CitationType, CitationMetrics, CitationAnalyzer,
-    PageRankConfig,
+    Citation, CitationAnalyzer, CitationGraph, CitationMetrics, CitationType, PageRankConfig,
 };
 
 // Expertise Domains & Weighted Verification
 pub use expertise::{
-    ExpertiseDomain, ExpertiseLevel, ExpertiseProfile, DomainTaxonomy,
-    ExpertiseVerifier, ExpertiseWeightConfig, WeightedVerificationResult,
+    DomainTaxonomy, ExpertiseDomain, ExpertiseLevel, ExpertiseProfile, ExpertiseVerifier,
+    ExpertiseWeightConfig, WeightedVerificationResult,
 };
 
 // Temporal Consensus Tracking
 pub use consensus::{
-    ConsensusTracker, ConsensusTrackerConfig, ConsensusHistory, ConsensusSnapshot,
-    ConsensusState, ConsensusTrend, ParadigmShift, ShiftType,
+    ConsensusHistory, ConsensusSnapshot, ConsensusState, ConsensusTracker, ConsensusTrackerConfig,
+    ConsensusTrend, ParadigmShift, ShiftType,
 };
 
 // Meta-Claims & Systematic Reviews
 pub use meta::{
-    MetaClaim, MetaClaimType, MetaSynthesizer, SourceQualityAssessment,
-    RiskOfBias, PrismaFlow, SynthesisResult, SynthesisMethod, EffectDirection,
-    HeterogeneityAssessment, HeterogeneityLevel, GradeQuality,
+    EffectDirection, GradeQuality, HeterogeneityAssessment, HeterogeneityLevel, MetaClaim,
+    MetaClaimType, MetaSynthesizer, PrismaFlow, RiskOfBias, SourceQualityAssessment,
+    SynthesisMethod, SynthesisResult,
 };
 
 // Bayesian Belief Networks
 pub use bayesian::{
-    BeliefNetwork, BeliefNode, ConditionalProbabilityTable, CPTEntry,
-    BayesianInference,
+    BayesianInference, BeliefNetwork, BeliefNode, CPTEntry, ConditionalProbabilityTable,
 };
 
 // Zero-Knowledge Verification Proofs
-pub use zkproof::{
-    ZKProver, ZKVerifier, ZKStatement, ZKProof, ZKProofType, ZKProofError,
-    Witness,
-};
+pub use zkproof::{Witness, ZKProof, ZKProofError, ZKProofType, ZKProver, ZKStatement, ZKVerifier};
 
 // Error handling and configuration
-pub use error::{Error, Result};
 pub use config::Config;
+pub use error::{Error, Result};
 pub use query::{QueryEngine, QueryFilter};
 
 /// Version of the Mycelix-DeSci protocol

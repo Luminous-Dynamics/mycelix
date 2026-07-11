@@ -556,6 +556,16 @@ const GOVERNANCE_TO_IDENTITY: &[&str] =
 /// Finance-side zomes that energy-bridge is allowed to call cross-cluster.
 const ENERGY_TO_FINANCE: &[&str] = &["finance_bridge", "payments", "staking"];
 
+/// Identity-side zomes that the grid zome is allowed to call cross-cluster
+/// for credentialed metering-verifier trust checks (grid::verify_production
+/// -> identity::trust_credential::get_agent_trust_level).
+const ENERGY_TO_IDENTITY: &[&str] = &["trust_credential"];
+
+/// Climate-side zomes that the grid zome is allowed to call cross-cluster
+/// to issue renewable-energy carbon credits (grid::issue_renewable_carbon_credit
+/// -> climate::carbon::create_carbon_credit).
+const ENERGY_TO_CLIMATE: &[&str] = &["carbon"];
+
 /// Supplychain-side zomes that energy-bridge is allowed to call cross-cluster.
 const ENERGY_TO_SUPPLYCHAIN: &[&str] = &[
     "bridge_coordinator",
@@ -810,6 +820,8 @@ pub const fn get_allowed_zomes(
         // Energy outbound
         (CrossClusterRole::Energy, CrossClusterRole::Finance) => ENERGY_TO_FINANCE,
         (CrossClusterRole::Energy, CrossClusterRole::Supplychain) => ENERGY_TO_SUPPLYCHAIN,
+        (CrossClusterRole::Energy, CrossClusterRole::Identity) => ENERGY_TO_IDENTITY,
+        (CrossClusterRole::Energy, CrossClusterRole::Climate) => ENERGY_TO_CLIMATE,
 
         // Climate outbound
         (CrossClusterRole::Climate, CrossClusterRole::Supplychain) => CLIMATE_TO_SUPPLYCHAIN,
@@ -1538,6 +1550,14 @@ mod tests {
             get_allowed_zomes(CrossClusterRole::Energy, CrossClusterRole::Supplychain).len(),
             3
         );
+        assert_eq!(
+            get_allowed_zomes(CrossClusterRole::Energy, CrossClusterRole::Identity),
+            &["trust_credential"]
+        );
+        assert_eq!(
+            get_allowed_zomes(CrossClusterRole::Energy, CrossClusterRole::Climate),
+            &["carbon"]
+        );
     }
 
     #[test]
@@ -1742,6 +1762,10 @@ mod tests {
         //   + 1 Supplychain→Finance (2026-07-02, was previously called
         //     ad hoc without going through routing_registry at all — see
         //     P1 #4 value-moving-ledger consolidation)
-        assert_eq!(count, 63, "Expected 63 registered cross-cluster routes");
+        //   + 2 Energy routes added 2026-07-06/07 (Energy→Identity for
+        //     credentialed production verification, Energy→Climate for the
+        //     renewable-production carbon-credit join) — see
+        //     PLANETARY_ENERGY_COORDINATION_PLAN_2026-07-06.md Phase 3
+        assert_eq!(count, 65, "Expected 65 registered cross-cluster routes");
     }
 }

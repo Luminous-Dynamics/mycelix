@@ -18,8 +18,8 @@
 
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    anchor_hash, follow_update_chain, rate_limit_anchor_key,
-    verify_governance_or_bootstrap_from_links, GOVERNANCE_AGENTS_ANCHOR,
+    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, rate_limit_anchor_key,
+    verify_governance_or_bootstrap_from_links,
 };
 use mycelix_zome_helpers as _;
 
@@ -507,43 +507,60 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     let window_start_us = now_us - CONSENSUS_WINDOW_US;
     let window_start = Timestamp::from_micros(window_start_us);
 
-    // Collect reports with reporter identity (needed for accuracy weighting)
-    let mut reports: Vec<ReportData> = Vec::new();
-    let mut reporters: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // Collect the LATEST report per reporter within the window. Deduping by reporter
+    // is the key flood/Sybil guard: without it, one reporter submitting many reports in
+    // the window (up to the per-minute rate limit) gets many votes in the weighted median
+    // while still counting as a single unique reporter — enough to own the consensus.
+    // One reporter now contributes exactly one price.
+    let mut latest_by_reporter: std::collections::HashMap<String, (i64, f64)> =
+        std::collections::HashMap::new();
 
     for link in &links {
         if let Some(hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(hash, GetOptions::default())? {
                 if let Some(report) = record.entry().to_app_option::<PriceReport>().ok().flatten() {
-                    if report.reported_at.as_micros() >= window_start_us {
-                        reporters.insert(report.reporter_did.clone());
-                        reports.push(ReportData {
-                            reporter_did: report.reporter_did,
-                            price: report.price_tend,
-                        });
+                    let ts = report.reported_at.as_micros();
+                    if ts >= window_start_us {
+                        latest_by_reporter
+                            .entry(report.reporter_did.clone())
+                            .and_modify(|e| {
+                                if ts > e.0 {
+                                    *e = (ts, report.price_tend);
+                                }
+                            })
+                            .or_insert((ts, report.price_tend));
                     }
                 }
             }
         }
     }
 
-    if reporters.len() < MIN_REPORTERS_FOR_CONSENSUS {
+    let reporters_count = latest_by_reporter.len();
+    let mut reports: Vec<ReportData> = latest_by_reporter
+        .into_iter()
+        .map(|(reporter_did, (_, price))| ReportData {
+            reporter_did,
+            price,
+        })
+        .collect();
+
+    if reporters_count < MIN_REPORTERS_FOR_CONSENSUS {
         if let Some(previous) = previous_consensus.as_ref() {
             return Ok(build_fallback_consensus(
                 &item,
                 window_start,
-                reporters.len(),
+                reporters_count,
                 previous,
                 format!(
                     "Insufficient fresh reporters in consensus window; reused previous consensus with {} reporter(s)",
-                    reporters.len()
+                    reporters_count
                 ),
             ));
         }
 
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Need at least {MIN_REPORTERS_FOR_CONSENSUS} reporters for consensus, got {}",
-            reporters.len()
+            reporters_count
         ))));
     }
 
@@ -608,7 +625,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     let consensus = PriceConsensus {
         item: item.clone(),
         median_price: median,
-        reporter_count: reporters.len() as u32,
+        reporter_count: reporters_count as u32,
         std_dev,
         window_start,
         computed_at: now,
@@ -695,7 +712,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     Ok(ConsensusResult {
         item,
         median_price: median,
-        reporter_count: reporters.len() as u32,
+        reporter_count: reporters_count as u32,
         std_dev,
         window_start,
         signal_integrity,

@@ -106,6 +106,14 @@ pub struct TelemetryReport {
 // ── Enums ────────────────────────────────────────────────────────────────────
 
 /// Robotic platform type.
+///
+/// Extended 2026-07-08 to close part of a 3-way divergence with
+/// `symthaea-core::embodiment::EmbodimentPlatform` (canonical) and
+/// `symtropy_robotics_bridge_core::PlatformType` (game-engine facing) — see
+/// `symthaea/NUCLEAR_ENERGY_PLAN_2026-07-06.md` Phase 4 for the full scoping.
+/// Added the 5 physical-platform variants symthaea's newer robotics roster
+/// has that this enum didn't, plus `SensorNode` for advisory-only telemetry
+/// producers that aren't robots at all (see its own doc).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum PlatformType {
     /// SAR helicopter.
@@ -120,6 +128,27 @@ pub enum PlatformType {
     Quadrotor,
     /// Autonomous vehicle.
     Vehicle,
+    /// Bipedal humanoid.
+    Humanoid,
+    /// Surgical robot (sub-mm RCM-constrained precision).
+    Surgical,
+    /// Orbital servicing arm (zero-g dual-body dynamics).
+    Orbital,
+    /// Legged quadruped.
+    Quadruped,
+    /// Lower-limb exoskeleton (shared authority with human user).
+    Exoskeleton,
+    /// An advisory-only telemetry producer with no actuators and no
+    /// dispatch authority — e.g. Symthaea's `FissionTwin` reactor
+    /// monitor. The string names the specific monitor (e.g.
+    /// `"FissionTwin"`), not a general-purpose label. Distinct from every
+    /// other variant here: a `RoboticAsset` with this platform type
+    /// cannot receive a `DispatchOrder` and must have `max_tier ==
+    /// TierCap::Observer` — enforced in `validate_robotic_asset`, not
+    /// just documented. This is the non-1E advisory-monitoring framing
+    /// from `NUCLEAR_ENERGY_PLAN_2026-07-06.md` §"Position statement",
+    /// encoded as a real constraint, not a comment.
+    SensorNode(String),
     /// Custom/other platform.
     Custom(String),
 }
@@ -130,7 +159,10 @@ pub enum PlatformType {
 /// and cannot participate in governance above Observer tier.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TierCap {
-    /// Read-only access, telemetry submission only.
+    /// Read-only access, telemetry submission only. The **only** valid
+    /// tier for `PlatformType::SensorNode` assets (enforced in
+    /// `validate_robotic_asset`) — a sensor has no actuators to command,
+    /// so it can never hold dispatch authority.
     Observer,
     /// Can submit sensor readings and basic reports.
     /// Maximum for most robotic assets.
@@ -408,6 +440,19 @@ fn validate_robotic_asset(
         ));
     }
 
+    // A SensorNode is an advisory-only telemetry producer with no
+    // actuators — it must never hold dispatch authority above Observer.
+    // This is the non-1E advisory-monitoring constraint from the nuclear
+    // energy plan encoded as a real validation rule, not just a comment.
+    if let PlatformType::SensorNode(_) = &asset.platform_type {
+        if asset.max_tier != TierCap::Observer {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SensorNode platforms must have max_tier == Observer (no dispatch authority)"
+                    .to_string(),
+            ));
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -425,6 +470,26 @@ fn validate_dispatch_order(
     if !order.target_lon.is_finite() || order.target_lon < -180.0 || order.target_lon > 180.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Target longitude must be in [-180, 180]".to_string(),
+        ));
+    }
+
+    // A SensorNode has no actuators — it must never be the target of a
+    // DispatchOrder at all, not just capped at Observer tier. Mirrors the
+    // must_get_valid_record cross-entry pattern used elsewhere in this
+    // workspace (e.g. water-steward's validate_update_watershed) to look
+    // up the referenced RoboticAsset's platform type.
+    let asset_record = must_get_valid_record(order.asset_hash.clone())?;
+    let asset: RoboticAsset = asset_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Dispatched asset not found".into()
+        )))?;
+    if let PlatformType::SensorNode(_) = &asset.platform_type {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SensorNode platforms cannot receive a DispatchOrder (advisory-only, no actuators)"
+                .to_string(),
         ));
     }
 

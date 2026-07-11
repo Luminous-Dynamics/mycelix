@@ -276,6 +276,56 @@ pub struct EncryptedEnvelope {
 }
 
 // ---------------------------------------------------------------------------
+// SealedEnvelope
+// ---------------------------------------------------------------------------
+
+/// A versioned, optionally-signed encrypted payload — the crypto-agility unit
+/// that lets the wire format evolve independently of the algorithms.
+///
+/// `format_version` describes the *envelope layout*; the per-field
+/// [`AlgorithmId`]s describe the *algorithms*. Bump `format_version` only when
+/// the field layout changes, not when rotating algorithms (that is expressed by
+/// the `AlgorithmId`s and stays back-compatible under the same layout).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SealedEnvelope {
+    /// Envelope wire-format version. Readers reject versions they don't know.
+    pub format_version: u8,
+    /// The encrypted payload.
+    pub encrypted: EncryptedEnvelope,
+    /// Optional detached signature over the encrypted payload (encrypt-then-sign).
+    /// `None` for confidentiality-only payloads.
+    pub signature: Option<TaggedSignature>,
+}
+
+impl SealedEnvelope {
+    /// Current envelope format version.
+    pub const CURRENT_VERSION: u8 = 1;
+
+    /// Wrap an encrypted payload with no signature.
+    pub fn new(encrypted: EncryptedEnvelope) -> Self {
+        Self {
+            format_version: Self::CURRENT_VERSION,
+            encrypted,
+            signature: None,
+        }
+    }
+
+    /// Wrap an encrypted payload with a detached signature.
+    pub fn signed(encrypted: EncryptedEnvelope, signature: TaggedSignature) -> Self {
+        Self {
+            format_version: Self::CURRENT_VERSION,
+            encrypted,
+            signature: Some(signature),
+        }
+    }
+
+    /// Whether this reader supports the envelope's `format_version`.
+    pub fn is_supported_version(&self) -> bool {
+        self.format_version == Self::CURRENT_VERSION
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

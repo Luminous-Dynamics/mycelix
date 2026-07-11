@@ -41,9 +41,12 @@
         # Holochain packages from holonix
         holochainPackages = holonix.packages.${system};
 
-        # Rust toolchain with wasm32 target
-        # Use latest stable Rust for zome builds (wasmer issues affect sweettest only)
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
+        # truth), not stable.latest, so devShell builds can't silently drift from the pin
+        # and fragment sccache's cache (compiler binary is part of its cache key).
+        rustToolchainToml = builtins.fromTOML (builtins.readFile ../../rust-toolchain.toml);
+        rustChannel = rustToolchainToml.toolchain.channel;
+        rustToolchain = pkgs.rust-bin.stable.${rustChannel}.default.override {
           extensions = [ "rust-src" "rust-analyzer" ];
           targets = [ "wasm32-unknown-unknown" ];
         };

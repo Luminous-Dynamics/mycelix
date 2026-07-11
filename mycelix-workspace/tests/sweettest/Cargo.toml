@@ -168,6 +168,10 @@ name = "energy_workflow"
 path = "tests/energy_workflow.rs"
 
 [[test]]
+name = "energy_finance_settlement"
+path = "tests/energy_finance_settlement.rs"
+
+[[test]]
 name = "unified_happ_integration"
 path = "tests/unified_happ_integration.rs"
 

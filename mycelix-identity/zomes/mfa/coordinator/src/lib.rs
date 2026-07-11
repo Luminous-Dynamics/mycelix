@@ -280,6 +280,22 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
         )));
     }
 
+    // The DID must be the caller's own -- otherwise any agent could register
+    // MFA state under a victim's DID string while owning it themselves
+    // (owner is bound to the committing agent below, but that alone doesn't
+    // stop `did` from naming someone else's identity; the existence check
+    // further down only confirms the DID is registered SOMEWHERE, not that
+    // the caller controls it). Found via manual review while fixing the P0
+    // author-binding pass -- not caught by the audit script's heuristic
+    // since validate_create_mfa_state already references action.author()
+    // for the `owner` field, just not for `did`.
+    let expected_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    if input.did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Can only create MFA state for your own DID".into()
+        )));
+    }
+
     // Verify DID exists in did_registry (cross-zome call)
     // Note: This may fail if did_registry is not available, which is acceptable
     // for standalone testing. In production, both zomes will be present.

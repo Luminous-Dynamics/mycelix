@@ -26,6 +26,9 @@ pub struct RegisterInventionInput {
     pub id: String,
     pub title: String,
     pub description: String,
+    /// Deliberately ignored -- see register_invention, which derives the
+    /// real inventor_did from the caller's own agent key. Kept for client
+    /// compat.
     pub inventor_did: String,
     pub co_inventors: Vec<String>,
     pub prior_art_refs: Vec<String>,
@@ -54,6 +57,9 @@ pub struct UpdateInventionInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChallengeInput {
     pub invention_action_hash: ActionHash,
+    /// Deliberately ignored -- see challenge_invention, which derives the
+    /// real challenger_did from the caller's own agent key. Kept for
+    /// client compat.
     pub challenger_did: String,
     pub reason: ChallengeReason,
     pub evidence: Vec<EvidenceHash>,
@@ -343,9 +349,17 @@ fn create_ledger_entry_with_links(
 pub fn register_invention(input: RegisterInventionInput) -> ExternResult<Record> {
     enforce_rate_limit(MAX_INVENTIONS_PER_HOUR)?;
 
+    // Derive inventor_did from the caller rather than trusting
+    // input.inventor_did -- otherwise any agent could register an
+    // invention claiming an arbitrary victim (or nobody's) DID as inventor,
+    // defeating the entire "provable priority" purpose of the witness
+    // commitment. Found + fixed 2026-07-09 during the P0 author-binding
+    // pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let inventor_did = format!("did:mycelix:{}", caller);
+
     let now = sys_time()?;
-    let witness =
-        compute_witness_commitment(&input.title, &input.description, &input.inventor_did, &now);
+    let witness = compute_witness_commitment(&input.title, &input.description, &inventor_did, &now);
 
     let status = if input.publish {
         InventionStatus::Published
@@ -357,7 +371,7 @@ pub fn register_invention(input: RegisterInventionInput) -> ExternResult<Record>
         id: input.id.clone(),
         title: input.title,
         description: input.description,
-        inventor_did: input.inventor_did.clone(),
+        inventor_did: inventor_did.clone(),
         co_inventors: input.co_inventors,
         prior_art_refs: input.prior_art_refs,
         evidence_hashes: input.evidence_hashes,
@@ -383,7 +397,7 @@ pub fn register_invention(input: RegisterInventionInput) -> ExternResult<Record>
     )?;
 
     // Index by inventor
-    let inventor_anchor = format!("inventor:{}", input.inventor_did);
+    let inventor_anchor = format!("inventor:{}", inventor_did);
     create_entry(&EntryTypes::Anchor(Anchor(inventor_anchor.clone())))?;
     create_link(
         anchor_hash(&inventor_anchor)?,
@@ -476,7 +490,7 @@ pub fn register_invention(input: RegisterInventionInput) -> ExternResult<Record>
 
     let _ = emit_signal(&InventionSignal::InventionRegistered {
         id: input.id,
-        inventor_did: input.inventor_did,
+        inventor_did,
     });
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -601,6 +615,13 @@ pub fn get_inventions_by_domain(domain: String) -> ExternResult<Vec<Record>> {
 pub fn challenge_invention(input: ChallengeInput) -> ExternResult<Record> {
     enforce_rate_limit(MAX_CHALLENGES_PER_HOUR)?;
 
+    // Derive challenger_did from the caller rather than trusting
+    // input.challenger_did -- otherwise any agent could file a challenge
+    // claiming to be an arbitrary victim challenger. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let caller = agent_info()?.agent_initial_pubkey;
+    let challenger_did = format!("did:mycelix:{}", caller);
+
     // Verify the invention exists and is in a challengeable state
     let inv_record = get(input.invention_action_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Invention not found".into())),
@@ -620,7 +641,7 @@ pub fn challenge_invention(input: ChallengeInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let challenge = InventionChallenge {
         invention_hash: input.invention_action_hash.clone(),
-        challenger_did: input.challenger_did.clone(),
+        challenger_did: challenger_did.clone(),
         reason: input.reason,
         evidence: input.evidence,
         status: ChallengeStatus::Filed,
@@ -645,7 +666,7 @@ pub fn challenge_invention(input: ChallengeInput) -> ExternResult<Record> {
 
     let _ = emit_signal(&InventionSignal::ChallengeFiled {
         invention_id: inv_claim.id,
-        challenger_did: input.challenger_did,
+        challenger_did,
     });
 
     get(challenge_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(

@@ -126,18 +126,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
-            } => match app_entry {
-                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MonthlyCharge(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Payment(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Payments cannot be modified after creation".into(),
-                )),
-                EntryTypes::ReserveFund(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Budget(_) => Ok(ValidateCallbackResult::Valid),
-            },
+            } => validate_update_entry_type(action, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -164,11 +156,117 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         } => Ok(ValidateCallbackResult::Valid),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // This DHT op was previously left fully permissive (`Ok(Valid)`
+            // unconditionally) -- the 22nd confirmed instance of this exact
+            // bug pattern this pass. Found + fixed 2026-07-09 during the P0
+            // author-binding pass. Route through the same per-type
+            // validators as the StoreEntry perspective.
+            OpUpdate::Entry { app_entry, action } => validate_update_entry_type(action, app_entry),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            // Also previously fully permissive. The coordinator never
+            // calls delete_entry here, so this is pure hardening, zero
+            // functional impact.
+            let original = must_get_action(action.deletes_address.clone())?;
+            if action.author != *original.action().author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original entry author can delete an entry".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
+/// Shared per-entry-type update validation, called from BOTH the
+/// StoreEntry (OpEntry::UpdateEntry) and RegisterUpdate DHT-op
+/// perspectives so they agree.
+fn validate_update_entry_type(
+    action: Update,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        // No live update_entry call for MonthlyCharge (confirmed via
+        // grep) -- previously silently accepted any field change,
+        // including member/amounts. Made explicitly immutable.
+        EntryTypes::MonthlyCharge(_) => Ok(ValidateCallbackResult::Invalid(
+            "Monthly charges are immutable".into(),
+        )),
+        EntryTypes::Payment(_) => Ok(ValidateCallbackResult::Invalid(
+            "Payments cannot be modified after creation".into(),
+        )),
+        EntryTypes::ReserveFund(fund) => validate_update_fund(action, fund),
+        EntryTypes::Budget(budget) => validate_update_budget(action, budget),
+    }
+}
+
+/// No author requirement: deposit_to_reserve has zero caller-identity
+/// check in the coordinator (this zome has no steward/treasurer concept
+/// at all to bind against, unlike mycelix-housing/clt's
+/// stewardship_board) -- case (c), no established authority model.
+/// Content is restricted to balance_cents -- this closes the wide-open
+/// bug that previously let name/fund_type/target_cents/description
+/// change unconditionally on update too.
+fn validate_update_fund(action: Update, fund: ReserveFund) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ReserveFund = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original fund not found".into()
+        )))?;
+
+    if fund.name != original.name
+        || fund.fund_type != original.fund_type
+        || fund.target_cents != original.target_cents
+        || fund.description != original.description
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only balance_cents can change on a reserve fund update".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// No author requirement: approve_budget likewise has zero
+/// caller-identity check -- case (c). Content restricted to
+/// approved/approved_at.
+fn validate_update_budget(action: Update, budget: Budget) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Budget = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original budget not found".into()
+        )))?;
+
+    if budget.fiscal_year != original.fiscal_year
+        || budget.income_projected_cents != original.income_projected_cents
+        || budget.expenses_projected_cents != original.expenses_projected_cents
+        || budget.categories != original.categories
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only approved/approved_at can change on a budget update".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// MonthlyCharge.member is deliberately NOT bound to the committer: the
+/// coordinator's generate_monthly_charges is explicitly a batch-admin
+/// operation that creates charges for a LIST of OTHER members at once
+/// (no agent_info() call at all, by design) -- a third-party field.
+/// Reviewed 2026-07-09 during the P0 author-binding pass; case (b). WHO
+/// may call generate_monthly_charges at all is unchecked (no
+/// steward/treasurer concept exists in this zome to bind against) --
+/// case (c), a real but separate gap, not fixed here.
 fn validate_create_charge(
     _action: Create,
     charge: MonthlyCharge,
@@ -196,6 +294,24 @@ fn validate_create_charge(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Payment.member deliberately NOT bound to the committer, but this is a
+/// disclosed, NOT-fixed gap rather than a clean case (b)/(c): the
+/// coordinator's record_payment takes the full Payment struct with ZERO
+/// caller-identity derivation, and there's no authorization model to
+/// bind against either way. It's genuinely ambiguous whether this
+/// should be self-report (a member recording their own bank transfer)
+/// or third-party admin entry (a treasurer recording a cash/check
+/// payment received in person, who cannot self-attest since the payer
+/// may have no chain identity at all). Binding member == author would
+/// break the legitimate admin-entry case; leaving it fully open permits
+/// a self-serving forged payment record (falsely claiming to have paid
+/// via BankTransfer/MutualCredit/TimeBankCredit) OR a malicious agent
+/// falsely marking another member's charge as paid. Reviewed 2026-07-09
+/// during the P0 author-binding pass -- same class of gap as
+/// mycelix-identity/bridge's report_reputation and
+/// mycelix-knowledge/inference's author_reputation (needs a real
+/// treasurer/capability-grant authorization model, not simple
+/// author-binding). Flagged for dedicated follow-up, not fixed here.
 fn validate_create_payment(
     _action: Create,
     payment: Payment,
@@ -259,4 +375,67 @@ fn validate_create_budget(_action: Create, budget: Budget) -> ExternResult<Valid
         )));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod content_integrity_tests {
+    use super::*;
+
+    fn update_action(author: AgentPubKey) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    #[test]
+    fn update_entry_type_rejects_monthly_charge_update() {
+        // No live update_entry call exists for MonthlyCharge --
+        // dead-path immutability, testable without must_get_valid_record.
+        let charge = MonthlyCharge {
+            member: me(),
+            unit_hash: ActionHash::from_raw_36(vec![2u8; 36]),
+            period_year: 2026,
+            period_month: 7,
+            base_rent_cents: 100_000,
+            maintenance_fee_cents: 5_000,
+            utilities_cents: 3_000,
+            reserve_contribution_cents: 2_000,
+            total_cents: 110_000,
+        };
+        let result =
+            validate_update_entry_type(update_action(me()), EntryTypes::MonthlyCharge(charge))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_payment_update() {
+        let payment = Payment {
+            member: me(),
+            charge_hash: None,
+            amount_cents: 110_000,
+            payment_method: PaymentMethod::BankTransfer,
+            paid_at: Timestamp::from_micros(0),
+            reference: None,
+        };
+        let result =
+            validate_update_entry_type(update_action(me()), EntryTypes::Payment(payment)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

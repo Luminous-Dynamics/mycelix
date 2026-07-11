@@ -196,8 +196,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::StoredCredential(cred) => validate_credential(&cred),
                 EntryTypes::CredentialProof(proof) => validate_proof(&proof),
                 EntryTypes::TrustCredential(cred) => validate_create_trust_credential(action, cred),
-                EntryTypes::AttestationRequest(req) => validate_create_request(req),
-                EntryTypes::TrustPresentation(pres) => validate_create_presentation(pres),
+                EntryTypes::AttestationRequest(req) => validate_create_request(action, req),
+                EntryTypes::TrustPresentation(pres) => validate_create_presentation(action, pres),
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -411,6 +411,21 @@ fn validate_update_trust_credential(
             "Original trust credential not found".into()
         )))?;
 
+    // Bind the update to the ORIGINAL issuer -- revoke_trust_credential
+    // (the only update path) only checked "caller == issuer" client-side,
+    // bypassable by a modified coordinator; issuer_did is confirmed
+    // immutable below, so this is the real DHT-level enforcement that only
+    // the true issuer can ever revoke/modify their own issued credential
+    // (P0 author-binding gap).
+    let author_did = format!("did:mycelix:{}", action.author);
+    if original.issuer_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Only the original issuer may update a TrustCredential. \
+             Expected '{author_did}', got issuer '{}'",
+            original.issuer_did
+        )));
+    }
+
     // Immutable fields
     if cred.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
@@ -472,7 +487,10 @@ fn validate_update_trust_credential(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_request(req: AttestationRequest) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_request(
+    action: Create,
+    req: AttestationRequest,
+) -> ExternResult<ValidateCallbackResult> {
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Requester must be a valid DID".into(),
@@ -483,6 +501,19 @@ fn validate_create_request(req: AttestationRequest) -> ExternResult<ValidateCall
         return Ok(ValidateCallbackResult::Invalid(
             "Subject must be a valid DID".into(),
         ));
+    }
+
+    // Bind the request to its committer -- request_attestation previously
+    // took requester_did straight from caller input with zero derivation
+    // from agent_info(), so anyone could forge a request claiming to be a
+    // different requester (P0 author-binding gap).
+    let author_did = format!("did:mycelix:{}", action.author);
+    if req.requester_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "AttestationRequest requester_did must be the committing agent \
+             (request forgery). Expected '{author_did}', got '{}'",
+            req.requester_did
+        )));
     }
 
     if req.requester_did == req.subject_did {
@@ -565,14 +596,57 @@ fn validate_update_request(
         ));
     }
 
+    // Fulfilled and Declined are subject-only actions: fulfill_attestation
+    // and decline_attestation both only checked "input.subject_did ==
+    // stored subject_did" (a self-consistency check on caller-supplied
+    // input, not a real identity check) with zero reference to
+    // agent_info() -- anyone could fulfill or decline someone else's
+    // request (P0 author-binding gap). Expired is intentionally NOT bound
+    // here: it's time-based and any agent noticing an overdue Pending
+    // request can trigger it, by design. Cancelled has no live coordinator
+    // path today (dead in the state machine), so it's left unbound rather
+    // than guessing at an owner for an unreachable transition.
+    if matches!(
+        req.status,
+        AttestationStatus::Fulfilled | AttestationStatus::Declined
+    ) {
+        let author_did = format!("did:mycelix:{}", action.author);
+        if req.subject_did != author_did {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Only the attestation subject may fulfill or decline a \
+                 request. Expected '{author_did}', got subject '{}'",
+                req.subject_did
+            )));
+        }
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_presentation(pres: TrustPresentation) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_presentation(
+    action: Create,
+    pres: TrustPresentation,
+) -> ExternResult<ValidateCallbackResult> {
     if !pres.subject_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Subject must be a valid DID".into(),
         ));
+    }
+
+    // Bind the presentation to its committer -- create_trust_presentation
+    // took subject_did straight from caller input with zero derivation from
+    // agent_info(), so anyone could forge a "selective disclosure"
+    // presentation claiming to be a different subject's trust tier (P0
+    // author-binding gap). A subject presenting proof about themselves is
+    // the entire point of the feature, so this never rejects a legitimate
+    // presentation.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if pres.subject_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "TrustPresentation subject_did must be the committing agent \
+             (presentation forgery). Expected '{author_did}', got '{}'",
+            pres.subject_did
+        )));
     }
 
     if pres.presentation_proof.is_empty() {
@@ -1066,5 +1140,131 @@ mod tests {
             !range_valid2,
             "Negative infinity upper should fail range validation"
         );
+    }
+
+    // --- Author-binding (P0) tests ---
+
+    const ME: &str = "uhCAkSELF";
+    const VICTIM: &str = "uhCAkVICTIM";
+
+    fn me_did() -> String {
+        format!("did:mycelix:{ME}")
+    }
+
+    fn test_create_action(author: &str) -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(
+                author.as_bytes().iter().cloned().cycle().take(36).collect(),
+            ),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn author_did_for(action: &Create) -> String {
+        format!("did:mycelix:{}", action.author)
+    }
+
+    fn valid_request() -> AttestationRequest {
+        AttestationRequest {
+            id: "req:me:other:123".into(),
+            requester_did: me_did(),
+            subject_did: "did:mycelix:other".into(),
+            components: vec![KVectorComponent::Reputation],
+            min_trust_score: Some(0.4),
+            min_tier: Some(TrustTier::Standard),
+            purpose: "governance vote".into(),
+            expires_at: Timestamp::from_micros(2_000_000),
+            status: AttestationStatus::Pending,
+            created_at: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    #[test]
+    fn test_valid_request_create() {
+        let action = test_create_action(ME);
+        let author_did = author_did_for(&action);
+        let mut req = valid_request();
+        req.requester_did = author_did;
+        let result = validate_create_request(action, req).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_request_forgery_rejected() {
+        // The P0 case: an agent creates an AttestationRequest claiming a
+        // DIFFERENT requester_did than their own -- must be rejected
+        // (request_attestation took requester_did straight from caller
+        // input with zero derivation from agent_info()).
+        let action = test_create_action(ME);
+        let mut req = valid_request();
+        req.requester_did = format!("did:mycelix:{VICTIM}");
+        let result = validate_create_request(action, req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_presentation(subject_did: String) -> TrustPresentation {
+        TrustPresentation {
+            id: "pres:me:123".into(),
+            credential_id: "trust-cred:me:456".into(),
+            subject_did,
+            disclosed_tier: TrustTier::Standard,
+            disclosed_range: None,
+            presentation_proof: vec![1, 2, 3],
+            verifier_did: None,
+            purpose: "voting eligibility".into(),
+            presented_at: Timestamp::from_micros(1_000_000),
+            nonce: vec![42],
+        }
+    }
+
+    #[test]
+    fn test_valid_presentation_create() {
+        let action = test_create_action(ME);
+        let author_did = author_did_for(&action);
+        let result = validate_create_presentation(action, valid_presentation(author_did)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_presentation_forgery_rejected() {
+        // The P0 case: an agent creates a TrustPresentation claiming a
+        // DIFFERENT subject_did than their own -- must be rejected
+        // (create_trust_presentation took subject_did straight from caller
+        // input with zero derivation from agent_info()).
+        let action = test_create_action(ME);
+        let result = validate_create_presentation(
+            action,
+            valid_presentation(format!("did:mycelix:{VICTIM}")),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_created_by_helpers_via_dispatch() {
+        // Sanity-check both forgery tests above actually exercised the
+        // rejection path (not e.g. failing for an unrelated reason) by
+        // confirming the error message names the right thing.
+        let action = test_create_action(ME);
+        let req_result = validate_create_request(action.clone(), {
+            let mut r = valid_request();
+            r.requester_did = format!("did:mycelix:{VICTIM}");
+            r
+        })
+        .unwrap();
+        if let ValidateCallbackResult::Invalid(msg) = req_result {
+            assert!(msg.contains("requester_did"), "unexpected message: {msg}");
+        } else {
+            panic!("expected Invalid");
+        }
     }
 }

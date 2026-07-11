@@ -406,11 +406,42 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// The DID that a self-issued entry's issuer/owner field must equal, derived
+/// from the committing agent's key. Centralizing this keeps the author-binding
+/// rule identical across validators and unit tests. Mirrors the pattern already
+/// used by trust_credential's `validate_create_credential`.
+fn expected_issuer_did(author: &AgentPubKey) -> String {
+    format!("did:mycelix:{}", author)
+}
+
+/// Enforce that a credential's declared issuer is the agent actually committing
+/// it. Pure so it can be unit-tested without constructing a full Create action.
+fn require_issuer_is_author(issuer_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if issuer_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Issuer DID must match the committing agent (credential-issuer forgery). Expected '{}', got '{}'",
+            author_did, issuer_did
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 /// Validate verifiable credential creation
 fn validate_create_verifiable_credential(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     vc: VerifiableCredential,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the credential to its committer: any agent could otherwise store a
+    // VC claiming `issuer: "did:B"`. The coordinator already sets the issuer to
+    // the committing agent's own DID (agent_info().agent_initial_pubkey), so
+    // this rejects only forged credentials, never the honest create path.
+    let author_did = expected_issuer_did(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_issuer_is_author(vc.issuer.did(), &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate context includes W3C VC context
     if !vc.context.iter().any(|c| c.contains("credentials")) {
         return Ok(ValidateCallbackResult::Invalid(
@@ -461,9 +492,23 @@ fn validate_create_verifiable_credential(
 
 /// Validate verifiable presentation creation
 fn validate_create_verifiable_presentation(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     vp: VerifiablePresentation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's create_presentation already derives
+    // `holder_did` from agent_info() rather than trusting caller input (it
+    // isn't even part of CreatePresentationInput), but that's bypassable by
+    // a modified coordinator -- the integrity validator is the real
+    // security boundary. Without this, any agent could commit a
+    // VerifiablePresentation claiming to be presented by an arbitrary
+    // holder DID.
+    let expected_holder_did = format!("did:mycelix:{}", action.author());
+    if vp.holder != expected_holder_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation holder DID must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate type includes VerifiablePresentation
     if !vp
         .presentation_type
@@ -500,9 +545,22 @@ fn validate_create_verifiable_presentation(
 
 /// Validate derived credential creation
 fn validate_create_derived_credential(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     dc: DerivedCredential,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: the coordinator's create_derived_credential already
+    // derives `holder_did` from agent_info() and checks the caller is the
+    // original credential's subject before proceeding, but that's
+    // bypassable by a modified coordinator -- the integrity validator is
+    // the real security boundary. Without this, any agent could commit a
+    // DerivedCredential claiming to be derived by an arbitrary holder DID.
+    let expected_holder_did = format!("did:mycelix:{}", action.author());
+    if dc.holder != expected_holder_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential holder DID must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate holder is a DID
     if !dc.holder.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -529,13 +587,26 @@ fn validate_create_derived_credential(
 
 /// Validate credential request creation
 fn validate_create_credential_request(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     req: CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate requester DID
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Requester must be a valid DID".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's request_credential already derives
+    // `requester_did` from agent_info() (it isn't part of the input
+    // struct), so this is belt-and-suspenders against a modified
+    // coordinator forging a credential request on someone else's behalf.
+    // Note `issuer_did` is intentionally NOT bound here -- it names the
+    // TARGET issuer being asked to issue, a third party, not the committer.
+    let expected_requester_did = format!("did:mycelix:{}", action.author());
+    if req.requester_did != expected_requester_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request requester DID must correspond to the committing agent".into(),
         ));
     }
 
@@ -557,6 +628,27 @@ fn validate_create_credential_request(
 }
 
 /// Validate credential request update
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `original.action().author() == action.author` for every entry type), so
+/// this function only needs to check content invariants and state-machine
+/// transitions, not identity.
+///
+/// KNOWN GAP found while reviewing this path (2026-07-08, out of scope to
+/// fix here): the coordinator's `update_request_status` is explicitly
+/// gated to the ISSUER (`req.issuer_did != caller_did` -> reject), i.e. a
+/// DIFFERENT agent than whoever authored the original CredentialRequest
+/// (the requester). This can never actually succeed: (1) it locates the
+/// request via `query()`, which only searches the CALLING agent's own
+/// local source chain, so the issuer -- who never authored the request --
+/// gets "Request not found" every time; and (2) even if it did find it,
+/// authoring the Update as the issuer would fail this crate's
+/// author-must-match-original RegisterUpdate check. Same architectural bug
+/// as recovery's `check_and_update_request_status` (see that zome's
+/// commit for detail) -- likely a systemic pattern wherever a zome pairs
+/// this generic same-author-only update handler with a cross-agent
+/// approval workflow. Not fixed here; flagging for a dedicated follow-up.
 fn validate_update_credential_request(
     action: Update,
     req: CredentialRequest,
@@ -614,6 +706,12 @@ fn validate_update_credential_request(
 }
 
 /// Validate encrypted entry creation
+///
+/// No author-binding possible: EncryptedEntry has no self-declared
+/// owner/creator AgentPubKey or DID field. `recipient_key_id` names who the
+/// ciphertext is addressed TO, not who committed it. Reviewed 2026-07-08
+/// during the P0 author-binding pass; same reasoning as mfa's and
+/// trust_credential's EncryptedEntry validators in this cluster.
 fn validate_create_encrypted_entry(entry: EncryptedEntry) -> ExternResult<ValidateCallbackResult> {
     // Validate entry type tag is non-empty
     if entry.entry_type_tag.is_empty() {
@@ -692,6 +790,31 @@ mod tests {
             proof: valid_proof(),
             mycelix_schema_id: "mycelix:schema:education:degree:v1".into(),
             mycelix_created: ts(1_700_000_000_000_000),
+        }
+    }
+
+    // --- Author binding (credential-issuer forgery prevention) ---
+
+    #[test]
+    fn issuer_must_match_committing_agent() {
+        let author_did = "did:mycelix:uhCAkSELF".to_string();
+
+        // Honest path: coordinator sets issuer to the committer's own DID.
+        assert!(matches!(
+            require_issuer_is_author(&author_did, &author_did),
+            ValidateCallbackResult::Valid
+        ));
+
+        // Forgery: a VC claiming a different issuer than its committer is rejected.
+        let forged = require_issuer_is_author("did:mycelix:uhCAkVICTIM", &author_did);
+        match forged {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("forgery"),
+                    "reject reason should name the risk: {msg}"
+                );
+            }
+            other => panic!("forged issuer must be Invalid, got {other:?}"),
         }
     }
 
@@ -1024,5 +1147,183 @@ mod tests {
         let json = serde_json::to_string(&dc).unwrap();
         let back: DerivedCredential = serde_json::from_str(&json).unwrap();
         assert_eq!(dc, back);
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn minimal_vc() -> VerifiableCredential {
+        VerifiableCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "urn:uuid:cred-1".into(),
+            credential_type: vec!["VerifiableCredential".into()],
+            issuer: CredentialIssuer::Did("did:mycelix:issuer1".into()),
+            valid_from: "2026-01-01T00:00:00Z".into(),
+            valid_until: None,
+            credential_subject: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({}),
+            },
+            credential_schema: None,
+            credential_status: None,
+            proof: CredentialProof {
+                proof_type: "Ed25519Signature2020".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:issuer1#key-1".into(),
+                proof_purpose: "assertionMethod".into(),
+                proof_value: "zSig".into(),
+                cryptosuite: None,
+                algorithm: None,
+                challenge: None,
+                domain: None,
+            },
+            mycelix_schema_id: "mycelix:schema:test:v1".into(),
+            mycelix_created: Timestamp::from_micros(0),
+        }
+    }
+
+    fn valid_presentation(holder: String) -> VerifiablePresentation {
+        VerifiablePresentation {
+            context: vec!["https://www.w3.org/ns/credentials/v2".into()],
+            id: "urn:uuid:presentation-1".into(),
+            presentation_type: vec!["VerifiablePresentation".into()],
+            holder,
+            verifiable_credential: vec![minimal_vc()],
+            proof: CredentialProof {
+                proof_type: "DataIntegrityProof".into(),
+                created: "2026-01-01T00:00:00Z".into(),
+                verification_method: "did:mycelix:holder#keys-1".into(),
+                proof_purpose: "authentication".into(),
+                proof_value: "zSig".into(),
+                cryptosuite: None,
+                algorithm: None,
+                challenge: None,
+                domain: None,
+            },
+            mycelix_created: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_presentation_valid_when_holder_matches_committer() {
+        let vp = valid_presentation(format!("did:mycelix:{}", me()));
+        let result = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_presentation_holder_forgery_rejected() {
+        let vp = valid_presentation(format!("did:mycelix:{}", me()));
+        let result = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(other_agent())),
+            vp,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_derived(holder: String) -> DerivedCredential {
+        DerivedCredential {
+            original_credential_id: "urn:uuid:cred-1".into(),
+            original_issuer: "did:mycelix:issuer1".into(),
+            holder,
+            selected_claims: vec!["degree".into()],
+            derived_content: CredentialSubject {
+                id: "did:mycelix:holder1".into(),
+                claims: serde_json::json!({"degree": "BSc CS"}),
+            },
+            derivation_proof: DerivationProof {
+                proof_type: "SelectiveDisclosureProof".into(),
+                original_credential_hash: vec![0u8; 32],
+                claim_proofs: vec![],
+                holder_signature: vec![1u8; 64],
+            },
+            created: Timestamp::from_micros(0),
+            expires: None,
+        }
+    }
+
+    #[test]
+    fn create_derived_valid_when_holder_matches_committer() {
+        let dc = valid_derived(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_derived_credential(EntryCreationAction::Create(test_action(me())), dc)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_derived_holder_forgery_rejected() {
+        let dc = valid_derived(format!("did:mycelix:{}", me()));
+        let result = validate_create_derived_credential(
+            EntryCreationAction::Create(test_action(other_agent())),
+            dc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_request(requester_did: String) -> CredentialRequest {
+        CredentialRequest {
+            id: "req-1".into(),
+            requester_did,
+            issuer_did: "did:mycelix:issuer1".into(),
+            schema_id: "mycelix:schema:education:degree:v1".into(),
+            provided_claims: serde_json::json!({}),
+            evidence: vec![],
+            status: RequestStatus::Pending,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_request_valid_when_requester_matches_committer() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_credential_request(EntryCreationAction::Create(test_action(me())), req)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_request_requester_forgery_rejected() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result = validate_create_credential_request(
+            EntryCreationAction::Create(test_action(other_agent())),
+            req,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

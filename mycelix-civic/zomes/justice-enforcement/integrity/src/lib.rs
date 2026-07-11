@@ -765,15 +765,83 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
-            EntryTypes::Case(c) => validate_case(&c),
-            EntryTypes::Evidence(e) => validate_evidence(&e),
-            EntryTypes::Mediation(m) => validate_mediation(&m),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            // Author-binding checks below found + fixed 2026-07-10 during
+            // the P0 author-binding pass: these "acting agent" DID fields
+            // were previously self-reported and only checked for a "did:"
+            // prefix, never bound to the real committing agent.
+            EntryTypes::Case(c) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if c.complainant != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "complainant must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_case(&c)
+            }
+            EntryTypes::Evidence(e) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if e.submitter != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "submitter must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_evidence(&e)
+            }
+            EntryTypes::Mediation(m) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if m.mediator != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "mediator must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_mediation(&m)
+            }
+            // Arbitration panel formation has no single "acting agent"
+            // field -- arbitrators are typically selected by a neutral
+            // convener/registrar process (Random/MATLWeighted/
+            // ExpertiseBased), not self-nominated. Reviewed 2026-07-10;
+            // no binding added here (judgment call, see report).
             EntryTypes::Arbitration(a) => validate_arbitration(&a),
-            EntryTypes::Decision(d) => validate_decision(&d),
-            EntryTypes::Appeal(a) => validate_appeal(&a),
-            EntryTypes::Enforcement(e) => validate_enforcement(&e),
-            EntryTypes::RestorativeCircle(r) => validate_restorative(&r),
+            EntryTypes::Decision(d) => {
+                // No single "rendered_by" field exists, so bind against
+                // vote membership: the committing agent must be one of
+                // the arbitrators who actually cast a vote.
+                let expected = format!("did:mycelix:{}", action.author);
+                if !d.votes.iter().any(|v| v.arbitrator == expected) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "committing agent must be one of the voting arbitrators".into(),
+                    ));
+                }
+                validate_decision(&d)
+            }
+            EntryTypes::Appeal(a) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if a.appellant != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "appellant must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_appeal(&a)
+            }
+            EntryTypes::Enforcement(e) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if e.enforcer != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "enforcer must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_enforcement(&e)
+            }
+            EntryTypes::RestorativeCircle(r) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if r.facilitator != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "facilitator must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_restorative(&r)
+            }
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Case(c) => validate_case(&c),
@@ -832,10 +900,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }

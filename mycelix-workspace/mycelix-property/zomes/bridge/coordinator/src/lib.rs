@@ -38,6 +38,13 @@ pub fn verify_ownership(input: VerifyOwnershipInput) -> ExternResult<OwnershipRe
     create_entry(&EntryTypes::OwnershipQuery(query))?;
 
     // Query the registry zome for actual ownership data
+    //
+    // NOTE: registry's coordinator has no `get_property_ownership_data`
+    // extern today -- this call will fail at runtime (falling through to
+    // the `None` branch below) until that function is added. Pre-existing
+    // gap, not introduced or fixed here; this pass only fixes the compile
+    // errors that were blocking `bridge` from ever being a buildable
+    // workspace member (see Cargo.toml).
     let registry_result: Option<RegistryPropertyData> = call(
         CallTargetCell::Local,
         "registry",
@@ -45,7 +52,11 @@ pub fn verify_ownership(input: VerifyOwnershipInput) -> ExternResult<OwnershipRe
         None,
         input.property_id.clone(),
     )
-    .ok();
+    .ok()
+    .and_then(|response| match response {
+        ZomeCallResponse::Ok(bytes) => bytes.decode().ok(),
+        _ => None,
+    });
 
     let (owner_did, ownership_type, share_percentage, encumbrances) = match registry_result {
         Some(data) => (
@@ -67,10 +78,11 @@ pub fn verify_ownership(input: VerifyOwnershipInput) -> ExternResult<OwnershipRe
             },
             data.encumbrances
                 .iter()
-                .map(|e| EncumbranceInfo {
-                    encumbrance_type: e.encumbrance_type.clone(),
+                .map(|e| Encumbrance {
+                    encumbrance_type: parse_encumbrance_type(&e.encumbrance_type),
                     holder_did: e.holder_did.clone(),
-                    amount: e.amount,
+                    amount: e.amount.map(|a| a as u64),
+                    expires_at: None,
                 })
                 .collect(),
         ),
@@ -137,12 +149,19 @@ struct EncumbranceData {
     pub amount: Option<f64>,
 }
 
-/// Encumbrance info for OwnershipResult
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EncumbranceInfo {
-    pub encumbrance_type: String,
-    pub holder_did: String,
-    pub amount: Option<f64>,
+/// Best-effort mapping from the registry's free-form encumbrance_type string
+/// to this crate's EncumbranceType enum. Registry sends an arbitrary string
+/// (see EncumbranceData above); anything unrecognized defaults to Lien
+/// rather than failing the whole ownership verification.
+fn parse_encumbrance_type(s: &str) -> EncumbranceType {
+    match s {
+        "Mortgage" => EncumbranceType::Mortgage,
+        "Lien" => EncumbranceType::Lien,
+        "Easement" => EncumbranceType::Easement,
+        "Lease" => EncumbranceType::Lease,
+        "CollateralPledge" => EncumbranceType::CollateralPledge,
+        _ => EncumbranceType::Lien,
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -157,6 +176,16 @@ pub struct VerifyOwnershipInput {
 #[hdk_extern]
 pub fn pledge_collateral(input: PledgeCollateralInput) -> ExternResult<Record> {
     let now = sys_time()?;
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could pledge property they don't own as collateral (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // bridge integrity's validate_create_entry_collateral_pledge). NOTE:
+    // this proves the pledger isn't impersonating someone else, but does
+    // NOT verify they actually own the property in the registry zome --
+    // that would need a cross-zome call to registry's verify_ownership,
+    // which this function doesn't make today. Flagged, not added, in this
+    // pass (see integrity comment for the same caveat).
+    let owner_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
 
     let pledge = CollateralPledge {
         id: format!(
@@ -166,7 +195,7 @@ pub fn pledge_collateral(input: PledgeCollateralInput) -> ExternResult<Record> {
             now.as_micros()
         ),
         property_id: input.property_id.clone(),
-        owner_did: input.owner_did.clone(),
+        owner_did: owner_did.clone(),
         pledged_to_happ: input.pledged_to_happ.clone(),
         pledged_for_loan: input.loan_id,
         value: input.value,
@@ -188,7 +217,7 @@ pub fn pledge_collateral(input: PledgeCollateralInput) -> ExternResult<Record> {
     broadcast_property_event(BroadcastPropertyEventInput {
         event_type: PropertyEventType::CollateralPledged,
         property_id: input.property_id,
-        subject_did: input.owner_did,
+        subject_did: owner_did,
         payload: serde_json::json!({
             "pledged_to": input.pledged_to_happ,
             "value": input.value,
@@ -204,6 +233,8 @@ pub fn pledge_collateral(input: PledgeCollateralInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PledgeCollateralInput {
     pub property_id: String,
+    /// Deliberately ignored -- owner identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub owner_did: String,
     pub pledged_to_happ: String,
     pub loan_id: String,
@@ -214,10 +245,13 @@ pub struct PledgeCollateralInput {
 /// Release collateral pledge
 #[hdk_extern]
 pub fn release_collateral(input: ReleaseCollateralInput) -> ExternResult<bool> {
+    // Always the committing agent, never caller-supplied -- otherwise the
+    // broadcast event log could misattribute who released a pledge.
+    let owner_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     broadcast_property_event(BroadcastPropertyEventInput {
         event_type: PropertyEventType::CollateralReleased,
         property_id: input.property_id,
-        subject_did: input.owner_did,
+        subject_did: owner_did,
         payload: serde_json::json!({
             "pledge_id": input.pledge_id,
         })
@@ -230,6 +264,8 @@ pub fn release_collateral(input: ReleaseCollateralInput) -> ExternResult<bool> {
 pub struct ReleaseCollateralInput {
     pub pledge_id: String,
     pub property_id: String,
+    /// Deliberately ignored -- owner identity is always derived from the
+    /// committing agent (P0 author-binding fix). Kept for client compat.
     pub owner_did: String,
 }
 

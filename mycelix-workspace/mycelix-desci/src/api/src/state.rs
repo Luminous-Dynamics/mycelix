@@ -3,6 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Application state shared across handlers
 
+#[cfg(feature = "holochain")]
+use mycelix_desci_core::knowledge_storage::KnowledgeDhtStorage;
 use mycelix_desci_core::{
     query::QueryEngine,
     storage::{MemoryStorage, StorageBackend},
@@ -41,8 +43,9 @@ impl Metrics {
 /// Shared application state
 #[derive(Clone)]
 pub struct AppState {
-    /// Storage backend
-    pub storage: MemoryStorage,
+    /// Storage backend. Selected at startup via `DESCI_STORAGE_BACKEND`
+    /// (`memory` [default] | `knowledge_dht`) -- see `AppState::new`.
+    pub storage: Arc<dyn StorageBackend>,
     /// Query engine
     pub query_engine: Arc<RwLock<QueryEngine>>,
     /// Trust manager
@@ -54,11 +57,53 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Create new application state
+    /// Create new application state.
+    ///
+    /// `DESCI_STORAGE_BACKEND` selects the storage backend:
+    /// - unset or `memory` (default): in-process `MemoryStorage`, ephemeral,
+    ///   no external dependencies. Safe default -- whether
+    ///   mycelix-knowledge is installed on any given conductor isn't
+    ///   guaranteed, so a DHT-dependent default could silently break
+    ///   startup for existing dev setups.
+    /// - `knowledge_dht`: persists claims to mycelix-knowledge's DHT via
+    ///   `KnowledgeDhtStorage` (native Holochain client, feature
+    ///   `holochain`). Reads conductor URLs from `DESCI_HOLOCHAIN_ADMIN_URL`
+    ///   / `DESCI_HOLOCHAIN_APP_URL` (default `ws://localhost:33800` /
+    ///   `ws://localhost:8888`, matching the shared conductor's documented
+    ///   ports) and `DESCI_HOLOCHAIN_APP_ID` (default `mycelix-knowledge`).
     pub async fn new() -> crate::error::Result<Self> {
-        let storage = MemoryStorage::new();
-        let storage_arc: Arc<dyn StorageBackend> = Arc::new(storage.clone());
-        let query_engine = QueryEngine::new(storage_arc);
+        let backend =
+            std::env::var("DESCI_STORAGE_BACKEND").unwrap_or_else(|_| "memory".to_string());
+
+        let storage: Arc<dyn StorageBackend> = match backend.as_str() {
+            "memory" => Arc::new(MemoryStorage::new()),
+            #[cfg(feature = "holochain")]
+            "knowledge_dht" => {
+                let admin_url = std::env::var("DESCI_HOLOCHAIN_ADMIN_URL")
+                    .unwrap_or_else(|_| "ws://localhost:33800".to_string());
+                let app_url = std::env::var("DESCI_HOLOCHAIN_APP_URL")
+                    .unwrap_or_else(|_| "ws://localhost:8888".to_string());
+                let app_id = std::env::var("DESCI_HOLOCHAIN_APP_ID")
+                    .unwrap_or_else(|_| "mycelix-knowledge".to_string());
+                Arc::new(KnowledgeDhtStorage::connect(&admin_url, &app_url, &app_id).await?)
+            }
+            #[cfg(not(feature = "holochain"))]
+            "knowledge_dht" => {
+                return Err(mycelix_desci_core::Error::Storage(
+                    "DESCI_STORAGE_BACKEND=knowledge_dht requires building with --features holochain"
+                        .to_string(),
+                )
+                .into());
+            }
+            other => {
+                return Err(mycelix_desci_core::Error::Storage(format!(
+                    "Unknown DESCI_STORAGE_BACKEND: '{other}' (expected 'memory' or 'knowledge_dht')"
+                ))
+                .into());
+            }
+        };
+
+        let query_engine = QueryEngine::new(storage.clone());
         let trust_manager = TrustManager::new();
 
         Ok(Self {

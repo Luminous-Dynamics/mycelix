@@ -259,9 +259,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_practice(
-    _action: Create,
+    action: Create,
     practice: TraditionalPractice,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the practice to its committer -- record_practice already derives
+    // `recorded_by` from agent_info() coordinator-side with zero user
+    // input, so this never rejects a legitimate recording; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    if practice.recorded_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Traditional practice recorded_by must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if practice.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Practice ID cannot be empty".into(),
@@ -298,6 +309,9 @@ fn validate_create_practice(
 }
 
 fn validate_create_conservation_method(
+    // No author-binding possible: ConservationMethod has no per-agent
+    // identity field at all -- it's a shareable how-to record, not owned
+    // by a single agent.
     _action: Create,
     method: ConservationMethod,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -332,9 +346,19 @@ fn validate_create_conservation_method(
 }
 
 fn validate_create_climate_pattern(
-    _action: Create,
+    action: Create,
     pattern: ClimateWaterPattern,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the observation to its committer -- record_climate_pattern
+    // already derives `observed_by` from agent_info() coordinator-side
+    // with zero user input, same rationale as validate_create_practice
+    // above.
+    if pattern.observed_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Climate pattern observed_by must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if pattern.region.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Region cannot be empty".into(),
@@ -363,4 +387,83 @@ fn validate_create_climate_pattern(
         }
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_practice(recorded_by: AgentPubKey) -> TraditionalPractice {
+        TraditionalPractice {
+            id: "practice-1".to_string(),
+            title: "Rain Dance".to_string(),
+            description: "A traditional water ceremony".to_string(),
+            practice_type: PracticeType::Ceremony,
+            region: "Southwest US".to_string(),
+            culture_or_community: "Example Community".to_string(),
+            recorded_by,
+            access_level: AccessLevel::Public,
+            effectiveness_rating: Some(5),
+        }
+    }
+
+    #[test]
+    fn test_create_practice_valid() {
+        let practice = valid_practice(test_action().author);
+        let result = validate_create_practice(test_action(), practice).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_practice_recorder_forgery_rejected() {
+        let practice = valid_practice(other_agent());
+        let result = validate_create_practice(test_action(), practice).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_pattern(observed_by: AgentPubKey) -> ClimateWaterPattern {
+        ClimateWaterPattern {
+            region: "Southwest US".to_string(),
+            season: "Summer".to_string(),
+            pattern_type: PatternType::Drought,
+            description: "Extended dry period".to_string(),
+            observed_by,
+            observed_at: Timestamp::from_micros(0),
+            indicators: vec![],
+        }
+    }
+
+    #[test]
+    fn test_create_climate_pattern_valid() {
+        let pattern = valid_pattern(test_action().author);
+        let result = validate_create_climate_pattern(test_action(), pattern).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_climate_pattern_observer_forgery_rejected() {
+        let pattern = valid_pattern(other_agent());
+        let result = validate_create_climate_pattern(test_action(), pattern).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

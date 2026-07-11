@@ -1,11 +1,11 @@
 use leptos::wasm_bindgen::JsCast;
 use leptos::*;
 use net_steward_schema::{
-    AttackPathEdge, AttackPathNode, ConfigDriftReport, DriftStatus, EdgeKind, FederationStatus,
-    HumanReadableIncidentSummary, IncidentCapsule, IncidentVerificationResult,
-    InfrastructureReceipt, NodeKind, ObservedTopologySnapshot, PeerNodeStatus, PeerTelemetryReport,
-    PeerTrustStatus, PostureConflict, PostureSummary, ProofStatus, SafetyVerdict, SecurityEvent,
-    Severity,
+    AttackPathEdge, AttackPathNode, BlastRadiusRiskTier, ConfigDriftReport, DriftStatus, EdgeKind,
+    EventMatcher, ExecutionMode, FederationStatus, HumanReadableIncidentSummary, IncidentCapsule,
+    IncidentVerificationResult, InfrastructureReceipt, NodeKind, ObservedTopologySnapshot,
+    PeerNodeStatus, PeerTelemetryReport, PeerTrustStatus, PostureConflict, PostureSummary,
+    ProofStatus, RemediationPolicy, RemediationRule, SafetyVerdict, SecurityEvent, Severity,
 };
 
 #[component]
@@ -44,6 +44,8 @@ pub fn NetStewardDashboard(
     let (fed_status, set_fed_status) = create_signal::<Option<FederationStatus>>(None);
     let (refresh_trigger, set_refresh_trigger) = create_signal::<u32>(0);
     let (apply_status, set_apply_status) = create_signal::<Option<Result<String, String>>>(None);
+    let (remediation_policy, set_remediation_policy) =
+        create_signal::<Option<RemediationPolicy>>(None);
 
     // 2. Spawn async listener query loop to retrieve live data from the witness daemon if running
     create_effect(move |_| {
@@ -130,6 +132,16 @@ pub fn NetStewardDashboard(
             {
                 if let Ok(status) = resp.json::<FederationStatus>().await {
                     set_fed_status.set(Some(status));
+                }
+            }
+            // Live remediation policy query
+            if let Ok(resp) =
+                gloo_net::http::Request::get("http://127.0.0.1:3030/api/v1/policy/remediation")
+                    .send()
+                    .await
+            {
+                if let Ok(policy) = resp.json::<RemediationPolicy>().await {
+                    set_remediation_policy.set(Some(policy));
                 }
             }
         });
@@ -460,6 +472,15 @@ pub fn NetStewardDashboard(
                                     "Config & Drift"
                                 </button>
                                 <button
+                                    on:click=move |_| set_active_tab.set("remediation".to_string())
+                                    style=move || format!("background: {}; color: {}; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500;",
+                                        if active_tab.get() == "remediation" { "#1e293b" } else { "transparent" },
+                                        if active_tab.get() == "remediation" { "#f8fafc" } else { "#94a3b8" }
+                                    )
+                                >
+                                    "Remediation Rules"
+                                </button>
+                                <button
                                     on:click=move |_| set_active_tab.set("evidence".to_string())
                                     style=move || format!("background: {}; color: {}; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500;",
                                          if active_tab.get() == "evidence" { "#1e293b" } else { "transparent" },
@@ -531,6 +552,87 @@ pub fn NetStewardDashboard(
                                                 }).collect::<Vec<_>>()
                                             })}
                                         </div>
+                                    </div>
+                                }.into_view(),
+
+                                "remediation" => view! {
+                                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.1rem; color: #818cf8;">"Remediation Policy Rules"</h3>
+                                            <p style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: #94a3b8;">"Configured threshold gates, risk tier boundaries, and execution models"</p>
+                                        </div>
+
+                                        {move || match remediation_policy.get() {
+                                            None => view! {
+                                                <div style="background: #111827; padding: 1.5rem; border: 1px dashed #374151; border-radius: 0.5rem; text-align: center; color: #9ca3af; font-size: 0.85rem;">
+                                                    "No active remediation policy loaded or witness daemon offline."
+                                                </div>
+                                            }.into_view(),
+                                            Some(policy) => {
+                                                let rules_view = policy.rules.iter().map(|rule| {
+                                                    let r = rule.clone();
+                                                    view! {
+                                                        <div style="background: #18181b; border: 1px solid #27272a; padding: 1.25rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 0.5rem;">
+                                                                <strong style="color: #f1f5f9; font-size: 0.95rem;">{&r.rule_name}</strong>
+                                                                <span style=move || format!(
+                                                                    "font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: {}; border: 1px solid {}; padding: 0.15rem 0.5rem; border-radius: 0.25rem; background: #0c0a09;",
+                                                                    match r.execution_mode {
+                                                                        ExecutionMode::Autonomous => "#34d399",
+                                                                        ExecutionMode::OperatorApproval => "#fbbf24",
+                                                                        ExecutionMode::ManualOnly => "#f87171",
+                                                                    },
+                                                                    match r.execution_mode {
+                                                                        ExecutionMode::Autonomous => "#059669",
+                                                                        ExecutionMode::OperatorApproval => "#d97706",
+                                                                        ExecutionMode::ManualOnly => "#dc2626",
+                                                                    }
+                                                                )>
+                                                                    {format!("{:?}", r.execution_mode)}
+                                                                </span>
+                                                            </div>
+
+                                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.75rem; font-family: monospace;">
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Target Node ID Match"</span>
+                                                                    <span style="color: #cbd5e1;">{&r.event_matcher.node_id}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Min Severity Match"</span>
+                                                                    <span style="color: #cbd5e1;">{format!("{:?}", r.event_matcher.min_severity)}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Max Allowed Blast Radius"</span>
+                                                                    <span style="color: #cbd5e1;">{format!("{:.2}", r.max_allowed_blast_radius)}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Max Allowed Risk Tier"</span>
+                                                                    <span style="color: #cbd5e1;">{format!("{:?}", r.max_allowed_risk_tier)}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Required Witnesses"</span>
+                                                                    <span style="color: #cbd5e1;">{r.required_witnesses}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span style="color: #71717a; display: block;">"Target Rollback Path"</span>
+                                                                    <span style="color: #f59e0b;">{format!("{:?}", r.target_rollback_generation)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                }).collect::<Vec<_>>();
+
+                                                view! {
+                                                    <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8rem; font-family: monospace; color: #a1a1aa; background: #0c0a09; padding: 0.75rem; border: 1px solid #1e293b; border-radius: 0.375rem; margin-bottom: 0.5rem;">
+                                                        <div>"Policy ID: " <strong style="color: #f3f4f6;">{&policy.policy_id}</strong></div>
+                                                        <div>"Version: " <strong style="color: #f3f4f6;">{&policy.version}</strong></div>
+                                                    </div>
+                                                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                                        {rules_view}
+                                                    </div>
+                                                }.into_view()
+                                            }
+                                        }}
                                     </div>
                                 }.into_view(),
 

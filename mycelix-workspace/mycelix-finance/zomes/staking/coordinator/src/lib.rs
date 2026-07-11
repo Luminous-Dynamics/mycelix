@@ -76,6 +76,14 @@ pub fn create_stake(input: CreateStakeInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let stake_id = format!("stake:{}:{}", input.staker_did, now.as_micros());
 
+    // Lock real SAP FIRST: debit the staker's balance. If they lack the funds this
+    // errors before any stake entry is written, so a stake can never exist unbacked.
+    lock_stake_sap(
+        &input.staker_did,
+        input.sap_amount,
+        &format!("Stake lock ({})", stake_id),
+    )?;
+
     // Fetch verified MYCEL score from recognition zome
     let mycel_score = fetch_verified_mycel_score(&input.staker_did)?;
 
@@ -254,8 +262,16 @@ pub fn withdraw_stake(stake_id: String) -> ExternResult<Record> {
         }
     }
 
+    // Return the locked SAP to the staker before marking withdrawn.
+    return_stake_sap(
+        &stake.staker_did,
+        stake.sap_amount,
+        &format!("Stake unlock ({})", stake_id),
+    )?;
+
     let updated = CollateralStake {
         status: StakeStatus::Withdrawn,
+        sap_amount: 0,
         ..stake
     };
 
@@ -305,6 +321,79 @@ pub fn update_stake_mycel(input: UpdateMycelInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateMycelInput {
     pub stake_id: String,
+}
+
+/// Lock SAP for a stake: debit the staker's balance via the payments zome.
+///
+/// `payments::debit_sap` enforces caller==staker, so this only works when called in
+/// the staker's agent context (as `create_stake` is). Makes a stake actually backed by
+/// real SAP rather than a notional number.
+fn lock_stake_sap(staker_did: &str, amount: u64, reason: &str) -> ExternResult<()> {
+    if amount == 0 {
+        return Ok(());
+    }
+    #[derive(Serialize, Debug)]
+    struct DebitPayload {
+        member_did: String,
+        amount: u64,
+        reason: String,
+    }
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("debit_sap"),
+        None,
+        DebitPayload {
+            member_did: staker_did.to_string(),
+            amount,
+            reason: reason.to_string(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => Ok(()),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to lock SAP for stake: unexpected response {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to lock SAP for stake: {:?}",
+            e
+        )))),
+    }
+}
+
+/// Return locked SAP to the staker: credit their balance via the payments zome.
+/// Used on withdrawal (full amount) and on slash (the un-slashed remainder).
+fn return_stake_sap(staker_did: &str, amount: u64, reason: &str) -> ExternResult<()> {
+    if amount == 0 {
+        return Ok(());
+    }
+    #[derive(Serialize, Debug)]
+    struct CreditPayload {
+        member_did: String,
+        amount: u64,
+        reason: String,
+    }
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("credit_sap"),
+        None,
+        CreditPayload {
+            member_did: staker_did.to_string(),
+            amount,
+            reason: reason.to_string(),
+        },
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => Ok(()),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to return staked SAP: unexpected response {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to return staked SAP: {:?}",
+            e
+        )))),
+    }
 }
 
 /// Fetch a member's verified MYCEL score from the recognition zome.
@@ -435,8 +524,18 @@ pub fn slash_stake(input: SlashStakeInput) -> ExternResult<Record> {
         StakeStatus::Slashed
     };
 
+    // Burn the slashed portion and return the un-slashed remainder to the staker, so
+    // no SAP is stuck in a terminal/jailed stake. (Routing slashed SAP to a commons
+    // fund instead of burning is a future policy choice.)
+    let remainder = stake.sap_amount.saturating_sub(sap_slashed);
+    return_stake_sap(
+        &stake.staker_did,
+        remainder,
+        &format!("Slash remainder returned ({})", input.stake_id),
+    )?;
+
     let updated_stake = CollateralStake {
-        sap_amount: stake.sap_amount - sap_slashed,
+        sap_amount: 0,
         status: new_status,
         ..stake
     };

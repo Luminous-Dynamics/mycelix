@@ -121,7 +121,6 @@ pub struct ReviewCard {
     pub learner: AgentPubKey,
 
     // === SM-2 Algorithm State ===
-
     /// Ease factor (stored as permille: 2500 = 2.5)
     /// Range: 1300 (hard) to 3000+ (easy)
     /// Default: 2500 (2.5)
@@ -138,7 +137,6 @@ pub struct ReviewCard {
     pub status: CardStatus,
 
     // === Scheduling ===
-
     /// When this card is due for review (Unix timestamp)
     pub due_at: i64,
 
@@ -146,7 +144,6 @@ pub struct ReviewCard {
     pub last_reviewed_at: Option<i64>,
 
     // === Statistics ===
-
     /// Total number of reviews
     pub total_reviews: u32,
 
@@ -163,7 +160,6 @@ pub struct ReviewCard {
     pub avg_time_seconds: u32,
 
     // === Metadata ===
-
     /// Optional custom front content (overrides node content)
     pub custom_front: Option<String>,
 
@@ -256,7 +252,6 @@ pub struct SrsConfig {
     pub learner: AgentPubKey,
 
     // === New Card Settings ===
-
     /// Maximum new cards per day
     pub new_cards_per_day: u32,
 
@@ -270,7 +265,6 @@ pub struct SrsConfig {
     pub easy_interval_days: u32,
 
     // === Review Settings ===
-
     /// Maximum reviews per day (0 = unlimited)
     pub max_reviews_per_day: u32,
 
@@ -284,7 +278,6 @@ pub struct SrsConfig {
     pub max_interval_days: u32,
 
     // === Lapse Settings ===
-
     /// Relearning steps in minutes after a lapse
     pub relearning_steps_minutes: Vec<u32>,
 
@@ -298,7 +291,6 @@ pub struct SrsConfig {
     pub leech_action: LeechAction,
 
     // === Timing ===
-
     /// Hour when the next day starts (for streak calculation)
     pub day_start_hour: u8,
 
@@ -407,8 +399,32 @@ pub enum LinkTypes {
 
 // ============== Validation Functions ==============
 
-/// Validate review card creation
-pub fn validate_create_card(card: &ReviewCard) -> ExternResult<ValidateCallbackResult> {
+/// Validate review card creation -- binds the entry to its committing agent
+/// (create_card already derives `learner` from agent_info() coordinator-side
+/// with zero user input, so this never rejects a legitimate card; it's the
+/// real DHT-level enforcement a modified coordinator could otherwise bypass,
+/// P0 author-binding gap). ReviewCard is a private entry type, but binding
+/// still matters -- anything that later trusts a self-reported `learner`
+/// field (stats aggregation, leaderboards, cross-agent sync) must not be
+/// able to be fed a forged learner identity even from the agent's own chain.
+pub fn validate_create_card(
+    author: &AgentPubKey,
+    card: &ReviewCard,
+) -> ExternResult<ValidateCallbackResult> {
+    if &card.learner != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Review card learner must be the committing agent (learner forgery)".to_string(),
+        ));
+    }
+    validate_card_shape(card)
+}
+
+/// Structural checks shared by create and update -- review/suspend/bury
+/// updates preserve the original `learner` unchanged but are committed by
+/// the same learner's own chain, so in practice author == learner always
+/// holds on update too; kept as a separate function to mirror the
+/// create/update split used elsewhere in this P0 pass.
+fn validate_card_shape(card: &ReviewCard) -> ExternResult<ValidateCallbackResult> {
     // Ease factor should be reasonable (1.0 to 5.0, stored as permille)
     if card.ease_factor_permille < 1000 || card.ease_factor_permille > 5000 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -456,13 +472,13 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::ReviewCard(card) => validate_create_card(&card),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::ReviewCard(card) => validate_create_card(&action.author, &card),
                 EntryTypes::SrsConfig(config) => validate_srs_config(&config),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::ReviewCard(card) => validate_create_card(&card),
+                EntryTypes::ReviewCard(card) => validate_card_shape(&card),
                 EntryTypes::SrsConfig(config) => validate_srs_config(&config),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
@@ -498,5 +514,55 @@ mod tests {
     #[test]
     fn test_leech_action_default() {
         assert_eq!(LeechAction::default(), LeechAction::TagOnly);
+    }
+
+    fn test_agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    fn valid_card(learner: AgentPubKey) -> ReviewCard {
+        ReviewCard {
+            node_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            learner,
+            ease_factor_permille: 2500,
+            interval_minutes: 0,
+            repetitions: 0,
+            status: CardStatus::New,
+            due_at: 0,
+            last_reviewed_at: None,
+            total_reviews: 0,
+            correct_count: 0,
+            incorrect_count: 0,
+            lapses: 0,
+            avg_time_seconds: 0,
+            custom_front: None,
+            custom_back: None,
+            tags: vec![],
+            created_at: 0,
+            modified_at: 0,
+        }
+    }
+
+    #[test]
+    fn test_card_valid() {
+        let card = valid_card(test_agent(0));
+        let result = validate_create_card(&test_agent(0), &card).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_card_learner_forgery_rejected() {
+        // card.learner claims agent 0, but agent 1 is the real committer.
+        let card = valid_card(test_agent(0));
+        let result = validate_create_card(&test_agent(1), &card).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_card_bad_ease_factor_rejected() {
+        let mut card = valid_card(test_agent(0));
+        card.ease_factor_permille = 500;
+        let result = validate_create_card(&test_agent(0), &card).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

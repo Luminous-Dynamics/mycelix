@@ -71,6 +71,14 @@ pub fn record_minutes(input: RecordMinutesInput) -> ExternResult<Record> {
 /// Propose a resolution (optionally tied to a meeting)
 #[hdk_extern]
 pub fn propose_resolution(resolution: Resolution) -> ExternResult<Record> {
+    // proposed_by is derived from the real caller rather than trusted
+    // from input -- fixed 2026-07-09 during the P0 author-binding pass
+    // (previously any agent could forge a victim agent as proposer).
+    let resolution = Resolution {
+        proposed_by: agent_info()?.agent_initial_pubkey,
+        ..resolution
+    };
+
     let action_hash = create_entry(&EntryTypes::Resolution(resolution.clone()))?;
 
     // Link meeting to resolution if applicable
@@ -252,6 +260,15 @@ pub fn create_election(election: Election) -> ExternResult<Record> {
 /// Cast a ballot in an election
 #[hdk_extern]
 pub fn cast_ballot(ballot: Ballot) -> ExternResult<Record> {
+    // voter is derived from the real caller rather than trusted from
+    // input -- fixed 2026-07-09 during the P0 author-binding pass
+    // (previously any agent could forge a victim agent as voter,
+    // classic vote-stuffing/ballot-forgery).
+    let ballot = Ballot {
+        voter: agent_info()?.agent_initial_pubkey,
+        ..ballot
+    };
+
     // Verify the election exists and is open
     let election_record = get(ballot.election_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Election not found".into())),

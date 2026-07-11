@@ -14,4 +14,4 @@ hdi = { workspace = true }
 serde = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 mycelix-space-shared = { path = "../../../../zomes/shared" }
-orbital-mechanics = { path = "../../../../lib/orbital-mechanics" }
+orbital-mechanics = { path = "../../../../../crates/orbital-mechanics" }

@@ -75,8 +75,27 @@ pub enum LinkTypes {
 
 // ── Pure Validation Functions ────────────────────────────────────────
 
+/// Enforce that a pledge's `contributor_did` is the committing agent's own
+/// DID. Pure so it can be unit-tested without a full Create action. Applies
+/// only to CREATE: the coordinator's `acknowledge_pledge` legitimately
+/// updates a pledge's `acknowledged` flag from an agent OTHER than the
+/// original contributor (e.g. a maintainer acknowledging receipt), so
+/// binding on update would break that real on-behalf flow.
+fn require_contributor_is_author(
+    contributor_did: &str,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if contributor_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Pledge contributor_did must be the committing agent (pledge forgery). \
+             Expected '{author_did}', got '{contributor_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 pub fn validate_create_pledge(
-    _action: Create,
+    action: Create,
     pledge: ReciprocityPledge,
 ) -> ExternResult<ValidateCallbackResult> {
     if pledge.id.is_empty() {
@@ -93,6 +112,19 @@ pub fn validate_create_pledge(
         return Ok(ValidateCallbackResult::Invalid(
             "contributor_did must start with 'did:'".into(),
         ));
+    }
+    // Bind the pledge to its committer -- otherwise any agent can commit a
+    // ReciprocityPledge with `contributor_did: "did:mycelix:<victim>"` and
+    // falsely credit (or discredit) someone else's reciprocity record (the
+    // P0 author-binding gap from the 2026-07-06 review, applied here). The
+    // coordinator's `record_pledge` always creates a pledge about the
+    // caller themselves, so binding unconditionally never rejects a
+    // legitimate pledge.
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_contributor_is_author(&pledge.contributor_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     if let Some(amount) = pledge.amount {
         if amount < 0.0 {
@@ -231,7 +263,7 @@ mod tests {
     fn test_action() -> Create {
         Create {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -244,11 +276,18 @@ mod tests {
         }
     }
 
+    /// The DID that matches `test_action()`'s author -- valid_pledge() uses
+    /// this so the new author-binding check passes for the "otherwise valid"
+    /// baseline case; forgery tests explicitly use a DIFFERENT DID instead.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", test_action().author)
+    }
+
     fn valid_pledge() -> ReciprocityPledge {
         ReciprocityPledge {
             id: "pledge-001".into(),
             dependency_id: "crate:serde:1.0".into(),
-            contributor_did: "did:mycelix:corp456".into(),
+            contributor_did: test_author_did(),
             organization: Some("Acme Corp".into()),
             pledge_type: PledgeType::Financial,
             amount: Some(5000.0),
@@ -256,7 +295,7 @@ mod tests {
             description: "Annual sponsorship for serde maintenance".into(),
             evidence_url: Some("https://opencollective.com/serde".into()),
             period: Some("2026-Q1".into()),
-            pledged_at: Timestamp::now(),
+            pledged_at: Timestamp::from_micros(0),
             acknowledged: false,
         }
     }
@@ -414,7 +453,7 @@ mod tests {
     fn test_update_action() -> Update {
         Update {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::now(),
+            timestamp: Timestamp::from_micros(0),
             action_seq: 1,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -566,5 +605,30 @@ mod tests {
             let result = validate_create_pledge(test_action(), p).unwrap();
             assert_eq!(result, ValidateCallbackResult::Valid, "failed for {:?}", pt);
         }
+    }
+
+    #[test]
+    fn test_pledge_forgery_rejected() {
+        // The P0 case: an agent commits a pledge claiming to be a DIFFERENT
+        // contributor DID than their own -- must be rejected, not silently
+        // accepted (pledge forgery / false reciprocity credit).
+        let mut p = valid_pledge();
+        p.contributor_did = "did:mycelix:someone-else-entirely".into();
+        let result = validate_create_pledge(test_action(), p).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_require_contributor_is_author_helper() {
+        let me = "did:mycelix:uhCAkSELF";
+        let victim = "did:mycelix:uhCAkVICTIM";
+        assert!(matches!(
+            require_contributor_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            require_contributor_is_author(victim, me),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 }

@@ -26,6 +26,14 @@ chrono = { workspace = true }
 clap = { workspace = true }
 mycelix-zkp-core = { workspace = true }
 
+# Holochain DHT client, gated behind the `holochain` feature (see below) so
+# crates that only need the core claim/PoGQ/trust logic (e.g. the CLI)
+# don't pull in the conductor-client dependency tree.
+holochain_client = { workspace = true, optional = true }
+holochain_types = { workspace = true, optional = true }
+holochain_zome_types = { workspace = true, optional = true }
+holochain_serialized_bytes = { workspace = true, optional = true }
+
 # Additional dependencies
 reqwest = { version = "0.13", features = ["json"] }
 url = "2.5"
@@ -47,4 +55,4 @@ harness = false
 
 [features]
 default = []
-holochain = []
+holochain = ["dep:holochain_client", "dep:holochain_types", "dep:holochain_zome_types", "dep:holochain_serialized_bytes"]

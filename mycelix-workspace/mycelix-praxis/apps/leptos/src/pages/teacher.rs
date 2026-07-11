@@ -484,6 +484,8 @@ fn ObligationSlider(label: &'static str) -> impl IntoView {
 
 #[component]
 fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
+    let on_close = std::rc::Rc::new(on_close);
+    let on_close_cancel = on_close.clone();
     let (title, set_title) = signal("Highveld Soil Regeneration".to_string());
     let (semantic_tags, set_semantic_tags) =
         signal("permaculture, soil-health, sustainable-ag".to_string());
@@ -557,7 +559,7 @@ fn SovereignStandardEditor(on_close: impl Fn() + 'static) -> impl IntoView {
             </div>
 
             <div class="editor-footer">
-                <button class="btn-secondary" on:click=move |_| on_close()>"Cancel"</button>
+                <button class="btn-secondary" on:click=move |_| on_close_cancel()>"Cancel"</button>
                 <button class="btn-primary">"Publish to Local DAO"</button>
             </div>
         </div>

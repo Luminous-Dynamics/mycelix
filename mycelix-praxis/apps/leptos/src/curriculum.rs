@@ -194,13 +194,6 @@ pub struct GaiaSignal {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WisdomBridge {
-    pub hardiness_zones: Vec<u8>,
-    pub min_annual_rainfall_mm: Option<u32>,
-    pub terrain_types: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourceProfile {
     pub class: String, // e.g. "DC_Storage_Cell"
     pub min_capacity_mah: Option<u32>,

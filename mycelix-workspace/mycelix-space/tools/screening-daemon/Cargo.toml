@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Orbital mechanics (reuse existing library)
-orbital-mechanics = { path = "../../lib/orbital-mechanics" }
+orbital-mechanics = { path = "../../../crates/orbital-mechanics" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

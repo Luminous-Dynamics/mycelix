@@ -4,6 +4,7 @@ use axum::{
 };
 use serde_json::{Value, json};
 use std::net::SocketAddr;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use net_steward_discovery::{
@@ -16,12 +17,12 @@ use net_steward_discovery::{
     verify_incident_capsule,
 };
 use net_steward_schema::{
-    BlastRadiusPreview, ClaimEnvelope, ConfigDriftReport, ConsensusPolicy, DaemonVersion,
-    DidAgentBinding, ExecutionResult, FederationStatus, HumanReadableIncidentSummary,
-    IncidentCapsule, IncidentVerificationResult, InfrastructureReceipt, KnownGoodBaseline,
-    ObservedTopologySnapshot, OperationIntent, PeerNodeStatus, PeerPostureClaim,
-    PeerTelemetryReport, PostureConflict, RemediationPolicy, RollbackPlan, SecurityEvent,
-    SecurityPosture,
+    BlastRadiusPreview, BlastRadiusRiskTier, ClaimEnvelope, ConfigDriftReport, ConsensusPolicy,
+    DaemonVersion, DidAgentBinding, DriftStatus, EventMatcher, ExecutionMode, ExecutionResult,
+    FederationStatus, HumanReadableIncidentSummary, IncidentCapsule, IncidentVerificationResult,
+    InfrastructureReceipt, KnownGoodBaseline, ObservedTopologySnapshot, OperationIntent,
+    PeerNodeStatus, PeerPostureClaim, PeerTelemetryReport, PostureConflict, RemediationPolicy,
+    RemediationRule, RollbackPlan, SecurityEvent, SecurityPosture, Severity,
 };
 
 #[tokio::main]
@@ -78,7 +79,20 @@ async fn main() {
             "/api/v1/policy/evaluate",
             post(post_policy_evaluate).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
         )
+        .route("/api/v1/policy/remediation", get(get_remediation_policy))
         .layer(cors);
+
+    // v0.4-alpha.3: Spawn background Telemetry & Drift Observer task
+    tokio::spawn(async {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+        println!("Net Steward background Telemetry & Drift Observer task started.");
+        loop {
+            interval.tick().await;
+            if let Some(verdict) = run_observer_cycle().await {
+                println!("Observer Cycle: Evaluated verdict: {:?}", verdict);
+            }
+        }
+    });
 
     // Bind to localhost 127.0.0.1:3030 only by default for witness security
     let addr = SocketAddr::from(([127, 0, 0, 1], 3030));
@@ -292,6 +306,10 @@ async fn get_consensus_policy() -> Json<ConsensusPolicy> {
     })
 }
 
+async fn get_remediation_policy() -> Json<RemediationPolicy> {
+    Json(get_default_remediation_policy())
+}
+
 // --- v0.3-alpha.4: Blast-Radius Preview Handler ---
 //
 // POST /api/v1/operation/blast-radius-preview
@@ -348,6 +366,89 @@ async fn post_policy_evaluate(
 ) -> Json<net_steward_discovery::policy::PolicyEvaluationVerdict> {
     use net_steward_discovery::policy::evaluate_policy;
     Json(evaluate_policy(&payload.policy, &payload.incident))
+}
+
+fn get_default_remediation_policy() -> RemediationPolicy {
+    RemediationPolicy {
+        policy_id: "default-remediation-policy".to_string(),
+        version: "remediation_policy_v0.1".to_string(),
+        rules: vec![RemediationRule {
+            rule_name: "auto-rollback-low-risk-drift".to_string(),
+            event_matcher: EventMatcher {
+                node_id: "any".to_string(),
+                min_severity: Severity::Low,
+                systemd_unit: None,
+                max_drift_status: Some(DriftStatus::DriftDetected),
+            },
+            execution_mode: ExecutionMode::Autonomous,
+            max_allowed_blast_radius: 0.85,
+            max_allowed_risk_tier: BlastRadiusRiskTier::Critical,
+            required_witnesses: 1,
+            target_rollback_generation: Some("427".to_string()),
+        }],
+    }
+}
+
+async fn run_observer_cycle() -> Option<net_steward_discovery::policy::PolicyEvaluationVerdict> {
+    let drift = generate_nixos_drift_report("luminous-router");
+    if drift.drift_status == net_steward_schema::DriftStatus::DriftDetected {
+        let topology = generate_comprehensive_demo_topology();
+        let safety_input = SafetyInput { drift, topology };
+        let provider = MockSafetyProofProvider::new();
+        if let Ok(incident) = provider.prove(&safety_input) {
+            let policy = get_default_remediation_policy();
+            use net_steward_discovery::policy::evaluate_policy;
+            let verdict = evaluate_policy(&policy, &incident);
+
+            if let net_steward_discovery::policy::PolicyEvaluationVerdict::Matched {
+                ref rule_name,
+                execution_mode: ExecutionMode::Autonomous,
+                target_rollback_generation: Some(ref generation),
+                ..
+            } = verdict
+            {
+                println!(
+                    "Observer Cycle: Autonomous rule '{}' matched. Triggering rollback to generation '{}'...",
+                    rule_name, generation
+                );
+
+                // Construct the OperationIntent
+                let intent = OperationIntent {
+                    intent_id: format!("auto-rollback-{}", generation),
+                    actor_did: "did:mycelix:net-steward-autonomous".to_string(),
+                    target_node_id: "luminous-router".to_string(),
+                    operation_kind: net_steward_schema::OperationKind::GenerateRollbackPlan,
+                    reason: format!("Autonomous remediation triggered by rule: {}", rule_name),
+                    evidence_refs: vec![incident.incident_id.clone()],
+                    rollback_plan_ref: Some(format!("Generation {}", generation)),
+                    expires_at_unix_ms: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64
+                        + 300_000,
+                };
+
+                // Apply the operation via LabControlledExecutor
+                let lab_mode = std::env::var("NET_STEWARD_LAB_MODE").unwrap_or_default() == "1";
+                let executor = LabControlledExecutor { lab_mode };
+                use net_steward_schema::OperationExecutor;
+                match executor.apply(&intent) {
+                    Ok(exec_res) => {
+                        println!(
+                            "Observer Cycle: Autonomous execution succeeded: {:?}",
+                            exec_res
+                        );
+                    }
+                    Err(err) => {
+                        println!("Observer Cycle: Autonomous execution failed: {}", err);
+                    }
+                }
+            }
+
+            return Some(verdict);
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -412,5 +513,61 @@ mod tests {
                 target_rollback_generation: Some("427".to_string()),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_observer_cycle_triggers_correctly() {
+        use net_steward_discovery::policy::PolicyEvaluationVerdict;
+        let verdict = run_observer_cycle().await;
+        assert!(verdict.is_some());
+        assert_eq!(
+            verdict.unwrap(),
+            PolicyEvaluationVerdict::Matched {
+                rule_name: "auto-rollback-low-risk-drift".to_string(),
+                execution_mode: ExecutionMode::Autonomous,
+                required_witnesses: 1,
+                target_rollback_generation: Some("427".to_string()),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_autonomous_remediation_loop_execution() {
+        use net_steward_discovery::policy::PolicyEvaluationVerdict;
+
+        // 1. Force lab mode for the test
+        std::env::set_var("NET_STEWARD_LAB_MODE", "1");
+
+        // 2. Set mock state to generation 428 (drifted)
+        let state_file = std::path::Path::new("/tmp/net_steward_mock_nixos_generation");
+        std::fs::write(state_file, "428").unwrap();
+
+        // 3. Run first observer cycle - should trigger remediation and succeed
+        let verdict_1 = run_observer_cycle().await;
+        assert!(verdict_1.is_some());
+        assert_eq!(
+            verdict_1.unwrap(),
+            PolicyEvaluationVerdict::Matched {
+                rule_name: "auto-rollback-low-risk-drift".to_string(),
+                execution_mode: ExecutionMode::Autonomous,
+                required_witnesses: 1,
+                target_rollback_generation: Some("427".to_string()),
+            }
+        );
+
+        // 4. Verify that state was rolled back to 427
+        let current_gen = std::fs::read_to_string(state_file)
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        assert_eq!(current_gen, "427");
+
+        // 5. Run second observer cycle - should see InSync and return None (no trigger needed)
+        let verdict_2 = run_observer_cycle().await;
+        assert!(verdict_2.is_none());
+
+        // Clean up
+        if state_file.exists() {
+            let _ = std::fs::remove_file(state_file);
+        }
     }
 }

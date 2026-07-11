@@ -14,6 +14,14 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Submit a new membership application
 #[hdk_extern]
 pub fn submit_application(app: MemberApplication) -> ExternResult<Record> {
+    // applicant is derived from the real caller rather than trusted from
+    // input -- fixed 2026-07-09 during the P0 author-binding pass
+    // (previously any agent could forge a victim agent as applicant).
+    let app = MemberApplication {
+        applicant: agent_info()?.agent_initial_pubkey,
+        ..app
+    };
+
     for reference in &app.references {
         if reference.len() > 512 {
             return Err(wasm_error!(WasmErrorInner::Guest(

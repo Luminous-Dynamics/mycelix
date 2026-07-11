@@ -24,6 +24,12 @@
           };
         };
 
+        # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
+        # truth), not stable.latest, so devShell builds can't silently drift from the pin
+        # and fragment sccache's cache (compiler binary is part of its cache key).
+        rustToolchainToml = builtins.fromTOML (builtins.readFile ../rust-toolchain.toml);
+        rustChannel = rustToolchainToml.toolchain.channel;
+
         pythonEnv = pkgs.python313.withPackages (ps: with ps; [
           numpy
           torch-bin
@@ -58,7 +64,7 @@
             packages = with pkgs; [
               pythonEnv
               poetry
-              rust-bin.stable.latest.default
+              rust-bin.stable.${rustChannel}.default
               solc
               foundry
               nodejs_20

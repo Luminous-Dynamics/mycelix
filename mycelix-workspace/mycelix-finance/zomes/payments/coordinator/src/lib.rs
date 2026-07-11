@@ -11,13 +11,14 @@ use hdk::prelude::*;
 use mycelix_finance_shared::{
     DEFAULT_RATE_LIMIT_PER_MINUTE, anchor_hash, follow_update_chain, links_to_records,
     rate_limit_anchor_key, validate_did_format, validate_id, verify_caller_is_did,
-    verify_citizen_tier, verify_participant_tier,
+    verify_citizen_tier, verify_participant_tier, verify_steward_tier,
 };
 use mycelix_finance_types::{
+    AMBER_CUSTODIAL_CAP_MICRO_SAP, AMBER_MAX_CAP_MICRO_SAP, AmberClass, AmberExemption,
     COMPOST_LOCAL_PCT, COMPOST_MAX_RETRIES, COMPOST_REGIONAL_PCT, CompostPoolTier,
     DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, FeeTier, PendingCompost, SAP_MINT_ANNUAL_MAX,
     SAP_MINT_PER_PROPOSAL_MAX, SapMintCapCounter, SapMintSource, SuccessionPreference,
-    compute_demurrage_deduction,
+    compute_demurrage_deduction, compute_demurrage_with_exemption,
 };
 use payments_integrity::*;
 
@@ -44,6 +45,7 @@ pub fn initialize_sap_balance(member_did: String) -> ExternResult<Record> {
         member_did: member_did.clone(),
         balance: 0,
         last_demurrage_at: now,
+        exemption: None,
     };
 
     let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
@@ -68,8 +70,15 @@ pub fn get_sap_balance(member_did: String) -> ExternResult<SapBalanceResponse> {
     let (record, bal) = get_sap_balance_inner(&member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-    let deduction =
-        compute_demurrage_deduction(bal.balance, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, elapsed);
+    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+    let deduction = compute_demurrage_with_exemption(
+        bal.balance,
+        bal.exemption.as_ref(),
+        now_secs,
+        DEMURRAGE_EXEMPT_FLOOR,
+        DEMURRAGE_RATE,
+        elapsed,
+    );
     let _ = record; // used only for existence check
     Ok(SapBalanceResponse {
         member_did: bal.member_did,
@@ -78,6 +87,92 @@ pub fn get_sap_balance(member_did: String) -> ExternResult<SapBalanceResponse> {
         pending_demurrage: deduction,
         last_demurrage_at: bal.last_demurrage_at.as_micros(),
     })
+}
+
+// =============================================================================
+// AMBER — grant / revoke a protected demurrage-exempt tranche
+// =============================================================================
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GrantAmberInput {
+    pub member_did: String,
+    pub class: AmberClass,
+    pub cap_micro_sap: u64,
+    /// Unix seconds at which the exemption lapses (must be in the future).
+    pub expires_at_secs: u64,
+}
+
+/// Grant an Amber exemption (protected, demurrage-exempt SAP) to a member.
+///
+/// Anti-abuse posture (v1): the issuer must be a Steward — peers cannot mint tax-free
+/// status for each other; the issuer is bound to the caller and must differ from the
+/// holder; the cap is ceilinged at `AMBER_MAX_CAP_MICRO_SAP`; the exemption must expire.
+/// Full child/elder credential verification via mycelix-identity is deferred to the
+/// Phase 2.5 cross-cluster wiring — this is the Steward-tier + issuer≠member + cap + expiry gate.
+#[hdk_extern]
+pub fn grant_amber_exemption(input: GrantAmberInput) -> ExternResult<Record> {
+    // Fail-closed tier gate (enforced via `?`, not the decorative gate_civic path).
+    verify_steward_tier()?;
+
+    let issuer_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+    if issuer_did == input.member_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Amber cannot be self-issued".into()
+        )));
+    }
+
+    let now = sys_time()?;
+    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+    if input.expires_at_secs <= now_secs {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Amber exemption expiry must be in the future".into()
+        )));
+    }
+
+    // Cap by class: Custodial (a child/elder) is bounded tightly to limit commons-compost
+    // leakage (ABM-sized); Project pools may hold more, up to the governance ceiling.
+    let cap_ceiling = match input.class {
+        AmberClass::Custodial => AMBER_CUSTODIAL_CAP_MICRO_SAP,
+        AmberClass::Project => AMBER_MAX_CAP_MICRO_SAP,
+    };
+    let cap = input.cap_micro_sap.min(cap_ceiling);
+    let exemption = AmberExemption {
+        class: input.class,
+        issuer: issuer_did,
+        cap_micro_sap: cap,
+        expires_at_secs: input.expires_at_secs,
+    };
+
+    let (record, bal) = get_sap_balance_inner(&input.member_did)?;
+    let updated = SapBalance {
+        exemption: Some(exemption),
+        ..bal
+    };
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SAP balance record not found after Amber grant".into()
+    )))
+}
+
+/// Revoke a member's Amber exemption (Steward authority).
+#[hdk_extern]
+pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
+    verify_steward_tier()?;
+    let (record, bal) = get_sap_balance_inner(&member_did)?;
+    let updated = SapBalance {
+        exemption: None,
+        ..bal
+    };
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SAP balance record not found after Amber revoke".into()
+    )))
 }
 
 /// Apply demurrage to a member's SAP balance and redistribute the deducted
@@ -92,8 +187,15 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let (record, bal) = get_sap_balance_inner(&input.member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-    let deduction =
-        compute_demurrage_deduction(bal.balance, DEMURRAGE_EXEMPT_FLOOR, DEMURRAGE_RATE, elapsed);
+    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+    let deduction = compute_demurrage_with_exemption(
+        bal.balance,
+        bal.exemption.as_ref(),
+        now_secs,
+        DEMURRAGE_EXEMPT_FLOOR,
+        DEMURRAGE_RATE,
+        elapsed,
+    );
 
     if deduction == 0 {
         return Ok(DemurrageResult {
@@ -330,6 +432,15 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// Uses optimistic locking with retry: after updating, re-reads via
 /// `follow_update_chain` to verify our update won. If a concurrent update
 /// created a fork, retries up to `MAX_SAP_RETRIES` times.
+///
+/// KNOWN HOLE (tracked, not yet closed): this is still a public extern that mints
+/// SAP into any DID. Unlike `debit_sap`, it can't be guarded with a caller==member
+/// check — legitimate credits target *other* members (payee in a transfer) AND the
+/// caller's own balance (bridge collateral deposit, pool withdrawal), so no single
+/// caller rule is correct. The proper fix is the transfer refactor: fold debit+credit
+/// into one conservation-preserving `transfer_sap`, make raw credit non-public, and
+/// route all issuance through authorized mints (`mint_sap_from_governance` already
+/// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
     // Opportunistically drain any pending compost deliveries
@@ -347,6 +458,7 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
             member_did: input.member_did.clone(),
             balance: input.amount,
             last_demurrage_at: now,
+            exemption: None,
         };
         let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
         create_link(
@@ -374,8 +486,11 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
         // avoid double-application against a stale balance.
         let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
         let post_demurrage = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let deduction = compute_demurrage_deduction(
+            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+            let deduction = compute_demurrage_with_exemption(
                 bal.balance,
+                bal.exemption.as_ref(),
+                now_secs,
                 DEMURRAGE_EXEMPT_FLOOR,
                 DEMURRAGE_RATE,
                 elapsed,
@@ -440,8 +555,16 @@ pub struct CreditSapInput {
 ///
 /// Uses optimistic locking with retry: after updating, re-reads to verify
 /// our update won. If a concurrent update created a fork, retries.
+///
+/// AUTHORIZATION: only the balance owner may debit their own balance. Every
+/// legitimate caller (`send_payment`, bridge `process_payment`, `redeem_collateral`)
+/// already verifies caller == the debited member before reaching here, and each
+/// runs in that member's agent context, so this guard is transparent to them —
+/// it closes the previously-open "drain any DID's balance" hole for direct callers.
 #[hdk_extern]
 pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
+    verify_caller_is_did(&input.member_did)?;
+
     // Opportunistically drain any pending compost deliveries
     if let Err(e) = drain_pending_compost_inner() {
         debug!(
@@ -459,8 +582,11 @@ pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
         // and updated last_demurrage_at (avoids double-application on retry).
         let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
         let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let deduction = compute_demurrage_deduction(
+            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+            let deduction = compute_demurrage_with_exemption(
                 bal.balance,
+                bal.exemption.as_ref(),
+                now_secs,
                 DEMURRAGE_EXEMPT_FLOOR,
                 DEMURRAGE_RATE,
                 elapsed,
@@ -527,6 +653,51 @@ pub struct DebitSapInput {
     pub member_did: String,
     pub amount: u64,
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TransferSapInput {
+    pub from_did: String,
+    pub to_did: String,
+    pub amount: u64,
+}
+
+/// Conservation-preserving SAP transfer: debit `from`, credit `to` by the same amount.
+///
+/// This is the SANCTIONED way to move existing SAP between members. Unlike raw
+/// `credit_sap`, the credit here is *backed by an equal debit* and *authorized by the
+/// sender* (`verify_caller_is_did(from)`, also re-checked inside `debit_sap`). Callers
+/// that only move value between two members — e.g. bridge `process_payment` — should
+/// use this instead of a separate debit + credit, so no raw mint surface is exposed.
+///
+/// Debit precedes credit (same ordering/atomicity caveat as `send_payment`): if credit
+/// fails after a successful debit, the sender's SAP is already gone — a pre-existing DHT
+/// limitation (no multi-entry atomicity) that the Phase-1 conservation rebuild will close.
+#[hdk_extern]
+pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
+    verify_caller_is_did(&input.from_did)?;
+    if input.from_did == input.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot transfer SAP to yourself".into()
+        )));
+    }
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer amount must be positive".into()
+        )));
+    }
+    // Debit the sender (enforces caller==from, demurrage, sufficient balance).
+    debit_sap(DebitSapInput {
+        member_did: input.from_did.clone(),
+        amount: input.amount,
+        reason: format!("Transfer to {}", input.to_did),
+    })?;
+    // Credit the receiver — backed by the debit above.
+    credit_sap(CreditSapInput {
+        member_did: input.to_did.clone(),
+        amount: input.amount,
+        reason: format!("Transfer from {}", input.from_did),
+    })
 }
 
 // ---------------------------------------------------------------------------

@@ -7,12 +7,35 @@ members = [
     "zomes/pools/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
+
+    # Added to the workspace 2026-07-09 during the P0 author-binding
+    # pass -- these existed on disk (and reference `version.workspace`/
+    # `edition.workspace`/`license.workspace` and a `mutualaid_common`
+    # workspace dependency below) but were never wired in, so they
+    # never compiled and were never packaged. `zomes/governance` was
+    # NOT added: it has Cargo.toml files but no `src/lib.rs` at all
+    # (a true empty scaffold), so it can't build regardless.
+    "crates/mutualaid_common",
+    "zomes/circles/integrity",
+    "zomes/circles/coordinator",
+    "zomes/needs/integrity",
+    "zomes/needs/coordinator",
+    "zomes/resources/integrity",
+    "zomes/resources/coordinator",
+    "zomes/timebank/integrity",
+    "zomes/timebank/coordinator",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 # Holochain 0.7 compatible
 hdi = "0.7"
 hdk = "0.6"
+holochain_integrity_types = "0.6"
 
 # Required by hdk macros
 holochain_serialized_bytes = "0.0.56"
@@ -24,6 +47,9 @@ serde_json = "1.0"
 # WASM compatibility - getrandom 0.2 with "js" feature for Holochain WASM runtime
 getrandom = { version = "0.2", features = ["js"] }
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
+# Shared types for circles/needs/resources/timebank/governance
+mutualaid_common = { path = "crates/mutualaid_common" }
 
 [profile.dev]
 opt-level = "z"

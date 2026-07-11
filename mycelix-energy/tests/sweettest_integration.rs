@@ -17,8 +17,8 @@
 //! cargo test --test sweettest_integration -- --ignored
 //! ```
 
-use holochain::sweettest::*;
 use holochain::prelude::*;
+use holochain::sweettest::*;
 use std::path::PathBuf;
 
 // ============================================================================
@@ -612,7 +612,11 @@ mod investments_tests {
 
         // Confirm investment
         let confirmed: Record = conductor
-            .call(&cell.zome("investments"), "confirm_investment", investment.id.clone())
+            .call(
+                &cell.zome("investments"),
+                "confirm_investment",
+                investment.id.clone(),
+            )
             .await;
 
         let confirmed_inv: Investment = decode_entry(&confirmed).expect("decode confirmed");
@@ -629,7 +633,9 @@ mod investments_tests {
 
         let investor = "did:mycelix:portfolio-investor".to_string();
 
-        // Pledge multiple investments
+        // Pledge multiple investments, then confirm each -- get_portfolio_summary
+        // only counts InvestmentStatus::Confirmed, not the initial Pledged status
+        // pledge_investment leaves them in.
         for i in 0..3u32 {
             let pledge_input = PledgeInput {
                 project_id: format!("proj:energy-{}", i),
@@ -640,17 +646,32 @@ mod investments_tests {
                 share_percentage: 1.0 * (i + 1) as f64,
                 investment_type: InvestmentType::Equity,
             };
-            let _: Record = conductor
+            let pledge_record: Record = conductor
                 .call(&cell.zome("investments"), "pledge_investment", pledge_input)
+                .await;
+            let investment: Investment = decode_entry(&pledge_record).expect("decode investment");
+            let _: Record = conductor
+                .call(
+                    &cell.zome("investments"),
+                    "confirm_investment",
+                    investment.id,
+                )
                 .await;
         }
 
         let summary: PortfolioSummary = conductor
-            .call(&cell.zome("investments"), "get_portfolio_summary", investor.clone())
+            .call(
+                &cell.zome("investments"),
+                "get_portfolio_summary",
+                investor.clone(),
+            )
             .await;
 
         assert_eq!(summary.investor_did, investor);
-        assert!(summary.total_invested > 0.0, "Should have total invested amount");
+        assert!(
+            summary.total_invested > 0.0,
+            "Should have total invested amount"
+        );
     }
 }
 
@@ -694,7 +715,11 @@ mod regenerative_tests {
         };
 
         let record: Record = conductor
-            .call(&cell.zome("regenerative"), "create_regenerative_contract", input)
+            .call(
+                &cell.zome("regenerative"),
+                "create_regenerative_contract",
+                input,
+            )
             .await;
 
         let contract: RegenerativeContract = decode_entry(&record).expect("decode contract");
@@ -736,10 +761,17 @@ mod bridge_tests {
         };
 
         let record: Record = conductor
-            .call(&cell.zome("energy_bridge"), "sync_terra_atlas_project", input)
+            .call(
+                &cell.zome("energy_bridge"),
+                "sync_terra_atlas_project",
+                input,
+            )
             .await;
 
-        assert!(record.entry().as_option().is_some(), "Should create bridge record");
+        assert!(
+            record.entry().as_option().is_some(),
+            "Should create bridge record"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -760,7 +792,10 @@ mod bridge_tests {
             .call(&cell.zome("energy_bridge"), "broadcast_energy_event", input)
             .await;
 
-        assert!(record.entry().as_option().is_some(), "Should create event record");
+        assert!(
+            record.entry().as_option().is_some(),
+            "Should create event record"
+        );
     }
 }
 
@@ -855,10 +890,15 @@ mod lifecycle_tests {
         };
 
         let contract_record: Record = conductor
-            .call(&cell.zome("regenerative"), "create_regenerative_contract", contract_input)
+            .call(
+                &cell.zome("regenerative"),
+                "create_regenerative_contract",
+                contract_input,
+            )
             .await;
 
-        let contract: RegenerativeContract = decode_entry(&contract_record).expect("decode contract");
+        let contract: RegenerativeContract =
+            decode_entry(&contract_record).expect("decode contract");
         assert_eq!(contract.project_id, project.id);
 
         // 5. Verify project state
@@ -909,13 +949,24 @@ mod cross_zome_tests {
             .call(&cell.zome("investments"), "pledge_investment", pledge_input)
             .await;
         let investment: Investment = decode_entry(&inv_record).expect("decode investment");
-        assert_eq!(investment.project_id, project.id, "Investment must reference the correct project");
+        assert_eq!(
+            investment.project_id, project.id,
+            "Investment must reference the correct project"
+        );
 
         // Verify via query
         let project_investments: Vec<Record> = conductor
-            .call(&cell.zome("investments"), "get_project_investments", project.id.clone())
+            .call(
+                &cell.zome("investments"),
+                "get_project_investments",
+                project.id.clone(),
+            )
             .await;
-        assert_eq!(project_investments.len(), 1, "Project should have exactly 1 investment");
+        assert_eq!(
+            project_investments.len(),
+            1,
+            "Project should have exactly 1 investment"
+        );
     }
 
     /// Verify grid production references valid projects
@@ -963,36 +1014,82 @@ mod cross_zome_tests {
         // Register 2 projects
         let proj1_input = make_test_project("portfolio-proj-1", "Solar", 10.0);
         let proj1: EnergyProject = decode_entry(
-            &conductor.call::<_, Record>(&cell.zome("projects"), "register_project", proj1_input).await
-        ).unwrap();
+            &conductor
+                .call::<_, Record>(&cell.zome("projects"), "register_project", proj1_input)
+                .await,
+        )
+        .unwrap();
 
         let proj2_input = make_test_project("portfolio-proj-2", "Wind", 20.0);
         let proj2: EnergyProject = decode_entry(
-            &conductor.call::<_, Record>(&cell.zome("projects"), "register_project", proj2_input).await
-        ).unwrap();
+            &conductor
+                .call::<_, Record>(&cell.zome("projects"), "register_project", proj2_input)
+                .await,
+        )
+        .unwrap();
 
         // Same investor pledges to both
         let investor_did = "did:mycelix:multi-investor".to_string();
 
-        let _: Record = conductor.call(&cell.zome("investments"), "pledge_investment", PledgeInput {
-            project_id: proj1.id.clone(),
-            investor_did: investor_did.clone(),
-            amount: 25000.0, currency: "USD".into(), shares: 250.0,
-            share_percentage: 5.0, investment_type: InvestmentType::Equity,
-        }).await;
+        // get_portfolio_summary only counts InvestmentStatus::Confirmed, not
+        // the initial Pledged status pledge_investment leaves them in --
+        // confirm each pledge before checking the summary.
+        let inv1: Investment = decode_entry(
+            &conductor
+                .call::<_, Record>(
+                    &cell.zome("investments"),
+                    "pledge_investment",
+                    PledgeInput {
+                        project_id: proj1.id.clone(),
+                        investor_did: investor_did.clone(),
+                        amount: 25000.0,
+                        currency: "USD".into(),
+                        shares: 250.0,
+                        share_percentage: 5.0,
+                        investment_type: InvestmentType::Equity,
+                    },
+                )
+                .await,
+        )
+        .unwrap();
+        let _: Record = conductor
+            .call(&cell.zome("investments"), "confirm_investment", inv1.id)
+            .await;
 
-        let _: Record = conductor.call(&cell.zome("investments"), "pledge_investment", PledgeInput {
-            project_id: proj2.id.clone(),
-            investor_did: investor_did.clone(),
-            amount: 75000.0, currency: "USD".into(), shares: 750.0,
-            share_percentage: 7.5, investment_type: InvestmentType::CommunityShare,
-        }).await;
+        let inv2: Investment = decode_entry(
+            &conductor
+                .call::<_, Record>(
+                    &cell.zome("investments"),
+                    "pledge_investment",
+                    PledgeInput {
+                        project_id: proj2.id.clone(),
+                        investor_did: investor_did.clone(),
+                        amount: 75000.0,
+                        currency: "USD".into(),
+                        shares: 750.0,
+                        share_percentage: 7.5,
+                        investment_type: InvestmentType::CommunityShare,
+                    },
+                )
+                .await,
+        )
+        .unwrap();
+        let _: Record = conductor
+            .call(&cell.zome("investments"), "confirm_investment", inv2.id)
+            .await;
 
         // Verify portfolio summary
         let summary: PortfolioSummary = conductor
-            .call(&cell.zome("investments"), "get_portfolio_summary", investor_did)
+            .call(
+                &cell.zome("investments"),
+                "get_portfolio_summary",
+                investor_did,
+            )
             .await;
-        assert_eq!(summary.total_invested, 100000.0, "Total should be 25k + 75k");
+        assert_eq!(
+            summary.total_invested, 100000.0,
+            "Total should be 25k + 75k"
+        );
         assert_eq!(summary.unique_projects, 2, "Should span 2 projects");
     }
 
@@ -1040,7 +1137,116 @@ mod cross_zome_tests {
         let active: Vec<Record> = conductor
             .call(&cell.zome("grid"), "get_active_offers", ())
             .await;
-        assert!(!active.is_empty(), "Partially filled offer should still be listed");
+        assert!(
+            !active.is_empty(),
+            "Partially filled offer should still be listed"
+        );
+    }
+
+    /// `get_active_offers` reads through daily-sharded anchors
+    /// (`offer_anchor_key`/`offer_anchor_keys_for_lookback`) rather than one
+    /// global anchor. An offer created "now" must still be linked from, and
+    /// discoverable via, today's bucket -- this is the write/read
+    /// consistency the sharding change depends on, only provable by real
+    /// zome execution (unit tests only cover the pure bucket-key math).
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_offer_discoverable_via_sharded_anchor() {
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let dna = load_dna().await;
+        let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
+        let cell = app.cells()[0].clone();
+
+        let now = Timestamp::now();
+        let later = Timestamp::from_micros(now.as_micros() + 86_400_000_000);
+
+        let offer_input = CreateOfferInput {
+            seller_did: "did:mycelix:shard-seller".to_string(),
+            project_id: None,
+            amount_kwh: 500.0,
+            price_per_kwh: 0.10,
+            currency: "USD".to_string(),
+            available_from: now,
+            available_until: later,
+        };
+        let offer_record: Record = conductor
+            .call(&cell.zome("grid"), "create_trade_offer", offer_input)
+            .await;
+        let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
+
+        let active: Vec<Record> = conductor
+            .call(&cell.zome("grid"), "get_active_offers", ())
+            .await;
+        let found = active.iter().any(|r| {
+            decode_entry::<TradeOffer>(r)
+                .map(|o| o.id == offer.id)
+                .unwrap_or(false)
+        });
+        assert!(
+            found,
+            "Offer created just now must appear via today's sharded anchor bucket"
+        );
+    }
+
+    /// `execute_trade` must reject a trade against an offer whose
+    /// `available_until` has already passed, even though the stored
+    /// `OfferStatus` still reads `Active` (expiry is enforced on read, not
+    /// by mutating stored offers -- see `offer_not_expired` in grid coordinator).
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore]
+    async fn test_execute_trade_rejects_expired_offer() {
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let dna = load_dna().await;
+        let app = conductor.setup_app("test-app", &[dna]).await.unwrap();
+        let cell = app.cells()[0].clone();
+
+        let now = Timestamp::now();
+        // Expired a day ago.
+        let expired_at = Timestamp::from_micros(now.as_micros() - 86_400_000_000);
+
+        let offer_input = CreateOfferInput {
+            seller_did: "did:mycelix:expired-seller".to_string(),
+            project_id: None,
+            amount_kwh: 300.0,
+            price_per_kwh: 0.09,
+            currency: "USD".to_string(),
+            available_from: expired_at,
+            available_until: expired_at,
+        };
+        let offer_record: Record = conductor
+            .call(&cell.zome("grid"), "create_trade_offer", offer_input)
+            .await;
+        let offer: TradeOffer = decode_entry(&offer_record).expect("decode offer");
+
+        // Read side: an expired offer must not appear as active even though
+        // its stored status is still `Active`.
+        let active: Vec<Record> = conductor
+            .call(&cell.zome("grid"), "get_active_offers", ())
+            .await;
+        let still_listed = active.iter().any(|r| {
+            decode_entry::<TradeOffer>(r)
+                .map(|o| o.id == offer.id)
+                .unwrap_or(false)
+        });
+        assert!(
+            !still_listed,
+            "Expired offer must be excluded from active offers"
+        );
+
+        // Write side: attempting to trade against it must fail, not silently
+        // execute against a stale price/quantity.
+        let trade_input = ExecuteTradeInput {
+            offer_id: offer.id.clone(),
+            buyer_did: "did:mycelix:late-buyer".to_string(),
+            amount_kwh: 100.0,
+        };
+        let result: Result<Record, _> = conductor
+            .call_fallible(&cell.zome("grid"), "execute_trade", trade_input)
+            .await;
+        assert!(
+            result.is_err(),
+            "execute_trade must reject a trade against an expired offer"
+        );
     }
 }
 

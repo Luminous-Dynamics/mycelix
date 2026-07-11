@@ -424,10 +424,34 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate stake creation
+/// Enforce that a stake's `staker_did` is the committing agent's DID. Pure so
+/// it can be unit-tested without a full Create action.
+fn require_staker_is_author(staker_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if staker_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Staker DID must be the committing agent (stake forgery / Sybil). \
+             Expected '{author_did}', got '{staker_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_stake(
-    _action: Create,
+    action: Create,
     stake: CollateralStake,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the stake to its committer — the coordinator's create_stake already
+    // enforces verify_caller_is_did(staker_did); enforce it in integrity too so
+    // a modified coordinator can't forge stakes for another DID or spin up Sybil
+    // stakes on victims' identities. (You always stake your OWN collateral, so
+    // this never rejects a legitimate stake.)
+    let author_did = format!("did:mycelix:{}", action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_staker_is_author(&stake.staker_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if stake.staker_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -775,6 +799,25 @@ fn validate_reward_distribution(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn staker_must_be_committing_agent() {
+        let me = "did:mycelix:uhCAkSELF";
+        assert!(matches!(
+            require_staker_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        // Forging a stake as another DID (or a Sybil identity) is rejected.
+        match require_staker_is_author("did:mycelix:uhCAkVICTIM", me) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("forgery") || msg.contains("Sybil"),
+                    "reason: {msg}"
+                );
+            }
+            other => panic!("forged staker must be Invalid, got {other:?}"),
+        }
+    }
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)

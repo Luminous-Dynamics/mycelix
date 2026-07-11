@@ -13,27 +13,38 @@ use mycelix_zome_helpers as _;
 
 /// Create a new course
 #[hdk_extern]
-pub fn create_course(course: Course) -> ExternResult<ActionHash> {
+pub fn create_course(mut course: Course) -> ExternResult<ActionHash> {
     // 1. TRUST GATING (Vector 1: Resonant Authorship)
     let agent = agent_info()?.agent_initial_pubkey;
     let my_did = format!("did:mycelix:{}", agent);
-    let moral_resonance: f64 = call(
+    // Always the committing agent, never caller-supplied -- otherwise any
+    // agent could claim another agent authored their course (P0
+    // author-binding gap; integrity validation now enforces this too, see
+    // learning_zome integrity's validate_course).
+    course.creator = my_did.clone();
+    let resonance_response = call(
         CallTargetCell::OtherRole("identity".into()),
-        "identity_bridge".into(),
+        "identity_bridge",
         "get_reputation_score".into(),
         None,
         serde_json::json!({
             "did": my_did,
             "required_resonance": 0.7
         }),
-    )?
-    .decode()
-    .map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Resonance check failed: {:?}",
-            e
-        )))
-    })?;
+    )?;
+    let moral_resonance: f64 = match resonance_response {
+        ZomeCallResponse::Ok(bytes) => bytes.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Resonance check failed: {:?}",
+                e
+            )))
+        })?,
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Resonance check call failed".into()
+            )));
+        }
+    };
 
     if moral_resonance < 0.7 {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -108,7 +119,11 @@ pub fn delete_course(action_hash: ActionHash) -> ExternResult<ActionHash> {
 
 /// Record learner progress
 #[hdk_extern]
-pub fn update_progress(progress: LearnerProgress) -> ExternResult<ActionHash> {
+pub fn update_progress(mut progress: LearnerProgress) -> ExternResult<ActionHash> {
+    // Always the committing agent, never caller-supplied -- same rationale
+    // as create_course's identical fix above.
+    let agent = agent_info()?.agent_initial_pubkey;
+    progress.learner = format!("did:mycelix:{}", agent);
     let action_hash = create_entry(EntryTypes::LearnerProgress(progress))?;
     Ok(action_hash)
 }

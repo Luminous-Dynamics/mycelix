@@ -164,7 +164,7 @@ pub fn stake_on_claim_accuracy(input: StakeOnClaimInput) -> ExternResult<ActionH
     // We call the finance substrate to lock these funds.
     call(
         CallTargetCell::OtherRole("finance".into()),
-        "finance_bridge".into(),
+        "finance_bridge",
         "lock_funds_in_escrow".into(),
         None,
         serde_json::json!({

@@ -409,6 +409,17 @@ fn validate_update_credential(
             "Original trust credential not found".into()
         )))?;
 
+    // Bind the update to the original issuer -- revoke_credential already
+    // checks this coordinator-side, but that trusts the coordinator; this
+    // is the real DHT-level enforcement a modified coordinator can't
+    // bypass (P0 author-binding gap).
+    let committer_did = format!("did:mycelix:{}", action.author);
+    if committer_did != original.issuer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust credential update must be committed by its issuer".to_string(),
+        ));
+    }
+
     // Immutable fields
     if cred.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
@@ -472,9 +483,21 @@ fn validate_update_credential(
 
 /// Validate attestation request creation
 fn validate_create_request(
-    _action: Create,
+    action: Create,
     req: AttestationRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the request to its committer -- request_attestation already
+    // derives `requester_did` from agent_info() coordinator-side with zero
+    // user input, so this never rejects a legitimate request; it's the
+    // real DHT-level enforcement a modified coordinator could otherwise
+    // bypass (P0 author-binding gap).
+    let expected_requester = format!("did:mycelix:{}", action.author);
+    if req.requester_did != expected_requester {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Attestation request requester_did must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Requester must be a valid DID
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -535,6 +558,18 @@ fn validate_update_request(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original attestation request not found".into()
         )))?;
+
+    // Bind the update to the original subject -- fulfill_attestation/
+    // decline_attestation (the only paths that update this entry) already
+    // check the caller is the subject coordinator-side, but that trusts the
+    // coordinator; this is the real DHT-level enforcement a modified
+    // coordinator can't bypass (P0 author-binding gap).
+    let committer_did = format!("did:mycelix:{}", action.author);
+    if committer_did != original.subject_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Attestation request update must be committed by its subject".to_string(),
+        ));
+    }
 
     // Immutable fields
     if req.id != original.id {
@@ -718,9 +753,21 @@ mod tests {
 
 /// Validate trust presentation creation
 fn validate_create_presentation(
-    _action: Create,
+    action: Create,
     pres: TrustPresentation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the presentation to its committer -- create_presentation already
+    // derives `subject_did` from agent_info() coordinator-side with zero
+    // user input, so this never rejects a legitimate presentation; it's
+    // the real DHT-level enforcement a modified coordinator could
+    // otherwise bypass (P0 author-binding gap).
+    let expected_subject = format!("did:mycelix:{}", action.author);
+    if pres.subject_did != expected_subject {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust presentation subject_did must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Subject must be a valid DID
     if !pres.subject_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -752,4 +799,126 @@ fn validate_create_presentation(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_credential(issuer_did: String) -> TrustCredential {
+        TrustCredential {
+            id: "cred-1".to_string(),
+            subject_did: "did:mycelix:subject".to_string(),
+            issuer_did,
+            kvector_commitment: vec![0u8; 32],
+            range_proof: vec![1, 2, 3],
+            trust_score_range: TrustScoreRange {
+                lower: 0.4,
+                upper: 0.6,
+            },
+            trust_tier: TrustTier::Standard,
+            issued_at: Timestamp::from_micros(0),
+            expires_at: None,
+            revoked: false,
+            revocation_reason: None,
+            revoked_at: None,
+            supersedes: None,
+        }
+    }
+
+    #[test]
+    fn create_credential_valid_when_issuer_matches_committer() {
+        let cred = valid_credential(format!("did:mycelix:{}", me()));
+        let result = validate_create_credential(test_action(me()), cred).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_credential_issuer_forgery_rejected() {
+        let cred = valid_credential(format!("did:mycelix:{}", me()));
+        let result = validate_create_credential(test_action(other_agent()), cred).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_request(requester_did: String) -> AttestationRequest {
+        AttestationRequest {
+            id: "req-1".to_string(),
+            requester_did,
+            subject_did: "did:mycelix:subject".to_string(),
+            components: vec![KVectorComponent::Reputation],
+            min_trust_score: Some(0.5),
+            min_tier: None,
+            purpose: "test".to_string(),
+            expires_at: Timestamp::from_micros(1),
+            status: AttestationStatus::Pending,
+            created_at: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_request_valid_when_requester_matches_committer() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result = validate_create_request(test_action(me()), req).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_request_requester_forgery_rejected() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let result = validate_create_request(test_action(other_agent()), req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_presentation(subject_did: String) -> TrustPresentation {
+        TrustPresentation {
+            id: "pres-1".to_string(),
+            credential_id: "cred-1".to_string(),
+            subject_did,
+            disclosed_tier: TrustTier::Standard,
+            disclosed_range: None,
+            presentation_proof: vec![1, 2, 3],
+            verifier_did: None,
+            purpose: "test".to_string(),
+            presented_at: Timestamp::from_micros(0),
+            nonce: vec![1, 2, 3, 4],
+        }
+    }
+
+    #[test]
+    fn create_presentation_valid_when_subject_matches_committer() {
+        let pres = valid_presentation(format!("did:mycelix:{}", me()));
+        let result = validate_create_presentation(test_action(me()), pres).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_presentation_subject_forgery_rejected() {
+        let pres = valid_presentation(format!("did:mycelix:{}", me()));
+        let result = validate_create_presentation(test_action(other_agent()), pres).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

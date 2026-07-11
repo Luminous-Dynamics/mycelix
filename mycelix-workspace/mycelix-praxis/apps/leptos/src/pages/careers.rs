@@ -149,7 +149,7 @@ pub fn CareerPathPage() -> impl IntoView {
                 } else {
                     let mastered_count = prereqs
                         .iter()
-                        .filter(|pid| mastered_set.contains(*pid))
+                        .filter(|pid| mastered_set.contains(**pid))
                         .count();
                     ((mastered_count as f32 / prereqs.len() as f32) * 100.0) as u8
                 };
@@ -417,6 +417,7 @@ fn FruitCard(
                             {missing.iter().map(|(m, is_ready)| {
                                 let style = if *is_ready { "color: var(--warning); font-weight: 600" } else { "color: var(--text-tertiary)" };
                                 let icon = if *is_ready { "\u{2192} [READY] " } else { "\u{1F512} [LOCKED] " };
+                                let m = m.clone();
                                 view! {
                                     <li style=format!("font-size: 0.75rem; margin-bottom: 0.2rem; {}", style)>
                                         {icon} {m}

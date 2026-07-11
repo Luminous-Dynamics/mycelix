@@ -1,8 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    # Core orbital mechanics library (no Holochain deps)
-    "lib/orbital-mechanics",
+    # Core orbital mechanics library relocated 2026-07-07 to
+    # mycelix-workspace/crates/orbital-mechanics (standalone, no workspace
+    # membership — path-dependency below, see also root exclude list).
 
     # Tools
     "tools/celestrak-demo",

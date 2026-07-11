@@ -2159,6 +2159,49 @@ pub fn get_bridge_metrics(_: ()) -> ExternResult<String> {
     })
 }
 
+// ============================================================================
+// Sovereign Credential Proxy — backs #[sovereign_gated(...)] on grid::record_production
+// ============================================================================
+
+/// Proxy an 8D Sovereign Credential issuance request to the identity cluster.
+///
+/// `mycelix_bridge_common::sovereign_gate::gate_civic()` (invoked via the
+/// `#[sovereign_gated(...)]` macro) calls this LOCALLY (`CallTargetCell::Local`)
+/// by name on whichever bridge zome the gated function's own crate declares
+/// (here, `energy_bridge`) — it can't reach `identity` directly, since that's
+/// a different DNA/role. This proxies the call onward via
+/// `CallTargetCell::OtherRole("identity")`, matching the same pattern already
+/// proven in `mycelix-hearth/zomes/hearth-bridge` and
+/// `mycelix-commons/zomes/commons-bridge`. Fails closed (returns `Err`) if
+/// the `identity` role isn't installed alongside `energy` in the same hApp
+/// bundle, or if the identity cluster call itself fails -- there is
+/// deliberately no local fallback credential.
+#[hdk_extern]
+pub fn get_sovereign_credential(
+    did: String,
+) -> ExternResult<mycelix_bridge_common::sovereign_gate::SovereignCredential> {
+    let response = call(
+        CallTargetCell::OtherRole("identity".into()),
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("issue_sovereign_credential"),
+        None,
+        did.clone(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(extern_io) => extern_io.decode().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode sovereign credential: {:?}",
+                e
+            )))
+        }),
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Sovereign credential call failed for {}: {:?}",
+            did, other
+        )))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

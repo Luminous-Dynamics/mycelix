@@ -174,9 +174,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_query(
-    _action: Create,
+    action: Create,
     query: WaterQuery,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the query to its committer -- query_water/check_property_rights/
+    // verify_steward_identity already derive `requester` from agent_info()
+    // coordinator-side with zero user input, so this never rejects a
+    // legitimate query; it's the real DHT-level enforcement a modified
+    // coordinator could otherwise bypass (P0 author-binding gap).
+    if query.requester != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Query requester must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if query.params.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Query params cannot be empty".into(),
@@ -192,9 +203,18 @@ fn validate_create_query(
 }
 
 fn validate_create_event(
-    _action: Create,
+    action: Create,
     event: WaterEvent,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the event to its committer -- broadcast_event already derives
+    // `triggered_by` from agent_info() coordinator-side with zero user
+    // input, same rationale as validate_create_query above.
+    if event.triggered_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Event triggered_by must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if event.payload.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Event payload cannot be empty".into(),
@@ -207,4 +227,99 @@ fn validate_create_event(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_create_query_valid() {
+        let query = WaterQuery {
+            query_type: WaterQueryType::SourceStatus,
+            requester: test_action().author,
+            params: "{}".to_string(),
+            requested_at: Timestamp::from_micros(0),
+            response: None,
+            answered: false,
+        };
+        let result = validate_create_query(test_action(), query).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_query_requester_forgery_rejected() {
+        // requester claims test_action()'s author, but a different agent
+        // committed the action.
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let query = WaterQuery {
+            query_type: WaterQueryType::SourceStatus,
+            requester: test_action().author,
+            params: "{}".to_string(),
+            requested_at: Timestamp::from_micros(0),
+            response: None,
+            answered: false,
+        };
+        let result = validate_create_query(forged_action, query).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_query_invalid_json_rejected() {
+        let query = WaterQuery {
+            query_type: WaterQueryType::SourceStatus,
+            requester: test_action().author,
+            params: "not json".to_string(),
+            requested_at: Timestamp::from_micros(0),
+            response: None,
+            answered: false,
+        };
+        let result = validate_create_query(test_action(), query).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_event_valid() {
+        let event = WaterEvent {
+            event_type: WaterEventType::SourceRegistered,
+            payload: "{}".to_string(),
+            triggered_by: test_action().author,
+            occurred_at: Timestamp::from_micros(0),
+            reference_hash: None,
+        };
+        let result = validate_create_event(test_action(), event).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_event_triggered_by_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let event = WaterEvent {
+            event_type: WaterEventType::SourceRegistered,
+            payload: "{}".to_string(),
+            triggered_by: test_action().author,
+            occurred_at: Timestamp::from_micros(0),
+            reference_hash: None,
+        };
+        let result = validate_create_event(forged_action, event).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

@@ -657,7 +657,7 @@ pub fn mock_signatures() -> Vec<SignatureView> {
         SignatureView {
             id: "sig-1".into(),
             name: "Default".into(),
-            body_html: "<p>Best regards,<br>— Sent via <strong>Mycelix Pulse</strong> (PQC encrypted)</p>".into(),
+            body_html: "<p>Best regards,<br>— Sent via <strong>Mycelix Pulse</strong> (end-to-end encrypted, post-quantum ready)</p>".into(),
             is_default: true,
             use_for_new: true,
             use_for_reply: false,

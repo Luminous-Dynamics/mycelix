@@ -426,7 +426,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate relationship creation
-fn validate_create_relationship(_action: Create, relationship: Relationship) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_relationship(
+    action: Create,
+    relationship: Relationship,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate weight range
     if relationship.weight < 0.0 || relationship.weight > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -448,6 +451,20 @@ fn validate_create_relationship(_action: Create, relationship: Relationship) -> 
         ));
     }
 
+    // Author-binding: the coordinator's create_relationship now overwrites
+    // `creator` with the caller's own derived DID before creating the
+    // entry, but that's bypassable by a modified coordinator -- the
+    // integrity validator is the real security boundary. Without this, any
+    // agent could commit a Relationship claiming an arbitrary victim DID as
+    // its creator. Found + fixed 2026-07-09 during the P0 author-binding
+    // pass.
+    let expected_creator_did = format!("did:mycelix:{}", action.author);
+    if relationship.creator != expected_creator_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Relationship creator DID must correspond to the committing agent".into(),
+        ));
+    }
+
     // Validate properties is valid JSON if provided
     if let Some(ref props) = relationship.properties {
         if serde_json::from_str::<serde_json::Value>(props).is_err() {
@@ -461,7 +478,10 @@ fn validate_create_relationship(_action: Create, relationship: Relationship) -> 
 }
 
 /// Validate ontology creation
-fn validate_create_ontology(_action: Create, ontology: Ontology) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_ontology(
+    action: Create,
+    ontology: Ontology,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate namespace is a URI
     if !ontology.namespace.starts_with("http://") && !ontology.namespace.starts_with("https://") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -483,11 +503,31 @@ fn validate_create_ontology(_action: Create, ontology: Ontology) -> ExternResult
         ));
     }
 
+    // Author-binding: the coordinator's create_ontology now overwrites
+    // `creator` with the caller's own derived DID before creating the
+    // entry, but that's bypassable by a modified coordinator -- the
+    // integrity validator is the real security boundary. Without this, any
+    // agent could commit an Ontology claiming an arbitrary victim DID as
+    // its creator. Found + fixed 2026-07-09 during the P0 author-binding
+    // pass.
+    let expected_creator_did = format!("did:mycelix:{}", action.author);
+    if ontology.creator != expected_creator_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Ontology creator DID must correspond to the committing agent".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate concept creation
-fn validate_create_concept(_action: Create, concept: Concept) -> ExternResult<ValidateCallbackResult> {
+/// No author-binding possible: Concept has no self-declared owner/creator
+/// AgentPubKey or DID field. Reviewed 2026-07-09 during the P0
+/// author-binding pass; case (a).
+fn validate_create_concept(
+    _action: Create,
+    concept: Concept,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate name not empty
     if concept.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -506,7 +546,15 @@ fn validate_create_concept(_action: Create, concept: Concept) -> ExternResult<Va
 }
 
 /// Validate belief node creation
-fn validate_create_belief_node(_action: Create, node: BeliefNode) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: BeliefNode has no self-declared owner/
+/// creator field -- it's a computed belief-propagation state (strength,
+/// confidence, influences), not an identity claim. Reviewed 2026-07-09
+/// during the P0 author-binding pass; case (a).
+fn validate_create_belief_node(
+    _action: Create,
+    node: BeliefNode,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate belief strength range
     if node.belief_strength < 0.0 || node.belief_strength > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -532,7 +580,14 @@ fn validate_create_belief_node(_action: Create, node: BeliefNode) -> ExternResul
 }
 
 /// Validate information value creation
-fn validate_create_information_value(_action: Create, val: InformationValue) -> ExternResult<ValidateCallbackResult> {
+///
+/// No author-binding possible: InformationValue has no self-declared
+/// owner/creator field -- it's a computed value-of-information assessment.
+/// Reviewed 2026-07-09 during the P0 author-binding pass; case (a).
+fn validate_create_information_value(
+    _action: Create,
+    val: InformationValue,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate expected value is non-negative
     if val.expected_value < 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -558,7 +613,16 @@ fn validate_create_information_value(_action: Create, val: InformationValue) -> 
 }
 
 /// Validate relationship update
-fn validate_update_relationship(_action: Update, relationship: Relationship) -> ExternResult<ValidateCallbackResult> {
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
+/// `update_action.author == *original.hashed.author()` for every entry
+/// type), so this function only needs to check content invariants, not
+/// identity.
+fn validate_update_relationship(
+    _action: Update,
+    relationship: Relationship,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate weight range
     if relationship.weight < 0.0 || relationship.weight > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -570,7 +634,14 @@ fn validate_update_relationship(_action: Update, relationship: Relationship) -> 
 }
 
 /// Validate ontology update
-fn validate_update_ontology(_action: Update, ontology: Ontology) -> ExternResult<ValidateCallbackResult> {
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()`, so this function
+/// only needs to check content invariants, not identity.
+fn validate_update_ontology(
+    _action: Update,
+    ontology: Ontology,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate schema is valid JSON
     if serde_json::from_str::<serde_json::Value>(&ontology.schema).is_err() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -582,7 +653,14 @@ fn validate_update_ontology(_action: Update, ontology: Ontology) -> ExternResult
 }
 
 /// Validate belief node update
-fn validate_update_belief_node(_action: Update, node: BeliefNode) -> ExternResult<ValidateCallbackResult> {
+///
+/// Author-binding for updates is already enforced universally by this
+/// crate's `FlatOp::RegisterUpdate` arm in `validate()`, so this function
+/// only needs to check content invariants, not identity.
+fn validate_update_belief_node(
+    _action: Update,
+    node: BeliefNode,
+) -> ExternResult<ValidateCallbackResult> {
     // Validate belief strength range
     if node.belief_strength < 0.0 || node.belief_strength > 1.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -591,4 +669,88 @@ fn validate_update_belief_node(_action: Update, node: BeliefNode) -> ExternResul
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_relationship(creator: String) -> Relationship {
+        Relationship {
+            id: "rel-1".into(),
+            source: "claim-1".into(),
+            target: "claim-2".into(),
+            relationship_type: RelationshipType::Supports,
+            weight: 0.5,
+            properties: None,
+            creator,
+            created: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_relationship_valid_when_creator_matches_committer() {
+        let rel = valid_relationship(format!("did:mycelix:{}", me()));
+        let result = validate_create_relationship(test_action(me()), rel).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_relationship_creator_forgery_rejected() {
+        let rel = valid_relationship(format!("did:mycelix:{}", me()));
+        let result = validate_create_relationship(test_action(other_agent()), rel).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_ontology(creator: String) -> Ontology {
+        Ontology {
+            id: "ont-1".into(),
+            name: "Test Ontology".into(),
+            description: "desc".into(),
+            namespace: "https://example.com/ns".into(),
+            schema: "{}".into(),
+            version: "1.0".into(),
+            creator,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    #[test]
+    fn create_ontology_valid_when_creator_matches_committer() {
+        let ont = valid_ontology(format!("did:mycelix:{}", me()));
+        let result = validate_create_ontology(test_action(me()), ont).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_ontology_creator_forgery_rejected() {
+        let ont = valid_ontology(format!("did:mycelix:{}", me()));
+        let result = validate_create_ontology(test_action(other_agent()), ont).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

@@ -121,64 +121,36 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
     }
     let now = sys_time()?;
 
+    // A cross-hApp payment is a pure member→member transfer, so route it through
+    // the sanctioned conservation-preserving `transfer_sap` (debit from + credit to,
+    // caller==from) instead of a raw debit + raw credit — no bare mint surface.
     #[derive(Serialize, Debug)]
-    struct SapAdjustmentPayload {
-        member_did: String,
+    struct TransferSapPayload {
+        from_did: String,
+        to_did: String,
         amount: u64,
-        reason: String,
     }
-    let reason = format!(
-        "Cross-hApp payment via {} ({})",
-        input.source_happ, input.reference
-    );
     match call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
-        FunctionName::from("debit_sap"),
+        FunctionName::from("transfer_sap"),
         None,
-        SapAdjustmentPayload {
-            member_did: input.from_did.clone(),
+        TransferSapPayload {
+            from_did: input.from_did.clone(),
+            to_did: input.to_did.clone(),
             amount: input.amount,
-            reason: reason.clone(),
         },
     ) {
         Ok(ZomeCallResponse::Ok(_)) => {}
         Ok(other) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to debit SAP for cross-happ payment: unexpected response {:?}",
-                other
-            ))));
-        }
-        Err(e) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to debit SAP for cross-happ payment: {:?}",
-                e
-            ))));
-        }
-    }
-    match call(
-        CallTargetCell::Local,
-        ZomeName::from("payments"),
-        FunctionName::from("credit_sap"),
-        None,
-        SapAdjustmentPayload {
-            member_did: input.to_did.clone(),
-            amount: input.amount,
-            reason,
-        },
-    ) {
-        Ok(ZomeCallResponse::Ok(_)) => {}
-        Ok(other) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Debited {} but failed to credit {}: unexpected response {:?}. SAP is in an \
-                 inconsistent state and needs manual reconciliation.",
+                "Failed to transfer SAP for cross-happ payment ({} → {}): unexpected response {:?}",
                 input.from_did, input.to_did, other
             ))));
         }
         Err(e) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Debited {} but failed to credit {}: {:?}. SAP is in an inconsistent state and \
-                 needs manual reconciliation.",
+                "Failed to transfer SAP for cross-happ payment ({} → {}): {:?}",
                 input.from_did, input.to_did, e
             ))));
         }

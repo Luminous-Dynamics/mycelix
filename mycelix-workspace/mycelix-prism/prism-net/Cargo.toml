@@ -8,7 +8,7 @@ description = "HTTP networking for Prism"
 [dependencies]
 prism-common = { path = "../prism-common" }
 prism-dom = { path = "../prism-dom" }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["gzip", "brotli"] }
 tokio = { workspace = true }
 url = { workspace = true }
 log = { workspace = true }

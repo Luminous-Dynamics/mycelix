@@ -151,6 +151,19 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 }
 
 /// Main validation callback using FlatOp pattern
+///
+/// **P0 author-binding pass, 2026-07-09**: every identity in this zome
+/// (`author_did`) is a free-form `String` with no local DID-to-agent
+/// verification convention -- same case-(d) gap as mycelix-mutualaid's
+/// bridge/requests/pools and this cluster's own attribution zome. No
+/// binding is possible here. What IS fixed: the coordinator never calls
+/// `update_entry` for ANY of these 6 entry types (confirmed via grep --
+/// this is a create-only, cross-hApp event-log style zome), so all
+/// updates are now rejected outright as immutable, closing the wide-open
+/// RegisterUpdate/RegisterDelete bug (35th confirmed instance this pass
+/// -- was `Ok(Valid)` unconditionally for both, plus a separate
+/// `OpEntry::UpdateEntry { .. } => Ok(Valid)` catch-all with no
+/// dispatch at all).
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -181,7 +194,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_media_bridge_event(EntryCreationAction::Create(action), event)
                 }
             },
-            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Valid),
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "All entries in the media bridge zome are immutable".into(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
@@ -190,10 +205,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::HappToContent => Ok(ValidateCallbackResult::Valid),
             LinkTypes::RecentEvents => Ok(ValidateCallbackResult::Valid),
         },
+        // Deliberately left permissive: the coordinator never calls
+        // delete_link. Reviewed 2026-07-09 during the P0 author-binding pass.
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "All entries in the media bridge zome are immutable".into(),
+        )),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -244,4 +263,82 @@ fn validate_create_media_bridge_event(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod content_restriction_tests {
+    use super::*;
+
+    fn dummy_action() -> EntryCreationAction {
+        EntryCreationAction::Create(Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        })
+    }
+
+    #[test]
+    fn verification_request_requires_content_hash() {
+        let request = ContentVerificationRequest {
+            id: "vr-1".into(),
+            content_hash: "".into(),
+            source_happ: "mycelix-praxis".into(),
+            verification_type: VerificationType::FactCheck,
+            requested_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create_content_verification_request(dummy_action(), request).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn reputation_query_requires_mycelix_did_prefix() {
+        let query = AuthorReputationQuery {
+            id: "q-1".into(),
+            author_did: "did:example:123".into(),
+            source_happ: "mycelix-praxis".into(),
+            queried_at: Timestamp::from_micros(0),
+        };
+        let result = validate_create_author_reputation_query(dummy_action(), query).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn reputation_result_rejects_out_of_range_score() {
+        let result_entry = AuthorReputationResult {
+            id: "r-1".into(),
+            author_did: "did:mycelix:abc".into(),
+            publication_count: 1,
+            average_quality_score: 1.5,
+            fact_check_accuracy: 0.9,
+            endorsement_count: 0,
+            matl_score: 0.5,
+            calculated_at: Timestamp::from_micros(0),
+        };
+        let result =
+            validate_create_author_reputation_result(dummy_action(), result_entry).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn media_bridge_event_requires_source_happ() {
+        let event = MediaBridgeEvent {
+            id: "e-1".into(),
+            event_type: MediaEventType::ContentPublished,
+            content_hash: None,
+            author_did: None,
+            payload: "{}".into(),
+            source_happ: "".into(),
+            timestamp: Timestamp::from_micros(0),
+        };
+        let result = validate_create_media_bridge_event(dummy_action(), event).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

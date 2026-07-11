@@ -103,6 +103,30 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 }
 
 /// Main validation callback using FlatOp pattern
+///
+/// **P0 author-binding pass, 2026-07-09.** `author_did` is a free-form
+/// String with no local DID-to-agent verification convention (same
+/// case-(d) gap as every other zome in this cluster). Three coordinator
+/// flows update Publication: `update_publication` (content_hash/updated/
+/// version) has **no authorization check of any kind** -- worse than the
+/// usual case-(d) gap, since even a broken self-report comparison is
+/// absent, so ANY agent can rewrite any publication's content and bump
+/// its version; `add_tags` (tags/updated) and `update_license`
+/// (license/updated) both compare `pub_entry.author_did` against a
+/// caller-supplied `requester_did`, both entirely attacker-controlled --
+/// the same compare-two-attacker-controlled-values bug class as this
+/// cluster's attribution/curation/factcheck zomes. None of this is
+/// fixable at the integrity layer without inventing an unverified DID
+/// convention, so it is disclosed, not silently patched.
+///
+/// What IS fixed: the wide-open RegisterUpdate/RegisterDelete bug (38th
+/// and final confirmed instance for this cluster). Real content-
+/// restriction added to Publication updates via must_get -- restricted
+/// to content_hash/updated/version/tags/license, the union of fields the
+/// three update flows above ever change (id/title/author_did/co_authors/
+/// language/encrypted/published are now immutable, closing the gap
+/// where a modified coordinator could silently rewrite the author or
+/// republish under someone else's identity).
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -121,11 +145,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ),
             },
             OpEntry::UpdateEntry {
-                app_entry, action, ..
+                app_entry,
+                original_action_hash,
+                action,
+                ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Publication(publication) => {
-                    validate_update_publication(action, publication)
+                    validate_update_publication(action, original_action_hash, publication)
                 }
                 EntryTypes::ContentBlock(_) => Ok(ValidateCallbackResult::Invalid(
                     "Content blocks cannot be updated".into(),
@@ -142,11 +169,38 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::PublicationToBlocks => Ok(ValidateCallbackResult::Valid),
             LinkTypes::PublicationToVersions => Ok(ValidateCallbackResult::Valid),
         },
+        // Deliberately left permissive: the coordinator never calls
+        // delete_link. Reviewed 2026-07-09 during the P0 author-binding pass.
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(op_update) => match op_update {
+            // Previously fully permissive (`Ok(Valid)` unconditionally) --
+            // the 38th confirmed instance of this exact bug pattern this
+            // pass. Found + fixed 2026-07-09.
+            OpUpdate::Entry { app_entry, action } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Publication(publication) => validate_update_publication(
+                    action.clone(),
+                    action.original_action_address,
+                    publication,
+                ),
+                EntryTypes::ContentBlock(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Content blocks cannot be updated".into(),
+                )),
+                EntryTypes::PublicationVersion(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Publication versions cannot be updated".into(),
+                )),
+            },
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(OpDelete { action }) => {
+            let _ = must_get_action(action.deletes_address.clone())?;
+            // No author field exists anywhere in this zome's entries to
+            // compare against (case d, see the module doc comment above)
+            // -- deletion authorization is left as-is.
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }
 
@@ -174,6 +228,7 @@ fn validate_create_publication(
 
 fn validate_update_publication(
     _action: Update,
+    original_action_hash: ActionHash,
     publication: Publication,
 ) -> ExternResult<ValidateCallbackResult> {
     if publication.title.is_empty() {
@@ -181,6 +236,30 @@ fn validate_update_publication(
             "Title cannot be empty".into(),
         ));
     }
+
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: Publication = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original publication not found".into()
+        )))?;
+
+    if publication.id != original.id
+        || publication.title != original.title
+        || publication.author_did != original.author_did
+        || publication.co_authors != original.co_authors
+        || publication.language != original.language
+        || publication.encrypted != original.encrypted
+        || publication.published != original.published
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only content_hash/tags/license/updated/version can change on a publication update"
+                .into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -196,4 +275,79 @@ fn validate_create_publication_version(
     _version: PublicationVersion,
 ) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod content_restriction_tests {
+    use super::*;
+
+    fn dummy_action() -> EntryCreationAction {
+        EntryCreationAction::Create(Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        })
+    }
+
+    fn valid_license() -> License {
+        License {
+            license_type: LicenseType::CCBY,
+            attribution_required: true,
+            commercial_use: true,
+            derivative_works: true,
+        }
+    }
+
+    fn valid_publication() -> Publication {
+        Publication {
+            id: "pub-1".into(),
+            title: "Breaking News".into(),
+            content_hash: "hash1".into(),
+            content_type: ContentType::Article,
+            author_did: "did:key:z6Mkfoo".into(),
+            co_authors: vec![],
+            language: "en".into(),
+            tags: vec![],
+            license: valid_license(),
+            encrypted: false,
+            published: Timestamp::from_micros(0),
+            updated: None,
+            version: 1,
+        }
+    }
+
+    #[test]
+    fn create_publication_requires_did_prefix() {
+        let mut publication = valid_publication();
+        publication.author_did = "not-a-did".into();
+        let result = validate_create_publication(dummy_action(), publication).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_publication_requires_title_and_content_hash() {
+        let mut publication = valid_publication();
+        publication.title = "".into();
+        let result = validate_create_publication(dummy_action(), publication).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_publication_valid() {
+        let result = validate_create_publication(dummy_action(), valid_publication()).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    // validate_update_publication calls must_get_valid_record, which
+    // requires a live HDI host and can't run in a plain unit test --
+    // matching the established pattern from every other zome's update
+    // validator this pass.
 }

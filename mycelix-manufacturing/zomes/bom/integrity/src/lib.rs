@@ -58,6 +58,12 @@ pub enum LinkTypes {
     BomToExplosion,
 }
 
+/// **P0 author-binding pass, 2026-07-09**: no identity field exists on
+/// either entry (case a). No coordinator function calls `update_entry`
+/// for either entry type (confirmed via grep -- this zome is create-only)
+/// so updates are now rejected outright, closing the wide-open
+/// RegisterUpdate/RegisterDelete bug that previously routed both through
+/// the unconditional `_ => Valid` catch-all.
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -82,6 +88,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { .. }) => Ok(ValidateCallbackResult::Invalid(
+            "BOM entries are immutable".into(),
+        )),
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "BOM entries are immutable".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

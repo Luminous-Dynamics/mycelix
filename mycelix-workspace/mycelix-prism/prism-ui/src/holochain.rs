@@ -117,27 +117,38 @@ pub async fn publish_claim(claim: &DhtClaim) -> Result<String, String> {
         mythic: f64,
     }
 
-    let input = SubmitClaimInput {
-        id: format!("prism-{}", js_sys::Date::now() as u64),
-        content: claim.content.clone(),
-        classification: SubmitClassification {
-            empirical: claim.empirical.as_f32() as f64,
-            normative: claim.normative.as_f32() as f64,
-            mythic: claim.materiality.as_f32() as f64,
-        },
-        author: "did:mycelix:prism-browser".to_string(),
-        sources: claim.sources.clone(),
-        tags: claim.tags.clone(),
-        claim_type: claim.claim_type.clone(),
-        confidence: claim.confidence,
-    };
-
     // Connect via BrowserWsTransport and call the zome
     let transport = mycelix_leptos_client::BrowserWsTransport::new();
     let client = mycelix_leptos_client::HolochainClient::new(transport, APP_ID, "knowledge");
 
     match client.connect(CONDUCTOR_URL, None).await {
         Ok(()) => {
+            // The `author` field must equal the connecting agent's own DID --
+            // mycelix-knowledge's claims zome validates this against the
+            // real cryptographic action author and rejects anything else
+            // (identifier-takeover protection). `connected_agent_did()` is
+            // only populated after a successful connect's app_info exchange.
+            let Some(author) = client.transport().connected_agent_did() else {
+                log::warn!("Could not determine connected agent DID — saving locally");
+                save_claim_locally(claim);
+                return Err("Could not determine agent identity — saved locally".to_string());
+            };
+
+            let input = SubmitClaimInput {
+                id: format!("prism-{}", js_sys::Date::now() as u64),
+                content: claim.content.clone(),
+                classification: SubmitClassification {
+                    empirical: claim.empirical.as_f32() as f64,
+                    normative: claim.normative.as_f32() as f64,
+                    mythic: claim.materiality.as_f32() as f64,
+                },
+                author,
+                sources: claim.sources.clone(),
+                tags: claim.tags.clone(),
+                claim_type: claim.claim_type.clone(),
+                confidence: claim.confidence,
+            };
+
             match client
                 .call_zome::<SubmitClaimInput, serde_json::Value>("claims", "submit_claim", &input)
                 .await

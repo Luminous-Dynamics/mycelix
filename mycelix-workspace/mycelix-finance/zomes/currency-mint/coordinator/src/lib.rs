@@ -64,6 +64,7 @@
 
 use currency_mint_integrity::*;
 use hdk::prelude::*;
+use mycelix_finance_shared::anchor_hash;
 use mycelix_finance_types::{CurrencyStatus, MintedCurrencyParams};
 use mycelix_zome_helpers as _;
 
@@ -121,6 +122,38 @@ pub fn mint_genesis_sap(input: MintGenesisSapInput) -> ExternResult<ActionHash> 
         )));
     }
 
+    // 1b. REPLAY PROTECTION: each (sensor_id, timestamp) claim may mint at most once.
+    // Without this, the same proof re-mints SAP unlimited times. The dedup marker is
+    // written BEFORE crediting so a replay is rejected here even if it races the credit.
+    let dedup_anchor = anchor_hash(&format!(
+        "genesis-mint:{}:{}",
+        input.claim.sensor_id, input.claim.timestamp
+    ))?;
+    let already_minted = get_links(
+        LinkQuery::try_new(dedup_anchor.clone(), LinkTypes::AnchorLinks)?,
+        GetStrategy::default(),
+    )?;
+    if !already_minted.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Thermodynamic claim already minted (sensor {}, timestamp {}) — replay rejected",
+            input.claim.sensor_id, input.claim.timestamp
+        ))));
+    }
+
+    // Record the genesis event + dedup marker up front (audit trail + replay guard).
+    let action_hash = create_entry(EntryTypes::ThermodynamicGenesis(ThermodynamicGenesis {
+        sensor_id: input.claim.sensor_id.clone(),
+        yield_kwh: input.claim.yield_kwh,
+        timestamp: input.claim.timestamp,
+        location_h3: input.claim.location_h3.clone(),
+    }))?;
+    create_link(
+        dedup_anchor,
+        action_hash.clone(),
+        LinkTypes::AnchorLinks,
+        (),
+    )?;
+
     // 2. MINT TO COMMONS (Economic Law 1)
     // Genesis SAP belongs to the collective, not the individual.
     //
@@ -169,15 +202,7 @@ pub fn mint_genesis_sap(input: MintGenesisSapInput) -> ExternResult<ActionHash> 
         }),
     )?;
 
-    // Record the genesis event for the HUD (audit trail — the actual SAP
-    // credit already landed in payments::SapBalance above)
-    let action_hash = create_entry(EntryTypes::ThermodynamicGenesis(ThermodynamicGenesis {
-        sensor_id: input.claim.sensor_id,
-        yield_kwh: input.claim.yield_kwh,
-        timestamp: input.claim.timestamp,
-        location_h3: input.claim.location_h3,
-    }))?;
-
+    // The genesis event + replay-guard marker were already written up front.
     Ok(action_hash)
 }
 

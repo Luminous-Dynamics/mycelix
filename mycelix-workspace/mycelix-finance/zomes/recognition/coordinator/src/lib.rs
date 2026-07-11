@@ -17,8 +17,8 @@
 
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    anchor_hash, follow_update_chain, verify_caller_is_did,
-    verify_governance_or_bootstrap_from_links, GOVERNANCE_AGENTS_ANCHOR,
+    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, verify_caller_is_did,
+    verify_governance_or_bootstrap_from_links,
 };
 use mycelix_zome_helpers as _;
 
@@ -317,6 +317,7 @@ pub fn initialize_member(input: InitializeMemberInput) -> ExternResult<Record> {
         recognitions_given_this_cycle: 0,
         current_cycle_id: String::new(),
         last_updated: now,
+        created_at: Some(now),
     };
 
     let state_hash = create_entry(&EntryTypes::MemberMycelState(state))?;
@@ -336,13 +337,83 @@ pub fn initialize_member(input: InitializeMemberInput) -> ExternResult<Record> {
     Ok(record)
 }
 
+/// Pure: fold `(recognizer_did, weight)` pairs into the Recognition MYCEL component.
+///
+/// Each *distinct* recognizer counts once, at their strongest weight — so a single
+/// recognizer spamming the per-cycle max cannot inflate the score, and a Sybil ring
+/// of low-MYCEL puppets can't either (their weights are small and MIN_MYCEL_TO_GIVE
+/// keeps sub-0.3 agents out entirely). Saturates at 1.0.
+fn aggregate_recognition(events: &[(String, f64)]) -> f64 {
+    let mut by_recognizer: std::collections::BTreeMap<&str, f64> =
+        std::collections::BTreeMap::new();
+    for (rid, w) in events {
+        let e = by_recognizer.entry(rid.as_str()).or_insert(0.0);
+        if *w > *e {
+            *e = *w;
+        }
+    }
+    let total: f64 = by_recognizer.values().sum();
+    (total / RECOGNITION_SATURATION_WEIGHT).min(1.0)
+}
+
+/// Pure: derive `(active_months, longevity component)` from account age in seconds.
+/// Longevity is time-active capped at 24 months, so this can't be inflated by a
+/// self-reported month count.
+fn longevity_from_age_secs(age_secs: i64) -> (u32, f64) {
+    let months = (age_secs.max(0) as f64) / (30.0 * 86_400.0);
+    let active_months = months.floor().min(u32::MAX as f64) as u32;
+    (active_months, (months / 24.0).min(1.0))
+}
+
+/// Compute the Recognition MYCEL component from the member's immutable, author-bound
+/// `RecognitionEvent`s (NOT a self-reported field). This is the on-chain source of the
+/// recognition score — the machinery `recognize_member` writes finally feeds the score.
+fn compute_recognition_component(member_did: &str) -> ExternResult<f64> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("recipient:{}", member_did))?,
+            LinkTypes::RecipientToEvents,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let mut pairs: Vec<(String, f64)> = Vec::with_capacity(links.len());
+    for link in links {
+        if let Some(action_hash) = link.target.into_action_hash() {
+            if let Some(record) = get(action_hash, GetOptions::default())? {
+                if let Some(event) =
+                    record
+                        .entry()
+                        .to_app_option::<RecognitionEvent>()
+                        .map_err(|e| {
+                            wasm_error!(WasmErrorInner::Guest(format!(
+                                "RecognitionEvent deserialization error: {:?}",
+                                e
+                            )))
+                        })?
+                {
+                    pairs.push((event.recognizer_did, event.weight));
+                }
+            }
+        }
+    }
+    Ok(aggregate_recognition(&pairs))
+}
+
 /// Update a member's MYCEL score components
 ///
 /// Recalculates the composite MYCEL score from the 4 components:
 /// Participation (40%), Recognition (20%), Validation (20%), Longevity (20%)
 ///
-/// The Validation component is auto-fetched from TEND quality ratings via
-/// cross-zome call unless `validation_override` is provided.
+/// - **Recognition** is computed on-chain from aggregated, recognizer-weighted
+///   `RecognitionEvent`s — the `input.recognition` field is IGNORED (it was the
+///   self-declaration hole that made MYCEL forgeable).
+/// - **Validation** is auto-fetched from TEND quality ratings unless overridden.
+/// - **Longevity** is derived from real account age (`created_at`), NOT from
+///   `input.active_months` (legacy entries without `created_at` fall back to it).
+/// - **Participation (40%)** is the only remaining `input`-supplied (self-reported)
+///   component — deriving it from governance activity (cross-cluster) is the last
+///   follow-up. Until then a member can self-assign at most 0.4, below the Steward
+///   threshold (0.7) and below the Citizen threshold too.
 #[hdk_extern]
 pub fn update_mycel_score(input: UpdateMycelInput) -> ExternResult<MemberMycelState> {
     // Verify caller is the member (prevents score manipulation by others)
@@ -355,7 +426,9 @@ pub fn update_mycel_score(input: UpdateMycelInput) -> ExternResult<MemberMycelSt
 
     let now = sys_time()?;
     let participation = input.participation.clamp(0.0, 1.0);
-    let recognition = input.recognition.clamp(0.0, 1.0);
+    // Recognition is computed on-chain from author-bound RecognitionEvents, NOT
+    // input.recognition (which is ignored — it was the self-declaration hole).
+    let recognition = compute_recognition_component(&input.member_did)?;
 
     // Fetch validation from TEND quality ratings, or use override
     let validation = if let Some(v) = input.validation_override {
@@ -364,7 +437,18 @@ pub fn update_mycel_score(input: UpdateMycelInput) -> ExternResult<MemberMycelSt
         fetch_validation_from_tend(&input.member_did)?
     };
 
-    let longevity = (input.active_months as f64 / 24.0).min(1.0);
+    // Longevity is derived from real account age (created_at), NOT the self-reported
+    // input.active_months. Legacy entries without created_at fall back to the input.
+    let (active_months, longevity) = match current_state.created_at {
+        Some(created) => {
+            let age_secs = now.as_micros() / 1_000_000 - created.as_micros() / 1_000_000;
+            longevity_from_age_secs(age_secs)
+        }
+        None => (
+            input.active_months,
+            (input.active_months as f64 / 24.0).min(1.0),
+        ),
+    };
 
     let composite =
         participation * 0.40 + recognition * 0.20 + validation * 0.20 + longevity * 0.20;
@@ -382,7 +466,7 @@ pub fn update_mycel_score(input: UpdateMycelInput) -> ExternResult<MemberMycelSt
         recognition,
         validation,
         longevity,
-        active_months: input.active_months,
+        active_months,
         is_apprentice,
         last_updated: now,
         ..current_state
@@ -462,6 +546,7 @@ pub fn dissolve_mycel(member_did: String) -> ExternResult<()> {
         recognitions_given_this_cycle: 0,
         current_cycle_id: String::new(),
         last_updated: now,
+        created_at: None,
     };
 
     update_entry(action_hash, &dissolved_state)?;
@@ -594,6 +679,7 @@ pub fn onboard_apprentice(input: OnboardApprenticeInput) -> ExternResult<Record>
         recognitions_given_this_cycle: 0,
         current_cycle_id: String::new(),
         last_updated: now,
+        created_at: Some(now),
     };
 
     let state_hash = create_entry(&EntryTypes::MemberMycelState(state))?;
@@ -682,6 +768,7 @@ fn get_mycel_state(member_did: &str) -> ExternResult<MemberMycelState> {
         recognitions_given_this_cycle: 0,
         current_cycle_id: String::new(),
         last_updated: now,
+        created_at: None,
     })
 }
 
@@ -882,5 +969,88 @@ fn fetch_validation_from_tend(member_did: &str) -> ExternResult<f64> {
             // TEND zome unreachable — default to 0.0
             Ok(0.0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::aggregate_recognition;
+
+    fn ev(recognizer: &str, weight: f64) -> (String, f64) {
+        (recognizer.to_string(), weight)
+    }
+
+    #[test]
+    fn distinct_recognizers_sum_toward_saturation() {
+        // 5 distinct max-weight endorsers → saturates at 1.0 (SATURATION = 5.0).
+        let events: Vec<_> = (0..5)
+            .map(|i| ev(&format!("did:mycelix:s{i}"), 1.0))
+            .collect();
+        assert!((aggregate_recognition(&events) - 1.0).abs() < 1e-9);
+        // 3 endorsers at 0.5 → 1.5 / 5.0 = 0.3.
+        let three: Vec<_> = (0..3)
+            .map(|i| ev(&format!("did:mycelix:m{i}"), 0.5))
+            .collect();
+        assert!((aggregate_recognition(&three) - 0.3).abs() < 1e-9);
+    }
+
+    #[test]
+    fn single_recognizer_cannot_dominate() {
+        // One recognizer giving 10 events counts ONCE, at their strongest weight.
+        let spam: Vec<_> = (0..10).map(|_| ev("did:mycelix:spammer", 0.9)).collect();
+        // 0.9 / 5.0 = 0.18 — not the 1.8 an un-deduped sum would give.
+        assert!((aggregate_recognition(&spam) - 0.18).abs() < 1e-9);
+    }
+
+    #[test]
+    fn duplicate_recognizer_takes_max_weight() {
+        let events = vec![
+            ev("did:mycelix:a", 0.3),
+            ev("did:mycelix:a", 0.7), // stronger later endorsement
+            ev("did:mycelix:b", 0.5),
+        ];
+        // max(0.3,0.7)=0.7 for a, plus 0.5 for b = 1.2 / 5.0 = 0.24.
+        assert!((aggregate_recognition(&events) - 0.24).abs() < 1e-9);
+    }
+
+    #[test]
+    fn saturates_at_one() {
+        let many: Vec<_> = (0..50)
+            .map(|i| ev(&format!("did:mycelix:r{i}"), 1.0))
+            .collect();
+        assert_eq!(aggregate_recognition(&many), 1.0);
+    }
+
+    #[test]
+    fn empty_is_zero() {
+        assert_eq!(aggregate_recognition(&[]), 0.0);
+    }
+
+    use super::longevity_from_age_secs;
+    const MONTH: i64 = 30 * 86_400;
+
+    #[test]
+    fn longevity_scales_with_age_and_caps_at_24_months() {
+        // Fresh account → ~0 longevity.
+        let (m0, l0) = longevity_from_age_secs(0);
+        assert_eq!(m0, 0);
+        assert!(l0 < 1e-9);
+        // 12 months → half of the 24-month cap.
+        let (m12, l12) = longevity_from_age_secs(12 * MONTH);
+        assert_eq!(m12, 12);
+        assert!((l12 - 0.5).abs() < 1e-9);
+        // 24 months → full.
+        let (_, l24) = longevity_from_age_secs(24 * MONTH);
+        assert!((l24 - 1.0).abs() < 1e-9);
+        // Beyond 24 months stays capped at 1.0.
+        let (_, l48) = longevity_from_age_secs(48 * MONTH);
+        assert_eq!(l48, 1.0);
+    }
+
+    #[test]
+    fn negative_age_is_clamped_to_zero() {
+        let (m, l) = longevity_from_age_secs(-1000);
+        assert_eq!(m, 0);
+        assert_eq!(l, 0.0);
     }
 }

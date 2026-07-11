@@ -6,7 +6,7 @@ license = "AGPL-3.0-or-later"
 description = "Integrity zome for per-user data sharing preferences"
 
 [dependencies]
-hdi = "=0.7.0"
+hdi = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 holochain_serialized_bytes = { workspace = true }
 

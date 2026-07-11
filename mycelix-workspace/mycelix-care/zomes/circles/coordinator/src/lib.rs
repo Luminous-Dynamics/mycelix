@@ -32,6 +32,17 @@ fn records_from_links(links: Vec<Link>) -> ExternResult<Vec<Record>> {
 /// Create a new care circle. The creator automatically becomes an Organizer member.
 #[hdk_extern]
 pub fn create_circle(circle: CareCircle) -> ExternResult<Record> {
+    // Derive created_by from the caller rather than trusting the input
+    // struct's field -- otherwise any agent could create a circle
+    // claiming an arbitrary victim as creator, and that victim would be
+    // auto-enrolled as Organizer without their consent. Found + fixed
+    // 2026-07-09 during the P0 author-binding pass.
+    let created_by = agent_info()?.agent_initial_pubkey;
+    let circle = CareCircle {
+        created_by,
+        ..circle
+    };
+
     let action_hash = create_entry(&EntryTypes::CareCircle(circle.clone()))?;
 
     // Link to all circles

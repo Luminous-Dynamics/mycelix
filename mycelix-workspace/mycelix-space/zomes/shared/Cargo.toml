@@ -19,7 +19,7 @@ serde_json = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 
 # Orbital mechanics (no Holochain deps)
-orbital-mechanics = { path = "../../lib/orbital-mechanics" }
+orbital-mechanics = { path = "../../../crates/orbital-mechanics" }
 
 # Time handling
 chrono = { workspace = true }

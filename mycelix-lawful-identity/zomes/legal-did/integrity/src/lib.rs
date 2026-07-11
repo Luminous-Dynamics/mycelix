@@ -85,6 +85,23 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 /// Richer validation (credential-signature verification, issuer-tier
 /// lookup) happens in the coordinator layer so it can call out to
 /// other zomes.
+///
+/// **P0 author-binding pass, 2026-07-09**: neither entry type carries an
+/// agent/owner field, and that's deliberate (see the module doc comment
+/// above — the whole point of this zome is that a legal DID must NOT be
+/// linkable to the creating agent's primary identity beyond the
+/// `AgentToLegalDid` link, which the coordinator already derives
+/// correctly from the real `agent_info()`-authenticated caller, not a
+/// self-declared field). Ownership in `import_credential`/
+/// `get_credentials_for_did` is checked via `list_my_legal_dids()`, which
+/// itself walks links from the real caller's own pubkey — this is
+/// genuinely secure, not the forgeable-self-report pattern found
+/// elsewhere in this pass. What IS fixed: confirmed via grep that no
+/// coordinator function ever calls `update_entry` for either entry type
+/// (both are create-only by design), so updates are now rejected
+/// outright, closing the wide-open RegisterUpdate/RegisterDelete bug
+/// that previously routed both through the unconditional `_ => Valid`
+/// catch-all.
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -92,6 +109,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::LegalDid(did_entry) => validate_legal_did(&did_entry),
             EntryTypes::LegalCredentialRecord(cred) => validate_credential_record(&cred),
         },
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { .. }) => Ok(ValidateCallbackResult::Invalid(
+            "Legal DID entries are immutable".into(),
+        )),
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Legal DID entries are immutable".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

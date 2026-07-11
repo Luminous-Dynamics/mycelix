@@ -24,6 +24,12 @@ pub const MAX_RECOGNITIONS_PER_CYCLE: u32 = 10;
 /// Base weight for recognition (multiplied by recognizer's MYCEL)
 pub const RECOGNITION_BASE_WEIGHT: f64 = 1.0;
 
+/// Total distinct-recognizer weight at which the Recognition MYCEL component
+/// saturates to 1.0. Each distinct recognizer contributes at most their own MYCEL
+/// weight (≤1.0), so reaching full recognition needs ~5 strong distinct endorsers —
+/// a Sybil ring of low-MYCEL puppets cannot manufacture it.
+pub const RECOGNITION_SATURATION_WEIGHT: f64 = 5.0;
+
 /// Minimum MYCEL score required to give recognition (apprentices cannot)
 pub const MIN_MYCEL_TO_GIVE: f64 = 0.3;
 
@@ -119,6 +125,12 @@ pub struct MemberMycelState {
 
     /// When the MYCEL state was last updated
     pub last_updated: Timestamp,
+
+    /// When the member's MYCEL state was first created. Used to derive Longevity
+    /// from real account age instead of a self-reported `active_months`. `None` on
+    /// legacy entries (pre-2026-07-10), which fall back to `active_months`.
+    #[serde(default)]
+    pub created_at: Option<Timestamp>,
 }
 
 /// Recognition allocation for tracking per-cycle limits
@@ -236,10 +248,33 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Enforce that a recognition event's `recognizer_did` is the committing agent.
+/// Pure so it can be unit-tested without a full Create action.
+fn require_recognizer_is_author(recognizer_did: &str, author_did: &str) -> ValidateCallbackResult {
+    if recognizer_did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "Recognizer DID must be the committing agent (recognition forgery / Sybil). \
+             Expected '{author_did}', got '{recognizer_did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_recognition(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     event: RecognitionEvent,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the recognition to its committer — recognition weight scales with the
+    // recognizer's MYCEL score, so a forged `recognizer_did` impersonates a
+    // high-trust recognizer (Sybil). The coordinator sets recognizer_did to the
+    // caller's own DID, so this never rejects a legitimate recognition.
+    let author_did = format!("did:mycelix:{}", action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_recognizer_is_author(&event.recognizer_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if event.recognizer_did.len() > MAX_DID_LEN || event.recipient_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -497,4 +532,29 @@ fn validate_update_allocation(
         )));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognizer_must_be_committing_agent() {
+        let me = "did:mycelix:uhCAkSELF";
+        // Honest path: the recognizer DID is the committer's own.
+        assert!(matches!(
+            require_recognizer_is_author(me, me),
+            ValidateCallbackResult::Valid
+        ));
+        // Forgery: impersonating another (high-MYCEL) recognizer is rejected.
+        match require_recognizer_is_author("did:mycelix:uhCAkWHALE", me) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("forgery") || msg.contains("Sybil"),
+                    "reason: {msg}"
+                );
+            }
+            other => panic!("forged recognizer must be Invalid, got {other:?}"),
+        }
+    }
 }

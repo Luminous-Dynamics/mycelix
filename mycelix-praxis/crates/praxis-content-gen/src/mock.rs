@@ -16,7 +16,12 @@ use crate::pipeline::{ContentGenerator, GenerationOutput};
 pub struct MockGenerator;
 
 impl ContentGenerator for MockGenerator {
-    fn generate(&self, channels: &ContentChannels, context: &str, _max_tokens: usize) -> GenerationOutput {
+    fn generate(
+        &self,
+        channels: &ContentChannels,
+        context: &str,
+        _max_tokens: usize,
+    ) -> GenerationOutput {
         let text = match channels.intent {
             ContentIntent::TeachConcept => {
                 if context.contains("vocabulary") || context.contains("Vocabulary") {
@@ -39,11 +44,9 @@ impl ContentGenerator for MockGenerator {
             }
             ContentIntent::ProvideHint => mock_hint(context),
             ContentIntent::ExplainMisconception => mock_misconception(context),
-            ContentIntent::Encourage => {
-                "Great effort! Making mistakes is how we learn. \
+            ContentIntent::Encourage => "Great effort! Making mistakes is how we learn. \
                  Let's look at the problem together and try a different approach."
-                    .to_string()
-            }
+                .to_string(),
             ContentIntent::ReflectOnLearning => {
                 "Think about what strategy you used. Could you explain it to a friend? \
                  What other problems could you solve the same way?"
@@ -137,7 +140,10 @@ fn mock_explanation(context: &str) -> String {
          You can see this by folding paper: fold in half, then fold again. \
          The half you marked is now covered by 2 of the 4 equal pieces."
             .to_string()
-    } else if context.contains("3.NBT") || context.contains("place value") || context.contains("round") {
+    } else if context.contains("3.NBT")
+        || context.contains("place value")
+        || context.contains("round")
+    {
         "Place value tells us what each digit in a number is worth. \
          In 346, the 3 means 300, the 4 means 40, and the 6 means 6. \
          When we round, we find the nearest ten or hundred. \
@@ -175,7 +181,10 @@ fn mock_worked_example(context: &str) -> String {
              Write the equation: 5 x 3 = 15 -> 5 x 3 = 15\n\
              There are 15 oranges in total."
                 .to_string()
-        } else if context.contains("#2") || context.contains("array") || context.contains("representation") {
+        } else if context.contains("#2")
+            || context.contains("array")
+            || context.contains("representation")
+        {
             "Show 4 x 6 using an array.\n\
              Draw 4 rows -> 4 rows drawn\n\
              Put 6 dots in each row -> 4 rows of 6 dots\n\
@@ -416,20 +425,15 @@ mod tests {
 
     #[test]
     fn test_mock_returns_nonempty_for_known_standards() {
-        let gen = MockGenerator;
+        let generator = MockGenerator;
         let standards = [
-            "3.OA.A.1", "3.OA.A.2", "3.OA.A.3", "3.OA.A.4",
-            "3.OA.B.5", "3.OA.B.6", "3.OA.C.7", "3.OA.D.8",
-            "3.OA.D.9", "3.NF.A.1", "3.NF.A.2", "3.NF.A.3",
+            "3.OA.A.1", "3.OA.A.2", "3.OA.A.3", "3.OA.A.4", "3.OA.B.5", "3.OA.B.6", "3.OA.C.7",
+            "3.OA.D.8", "3.OA.D.9", "3.NF.A.1", "3.NF.A.2", "3.NF.A.3",
         ];
 
         for code in &standards {
             let context = format!("Teaching {code} to Grade3 student. Standard: {code}");
-            let output = gen.generate(
-                &ContentChannels::teaching_factual(),
-                &context,
-                512,
-            );
+            let output = generator.generate(&ContentChannels::teaching_factual(), &context, 512);
             assert!(
                 !output.text.is_empty(),
                 "Empty output for standard {}",
@@ -442,8 +446,8 @@ mod tests {
 
     #[test]
     fn test_mock_returns_content_for_unknown_standard() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::teaching_factual(),
             "Teaching 5.NBT.A.1 to Grade5 student.",
             512,
@@ -453,36 +457,32 @@ mod tests {
 
     #[test]
     fn test_mock_hint_levels_differ() {
-        let gen = MockGenerator;
-        let h1 = gen.generate(
-            &ContentChannels::hint(1),
-            "level-1 hint for 3.OA.A.1",
-            128,
-        );
-        let h3 = gen.generate(
-            &ContentChannels::hint(3),
-            "level-3 hint for 3.OA.A.1",
-            128,
-        );
+        let generator = MockGenerator;
+        let h1 = generator.generate(&ContentChannels::hint(1), "level-1 hint for 3.OA.A.1", 128);
+        let h3 = generator.generate(&ContentChannels::hint(3), "level-3 hint for 3.OA.A.1", 128);
         assert_ne!(h1.text, h3.text);
     }
 
     #[test]
     fn test_mock_vocabulary_has_multiple_terms() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::teaching_factual(),
             "vocabulary for 3.OA Algebraic",
             256,
         );
         let line_count = output.text.lines().count();
-        assert!(line_count >= 3, "Expected at least 3 vocab terms, got {}", line_count);
+        assert!(
+            line_count >= 3,
+            "Expected at least 3 vocab terms, got {}",
+            line_count
+        );
     }
 
     #[test]
     fn test_mock_misconception_has_structure() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::misconception_correction(),
             "misconception about 3.OA.A.1 products",
             256,
@@ -494,32 +494,39 @@ mod tests {
 
     #[test]
     fn test_mock_worked_example_has_steps() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::worked_example(),
             "Example #1 for 3.OA.A.1 products concrete",
             384,
         );
         // Should have multiple lines with -> separator
         let step_count = output.text.lines().filter(|l| l.contains("->")).count();
-        assert!(step_count >= 2, "Expected at least 2 steps, got {}", step_count);
+        assert!(
+            step_count >= 2,
+            "Expected at least 2 steps, got {}",
+            step_count
+        );
     }
 
     #[test]
     fn test_mock_flashcard_format() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::practice_problem(),
             "flashcard for 3.OA.A.1 products",
             128,
         );
-        assert!(output.text.contains(" | "), "Flashcard should have front | back format");
+        assert!(
+            output.text.contains(" | "),
+            "Flashcard should have front | back format"
+        );
     }
 
     #[test]
     fn test_mock_encouragement() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::encouragement(),
             "student got wrong answer",
             128,
@@ -529,8 +536,8 @@ mod tests {
 
     #[test]
     fn test_mock_reflection() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::reflection(),
             "after completing multiplication lesson",
             128,
@@ -540,13 +547,13 @@ mod tests {
 
     #[test]
     fn test_mock_practice_difficulty_varies() {
-        let gen = MockGenerator;
-        let easy = gen.generate(
+        let generator = MockGenerator;
+        let easy = generator.generate(
             &ContentChannels::practice_problem(),
             "easy practice problem for 3.OA.A.1 products",
             256,
         );
-        let hard = gen.generate(
+        let hard = generator.generate(
             &ContentChannels::practice_problem(),
             "challenging practice problem for 3.OA.A.1 products",
             256,
@@ -557,22 +564,33 @@ mod tests {
 
     #[test]
     fn test_mock_assessment_bloom_levels() {
-        let gen = MockGenerator;
-        let blooms = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
+        let generator = MockGenerator;
+        let blooms = [
+            "Remember",
+            "Understand",
+            "Apply",
+            "Analyze",
+            "Evaluate",
+            "Create",
+        ];
         for bloom in &blooms {
-            let output = gen.generate(
+            let output = generator.generate(
                 &ContentChannels::practice_problem(),
                 &format!("assessment {} for 3.OA.A.1", bloom),
                 256,
             );
-            assert!(!output.text.is_empty(), "Empty output for Bloom's level {}", bloom);
+            assert!(
+                !output.text.is_empty(),
+                "Empty output for Bloom's level {}",
+                bloom
+            );
         }
     }
 
     #[test]
     fn test_mock_fractions_content_correct() {
-        let gen = MockGenerator;
-        let output = gen.generate(
+        let generator = MockGenerator;
+        let output = generator.generate(
             &ContentChannels::teaching_factual(),
             "Teaching 3.NF.A.1 fraction 1/b",
             512,

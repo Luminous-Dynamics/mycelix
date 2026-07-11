@@ -214,12 +214,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::StorageTank(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::StorageTank(tank) => {
+                    validate_update_storage_tank(action, original_action_hash, tank)
+                }
                 EntryTypes::RechargeProject(_) => Ok(ValidateCallbackResult::Valid),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
@@ -258,9 +260,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_harvest_system(
-    _action: Create,
+    action: Create,
     system: HarvestSystem,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the system to its committer -- register_harvest_system already
+    // derives `owner` from agent_info() coordinator-side with zero user
+    // input, so this never rejects a legitimate registration; it's the
+    // real DHT-level enforcement a modified coordinator could otherwise
+    // bypass (P0 author-binding gap).
+    if system.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Harvest system owner must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if system.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Harvest system ID cannot be empty".into(),
@@ -295,9 +308,17 @@ fn validate_create_harvest_system(
 }
 
 fn validate_create_storage_tank(
-    _action: Create,
+    action: Create,
     tank: StorageTank,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the tank to its committer -- same rationale as
+    // validate_create_harvest_system above.
+    if tank.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Storage tank owner must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if tank.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Tank ID cannot be empty".into(),
@@ -332,9 +353,20 @@ fn validate_create_storage_tank(
 }
 
 fn validate_create_harvest_record(
-    _action: Create,
+    action: Create,
     record: HarvestRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the record to its committer -- record_harvest already derives
+    // `credited_to` from agent_info() coordinator-side with zero user
+    // input. Harvest credits feed H2O credits downstream in the flow zome,
+    // so this closes a real economic-fraud vector, not just cosmetic
+    // misattribution (P0 author-binding gap).
+    if record.credited_to != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Harvest record credited_to must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if record.liters_collected == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Harvest liters must be greater than zero".into(),
@@ -383,4 +415,143 @@ fn validate_create_recharge_project(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_storage_tank(
+    action: Update,
+    original_action_hash: ActionHash,
+    _tank: StorageTank,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the update to the PRE-update owner -- update_tank_level already
+    // checks `tank.owner == agent_info()` coordinator-side, but that check
+    // trusts the coordinator; this is the real DHT-level enforcement a
+    // modified coordinator can't bypass (P0 author-binding gap). Fetch the
+    // tank as it stood before this update and require the committing agent
+    // to be its owner.
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_tank: StorageTank = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid original tank entry".to_string()
+        )))?;
+    if original_tank.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Tank update must be committed by its owner".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn valid_system(owner: AgentPubKey) -> HarvestSystem {
+        HarvestSystem {
+            id: "system-1".to_string(),
+            name: "Rooftop Collector".to_string(),
+            system_type: HarvestType::RoofRainwater,
+            capacity_liters: 1000,
+            location_lat: 10.0,
+            location_lon: 20.0,
+            owner,
+            installed_at: Timestamp::from_micros(0),
+            catchment_area_sqm: Some(50),
+            efficiency_percent: 80,
+        }
+    }
+
+    #[test]
+    fn test_create_harvest_system_valid() {
+        let system = valid_system(test_action().author);
+        let result = validate_create_harvest_system(test_action(), system).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_harvest_system_owner_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let system = valid_system(test_action().author);
+        let result = validate_create_harvest_system(forged_action, system).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_tank(owner: AgentPubKey) -> StorageTank {
+        StorageTank {
+            id: "tank-1".to_string(),
+            name: "Main Cistern".to_string(),
+            capacity_liters: 5000,
+            current_level_liters: 1000,
+            tank_type: TankType::Cistern,
+            connected_system: None,
+            location_lat: 10.0,
+            location_lon: 20.0,
+            owner,
+        }
+    }
+
+    #[test]
+    fn test_create_storage_tank_valid() {
+        let tank = valid_tank(test_action().author);
+        let result = validate_create_storage_tank(test_action(), tank).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_storage_tank_owner_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let tank = valid_tank(test_action().author);
+        let result = validate_create_storage_tank(forged_action, tank).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_harvest_record_valid() {
+        let record = HarvestRecord {
+            system_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            liters_collected: 100,
+            collection_period_start: Timestamp::from_micros(0),
+            collection_period_end: Timestamp::from_micros(1),
+            weather_conditions: None,
+            credited_to: test_action().author,
+        };
+        let result = validate_create_harvest_record(test_action(), record).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_harvest_record_credit_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![1u8; 36]);
+        let record = HarvestRecord {
+            system_hash: ActionHash::from_raw_36(vec![9u8; 36]),
+            liters_collected: 100,
+            collection_period_start: Timestamp::from_micros(0),
+            collection_period_end: Timestamp::from_micros(1),
+            weather_conditions: None,
+            credited_to: test_action().author,
+        };
+        let result = validate_create_harvest_record(forged_action, record).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

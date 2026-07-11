@@ -694,9 +694,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate academic credential creation
 fn validate_create_academic_credential(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     cred: AcademicCredential,
 ) -> ExternResult<ValidateCallbackResult> {
+    // ===== Issuer author-binding =====
+    // The coordinator's create_academic_credential already checks
+    // `input.issuer.id != caller_did` before creating the entry, but that
+    // check is bypassable by a modified coordinator -- the integrity
+    // validator is the real security boundary. Without this, any agent
+    // could commit an AcademicCredential naming an arbitrary institution as
+    // issuer (forged degree claims). Bind here as belt-and-suspenders.
+    let expected_issuer_did = format!("did:mycelix:{}", action.author());
+    if cred.issuer.id != expected_issuer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential issuer DID must correspond to the committing agent".into(),
+        ));
+    }
+
     // ===== W3C VC 2.0 Compliance =====
 
     // Must include W3C credentials context
@@ -813,13 +827,27 @@ fn validate_create_academic_credential(
 
 /// Validate legacy import creation
 fn validate_create_legacy_import(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     import: LegacyBridgeImport,
 ) -> ExternResult<ValidateCallbackResult> {
     // Institution must be valid DID
     if !import.institution_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Institution must be a valid DID".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's start_legacy_import previously
+    // trusted `input.institution_did` entirely with zero derivation from
+    // agent_info() -- any agent could start an import batch claiming to be
+    // any institution, polluting that institution's audit trail (batches
+    // are indexed for lookup, e.g. get_credentials_by_institution). Fixed
+    // 2026-07-08 during the P0 author-binding pass: coordinator now derives
+    // institution_did from the caller, and this validator enforces it.
+    let expected_institution_did = format!("did:mycelix:{}", action.author());
+    if import.institution_did != expected_institution_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Import institution DID must correspond to the committing agent".into(),
         ));
     }
 
@@ -921,13 +949,24 @@ fn validate_update_legacy_import(
 
 /// Validate revocation request creation
 fn validate_create_revocation_request(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     req: AcademicRevocationRequest,
 ) -> ExternResult<ValidateCallbackResult> {
     // Requester must be valid DID
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Requester must be a valid DID".into(),
+        ));
+    }
+
+    // Author-binding: the coordinator's request_academic_revocation already
+    // derives requester_did from agent_info() cleanly (it isn't even part of
+    // the input struct), so this is belt-and-suspenders against a modified
+    // coordinator forging a revocation request on someone else's behalf.
+    let expected_requester_did = format!("did:mycelix:{}", action.author());
+    if req.requester_did != expected_requester_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revocation requester DID must correspond to the committing agent".into(),
         ));
     }
 
@@ -1302,5 +1341,188 @@ mod tests {
 
         assert_eq!(deserialized.row, 5);
         assert_eq!(deserialized.field, "gpa");
+    }
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn me() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn valid_credential(issuer_did: String) -> AcademicCredential {
+        AcademicCredential {
+            context: vec!["https://www.w3.org/ns/credentials/v2".to_string()],
+            id: "urn:uuid:cred-1".to_string(),
+            credential_type: vec![
+                "VerifiableCredential".to_string(),
+                "AcademicCredential".to_string(),
+            ],
+            issuer: InstitutionalIssuer {
+                id: issuer_did,
+                name: "Test University".to_string(),
+                issuer_type: vec!["University".to_string()],
+                image: None,
+                location: None,
+                accreditation: None,
+            },
+            valid_from: "2026-01-01T00:00:00Z".to_string(),
+            valid_until: None,
+            credential_subject: AcademicSubject {
+                id: "did:mycelix:student1".to_string(),
+                name: None,
+                name_hash: None,
+                birth_date: None,
+                student_id: None,
+            },
+            proof: AcademicProof {
+                proof_type: "Ed25519Signature2020".to_string(),
+                created: "2026-01-01T00:00:00Z".to_string(),
+                verification_method: "did:mycelix:issuer#key-1".to_string(),
+                proof_purpose: "assertionMethod".to_string(),
+                proof_value: "z123".to_string(),
+                cryptosuite: None,
+                domain: None,
+                challenge: None,
+                algorithm: None,
+            },
+            zk_commitment: vec![0u8; 32],
+            commitment_nonce: None,
+            revocation_registry_id: "registry-1".to_string(),
+            revocation_index: 0,
+            dns_did: DnsDid {
+                domain: "university.edu".to_string(),
+                did: "did:mycelix:issuer".to_string(),
+                txt_record: String::new(),
+                dnssec: DnssecStatus::Unknown,
+                last_verified: Timestamp::from_micros(0),
+                verification_chain: vec![],
+            },
+            achievement: AchievementMetadata {
+                degree_type: DegreeType::Bachelor,
+                degree_name: "Bachelor of Science".to_string(),
+                field_of_study: "Computer Science".to_string(),
+                minors: None,
+                conferral_date: "2026-01-01".to_string(),
+                gpa: None,
+                honors: None,
+                cip_code: None,
+                credits_earned: None,
+            },
+            mycelix_schema_id: "mycelix:schema:education:academic:v1".to_string(),
+            mycelix_created: Timestamp::from_micros(0),
+            legacy_import_ref: None,
+        }
+    }
+
+    #[test]
+    fn create_credential_valid_when_issuer_matches_committer() {
+        let cred = valid_credential(format!("did:mycelix:{}", me()));
+        let result = validate_create_academic_credential(
+            EntryCreationAction::Create(test_action(me())),
+            cred,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_credential_issuer_forgery_rejected() {
+        let cred = valid_credential(format!("did:mycelix:{}", me()));
+        let result = validate_create_academic_credential(
+            EntryCreationAction::Create(test_action(other_agent())),
+            cred,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_import(institution_did: String) -> LegacyBridgeImport {
+        LegacyBridgeImport {
+            batch_id: "batch-1".to_string(),
+            institution_did,
+            source_system: "Banner".to_string(),
+            import_timestamp: Timestamp::from_micros(0),
+            total_credentials: 10,
+            imported_count: 0,
+            failed_count: 0,
+            status: ImportStatus::InProgress,
+            source_hash: vec![0u8; 32],
+            errors: vec![],
+        }
+    }
+
+    #[test]
+    fn create_import_valid_when_institution_matches_committer() {
+        let import = valid_import(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_legacy_import(EntryCreationAction::Create(test_action(me())), import)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_import_institution_forgery_rejected() {
+        let import = valid_import(format!("did:mycelix:{}", me()));
+        let result = validate_create_legacy_import(
+            EntryCreationAction::Create(test_action(other_agent())),
+            import,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    fn valid_revocation_request(requester_did: String) -> AcademicRevocationRequest {
+        AcademicRevocationRequest {
+            credential_id: "urn:uuid:cred-1".to_string(),
+            requester_did,
+            reason: RevocationReason::IssuedInError,
+            explanation: "Issued to wrong student".to_string(),
+            evidence: None,
+            requested_at: Timestamp::from_micros(0),
+            status: RevocationRequestStatus::Pending,
+        }
+    }
+
+    #[test]
+    fn create_revocation_request_valid_when_requester_matches_committer() {
+        let req = valid_revocation_request(format!("did:mycelix:{}", me()));
+        let result =
+            validate_create_revocation_request(EntryCreationAction::Create(test_action(me())), req)
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_revocation_request_requester_forgery_rejected() {
+        let req = valid_revocation_request(format!("did:mycelix:{}", me()));
+        let result = validate_create_revocation_request(
+            EntryCreationAction::Create(test_action(other_agent())),
+            req,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

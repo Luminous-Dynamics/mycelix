@@ -13,83 +13,96 @@ use hdk::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
-// EPISTEMIC CLASSIFICATION (Integration with Mycelix Epistemic Charter)
+// MARKET RESOLUTION PROFILE
+//
+// These types are inspired by the Mycelix Epistemic Charter's E-N-M framing
+// (see crates/mycelix-claim-types for the canonical E0-E4/N0-N3/M0-M3
+// scale) but are NOT the same classification and must not be confused with
+// it or swapped for it. VerificationTier is roughly parallel to the
+// canonical empirical axis (both run weak->strong verification), but
+// ConsensusScopeLevel measures breadth of required stakeholder agreement
+// (not the canonical axis's consensus-maturity), and DurationTier measures
+// how long a claim matters (not the canonical axis's abstractness-vs-impact).
+// These are purpose-built to drive THIS market's own resolution-mechanism
+// and duration recommendations below, independent of any external claim's
+// classification.
 // ============================================================================
 
-/// Empirical axis: How can this claim be verified?
+/// Verification tier: how can this market's outcome be verified?
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EmpiricalLevel {
-    /// E0: Subjective experience, no external verification possible
+pub enum VerificationTier {
+    /// Subjective experience, no external verification possible
     Subjective,
-    /// E1: Witness testimony, social verification
+    /// Witness testimony, social verification
     Testimonial,
-    /// E2: Private verification (ZK proofs, credentials)
+    /// Private verification (ZK proofs, credentials)
     PrivateVerify,
-    /// E3: Cryptographic/on-chain verification
+    /// Cryptographic/on-chain verification
     Cryptographic,
-    /// E4: Fully measurable, scientifically reproducible
+    /// Fully measurable, scientifically reproducible
     Measurable,
 }
 
-/// Normative axis: Who must agree for this to be "true"?
+/// Consensus scope: who must agree for this market's outcome to be "true"?
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NormativeLevel {
-    /// N0: Individual perspective only
+pub enum ConsensusScopeLevel {
+    /// Individual perspective only
     Personal,
-    /// N1: Community consensus required
+    /// Community consensus required
     Communal,
-    /// N2: Network-wide agreement
+    /// Network-wide agreement
     Network,
-    /// N3: Universal/objective truth
+    /// Universal/objective truth
     Universal,
 }
 
-/// Materiality axis: How long does this claim matter?
+/// Duration tier: how long does this market's question matter?
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MaterialityLevel {
-    /// M0: Ephemeral, doesn't persist
+pub enum DurationTier {
+    /// Ephemeral, doesn't persist
     Ephemeral,
-    /// M1: Time-limited relevance
+    /// Time-limited relevance
     Temporal,
-    /// M2: Persistent record
+    /// Persistent record
     Persistent,
-    /// M3: Foundational to understanding
+    /// Foundational to understanding
     Foundational,
 }
 
-/// 3D epistemic position determines market behavior
+/// This market's own resolution profile — NOT an external claim's epistemic
+/// classification (see module-level note above).
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EpistemicPosition {
-    pub empirical: EmpiricalLevel,
-    pub normative: NormativeLevel,
-    pub materiality: MaterialityLevel,
+pub struct MarketResolutionProfile {
+    pub empirical: VerificationTier,
+    pub normative: ConsensusScopeLevel,
+    pub materiality: DurationTier,
 }
 
-impl EpistemicPosition {
+impl MarketResolutionProfile {
     /// Derive resolution mechanism from epistemic position
     pub fn recommended_resolution(&self) -> ResolutionMechanism {
         match self.empirical {
-            EmpiricalLevel::Measurable | EmpiricalLevel::Cryptographic => {
+            VerificationTier::Measurable | VerificationTier::Cryptographic => {
                 ResolutionMechanism::Automated
             }
-            EmpiricalLevel::PrivateVerify => ResolutionMechanism::ZkVerified,
-            EmpiricalLevel::Testimonial => match self.normative {
-                NormativeLevel::Universal | NormativeLevel::Network => {
+            VerificationTier::PrivateVerify => ResolutionMechanism::ZkVerified,
+            VerificationTier::Testimonial => match self.normative {
+                ConsensusScopeLevel::Universal | ConsensusScopeLevel::Network => {
                     ResolutionMechanism::OracleConsensus
                 }
                 _ => ResolutionMechanism::CommunityVote,
             },
-            EmpiricalLevel::Subjective => ResolutionMechanism::ReputationStaked,
+            VerificationTier::Subjective => ResolutionMechanism::ReputationStaked,
         }
     }
 
     /// Derive recommended market duration from materiality
     pub fn recommended_duration_days(&self) -> u64 {
         match self.materiality {
-            MaterialityLevel::Ephemeral => 1,
-            MaterialityLevel::Temporal => 7,
-            MaterialityLevel::Persistent => 30,
-            MaterialityLevel::Foundational => 90,
+            DurationTier::Ephemeral => 1,
+            DurationTier::Temporal => 7,
+            DurationTier::Persistent => 30,
+            DurationTier::Foundational => 90,
         }
     }
 }
@@ -102,10 +115,7 @@ impl EpistemicPosition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MarketMechanism {
     /// Simple binary market (yes/no)
-    Binary {
-        yes_shares: u64,
-        no_shares: u64,
-    },
+    Binary { yes_shares: u64, no_shares: u64 },
 
     /// Logarithmic Market Scoring Rule (bounded loss for market maker)
     /// Good for low liquidity, provides always-available prices
@@ -117,16 +127,11 @@ pub enum MarketMechanism {
 
     /// Continuous Double Auction (order book)
     /// More efficient for liquid markets
-    CDA {
-        bids: Vec<Order>,
-        asks: Vec<Order>,
-    },
+    CDA { bids: Vec<Order>, asks: Vec<Order> },
 
     /// Parimutuel (all bets pooled, proportional payout)
     /// Simple, no market maker needed
-    Parimutuel {
-        pools: Vec<(OutcomeId, u64)>,
-    },
+    Parimutuel { pools: Vec<(OutcomeId, u64)> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -373,7 +378,7 @@ pub struct Market {
     pub creator: AgentPubKey,
 
     /// Epistemic classification (drives resolution mechanism)
-    pub epistemic_position: EpistemicPosition,
+    pub epistemic_position: MarketResolutionProfile,
 
     /// Possible outcomes
     pub outcomes: Vec<Outcome>,
@@ -424,7 +429,7 @@ pub struct CreateMarketInput {
     pub question: String,
     pub description: String,
     pub outcomes: Vec<String>,
-    pub epistemic_position: EpistemicPosition,
+    pub epistemic_position: MarketResolutionProfile,
     pub mechanism: MarketMechanism,
     pub closes_at: u64,
     pub resolution_deadline: u64,
@@ -580,8 +585,10 @@ pub fn list_open_markets(_: ()) -> ExternResult<Vec<Market>> {
 #[hdk_extern]
 pub fn search_markets_by_tag(tag: String) -> ExternResult<Vec<Market>> {
     let tag_anchor = anchor_hash(&format!("tag:{}", tag))?;
-    let links =
-        get_links(LinkQuery::try_new(tag_anchor, LinkTypes::TagToMarket)?, GetStrategy::default())?;
+    let links = get_links(
+        LinkQuery::try_new(tag_anchor, LinkTypes::TagToMarket)?,
+        GetStrategy::default(),
+    )?;
 
     let mut markets = Vec::new();
     for link in links {
@@ -665,10 +672,7 @@ pub fn lmsr_price(
     let max_exp = exponents.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
     // Compute sum of e^(x - max) then multiply by e^max
-    let sum_exp: f64 = exponents
-        .iter()
-        .map(|e| (e - max_exp).exp())
-        .sum();
+    let sum_exp: f64 = exponents.iter().map(|e| (e - max_exp).exp()).sum();
 
     // Price = e^(q_i/b - max) / sum_exp
     let price = (exponents[outcome_index] - max_exp).exp() / sum_exp;
@@ -676,10 +680,7 @@ pub fn lmsr_price(
 }
 
 /// Calculate all LMSR prices for a market
-pub fn lmsr_prices(
-    outcome_quantities: &[u64],
-    liquidity_parameter: f64,
-) -> Vec<f64> {
+pub fn lmsr_prices(outcome_quantities: &[u64], liquidity_parameter: f64) -> Vec<f64> {
     (0..outcome_quantities.len())
         .map(|i| lmsr_price(outcome_quantities, liquidity_parameter, i))
         .collect()
@@ -714,10 +715,7 @@ pub fn lmsr_cost(
 
     // Helper: compute b * ln(Σ e^(q_i/b)) with numerical stability
     let cost_function = |quantities: &[u64]| -> f64 {
-        let exponents: Vec<f64> = quantities
-            .iter()
-            .map(|q| (*q as f64) / b)
-            .collect();
+        let exponents: Vec<f64> = quantities.iter().map(|q| (*q as f64) / b).collect();
         let max_exp = exponents.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let sum_exp: f64 = exponents.iter().map(|e| (e - max_exp).exp()).sum();
         b * (max_exp + sum_exp.ln())
@@ -757,11 +755,7 @@ pub fn lmsr_shares_for_budget(
     }
 
     // Return the highest quantity that fits budget
-    if low > 0 {
-        low - 1
-    } else {
-        0
-    }
+    if low > 0 { low - 1 } else { 0 }
 }
 
 /// Get current market price from Market struct
@@ -771,9 +765,16 @@ pub fn get_market_price(market: &Market, outcome_index: usize) -> Option<f64> {
             liquidity_parameter,
             outcome_quantities,
             ..
-        } => Some(lmsr_price(outcome_quantities, *liquidity_parameter, outcome_index)),
+        } => Some(lmsr_price(
+            outcome_quantities,
+            *liquidity_parameter,
+            outcome_index,
+        )),
 
-        MarketMechanism::Binary { yes_shares, no_shares } => {
+        MarketMechanism::Binary {
+            yes_shares,
+            no_shares,
+        } => {
             let total = (*yes_shares + *no_shares) as f64;
             if total == 0.0 {
                 Some(0.5) // Default 50-50 if no shares
@@ -791,7 +792,9 @@ pub fn get_market_price(market: &Market, outcome_index: usize) -> Option<f64> {
             if total == 0 {
                 return Some(1.0 / pools.len() as f64);
             }
-            pools.get(outcome_index).map(|(_, amount)| *amount as f64 / total as f64)
+            pools
+                .get(outcome_index)
+                .map(|(_, amount)| *amount as f64 / total as f64)
         }
 
         MarketMechanism::CDA { .. } => {
@@ -811,15 +814,15 @@ pub fn get_all_market_prices(market: &Market) -> Vec<f64> {
             ..
         } => lmsr_prices(outcome_quantities, *liquidity_parameter),
 
-        MarketMechanism::Binary { yes_shares, no_shares } => {
+        MarketMechanism::Binary {
+            yes_shares,
+            no_shares,
+        } => {
             let total = (*yes_shares + *no_shares) as f64;
             if total == 0.0 {
                 vec![0.5, 0.5]
             } else {
-                vec![
-                    *yes_shares as f64 / total,
-                    *no_shares as f64 / total,
-                ]
+                vec![*yes_shares as f64 / total, *no_shares as f64 / total]
             }
         }
 
@@ -828,7 +831,10 @@ pub fn get_all_market_prices(market: &Market) -> Vec<f64> {
             if total == 0 {
                 vec![1.0 / pools.len() as f64; pools.len()]
             } else {
-                pools.iter().map(|(_, amount)| *amount as f64 / total as f64).collect()
+                pools
+                    .iter()
+                    .map(|(_, amount)| *amount as f64 / total as f64)
+                    .collect()
             }
         }
 
@@ -998,7 +1004,11 @@ pub fn buy_shares(input: BuySharesInput) -> ExternResult<TradeResult> {
     let cost_u64 = cost.ceil() as u64;
 
     // Check slippage protection
-    let current_price = lmsr_price(&outcome_quantities, liquidity_parameter, input.outcome_index);
+    let current_price = lmsr_price(
+        &outcome_quantities,
+        liquidity_parameter,
+        input.outcome_index,
+    );
     if let Some(max_price) = input.max_price {
         if current_price > max_price {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -1092,7 +1102,13 @@ pub fn sell_shares(input: SellSharesInput) -> ExternResult<TradeResult> {
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("No position in this market".into())))?;
 
     // Verify has enough shares
-    if position.shares_by_outcome.get(input.outcome_index).copied().unwrap_or(0) < input.shares {
+    if position
+        .shares_by_outcome
+        .get(input.outcome_index)
+        .copied()
+        .unwrap_or(0)
+        < input.shares
+    {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Insufficient shares to sell".into()
         )));
@@ -1115,8 +1131,8 @@ pub fn sell_shares(input: SellSharesInput) -> ExternResult<TradeResult> {
     // Calculate proceeds (negative cost = proceeds)
     // Selling is buying negative shares: cost(q - delta) - cost(q)
     let mut quantities_after = outcome_quantities.clone();
-    quantities_after[input.outcome_index] = quantities_after[input.outcome_index]
-        .saturating_sub(input.shares);
+    quantities_after[input.outcome_index] =
+        quantities_after[input.outcome_index].saturating_sub(input.shares);
 
     let cost_before = lmsr_cost_total(&outcome_quantities, liquidity_parameter);
     let cost_after = lmsr_cost_total(&quantities_after, liquidity_parameter);
@@ -1124,7 +1140,11 @@ pub fn sell_shares(input: SellSharesInput) -> ExternResult<TradeResult> {
     let proceeds_u64 = proceeds.floor() as u64;
 
     // Check slippage protection
-    let current_price = lmsr_price(&outcome_quantities, liquidity_parameter, input.outcome_index);
+    let current_price = lmsr_price(
+        &outcome_quantities,
+        liquidity_parameter,
+        input.outcome_index,
+    );
     if let Some(min_price) = input.min_price {
         if current_price < min_price {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -1214,13 +1234,29 @@ pub fn get_buy_quote(input: BuySharesInput) -> ExternResult<TradeQuote> {
     let shares = if let Some(s) = input.shares {
         s
     } else if let Some(budget) = input.budget {
-        lmsr_shares_for_budget(&outcome_quantities, liquidity_parameter, input.outcome_index, budget as f64)
+        lmsr_shares_for_budget(
+            &outcome_quantities,
+            liquidity_parameter,
+            input.outcome_index,
+            budget as f64,
+        )
     } else {
-        return Err(wasm_error!(WasmErrorInner::Guest("Must specify shares or budget".into())));
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Must specify shares or budget".into()
+        )));
     };
 
-    let current_price = lmsr_price(&outcome_quantities, liquidity_parameter, input.outcome_index);
-    let cost = lmsr_cost(&outcome_quantities, liquidity_parameter, input.outcome_index, shares);
+    let current_price = lmsr_price(
+        &outcome_quantities,
+        liquidity_parameter,
+        input.outcome_index,
+    );
+    let cost = lmsr_cost(
+        &outcome_quantities,
+        liquidity_parameter,
+        input.outcome_index,
+        shares,
+    );
 
     let mut new_quantities = outcome_quantities.clone();
     new_quantities[input.outcome_index] += shares;
@@ -1260,10 +1296,15 @@ pub fn get_sell_quote(input: SellSharesInput) -> ExternResult<TradeQuote> {
         }
     };
 
-    let current_price = lmsr_price(&outcome_quantities, liquidity_parameter, input.outcome_index);
+    let current_price = lmsr_price(
+        &outcome_quantities,
+        liquidity_parameter,
+        input.outcome_index,
+    );
 
     let mut new_quantities = outcome_quantities.clone();
-    new_quantities[input.outcome_index] = new_quantities[input.outcome_index].saturating_sub(input.shares);
+    new_quantities[input.outcome_index] =
+        new_quantities[input.outcome_index].saturating_sub(input.shares);
 
     let cost_before = lmsr_cost_total(&outcome_quantities, liquidity_parameter);
     let cost_after = lmsr_cost_total(&new_quantities, liquidity_parameter);
@@ -1309,8 +1350,16 @@ pub fn get_market_positions(market_id: EntryHash) -> ExternResult<Vec<SharePosit
 
     let mut positions = Vec::new();
     for link in links {
-        if let Some(record) = get(link.target.into_entry_hash().unwrap(), GetOptions::default())? {
-            if let Some(position) = record.entry().to_app_option::<SharePosition>().ok().flatten() {
+        if let Some(record) = get(
+            link.target.into_entry_hash().unwrap(),
+            GetOptions::default(),
+        )? {
+            if let Some(position) = record
+                .entry()
+                .to_app_option::<SharePosition>()
+                .ok()
+                .flatten()
+            {
                 positions.push(position);
             }
         }
@@ -1326,24 +1375,32 @@ pub fn get_market_positions(market_id: EntryHash) -> ExternResult<Vec<SharePosit
 /// Total cost function C(q) = b * ln(Σ e^(q_i/b))
 fn lmsr_cost_total(outcome_quantities: &[u64], liquidity_parameter: f64) -> f64 {
     let b = liquidity_parameter;
-    let exponents: Vec<f64> = outcome_quantities
-        .iter()
-        .map(|q| (*q as f64) / b)
-        .collect();
+    let exponents: Vec<f64> = outcome_quantities.iter().map(|q| (*q as f64) / b).collect();
     let max_exp = exponents.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
     let sum_exp: f64 = exponents.iter().map(|e| (e - max_exp).exp()).sum();
     b * (max_exp + sum_exp.ln())
 }
 
-fn get_agent_position(agent: &AgentPubKey, market_id: &EntryHash) -> ExternResult<Option<SharePosition>> {
+fn get_agent_position(
+    agent: &AgentPubKey,
+    market_id: &EntryHash,
+) -> ExternResult<Option<SharePosition>> {
     let links = get_links(
         LinkQuery::try_new(agent.clone(), LinkTypes::AgentToPosition)?,
         GetStrategy::default(),
     )?;
 
     for link in links {
-        if let Some(record) = get(link.target.into_entry_hash().unwrap(), GetOptions::default())? {
-            if let Some(position) = record.entry().to_app_option::<SharePosition>().ok().flatten() {
+        if let Some(record) = get(
+            link.target.into_entry_hash().unwrap(),
+            GetOptions::default(),
+        )? {
+            if let Some(position) = record
+                .entry()
+                .to_app_option::<SharePosition>()
+                .ok()
+                .flatten()
+            {
                 if position.market_id == *market_id {
                     return Ok(Some(position));
                 }
@@ -1383,14 +1440,18 @@ fn update_share_position(
             GetStrategy::default(),
         )?;
 
-        let position_hash = links.iter()
+        let position_hash = links
+            .iter()
             .find(|l| {
-                get(l.target.clone().into_entry_hash().unwrap(), GetOptions::default())
-                    .ok()
-                    .flatten()
-                    .and_then(|r| r.entry().to_app_option::<SharePosition>().ok().flatten())
-                    .map(|p| p.market_id == *market_id)
-                    .unwrap_or(false)
+                get(
+                    l.target.clone().into_entry_hash().unwrap(),
+                    GetOptions::default(),
+                )
+                .ok()
+                .flatten()
+                .and_then(|r| r.entry().to_app_option::<SharePosition>().ok().flatten())
+                .map(|p| p.market_id == *market_id)
+                .unwrap_or(false)
             })
             .map(|l| l.target.clone().into_entry_hash().unwrap());
 
@@ -1474,7 +1535,12 @@ fn update_share_position(
 
         // Create links
         create_link(agent.clone(), hash.clone(), LinkTypes::AgentToPosition, ())?;
-        create_link(market_id.clone(), hash.clone(), LinkTypes::MarketToPosition, ())?;
+        create_link(
+            market_id.clone(),
+            hash.clone(),
+            LinkTypes::MarketToPosition,
+            (),
+        )?;
 
         new_position
     };
@@ -1515,12 +1581,13 @@ fn execute_payment(
 
     match response {
         ZomeCallResponse::Ok(_) => Ok(()),
-        ZomeCallResponse::Unauthorized(_, _, _, _) => {
-            Err(wasm_error!(WasmErrorInner::Guest("Unauthorized payment".into())))
-        }
-        ZomeCallResponse::NetworkError(e) => {
-            Err(wasm_error!(WasmErrorInner::Guest(format!("Network error: {}", e))))
-        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "Unauthorized payment".into()
+        ))),
+        ZomeCallResponse::NetworkError(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Network error: {}",
+            e
+        )))),
         _ => Err(wasm_error!(WasmErrorInner::Guest("Payment failed".into()))),
     }
 }
@@ -1566,10 +1633,9 @@ fn execute_payout(
 // ============================================================================
 
 fn anchor_hash(anchor: &str) -> ExternResult<EntryHash> {
-    use hdk::prelude::{hash_entry, Entry, AppEntryBytes, SerializedBytes, UnsafeBytes};
-    let anchor_bytes = SerializedBytes::from(UnsafeBytes::from(
-        format!("anchor:{}", anchor).into_bytes()
-    ));
+    use hdk::prelude::{AppEntryBytes, Entry, SerializedBytes, UnsafeBytes, hash_entry};
+    let anchor_bytes =
+        SerializedBytes::from(UnsafeBytes::from(format!("anchor:{}", anchor).into_bytes()));
     hash_entry(Entry::App(AppEntryBytes(anchor_bytes)))
 }
 
@@ -1605,107 +1671,131 @@ mod tests {
     #[test]
     fn test_epistemic_position_automated_resolution() {
         // E4 (Measurable) -> Automated resolution
-        let pos = EpistemicPosition {
-            empirical: EmpiricalLevel::Measurable,
-            normative: NormativeLevel::Universal,
-            materiality: MaterialityLevel::Persistent,
+        let pos = MarketResolutionProfile {
+            empirical: VerificationTier::Measurable,
+            normative: ConsensusScopeLevel::Universal,
+            materiality: DurationTier::Persistent,
         };
-        assert!(matches!(pos.recommended_resolution(), ResolutionMechanism::Automated));
+        assert!(matches!(
+            pos.recommended_resolution(),
+            ResolutionMechanism::Automated
+        ));
 
         // E3 (Cryptographic) -> Automated resolution
-        let pos2 = EpistemicPosition {
-            empirical: EmpiricalLevel::Cryptographic,
-            normative: NormativeLevel::Network,
-            materiality: MaterialityLevel::Persistent,
+        let pos2 = MarketResolutionProfile {
+            empirical: VerificationTier::Cryptographic,
+            normative: ConsensusScopeLevel::Network,
+            materiality: DurationTier::Persistent,
         };
-        assert!(matches!(pos2.recommended_resolution(), ResolutionMechanism::Automated));
+        assert!(matches!(
+            pos2.recommended_resolution(),
+            ResolutionMechanism::Automated
+        ));
     }
 
     #[test]
     fn test_epistemic_position_zk_resolution() {
         // E2 (PrivateVerify) -> ZK-verified resolution
-        let pos = EpistemicPosition {
-            empirical: EmpiricalLevel::PrivateVerify,
-            normative: NormativeLevel::Communal,
-            materiality: MaterialityLevel::Temporal,
+        let pos = MarketResolutionProfile {
+            empirical: VerificationTier::PrivateVerify,
+            normative: ConsensusScopeLevel::Communal,
+            materiality: DurationTier::Temporal,
         };
-        assert!(matches!(pos.recommended_resolution(), ResolutionMechanism::ZkVerified));
+        assert!(matches!(
+            pos.recommended_resolution(),
+            ResolutionMechanism::ZkVerified
+        ));
     }
 
     #[test]
     fn test_epistemic_position_oracle_resolution() {
         // E1 (Testimonial) + N2/N3 -> Oracle consensus
-        let pos = EpistemicPosition {
-            empirical: EmpiricalLevel::Testimonial,
-            normative: NormativeLevel::Network,
-            materiality: MaterialityLevel::Persistent,
+        let pos = MarketResolutionProfile {
+            empirical: VerificationTier::Testimonial,
+            normative: ConsensusScopeLevel::Network,
+            materiality: DurationTier::Persistent,
         };
-        assert!(matches!(pos.recommended_resolution(), ResolutionMechanism::OracleConsensus));
+        assert!(matches!(
+            pos.recommended_resolution(),
+            ResolutionMechanism::OracleConsensus
+        ));
 
-        let pos2 = EpistemicPosition {
-            empirical: EmpiricalLevel::Testimonial,
-            normative: NormativeLevel::Universal,
-            materiality: MaterialityLevel::Foundational,
+        let pos2 = MarketResolutionProfile {
+            empirical: VerificationTier::Testimonial,
+            normative: ConsensusScopeLevel::Universal,
+            materiality: DurationTier::Foundational,
         };
-        assert!(matches!(pos2.recommended_resolution(), ResolutionMechanism::OracleConsensus));
+        assert!(matches!(
+            pos2.recommended_resolution(),
+            ResolutionMechanism::OracleConsensus
+        ));
     }
 
     #[test]
     fn test_epistemic_position_community_vote() {
         // E1 (Testimonial) + N0/N1 -> Community vote
-        let pos = EpistemicPosition {
-            empirical: EmpiricalLevel::Testimonial,
-            normative: NormativeLevel::Communal,
-            materiality: MaterialityLevel::Temporal,
+        let pos = MarketResolutionProfile {
+            empirical: VerificationTier::Testimonial,
+            normative: ConsensusScopeLevel::Communal,
+            materiality: DurationTier::Temporal,
         };
-        assert!(matches!(pos.recommended_resolution(), ResolutionMechanism::CommunityVote));
+        assert!(matches!(
+            pos.recommended_resolution(),
+            ResolutionMechanism::CommunityVote
+        ));
 
-        let pos2 = EpistemicPosition {
-            empirical: EmpiricalLevel::Testimonial,
-            normative: NormativeLevel::Personal,
-            materiality: MaterialityLevel::Ephemeral,
+        let pos2 = MarketResolutionProfile {
+            empirical: VerificationTier::Testimonial,
+            normative: ConsensusScopeLevel::Personal,
+            materiality: DurationTier::Ephemeral,
         };
-        assert!(matches!(pos2.recommended_resolution(), ResolutionMechanism::CommunityVote));
+        assert!(matches!(
+            pos2.recommended_resolution(),
+            ResolutionMechanism::CommunityVote
+        ));
     }
 
     #[test]
     fn test_epistemic_position_reputation_staked() {
         // E0 (Subjective) -> Reputation staked
-        let pos = EpistemicPosition {
-            empirical: EmpiricalLevel::Subjective,
-            normative: NormativeLevel::Personal,
-            materiality: MaterialityLevel::Ephemeral,
+        let pos = MarketResolutionProfile {
+            empirical: VerificationTier::Subjective,
+            normative: ConsensusScopeLevel::Personal,
+            materiality: DurationTier::Ephemeral,
         };
-        assert!(matches!(pos.recommended_resolution(), ResolutionMechanism::ReputationStaked));
+        assert!(matches!(
+            pos.recommended_resolution(),
+            ResolutionMechanism::ReputationStaked
+        ));
     }
 
     #[test]
     fn test_epistemic_duration_days() {
-        let ephemeral = EpistemicPosition {
-            empirical: EmpiricalLevel::Subjective,
-            normative: NormativeLevel::Personal,
-            materiality: MaterialityLevel::Ephemeral,
+        let ephemeral = MarketResolutionProfile {
+            empirical: VerificationTier::Subjective,
+            normative: ConsensusScopeLevel::Personal,
+            materiality: DurationTier::Ephemeral,
         };
         assert_eq!(ephemeral.recommended_duration_days(), 1);
 
-        let temporal = EpistemicPosition {
-            empirical: EmpiricalLevel::Testimonial,
-            normative: NormativeLevel::Communal,
-            materiality: MaterialityLevel::Temporal,
+        let temporal = MarketResolutionProfile {
+            empirical: VerificationTier::Testimonial,
+            normative: ConsensusScopeLevel::Communal,
+            materiality: DurationTier::Temporal,
         };
         assert_eq!(temporal.recommended_duration_days(), 7);
 
-        let persistent = EpistemicPosition {
-            empirical: EmpiricalLevel::Cryptographic,
-            normative: NormativeLevel::Network,
-            materiality: MaterialityLevel::Persistent,
+        let persistent = MarketResolutionProfile {
+            empirical: VerificationTier::Cryptographic,
+            normative: ConsensusScopeLevel::Network,
+            materiality: DurationTier::Persistent,
         };
         assert_eq!(persistent.recommended_duration_days(), 30);
 
-        let foundational = EpistemicPosition {
-            empirical: EmpiricalLevel::Measurable,
-            normative: NormativeLevel::Universal,
-            materiality: MaterialityLevel::Foundational,
+        let foundational = MarketResolutionProfile {
+            empirical: VerificationTier::Measurable,
+            normative: ConsensusScopeLevel::Universal,
+            materiality: DurationTier::Foundational,
         };
         assert_eq!(foundational.recommended_duration_days(), 90);
     }
@@ -1722,8 +1812,8 @@ mod tests {
     fn test_multi_dimensional_stake_reputation() {
         let stake = MultiDimensionalStake::reputation_only(
             vec!["knowledge".to_string()],
-            0.1,  // 10% of reputation
-            1.5,  // 1.5x confidence multiplier
+            0.1, // 10% of reputation
+            1.5, // 1.5x confidence multiplier
         );
         assert!(stake.monetary.is_none());
         assert!(stake.reputation.is_some());
@@ -1741,7 +1831,7 @@ mod tests {
             }),
             reputation: Some(ReputationStake {
                 domains: vec!["tech".to_string()],
-                stake_percentage: 0.05,  // 5%
+                stake_percentage: 0.05, // 5%
                 confidence_multiplier: 2.0,
             }),
             social: Some(SocialStake {
@@ -1802,7 +1892,10 @@ mod tests {
         let make_stake = |vis| MultiDimensionalStake {
             monetary: None,
             reputation: None,
-            social: Some(SocialStake { visibility: vis, identity_link: None }),
+            social: Some(SocialStake {
+                visibility: vis,
+                identity_link: None,
+            }),
             commitment: None,
             time: None,
         };
@@ -1842,8 +1935,14 @@ mod tests {
             commitment: Some(CommitmentStake {
                 if_correct: vec![],
                 if_wrong: vec![
-                    Commitment::Investigation { hours: 5, topic: "research".to_string() },
-                    Commitment::Donation { amount: 100, recipient: "charity".to_string() },
+                    Commitment::Investigation {
+                        hours: 5,
+                        topic: "research".to_string(),
+                    },
+                    Commitment::Donation {
+                        amount: 100,
+                        recipient: "charity".to_string(),
+                    },
                 ],
             }),
             time: None,
