@@ -20,7 +20,7 @@ rust: ## Build Rust workspace
 
 web: ## Build web application
 	@echo "▶ Building web application..."
-	cd apps/web && npm install && npm run build
+	cd apps/leptos && trunk build --release
 
 zomes: ## Build Holochain zomes to WASM
 	@echo "▶ Building Holochain zomes..."
@@ -28,17 +28,17 @@ zomes: ## Build Holochain zomes to WASM
 
 fmt: ## Format all code
 	cargo fmt --all
-	cd apps/web && npm run format || true
+	cargo fmt --manifest-path apps/leptos/Cargo.toml
 
 lint: ## Lint all code
 	cargo clippy --all -- -D warnings
-	cd apps/web && npm run lint || true
+	cargo clippy --manifest-path apps/leptos/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
 
 test: ## Run all tests
 	@echo "▶ Running Rust tests..."
 	cargo test --all
-	@echo "▶ Running web tests..."
-	cd apps/web && npm test -- --watch=false || true
+	@echo "▶ Validating Leptos application..."
+	cargo check --manifest-path apps/leptos/Cargo.toml --target wasm32-unknown-unknown
 
 bench: ## Run benchmarks
 	@echo "▶ Running benchmarks..."
@@ -46,9 +46,12 @@ bench: ## Run benchmarks
 
 check: ## Quick sanity check (fmt + clippy + test)
 	@echo "▶ Running quick sanity check..."
+	python3 scripts/validate_curriculum.py
+	python3 scripts/validate_learning_contract.py
 	cargo fmt --all -- --check
 	cargo clippy --all -- -D warnings
 	cargo test --all --quiet
+	cargo check --manifest-path apps/leptos/Cargo.toml --target wasm32-unknown-unknown
 
 start: ## Start development servers
 	./scripts/dev.sh
@@ -56,7 +59,8 @@ start: ## Start development servers
 clean: ## Clean all build artifacts
 	@echo "⚠ Cleaning all build artifacts..."
 	cargo clean
-	rm -rf apps/web/node_modules apps/web/dist
+	cargo clean --manifest-path apps/leptos/Cargo.toml
+	rm -rf apps/leptos/dist
 	find . -name "*.dna" -o -name "*.happ" -o -name "*.webhapp" | xargs rm -f
 
 reset: ## Reset Holochain dev environment
@@ -64,14 +68,13 @@ reset: ## Reset Holochain dev environment
 
 dna: zomes ## Package DNA bundle
 	@echo "▶ Packaging DNA bundle..."
-	cd dna && hc dna pack . -o edunet.dna
-	@echo "  DNA: dna/edunet.dna"
+	cd dna && hc dna pack . -o praxis.dna
+	@echo "  DNA: dna/praxis.dna"
 
 happ: dna ## Package hApp bundle
 	@echo "▶ Packaging hApp bundle..."
-	cp dna/edunet.dna happ/edunet.dna
-	hc app pack happ/ -o happ/mycelix-edunet.happ
-	@echo "  hApp: happ/mycelix-edunet.happ"
+	hc app pack happ/ -o happ/mycelix-praxis.happ
+	@echo "  hApp: happ/mycelix-praxis.happ"
 
 integration-test: ## Run ignored integration tests (builds WASM + DNA + hApp first)
 	./scripts/run-integration-tests.sh

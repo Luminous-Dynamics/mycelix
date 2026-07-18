@@ -177,11 +177,14 @@ fn OfflineBanner() -> impl IntoView {
              style=move || {
                  if !check_online() { return "display:none"; }
                  match hc.status.get() {
-                     ConnectionStatus::Disconnected => "",
+                     ConnectionStatus::Disconnected | ConnectionStatus::Unavailable => "",
                      _ => "display:none",
                  }
              }>
-            "\u{26A0} Conductor disconnected — reconnecting..."
+            {move || match hc.status.get() {
+                ConnectionStatus::Unavailable => "\u{26A0} Live mode unavailable — reconnect or explicitly enter Demo mode",
+                _ => "\u{26A0} Conductor disconnected — reconnecting...",
+            }}
         </div>
     }
 }

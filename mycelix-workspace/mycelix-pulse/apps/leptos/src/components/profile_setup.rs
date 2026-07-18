@@ -80,7 +80,7 @@ pub fn ProfileSetup() -> impl IntoView {
         } else if crate::mail_context::is_demo_mode() {
             // Demo mode — no profile needed
             step.set(SetupStep::HasProfile);
-        } else if status == ConnectionStatus::Mock
+        } else if status == ConnectionStatus::Demo
             && (current_step == SetupStep::Checking || current_step == SetupStep::Connecting)
         {
             // Production + Mock (conductor unreachable): fall through to the
@@ -117,8 +117,22 @@ pub fn ProfileSetup() -> impl IntoView {
                     "avatar_url": "",
                     "bio": bio_val.trim(),
                 });
+                // `set_profile` returns an `ActionHash` — a raw byte array on
+                // the wire. Decoding that as `serde_json::Value` fails
+                // ("invalid type: byte array, expected any valid JSON
+                // value"), since JSON has no native byte-array
+                // representation; msgpack's bin type only round-trips
+                // through `serde_json::Value` for JSON-shaped payloads. The
+                // DHT write itself succeeds regardless — only this client
+                // decode step was broken — but the resulting `Err` branch
+                // below silently reverts the whole onboarding flow back to
+                // NameEntry with no key generation ever attempted, found
+                // live via the Pulse browser proof (a one-shot "is the name
+                // input hidden yet" check was fooled by the transient
+                // hide-then-show). `Vec<u8>` decodes the same wire bytes
+                // correctly; we don't need the hash value, just success.
                 match hc
-                    .call_zome::<serde_json::Value, serde_json::Value>(
+                    .call_zome::<serde_json::Value, Vec<u8>>(
                         "mail_profiles",
                         "set_profile",
                         &profile,
@@ -157,47 +171,66 @@ pub fn ProfileSetup() -> impl IntoView {
                     }
                 }
 
-                // Try key generation (non-critical)
-                key_status.set("Generating encryption keys...".into());
-                if let Ok(status_val) = hc
-                    .call_zome::<(), serde_json::Value>("mail_keys", "needs_refresh", &())
+                key_status.set("Preparing device-local hybrid PQC keys...".into());
+                let existing = hc
+                    .call_zome::<(), serde_json::Value>(
+                        "mail_keys",
+                        "get_my_hybrid_key_bundle_v2",
+                        &(),
+                    )
                     .await
-                {
-                    let needs = serde_json::to_string(&status_val).unwrap_or_default();
-                    if needs.contains("NoBundle") || needs.contains("Expired") {
-                        let identity_key = match crate::crypto::ensure_local_identity_keypair() {
-                            Ok(key) => key,
-                            Err(e) => {
-                                web_sys::console::warn_1(
-                                    &format!("[Mail] identity key setup: {e}").into(),
-                                );
-                                Vec::new()
+                    .ok()
+                    .filter(|value| !value.is_null());
+
+                if existing.is_some() {
+                    // Never silently replace a published identity when its
+                    // device-local private half is missing.
+                    if let Err(error) = crate::device_keystore::load_hybrid_identity().await {
+                        key_status.set("Existing V2 identity is unavailable on this device".into());
+                        toasts.push(
+                            format!("Cannot recover this device's encryption keys: {error}"),
+                            "error",
+                        );
+                        return;
+                    }
+                } else {
+                    let public =
+                        match crate::device_keystore::create_and_store_hybrid_identity().await {
+                            Ok(public) => public,
+                            Err(error) => {
+                                key_status.set("Could not secure the device identity".into());
+                                toasts.push(error, "error");
+                                return;
                             }
                         };
-                        let signed_pre_key = crate::crypto::generate_public_key_bytes();
-                        let signed_pre_key_signature =
-                            crate::crypto::sign_message(&signed_pre_key, &identity_key);
-                        let created_at_us = (js_sys::Date::now() as u64) * 1000;
-                        let bundle = serde_json::json!({
-                            "identity_key": identity_key,
-                            "signed_pre_key": signed_pre_key,
-                            "signed_pre_key_id": 1u32,
-                            "signed_pre_key_signature": signed_pre_key_signature,
-                            "one_time_pre_keys": (0..10).map(|i| serde_json::json!({
-                                "key_id": (i + 1) as u32,
-                                "public_key": crate::crypto::generate_public_key_bytes(),
-                                "used": false,
-                            })).collect::<Vec<_>>(),
-                            "created_at": created_at_us,
-                            "expires_at": created_at_us + (30 * 24 * 3600 * 1_000_000u64),
-                        });
-                        let _ = hc
-                            .call_zome::<serde_json::Value, serde_json::Value>(
-                                "mail_keys",
-                                "publish_pre_key_bundle",
-                                &bundle,
-                            )
-                            .await;
+                    let created_at_us = (js_sys::Date::now() as u64) * 1000;
+                    let bundle = serde_json::json!({
+                        "version": 2u16,
+                        "suite": mail_leptos_types::protocol::SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
+                        // The coordinator derives this content-addressed ID and
+                        // signs the final transcript with the active agent key.
+                        "key_id": vec![0u8; 32],
+                        "x25519_public_key": public.x25519_public_key,
+                        "ml_kem_768_public_key": public.ml_kem_768_public_key,
+                        "ml_dsa_65_public_key": public.ml_dsa_65_public_key,
+                        "state": "active",
+                        "created_at": created_at_us,
+                        "expires_at": created_at_us + (30 * 24 * 3600 * 1_000_000u64),
+                        "agent_signature": vec![0u8; 64],
+                    });
+                    // Same ActionHash-as-raw-bytes decode mismatch as
+                    // set_profile above — Vec<u8> decodes correctly.
+                    if let Err(error) = hc
+                        .call_zome::<serde_json::Value, Vec<u8>>(
+                            "mail_keys",
+                            "publish_hybrid_key_bundle_v2",
+                            &bundle,
+                        )
+                        .await
+                    {
+                        key_status.set("Hybrid key publication failed".into());
+                        toasts.push(format!("Could not publish V2 keys: {error}"), "error");
+                        return;
                     }
                 }
 
@@ -291,7 +324,7 @@ pub fn ProfileSetup() -> impl IntoView {
                     />
                     <p style="font-size:0.7rem;color:#5c6380;text-align:center;margin-top:14px;line-height:1.5">
                         "Your DSID is anchored to the Holochain DHT."<br/>
-                        "Post-quantum encryption keys protect your messages."
+                        "This alpha supports same-browser recovery only. Clearing site data or losing this device makes historical messages unrecoverable."
                     </p>
                 </form>
 

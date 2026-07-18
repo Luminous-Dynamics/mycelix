@@ -111,52 +111,22 @@ impl NativeWsTransport {
 impl HolochainTransport for NativeWsTransport {
     fn call_zome(
         &self,
-        role_name: &str,
-        zome_name: &str,
-        fn_name: &str,
-        payload: Vec<u8>,
+        _role_name: &str,
+        _zome_name: &str,
+        _fn_name: &str,
+        _payload: Vec<u8>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, ClientError>>>> {
-        let role = role_name.to_string();
-        let zome = zome_name.to_string();
-        let fname = fn_name.to_string();
-        let this = self.clone();
-
-        Box::pin(async move {
-            let inner = this.inner.lock().await;
-            let (dna_hash, agent) = inner
-                .cell_map
-                .get(&role)
-                .ok_or_else(|| ClientError::UnknownRole(role.clone()))?
-                .clone();
-            let provenance = inner.agent_pub_key.clone().unwrap_or_else(|| agent.clone());
-            drop(inner);
-
-            let mut nonce = vec![0u8; 32];
-            for (i, b) in nonce.iter_mut().enumerate() {
-                *b = (i as u8).wrapping_mul(37).wrapping_add(42);
-            }
-
-            let now_micros = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_micros() as u64;
-
-            let req = AppRequest::CallZome(CallZomeRequestWire {
-                cell_id: (dna_hash, agent),
-                zome_name: zome,
-                fn_name: fname.clone(),
-                payload,
-                cap_secret: None,
-                provenance,
-                signature: vec![0u8; 64],
-                nonce,
-                expires_at: now_micros + 5_000_000,
-            });
-
-            let data = rmp_serde::to_vec_named(&req)
-                .map_err(|e| ClientError::SerializationError(e.to_string()))?;
-
-            this.send_request("request", data).await
+        // This transport has no authorized `ZomeCallSigner` adapter (unlike
+        // `BrowserWsTransport`, which can use a Rust-side signer or the
+        // launcher's `window.__HC_ZOME_CALL_SIGNER__`). It previously sent
+        // every zome call with a hardcoded zeroed signature — refuse instead
+        // of sending an unsigned call.
+        Box::pin(async {
+            Err(ClientError::SigningUnavailable(
+                "NativeWsTransport has no authorized zome-call signer configured; unsigned \
+                 zome calls are not sent"
+                    .into(),
+            ))
         })
     }
 
@@ -197,13 +167,16 @@ impl HolochainTransport for NativeWsTransport {
             tokio::spawn(async move {
                 while let Some(msg) = read.next().await {
                     if let Ok(Message::Binary(data)) = msg {
-                        if let Ok(resp) = rmp_serde::from_slice::<WireResponse>(&data) {
-                            let mut state = inner.lock().await;
-                            if let Some(tx) = state.pending.remove(&resp.id) {
-                                if let Some(err) = resp.error {
-                                    let _ = tx.send(Err(ClientError::ZomeCallFailed(err)));
-                                } else {
-                                    let _ = tx.send(Ok(resp.data));
+                        if let Ok(message) = rmp_serde::from_slice::<IncomingWireMessage>(&data) {
+                            if let IncomingWireMessage::Response { id, data } = message {
+                                let mut state = inner.lock().await;
+                                if let Some(tx) = state.pending.remove(&id) {
+                                    let result = data.ok_or_else(|| {
+                                        ClientError::InvalidResponse(
+                                            "conductor canceled the response".into(),
+                                        )
+                                    });
+                                    let _ = tx.send(result);
                                 }
                             }
                         }
@@ -219,17 +192,49 @@ impl HolochainTransport for NativeWsTransport {
                 let _ = this.send_request("authenticate", data).await;
             }
 
-            // App Info discovery
-            let info_req = AppRequest::AppInfo {
-                installed_app_id: config.app_id.clone(),
-            };
-            let data = rmp_serde::to_vec_named(&info_req)
+            // App Info discovery. Unit variant: the conductor scopes
+            // app_info by the connection's authenticated app_id, not a
+            // request field (same fix as browser.rs).
+            let data = rmp_serde::to_vec_named(&AppRequest::AppInfo)
                 .map_err(|e| ClientError::SerializationError(e.to_string()))?;
 
             let info_bytes = this.send_request("request", data).await?;
 
-            let info: AppInfoResponse = rmp_serde::from_slice(&info_bytes)
-                .map_err(|e| ClientError::InvalidResponse(format!("app_info decode: {e}")))?;
+            // Must unwrap the AppResponse envelope first — this used to
+            // deserialize the raw bytes directly as AppInfoResponse, which
+            // never matched the real `{"type": ..., "value": ...}` shape.
+            // decode_tagged (not plain rmp_serde::from_slice) is required:
+            // the conductor map-encodes tag/content enums, which the default
+            // array-mode deserializer can't parse (see decode_tagged's doc).
+            let response: AppResponse = decode_tagged(&info_bytes)
+                .map_err(|e| ClientError::InvalidResponse(format!("app_info decode: {e:?}")))?;
+            let info = match response {
+                AppResponse::AppInfo(Some(info)) => info,
+                AppResponse::AppInfo(None) => {
+                    return Err(ClientError::ConnectionFailed(format!(
+                        "no installed app matches app_id '{}' for this connection's token",
+                        config.app_id
+                    )));
+                }
+                AppResponse::Error(e) => {
+                    return Err(ClientError::ConnectionFailed(format!(
+                        "app_info failed: {}",
+                        e.message()
+                    )));
+                }
+                _ => {
+                    return Err(ClientError::InvalidResponse(
+                        "Unexpected response type for app_info".into(),
+                    ));
+                }
+            };
+
+            if info.installed_app_id != config.app_id {
+                return Err(ClientError::AuthenticationFailed(format!(
+                    "token resolved app '{}' instead of requested '{}'",
+                    info.installed_app_id, config.app_id
+                )));
+            }
 
             eprintln!(
                 "[NativeWs] App: {}, {} roles",
@@ -238,16 +243,14 @@ impl HolochainTransport for NativeWsTransport {
             );
 
             let mut inner = this.inner.lock().await;
-            for entry in &info.cell_info {
-                for cell in &entry.cells {
+            for (role_name, cells) in &info.cell_info {
+                for cell in cells {
                     if let CellInfoVariant::Provisioned(p) = cell {
-                        inner
-                            .cell_map
-                            .insert(entry.role_name.clone(), p.cell_id.clone());
+                        inner.cell_map.insert(role_name.clone(), p.cell_id.clone());
                         if inner.agent_pub_key.is_none() {
                             inner.agent_pub_key = Some(p.cell_id.1.clone());
                         }
-                        eprintln!("[NativeWs] Role '{}' -> cell discovered", entry.role_name);
+                        eprintln!("[NativeWs] Role '{role_name}' -> cell discovered");
                     }
                 }
             }

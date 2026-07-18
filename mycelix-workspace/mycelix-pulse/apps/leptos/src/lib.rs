@@ -7,6 +7,7 @@ pub mod app;
 pub mod body_renderer;
 pub mod components;
 pub mod crypto;
+pub mod device_keystore;
 pub mod dsid;
 pub mod holochain;
 pub mod karma;

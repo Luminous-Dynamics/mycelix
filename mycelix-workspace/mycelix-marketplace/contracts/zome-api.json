@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "role": "marketplace",
+  "source": "backend/zomes/*/coordinator/src/lib.rs",
+  "zomes": {
+    "arbitration": {
+      "functions": [
+        "file_dispute",
+        "file_transaction_conflict_dispute",
+        "finalize_arbitration",
+        "get_arbitration_opportunities",
+        "get_arbitration_result",
+        "get_arbitration_votes",
+        "get_dispute",
+        "get_dispute_resolution",
+        "register_as_arbitrator",
+        "submit_arbitration_vote"
+      ]
+    },
+    "listings": {
+      "functions": [
+        "create_listing",
+        "delete_listing",
+        "get_all_listings",
+        "get_listing",
+        "get_listing_with_trust",
+        "get_listings_by_category",
+        "get_listings_by_seller",
+        "get_my_listings",
+        "get_seller_verification",
+        "search_listings",
+        "update_listing",
+        "verify_seller_trust"
+      ]
+    },
+    "messaging": {
+      "functions": [
+        "archive_conversation",
+        "block_conversation",
+        "get_conversation_messages",
+        "get_message",
+        "get_my_conversations",
+        "mark_message_read",
+        "search_conversations",
+        "send_message",
+        "start_conversation"
+      ]
+    },
+    "notifications": {
+      "functions": [
+        "create_notification",
+        "dismiss_notification",
+        "get_my_notifications",
+        "get_notification_stats",
+        "mark_all_read",
+        "mark_notification_read",
+        "update_notification_preferences"
+      ]
+    },
+    "reputation": {
+      "functions": [
+        "get_agent_matl_score",
+        "get_agent_matl_score_fast",
+        "get_agent_reputation_events",
+        "get_combined_reputation",
+        "get_cross_app_reputation",
+        "get_derived_reputation",
+        "get_seller_reviews",
+        "is_byzantine",
+        "project_arbitration_reputation",
+        "record_fulfillment_reputation",
+        "submit_review",
+        "update_matl_score"
+      ]
+    },
+    "search": {
+      "functions": [
+        "create_search_index",
+        "delete_search_index",
+        "get_entity_index",
+        "search"
+      ]
+    },
+    "security": {
+      "functions": [
+        "get_agent_security_logs",
+        "get_all_security_logs",
+        "get_logs_by_event_type",
+        "get_my_security_logs",
+        "get_security_log",
+        "get_security_stats",
+        "log_security_event"
+      ]
+    },
+    "transactions": {
+      "functions": [
+        "apply_arbitration_transaction_conflict",
+        "approve_transaction_conflict",
+        "cancel_transaction",
+        "complete_transaction",
+        "confirm_delivery",
+        "confirm_transaction",
+        "create_transaction",
+        "dispute_transaction",
+        "finalize_bilateral_transaction_conflict",
+        "get_listing_transactions",
+        "get_my_transaction_resolutions",
+        "get_my_transactions",
+        "get_transaction",
+        "get_transaction_conflict_approvals",
+        "get_transaction_conflict_resolutions",
+        "get_transaction_resolution",
+        "get_transaction_settlement_status",
+        "mark_shipped",
+        "open_dispute",
+        "settle_transaction"
+      ]
+    }
+  }
+}

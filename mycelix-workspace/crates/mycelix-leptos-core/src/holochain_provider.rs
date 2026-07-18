@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Auto-connecting Holochain provider with mock fallback.
+//! Auto-connecting Holochain provider with configurable failure semantics.
 //!
 //! Replaces per-app `holochain.rs` files. Configurable via
 //! [`HolochainProviderConfig`] for single-role, multi-role, and
@@ -12,11 +12,13 @@ use send_wrapper::SendWrapper;
 use serde::{Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
 use std::rc::Rc;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
 use mycelix_leptos_client::{
-    BrowserWsTransport, ConnectConfig, HolochainTransport, ReconnectConfig, decode, encode,
+    BrowserWsTransport, ConnectConfig, ConnectionStatus as TransportConnectionStatus,
+    HolochainTransport, HostZomeCallSigner, ReconnectConfig, decode, encode,
 };
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,11 @@ impl ConnectionStatus {
 pub enum ConnectStrategy {
     /// Auto-connect via BrowserWsTransport, fall back to mock.
     WebSocket,
+    /// Auto-connect via BrowserWsTransport and remain disconnected on failure.
+    ///
+    /// Use this for an explicitly selected Live mode so a failed connection is
+    /// never represented as a successful mock-data session.
+    WebSocketRequired,
     /// Read `__HC_STATUS` from JS window, no real transport.
     JsStatusOnly,
     /// Always mock, no connection attempt.
@@ -105,13 +112,27 @@ type TransportCell = SendWrapper<Rc<RefCell<Option<BrowserWsTransport>>>>;
 #[derive(Clone)]
 pub struct HolochainCtx {
     pub status: ReadSignal<ConnectionStatus>,
+    /// Whether the connected browser transport can authorize zome calls.
+    ///
+    /// This is deliberately separate from `status`: an authenticated
+    /// WebSocket and app-info response do not provide signing credentials.
+    pub zome_call_signing_ready: ReadSignal<bool>,
+    /// Most recent transport, serialization, or zome-call failure.
+    pub last_error: ReadSignal<Option<String>>,
     set_status: WriteSignal<ConnectionStatus>,
+    set_zome_call_signing_ready: WriteSignal<bool>,
+    set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
     default_role: Option<String>,
     status_labels: Option<StatusLabels>,
 }
 
 impl HolochainCtx {
+    fn record_error(&self, message: String) -> String {
+        self.set_last_error.set(Some(message.clone()));
+        message
+    }
+
     /// Call a zome function on the specified role.
     pub async fn call_zome<I: Serialize, O: DeserializeOwned>(
         &self,
@@ -120,25 +141,40 @@ impl HolochainCtx {
         fn_name: &str,
         input: &I,
     ) -> Result<O, String> {
-        let transport = self.transport.borrow();
-        let transport = match transport.as_ref() {
-            Some(t) => t.clone(),
-            None => {
-                return Err(format!(
-                    "Mock mode: {role}.{zome}.{fn_name} \u{2014} no conductor connected"
-                ));
+        let transport = {
+            let slot = self.transport.borrow();
+            match slot.as_ref() {
+                Some(transport) => transport.clone(),
+                None => {
+                    return Err(self
+                        .record_error(format!("No conductor transport: {role}.{zome}.{fn_name}")));
+                }
             }
         };
-        drop(self.transport.borrow());
 
-        let payload = encode(input).map_err(|e| format!("Encode error: {e}"))?;
+        if !transport.zome_call_signer_available() {
+            self.set_zome_call_signing_ready.set(false);
+            return Err(self.record_error(format!(
+                "Zome call {role}.{zome}.{fn_name} blocked: no authorized browser signer; provide window.{} or install a Rust signer",
+                HostZomeCallSigner::GLOBAL_NAME
+            )));
+        }
+        self.set_zome_call_signing_ready.set(true);
+
+        let payload =
+            encode(input).map_err(|error| self.record_error(format!("Encode error: {error}")))?;
 
         let response_bytes = transport
             .call_zome(role, zome, fn_name, payload)
             .await
-            .map_err(|e| format!("Zome call {role}.{zome}.{fn_name} failed: {e}"))?;
+            .map_err(|error| {
+                self.record_error(format!("Zome call {role}.{zome}.{fn_name} failed: {error}"))
+            })?;
 
-        decode(&response_bytes).map_err(|e| format!("Decode error: {e}"))
+        let decoded = decode(&response_bytes)
+            .map_err(|error| self.record_error(format!("Decode error: {error}")))?;
+        self.set_last_error.set(None);
+        Ok(decoded)
     }
 
     /// Call a zome function using the default role.
@@ -162,6 +198,35 @@ impl HolochainCtx {
         self.status.get_untracked() == ConnectionStatus::Mock
     }
 
+    /// Reactive readiness check for resources and view closures.
+    pub fn zome_calls_ready(&self) -> bool {
+        self.status.get() == ConnectionStatus::Connected && self.zome_call_signing_ready.get()
+    }
+
+    /// Non-reactive readiness snapshot for event handlers.
+    pub fn zome_calls_ready_untracked(&self) -> bool {
+        self.status.get_untracked() == ConnectionStatus::Connected
+            && self.zome_call_signing_ready.get_untracked()
+    }
+
+    pub fn clear_last_error(&self) {
+        self.set_last_error.set(None);
+    }
+
+    /// Re-read signer availability from the current browser transport.
+    ///
+    /// Hosts that inject a signer after the provider connects can call this to
+    /// update reactive UI state before enabling a write action.
+    pub fn refresh_zome_call_signing_ready(&self) -> bool {
+        let ready = self
+            .transport
+            .borrow()
+            .as_ref()
+            .is_some_and(BrowserWsTransport::zome_call_signer_available);
+        self.set_zome_call_signing_ready.set(ready);
+        ready
+    }
+
     /// Return the connected agent pubkey in Holochain's `u...` display form.
     pub fn connected_agent_pub_key_b64(&self) -> Option<String> {
         self.transport
@@ -180,6 +245,13 @@ impl HolochainCtx {
 
     /// Get the display label for the current status.
     pub fn status_label(&self) -> &'static str {
+        if self.status.get() == ConnectionStatus::Connected
+            && self.transport.borrow().is_some()
+            && !self.zome_call_signing_ready.get()
+        {
+            return "Signer required";
+        }
+
         if let Some(ref labels) = self.status_labels {
             match self.status.get() {
                 ConnectionStatus::Disconnected => labels.disconnected,
@@ -192,6 +264,19 @@ impl HolochainCtx {
             self.status.get().label()
         }
     }
+
+    /// CSS class that keeps a connected-but-unsigned browser session out of
+    /// the success color used for fully ready transports.
+    pub fn status_css_class(&self) -> &'static str {
+        if self.status.get() == ConnectionStatus::Connected
+            && self.transport.borrow().is_some()
+            && !self.zome_call_signing_ready.get()
+        {
+            "status-disconnected"
+        } else {
+            self.status.get().css_class()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -201,20 +286,56 @@ impl HolochainCtx {
 const DEFAULT_CONDUCTOR_URL: &str = "ws://localhost:8888";
 
 fn conductor_url() -> String {
-    web_sys::window()
-        .and_then(|w| {
-            js_sys::Reflect::get(&w, &JsValue::from_str("__HC_CONDUCTOR_URL"))
+    let Some(window) = web_sys::window() else {
+        return DEFAULT_CONDUCTOR_URL.to_string();
+    };
+
+    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_CONDUCTOR_URL".into()) {
+        if let Some(url) = value.as_string().filter(|url| !url.trim().is_empty()) {
+            return url;
+        }
+    }
+
+    launcher_environment(&window)
+        .and_then(|environment| {
+            js_sys::Reflect::get(&environment, &"APP_INTERFACE_PORT".into())
                 .ok()
-                .and_then(|v| v.as_string())
+                .and_then(|port| port.as_f64())
+                .filter(|port| port.fract() == 0.0 && (1.0..=65_535.0).contains(port))
         })
+        .map(|port| format!("ws://localhost:{}", port as u16))
         .unwrap_or_else(|| DEFAULT_CONDUCTOR_URL.to_string())
 }
 
-fn auth_token() -> Option<String> {
-    web_sys::window().and_then(|w| {
-        js_sys::Reflect::get(&w, &JsValue::from_str("__HC_AUTH_TOKEN"))
+fn launcher_environment(window: &web_sys::Window) -> Option<JsValue> {
+    js_sys::Reflect::get(window, &"__HC_LAUNCHER_ENV__".into())
+        .ok()
+        .filter(|value| !value.is_null() && !value.is_undefined())
+}
+
+fn js_uint8_array(value: &JsValue) -> Option<Vec<u8>> {
+    if !value.is_instance_of::<js_sys::Uint8Array>() {
+        return None;
+    }
+    let array = js_sys::Uint8Array::new(value);
+    let mut bytes = vec![0; array.length() as usize];
+    array.copy_to(&mut bytes);
+    Some(bytes)
+}
+
+fn auth_token() -> Option<Vec<u8>> {
+    let window = web_sys::window()?;
+
+    if let Ok(value) = js_sys::Reflect::get(&window, &"__HC_AUTH_TOKEN".into()) {
+        if let Some(token) = js_uint8_array(&value) {
+            return Some(token);
+        }
+    }
+
+    launcher_environment(&window).and_then(|environment| {
+        js_sys::Reflect::get(&environment, &"APP_INTERFACE_TOKEN".into())
             .ok()
-            .and_then(|v| v.as_string())
+            .and_then(|value| js_uint8_array(&value))
     })
 }
 
@@ -237,21 +358,30 @@ fn read_js_conductor_status() -> ConnectionStatus {
 /// Auto-connecting Holochain provider.
 ///
 /// Provides [`HolochainCtx`] via Leptos context. On mount, connects to the
-/// conductor using the configured strategy, falling back to mock mode.
+/// conductor using the configured strategy. Mock fallback occurs only for
+/// [`ConnectStrategy::WebSocket`]; required connections remain disconnected.
 #[component]
 pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children) -> impl IntoView {
     let initial_status = match &config.connect_strategy {
-        ConnectStrategy::WebSocket => ConnectionStatus::Connecting,
+        ConnectStrategy::WebSocket | ConnectStrategy::WebSocketRequired => {
+            ConnectionStatus::Connecting
+        }
         ConnectStrategy::JsStatusOnly => read_js_conductor_status(),
         ConnectStrategy::MockOnly => ConnectionStatus::Mock,
     };
 
     let (status, set_status) = signal(initial_status);
+    let (zome_call_signing_ready, set_zome_call_signing_ready) = signal(false);
+    let (last_error, set_last_error) = signal(None::<String>);
     let transport: TransportCell = SendWrapper::new(Rc::new(RefCell::new(None)));
 
     let ctx = HolochainCtx {
         status,
+        zome_call_signing_ready,
+        last_error,
         set_status,
+        set_zome_call_signing_ready,
+        set_last_error,
         transport: transport.clone(),
         default_role: config.default_role.clone(),
         status_labels: config.status_labels.clone(),
@@ -260,10 +390,11 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
     provide_context(ctx);
 
     match config.connect_strategy {
-        ConnectStrategy::WebSocket => {
+        strategy @ (ConnectStrategy::WebSocket | ConnectStrategy::WebSocketRequired) => {
             let transport_for_connect = transport.clone();
             let log_prefix = config.log_prefix;
             let app_id = config.app_id.clone();
+            let fallback_to_mock = matches!(strategy, ConnectStrategy::WebSocket);
 
             spawn_local(async move {
                 let url = conductor_url();
@@ -273,28 +404,106 @@ pub fn HolochainProviderAuto(config: HolochainProviderConfig, children: Children
                 );
 
                 let ws_transport = BrowserWsTransport::new();
+                *transport_for_connect.borrow_mut() = Some(ws_transport.clone());
+                ws_transport.set_status_handler(move |transport_status| {
+                    match transport_status {
+                        TransportConnectionStatus::Disconnected => {
+                            set_zome_call_signing_ready.set(false);
+                            set_status.set(ConnectionStatus::Disconnected);
+                        }
+                        TransportConnectionStatus::Connecting => {
+                            set_zome_call_signing_ready.set(false);
+                            set_status.set(ConnectionStatus::Connecting);
+                        }
+                        TransportConnectionStatus::Connected => {
+                            let signer_ready = HostZomeCallSigner::is_available();
+                            set_zome_call_signing_ready.set(signer_ready);
+                            if signer_ready {
+                                set_last_error.set(None);
+                            } else {
+                                set_last_error.set(Some(format!(
+                                    "{log_prefix} Conductor transport connected, but zome-call signing is unavailable. Provide window.{} before using Live actions.",
+                                    HostZomeCallSigner::GLOBAL_NAME
+                                )));
+                            }
+                            set_status.set(ConnectionStatus::Connected);
+                        }
+                        TransportConnectionStatus::Reconnecting {
+                            attempt,
+                            max_attempts,
+                        } => {
+                            set_zome_call_signing_ready.set(false);
+                            set_last_error.set(Some(format!(
+                                "{log_prefix} Conductor connection interrupted; reconnecting ({attempt}/{max_attempts})."
+                            )));
+                            set_status.set(ConnectionStatus::Reconnecting);
+                        }
+                        TransportConnectionStatus::Error(error) => {
+                            set_zome_call_signing_ready.set(false);
+                            set_last_error.set(Some(format!(
+                                "{log_prefix} Conductor transport error: {error}"
+                            )));
+                            set_status.set(ConnectionStatus::Disconnected);
+                        }
+                    }
+                });
                 let connect_config = ConnectConfig {
                     url,
                     app_id,
-                    auth_token: token.map(|s| s.into_bytes()),
+                    auth_token: token,
                     reconnect: Some(ReconnectConfig::default()),
                     request_timeout_ms: Some(30_000),
                 };
 
                 match ws_transport.connect(connect_config).await {
                     Ok(()) => {
-                        web_sys::console::log_1(
-                            &format!("{log_prefix} Connected to conductor!").into(),
-                        );
-                        *transport_for_connect.borrow_mut() = Some(ws_transport);
+                        let signer_ready = ws_transport.zome_call_signer_available();
+                        set_zome_call_signing_ready.set(signer_ready);
+                        if signer_ready {
+                            web_sys::console::log_1(
+                                &format!("{log_prefix} Connected with authorized signing.").into(),
+                            );
+                            set_last_error.set(None);
+                        } else {
+                            let message = format!(
+                                "{log_prefix} Conductor transport connected, but zome-call signing is unavailable. Provide window.{} before using Live actions.",
+                                HostZomeCallSigner::GLOBAL_NAME
+                            );
+                            web_sys::console::warn_1(&JsValue::from_str(&message));
+                            set_last_error.set(Some(message));
+                        }
                         set_status.set(ConnectionStatus::Connected);
                     }
                     Err(e) => {
-                        web_sys::console::log_1(
-                            &format!("{log_prefix} Could not connect: {e}. Running in mock mode.")
-                                .into(),
+                        let transport_status = ws_transport.status();
+                        let retrying = matches!(
+                            transport_status,
+                            TransportConnectionStatus::Reconnecting { .. }
                         );
-                        set_status.set(ConnectionStatus::Mock);
+                        let message = if fallback_to_mock {
+                            ws_transport.disconnect();
+                            *transport_for_connect.borrow_mut() = None;
+                            format!("{log_prefix} Could not connect: {e}. Running in mock mode.")
+                        } else if retrying {
+                            format!(
+                                "{log_prefix} Initial connection failed: {e}. The bounded Live retry policy remains active."
+                            )
+                        } else {
+                            *transport_for_connect.borrow_mut() = None;
+                            format!(
+                                "{log_prefix} Could not connect: {e}. Live mode remains disconnected."
+                            )
+                        };
+                        web_sys::console::log_1(&JsValue::from_str(&message));
+                        set_zome_call_signing_ready.set(false);
+                        set_last_error.set(Some(message));
+                        set_status.set(if fallback_to_mock {
+                            ConnectionStatus::Mock
+                        } else if retrying {
+                            ConnectionStatus::Reconnecting
+                        } else {
+                            ConnectionStatus::Disconnected
+                        });
                     }
                 }
             });
@@ -335,7 +544,7 @@ pub fn ConnectionBadge() -> impl IntoView {
     let ctx2 = ctx.clone();
 
     view! {
-        <span class=move || format!("connection-badge {}", ctx.status.get().css_class())>
+        <span class=move || format!("connection-badge {}", ctx.status_css_class())>
             <span class="status-dot"></span>
             {move || ctx2.status_label()}
         </span>

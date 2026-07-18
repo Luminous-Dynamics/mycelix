@@ -1,301 +1,86 @@
 # Mycelix Pulse
 
-**Decentralized communication on Holochain with trust, encryption, and local sovereignty**
+Mycelix Pulse is a working-alpha, agent-centric encrypted messenger built on
+Holochain. The milestone is deliberately narrow: two distinct users should be
+able to exchange, verify, recover, and reproduce one encrypted message
+lifecycle without mock behavior being mistaken for live behavior.
 
-[![CI](https://github.com/Luminous-Dynamics/Mycelix-Mail/actions/workflows/ci.yml/badge.svg)](https://github.com/Luminous-Dynamics/Mycelix-Mail/actions/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-beta-blue)](https://github.com/Luminous-Dynamics/Mycelix-Mail)
-[![Holochain](https://img.shields.io/badge/holochain-0.5.x-purple)](https://holochain.org)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+## Canonical product path
 
-## Overview
+- `apps/leptos/`: supported browser application.
+- `holochain/`: Holochain 0.6 DNA and zomes.
+- `crates/mail-leptos-types/`: serializer-independent protocol contracts.
+- `tests/sweettest_mail_security.rs`: multi-agent lifecycle evidence.
+- `mycelix-identity/crates/mycelix-crypto`: shared hybrid-PQC primitives.
 
-Mycelix Pulse is the product name for the communication platform in this
-repository. Some internal runtime identifiers still use the legacy
-`mycelix-mail` / `mycelix_mail` names for compatibility with existing
-Holochain, storage, and deployment surfaces.
+The React/Node, legacy `happ`, mobile, extension, parallel backend, and
+deployment prototypes remain reference surfaces. They are not supported alpha
+paths. The desktop shell and SMTP gateway are experimental and independently
+testable, but excluded from the alpha claim. See
+[the surface inventory](docs/SURFACE_STATUS.md).
 
-Unlike traditional hosted communication suites:
+## Security profile
 
-- **No corporate servers** - Your data stays on your device and the DHT
-- **Trust-based spam filtering** - MATL reputation system instead of keyword blacklists
-- **End-to-end encryption** - X25519 key exchange + ChaCha20-Poly1305
-- **Agent-centric** - You own your identity and data via DIDs
+New live sends use the versioned `V2HybridPqc` envelope:
 
-## Architecture
+- X25519 and ML-KEM-768 hybrid key establishment.
+- Domain-separated HKDF-SHA256 combiner.
+- One AES-256-GCM ciphertext for the canonical subject/body payload.
+- Holochain agent signature plus application-level ML-DSA-65 signature;
+  recipients require both layers.
+- Agent-signed, content-addressed V2 key bundles.
+- Strict version/suite handling with no automatic classical downgrade.
 
-```
-                    React Frontend (Port 5173)
-                           │
-                           │ HTTP/WebSocket
-                           ▼
-┌──────────────────────────────────────────────────────────┐
-│                 Axum Backend (Port 3001)                 │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │
-│  │  Auth/JWT   │ │ Trust Cache │ │  IPFS Storage       │ │
-│  │  Middleware │ │ (Moka LRU)  │ │  (Message Bodies)   │ │
-│  └─────────────┘ └─────────────┘ └─────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-                           │
-                           │ AppAgentWebsocket
-                           ▼
-┌──────────────────────────────────────────────────────────┐
-│                  Holochain Conductor                     │
-│  ┌───────────────────────────────────────────────────┐   │
-│  │              Mycelix Pulse DNA                   │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │   │
-│  │  │ Integrity   │  │ mail_       │  │ trust_    │  │   │
-│  │  │ Zome        │  │ messages    │  │ filter    │  │   │
-│  │  │             │  │ Zome        │  │ Zome      │  │   │
-│  │  └─────────────┘  └─────────────┘  └───────────┘  │   │
-│  └───────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────┘
-```
+V1 classical messages remain readable for compatibility and diagnostic
+isolation. V2 private seeds are encrypted by a non-exportable Web Crypto
+wrapping key and stored in IndexedDB. Recovery is same-browser-profile only;
+there is no portable key export in this milestone.
 
-### Product Surfaces
+The implementation is still behind its complete release-evidence gate. Pulse
+does not claim a post-quantum Holochain substrate, a PQ ratchet, forward secrecy
+against later static endpoint compromise, or post-compromise recovery. The
+normative byte contract and exact exclusions are in
+[the V2 crypto specification](docs/PULSE_V2_CRYPTO_SPEC.md).
 
-The canonical active surfaces in this repository are:
+## Runtime truth
 
-- `apps/leptos/` for the current user-facing web app
-- `bridge/` for the legacy mail bridge
-- `holochain/` for the Holochain DNA, zomes, and client
-- `backend/api/` for the API and integration layer
+The UI exposes three states: `Live`, `Demo`, and `Unavailable`. Connection,
+authentication, decoding, or zome-call failure never silently substitutes demo
+records. Live inbox queries may truthfully return an empty inbox.
 
-Older or parallel surfaces still exist in the repo and should be treated
-carefully before further expansion or removal.
+## Development
 
-### Project Structure
-
-```
-mycelix-pulse/
-├── happ/
-│   ├── dna/                    # Holochain DNA
-│   │   ├── integrity/          # Entry validation
-│   │   └── zomes/
-│   │       ├── mail_messages/  # Email operations
-│   │       └── trust_filter/   # MATL spam filtering
-│   └── backend-rs/             # Rust/Axum API server
-│       ├── src/
-│       │   ├── routes/         # REST + WebSocket endpoints
-│       │   ├── services/       # Holochain, storage, crypto
-│       │   └── middleware/     # JWT auth, rate limiting
-│       └── Cargo.toml
-├── ui/
-│   └── frontend/               # React + TypeScript + Vite
-│       └── src/
-│           ├── components/     # 30+ UI components
-│           ├── services/       # API + WebSocket clients
-│           └── store/          # Zustand state
-├── .github/workflows/ci.yml    # CI/CD pipeline
-├── docker-compose.yml          # Full stack deployment
-└── flake.nix                   # Nix development environment
-```
-
-## Features
-
-### Core Email
-- Send/receive emails via Holochain DHT
-- Email threading with conversation view
-- Labels, folders, and smart filtering
-- Draft autosave and templates
-- Advanced search (from:, to:, subject:, has:, is:, label:)
-- Keyboard shortcuts (Gmail-style j/k navigation)
-
-### Trust & Security
-- **MATL trust scoring** - Reputation-weighted spam detection
-- **E2E encryption** - X25519 + ChaCha20-Poly1305
-- **Epistemic tiers** - Classify message verifiability (0-4)
-- **Byzantine detection** - Identify malicious actors
-- **Rate limiting** - 60 req/min per IP
-
-### Real-time Updates
-- WebSocket events for new mail
-- Trust score change notifications
-- Connection status monitoring
-
-### API Documentation
-- Swagger UI at `/api-docs`
-- OpenAPI JSON at `/api-docs/openapi.json`
-
-## Naming Note
-
-Branding should use `Mycelix Pulse`.
-
-Compatibility-sensitive identifiers should remain unchanged until migrated
-explicitly:
-
-- Holochain `app_id` and role names like `mycelix_mail`
-- Installed app ids and network seeds like `mycelix-mail`
-- Storage keys, database names, and service names that existing deployments use
-
-See [docs/RENAME_MATRIX.md](docs/RENAME_MATRIX.md) for the current split.
-
-## Quick Start
-
-### Prerequisites
-- [Nix](https://nixos.org/download.html) with flakes enabled
-- Or: Docker + Docker Compose
-
-### Development (Nix)
+Prerequisites are Nix with flakes enabled and a browser with Web Crypto and
+IndexedDB support.
 
 ```bash
-# Clone the repository
-git clone https://github.com/Luminous-Dynamics/Mycelix-Mail.git
 cd mycelix-pulse
-
-# Enter Nix environment
 nix develop
-
-# Setup environment files
-just setup
-
-# Start all services (Holochain, Backend, Frontend)
+just check
+just build-dna
 just dev
 ```
 
-### Development (Docker)
+`just dev` serves the Leptos UI on `http://127.0.0.1:8117` and expects an
+authenticated Holochain app WebSocket on `ws://localhost:8888` using installed
+app ID `mycelix_mail` and role `main`.
+
+Useful gates:
 
 ```bash
-# Clone and enter directory
-git clone https://github.com/Luminous-Dynamics/Mycelix-Mail.git
-cd mycelix-pulse
-
-# Start full stack
-docker compose up -d
-
-# With Holochain (requires conductor setup)
-docker compose --profile with-holochain up -d
+just test-protocol       # canonical envelope and receipt contracts
+just test-crypto         # native + wasm hybrid-PQC implementation
+just test-zomes          # integrity/coordinator unit tests
+just build-dna           # fresh WASM build and DNA packing
+just test-delivery       # bounded separate-conductor evidence
 ```
 
-### Access Points
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://127.0.0.1:8117 |
-| Backend API | http://localhost:3001/api |
-| API Documentation | http://localhost:3001/api-docs |
-| Health Check | http://localhost:3001/health |
-
-## API Overview
-
-### Authentication
-```bash
-# Register
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"did": "did:key:z6Mk...", "password": "secret"}'
-
-# Login
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"did": "did:key:z6Mk...", "password": "secret"}'
-```
-
-### Emails
-```bash
-# Send email
-curl -X POST http://localhost:3001/api/emails \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to_did": "did:key:z6Mk...",
-    "subject": "Hello from Mycelix!",
-    "body": "This message is end-to-end encrypted.",
-    "epistemic_tier": "Testimonial"
-  }'
-
-# Get inbox
-curl http://localhost:3001/api/emails/inbox \
-  -H "Authorization: Bearer <token>"
-```
-
-### Trust Scores
-```bash
-# Get trust score
-curl http://localhost:3001/api/trust/did:key:z6Mk... \
-  -H "Authorization: Bearer <token>"
-
-# Check Byzantine status
-curl http://localhost:3001/api/trust/did:key:z6Mk.../byzantine \
-  -H "Authorization: Bearer <token>"
-```
-
-## Configuration
-
-Environment variables for the backend (`happ/backend-rs/.env`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Server bind address |
-| `PORT` | `3001` | Server port |
-| `HOLOCHAIN_URL` | `ws://localhost:4444` | Conductor WebSocket |
-| `JWT_SECRET` | (required) | Secret for JWT signing |
-| `JWT_EXPIRATION_HOURS` | `24` | Token lifetime |
-| `TRUST_CACHE_TTL_SECS` | `300` | Trust cache TTL |
-| `DEFAULT_MIN_TRUST` | `0.3` | Minimum trust threshold |
-| `BYZANTINE_THRESHOLD` | `0.2` | Byzantine detection threshold |
-| `CORS_ORIGINS` | `http://localhost:8117,http://127.0.0.1:8117,http://localhost:1420,http://127.0.0.1:1420` | Allowed CORS origins |
-| `RATE_LIMIT_RPM` | `100` | Requests per minute |
-
-## Testing
-
-```bash
-# Run all tests
-just test
-
-# DNA tests only
-cd happ/dna && cargo test
-
-# Backend tests only
-cd happ/backend-rs && cargo test
-
-# Frontend tests only
-cd apps/leptos && cargo test
-```
-
-**Test Coverage:**
-- 14 backend unit tests (crypto, storage, validation, rate limiting)
-- Frontend tests live in the Leptos app crate
-
-## Status
-
-**Beta** - Core features complete, ready for testing
-
-### Complete
-- [x] Holochain DNA with mail + trust zomes
-- [x] Rust/Axum backend with full API
-- [x] E2E encryption (X25519 + ChaCha20)
-- [x] MATL trust scoring integration
-- [x] Leptos frontend with full UI
-- [x] WebSocket real-time updates
-- [x] Docker deployment
-- [x] OpenAPI documentation
-- [x] CI/CD pipeline
-
-### Planned
-- [x] Desktop shell (Tauri v2)
-- [ ] SMTP bridge for legacy email
-- [ ] Federation with other Mycelix apps
-- [ ] Governance integration
-
-## Related Projects
-
-- [Mycelix-Core](https://github.com/Luminous-Dynamics/Mycelix-Core) - MATL trust layer
-- [mycelix.net](https://mycelix.net) - Protocol documentation
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Run tests: `just test`
-4. Run lints: `just lint`
-5. Commit changes: `git commit -m 'Add amazing feature'`
-6. Push to branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+The complete working-alpha contracts are recorded in
+[ADR-002](docs/adr/ADR-002-working-alpha-contracts.md). Directory presence,
+ignored legacy tests, or a successful UI compile is not release evidence by
+itself.
 
 ## License
 
-MIT - See [LICENSE](LICENSE)
-
----
-
-*Part of the [Mycelix Protocol](https://mycelix.net) ecosystem*
+AGPL-3.0-or-later. Commercial licensing terms are described by the repository
+licensing files.

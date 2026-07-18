@@ -1,0 +1,108 @@
+{
+  "version": 3,
+  "profile": "network",
+  "topology": "two_conductor_isolated_network",
+  "actors": {
+    "seller": {
+      "conductor": "seller",
+      "installed_app_id": "mycelix-network-seller"
+    },
+    "buyer": {
+      "conductor": "buyer",
+      "installed_app_id": "mycelix-network-buyer"
+    }
+  },
+  "network_services": {
+    "bootstrap_and_signal_are_explicit_trust_anchors": true,
+    "service_hook_environment": "MARKETPLACE_NETWORK_SERVICES",
+    "control_hook_environment": "MARKETPLACE_NETWORK_CONTROL",
+    "public_endpoints_forbidden_by_default": true,
+    "required_service_receipt_fields": [
+      "schema_version",
+      "bootstrap_url",
+      "signal_url",
+      "isolation",
+      "implementation_sha256"
+    ],
+    "required_control_commands": [
+      "partition",
+      "heal",
+      "status"
+    ],
+    "hook_digests_enter_evidence": true
+  },
+  "partition_experiments": [
+    {
+      "name": "safe_pre_shipment_cancellation",
+      "initial_shared_state": "pending_transaction_visible_to_both_conductors",
+      "seller_partition_action": "confirm_transaction",
+      "buyer_partition_action": "cancel_transaction",
+      "required_local_divergence": [
+        "confirmed",
+        "cancelled"
+      ],
+      "required_post_heal_state": "auto_resolved",
+      "required_reason": "cancellation_dominates_pre_shipment",
+      "required_canonical_status": "cancelled",
+      "required_superseded_statuses": [
+        "confirmed"
+      ],
+      "same_projection_required_on_all_peers": true
+    },
+    {
+      "name": "unsafe_post_confirmation_shipping_conflict",
+      "initial_shared_state": "confirmed_transaction_visible_to_both_conductors",
+      "seller_partition_action": "mark_shipped",
+      "buyer_partition_action": "cancel_transaction",
+      "required_local_divergence": [
+        "shipped",
+        "cancelled"
+      ],
+      "required_post_heal_state": "conflicted",
+      "arbitrary_winner_forbidden": true,
+      "same_head_set_required_on_all_peers": true,
+      "post_heal_authority": {
+        "path": "bilateral",
+        "required_approvers": [
+          "buyer",
+          "seller"
+        ],
+        "required_selected_status": "shipped",
+        "required_projection_state": "authorized_resolved",
+        "required_projection_reason": "bilateral_agreement",
+        "same_projection_required_on_all_peers": true,
+        "original_heads_remain_visible": true,
+        "cancelled_head_remains_superseded_evidence": true
+      }
+    }
+  ],
+  "measurements": {
+    "listing_propagation_ms": true,
+    "transaction_propagation_ms": true,
+    "safe_projection_visibility_ms": true,
+    "unsafe_conflict_visibility_ms": true,
+    "maximum_each_ms": 120000,
+    "bilateral_approval_visibility_ms": true,
+    "bilateral_resolution_visibility_ms": true
+  },
+  "evidence": {
+    "scenario": "network",
+    "fixture_forbidden": true,
+    "exact_happ_and_dna_digests_required": true,
+    "distinct_conductor_logs_required": true,
+    "distinct_conductor_config_digests_required": true,
+    "service_and_control_receipts_required": true,
+    "topology_receipt_required": true,
+    "conflict_policy_version": 2
+  },
+  "claims_not_established": [
+    "internet-scale convergence",
+    "availability under arbitrary partitions",
+    "general automatic conflict resolution",
+    "unilateral resolution of unsafe conflicts",
+    "arbitration-authorized network convergence",
+    "fault attribution",
+    "Byzantine tolerance",
+    "bootstrap or signaling service security"
+  ]
+}

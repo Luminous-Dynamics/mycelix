@@ -1,0 +1,87 @@
+name: Marketplace reproducible disposable promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Promotion profile
+        required: true
+        type: choice
+        options: [base, arbitration, settlement]
+      finance_dna_path:
+        description: Absolute patched Finance DNA path on the controlled runner (settlement only)
+        required: false
+        type: string
+      settlement_bootstrap_path:
+        description: Absolute executable funding/bootstrap hook on the controlled runner (settlement only)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: [self-hosted, mycelix-conductor, nix]
+    timeout-minutes: 60
+    env:
+      HOLOCHAIN_BIN: ${{ vars.HOLOCHAIN_BIN }}
+      HC_BIN: ${{ vars.HC_BIN }}
+      FINANCE_DNA_PATH: ${{ inputs.finance_dna_path }}
+      MARKETPLACE_SETTLEMENT_BOOTSTRAP: ${{ inputs.settlement_bootstrap_path }}
+      RUSTUP_HOME: ${{ runner.temp }}/mycelix-rustup
+      CARGO_HOME: ${{ runner.temp }}/mycelix-cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare ephemeral release signing key
+        shell: bash
+        env:
+          RELEASE_SIGNING_KEY_BASE64: ${{ secrets.MARKETPLACE_RELEASE_SIGNING_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$RELEASE_SIGNING_KEY_BASE64"
+          printf '%s' "$RELEASE_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/marketplace-release-key.pem"
+          openssl pkey -in "$RUNNER_TEMP/marketplace-release-key.pem" -noout
+
+      - name: Install pinned Rust toolchain in Nix promotion shell
+        run: |
+          nix develop .#promotion --command bash -euo pipefail -c '
+            rustup toolchain install 1.94.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+            rustup override set 1.94.0
+          '
+
+      - name: Verify toolchain and build exact artifacts
+        run: |
+          nix develop .#promotion --command scripts/check-promotion-environment.sh
+          nix develop .#promotion --command scripts/build-promotion-artifacts.sh \
+            "${{ inputs.profile }}" "$RUNNER_TEMP/marketplace-promotion"
+
+      - name: Run isolated live evidence
+        run: |
+          nix develop .#promotion --command scripts/run-disposable-promotion.sh \
+            "${{ inputs.profile }}" "$RUNNER_TEMP/marketplace-promotion"
+
+      - name: Seal and independently verify release evidence
+        env:
+          MARKETPLACE_RELEASE_SIGNING_KEY: ${{ runner.temp }}/marketplace-release-key.pem
+        run: |
+          nix develop .#promotion --command scripts/seal-promotion-bundle.sh \
+            "${{ inputs.profile }}" "$RUNNER_TEMP/marketplace-promotion" \
+            "$RUNNER_TEMP/mycelix-marketplace-${{ inputs.profile }}-${{ github.sha }}.tar.gz"
+          nix develop .#promotion --command scripts/verify-promotion-bundle.sh \
+            "$RUNNER_TEMP/mycelix-marketplace-${{ inputs.profile }}-${{ github.sha }}.tar.gz"
+
+      - name: Remove private release material
+        if: always()
+        run: shred -u "$RUNNER_TEMP/marketplace-release-key.pem" 2>/dev/null || rm -f "$RUNNER_TEMP/marketplace-release-key.pem"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mycelix-marketplace-${{ inputs.profile }}-${{ github.sha }}
+          path: ${{ runner.temp }}/mycelix-marketplace-${{ inputs.profile }}-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+          retention-days: 90

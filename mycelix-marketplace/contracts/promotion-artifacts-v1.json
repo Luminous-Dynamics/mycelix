@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "marketplace": {
+    "workspace": "backend",
+    "dna_manifest": "backend/dna.yaml",
+    "wasm_target": "backend/target/wasm32-unknown-unknown/release",
+    "zomes": [
+      {
+        "dna_path": "zomes/listings/listings_integrity.wasm",
+        "rust_artifact": "listings_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/reputation/reputation_integrity.wasm",
+        "rust_artifact": "reputation_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/transactions/transactions_integrity.wasm",
+        "rust_artifact": "transactions_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/arbitration/arbitration_integrity.wasm",
+        "rust_artifact": "arbitration_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/messaging/messaging_integrity.wasm",
+        "rust_artifact": "messaging_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/search/search_integrity.wasm",
+        "rust_artifact": "search_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/security/security_integrity.wasm",
+        "rust_artifact": "security_integrity.wasm"
+      },
+      {
+        "dna_path": "zomes/listings/listings_coordinator.wasm",
+        "rust_artifact": "listings.wasm"
+      },
+      {
+        "dna_path": "zomes/reputation/reputation_coordinator.wasm",
+        "rust_artifact": "reputation.wasm"
+      },
+      {
+        "dna_path": "zomes/transactions/transactions_coordinator.wasm",
+        "rust_artifact": "transactions_coordinator.wasm"
+      },
+      {
+        "dna_path": "zomes/arbitration/arbitration_coordinator.wasm",
+        "rust_artifact": "arbitration_coordinator.wasm"
+      },
+      {
+        "dna_path": "zomes/messaging/messaging_coordinator.wasm",
+        "rust_artifact": "messaging.wasm"
+      },
+      {
+        "dna_path": "zomes/search/search_coordinator.wasm",
+        "rust_artifact": "search.wasm"
+      },
+      {
+        "dna_path": "zomes/security/security_coordinator.wasm",
+        "rust_artifact": "security_coordinator.wasm"
+      }
+    ]
+  },
+  "profiles": {
+    "base": {
+      "required_roles": [
+        "marketplace"
+      ],
+      "requires_finance_dna": false
+    },
+    "arbitration": {
+      "required_roles": [
+        "marketplace"
+      ],
+      "requires_finance_dna": false
+    },
+    "settlement": {
+      "required_roles": [
+        "marketplace",
+        "finance"
+      ],
+      "requires_finance_dna": true
+    },
+    "network": {
+      "required_roles": [
+        "marketplace"
+      ],
+      "requires_finance_dna": false
+    }
+  },
+  "outputs": {
+    "marketplace_dna": "artifacts/mycelix_marketplace.dna",
+    "happ": "artifacts/mycelix_marketplace.happ",
+    "manifest": "artifact-manifest.json"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "marketplace-leptos-purchase-recovery-v1",
+  "runtime_mode": "fail-closed-js-bridge",
+  "steps": [
+    {"zome": "listings", "function": "get_all_listings", "ui": "browse"},
+    {"zome": "listings", "function": "get_listing", "ui": "listing-detail"},
+    {"zome": "transactions", "function": "create_transaction", "ui": "purchase"},
+    {"zome": "transactions", "function": "get_transaction", "ui": "transaction-detail"},
+    {"zome": "transactions", "function": "get_my_transactions", "ui": "transaction-index"}
+  ],
+  "security_invariants": [
+    "purchase_terms_resolved_from_listing",
+    "transaction_create_authored_by_buyer",
+    "transaction_core_terms_immutable",
+    "transaction_state_machine_validated_in_integrity_zome",
+    "no_automatic_fixture_fallback"
+  ],
+  "deferred_gate": {
+    "name": "latest-valid-revision-reducer",
+    "reason": "Lifecycle controls must not activate while link-based reads can return an original action instead of the newest valid update."
+  }
+}

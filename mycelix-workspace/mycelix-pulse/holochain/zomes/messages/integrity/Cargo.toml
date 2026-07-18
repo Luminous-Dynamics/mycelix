@@ -10,3 +10,4 @@ crate-type = ["cdylib", "rlib"]
 hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 serde = { workspace = true }
+mail-leptos-types = { path = "../../../../crates/mail-leptos-types" }

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "dna_manifest": "backend/dna.yaml",
+  "zomes": {
+    "listings": {
+      "source": "backend/zomes/listings/coordinator/src/lib.rs",
+      "functions": [
+        "create_listing",
+        "get_listing",
+        "get_all_listings",
+        "get_listings_by_seller",
+        "get_my_listings",
+        "get_listings_by_category",
+        "update_listing",
+        "delete_listing",
+        "search_listings",
+        "get_seller_verification",
+        "get_listing_with_trust",
+        "verify_seller_trust"
+      ]
+    },
+    "reputation": {
+      "source": "backend/zomes/reputation/coordinator/src/lib.rs",
+      "functions": [
+        "get_agent_matl_score",
+        "get_agent_matl_score_fast",
+        "get_combined_reputation",
+        "get_cross_app_reputation",
+        "update_matl_score",
+        "is_byzantine",
+        "submit_review",
+        "get_seller_reviews"
+      ]
+    },
+    "transactions": {
+      "source": "backend/zomes/transactions/coordinator/src/lib.rs",
+      "functions": [
+        "create_transaction",
+        "get_transaction",
+        "get_my_transactions",
+        "confirm_transaction",
+        "mark_shipped",
+        "confirm_delivery",
+        "complete_transaction",
+        "dispute_transaction",
+        "cancel_transaction",
+        "get_listing_transactions"
+      ]
+    },
+    "arbitration": {
+      "source": "backend/zomes/arbitration/coordinator/src/lib.rs",
+      "functions": [
+        "file_dispute",
+        "register_as_arbitrator",
+        "submit_arbitration_vote",
+        "finalize_arbitration",
+        "get_arbitration_opportunities",
+        "get_dispute"
+      ]
+    },
+    "messaging": {
+      "source": "backend/zomes/messaging/coordinator/src/lib.rs",
+      "functions": [
+        "send_message",
+        "start_conversation",
+        "mark_message_read",
+        "get_my_conversations",
+        "get_conversation_messages",
+        "get_message",
+        "archive_conversation",
+        "block_conversation",
+        "search_conversations"
+      ]
+    },
+    "search": {
+      "source": "backend/zomes/search/coordinator/src/lib.rs",
+      "functions": [
+        "create_search_index",
+        "search",
+        "get_entity_index",
+        "delete_search_index"
+      ]
+    },
+    "security": {
+      "source": "backend/zomes/security/coordinator/src/lib.rs",
+      "functions": [
+        "log_security_event",
+        "get_security_log",
+        "get_all_security_logs",
+        "get_agent_security_logs",
+        "get_my_security_logs",
+        "get_logs_by_event_type",
+        "get_security_stats"
+      ]
+    }
+  }
+}

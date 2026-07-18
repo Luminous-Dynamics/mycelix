@@ -3,36 +3,37 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
 use leptos::prelude::*;
-use mycelix_leptos_core::{StatCard, SovereignRadar, SovereignRadarSize};
+use mycelix_leptos_core::{SovereignRadar, SovereignRadarSize, StatCard};
 
 #[component]
 pub fn DashboardPage() -> impl IntoView {
-    // TODO: Replace with use_zome_call for real data
-    let total_plays = RwSignal::new(0u64);
-    let total_earnings = RwSignal::new(0u64);
-    let unsettled_plays = RwSignal::new(0u64);
-    let trust_score = RwSignal::new(0u32);
-
     view! {
         <div class="page dashboard-page">
             <h1>"Artist Dashboard"</h1>
 
+            <div class="dependency-gate" role="status">
+                <strong>"Authoritative artist data unavailable"</strong>
+                <span>
+                    " Dashboard queries and settlement authorization are not wired to the conductor. "
+                    "Unknown values are shown as dashes rather than fabricated zeroes."
+                </span>
+            </div>
+
             <div class="stats-grid">
-                <StatCard label="Total Plays" value=total_plays.get().to_string() />
-                <StatCard label="Total Earnings" value=format!("{} wei", total_earnings.get()) />
-                <StatCard label="Unsettled Plays" value=unsettled_plays.get().to_string() />
-                <StatCard label="Trust Score" value=format!("{}/1000", trust_score.get()) />
+                <StatCard label="Total Plays" value="—".to_string() />
+                <StatCard label="Total Earnings" value="—".to_string() />
+                <StatCard label="Unsettled Plays" value="—".to_string() />
+                <StatCard label="Trust Evidence" value="Unavailable".to_string() />
             </div>
 
             <section class="settlement-section">
                 <h2>"Settlement"</h2>
                 <p>"Batch your unsettled plays for on-chain settlement."</p>
-                <button class="btn btn-primary" disabled=move || unsettled_plays.get() == 0>
-                    "Create Settlement Batch"
+                <button class="btn btn-primary" disabled=true aria-describedby="settlement-gate">
+                    "Settlement unavailable"
                 </button>
-                <p class="help-text">
-                    "Settlement batches aggregate your plays into a single on-chain transaction, "
-                    "minimizing gas fees while ensuring you get paid for every play."
+                <p id="settlement-gate" class="help-text">
+                    "No action can be authorized until authoritative unsettled plays and the finance dependency are available."
                 </p>
             </section>
 

@@ -1,164 +1,119 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Verification Gateway — Employer Portal for Sovereign Credentials.
 
-use crate::curriculum::{CurriculumNode, curriculum_graph};
+//! Fail-closed credential verification gateway.
+//!
+//! Praxis issues credentials with proof fields, but this build does not yet
+//! verify the issuer signature, expiry, or revocation status. A reference must
+//! never become "verified" because it is syntactically plausible.
+
 use leptos::prelude::*;
 
 #[component]
 pub fn VerificationPage() -> impl IntoView {
-    let (input_hash, set_input_hash) = signal("".to_string());
-    let (is_verifying, set_is_verifying) = signal(false);
-    let (verification_result, set_verification_result) = signal(None);
+    let (input_reference, set_input_reference) = signal(String::new());
+    let (inspected_reference, set_inspected_reference) = signal::<Option<String>>(None);
 
-    let verify_hash = move |_| {
-        set_is_verifying.set(true);
-        let hash = input_hash.get();
-
-        // SIMULATED: Verification logic against DHT/Source Chain
-        wasm_bindgen_futures::spawn_local(async move {
-            gloo_timers::future::sleep(std::time::Duration::from_millis(1200)).await;
-
-            if hash.len() >= 8 {
-                set_verification_result.set(Some(true));
-            } else {
-                set_verification_result.set(Some(false));
-            }
-            set_is_verifying.set(false);
-        });
+    let inspect_reference = move |_| {
+        let reference = input_reference.get().trim().to_string();
+        set_inspected_reference.set((!reference.is_empty()).then_some(reference));
     };
 
     view! {
         <div class="verify-page">
             <header class="verify-header">
-                <h2>"Verification Gateway"</h2>
-                <p>"Verifying Sovereign Proof-of-Learning via Mycelix Praxis."</p>
+                <h2>"Credential Verification"</h2>
+                <p>"Verification is unavailable in this build and fails closed."</p>
             </header>
 
             <div class="verify-container">
                 <div class="verify-input-box">
-                    <label>"Enter Mastery DID or Achievement Hash:"</label>
+                    <label>"Credential action hash or identifier:"</label>
                     <input
                         type="text"
-                        placeholder="e.g. did:mycelix:praxis-alpha-student or 8f2b3c..."
-                        prop:value=input_hash
-                        on:input=move |ev| set_input_hash.set(event_target_value(&ev))
+                        placeholder="Paste a credential reference"
+                        prop:value=input_reference
+                        on:input=move |event| {
+                            set_input_reference.set(event_target_value(&event));
+                            set_inspected_reference.set(None);
+                        }
                     />
                     <button
                         class="btn-primary"
                         style="width: 100%; margin-top: 1rem"
-                        on:click=verify_hash
-                        disabled=move || is_verifying.get()
+                        on:click=inspect_reference
                     >
-                        {move || if is_verifying.get() { "Consulting Mycelial Ledger..." } else { "Verify Credentials" }}
+                        "Inspect verification status"
                     </button>
                 </div>
 
-                <div class="verify-result-area">
-                    {move || match (is_verifying.get(), verification_result.get()) {
-                        (true, _) => view! { <div class="loading-spinner"></div> }.into_any(),
-                        (false, Some(true)) => view! { <VerificationSuccess /> }.into_any(),
-                        (false, Some(false)) => view! { <div class="verify-fail">"No record found for this hash."</div> }.into_any(),
-                        _ => view! { <div class="verify-placeholder">"Paste a hash to verify legacy alignment."</div> }.into_any(),
-                    }}
-                </div>
+                {move || view! {
+                    <VerificationUnavailable reference=inspected_reference.get() />
+                }}
             </div>
 
-            <section class="verify-footer">
-                <p>"All credentials verified via CLR 2.0 (Comprehensive Learner Record) standards."</p>
-                <div class="standard-badges">
-                    <span class="badge">"Holochain Verifiable"</span>
-                    <span class="badge">"W3C DID Compliant"</span>
-                    <span class="badge">"AGPL-3.0 Licensed"</span>
-                </div>
-            </section>
+            <VerificationRequirements />
         </div>
     }
 }
 
-/// Shareable verification link — auto-verifies the `:id` from the URL instead
-/// of requiring manual hash entry (see `VerificationPage`, whose simulated
-/// verification logic this mirrors).
+/// Shareable credential reference. The route preserves the supplied identifier
+/// but does not resolve or verify it.
 #[component]
 pub fn VerificationPortal() -> impl IntoView {
     let params = leptos_router::hooks::use_params_map();
-    let id = move || params.read().get("id").unwrap_or_default();
-
-    let (is_verifying, set_is_verifying) = signal(true);
-    let (verification_result, set_verification_result) = signal(None);
-
-    Effect::new(move |_| {
-        let hash = id();
-        set_is_verifying.set(true);
-        set_verification_result.set(None);
-
-        wasm_bindgen_futures::spawn_local(async move {
-            gloo_timers::future::sleep(std::time::Duration::from_millis(1200)).await;
-
-            set_verification_result.set(Some(hash.len() >= 8));
-            set_is_verifying.set(false);
-        });
-    });
+    let reference = move || params.read().get("id").unwrap_or_default();
 
     view! {
         <div class="verify-page">
             <header class="verify-header">
-                <h2>"Verification Gateway"</h2>
-                <p>"Verifying Sovereign Proof-of-Learning via Mycelix Praxis."</p>
+                <h2>"Credential Verification"</h2>
+                <p>"This reference has not been verified."</p>
             </header>
 
             <div class="verify-container">
-                <div class="verify-result-area">
-                    {move || match (is_verifying.get(), verification_result.get()) {
-                        (true, _) => view! { <div class="loading-spinner"></div> }.into_any(),
-                        (false, Some(true)) => view! { <VerificationSuccess /> }.into_any(),
-                        (false, Some(false)) => view! { <div class="verify-fail">"No record found for this hash."</div> }.into_any(),
-                        _ => view! { <div class="verify-placeholder">"Resolving link..."</div> }.into_any(),
-                    }}
-                </div>
+                {move || view! {
+                    <VerificationUnavailable reference=Some(reference()) />
+                }}
             </div>
 
-            <section class="verify-footer">
-                <p>"All credentials verified via CLR 2.0 (Comprehensive Learner Record) standards."</p>
-                <div class="standard-badges">
-                    <span class="badge">"Holochain Verifiable"</span>
-                    <span class="badge">"W3C DID Compliant"</span>
-                    <span class="badge">"AGPL-3.0 Licensed"</span>
-                </div>
-            </section>
+            <VerificationRequirements />
         </div>
     }
 }
 
 #[component]
-fn VerificationSuccess() -> impl IntoView {
+fn VerificationUnavailable(reference: Option<String>) -> impl IntoView {
     view! {
-        <div class="verify-success">
-            <div class="success-icon">"\u{2705}"</div>
-            <h3>"Credential Verified"</h3>
-            <div class="success-details">
-                <div class="detail-row">
-                    <span class="label">"Status:"</span>
-                    <span class="value" style="color: var(--success)">"ACTIVE & VERIFIED"</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">"Issuer:"</span>
-                    <span class="value">"Mycelix Praxis Protocol"</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">"Compliance:"</span>
-                    <span class="value">"CLR 2.0 / ZK-Proof Ready"</span>
-                </div>
-            </div>
-
-            <div class="verified-badges" style="margin-top: 1.5rem">
-                <h5>"Verified Global Alignments:"</h5>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap">
-                    <span class="badge-v">"AWS Certified Solutions Architect (92%)"</span>
-                    <span class="badge-v">"CompTIA Security+ (100%)"</span>
-                    <span class="badge-v">"TEFL Educator (88%)"</span>
-                </div>
+        <div class="verify-result-area">
+            <div class="verify-fail">
+                <strong>"Not verified"</strong>
+                {reference
+                    .filter(|value| !value.is_empty())
+                    .map(|value| view! {
+                        <p>
+                            "Reference: "
+                            <span class="mono">{value}</span>
+                        </p>
+                    })}
+                <p>
+                    "No signature, expiry, ownership, or revocation check has been run. The reference is displayed only as supplied."
+                </p>
             </div>
         </div>
+    }
+}
+
+#[component]
+fn VerificationRequirements() -> impl IntoView {
+    view! {
+        <section class="verify-footer">
+            <p>
+                "A future positive result must reconstruct the canonical credential payload, verify the issuer signature, evaluate expiry, and consult an authenticated revocation source."
+            </p>
+            <p>
+                "Proof fields, a Holochain action hash, or standards-compatible formatting are not by themselves verification."
+            </p>
+        </section>
     }
 }

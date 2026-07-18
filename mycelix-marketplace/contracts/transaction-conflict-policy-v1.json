@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "policy_id": "mycelix-marketplace-transaction-conflict-v2",
+  "principle": "select an existing authored head only when a narrow safety rule dominates every competing lifecycle branch",
+  "states": [
+    "resolved",
+    "auto_resolved",
+    "authorized_resolved",
+    "conflicted"
+  ],
+  "safe_rules": [
+    {
+      "reason": "cancellation_dominates_pre_shipment",
+      "canonical_status": "cancelled",
+      "requires_exactly_one_canonical_head": true,
+      "allowed_superseded_statuses": [
+        "pending",
+        "confirmed"
+      ],
+      "rationale": "a party-authorized cancellation before any shipment evidence is the least irreversible outcome"
+    },
+    {
+      "reason": "dispute_dominates_lifecycle",
+      "canonical_status": "disputed",
+      "requires_exactly_one_canonical_head": true,
+      "allowed_superseded_statuses": [
+        "pending",
+        "confirmed",
+        "shipped",
+        "delivered"
+      ],
+      "rationale": "an authored dispute halts ordinary lifecycle progression without deciding the underlying merits"
+    }
+  ],
+  "always_conflicted_examples": [
+    [
+      "cancelled",
+      "shipped"
+    ],
+    [
+      "cancelled",
+      "delivered"
+    ],
+    [
+      "cancelled",
+      "disputed"
+    ],
+    [
+      "shipped",
+      "delivered"
+    ],
+    [
+      "confirmed",
+      "shipped"
+    ],
+    [
+      "disputed",
+      "disputed"
+    ],
+    [
+      "cancelled",
+      "cancelled"
+    ]
+  ],
+  "invariants": [
+    "the canonical revision is an existing authored transaction head",
+    "all immutable transaction identity fields match across heads",
+    "every raw head remains visible in the resolution evidence",
+    "superseded heads are listed explicitly and never deleted",
+    "timestamps and action-hash ordering never decide a material conflict",
+    "unsafe conflicts expose no canonical revision and reject mutations",
+    "the policy does not decide fault, compensation, settlement, or reputation",
+    "unsafe conflicts may become authorized_resolved only through immutable bilateral or arbitration authority",
+    "authorized projections select an existing authored branch and preserve all original heads",
+    "a later fork of the selected branch becomes a fresh conflict"
+  ],
+  "claims_not_established": [
+    "general automatic conflict resolution",
+    "semantic merge of arbitrary transaction metadata",
+    "fault attribution",
+    "arbitration outcome",
+    "Byzantine tolerance"
+  ],
+  "explicit_authority_protocol": "contracts/transaction-conflict-resolution-v1.json"
+}

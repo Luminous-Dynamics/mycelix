@@ -7,19 +7,83 @@
 
 use serde::{Deserialize, Serialize};
 
+mod binary_bytes {
+    use serde::de::{SeqAccess, Visitor};
+    use serde::{Deserializer, Serializer};
+    use std::fmt;
+
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(bytes)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BytesVisitor;
+
+        impl<'de> Visitor<'de> for BytesVisitor {
+            type Value = Vec<u8>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a MessagePack binary value")
+            }
+
+            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
+                Ok(value.to_vec())
+            }
+
+            fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E> {
+                Ok(value)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut bytes = Vec::with_capacity(sequence.size_hint().unwrap_or(0));
+                while let Some(byte) = sequence.next_element()? {
+                    bytes.push(byte);
+                }
+                Ok(bytes)
+            }
+        }
+
+        deserializer.deserialize_any(BytesVisitor)
+    }
+}
+
+/// Binary AgentPubKey representation used by the Holochain wire protocol.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AgentPubKey(#[serde(with = "binary_bytes")] pub Vec<u8>);
+
+/// Binary ActionHash representation used by the Holochain wire protocol.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ActionHash(#[serde(with = "binary_bytes")] pub Vec<u8>);
+
+/// Microseconds since the Unix epoch, matching Holochain's Timestamp newtype.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Timestamp(pub i64);
+
 // --- Catalog ---
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Song {
     pub song_hash: String,
     pub title: String,
-    pub artist: String, // AgentPubKey serialized
+    pub artist: AgentPubKey,
     pub ipfs_cid: String,
     pub cover_cid: Option<String>,
     pub duration_seconds: u32,
     pub genres: Vec<String>,
     pub strategy_id: String,
-    pub released_at: i64, // Timestamp as micros
+    pub released_at: Timestamp,
     pub metadata: String,
 }
 
@@ -47,10 +111,10 @@ impl Song {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Album {
     pub title: String,
-    pub artist: String,
+    pub artist: AgentPubKey,
     pub cover_cid: String,
-    pub released_at: i64,
-    pub song_hashes: Vec<String>,
+    pub released_at: Timestamp,
+    pub song_hashes: Vec<ActionHash>,
     pub metadata: String,
 }
 
@@ -68,24 +132,21 @@ pub struct ArtistProfile {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecordPlayInput {
-    pub song_hash: String,
-    pub artist: String,
+    pub song_hash: ActionHash,
     pub duration_listened: u32,
-    pub song_duration: u32,
-    pub strategy_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayRecord {
-    pub song_hash: String,
-    pub artist: String,
-    pub played_at: i64,
+    pub song_hash: ActionHash,
+    pub artist: AgentPubKey,
+    pub played_at: Timestamp,
     pub duration_listened: u32,
     pub song_duration: u32,
     pub strategy_id: String,
     pub amount_owed: u64,
     pub settled: bool,
-    pub settlement_hash: Option<String>,
+    pub settlement_hash: Option<ActionHash>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -100,30 +161,35 @@ pub struct SongStats {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ListenerAccount {
-    pub owner: String,
+    pub owner: AgentPubKey,
     pub eth_address: String,
     pub balance: u64,
     pub total_deposited: u64,
     pub total_spent: u64,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ArtistAccount {
-    pub owner: String,
+    pub owner: AgentPubKey,
     pub eth_address: String,
     pub pending_balance: u64,
     pub total_earned: u64,
     pub total_cashed_out: u64,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 // --- Trust ---
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerificationStatus {
-    pub artist: String,
+    pub artist: AgentPubKey,
     pub trust_score: u32,
     pub tier: VerificationTier,
     pub vouch_count: u32,
+    pub computed_at: Timestamp,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -158,55 +224,103 @@ impl VerificationTier {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum RepeatMode { None, One, All }
+pub enum RepeatMode {
+    None,
+    One,
+    All,
+}
 impl RepeatMode {
-    pub fn icon(&self) -> &'static str { match self { Self::None => "\u{1f501}", Self::One => "\u{1f502}", Self::All => "\u{1f501}" } }
-    pub fn next(&self) -> Self { match self { Self::None => Self::All, Self::All => Self::One, Self::One => Self::None } }
+    pub fn icon(&self) -> &'static str {
+        match self {
+            Self::None => "\u{1f501}",
+            Self::One => "\u{1f502}",
+            Self::All => "\u{1f501}",
+        }
+    }
+    pub fn next(&self) -> Self {
+        match self {
+            Self::None => Self::All,
+            Self::All => Self::One,
+            Self::One => Self::None,
+        }
+    }
 }
 
-pub fn mock_verification(artist: &str) -> VerificationTier {
-    match artist { "mock-artist-1" => VerificationTier::CommunityVerified, "mock-artist-2" => VerificationTier::Trusted, _ => VerificationTier::Unverified }
+fn fixture_agent(seed: u8) -> AgentPubKey {
+    let mut bytes = vec![132, 32, 36];
+    bytes.extend(std::iter::repeat_n(seed, 32));
+    bytes.extend([0, 0, 0, seed]);
+    AgentPubKey(bytes)
 }
 
-// --- Mock data for when conductor is unavailable ---
+// --- Explicit development fixtures (`--features fixtures`) ---
 
 pub fn mock_songs() -> Vec<Song> {
     vec![
         Song {
             song_hash: "mock-1".into(),
             title: "Decentralized Dreams".into(),
-            artist: "mock-artist-1".into(),
+            artist: fixture_agent(1),
             ipfs_cid: "QmDemo1".into(),
             cover_cid: None,
             duration_seconds: 234,
             genres: vec!["Electronic".into(), "Ambient".into()],
             strategy_id: "pay_per_stream".into(),
-            released_at: 0,
+            released_at: Timestamp(0),
             metadata: "{}".into(),
         },
         Song {
             song_hash: "mock-2".into(),
             title: "Zero-Cost Serenade".into(),
-            artist: "mock-artist-2".into(),
+            artist: fixture_agent(2),
             ipfs_cid: "QmDemo2".into(),
             cover_cid: None,
             duration_seconds: 187,
             genres: vec!["Indie".into(), "Folk".into()],
             strategy_id: "gift".into(),
-            released_at: 0,
+            released_at: Timestamp(0),
             metadata: "{}".into(),
         },
         Song {
             song_hash: "mock-3".into(),
             title: "Mycelium Network".into(),
-            artist: "mock-artist-1".into(),
+            artist: fixture_agent(1),
             ipfs_cid: "QmDemo3".into(),
             cover_cid: None,
             duration_seconds: 312,
             genres: vec!["Rock".into()],
             strategy_id: "patronage".into(),
-            released_at: 0,
+            released_at: Timestamp(0),
             metadata: "{}".into(),
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn holo_hashes_use_messagepack_binary_encoding() {
+        let agent = AgentPubKey(vec![7; 39]);
+        let encoded = rmp_serde::to_vec_named(&agent).unwrap();
+        assert_eq!(encoded[0], 0xc4); // bin8
+        assert_eq!(encoded[1], 39);
+
+        let decoded: AgentPubKey = rmp_serde::from_slice(&encoded).unwrap();
+        assert_eq!(decoded, agent);
+    }
+
+    #[test]
+    fn play_input_roundtrips_with_typed_hashes() {
+        let input = RecordPlayInput {
+            song_hash: ActionHash(vec![1; 39]),
+            duration_listened: 90,
+        };
+
+        let encoded = rmp_serde::to_vec_named(&input).unwrap();
+        let decoded: RecordPlayInput = rmp_serde::from_slice(&encoded).unwrap();
+        assert_eq!(decoded.song_hash, input.song_hash);
+        assert_eq!(decoded.duration_listened, 90);
+    }
 }

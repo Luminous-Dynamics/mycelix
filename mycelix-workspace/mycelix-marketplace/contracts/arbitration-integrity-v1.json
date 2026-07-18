@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "name": "marketplace-conflict-aware-arbitration-integrity-v1",
+  "runtime_mode": "typed-but-ui-gated",
+  "entry_bindings": [
+    "dispute_to_stable_transaction_root_and_exact_disputed_revision",
+    "vote_to_stable_dispute_root_and_authorizing_revision",
+    "result_to_stable_dispute_root_exact_voting_revision_and_vote_hashes"
+  ],
+  "security_invariants": [
+    "dispute_author_is_transaction_party",
+    "dispute_parties_match_authoritative_transaction",
+    "dispute_revision_conflicts_fail_closed",
+    "assigned_arbitrators_are_unique_and_not_parties",
+    "votes_are_authored_by_assigned_arbitrators",
+    "guarded_votes_have_equal_weight_one",
+    "result_contains_exactly_one_vote_per_assigned_arbitrator",
+    "winner_ratio_and_compensation_are_recomputed",
+    "linked_result_retry_is_idempotent_and_duplicates_fail_closed",
+    "filing_does_not_mutate_reputation_and_finalization_projects_immutable_events"
+  ],
+  "typed_calls": [
+    {
+      "zome": "transactions",
+      "function": "open_dispute"
+    },
+    {
+      "zome": "arbitration",
+      "function": "register_as_arbitrator"
+    },
+    {
+      "zome": "arbitration",
+      "function": "get_arbitration_opportunities"
+    },
+    {
+      "zome": "arbitration",
+      "function": "get_dispute"
+    },
+    {
+      "zome": "arbitration",
+      "function": "get_dispute_resolution"
+    },
+    {
+      "zome": "arbitration",
+      "function": "submit_arbitration_vote"
+    },
+    {
+      "zome": "arbitration",
+      "function": "get_arbitration_votes"
+    },
+    {
+      "zome": "arbitration",
+      "function": "finalize_arbitration"
+    },
+    {
+      "zome": "arbitration",
+      "function": "get_arbitration_result"
+    }
+  ],
+  "deliberate_limits": [
+    "arbitrator registration is permissionless and not yet credential-backed",
+    "assignment is deterministic over locally visible registrations but is not globally fair selection",
+    "reputation weighting is disabled until score snapshots are integrity-verifiable",
+    "arbitration results project immutable winner and loser evidence but do not execute financial settlement",
+    "the Leptos arbitration controls remain disabled until a live multi-agent conflict-injection scenario passes"
+  ]
+}

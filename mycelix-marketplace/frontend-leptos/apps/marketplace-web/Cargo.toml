@@ -1,0 +1,26 @@
+[package]
+name = "marketplace-web"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = ["js-bridge"]
+js-bridge = ["marketplace-client/js-bridge"]
+dev-fixtures = ["marketplace-client/dev-fixtures"]
+finance-settlement = []
+
+[dependencies]
+leptos.workspace = true
+leptos_router.workspace = true
+marketplace-client = { path = "../../crates/marketplace-client" }
+marketplace-domain = { path = "../../crates/marketplace-domain" }
+web-sys.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "marketplace-web"
+path = "src/main.rs"

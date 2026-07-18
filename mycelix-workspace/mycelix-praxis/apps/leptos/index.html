@@ -29,8 +29,8 @@
     <link data-trunk rel="css" href="style/main.css" />
 
     <!-- Static assets -->
-    <link data-trunk rel="copy-dir" href="static/curriculum" />
     <link data-trunk rel="copy-file" href="static/manifest.json" />
+    <link data-trunk rel="copy-file" href="static/content-manifest.json" />
     <link data-trunk rel="copy-file" href="static/sw.js" />
     <link data-trunk rel="copy-file" href="static/icon-192.png" />
     <link data-trunk rel="copy-file" href="static/icon-512.png" />
@@ -49,42 +49,9 @@
     }
     </script>
 
-    <!-- Spore WASM integration (synchronous detection before app mount) -->
+    <!-- Spore is optional. The worker sets this to true after a successful load. -->
     <script id="spore-loader">
         window.__SPORE_AVAILABLE = false;
-        try {
-            var xhr = new XMLHttpRequest();
-            xhr.open('HEAD', '/spore/symthaea_spore_bg.wasm', false);
-            xhr.send();
-            if (xhr.status === 200) window.__SPORE_AVAILABLE = true;
-        } catch(e) {}
-    </script>
-
-    <!-- Holochain conductor bridge -->
-    <script id="holochain-bridge">
-    (function() {
-        window.__HC_STATUS = 'connecting';
-        var WS_URL = window.__HC_CONDUCTOR_URL || 'ws://localhost:8888';
-        var TIMEOUT_MS = 3000;
-        try {
-            var ws = new WebSocket(WS_URL);
-            var timer = setTimeout(function() {
-                ws.close();
-                window.__HC_STATUS = 'mock';
-            }, TIMEOUT_MS);
-            ws.onopen = function() {
-                clearTimeout(timer);
-                window.__HC_STATUS = 'connected';
-                ws.close();
-            };
-            ws.onerror = function() {
-                clearTimeout(timer);
-                window.__HC_STATUS = 'mock';
-            };
-        } catch (e) {
-            window.__HC_STATUS = 'mock';
-        }
-    })();
     </script>
 </body>
 </html>

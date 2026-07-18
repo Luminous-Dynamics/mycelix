@@ -18,10 +18,60 @@ use leptos::prelude::*;
 
 pub use mycelix_leptos_core::holochain_provider::{
     ConnectStrategy, ConnectionBadge, ConnectionStatus, HolochainCtx, HolochainProviderConfig,
-    use_holochain,
+    StatusLabels, use_holochain,
 };
 
+use crate::mode::{AppMode, use_app_mode};
 use crate::persistence;
+
+/// Reactive decision used by data resources before they create their future.
+///
+/// Reading this inside a `LocalResource` source closure subscribes that
+/// resource to mode, transport, and signer changes. In particular, a resource
+/// created while Live mode is connecting will run again once zome calls become
+/// authorized.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DataSource {
+    Demo,
+    Local,
+    LiveWaiting,
+    LiveReady,
+}
+
+/// Result of loading a mode-aware resource.
+///
+/// `WaitingForLive` and `LiveError` are deliberately distinct from a valid
+/// empty collection so the UI never presents connection failure as "no data".
+#[derive(Clone, Debug)]
+pub enum ResourceState<T> {
+    WaitingForLive,
+    Ready(T),
+    LiveError,
+}
+
+pub fn tracked_data_source(mode: ReadSignal<AppMode>, hc: &HolochainCtx) -> DataSource {
+    match mode.get() {
+        AppMode::Demo => DataSource::Demo,
+        AppMode::Local => DataSource::Local,
+        AppMode::Live if hc.zome_calls_ready() => DataSource::LiveReady,
+        AppMode::Live => DataSource::LiveWaiting,
+    }
+}
+
+#[component]
+pub fn LiveResourceStatus(failed: bool) -> impl IntoView {
+    let message = if failed {
+        "Live data could not be loaded. Review the Live status above for details."
+    } else {
+        "Waiting for a connected conductor and authorized zome-call signer…"
+    };
+
+    view! {
+        <div class="data-empty-state" role=if failed { "alert" } else { "status" }>
+            {message}
+        </div>
+    }
+}
 
 /// localStorage key for a user-set conductor URL override.
 const CONDUCTOR_URL_OVERRIDE_KEY: &str = "praxis_conductor_url_override";
@@ -66,23 +116,133 @@ fn active_conductor_url() -> String {
 
 /// Wraps children with Praxis-configured HolochainProvider.
 ///
-/// Connects to the shared ecosystem conductor with app_id "praxis",
-/// auto-reconnect enabled (5 attempts, exponential backoff), and
-/// 30-second request timeout.
+/// Demo and Local modes do not open a transport. Live mode requires the shared
+/// ecosystem conductor with app_id "praxis" and never falls back to mock.
 #[component]
-pub fn HolochainProvider(children: Children) -> impl IntoView {
+pub fn HolochainProvider(mode: ReadSignal<AppMode>, children: Children) -> impl IntoView {
+    let selected_mode = mode.get_untracked();
+    let (connect_strategy, status_labels) = match selected_mode {
+        AppMode::Demo => (
+            ConnectStrategy::MockOnly,
+            StatusLabels {
+                disconnected: "Demo unavailable",
+                connecting: "Starting demo…",
+                connected: "Demo",
+                mock: "Demo",
+            },
+        ),
+        AppMode::Local => (
+            ConnectStrategy::MockOnly,
+            StatusLabels {
+                disconnected: "Local unavailable",
+                connecting: "Starting local…",
+                connected: "Local",
+                mock: "Local",
+            },
+        ),
+        AppMode::Live => (
+            ConnectStrategy::WebSocketRequired,
+            StatusLabels {
+                disconnected: "Live unavailable",
+                connecting: "Connecting…",
+                connected: "Live",
+                mock: "Live unavailable",
+            },
+        ),
+    };
+
     let config = HolochainProviderConfig {
         app_id: "praxis".to_string(),
         default_role: Some("praxis".to_string()),
         log_prefix: "[Praxis]",
-        connect_strategy: ConnectStrategy::WebSocket,
-        status_labels: None,
+        connect_strategy,
+        status_labels: Some(status_labels),
     };
 
     view! {
         <mycelix_leptos_core::holochain_provider::HolochainProviderAuto config=config>
             {children()}
         </mycelix_leptos_core::holochain_provider::HolochainProviderAuto>
+    }
+}
+
+/// Persistent, mode-aware disclosure of demo data and live failures.
+#[component]
+pub fn ModeStatusBanner() -> impl IntoView {
+    let mode = use_app_mode();
+    let hc = use_holochain();
+    let hc_status = hc.clone();
+    let hc_error = hc.clone();
+    let hc_signing = hc.clone();
+    let hc_refresh = hc.clone();
+
+    view! {
+        {move || match mode.get() {
+            AppMode::Demo => view! {
+                <div class="mode-banner mode-banner-demo" role="status">
+                    <strong>"Demo data"</strong>
+                    <span>"Representative examples are shown and are not learner or network records."</span>
+                </div>
+            }.into_any(),
+            AppMode::Local => view! {
+                <div class="mode-banner mode-banner-local" role="status">
+                    <strong>"Local mode"</strong>
+                    <span>"Progress stays in this browser. No conductor connection is attempted."</span>
+                </div>
+            }.into_any(),
+            AppMode::Live => {
+                let status = hc_status.status.get();
+                let last_error = hc_error.last_error.get();
+                let signing_ready = hc_signing.zome_call_signing_ready.get();
+                if status == ConnectionStatus::Connected
+                    && signing_ready
+                    && last_error.is_none()
+                {
+                    view! {
+                        <div class="mode-banner mode-banner-live" role="status">
+                            <strong>"Live mode ready"</strong>
+                            <span>"Connected to the Praxis conductor with authorized zome-call signing."</span>
+                        </div>
+                    }.into_any()
+                } else if status == ConnectionStatus::Connected && !signing_ready {
+                    let detail = last_error.unwrap_or_else(|| {
+                        "The conductor transport is connected, but no authorized browser signer is available. Launch Praxis from a compatible Holochain host or install the host signer, then re-check.".to_string()
+                    });
+                    let hc_refresh = hc_refresh.clone();
+                    view! {
+                        <div class="mode-banner mode-banner-error" role="alert">
+                            <strong>"Live signer unavailable"</strong>
+                            <span>{detail}</span>
+                            <button
+                                class="btn-sm btn-outline"
+                                on:click=move |_| {
+                                    if hc_refresh.refresh_zome_call_signing_ready() {
+                                        hc_refresh.clear_last_error();
+                                    }
+                                }
+                            >
+                                "Re-check signer"
+                            </button>
+                            <ConductorSettingsPanel />
+                        </div>
+                    }.into_any()
+                } else {
+                    let detail = last_error.unwrap_or_else(|| match status {
+                        ConnectionStatus::Connecting | ConnectionStatus::Reconnecting => {
+                            "Connecting to the Praxis conductor…".to_string()
+                        }
+                        _ => "The Praxis conductor is unavailable.".to_string(),
+                    });
+                    view! {
+                        <div class="mode-banner mode-banner-error" role="alert">
+                            <strong>"Live data unavailable"</strong>
+                            <span>{detail}</span>
+                            <ConductorSettingsPanel />
+                        </div>
+                    }.into_any()
+                }
+            }
+        }}
     }
 }
 
@@ -98,6 +258,7 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
 pub fn ConductorSettingsPanel() -> impl IntoView {
     let hc = use_holochain();
     let hc_label = hc.clone();
+    let hc_signing = hc.clone();
 
     let (draft_url, set_draft_url) = signal(
         persistence::load::<String>(CONDUCTOR_URL_OVERRIDE_KEY)
@@ -128,6 +289,10 @@ pub fn ConductorSettingsPanel() -> impl IntoView {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">
                 <strong>"Conductor Connection"</strong>
                 <span>{move || hc_label.status_label()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--text-secondary)">
+                <span>"Zome-call authorization"</span>
+                <span>{move || if hc_signing.zome_call_signing_ready.get() { "Ready" } else { "Signer required" }}</span>
             </div>
             <div style="display: flex; gap: 0.5rem">
                 <input

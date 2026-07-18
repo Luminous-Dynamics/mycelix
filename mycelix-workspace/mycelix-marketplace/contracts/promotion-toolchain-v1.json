@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "rust": {
+    "channel": "1.94.0",
+    "required_target": "wasm32-unknown-unknown",
+    "required_components": ["rustfmt", "clippy"]
+  },
+  "node": {
+    "minimum_major": 20,
+    "maximum_major": 22
+  },
+  "holochain": {
+    "version": "0.6.1",
+    "source_release": "holochain-0.6.1",
+    "binaries_are_external_trust_anchors": true,
+    "require_sha256_in_artifact_manifest": true
+  },
+  "browser_client": {
+    "package": "@holochain/client",
+    "version": "0.20.5"
+  },
+  "promotion": {
+    "require_clean_git_tree": true,
+    "require_locked_cargo_build": true,
+    "require_locked_npm_install": true,
+    "forbid_unrecorded_tool_overrides": true
+  }
+}

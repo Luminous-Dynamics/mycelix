@@ -8,6 +8,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod protocol;
+
 // ── Email Types ──
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -91,7 +93,10 @@ pub struct CryptoSuiteView {
 
 impl CryptoSuiteView {
     pub fn is_post_quantum(&self) -> bool {
-        self.key_exchange.starts_with("kyber") || self.signature.starts_with("dilithium")
+        self.key_exchange.starts_with("kyber")
+            || self.key_exchange.contains("ml-kem")
+            || self.signature.starts_with("dilithium")
+            || self.signature.contains("ml-dsa")
     }
 
     pub fn short_label(&self) -> &'static str {

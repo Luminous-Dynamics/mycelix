@@ -1,0 +1,45 @@
+---
+manifest_version: "0"
+name: mycelix_pulse_alpha
+
+integrity:
+  network_seed: ~
+  properties:
+    alpha_scope: "profile+hybrid-keys+encrypted-messages"
+    max_key_rotations_per_day: 5
+    max_emails_per_hour: 100
+  zomes:
+    - name: mail_profiles_integrity
+      path: ../target/wasm32-unknown-unknown/release/mail_profiles_integrity.wasm
+    - name: mail_trust_integrity
+      path: ../target/wasm32-unknown-unknown/release/mail_trust_integrity.wasm
+    - name: mail_keys_integrity
+      path: ../target/wasm32-unknown-unknown/release/keys_integrity.wasm
+    - name: mail_messages_integrity
+      path: ../target/wasm32-unknown-unknown/release/mail_messages_integrity.wasm
+    - name: mail_capabilities_integrity
+      path: ../target/wasm32-unknown-unknown/release/mail_capabilities_integrity.wasm
+
+coordinator:
+  zomes:
+    - name: mail_profiles
+      path: ../target/wasm32-unknown-unknown/release/mail_profiles.wasm
+      dependencies:
+        - name: mail_profiles_integrity
+    - name: mail_trust
+      path: ../target/wasm32-unknown-unknown/release/mail_trust.wasm
+      dependencies:
+        - name: mail_trust_integrity
+        - name: mail_profiles_integrity
+    - name: mail_keys
+      path: ../target/wasm32-unknown-unknown/release/keys.wasm
+      dependencies:
+        - name: mail_keys_integrity
+        - name: mail_profiles_integrity
+    - name: mail_messages
+      path: ../target/wasm32-unknown-unknown/release/mail_messages.wasm
+      dependencies:
+        - name: mail_messages_integrity
+        - name: mail_trust_integrity
+        - name: mail_keys_integrity
+        - name: mail_capabilities_integrity

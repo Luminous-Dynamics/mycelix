@@ -26,8 +26,13 @@
 //! 7. **Bridge Integration** — cross-cluster identity resolution, tier gating
 //! 8. **Immutability Regression** — sent emails and receipts cannot be updated
 
+use holochain::conductor::api::error::ConductorApiResult;
 use holochain::sweettest::*;
 use holochain_types::prelude::*;
+use mail_leptos_types::protocol::{
+    AuthenticatedMetadataV1, EncryptedEnvelopeV2HybridPqc, EncryptionKeyId, MessageId,
+    SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
+};
 use std::path::PathBuf;
 
 // ============================================================================
@@ -148,8 +153,8 @@ fn mail_dna_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.pop(); // tests/ -> mycelix-mail/
     path.push("holochain");
-    path.push("dna");
-    path.push("mycelix_mail.dna");
+    path.push("dna-alpha");
+    path.push("mycelix_pulse_alpha.dna");
     path
 }
 
@@ -1862,15 +1867,29 @@ async fn test_contact_empty_name_rejected() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.2 — requires Holochain conductor + resolved getrandom backend config"]
 async fn phase0_two_conductor_harness_smoke() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(300),
+        phase0_two_conductor_harness_smoke_inner(),
+    )
+    .await
+    .expect("two-conductor harness exceeded the 300 second deterministic timeout");
+}
+
+async fn phase0_two_conductor_harness_smoke_inner() {
+    eprintln!("pulse-smoke: starting two local conductors");
+    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+    eprintln!("pulse-smoke: loading packed DNA");
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
 
+    eprintln!("pulse-smoke: installing DNA on both conductors");
     let apps = conductors
         .setup_app("pulse-phase0", &[dna_file.clone()])
         .await
         .expect("setup_app must succeed on both conductors");
+    eprintln!("pulse-smoke: exchanging peer info");
+    conductors.exchange_peer_info().await;
 
     let cells = apps.cells_flattened();
     assert_eq!(
@@ -1891,9 +1910,11 @@ async fn phase0_two_conductor_harness_smoke() {
     // Peer discovery. If this returns Ok, the two conductors found each other
     // over the dev-test bootstrap and the DHT is live enough for further
     // Phase 0 work.
-    await_consistency(30, [&alice_cell, &bob_cell])
+    eprintln!("pulse-smoke: awaiting DHT consistency");
+    await_consistency([&alice_cell, &bob_cell])
         .await
         .expect("two conductors must reach DHT consistency");
+    eprintln!("pulse-smoke: complete");
 }
 
 /// Phase 0.5 — AgentToInbox spam rejection.
@@ -1948,7 +1969,7 @@ async fn phase0_forged_inbox_link_rejected() {
     let eve_cell = cells[0].clone();
     let bob_cell = cells[1].clone();
 
-    await_consistency(30, [&eve_cell, &bob_cell])
+    await_consistency([&eve_cell, &bob_cell])
         .await
         .expect("consistency pre-attack");
 
@@ -2007,7 +2028,7 @@ async fn phase0_forged_inbox_link_rejected() {
     );
     let eve_email_hash = self_out.email_hash;
 
-    await_consistency(30, [&eve_cell, &bob_cell])
+    await_consistency([&eve_cell, &bob_cell])
         .await
         .expect("consistency post-self-send");
 
@@ -2036,7 +2057,7 @@ async fn phase0_forged_inbox_link_rejected() {
             );
         }
         Ok(_) => {
-            await_consistency(30, [&eve_cell, &bob_cell])
+            await_consistency([&eve_cell, &bob_cell])
                 .await
                 .expect("consistency post-forgery-attempt");
 
@@ -2128,6 +2149,657 @@ fn compute_signing_content(
     content
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum HybridKeyStateV2 {
+    Active,
+    Retired,
+    RevokedCompromised,
+    Lost,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct HybridKeyBundleV2 {
+    version: u16,
+    suite: String,
+    key_id: [u8; 32],
+    x25519_public_key: [u8; 32],
+    ml_kem_768_public_key: Vec<u8>,
+    ml_dsa_65_public_key: Vec<u8>,
+    state: HybridKeyStateV2,
+    created_at: u64,
+    expires_at: u64,
+    agent_signature: Vec<u8>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct SendEmailV2Input {
+    recipient: AgentPubKey,
+    message_id: [u8; 32],
+    sender_mldsa_key_id: [u8; 32],
+    recipient_hybrid_key_id: [u8; 32],
+    x25519_ephemeral_public_key: [u8; 32],
+    ml_kem_ciphertext: Vec<u8>,
+    nonce: [u8; 12],
+    ciphertext: Vec<u8>,
+    in_reply_to: Option<[u8; 32]>,
+    thread_id: Option<[u8; 32]>,
+    created_at_micros: i64,
+    ml_dsa_signature: Vec<u8>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct EncryptedEmailV2Wire {
+    version: u16,
+    cipher_suite: String,
+    message_id: [u8; 32],
+    sender: AgentPubKey,
+    recipient: AgentPubKey,
+    sender_mldsa_key_id: [u8; 32],
+    recipient_hybrid_key_id: [u8; 32],
+    x25519_ephemeral_public_key: [u8; 32],
+    ml_kem_ciphertext: Vec<u8>,
+    nonce: [u8; 12],
+    ciphertext: Vec<u8>,
+    in_reply_to: Option<[u8; 32]>,
+    thread_id: Option<[u8; 32]>,
+    created_at_micros: i64,
+    agent_signature: Vec<u8>,
+    ml_dsa_signature: Vec<u8>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct EmailV2Wire {
+    hash: String,
+    sender: AgentPubKey,
+    recipient: AgentPubKey,
+    sender_agent_raw: Vec<u8>,
+    recipient_agent_raw: Vec<u8>,
+    envelope: EncryptedEmailV2Wire,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct HybridSendContextV2 {
+    sender_agent_raw: Vec<u8>,
+    recipient_agent_raw: Vec<u8>,
+    sender_bundle: HybridKeyBundleV2,
+    recipient_bundle: HybridKeyBundleV2,
+}
+
+fn unpublished_bundle(marker: u8, now_micros: u64) -> HybridKeyBundleV2 {
+    HybridKeyBundleV2 {
+        version: 2,
+        suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+        key_id: [0; 32],
+        x25519_public_key: [marker; 32],
+        ml_kem_768_public_key: vec![marker; 1184],
+        ml_dsa_65_public_key: vec![marker; 1952],
+        state: HybridKeyStateV2::Active,
+        created_at: now_micros,
+        expires_at: now_micros + 30 * 24 * 60 * 60 * 1_000_000,
+        agent_signature: vec![0; 64],
+    }
+}
+
+/// Retry wrapper for signed/nonce'd zome-call write paths
+/// (`publish_hybrid_key_bundle_v2`, `send_email_v2`). Mirrors the existing
+/// `send_email` retry pattern above (see "nonce-expired, retrying") rather
+/// than inventing a new approach: `SweetConductorHandle::call_fallible`
+/// mints a fresh nonce with Holochain's own 5-minute
+/// `FRESH_NONCE_EXPIRES_AFTER` window per attempt, and under heavy Wasmer
+/// JIT / scheduling delay during conductor startup that window can elapse
+/// between nonce construction and dispatch before the call ever reaches the
+/// wire — confirmed live 2026-07-15/16: `phase0_v2_conductor_restart_recovery`
+/// hit `BadNonce("Expired")` on its very first write, twice, including once
+/// running with nothing else on the box competing for CPU. Not a logic bug
+/// in this test; retry is the same fix already established for `send_email`.
+async fn call_with_nonce_retry<O, Fut>(fn_name: &str, mut make_call: impl FnMut() -> Fut) -> O
+where
+    Fut: std::future::Future<Output = ConductorApiResult<O>>,
+{
+    let mut attempts = 0;
+    loop {
+        match make_call().await {
+            Ok(out) => return out,
+            Err(e) => {
+                let msg = format!("{:?}", e);
+                attempts += 1;
+                if attempts >= 5 || !msg.contains("BadNonce") {
+                    panic!("{fn_name} failed after {attempts} attempts: {msg}");
+                }
+                eprintln!("{fn_name} attempt {attempts} nonce-expired, retrying");
+            }
+        }
+    }
+}
+
+/// Same transient-nonce retry as `call_with_nonce_retry`, but for call sites
+/// that expect (and must observe) a genuine validation rejection: passes the
+/// `Result` through unpanicked once it stops being a `BadNonce` transient,
+/// so the caller can still assert `is_err()` against the real rejection
+/// reason rather than have it masked by nonce-retry plumbing.
+async fn call_skipping_nonce_flakiness<O, Fut>(
+    fn_name: &str,
+    mut make_call: impl FnMut() -> Fut,
+) -> ConductorApiResult<O>
+where
+    Fut: std::future::Future<Output = ConductorApiResult<O>>,
+{
+    let mut attempts = 0;
+    loop {
+        let result = make_call().await;
+        if let Err(e) = &result {
+            let msg = format!("{:?}", e);
+            if msg.contains("BadNonce") && attempts < 5 {
+                attempts += 1;
+                eprintln!("{fn_name} attempt {attempts} nonce-expired, retrying");
+                continue;
+            }
+        }
+        return result;
+    }
+}
+
+/// V2 transport evidence: separate conductors, agent-bound PQ key bundles,
+/// versioned envelope commit, coordinator agent signature, gossip, and exact
+/// field recovery. Hybrid KEM/AEAD/ML-DSA cryptographic behavior is proven in
+/// the shared crypto crate because Holochain 0.6.1's RC crypto graph cannot be
+/// linked with the newer RustCrypto ML-KEM/ML-DSA graph in one Cargo process.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires freshly packed Pulse DNA and Holochain runtime"]
+async fn phase0_v2_hybrid_pqc_transport() {
+    tokio::time::timeout(std::time::Duration::from_secs(1500), async {
+        eprintln!("pulse-v2: starting two local conductors");
+        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        eprintln!("pulse-v2: loading alpha DNA");
+        let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
+            .await
+            .expect("fresh DNA bundle must load");
+        eprintln!("pulse-v2: installing alpha DNA");
+        let apps = conductors
+            .setup_app("pulse-v2-lifecycle", &[dna_file])
+            .await
+            .expect("install V2 DNA on both conductors");
+        eprintln!("pulse-v2: exchanging peer info");
+        conductors.exchange_peer_info().await;
+        let cells = apps.cells_flattened();
+        let alice = cells[0].clone();
+        let bob = cells[1].clone();
+        assert_ne!(alice.agent_pubkey(), bob.agent_pubkey());
+
+        let now = Timestamp::now().as_micros() as u64;
+        let alice_keys_zome = alice.zome("mail_keys");
+        let bob_keys_zome = bob.zome("mail_keys");
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+            conductors[0].call_fallible(
+                &alice_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(11, now),
+            )
+        })
+        .await;
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+            conductors[1].call_fallible(
+                &bob_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(22, now),
+            )
+        })
+        .await;
+        eprintln!("pulse-v2: awaiting key-bundle gossip");
+        await_consistency([&alice, &bob])
+            .await
+            .expect("key bundles must gossip");
+
+        let alice_bundle: Option<HybridKeyBundleV2> = conductors[0]
+            .call(&alice.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let bob_bundle: Option<HybridKeyBundleV2> = conductors[1]
+            .call(&bob.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let alice_bundle = alice_bundle.expect("Alice V2 bundle");
+        let bob_bundle = bob_bundle.expect("Bob V2 bundle");
+        assert_ne!(alice_bundle.key_id, [0; 32]);
+        assert_ne!(bob_bundle.key_id, [0; 32]);
+
+        let message_id = [42; 32];
+        let created_at_micros = Timestamp::now().as_micros();
+        let ephemeral = [7; 32];
+        let kem_ciphertext = vec![8; 1088];
+        let nonce = [9; 12];
+        let ciphertext = b"opaque-aead-output-and-tag".to_vec();
+        let ml_dsa_signature = vec![10; 3309];
+        let send_input = SendEmailV2Input {
+            recipient: bob.agent_pubkey().clone(),
+            message_id,
+            sender_mldsa_key_id: alice_bundle.key_id,
+            recipient_hybrid_key_id: bob_bundle.key_id,
+            x25519_ephemeral_public_key: ephemeral,
+            ml_kem_ciphertext: kem_ciphertext.clone(),
+            nonce,
+            ciphertext: ciphertext.clone(),
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros,
+            ml_dsa_signature: ml_dsa_signature.clone(),
+        };
+        let alice_messages_zome = alice.zome("mail_messages");
+        let _: ActionHash = call_with_nonce_retry("send_email_v2", || {
+            conductors[0].call_fallible(&alice_messages_zome, "send_email_v2", send_input.clone())
+        })
+        .await;
+        eprintln!("pulse-v2: awaiting message gossip");
+        await_consistency([&alice, &bob])
+            .await
+            .expect("V2 message must gossip");
+
+        let inbox: Vec<EmailV2Wire> = conductors[1]
+            .call(&bob.zome("mail_messages"), "get_inbox_v2", ())
+            .await;
+        assert_eq!(inbox.len(), 1);
+        let received = &inbox[0];
+        assert_eq!(received.sender, *alice.agent_pubkey());
+        assert_eq!(received.recipient, *bob.agent_pubkey());
+        let received_envelope = EncryptedEnvelopeV2HybridPqc {
+            version: received.envelope.version,
+            cipher_suite: received.envelope.cipher_suite.clone(),
+            message_id: MessageId(received.envelope.message_id),
+            sender_agent: received.sender_agent_raw.clone(),
+            recipient_agent: received.recipient_agent_raw.clone(),
+            sender_mldsa_key_id: EncryptionKeyId(received.envelope.sender_mldsa_key_id),
+            recipient_hybrid_key_id: EncryptionKeyId(received.envelope.recipient_hybrid_key_id),
+            x25519_ephemeral_public_key: received.envelope.x25519_ephemeral_public_key,
+            ml_kem_ciphertext: received.envelope.ml_kem_ciphertext.clone(),
+            nonce: received.envelope.nonce,
+            ciphertext: received.envelope.ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: None,
+                thread_id: None,
+            },
+            created_at_micros: received.envelope.created_at_micros,
+            agent_signature: received.envelope.agent_signature.clone(),
+            ml_dsa_signature: received.envelope.ml_dsa_signature.clone(),
+        };
+        received_envelope.canonical_signing_bytes().unwrap();
+        assert_eq!(received_envelope.agent_signature.len(), 64);
+        assert_eq!(received_envelope.x25519_ephemeral_public_key, ephemeral);
+        assert_eq!(received_envelope.ml_kem_ciphertext, kem_ciphertext);
+        assert_eq!(received_envelope.nonce, nonce);
+        assert_eq!(received_envelope.ciphertext, ciphertext);
+        assert_eq!(received_envelope.ml_dsa_signature, ml_dsa_signature);
+        eprintln!("pulse-v2: complete");
+    })
+    .await
+    .expect("V2 lifecycle exceeded 1500-second deterministic timeout");
+}
+
+/// V2 negative-path evidence. Each case is a distinct network-reachable
+/// attack surface of `send_email_v2`/`resolve_hybrid_send_context_v2` — not
+/// a repeat of the protocol/crypto-crate unit tests, which already cover
+/// malformed encapsulation and unknown version/suite (those fields are not
+/// client-controllable through this coordinator API at all: the coordinator
+/// hardcodes version/suite/sender/agent_signature itself, so a client cannot
+/// even construct an off-spec envelope through the real network path).
+///
+/// Also exercises the documented DHT-validation/client-verification boundary
+/// (see ADR-002 "Enforcement boundary"): a garbage-but-correctly-sized
+/// ML-DSA-65 signature is *accepted* by the network (case C) because HDI/WASM
+/// cannot cryptographically verify ML-DSA — proving that claim is real, not
+/// just asserted in a doc.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires freshly packed Pulse DNA and Holochain runtime"]
+async fn phase0_v2_negative_paths() {
+    tokio::time::timeout(std::time::Duration::from_secs(1500), async {
+        eprintln!("pulse-v2-neg: starting two local conductors");
+        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
+            .await
+            .expect("fresh DNA bundle must load");
+        let apps = conductors
+            .setup_app("pulse-v2-negative", &[dna_file])
+            .await
+            .expect("install V2 DNA on both conductors");
+        conductors.exchange_peer_info().await;
+        let cells = apps.cells_flattened();
+        let alice = cells[0].clone();
+        let bob = cells[1].clone();
+
+        let now = Timestamp::now().as_micros() as u64;
+        let alice_keys_zome = alice.zome("mail_keys");
+        let bob_keys_zome = bob.zome("mail_keys");
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+            conductors[0].call_fallible(
+                &alice_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(11, now),
+            )
+        })
+        .await;
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+            conductors[1].call_fallible(
+                &bob_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(22, now),
+            )
+        })
+        .await;
+        eprintln!("pulse-v2-neg: awaiting key-bundle gossip");
+        await_consistency([&alice, &bob])
+            .await
+            .expect("key bundles must gossip");
+
+        let alice_bundle: Option<HybridKeyBundleV2> = conductors[0]
+            .call(&alice.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let bob_bundle: Option<HybridKeyBundleV2> = conductors[1]
+            .call(&bob.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let alice_bundle = alice_bundle.expect("Alice V2 bundle");
+        let bob_bundle = bob_bundle.expect("Bob V2 bundle");
+
+        let alice_messages_zome = alice.zome("mail_messages");
+        let base_input = |ml_dsa_signature: Vec<u8>, ciphertext: Vec<u8>| SendEmailV2Input {
+            recipient: bob.agent_pubkey().clone(),
+            message_id: [77; 32],
+            sender_mldsa_key_id: alice_bundle.key_id,
+            recipient_hybrid_key_id: bob_bundle.key_id,
+            x25519_ephemeral_public_key: [7; 32],
+            ml_kem_ciphertext: vec![8; 1088],
+            nonce: [9; 12],
+            ciphertext,
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros: Timestamp::now().as_micros(),
+            ml_dsa_signature,
+        };
+
+        // Case A: ML-DSA signature one byte short of the required 3309.
+        // Rejected by `validate_email_v2_structure` before any host call.
+        let mut short_sig_input = base_input(vec![10; 3309], b"opaque-aead-output".to_vec());
+        short_sig_input.message_id = [1; 32];
+        short_sig_input.ml_dsa_signature.pop();
+        let result: Result<ActionHash, _> =
+            call_skipping_nonce_flakiness("send_email_v2(case A)", || {
+                conductors[0].call_fallible(
+                    &alice_messages_zome,
+                    "send_email_v2",
+                    short_sig_input.clone(),
+                )
+            })
+            .await;
+        let error = result.expect_err("wrong-length ML-DSA signature must be rejected on-chain");
+        assert!(
+            !format!("{error:?}").contains("BadNonce"),
+            "rejection must be the real validation error, not an exhausted nonce retry: {error:?}"
+        );
+
+        // Case B: ciphertext shorter than the 16-byte AES-GCM tag floor.
+        let mut short_ct_input = base_input(vec![10; 3309], vec![1, 2, 3]);
+        short_ct_input.message_id = [2; 32];
+        let result: Result<ActionHash, _> =
+            call_skipping_nonce_flakiness("send_email_v2(case B)", || {
+                conductors[0].call_fallible(
+                    &alice_messages_zome,
+                    "send_email_v2",
+                    short_ct_input.clone(),
+                )
+            })
+            .await;
+        let error = result.expect_err("short ciphertext must be rejected on-chain");
+        assert!(
+            !format!("{error:?}").contains("BadNonce"),
+            "rejection must be the real validation error, not an exhausted nonce retry: {error:?}"
+        );
+
+        // Case C: garbage-but-correctly-sized ML-DSA signature. The network
+        // layer accepts and gossips this — it only checks length, not
+        // cryptographic validity (see ADR-002 enforcement-boundary note).
+        // `mycelix_crypto::pulse_v2::verify_ml_dsa` independently proves this
+        // exact class of input fails client-side verification (see
+        // `malformed_components_fail_closed` / `ml_dsa_round_trip_and_tampering_failure`
+        // in `mycelix-identity/crates/mycelix-crypto/src/pulse_v2.rs`); it
+        // cannot be linked into this Sweettest binary directly (Holochain
+        // 0.6.1's RC crypto graph conflicts with RustCrypto's ML-KEM/ML-DSA
+        // graph in one Cargo process), so the two tests together are the
+        // full closed-loop evidence for this boundary.
+        let garbage_sig_input = base_input(vec![0xAB; 3309], b"opaque-aead-output".to_vec());
+        let accepted: ActionHash = call_with_nonce_retry("send_email_v2(case C)", || {
+            conductors[0].call_fallible(
+                &alice_messages_zome,
+                "send_email_v2",
+                garbage_sig_input.clone(),
+            )
+        })
+        .await;
+        let _ = accepted;
+        await_consistency([&alice, &bob])
+            .await
+            .expect("garbage-ML-DSA message must still gossip");
+        let inbox: Vec<EmailV2Wire> = conductors[1]
+            .call(&bob.zome("mail_messages"), "get_inbox_v2", ())
+            .await;
+        assert!(
+            inbox
+                .iter()
+                .any(|item| item.envelope.message_id == [77; 32]),
+            "network must accept a structurally valid but cryptographically bogus \
+             ML-DSA signature — this is the documented boundary, not a bug"
+        );
+
+        // Case D: resolve_hybrid_send_context_v2 for a recipient who never
+        // published a V2 bundle must return None, not a partial/empty bundle.
+        let unregistered = AgentPubKey::from_raw_36(vec![0xEE; 36]);
+        let context: Option<HybridSendContextV2> = conductors[0]
+            .call(
+                &alice.zome("mail_keys"),
+                "resolve_hybrid_send_context_v2",
+                unregistered,
+            )
+            .await;
+        assert!(
+            context.is_none(),
+            "an unregistered recipient must resolve to no send context"
+        );
+
+        eprintln!("pulse-v2-neg: complete");
+    })
+    .await
+    .expect("V2 negative-path lifecycle exceeded 1500-second deterministic timeout");
+}
+
+/// Conductor-level restart/persistence evidence. Shuts Bob's conductor down
+/// and starts it back up against the *same* on-disk db_dir — the same
+/// mechanism a real process restart uses — then proves his V2 key bundle and
+/// received message both survive, and that he can still send afterward.
+///
+/// Either way `startup()` is called, this is a genuine `handle_from_existing`
+/// conductor boot that reloads the source chain, DHT data, and keystore from
+/// the on-disk db_dir — that IS the persistence claim being proven, and it
+/// holds regardless of the flag below.
+///
+/// Uses `startup(false)`, i.e. `ignore_dna_files_cache: false`: this still
+/// reloads all app/DHT/keystore data from disk, but lets Holochain reuse its
+/// already-JIT-compiled ribosome for the DNA's WASM rather than forcing a
+/// full Wasmer recompilation from bytes stored in the database. That
+/// recompilation is pure CPU cost orthogonal to Pulse's actual persistence
+/// guarantee — it tests Holochain's own DNA-cache internals, not anything
+/// specific to this app — and repeatedly proved too expensive to complete
+/// even on a 1500s budget under shared-box load (see ALPHA_EVIDENCE.md,
+/// 2026-07-15). `startup(true)` would be marginally stronger evidence and
+/// is a reasonable thing to re-attempt on a quiet, dedicated box.
+///
+/// This is the conductor half of "restart recovery," not the full claim in
+/// ALPHA_EVIDENCE.md: it does not exercise the browser's IndexedDB-wrapped
+/// key custody across a page reload, which needs a real browser and is
+/// tracked separately.
+///
+/// Budget is deliberately larger than the other two V2 Sweettests: Holochain
+/// itself gates its own equivalent scenario
+/// (`gossip_resumes_after_restart` in `holochain/tests/tests/gossip/mod.rs`)
+/// behind `#[cfg(feature = "slow_tests")]` — shutdown→restart→gossip-resume
+/// is inherently expensive by the project's own classification, not just
+/// under shared-box contention. Run this one in isolation from the other
+/// two V2 tests when time matters (see `just test-delivery-restart`).
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires freshly packed Pulse DNA and Holochain runtime"]
+async fn phase0_v2_conductor_restart_recovery() {
+    tokio::time::timeout(std::time::Duration::from_secs(2700), async {
+        eprintln!("pulse-v2-restart: starting two local conductors");
+        let mut conductors = SweetConductorBatch::from_standard_config(2).await;
+        let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
+            .await
+            .expect("fresh DNA bundle must load");
+        let apps = conductors
+            .setup_app("pulse-v2-restart", &[dna_file])
+            .await
+            .expect("install V2 DNA on both conductors");
+        conductors.exchange_peer_info().await;
+        let cells = apps.cells_flattened();
+        let alice = cells[0].clone();
+        let bob = cells[1].clone();
+        let bob_agent = bob.agent_pubkey().clone();
+
+        let now = Timestamp::now().as_micros() as u64;
+        let alice_keys_zome = alice.zome("mail_keys");
+        let bob_keys_zome = bob.zome("mail_keys");
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+            conductors[0].call_fallible(
+                &alice_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(31, now),
+            )
+        })
+        .await;
+        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+            conductors[1].call_fallible(
+                &bob_keys_zome,
+                "publish_hybrid_key_bundle_v2",
+                unpublished_bundle(32, now),
+            )
+        })
+        .await;
+        await_consistency([&alice, &bob])
+            .await
+            .expect("key bundles must gossip");
+
+        let alice_bundle: Option<HybridKeyBundleV2> = conductors[0]
+            .call(&alice.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let alice_bundle = alice_bundle.expect("Alice V2 bundle");
+        let bob_bundle_before: Option<HybridKeyBundleV2> = conductors[1]
+            .call(&bob.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let bob_bundle_before = bob_bundle_before.expect("Bob V2 bundle");
+
+        let pre_restart_input = SendEmailV2Input {
+            recipient: bob_agent.clone(),
+            message_id: [50; 32],
+            sender_mldsa_key_id: alice_bundle.key_id,
+            recipient_hybrid_key_id: bob_bundle_before.key_id,
+            x25519_ephemeral_public_key: [7; 32],
+            ml_kem_ciphertext: vec![8; 1088],
+            nonce: [9; 12],
+            ciphertext: b"pre-restart-opaque-aead-output".to_vec(),
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros: Timestamp::now().as_micros(),
+            ml_dsa_signature: vec![10; 3309],
+        };
+        let alice_messages_zome = alice.zome("mail_messages");
+        let _: ActionHash = call_with_nonce_retry("send_email_v2(pre-restart)", || {
+            conductors[0].call_fallible(
+                &alice_messages_zome,
+                "send_email_v2",
+                pre_restart_input.clone(),
+            )
+        })
+        .await;
+        await_consistency([&alice, &bob])
+            .await
+            .expect("pre-restart message must gossip");
+
+        let inbox_before: Vec<EmailV2Wire> = conductors[1]
+            .call(&bob.zome("mail_messages"), "get_inbox_v2", ())
+            .await;
+        assert!(
+            inbox_before
+                .iter()
+                .any(|item| item.envelope.message_id == [50; 32]),
+            "Bob must see the pre-restart message before shutdown"
+        );
+
+        eprintln!("pulse-v2-restart: shutting down Bob's conductor");
+        conductors[1].shutdown().await;
+        eprintln!("pulse-v2-restart: starting Bob's conductor back up (reloading from db_dir)");
+        conductors[1].startup(false).await;
+
+        // Prove the key bundle survived the restart unchanged.
+        let bob_bundle_after: Option<HybridKeyBundleV2> = conductors[1]
+            .call(&bob.zome("mail_keys"), "get_my_hybrid_key_bundle_v2", ())
+            .await;
+        let bob_bundle_after = bob_bundle_after.expect("Bob V2 bundle must survive restart");
+        assert_eq!(
+            bob_bundle_after.key_id, bob_bundle_before.key_id,
+            "Bob's V2 key bundle must be byte-identical after restart"
+        );
+
+        // Prove the received message survived the restart unchanged.
+        let inbox_after: Vec<EmailV2Wire> = conductors[1]
+            .call(&bob.zome("mail_messages"), "get_inbox_v2", ())
+            .await;
+        assert!(
+            inbox_after
+                .iter()
+                .any(|item| item.envelope.message_id == [50; 32]),
+            "Bob must still see the pre-restart message after restart"
+        );
+
+        // Prove the restarted conductor is not merely read-only: Bob can
+        // still author new source-chain entries and gossip after restart.
+        eprintln!("pulse-v2-restart: re-establishing peer info after restart");
+        conductors.exchange_peer_info().await;
+        let post_restart_input = SendEmailV2Input {
+            recipient: alice.agent_pubkey().clone(),
+            message_id: [51; 32],
+            sender_mldsa_key_id: bob_bundle_after.key_id,
+            recipient_hybrid_key_id: alice_bundle.key_id,
+            x25519_ephemeral_public_key: [11; 32],
+            ml_kem_ciphertext: vec![12; 1088],
+            nonce: [13; 12],
+            ciphertext: b"post-restart-opaque-aead-output".to_vec(),
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros: Timestamp::now().as_micros(),
+            ml_dsa_signature: vec![14; 3309],
+        };
+        let bob_messages_zome = bob.zome("mail_messages");
+        let _: ActionHash = call_with_nonce_retry("send_email_v2(post-restart)", || {
+            conductors[1].call_fallible(
+                &bob_messages_zome,
+                "send_email_v2",
+                post_restart_input.clone(),
+            )
+        })
+        .await;
+        await_consistency([&alice, &bob])
+            .await
+            .expect("post-restart message must gossip");
+        let alice_inbox: Vec<EmailV2Wire> = conductors[0]
+            .call(&alice.zome("mail_messages"), "get_inbox_v2", ())
+            .await;
+        assert!(
+            alice_inbox
+                .iter()
+                .any(|item| item.envelope.message_id == [51; 32]),
+            "Bob's restarted conductor must still be able to author and gossip"
+        );
+
+        eprintln!("pulse-v2-restart: complete");
+    })
+    .await
+    .expect("V2 restart-recovery lifecycle exceeded 2700-second deterministic timeout");
+}
+
 /// Phase 0.2 happy path — `alice_sends_bob_receives`.
 ///
 /// This is the test whose absence invalidated every "working" claim in the
@@ -2152,7 +2824,7 @@ fn compute_signing_content(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Phase 0.2 — requires running Holochain conductor; env prereqs in Appendix A"]
 async fn phase0_alice_sends_bob_receives() {
-    let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
+    let mut conductors = SweetConductorBatch::from_standard_config(2).await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path())
         .await
         .expect("DNA bundle must load");
@@ -2161,6 +2833,7 @@ async fn phase0_alice_sends_bob_receives() {
         .setup_app("pulse-ph0-delivery", &[dna_file.clone()])
         .await
         .expect("setup_app on both conductors");
+    conductors.exchange_peer_info().await;
 
     let cells = apps.cells_flattened();
     let alice_cell = cells[0].clone();
@@ -2168,7 +2841,7 @@ async fn phase0_alice_sends_bob_receives() {
 
     // Peers must discover each other before any send — otherwise Bob won't
     // see Alice's DHT ops during validation.
-    await_consistency(30, [&alice_cell, &bob_cell])
+    await_consistency([&alice_cell, &bob_cell])
         .await
         .expect("pre-send consistency");
 
@@ -2416,7 +3089,7 @@ async fn phase1_delivery_receipt_roundtrip() {
     let alice_cell = cells[0].clone();
     let bob_cell = cells[1].clone();
 
-    await_consistency(30, [&alice_cell, &bob_cell])
+    await_consistency([&alice_cell, &bob_cell])
         .await
         .expect("pre-send consistency");
 
@@ -2470,7 +3143,7 @@ async fn phase1_delivery_receipt_roundtrip() {
         .await;
     assert_eq!(send_output.delivered_to.len(), 1, "Alice → Bob delivery");
 
-    await_consistency(30, [&alice_cell, &bob_cell])
+    await_consistency([&alice_cell, &bob_cell])
         .await
         .expect("post-send consistency");
 
@@ -2502,7 +3175,7 @@ async fn phase1_delivery_receipt_roundtrip() {
         "receipt entry was created"
     );
 
-    await_consistency(30, [&alice_cell, &bob_cell])
+    await_consistency([&alice_cell, &bob_cell])
         .await
         .expect("post-ack consistency");
 

@@ -20,6 +20,10 @@ pub fn has_game(node_id: &str) -> bool {
 /// Get the game type for a node ID.
 fn game_type(node_id: &str) -> Option<&'static str> {
     match node_id {
+        // Praxis-native simulations present in the active curriculum graph.
+        "SYM-201" => Some("hdc"),
+        "SYM-502" => Some("moral_algebra"),
+        "VOC-H2O-101" => Some("water_stewardship"),
         // Functions (parabola explorer)
         "CAPS.Mathematics.Gr12.P1.FN"
         | "CAPS.Mathematics.Gr11.FN.1"
@@ -176,9 +180,7 @@ pub fn GameContainer(node_id: String) -> impl IntoView {
         Some("budget") => view! { <universal::budget_sim::BudgetSimGame node_id=id /> }.into_any(),
         Some("hdc") => view! { <universal::hdc_sandbox::HdcSandbox /> }.into_any(),
         Some("moral_algebra") => view! { <universal::moral_algebra::MoralAlgebraLesson /> }.into_any(),
-        Some("SYM-201") => view! { <universal::hdc_sandbox::HdcSandbox /> }.into_any(),
-        Some("SYM-502") => view! { <universal::moral_algebra::MoralAlgebraLesson /> }.into_any(),
-        Some("VOC-H2O-101") => view! { <universal::water_stewardship::WaterStewardshipGame /> }.into_any(),
+        Some("water_stewardship") => view! { <universal::water_stewardship::WaterStewardshipGame /> }.into_any(),
         Some("password") => view! { <universal::password_strength::PasswordStrengthGame node_id=id /> }.into_any(),
         Some("fallacy") => view! { <universal::fallacy_detector::FallacyDetector node_id=id /> }.into_any(),
         Some("number_bonds") => view! { <foundation::number_bonds::NumberBondsGame node_id=id /> }.into_any(),
@@ -196,5 +198,17 @@ pub fn GameContainer(node_id: String) -> impl IntoView {
         Some("hubble") => view! { <physics::hubble_explorer::HubbleExplorer node_id=id /> }.into_any(),
         Some("boltzmann") => view! { <physics::boltzmann_explorer::BoltzmannExplorer node_id=id /> }.into_any(),
         _ => view! { <p style="color: var(--text-secondary)">"No interactive game available yet."</p> }.into_any(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn active_praxis_simulations_are_reachable() {
+        assert_eq!(game_type("SYM-201"), Some("hdc"));
+        assert_eq!(game_type("SYM-502"), Some("moral_algebra"));
+        assert_eq!(game_type("VOC-H2O-101"), Some("water_stewardship"));
     }
 }

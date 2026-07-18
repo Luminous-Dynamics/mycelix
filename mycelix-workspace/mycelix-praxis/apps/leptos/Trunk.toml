@@ -2,11 +2,16 @@
 target = "index.html"
 dist = "dist"
 
-# Optimize WASM and copy curriculum content into dist/ after each build
+[[hooks]]
+stage = "pre_build"
+command = "python3"
+command_arguments = ["../../scripts/validate_curriculum.py"]
+
+# Optimize WASM and copy generated curriculum content to the URL used by the app.
 [[hooks]]
 stage = "post_build"
 command = "sh"
-command_arguments = ["-c", "for f in dist/*.wasm; do wasm-opt -Oz --zero-filled-memory --enable-bulk-memory \"$f\" -o \"$f\" 2>/dev/null || true; done; mkdir -p dist/caps && cp -r ../../examples/curriculum/caps/generated dist/caps/ 2>/dev/null; cp -r static/* dist/ 2>/dev/null; true"]
+command_arguments = ["-c", "for f in dist/*.wasm; do [ -e \"$f\" ] || continue; wasm-opt -Oz --zero-filled-memory --enable-bulk-memory \"$f\" -o \"$f\" 2>/dev/null || true; done; mkdir -p dist/curriculum; cp -r ../../examples/curriculum/caps/generated dist/curriculum/"]
 
 [watch]
 watch = ["src", "style", "index.html"]

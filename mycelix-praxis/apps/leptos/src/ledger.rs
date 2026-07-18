@@ -34,6 +34,10 @@ pub fn StewardshipLedger() -> impl IntoView {
 
     view! {
             <div class="stewardship-ledger">
+                <div role="note" style="margin-bottom: 1rem; padding: 0.9rem; background: var(--warning-low); border: 2px solid var(--warning); border-radius: 8px; font-size: 0.8rem; line-height: 1.5">
+                    <strong>"Demo-only fictional ledger"</strong>
+                    <div>"All balances, reputation scores, merchants, projects, payouts, compliance states, infrastructure, and network statuses below are illustrative. No account, payment rail, registry, device, or conductor is connected."</div>
+                </div>
                 <header class="ledger-header">
                     <div style="display: flex; justify-content: space-between; align-items: flex-end">
                         <div>
@@ -41,7 +45,7 @@ pub fn StewardshipLedger() -> impl IntoView {
                             <p class="subtitle" style="color: var(--success-low); font-weight: 700">"Closed-Loop Community Utility Credit (Non-Speculative)"</p>
                         </div>
                         <div class="tend-balance-box">
-                            <span class="tend-label">"TEND Credits"</span>
+                            <span class="tend-label">"Example TEND Credits"</span>
                             <span class="tend-value">{move || merit_dividends.get()}</span>
                         </div>
                     </div>
@@ -95,8 +99,8 @@ pub fn StewardshipLedger() -> impl IntoView {
                                     <span style="color: var(--success)">"Vouch enabled"</span>
                                 </div>
                             </div>
-                            <button class="btn-sm btn-primary" style="width: 100%; margin-top: 0.8rem; background: var(--success); border-color: var(--success)">
-                                "Pay via Vouch"
+                            <button class="btn-sm btn-primary" style="width: 100%; margin-top: 0.8rem; background: var(--success); border-color: var(--success)" disabled title="Illustrative control only">
+                                "Concept only"
                             </button>
                         </div>
 
@@ -276,7 +280,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             <span>"Active Bounties:"</span>
             <span style="color: var(--accent)">"3 Assets in Transit"</span>
         </div>
-        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.8rem">"Log Travel Vector"</button>
+        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.8rem" disabled title="Illustrative control only">"Concept only"</button>
     </div>
 
     <div class="griot-archive" style="margin-top: 1.5rem; padding: 1rem; background: var(--surface-high); border-radius: 8px; border: 1px solid var(--border)">
@@ -483,7 +487,7 @@ pub fn StewardshipLedger() -> impl IntoView {
     <div class="analog-seed" style="margin-top: 1.5rem; padding: 1rem; background: var(--surface-high); border-radius: 8px; border: 1px solid var(--border)">
         <h5 style="margin-top: 0">"Analog Bootstrap (Indestructible)"</h5>
         <p style="font-size: 0.7rem; color: var(--text-secondary)">"1-page survival diagram. Proof-against-blackout."</p>
-        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem">"Print Waterproof PDF"</button>
+        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem" disabled title="Illustrative control only">"Concept only"</button>
     </div>
 
     <div class="scavenger-eye" style="margin-top: 2rem; padding: 1rem; background: linear-gradient(135deg, var(--surface-high), var(--info-low)); border-radius: 8px; border: 2px solid var(--info)">
@@ -572,7 +576,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             <span>"CIPC Status:"</span>
             <span style="color: var(--success); font-weight: 800">"COMPLIANT"</span>
         </div>
-        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem">"Export Articles of Association"</button>
+        <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem" disabled title="Illustrative control only">"Concept only"</button>
     </div>
 
     <div class="mojo-credit" style="margin-top: 1.5rem; padding: 1rem; background: var(--surface-high); border-radius: 8px; border: 1px solid var(--primary)">
@@ -657,16 +661,16 @@ pub fn StewardshipLedger() -> impl IntoView {
                                 </div>
                             </div>
 
-                            <button class="btn-sm btn-outline" style="width: 100%; margin-top: 1rem; border-color: var(--primary); color: var(--primary)">
-                                "Contribute Knowledge Spore"
+                            <button class="btn-sm btn-outline" style="width: 100%; margin-top: 1rem; border-color: var(--primary); color: var(--primary)" disabled title="Illustrative control only">
+                                "Concept only"
                             </button>
                         </div>
                     </section>
                 </div>
 
                 <footer class="ledger-actions">
-                    <button class="btn-outline btn-sm">"Emancipate Data (Export)"</button>
-                    <button class="btn-outline btn-sm">"Stake Reputation"</button>
+                    <button class="btn-outline btn-sm" disabled title="Illustrative control only">"Concept only"</button>
+                    <button class="btn-outline btn-sm" disabled title="Illustrative control only">"Concept only"</button>
                 </footer>
             </div>
         }

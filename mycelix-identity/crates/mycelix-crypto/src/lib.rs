@@ -38,6 +38,12 @@ pub mod hybrid_kem;
 #[cfg(feature = "hybrid-rc")]
 pub mod hybrid_sig;
 
+/// Pulse V2 hybrid-PQC primitives with caller-supplied canonical AAD.
+/// Feature `hybrid-rc`; experimental until the Pulse implementation-evidence
+/// and independent-review gates pass.
+#[cfg(feature = "hybrid-rc")]
+pub mod pulse_v2;
+
 /// Authenticated hybrid encryption (seal-then-sign), composing `hybrid_kem` +
 /// `hybrid_sig`. The one-call API for clients. Feature `hybrid-rc`.
 #[cfg(feature = "hybrid-rc")]

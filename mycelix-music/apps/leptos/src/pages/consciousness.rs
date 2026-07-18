@@ -11,24 +11,24 @@
 //! - Consciousness orbit trail (V-A trajectory)
 //! - Phi meter gauge
 //!
-//! Also listens on the Holochain app WebSocket (`ws://localhost:8888`) for
+//! Also listens on an authenticated bridge relay for
 //! `consciousness_composition` signals emitted by the music-bridge zome and
 //! displays the latest composition metadata in real time.
 
 use leptos::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, MessageEvent, WebSocket};
 
 use crate::live_synth::{LiveSynth, LiveSynthRunner};
 
-/// Consciousness bridge WebSocket relay.
-/// Falls back to the Holochain conductor if the bridge isn't running.
-/// Override per-deployment via `window.__HC_CONDUCTOR_URL` in index.html.
-const BRIDGE_WS: &str = "ws://localhost:8893";
-const HC_APP_WS: &str = "ws://localhost:8888";
+/// Consciousness signal relay. A raw conductor socket is deliberately not a
+/// fallback: it requires authentication and binary protocol handling rather
+/// than the JSON messages consumed by this page.
+/// Override per deployment via `window.__MYCELIX_SIGNAL_URL` in index.html.
+const SIGNAL_RELAY_WS: &str = "ws://localhost:8893";
 
 /// Metadata extracted from a `consciousness_composition` Holochain signal.
 #[derive(Clone, Debug, Default)]
@@ -69,31 +69,25 @@ pub fn ConsciousnessPage() -> impl IntoView {
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
 
     // ── Holochain signal listener ──────────────────────────────────────────────
-    // Opens a WebSocket to the shared ecosystem conductor and listens for
+    // Opens a WebSocket to the authenticated relay and listens for
     // `consciousness_composition` signals emitted by the music-bridge zome.
     // Updates `last_comp` and mirrors arousal/valence/phi into the viz.
     Effect::new(move |_| {
-        // Try bridge relay first (has signal broadcast); fall back to conductor.
-        // Allow override via window.__HC_CONDUCTOR_URL for production deployments.
-        let url = js_sys::Reflect::get(
-            &wasm_bindgen::JsValue::from(web_sys::window().unwrap()),
-            &wasm_bindgen::JsValue::from_str("__HC_CONDUCTOR_URL"),
-        )
-        .ok()
-        .and_then(|v| v.as_string())
-        .unwrap_or_else(|| {
-            // Try bridge relay first, fall back to conductor
-            if WebSocket::new(BRIDGE_WS).is_ok() {
-                BRIDGE_WS.to_string()
-            } else {
-                HC_APP_WS.to_string()
-            }
-        });
+        let url = web_sys::window()
+            .and_then(|window| {
+                js_sys::Reflect::get(
+                    &wasm_bindgen::JsValue::from(window),
+                    &wasm_bindgen::JsValue::from_str("__MYCELIX_SIGNAL_URL"),
+                )
+                .ok()
+                .and_then(|value| value.as_string())
+            })
+            .unwrap_or_else(|| SIGNAL_RELAY_WS.to_string());
 
         let ws = match WebSocket::new(&url) {
             Ok(ws) => ws,
             Err(_) => {
-                set_hc_status.set("⚠ no signal source".to_string());
+                set_hc_status.set("Signal relay unavailable".to_string());
                 return;
             }
         };
@@ -102,7 +96,7 @@ pub fn ConsciousnessPage() -> impl IntoView {
         {
             let set_status = set_hc_status.clone();
             let on_open = Closure::wrap(Box::new(move |_: web_sys::Event| {
-                set_status.set("Connected".to_string());
+                set_status.set("Signal relay connected".to_string());
             }) as Box<dyn FnMut(web_sys::Event)>);
             ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
             on_open.forget();
@@ -112,10 +106,17 @@ pub fn ConsciousnessPage() -> impl IntoView {
         {
             let set_status = set_hc_status.clone();
             let on_close = Closure::wrap(Box::new(move |_: web_sys::CloseEvent| {
-                set_status.set("Disconnected".to_string());
+                set_status.set("Signal relay disconnected".to_string());
             }) as Box<dyn FnMut(web_sys::CloseEvent)>);
             ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
             on_close.forget();
+
+            let set_status = set_hc_status.clone();
+            let on_error = Closure::wrap(Box::new(move |_: web_sys::ErrorEvent| {
+                set_status.set("Signal relay unavailable".to_string());
+            }) as Box<dyn FnMut(web_sys::ErrorEvent)>);
+            ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+            on_error.forget();
         }
 
         // onmessage — parse Holochain signal envelope and extract composition metadata
@@ -125,17 +126,25 @@ pub fn ConsciousnessPage() -> impl IntoView {
             let set_valence2 = set_valence.clone();
             let set_phi2 = set_phi.clone();
             let on_msg = Closure::wrap(Box::new(move |ev: MessageEvent| {
-                let Some(text) = ev.data().as_string() else { return };
+                let Some(text) = ev.data().as_string() else {
+                    return;
+                };
                 // Holochain signal envelope: {"type":"Signal","data":{...}}
                 // We look for the payload object containing signal_type.
                 // Use a simple JSON scan rather than pulling in a full parser.
-                if !text.contains("consciousness_composition") { return }
+                if !text.contains("consciousness_composition") {
+                    return;
+                }
 
                 // Parse with js_sys::JSON for zero-dependency JSON access
-                let Ok(val) = js_sys::JSON::parse(&text) else { return };
+                let Ok(val) = js_sys::JSON::parse(&text) else {
+                    return;
+                };
                 // Drill: .data.App.payload  OR  .data.payload  (conductor version-dependent)
                 let payload = find_payload(&val);
-                let Some(obj) = payload.as_ref().and_then(|v| v.dyn_ref::<js_sys::Object>()) else { return };
+                let Some(obj) = payload.as_ref().and_then(|v| v.dyn_ref::<js_sys::Object>()) else {
+                    return;
+                };
 
                 let meta = CompositionMeta {
                     tempo_bpm: get_f32(obj, "tempo_bpm"),
@@ -264,8 +273,7 @@ pub fn ConsciousnessPage() -> impl IntoView {
         // Orbit trail buffer
         let orbit_trail: Rc<RefCell<Vec<(f64, f64)>>> = Rc::new(RefCell::new(Vec::new()));
 
-        let frame_ref: Rc<RefCell<Option<Closure<dyn FnMut()>>>> =
-            Rc::new(RefCell::new(None));
+        let frame_ref: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
         let frame_ref_clone = frame_ref.clone();
         let orbit_trail_clone = orbit_trail.clone();
 
@@ -603,29 +611,38 @@ fn get_string_array(obj: &js_sys::Object, key: &str) -> Vec<String> {
     js_sys::Reflect::get(obj, &key.into())
         .ok()
         .and_then(|v| v.dyn_into::<js_sys::Array>().ok())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_string())
-                .collect()
-        })
+        .map(|arr| arr.iter().filter_map(|v| v.as_string()).collect())
         .unwrap_or_default()
 }
 
 // ── Drawing functions ──
 
 fn phi_tier_str(p: f64) -> &'static str {
-    if p >= 0.8 { "Guardian" }
-    else if p >= 0.6 { "Contributor" }
-    else if p >= 0.4 { "Participant" }
-    else if p >= 0.2 { "Observer" }
-    else { "Dormant" }
+    if p >= 0.8 {
+        "Guardian"
+    } else if p >= 0.6 {
+        "Contributor"
+    } else if p >= 0.4 {
+        "Participant"
+    } else if p >= 0.2 {
+        "Observer"
+    } else {
+        "Dormant"
+    }
 }
 
 /// Waveform oscilloscope — simulates audio waveform from consciousness params.
 fn draw_waveform(
     ctx: &CanvasRenderingContext2d,
-    x: f64, y: f64, w: f64, h: f64,
-    time: f64, arousal: f64, valence: f64, phi: f64, playing: bool,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    time: f64,
+    arousal: f64,
+    valence: f64,
+    phi: f64,
+    playing: bool,
 ) {
     let mid_y = y + h / 2.0;
     let amplitude = if playing { 0.3 + arousal * 0.6 } else { 0.05 };
@@ -658,7 +675,8 @@ fn draw_waveform(
                 sample += harmonic_amp * (phase).sin();
             } else {
                 // More angular waveform for negative valence
-                sample += harmonic_amp * (phase).sin() * (1.0 + (-valence) * (phase * 2.0).sin().abs());
+                sample +=
+                    harmonic_amp * (phase).sin() * (1.0 + (-valence) * (phase * 2.0).sin().abs());
             }
         }
 
@@ -683,8 +701,15 @@ fn draw_waveform(
 /// Spectrum bars — 64 frequency bins derived from consciousness state.
 fn draw_spectrum(
     ctx: &CanvasRenderingContext2d,
-    x: f64, y: f64, w: f64, h: f64,
-    time: f64, arousal: f64, valence: f64, phi: f64, playing: bool,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    time: f64,
+    arousal: f64,
+    valence: f64,
+    phi: f64,
+    playing: bool,
 ) {
     let bins = 64;
     let padding = 20.0;
@@ -720,9 +745,14 @@ fn draw_spectrum(
 /// Consciousness orbit trail — plots V-A trajectory over time.
 fn draw_orbit(
     ctx: &CanvasRenderingContext2d,
-    x: f64, y: f64, w: f64, h: f64,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
     trail: &[(f64, f64)], // (valence, arousal) pairs
-    current_v: f64, current_a: f64, phi: f64,
+    current_v: f64,
+    current_a: f64,
+    phi: f64,
 ) {
     let padding = 30.0;
     let cx = x + w / 2.0;
@@ -775,21 +805,27 @@ fn draw_orbit(
 
     ctx.set_fill_style_str("rgba(232, 197, 71, 0.9)");
     ctx.begin_path();
-    ctx.arc(curr_px, curr_py, dot_r, 0.0, std::f64::consts::TAU).ok();
+    ctx.arc(curr_px, curr_py, dot_r, 0.0, std::f64::consts::TAU)
+        .ok();
     ctx.fill();
 
     // Glow
     ctx.set_fill_style_str("rgba(232, 197, 71, 0.2)");
     ctx.begin_path();
-    ctx.arc(curr_px, curr_py, dot_r * 2.5, 0.0, std::f64::consts::TAU).ok();
+    ctx.arc(curr_px, curr_py, dot_r * 2.5, 0.0, std::f64::consts::TAU)
+        .ok();
     ctx.fill();
 }
 
 /// Phi meter — vertical gauge showing consciousness level with tier thresholds.
 fn draw_phi_meter(
     ctx: &CanvasRenderingContext2d,
-    x: f64, y: f64, w: f64, h: f64,
-    phi: f64, tier: &str,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    phi: f64,
+    tier: &str,
 ) {
     let padding = 30.0;
     let bar_w = 40.0;
@@ -822,7 +858,12 @@ fn draw_phi_meter(
     ctx.fill_rect(bar_x, fill_y, bar_w, fill_h);
 
     // Tier threshold lines
-    let thresholds = [(0.2, "Observer"), (0.4, "Participant"), (0.6, "Contributor"), (0.8, "Guardian")];
+    let thresholds = [
+        (0.2, "Observer"),
+        (0.4, "Participant"),
+        (0.6, "Contributor"),
+        (0.8, "Guardian"),
+    ];
     for (thresh, label) in &thresholds {
         let ty = bar_y + bar_h * (1.0 - thresh);
         ctx.set_stroke_style_str("rgba(126, 200, 160, 0.3)");
@@ -841,11 +882,8 @@ fn draw_phi_meter(
     ctx.set_fill_style_str("rgba(232, 197, 71, 1.0)");
     ctx.set_font("bold 16px monospace");
     ctx.set_text_align("center");
-    ctx.fill_text(
-        &format!("{:.2}", phi),
-        x + w / 2.0,
-        y + h - 8.0,
-    ).ok();
+    ctx.fill_text(&format!("{:.2}", phi), x + w / 2.0, y + h - 8.0)
+        .ok();
 
     ctx.set_fill_style_str("rgba(126, 200, 160, 0.7)");
     ctx.set_font("12px monospace");

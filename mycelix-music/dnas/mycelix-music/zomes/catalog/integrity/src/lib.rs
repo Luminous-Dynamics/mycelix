@@ -8,6 +8,9 @@
 
 use hdi::prelude::*;
 
+const ECONOMIC_STRATEGIES: &[&str] =
+    &["pay_per_stream", "gift", "patronage", "freemium", "premium"];
+
 /// Song entry - core content unit in Mycelix Music
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -112,9 +115,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
-                EntryTypes::Song(song) => {
-                    validate_update_song(song, action, original_action_hash)
-                }
+                EntryTypes::Song(song) => validate_update_song(song, action, original_action_hash),
                 EntryTypes::Album(album) => {
                     validate_update_album(album, action, original_action_hash)
                 }
@@ -168,6 +169,12 @@ fn validate_create_song(song: Song, action: Create) -> ExternResult<ValidateCall
     if song.duration_seconds == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Song duration must be greater than 0".to_string(),
+        ));
+    }
+
+    if !ECONOMIC_STRATEGIES.contains(&song.strategy_id.as_str()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Song must use a recognized economic strategy".to_string(),
         ));
     }
 
@@ -252,7 +259,7 @@ fn validate_create_profile(
 }
 
 fn validate_update_song(
-    _song: Song,
+    song: Song,
     action: Update,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -261,6 +268,21 @@ fn validate_update_song(
     if original_action.action().author() != &action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "Only the original author can update a song".to_string(),
+        ));
+    }
+    if song.artist != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Updated song artist must remain the original author".to_string(),
+        ));
+    }
+    if song.duration_seconds == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Updated song duration must be greater than 0".to_string(),
+        ));
+    }
+    if !ECONOMIC_STRATEGIES.contains(&song.strategy_id.as_str()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Updated song must use a recognized economic strategy".to_string(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

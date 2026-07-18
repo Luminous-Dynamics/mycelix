@@ -82,7 +82,6 @@ mod tests;
 
 use hdk::prelude::*;
 use mail_messages_integrity::*;
-use std::collections::HashSet;
 
 /// Signal types for real-time notifications
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -154,6 +153,9 @@ pub struct SendEmailInput {
     pub encrypted_attachments: Vec<u8>,
     pub ephemeral_pubkey: Vec<u8>,
     pub nonce: [u8; 24],
+    /// Deprecated compatibility field. The coordinator always signs the final
+    /// per-recipient envelope with the active Holochain agent key.
+    #[serde(default)]
     pub signature: Vec<u8>,
     pub crypto_suite: CryptoSuite,
     pub message_id: String,
@@ -178,6 +180,116 @@ pub struct SendEmailOutput {
     pub email_hash: ActionHash,
     pub delivered_to: Vec<AgentPubKey>,
     pub failed_deliveries: Vec<(AgentPubKey, String)>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SendEmailV2Input {
+    pub recipient: AgentPubKey,
+    pub message_id: [u8; 32],
+    pub sender_mldsa_key_id: [u8; 32],
+    pub recipient_hybrid_key_id: [u8; 32],
+    pub x25519_ephemeral_public_key: [u8; 32],
+    pub ml_kem_ciphertext: Vec<u8>,
+    pub nonce: [u8; 12],
+    pub ciphertext: Vec<u8>,
+    pub in_reply_to: Option<[u8; 32]>,
+    pub thread_id: Option<[u8; 32]>,
+    pub created_at_micros: i64,
+    pub ml_dsa_signature: Vec<u8>,
+}
+
+/// Commit one V2 envelope. The client supplies its ML-DSA signature; the
+/// coordinator adds the active Holochain agent signature over identical bytes.
+#[hdk_extern]
+pub fn send_email_v2(input: SendEmailV2Input) -> ExternResult<ActionHash> {
+    let sender = agent_info()?.agent_initial_pubkey;
+    let mut email = EncryptedEmailV2 {
+        version: mail_leptos_types::protocol::ENVELOPE_V2_HYBRID_PQC,
+        cipher_suite: mail_leptos_types::protocol::SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65
+            .into(),
+        message_id: input.message_id,
+        sender: sender.clone(),
+        recipient: input.recipient.clone(),
+        sender_mldsa_key_id: input.sender_mldsa_key_id,
+        recipient_hybrid_key_id: input.recipient_hybrid_key_id,
+        x25519_ephemeral_public_key: input.x25519_ephemeral_public_key,
+        ml_kem_ciphertext: input.ml_kem_ciphertext,
+        nonce: input.nonce,
+        ciphertext: input.ciphertext,
+        in_reply_to: input.in_reply_to,
+        thread_id: input.thread_id,
+        created_at_micros: input.created_at_micros,
+        agent_signature: Vec::new(),
+        ml_dsa_signature: input.ml_dsa_signature,
+    };
+    let transcript = email
+        .protocol_envelope()
+        .canonical_signing_bytes()
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid V2 envelope: {error:?}"
+            )))
+        })?;
+    email.agent_signature = sign_raw(sender.clone(), transcript)?.0.to_vec();
+    let hash = create_entry(EntryTypes::EncryptedEmailV2(email))?;
+    create_link(
+        sender,
+        hash.clone(),
+        LinkTypes::AgentToSentV2,
+        LinkTag::new("sent-v2"),
+    )?;
+    create_link(
+        input.recipient,
+        hash.clone(),
+        LinkTypes::AgentToInboxV2,
+        LinkTag::new("inbox-v2"),
+    )?;
+    Ok(hash)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EmailV2Wire {
+    pub hash: String,
+    pub sender: AgentPubKey,
+    pub recipient: AgentPubKey,
+    pub sender_agent_raw: Vec<u8>,
+    pub recipient_agent_raw: Vec<u8>,
+    pub envelope: EncryptedEmailV2,
+}
+
+#[hdk_extern]
+pub fn get_inbox_v2(_: ()) -> ExternResult<Vec<EmailV2Wire>> {
+    let me = agent_info()?.agent_initial_pubkey;
+    let links = get_links(
+        LinkQuery::try_new(me, LinkTypes::AgentToInboxV2)?.tag_prefix(LinkTag::new("inbox-v2")),
+        GetStrategy::default(),
+    )?;
+    let mut emails = Vec::new();
+    for link in links {
+        let Some(hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let Some(email) = record
+            .entry()
+            .to_app_option::<EncryptedEmailV2>()
+            .map_err(|error| wasm_error!(error))?
+        else {
+            continue;
+        };
+        emails.push(EmailV2Wire {
+            hash: hash.to_string(),
+            sender_agent_raw: email.sender.get_raw_39().to_vec(),
+            recipient_agent_raw: email.recipient.get_raw_39().to_vec(),
+            sender: email.sender.clone(),
+            recipient: email.recipient.clone(),
+            envelope: email,
+        });
+    }
+    emails.sort_by_key(|item| std::cmp::Reverse(item.envelope.created_at_micros));
+    Ok(emails)
 }
 
 /// Query input for fetching emails
@@ -266,7 +378,14 @@ pub fn send_email(input: SendEmailInput) -> ExternResult<SendEmailOutput> {
 
     // Create email entry for each recipient (they need their own copy to decrypt)
     for recipient in &all_recipients {
-        let email = EncryptedEmail {
+        if input.crypto_suite.signature != "ed25519" {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "The working-alpha coordinator only supports agent-key Ed25519 signatures"
+                    .to_string()
+            )));
+        }
+
+        let mut email = EncryptedEmail {
             sender: my_agent.clone(),
             recipient: recipient.clone(),
             encrypted_subject: input.encrypted_subject.clone(),
@@ -274,7 +393,7 @@ pub fn send_email(input: SendEmailInput) -> ExternResult<SendEmailOutput> {
             encrypted_attachments: input.encrypted_attachments.clone(),
             ephemeral_pubkey: input.ephemeral_pubkey.clone(),
             nonce: input.nonce,
-            signature: input.signature.clone(),
+            signature: Vec::new(),
             crypto_suite: input.crypto_suite.clone(),
             message_id: input.message_id.clone(),
             in_reply_to: input.in_reply_to.clone(),
@@ -284,6 +403,9 @@ pub fn send_email(input: SendEmailInput) -> ExternResult<SendEmailOutput> {
             read_receipt_requested: input.read_receipt_requested,
             expires_at: input.expires_at,
         };
+
+        let signing_content = email_signing_content(&email);
+        email.signature = sign_raw(my_agent.clone(), signing_content)?.0.to_vec();
 
         // Create the entry
         let email_hash = create_entry(EntryTypes::EncryptedEmail(email.clone()))?;
@@ -1052,50 +1174,13 @@ pub fn send_typing_indicator(input: (Vec<AgentPubKey>, Option<String>)) -> Exter
 /// Initialize zome - create system folders
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
-    let my_agent = agent_info()?.agent_initial_pubkey;
-
-    // Create system folders: Inbox, Sent, Drafts, Trash, Spam, Archive
-    let system_folders = vec![
-        ("Inbox", 0),
-        ("Sent", 1),
-        ("Drafts", 2),
-        ("Starred", 3),
-        ("Archive", 4),
-        ("Spam", 5),
-        ("Trash", 6),
-    ];
-
-    for (name, order) in system_folders {
-        let folder = EmailFolder {
-            owner: my_agent.clone(),
-            encrypted_name: name.as_bytes().to_vec(), // System folders aren't encrypted
-            metadata: None,
-            is_system: true,
-            sort_order: order,
-        };
-
-        let folder_hash = create_entry(EntryTypes::EmailFolder(folder))?;
-
-        create_link(
-            my_agent.clone(),
-            folder_hash,
-            LinkTypes::AgentToFolders,
-            LinkTag::new(format!("system:{}", name.to_lowercase())),
-        )?;
-    }
-
-    // Set up capability grants for receiving signals
-    let functions = GrantedFunctions::Listed(HashSet::from([(
-        zome_info()?.name,
-        "recv_remote_signal".into(),
-    )]));
-
-    create_cap_grant(CapGrantEntry {
-        tag: "recv_signals".to_string(),
-        access: CapAccess::Unrestricted,
-        functions,
-    })?;
-
+    // Installation must remain side-effect free. The previous initializer
+    // committed seven legacy folders, seven links, and a capability grant for
+    // every agent before the app could start. That made cold two-conductor
+    // startup nondeterministic and none of those writes are required by the
+    // V2 encrypted-message lifecycle. Legacy folder provisioning and remote
+    // signals are outside the restricted alpha artifact and must not be
+    // implied by successful alpha installation.
     Ok(InitCallbackResult::Pass)
 }
 

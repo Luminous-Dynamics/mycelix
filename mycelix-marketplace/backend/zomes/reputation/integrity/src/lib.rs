@@ -5,13 +5,11 @@ use hdi::prelude::*;
 
 /// MATL Score Entry - Mycelix Adaptive Trust Layer
 ///
-/// This implements the breakthrough 45% Byzantine fault tolerance
-/// via Proof of Gradient Quality (PoGQ) + Composite Trust Scoring.
+/// Legacy mutable MATL projection retained for wire compatibility.
 ///
-/// Research Foundation:
-/// - Paper: "Breaking the 33% Barrier: Byzantine-Resistant Federated Learning"
-/// - Target: MLSys/ICML 2026
-/// - Key Innovation: Reputation-weighted validation instead of equal voting
+/// New non-neutral scores cannot be created by this integrity zome. Canonical
+/// Marketplace reputation is derived from immutable `ReputationEvent` evidence
+/// and makes no Byzantine-tolerance claim.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct MatlScore {
@@ -82,6 +80,38 @@ pub struct ByzantineFlags {
     /// Overall Byzantine risk score [0.0, 1.0]
     /// Above 0.5 = likely Byzantine
     pub risk_score: f64,
+}
+
+/// Immutable evidence-derived reputation event.
+///
+/// Unlike the legacy mutable MATL projection, every accepted event binds a
+/// same-DNA transaction or arbitration record that integrity validation can
+/// independently retrieve and verify.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct ReputationEvent {
+    /// Deterministic semantic deduplication key.
+    pub event_key: String,
+    /// Agent whose behavior this event describes.
+    pub subject: AgentPubKey,
+    /// Counterparty in the underlying exchange.
+    pub counterparty: AgentPubKey,
+    /// Stable transaction Create action.
+    pub transaction_hash: ActionHash,
+    /// Delivered transaction revision or ArbitrationResult action.
+    pub source_hash: ActionHash,
+    pub kind: ReputationEventKind,
+    /// Authoritative transaction value; not a caller-selected score weight.
+    pub value_cents: u64,
+    pub occurred_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReputationEventKind {
+    FulfillmentDelivered,
+    ArbitrationWon,
+    ArbitrationLost,
 }
 
 /// Review Entry - Verifiable feedback from transactions
@@ -163,6 +193,12 @@ pub enum LinkTypes {
 
     /// Transaction -> Review
     TransactionToReview,
+
+    /// Subject agent -> immutable evidence-derived events.
+    AgentToReputationEvents,
+
+    /// Source transaction/result action -> projected events.
+    SourceToReputationEvents,
 }
 
 #[hdk_entry_types]
@@ -170,6 +206,7 @@ pub enum LinkTypes {
 pub enum EntryTypes {
     MatlScore(MatlScore),
     Review(Review),
+    ReputationEvent(ReputationEvent),
 }
 
 /// Validation for reputation entries
@@ -177,17 +214,37 @@ pub enum EntryTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::MatlScore(score) => validate_matl_score(&score),
-                EntryTypes::Review(review) => validate_review(&review),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::MatlScore(score) => validate_matl_score(&score, &action),
+                EntryTypes::Review(review) => validate_review(&review, &action),
+                EntryTypes::ReputationEvent(event) => validate_reputation_event(&event, &action),
+            },
+            // MatlScore/Review are confirmed create-only (update_matl_score is
+            // coordinator-disabled unconditionally, and no coordinator function ever calls
+            // update_entry on Review) -- reject outright rather than leave the previous
+            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed dozens of
+            // times elsewhere in this pass).
+            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::ReputationEvent(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reputation events are immutable".into(),
+                )),
+                EntryTypes::MatlScore(_) => Ok(ValidateCallbackResult::Invalid(
+                    "MatlScore entries cannot be updated".into(),
+                )),
+                EntryTypes::Review(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Review entries cannot be updated".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
+            "Reputation evidence is permanent and cannot be deleted".into(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
-fn validate_matl_score(score: &MatlScore) -> ExternResult<ValidateCallbackResult> {
+fn validate_matl_score(score: &MatlScore, action: &Create) -> ExternResult<ValidateCallbackResult> {
     // Validate score ranges
     if score.pogq.quality < 0.0
         || score.pogq.quality > 1.0
@@ -204,22 +261,274 @@ fn validate_matl_score(score: &MatlScore) -> ExternResult<ValidateCallbackResult
     }
 
     // Verify composite score calculation
-    let expected_composite = 0.4 * score.pogq.quality
-        + 0.3 * score.pogq.consistency
-        + 0.3 * score.reputation;
+    let expected_composite =
+        0.4 * score.pogq.quality + 0.3 * score.pogq.consistency + 0.3 * score.reputation;
 
     let diff = (score.composite - expected_composite).abs();
     if diff > 0.01 {
-        // Allow small floating point errors
         return Ok(ValidateCallbackResult::Invalid(
             "Composite score calculation incorrect".into(),
+        ));
+    }
+
+    let neutral = action.author == score.agent
+        && (score.pogq.quality - 0.5).abs() <= f64::EPSILON
+        && (score.pogq.consistency - 0.5).abs() <= f64::EPSILON
+        && score.pogq.entropy.abs() <= f64::EPSILON
+        && (score.reputation - 0.5).abs() <= f64::EPSILON
+        && (score.composite - 0.5).abs() <= f64::EPSILON
+        && score.transaction_count == 0
+        && score.total_value_cents == 0
+        && !score.flags.cartel_detected
+        && !score.flags.volatile_reputation
+        && !score.flags.gradient_poisoning
+        && !score.flags.sybil_suspected
+        && score.flags.risk_score.abs() <= f64::EPSILON;
+    if !neutral {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Legacy MATL entries may only be self-authored neutral bootstrap records".into(),
         ));
     }
 
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_review(review: &Review) -> ExternResult<ValidateCallbackResult> {
+const MAX_REPUTATION_EVENT_KEY_LEN: usize = 512;
+const MAX_REPUTATION_REVISION_DEPTH: usize = 32;
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+struct TransactionSnapshot {
+    buyer: AgentPubKey,
+    seller: AgentPubKey,
+    total_price_cents: u64,
+    status: TransactionStatusSnapshot,
+    updated_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum TransactionStatusSnapshot {
+    Pending,
+    Confirmed,
+    Shipped,
+    Delivered,
+    Completed,
+    Disputed,
+    Cancelled,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+struct ArbitrationResultSnapshot {
+    dispute_hash: ActionHash,
+    dispute_revision_hash: ActionHash,
+    winner: AgentPubKey,
+    loser: AgentPubKey,
+    finalized_at: Timestamp,
+}
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+struct DisputeSnapshot {
+    transaction_hash: ActionHash,
+    transaction_revision_hash: ActionHash,
+    buyer: AgentPubKey,
+    seller: AgentPubKey,
+    arbitrators: Vec<AgentPubKey>,
+}
+
+fn fulfillment_event_key(transaction_hash: &ActionHash, seller: &AgentPubKey) -> String {
+    format!("fulfillment:{transaction_hash}:seller:{seller}")
+}
+
+fn arbitration_event_key(
+    result_hash: &ActionHash,
+    kind: &ReputationEventKind,
+    subject: &AgentPubKey,
+) -> String {
+    let kind = match kind {
+        ReputationEventKind::ArbitrationWon => "won",
+        ReputationEventKind::ArbitrationLost => "lost",
+        ReputationEventKind::FulfillmentDelivered => "fulfillment",
+    };
+    format!("arbitration:{result_hash}:{kind}:{subject}")
+}
+
+fn validate_reputation_event_data(event: &ReputationEvent) -> Result<(), String> {
+    if event.event_key.is_empty() || event.event_key.len() > MAX_REPUTATION_EVENT_KEY_LEN {
+        return Err("Reputation event key is required and must fit the size limit".into());
+    }
+    if event.subject == event.counterparty {
+        return Err("Reputation event subject and counterparty must differ".into());
+    }
+    if event.value_cents == 0 {
+        return Err("Reputation event value must be positive".into());
+    }
+    Ok(())
+}
+
+fn validate_reputation_event(
+    event: &ReputationEvent,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(reason) = validate_reputation_event_data(event) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    match event.kind {
+        ReputationEventKind::FulfillmentDelivered => validate_fulfillment_event(event, action),
+        ReputationEventKind::ArbitrationWon | ReputationEventKind::ArbitrationLost => {
+            validate_arbitration_event(event, action)
+        }
+    }
+}
+
+fn validate_fulfillment_event(
+    event: &ReputationEvent,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let transaction_record = must_get_valid_record(event.source_hash.clone())?;
+    let transaction: TransactionSnapshot = decode_record(&transaction_record)?;
+    let root = find_action_root(event.source_hash.clone())?;
+
+    if root != event.transaction_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Fulfillment event source does not belong to the declared transaction root".into(),
+        ));
+    }
+    if transaction.status != TransactionStatusSnapshot::Delivered {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Fulfillment reputation requires an exact Delivered transaction revision".into(),
+        ));
+    }
+    if action.author != transaction.buyer
+        || event.subject != transaction.seller
+        || event.counterparty != transaction.buyer
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Fulfillment reputation must be buyer-authored for the authoritative seller".into(),
+        ));
+    }
+    if event.value_cents != transaction.total_price_cents
+        || event.occurred_at != transaction.updated_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Fulfillment reputation value and timestamp must match the transaction".into(),
+        ));
+    }
+    if event.event_key != fulfillment_event_key(&root, &transaction.seller) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Fulfillment reputation event key is not canonical".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_arbitration_event(
+    event: &ReputationEvent,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let result_record = must_get_valid_record(event.source_hash.clone())?;
+    let result: ArbitrationResultSnapshot = decode_record(&result_record)?;
+    let dispute: DisputeSnapshot = decode_record(&must_get_valid_record(
+        result.dispute_revision_hash.clone(),
+    )?)?;
+    let dispute_root = find_action_root(result.dispute_revision_hash.clone())?;
+    if dispute_root != result.dispute_hash || dispute.transaction_hash != event.transaction_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration reputation event is not bound to the declared dispute and transaction"
+                .into(),
+        ));
+    }
+    if !dispute.arbitrators.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration reputation projection must be authored by an assigned arbitrator".into(),
+        ));
+    }
+
+    let transaction: TransactionSnapshot = decode_record(&must_get_valid_record(
+        dispute.transaction_revision_hash.clone(),
+    )?)?;
+    if transaction.buyer != dispute.buyer || transaction.seller != dispute.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration dispute parties do not match the transaction".into(),
+        ));
+    }
+
+    let expected_counterparty = if event.subject == result.winner {
+        if event.kind != ReputationEventKind::ArbitrationWon {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Arbitration winner must receive an ArbitrationWon event".into(),
+            ));
+        }
+        result.loser.clone()
+    } else if event.subject == result.loser {
+        if event.kind != ReputationEventKind::ArbitrationLost {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Arbitration loser must receive an ArbitrationLost event".into(),
+            ));
+        }
+        result.winner.clone()
+    } else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration reputation subject must be the result winner or loser".into(),
+        ));
+    };
+
+    if event.counterparty != expected_counterparty
+        || event.value_cents != transaction.total_price_cents
+        || event.occurred_at != result.finalized_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration reputation terms must match the validated result and transaction".into(),
+        ));
+    }
+    if event.event_key != arbitration_event_key(&event.source_hash, &event.kind, &event.subject) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Arbitration reputation event key is not canonical".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn decode_record<T>(record: &Record) -> ExternResult<T>
+where
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError>,
+{
+    record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(error))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Application entry missing".into())))
+}
+
+fn find_action_root(mut cursor: ActionHash) -> ExternResult<ActionHash> {
+    let mut visited = Vec::new();
+    for _ in 0..=MAX_REPUTATION_REVISION_DEPTH {
+        if visited.contains(&cursor) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Update ancestry contains a cycle".into()
+            )));
+        }
+        visited.push(cursor.clone());
+        let record = must_get_valid_record(cursor.clone())?;
+        match record.action() {
+            Action::Create(_) => return Ok(cursor),
+            Action::Update(update) => cursor = update.original_action_address.clone(),
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Reputation source must be a Create or Update action".into()
+                )));
+            }
+        }
+    }
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Update ancestry exceeds the reputation depth limit".into()
+    )))
+}
+
+fn validate_review(review: &Review, action: &Create) -> ExternResult<ValidateCallbackResult> {
     // Rating must be 1-5
     if review.rating < 1 || review.rating > 5 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -241,5 +550,67 @@ fn validate_review(review: &Review) -> ExternResult<ValidateCallbackResult> {
         ));
     }
 
+    // Bind the review to its committer -- submit_review already derives reviewer from
+    // agent_info() coordinator-side with zero user input (P0 author-binding gap). `seller`
+    // is a raw, caller-supplied reference with no correlation check to the actual
+    // transaction's real seller -- a heavier gap needing must_get cross-verification against
+    // the transaction, same class as ReputationEvent's own established pattern; deferred, see
+    // memory/mycelix_attribution_author_binding_jul8.md.
+    if review.reviewer != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Review must be created by its reviewer (reviewer forgery)".to_string(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod reputation_event_tests {
+    use super::*;
+
+    fn agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
+    fn event() -> ReputationEvent {
+        ReputationEvent {
+            event_key: "event-key".into(),
+            subject: agent(1),
+            counterparty: agent(2),
+            transaction_hash: ActionHash::from_raw_36(vec![3; 36]),
+            source_hash: ActionHash::from_raw_36(vec![4; 36]),
+            kind: ReputationEventKind::FulfillmentDelivered,
+            value_cents: 100,
+            occurred_at: Timestamp::from_micros(1),
+        }
+    }
+
+    #[test]
+    fn reputation_event_requires_distinct_parties() {
+        let mut value = event();
+        value.counterparty = value.subject.clone();
+        assert!(validate_reputation_event_data(&value).is_err());
+    }
+
+    #[test]
+    fn reputation_event_requires_positive_value() {
+        let mut value = event();
+        value.value_cents = 0;
+        assert!(validate_reputation_event_data(&value).is_err());
+    }
+
+    #[test]
+    fn reputation_event_keys_are_deterministic() {
+        let tx = ActionHash::from_raw_36(vec![5; 36]);
+        let subject = agent(6);
+        assert_eq!(
+            fulfillment_event_key(&tx, &subject),
+            fulfillment_event_key(&tx, &subject)
+        );
+        assert_eq!(
+            arbitration_event_key(&tx, &ReputationEventKind::ArbitrationWon, &subject),
+            arbitration_event_key(&tx, &ReputationEventKind::ArbitrationWon, &subject)
+        );
+    }
 }

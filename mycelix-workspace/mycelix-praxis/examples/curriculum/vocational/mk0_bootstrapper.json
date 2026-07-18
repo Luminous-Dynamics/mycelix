@@ -19,7 +19,7 @@
   "nodes": [
     {
       "id": "VOC-000-S",
-      "title": "\u{26A0} Kinetic & Chemical Safety (MANDATORY)",
+      "title": "⚠ Kinetic & Chemical Safety (MANDATORY)",
       "description": "Zero-entry requirement. Identify fire extinguisher locations, demonstrate proper Li-ion cell handling to prevent thermal runaway, and master the 'Dead Short' multimeter test. Soldering irons remain locked until this node is mastered.",
       "node_type": "Course",
       "difficulty": "Beginner",

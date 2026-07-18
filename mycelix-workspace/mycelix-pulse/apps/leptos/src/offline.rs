@@ -81,8 +81,12 @@ async fn execute_action(
     action: &OfflineAction,
 ) -> Result<(), String> {
     match action {
+        // update_email_state/mark_as_read return an ActionHash (raw bytes) —
+        // decoding as serde_json::Value fails on msgpack's byte-array type;
+        // Vec<u8>/Option<Vec<u8>> decode it correctly. See profile_setup.rs's
+        // set_profile fix for full detail.
         OfflineAction::ToggleStar { hash } => hc
-            .call_zome::<serde_json::Value, serde_json::Value>(
+            .call_zome::<serde_json::Value, Vec<u8>>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_starred": true }]),
@@ -90,7 +94,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::ToggleRead { hash } => hc
-            .call_zome::<serde_json::Value, serde_json::Value>(
+            .call_zome::<serde_json::Value, Option<Vec<u8>>>(
                 "mail_messages",
                 "mark_as_read",
                 &serde_json::json!([hash, false]),
@@ -98,7 +102,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::Archive { hash } => hc
-            .call_zome::<serde_json::Value, serde_json::Value>(
+            .call_zome::<serde_json::Value, Vec<u8>>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_archived": true }]),
@@ -106,7 +110,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::Delete { hash } => hc
-            .call_zome::<serde_json::Value, serde_json::Value>(
+            .call_zome::<serde_json::Value, Vec<u8>>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_trashed": true }]),
@@ -121,81 +125,9 @@ async fn execute_action(
             )
             .await
             .map(|_| ()),
-        OfflineAction::Send {
-            to,
-            subject,
-            body,
-            use_pqc,
-        } => {
-            let recipient_bundle = hc
-                .call_zome::<serde_json::Value, serde_json::Value>(
-                    "mail_keys",
-                    "get_pre_key_bundle",
-                    &serde_json::json!(to),
-                )
-                .await?;
-            let recipient_pubkey: Vec<u8> = recipient_bundle
-                .get("identity_key")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_u64().map(|n| n as u8))
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if recipient_pubkey.len() != 32 {
-                return Err("Recipient bundle is missing a valid identity key".into());
-            }
-
-            let crypto = crate::crypto::derive_message_crypto(&recipient_pubkey)?;
-            let encrypted_subject = crate::crypto::encrypt_with_key(
-                subject.as_bytes(),
-                &crypto.subject_key,
-                &crypto.nonce,
-            )
-            .await?;
-            let encrypted_body =
-                crate::crypto::encrypt_with_key(body.as_bytes(), &crypto.body_key, &crypto.nonce)
-                    .await?;
-            let crypto_suite = serde_json::json!({
-                "key_exchange": "x25519",
-                "symmetric": "aes-256-gcm",
-                "signature": "ed25519"
-            });
-
-            if *use_pqc {
-                web_sys::console::log_1(
-                    &"[Mail] Offline flush is using X25519 + AES-GCM while PQC transport remains pending".into()
-                );
-            }
-
-            let payload = serde_json::json!({
-                "recipients": [to],
-                "cc": [],
-                "bcc": [],
-                "encrypted_subject": encrypted_subject,
-                "encrypted_body": encrypted_body,
-                "encrypted_attachments": [],
-                "ephemeral_pubkey": crypto.ephemeral_pubkey,
-                "nonce": crypto.nonce.to_vec(),
-                "signature": crate::crypto::sign_message(&encrypted_body, &crypto.nonce),
-                "crypto_suite": crypto_suite,
-                "message_id": format!("<offline-{}@mycelix.net>", js_sys::Date::now() as u64),
-                "in_reply_to": serde_json::Value::Null,
-                "references": [],
-                "priority": "Normal",
-                "read_receipt_requested": false,
-                "expires_at": serde_json::Value::Null
-            });
-
-            hc.call_zome::<serde_json::Value, serde_json::Value>(
-                "mail_messages",
-                "send_email",
-                &payload,
-            )
-            .await
-            .map(|_| ())
-        }
+        OfflineAction::Send { .. } => Err(
+            "Offline sending is disabled for the working alpha; reconnect and send again".into(),
+        ),
     }
 }
 

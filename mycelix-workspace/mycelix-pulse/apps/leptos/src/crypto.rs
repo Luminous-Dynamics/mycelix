@@ -8,7 +8,6 @@
 //! AES-256-GCM via Web Crypto for payload encryption.
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use ed25519_dalek::Signer;
 use hkdf::Hkdf;
 use sha2::Sha256;
 use wasm_bindgen_futures::JsFuture;
@@ -16,8 +15,6 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 const LOCAL_IDENTITY_SECRET_KEY: &str = "mycelix_pulse_identity_secret_b64";
 const LOCAL_IDENTITY_PUBLIC_KEY: &str = "mycelix_pulse_identity_public_b64";
-const LOCAL_SIGNING_SECRET_KEY: &str = "mycelix_pulse_signing_secret_b64";
-const LOCAL_SIGNING_PUBLIC_KEY: &str = "mycelix_pulse_signing_public_b64";
 const HKDF_INFO_SUBJECT: &[u8] = b"mycelix-pulse-v1-subject";
 const HKDF_INFO_BODY: &[u8] = b"mycelix-pulse-v1-body";
 
@@ -74,61 +71,6 @@ pub fn generate_public_key_bytes() -> Vec<u8> {
     let secret = StaticSecret::from(secret_array);
     let public = PublicKey::from(&secret);
     public.to_bytes().to_vec()
-}
-
-/// Sign content||nonce with the local Ed25519 signing key.
-pub fn sign_message(content: &[u8], nonce: &[u8]) -> Vec<u8> {
-    let secret = match load_signing_secret_key() {
-        Some(s) => s,
-        None => {
-            // Fallback: ensure signing keypair exists and retry
-            let _ = ensure_signing_keypair();
-            match load_signing_secret_key() {
-                Some(s) => s,
-                None => return vec![0u8; 64], // last resort fallback
-            }
-        }
-    };
-    let signing_key = ed25519_dalek::SigningKey::from_bytes(&secret);
-    let mut message = Vec::with_capacity(content.len() + nonce.len());
-    message.extend_from_slice(content);
-    message.extend_from_slice(nonce);
-    signing_key.sign(&message).to_bytes().to_vec()
-}
-
-fn ensure_signing_keypair() -> Result<(), String> {
-    if load_signing_secret_key().is_some() {
-        return Ok(());
-    }
-    let seed_bytes = generate_nonce(32);
-    let seed_array: [u8; 32] = seed_bytes
-        .as_slice()
-        .try_into()
-        .map_err(|_| "Could not generate signing seed".to_string())?;
-    let signing_key = ed25519_dalek::SigningKey::from_bytes(&seed_array);
-    let verifying_key = signing_key.verifying_key();
-    let storage = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-        .ok_or_else(|| "localStorage unavailable".to_string())?;
-    storage
-        .set_item(
-            LOCAL_SIGNING_SECRET_KEY,
-            &base64_encode(signing_key.as_bytes()),
-        )
-        .map_err(|e| format!("{e:?}"))?;
-    storage
-        .set_item(
-            LOCAL_SIGNING_PUBLIC_KEY,
-            &base64_encode(verifying_key.as_bytes()),
-        )
-        .map_err(|e| format!("{e:?}"))?;
-    Ok(())
-}
-
-fn load_signing_secret_key() -> Option<[u8; 32]> {
-    let storage = web_sys::window()?.local_storage().ok().flatten()?;
-    let secret = storage.get_item(LOCAL_SIGNING_SECRET_KEY).ok().flatten()?;
-    base64_decode(&secret).try_into().ok()
 }
 
 pub fn decode_transport_text(bytes: &[u8]) -> Option<String> {

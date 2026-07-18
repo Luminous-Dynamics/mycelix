@@ -370,8 +370,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            // No entry type in this zome has a real update_entry call anywhere in the
+            // coordinator (confirmed via direct grep) -- reject outright rather than leave
+            // the previous unbound dead-code path (P0 wide-open RegisterUpdate gap,
+            // confirmed 50+ times elsewhere in this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Backup entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Backup entries cannot be updated".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -415,6 +425,19 @@ fn validate_create_entry(
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        _ => Ok(ValidateCallbackResult::Valid),
+        // BackupChunk has no owner field and no cross-check that its backup_id really
+        // belongs to the committer's own manifest -- deferred, needs must_get
+        // cross-verification (see memory/mycelix_attribution_author_binding_jul8.md).
+        EntryTypes::BackupSchedule(schedule) => {
+            // Bind to its committer -- set_backup_schedule already overrides `.agent` from
+            // agent_info() coordinator-side despite taking the whole struct as raw input,
+            // so this never rejects a legitimate schedule (P0 author-binding gap).
+            if schedule.agent != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Backup schedule agent must match author".to_string(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
     }
 }

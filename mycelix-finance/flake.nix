@@ -44,8 +44,9 @@
         # Holochain packages from holonix
         holochainPackages = holonix.packages.${system};
 
-        # Import shared Holochain base configuration
-        holochainBase = import ../nix/modules/holochain-base.nix {
+        # Import shared Holochain base configuration (repo-root nix/modules; the
+        # extra ../ is because mycelix-finance now lives under mycelix-workspace/).
+        holochainBase = import ../../nix/modules/holochain-base.nix {
           inherit pkgs system;
           holochainPackages = holochainPackages;
         };

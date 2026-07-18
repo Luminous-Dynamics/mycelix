@@ -1,0 +1,61 @@
+name: Marketplace live promotion evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Promotion profile to evaluate
+        required: true
+        type: choice
+        options: [base, settlement, arbitration]
+      happ_path:
+        description: Absolute path to the exact packed hApp on the evidence runner
+        required: true
+        type: string
+      marketplace_dna_path:
+        description: Absolute path to the exact Marketplace DNA on the evidence runner
+        required: true
+        type: string
+      finance_dna_path:
+        description: Absolute Finance DNA path; required only for settlement
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    # Admin interfaces and funded test agents must never be exposed to a hosted runner.
+    runs-on: [self-hosted, mycelix-conductor]
+    timeout-minutes: 30
+    env:
+      MARKETPLACE_HAPP_PATH: ${{ inputs.happ_path }}
+      MARKETPLACE_DNA_PATH: ${{ inputs.marketplace_dna_path }}
+      FINANCE_DNA_PATH: ${{ inputs.finance_dna_path }}
+      MARKETPLACE_EVIDENCE_DIR: ${{ runner.temp }}/marketplace-evidence
+      MARKETPLACE_SOURCE_REVISION: ${{ github.sha }}
+      MARKETPLACE_SELLER_APP_URL: ${{ secrets.MARKETPLACE_SELLER_APP_URL }}
+      MARKETPLACE_SELLER_ADMIN_URL: ${{ secrets.MARKETPLACE_SELLER_ADMIN_URL }}
+      MARKETPLACE_SELLER_TOKEN_BASE64: ${{ secrets.MARKETPLACE_SELLER_TOKEN_BASE64 }}
+      MARKETPLACE_BUYER_APP_URL: ${{ secrets.MARKETPLACE_BUYER_APP_URL }}
+      MARKETPLACE_BUYER_ADMIN_URL: ${{ secrets.MARKETPLACE_BUYER_ADMIN_URL }}
+      MARKETPLACE_BUYER_TOKEN_BASE64: ${{ secrets.MARKETPLACE_BUYER_TOKEN_BASE64 }}
+      MARKETPLACE_ARBITRATOR_APP_URL: ${{ secrets.MARKETPLACE_ARBITRATOR_APP_URL }}
+      MARKETPLACE_ARBITRATOR_ADMIN_URL: ${{ secrets.MARKETPLACE_ARBITRATOR_ADMIN_URL }}
+      MARKETPLACE_ARBITRATOR_TOKEN_BASE64: ${{ secrets.MARKETPLACE_ARBITRATOR_TOKEN_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend-leptos/bridge/package-lock.json
+      - name: Generate artifact-bound live receipts
+        run: scripts/run-live-promotion.sh "${{ inputs.profile }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-${{ inputs.profile }}-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/marketplace-evidence
+          if-no-files-found: error
+          retention-days: 90

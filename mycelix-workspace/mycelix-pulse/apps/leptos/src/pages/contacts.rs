@@ -19,7 +19,7 @@ pub fn ContactsPage() -> impl IntoView {
     let discover_result = RwSignal::new(Option::<DiscoverResult>::None);
     let discover_loading = RwSignal::new(false);
     let discover_adding = RwSignal::new(false);
-    let is_mock = move || hc.status.get() == ConnectionStatus::Mock;
+    let is_mock = move || hc.status.get() == ConnectionStatus::Demo;
 
     let filtered = move || {
         let query = search.get().to_lowercase();
@@ -107,7 +107,7 @@ pub fn ContactsPage() -> impl IntoView {
                         move |e: web_sys::SubmitEvent| {
                             e.prevent_default();
                             let query = discover_query.get_untracked();
-                            if query.trim().is_empty() || hc.status.get_untracked() == ConnectionStatus::Mock { return; }
+                            if query.trim().is_empty() || hc.status.get_untracked() == ConnectionStatus::Demo { return; }
                             discover_loading.set(true);
                             discover_result.set(None);
 
@@ -119,9 +119,15 @@ pub fn ContactsPage() -> impl IntoView {
                                     "identity", "did_registry", "resolve_did", &serde_json::json!(wire_query)
                                 ).await {
                                     Ok(val) if !val.is_null() => {
-                                        let agent_pub_key_value = hc.call_zome::<serde_json::Value, Option<serde_json::Value>>(
+                                        // resolve_identity returns Option<AgentPubKey>
+                                        // (raw bytes) — Option<Vec<u8>> decodes it
+                                        // correctly where serde_json::Value cannot.
+                                        // Re-wrapped as a Value (a JSON array of byte
+                                        // numbers) only for local storage/outbound
+                                        // encoding below, which never had this problem.
+                                        let agent_pub_key_value = hc.call_zome::<serde_json::Value, Option<Vec<u8>>>(
                                             "mail_bridge", "resolve_identity", &serde_json::json!(wire_query)
-                                        ).await.ok().flatten();
+                                        ).await.ok().flatten().map(|bytes| serde_json::json!(bytes));
                                         let agent_pub_key = agent_pub_key_value
                                             .as_ref()
                                             .map(crate::zome_adapter::json_hash_to_string);
@@ -214,7 +220,11 @@ pub fn ContactsPage() -> impl IntoView {
                                                 let now = (js_sys::Date::now() as u64).saturating_mul(1000);
                                                 let payload = build_discovered_contact_payload(&result, now);
 
-                                                match hc.call_zome::<serde_json::Value, serde_json::Value>(
+                                                // create_contact returns an ActionHash (raw bytes) —
+                                                // decoding as serde_json::Value fails on msgpack's
+                                                // byte-array type; Vec<u8> decodes it correctly. See
+                                                // profile_setup.rs's set_profile fix for full detail.
+                                                match hc.call_zome::<serde_json::Value, Vec<u8>>(
                                                     "mail_contacts", "create_contact", &payload
                                                 ).await {
                                                     Ok(_) => {

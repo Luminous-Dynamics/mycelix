@@ -1,4 +1,4 @@
-name: EduNet CI
+name: Praxis CI
 
 on:
   push:
@@ -11,6 +11,13 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  curriculum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/validate_curriculum.py
+      - run: python3 scripts/validate_learning_contract.py
+
   format:
     runs-on: ubuntu-latest
     steps:

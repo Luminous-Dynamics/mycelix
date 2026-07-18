@@ -8,6 +8,10 @@
 //! All emails are encrypted, stored as DHT entries, and delivered via P2P signals.
 
 use hdi::prelude::*;
+use mail_leptos_types::protocol::{
+    AuthenticatedMetadataV1, EncryptedEnvelopeV2HybridPqc, EncryptionKeyId,
+    ML_DSA_65_SIGNATURE_BYTES, MessageId,
+};
 
 const MAX_CHUNK_SIZE: usize = 10 * 1024 * 1024;
 const MAX_TOTAL_CHUNKS: u32 = 1000;
@@ -18,6 +22,9 @@ const DILITHIUM2_SIG_LEN: usize = 2420;
 const X25519_KEY_LEN: usize = 32;
 const KYBER1024_KEY_LEN: usize = 1568;
 const KYBER768_KEY_LEN: usize = 1088;
+const MAX_ENCRYPTED_SUBJECT_BYTES: usize = 64 * 1024;
+const MAX_ENCRYPTED_BODY_BYTES: usize = 2 * 1024 * 1024;
+const MAX_MESSAGE_ID_BYTES: usize = 512;
 
 // Phase 0.8 client-authoritative timestamp bounds.
 // `email.timestamp` is client-signed (RFC 5322 Date:). `action.timestamp` is
@@ -27,19 +34,59 @@ const MAX_FUTURE_SKEW_MICROS: i64 = 5 * 60 * 1_000_000; // 5 min — clock drift
 const MAX_PAST_SKEW_MICROS: i64 = 30 * 86_400 * 1_000_000; // 30 days — offline compose tolerance
 
 pub fn email_signing_content(email: &EncryptedEmail) -> Vec<u8> {
-    let mut content = Vec::with_capacity(256);
-    content.push(0x01);
+    let mut content = Vec::with_capacity(
+        512 + email.encrypted_subject.len()
+            + email.encrypted_body.len()
+            + email.encrypted_attachments.len(),
+    );
+    content.extend_from_slice(b"mycelix-pulse/encrypted-email/v1\0");
     content.extend_from_slice(email.sender.get_raw_39());
     content.extend_from_slice(email.recipient.get_raw_39());
-    content.extend_from_slice(&(email.encrypted_subject.len() as u32).to_le_bytes());
-    content.extend_from_slice(&email.encrypted_subject);
-    content.extend_from_slice(&(email.encrypted_body.len() as u32).to_le_bytes());
-    content.extend_from_slice(&email.encrypted_body);
+    append_signing_bytes(&mut content, &email.encrypted_subject);
+    append_signing_bytes(&mut content, &email.encrypted_body);
+    append_signing_bytes(&mut content, &email.encrypted_attachments);
+    append_signing_bytes(&mut content, &email.ephemeral_pubkey);
     content.extend_from_slice(&email.nonce);
-    content.extend_from_slice(&(email.message_id.len() as u32).to_le_bytes());
-    content.extend_from_slice(email.message_id.as_bytes());
-    content.extend_from_slice(&email.timestamp.as_micros().to_le_bytes());
+    append_signing_bytes(&mut content, email.crypto_suite.key_exchange.as_bytes());
+    append_signing_bytes(&mut content, email.crypto_suite.symmetric.as_bytes());
+    append_signing_bytes(&mut content, email.crypto_suite.signature.as_bytes());
+    append_signing_bytes(&mut content, email.message_id.as_bytes());
+    append_optional_signing_string(&mut content, email.in_reply_to.as_deref());
+    content.extend_from_slice(&(email.references.len() as u32).to_be_bytes());
+    for reference in &email.references {
+        append_signing_bytes(&mut content, reference.as_bytes());
+    }
+    content.extend_from_slice(&email.timestamp.as_micros().to_be_bytes());
+    content.push(match &email.priority {
+        EmailPriority::Low => 1,
+        EmailPriority::Normal => 2,
+        EmailPriority::High => 3,
+        EmailPriority::Urgent => 4,
+    });
+    content.push(u8::from(email.read_receipt_requested));
+    match email.expires_at {
+        Some(timestamp) => {
+            content.push(1);
+            content.extend_from_slice(&timestamp.as_micros().to_be_bytes());
+        }
+        None => content.push(0),
+    }
     content
+}
+
+fn append_signing_bytes(content: &mut Vec<u8>, bytes: &[u8]) {
+    content.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+    content.extend_from_slice(bytes);
+}
+
+fn append_optional_signing_string(content: &mut Vec<u8>, value: Option<&str>) {
+    match value {
+        Some(value) => {
+            content.push(1);
+            append_signing_bytes(content, value.as_bytes());
+        }
+        None => content.push(0),
+    }
 }
 
 pub fn receipt_signing_content(
@@ -105,6 +152,54 @@ pub struct EncryptedEmail {
     pub read_receipt_requested: bool,
     /// Expiration time (for ephemeral messages)
     pub expires_at: Option<Timestamp>,
+}
+
+/// The immutable V2 envelope. It is a separate entry so V1 remains readable
+/// and schema interpretation never depends on algorithm-name heuristics.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct EncryptedEmailV2 {
+    pub version: u16,
+    pub cipher_suite: String,
+    pub message_id: [u8; 32],
+    pub sender: AgentPubKey,
+    pub recipient: AgentPubKey,
+    pub sender_mldsa_key_id: [u8; 32],
+    pub recipient_hybrid_key_id: [u8; 32],
+    pub x25519_ephemeral_public_key: [u8; 32],
+    pub ml_kem_ciphertext: Vec<u8>,
+    pub nonce: [u8; 12],
+    pub ciphertext: Vec<u8>,
+    pub in_reply_to: Option<[u8; 32]>,
+    pub thread_id: Option<[u8; 32]>,
+    pub created_at_micros: i64,
+    pub agent_signature: Vec<u8>,
+    pub ml_dsa_signature: Vec<u8>,
+}
+
+impl EncryptedEmailV2 {
+    pub fn protocol_envelope(&self) -> EncryptedEnvelopeV2HybridPqc {
+        EncryptedEnvelopeV2HybridPqc {
+            version: self.version,
+            cipher_suite: self.cipher_suite.clone(),
+            message_id: MessageId(self.message_id),
+            sender_agent: self.sender.get_raw_39().to_vec(),
+            recipient_agent: self.recipient.get_raw_39().to_vec(),
+            sender_mldsa_key_id: EncryptionKeyId(self.sender_mldsa_key_id),
+            recipient_hybrid_key_id: EncryptionKeyId(self.recipient_hybrid_key_id),
+            x25519_ephemeral_public_key: self.x25519_ephemeral_public_key,
+            ml_kem_ciphertext: self.ml_kem_ciphertext.clone(),
+            nonce: self.nonce,
+            ciphertext: self.ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: self.in_reply_to.map(MessageId),
+                thread_id: self.thread_id,
+            },
+            created_at_micros: self.created_at_micros,
+            agent_signature: self.agent_signature.clone(),
+            ml_dsa_signature: self.ml_dsa_signature.clone(),
+        }
+    }
 }
 
 /// Cryptographic algorithms used
@@ -295,6 +390,10 @@ pub enum LinkTypes {
     AgentToScheduled,
     /// Anchor for global discovery (optional, for public emails)
     AnchorToPublicEmails,
+    /// Agent -> V2 messages they sent. Kept separate from the V1 namespace.
+    AgentToSentV2,
+    /// Agent -> V2 messages they received. Kept separate from the V1 namespace.
+    AgentToInboxV2,
 }
 
 /// Entry type definitions
@@ -303,6 +402,8 @@ pub enum LinkTypes {
 pub enum EntryTypes {
     #[entry_type(required_validations = 3)]
     EncryptedEmail(EncryptedEmail),
+    #[entry_type(required_validations = 3)]
+    EncryptedEmailV2(EncryptedEmailV2),
     #[entry_type(required_validations = 2)]
     EncryptedAttachment(EncryptedAttachment),
     #[entry_type(required_validations = 2)]
@@ -374,6 +475,7 @@ fn validate_create_entry(
 ) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::EncryptedEmail(email) => validate_encrypted_email(&email, &action),
+        EntryTypes::EncryptedEmailV2(email) => validate_encrypted_email_v2(&email, &action),
         EntryTypes::EncryptedAttachment(attachment) => validate_attachment(&attachment, &action),
         EntryTypes::EmailFolder(folder) => validate_folder(&folder, &action),
         EntryTypes::EmailState(state) => validate_email_state(&state, &action),
@@ -392,6 +494,9 @@ fn validate_update_entry(
         // Emails are immutable once sent
         EntryTypes::EncryptedEmail(_) => Ok(ValidateCallbackResult::Invalid(
             "Sent emails cannot be modified".to_string(),
+        )),
+        EntryTypes::EncryptedEmailV2(_) => Ok(ValidateCallbackResult::Invalid(
+            "Sent V2 emails cannot be modified".to_string(),
         )),
         // Drafts can be updated by owner
         EntryTypes::EmailDraft(draft) => {
@@ -428,6 +533,66 @@ fn validate_update_entry(
     }
 }
 
+/// Host-independent structural checks for a V2 entry: ciphertext/signature
+/// component lengths and the canonical transcript encoding. These never call
+/// an HDI host function, so they run in a plain `cargo test` without a live
+/// conductor. Returns the transcript to sign/verify on success.
+///
+/// Deliberately NOT checked here (and not checked anywhere on-chain): the
+/// ML-DSA-65 signature's cryptographic validity. HDI/WASM cannot currently
+/// link the RustCrypto ML-DSA crate (see PULSE_V2_CRYPTO_SPEC.md), so only
+/// its length is enforced by DHT validators. A structurally valid but
+/// cryptographically bogus ML-DSA signature is accepted onto the DHT — the
+/// recipient client is the actual ML-DSA enforcement point (see
+/// `load_v2_inbox` in `apps/leptos/src/mail_context.rs`).
+fn validate_email_v2_structure(email: &EncryptedEmailV2) -> Result<Vec<u8>, String> {
+    if email.ciphertext.len() < 16 || email.ciphertext.len() > MAX_ENCRYPTED_BODY_BYTES {
+        return Err("Invalid V2 ciphertext length".into());
+    }
+    if email.ml_dsa_signature.len() != ML_DSA_65_SIGNATURE_BYTES {
+        return Err("ML-DSA-65 signature must be 3309 bytes".into());
+    }
+    if email.agent_signature.len() != ED25519_SIG_LEN {
+        return Err("Agent signature must be 64 bytes".into());
+    }
+    email
+        .protocol_envelope()
+        .canonical_signing_bytes()
+        .map_err(|error| format!("Invalid V2 envelope: {error:?}"))
+}
+
+fn validate_encrypted_email_v2(
+    email: &EncryptedEmailV2,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if email.sender != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "V2 sender must match action author".into(),
+        ));
+    }
+    let transcript = match validate_email_v2_structure(email) {
+        Ok(transcript) => transcript,
+        Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+    };
+    let mut signature = [0; 64];
+    signature.copy_from_slice(&email.agent_signature);
+    if !verify_signature_raw(email.sender.clone(), Signature(signature), transcript)? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "V2 agent signature verification failed".into(),
+        ));
+    }
+    let created = email.created_at_micros;
+    let action_time = action.timestamp.as_micros();
+    if created.saturating_sub(action_time) > MAX_FUTURE_SKEW_MICROS
+        || action_time.saturating_sub(created) > MAX_PAST_SKEW_MICROS
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "V2 created_at is outside the accepted action-time window".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_encrypted_email(
     email: &EncryptedEmail,
     action: &Create,
@@ -443,6 +608,21 @@ fn validate_encrypted_email(
     if email.encrypted_body.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Email body cannot be empty".to_string(),
+        ));
+    }
+    if email.encrypted_subject.len() > MAX_ENCRYPTED_SUBJECT_BYTES {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Encrypted subject exceeds 64 KiB".to_string(),
+        ));
+    }
+    if email.encrypted_body.len() > MAX_ENCRYPTED_BODY_BYTES {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Encrypted body exceeds 2 MiB".to_string(),
+        ));
+    }
+    if email.message_id.is_empty() || email.message_id.len() > MAX_MESSAGE_ID_BYTES {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Message ID must be between 1 and 512 bytes".to_string(),
         ));
     }
 
@@ -750,6 +930,7 @@ fn validate_create_link(
 ) -> ExternResult<ValidateCallbackResult> {
     match link_type {
         LinkTypes::AgentToSent
+        | LinkTypes::AgentToSentV2
         | LinkTypes::AgentToDrafts
         | LinkTypes::AgentToFolders
         | LinkTypes::AgentToThreads
@@ -764,6 +945,7 @@ fn validate_create_link(
             Ok(ValidateCallbackResult::Valid)
         }
         LinkTypes::AgentToInbox => validate_inbox_link(base_address, target_address, action),
+        LinkTypes::AgentToInboxV2 => validate_inbox_link_v2(base_address, target_address, action),
         LinkTypes::FolderToEmails
         | LinkTypes::EmailToAttachments
         | LinkTypes::EmailToReadReceipts
@@ -776,6 +958,59 @@ fn validate_create_link(
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn validate_inbox_link_v2(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    action: CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let inbox_owner = match base_address.into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToInboxV2 link base must be an AgentPubKey".into(),
+            ));
+        }
+    };
+    let target_action_hash = match target_address.into_action_hash() {
+        Some(hash) => hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToInboxV2 target must be an ActionHash".into(),
+            ));
+        }
+    };
+    let record = must_get_valid_record(target_action_hash)?;
+    let entry = record.entry().as_option().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "AgentToInboxV2 target record has no entry".into()
+        ))
+    })?;
+    let Entry::App(app_bytes) = entry else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 target is not an app entry".into(),
+        ));
+    };
+    let email = match EncryptedEmailV2::try_from(SerializedBytes::from(app_bytes.clone())) {
+        Ok(email) => email,
+        Err(error) => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "AgentToInboxV2 target failed to deserialize: {error}"
+            )));
+        }
+    };
+    if email.recipient != inbox_owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 base does not match envelope recipient".into(),
+        ));
+    }
+    if email.sender != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToInboxV2 author does not match envelope sender".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate `AgentToInbox` link creation.
@@ -878,11 +1113,35 @@ fn validate_delete_link(
 mod tests {
     use super::*;
 
+    fn test_email() -> EncryptedEmail {
+        EncryptedEmail {
+            sender: AgentPubKey::from_raw_36(vec![1; 36]),
+            recipient: AgentPubKey::from_raw_36(vec![2; 36]),
+            encrypted_subject: vec![3; 16],
+            encrypted_body: vec![4; 32],
+            encrypted_attachments: Vec::new(),
+            ephemeral_pubkey: vec![5; 32],
+            nonce: [6; 24],
+            signature: vec![7; 64],
+            crypto_suite: CryptoSuite {
+                key_exchange: "x25519".into(),
+                symmetric: "aes-256-gcm".into(),
+                signature: "ed25519".into(),
+            },
+            message_id: "message-1".into(),
+            in_reply_to: None,
+            references: Vec::new(),
+            timestamp: Timestamp::from_micros(42),
+            priority: EmailPriority::Normal,
+            read_receipt_requested: false,
+            expires_at: None,
+        }
+    }
+
     #[test]
     fn test_email_signing_content_deterministic() {
-        // Verify that signing content is deterministic for the same input
-        // (cannot construct full EncryptedEmail without Holochain types in unit tests,
-        // but the function signature and constants are verified at compile time)
+        let email = test_email();
+        assert_eq!(email_signing_content(&email), email_signing_content(&email));
         assert_eq!(SHA256_LEN, 32);
         assert_eq!(ED25519_SIG_LEN, 64);
         assert_eq!(DILITHIUM3_SIG_LEN, 3293);
@@ -892,5 +1151,115 @@ mod tests {
         assert_eq!(KYBER768_KEY_LEN, 1088);
         assert_eq!(MAX_CHUNK_SIZE, 10 * 1024 * 1024);
         assert_eq!(MAX_TOTAL_CHUNKS, 1000);
+    }
+
+    #[test]
+    fn signing_content_binds_routing_crypto_and_metadata() {
+        let email = test_email();
+        let original = email_signing_content(&email);
+
+        let mut changed = email.clone();
+        changed.ephemeral_pubkey[0] ^= 1;
+        assert_ne!(original, email_signing_content(&changed));
+
+        let mut changed = email.clone();
+        changed.crypto_suite.symmetric = "chacha20-poly1305".into();
+        assert_ne!(original, email_signing_content(&changed));
+
+        let mut changed = email;
+        changed.read_receipt_requested = true;
+        assert_ne!(original, email_signing_content(&changed));
+    }
+
+    fn test_email_v2() -> EncryptedEmailV2 {
+        EncryptedEmailV2 {
+            version: 2,
+            cipher_suite:
+                mail_leptos_types::protocol::SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: [1; 32],
+            sender: AgentPubKey::from_raw_36(vec![1; 36]),
+            recipient: AgentPubKey::from_raw_36(vec![2; 36]),
+            sender_mldsa_key_id: [2; 32],
+            recipient_hybrid_key_id: [3; 32],
+            x25519_ephemeral_public_key: [4; 32],
+            ml_kem_ciphertext: vec![5; 1088],
+            nonce: [6; 12],
+            ciphertext: vec![7; 48],
+            in_reply_to: None,
+            thread_id: None,
+            created_at_micros: 42,
+            agent_signature: vec![8; ED25519_SIG_LEN],
+            ml_dsa_signature: vec![9; ML_DSA_65_SIGNATURE_BYTES],
+        }
+    }
+
+    /// These structural checks run without any HDI host function, so they
+    /// prove real evidence in a plain `cargo test` — no live conductor
+    /// needed. The host-dependent checks (agent-signature verification,
+    /// sender==author, timestamp skew) are proven instead by the Sweettest
+    /// suite, which is the only place a real HDI host is available.
+    #[test]
+    fn v2_structure_accepts_a_well_formed_entry() {
+        assert!(validate_email_v2_structure(&test_email_v2()).is_ok());
+    }
+
+    #[test]
+    fn v2_structure_rejects_short_ciphertext() {
+        let mut email = test_email_v2();
+        email.ciphertext = vec![1; 15]; // below the 16-byte AES-GCM tag floor
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ciphertext"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_oversized_ciphertext() {
+        let mut email = test_email_v2();
+        email.ciphertext = vec![1; MAX_ENCRYPTED_BODY_BYTES + 1];
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ciphertext"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_wrong_length_ml_dsa_signature() {
+        let mut email = test_email_v2();
+        email.ml_dsa_signature.pop();
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("ML-DSA"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn v2_structure_rejects_wrong_length_agent_signature() {
+        let mut email = test_email_v2();
+        email.agent_signature = vec![1; 63];
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(
+            error.contains("Agent signature"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn v2_structure_rejects_unknown_version_and_suite() {
+        let mut email = test_email_v2();
+        email.version = 99;
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("envelope"), "unexpected error: {error}");
+
+        let mut email = test_email_v2();
+        email.cipher_suite = "attacker-chosen-suite".into();
+        let error = validate_email_v2_structure(&email).unwrap_err();
+        assert!(error.contains("envelope"), "unexpected error: {error}");
+    }
+
+    /// This is the structural check's blind spot, documented rather than
+    /// hidden: a garbage-but-correctly-sized ML-DSA signature passes here.
+    /// Cryptographic ML-DSA verification is NOT available inside HDI/WASM
+    /// (see the doc comment on `validate_email_v2_structure`) and is instead
+    /// enforced by the recipient client before it trusts decrypted content.
+    #[test]
+    fn v2_structure_does_not_cryptographically_verify_ml_dsa() {
+        let mut email = test_email_v2();
+        email.ml_dsa_signature = vec![0xAB; ML_DSA_65_SIGNATURE_BYTES]; // garbage, right length
+        assert!(validate_email_v2_structure(&email).is_ok());
     }
 }

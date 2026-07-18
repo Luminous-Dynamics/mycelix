@@ -7,7 +7,7 @@
 - wasm-bindgen-cli 0.2.114 (`~/.cargo/bin/wasm-bindgen`)
 - Holochain tools (provided by `nix develop` from `mycelix-praxis/`)
 
-## Quick Start (Mock Mode)
+## Quick Start (Local Mode)
 
 ```bash
 cd mycelix-praxis/apps/leptos
@@ -15,9 +15,17 @@ trunk serve --port 3001
 # Open http://localhost:3001
 ```
 
-The app runs in mock mode by default. All zome calls return simulated data when
-no conductor is available. The consciousness panel shows a simulated feed using
-coupled oscillators at 20 Hz.
+The app starts in **Local** mode. Progress is stored in the browser and no
+conductor connection is attempted. Use the navbar selector to change modes:
+
+| Mode | Data provenance | Conductor behavior |
+| --- | --- | --- |
+| Demo | Clearly labeled representative examples | Never connects |
+| Local | Learner-owned browser state | Never connects |
+| Live | Holochain records | Authenticated connection and authorized signer are required; failures stay visible |
+
+Changing modes reloads the app so providers cannot retain state from the prior
+data source.
 
 ## Full Stack (Real Conductor)
 
@@ -36,16 +44,30 @@ trunk serve --port 3001
 # Open http://localhost:3001
 ```
 
-When the conductor is running on port 8888, the connection badge in the navbar
-switches from "Mock" (orange) to "Connected" (green) and zome calls go through
-the real Holochain transport.
+Starting a conductor is only the transport half of Live mode. A production
+browser session should be launched by a compatible Holochain host that injects
+the standard `window.__HC_LAUNCHER_ENV__` app port/token and
+`window.__HC_ZOME_CALL_SIGNER__` callback. The shared provider reads the token
+as a `Uint8Array`; it never treats a base64 or arbitrary string as token bytes.
+
+For a non-launcher development shell, inject an issued app token explicitly as
+`window.__HC_AUTH_TOKEN = new Uint8Array(...)` and provide a host signer that
+implements the contract in `mycelix-leptos-client/docs/browser-signing.md`.
+Keep signing keys outside the Leptos WASM module.
+
+Select **Live** only after those host capabilities are present. The badge
+switches to "Live" only after the authenticated transport and authorized signer
+are both ready. Connection, authentication, signing, serialization, decode,
+and zome-call errors remain visible in the Live status banner; they do not
+silently change the application to Demo mode.
 
 ## Architecture
 
 ```
 Browser:
   [Leptos WASM App]
-    |-- HolochainProvider (WebSocket -> conductor:8888, fallback to mocks)
+    |-- AppMode (Demo | Local | Live; persisted explicitly)
+    |-- HolochainProvider (Live only: authenticated WebSocket + host signer, no fallback)
     |-- ConsciousnessProvider (simulated Phi/neuromod at 20Hz via coupled oscillators)
     '-- LearningEngineProvider (consciousness -> learning decisions at 1Hz)
 
@@ -106,9 +128,12 @@ apps/leptos/
 
 ## Key Design Decisions
 
-**Mock-first architecture**: Every page component fetches data through `HolochainCtx.call_zome()`.
-On failure (no conductor), it falls back to `mock_*()` functions that return representative data.
-This means the entire UI is testable without a running conductor.
+**Explicit data provenance**: Demo examples, learner-owned local state, and Live
+Holochain records are distinct application modes. The shared Holochain context
+records transport connectivity, zome-call signing readiness, and its latest
+contract error separately so even remaining legacy page fallbacks cannot
+conceal Live failures. New data surfaces should branch on `AppMode` before
+fetching and must never substitute demo records after a Live call fails.
 
 **Consciousness integration**: The `ConsciousnessProvider` wraps the app and exposes reactive
 signals (`ConsciousnessState`) to all child components. The `LearningEngineProvider` consumes

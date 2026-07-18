@@ -797,6 +797,7 @@ dependencies = [
  "hdi",
  "holochain_serialized_bytes",
  "serde",
+ "sha2",
 ]
 
 [[package]]
@@ -810,6 +811,13 @@ name = "log"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
+
+[[package]]
+name = "mail-leptos-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "mail_backup"
@@ -834,6 +842,7 @@ dependencies = [
 name = "mail_bridge"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.2.17",
  "hdk",
  "mail_bridge_integrity",
  "mycelix-zkp-core",
@@ -890,6 +899,7 @@ name = "mail_messages"
 version = "0.1.0"
 dependencies = [
  "hdk",
+ "mail-leptos-types",
  "mail_messages_integrity",
  "serde",
 ]
@@ -900,6 +910,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mail-leptos-types",
  "serde",
 ]
 

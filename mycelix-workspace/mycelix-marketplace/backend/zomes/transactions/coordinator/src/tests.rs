@@ -12,6 +12,39 @@ mod tests {
     use super::super::*;
 
     // Helper functions for tests
+
+
+    fn mock_listing_output() -> ListingOutputForPurchase {
+        ListingOutputForPurchase {
+            listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            seller_agent_id: AgentPubKey::from_raw_36(vec![2u8; 36]),
+            listing: listings_integrity::Listing {
+                title: "Mechanical keyboard".to_string(),
+                description: "Test listing".to_string(),
+                price_cents: 1999,
+                category: listings_integrity::ListingCategory::Electronics,
+                photos_ipfs_cids: vec![],
+                quantity_available: 10,
+                status: listings_integrity::ListingStatus::Active,
+                epistemic: listings_integrity::EpistemicClassification {
+                    empirical: listings_integrity::EmpiricalLevel::E1Testimonial,
+                    normative: listings_integrity::NormativeLevel::N0Personal,
+                    materiality: listings_integrity::MaterialityLevel::M1Temporal,
+                },
+                created_at: Timestamp::from_micros(1_000_000),
+                updated_at: Timestamp::from_micros(1_000_000),
+            },
+        }
+    }
+
+    fn valid_purchase_input() -> CreateTransactionInput {
+        CreateTransactionInput {
+            seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
+            listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            quantity: 2,
+            total_price_cents: 3998,
+        }
+    }
     fn mock_transaction() -> Transaction {
         Transaction {
             buyer: AgentPubKey::from_raw_36(vec![1u8; 36]),
@@ -468,4 +501,68 @@ mod tests {
         assert!(!back3.settled);
         assert!(back3.error.as_deref().unwrap().contains("rejected"));
     }
+
+    // ===== Purchase Term Binding Tests =====
+
+    #[test]
+    fn test_purchase_terms_are_derived_from_listing() {
+        let input = valid_purchase_input();
+        let listing = mock_listing_output();
+        let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        assert_eq!(validate_purchase_terms(&input, &listing, &buyer), Ok(3998));
+    }
+
+    #[test]
+    fn test_purchase_rejects_spoofed_seller() {
+        let mut input = valid_purchase_input();
+        input.seller = AgentPubKey::from_raw_36(vec![9u8; 36]);
+        let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let error = validate_purchase_terms(&input, &mock_listing_output(), &buyer).unwrap_err();
+        assert!(error.contains("seller"));
+    }
+
+    #[test]
+    fn test_purchase_rejects_spoofed_total() {
+        let mut input = valid_purchase_input();
+        input.total_price_cents = 1;
+        let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let error = validate_purchase_terms(&input, &mock_listing_output(), &buyer).unwrap_err();
+        assert!(error.contains("total"));
+    }
+
+    #[test]
+    fn test_purchase_rejects_quantity_above_inventory() {
+        let mut input = valid_purchase_input();
+        input.quantity = 11;
+        input.total_price_cents = 21_989;
+        let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let error = validate_purchase_terms(&input, &mock_listing_output(), &buyer).unwrap_err();
+        assert!(error.contains("available"));
+    }
+
+    #[test]
+    fn test_purchase_rejects_inactive_listing() {
+        let input = valid_purchase_input();
+        let mut listing = mock_listing_output();
+        listing.listing.status = listings_integrity::ListingStatus::Inactive;
+        let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let error = validate_purchase_terms(&input, &listing, &buyer).unwrap_err();
+        assert!(error.contains("not active"));
+    }
+
+    #[test]
+    fn test_purchase_rejects_seller_buying_own_listing() {
+        let input = valid_purchase_input();
+        let listing = mock_listing_output();
+        let buyer = listing.seller_agent_id.clone();
+
+        let error = validate_purchase_terms(&input, &listing, &buyer).unwrap_err();
+        assert!(error.contains("own listing"));
+    }
+
 }

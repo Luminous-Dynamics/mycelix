@@ -132,7 +132,7 @@ pub mod errors {
             ErrorCode::EntityNotFound,
             entity_type,
             "get",
-            "Entry not found in DHT"
+            "Entry not found in DHT",
         )
         .with_context(context)
         .with_hint("The entry may have been deleted or never created")
@@ -144,7 +144,7 @@ pub mod errors {
             ErrorCode::EntityAlreadyExists,
             entity_type,
             "create",
-            "Entry already exists"
+            "Entry already exists",
         )
         .with_context(context)
         .with_hint("Use update instead of create, or delete the existing entry first")
@@ -156,7 +156,7 @@ pub mod errors {
             ErrorCode::InvalidFormat,
             entity_type,
             "decode",
-            "Failed to decode entry from DHT"
+            "Failed to decode entry from DHT",
         )
         .with_context(context)
         .with_hint("The entry may be corrupted or from an incompatible version")
@@ -168,7 +168,7 @@ pub mod errors {
             ErrorCode::StorageError,
             entity_type,
             "create",
-            "Failed to store entry in DHT"
+            "Failed to store entry in DHT",
         )
         .with_context(context)
     }
@@ -179,20 +179,15 @@ pub mod errors {
             ErrorCode::StorageError,
             entity_type,
             "update",
-            "Failed to update entry in DHT"
+            "Failed to update entry in DHT",
         )
         .with_context(context)
     }
 
     /// Input validation failed
     pub fn validation_failed(entity_type: &str, field: &str, reason: &str) -> EduNetError {
-        EduNetError::new(
-            ErrorCode::ValidationFailed,
-            entity_type,
-            "validate",
-            reason
-        )
-        .with_context(&format!("field: {}", field))
+        EduNetError::new(ErrorCode::ValidationFailed, entity_type, "validate", reason)
+            .with_context(&format!("field: {}", field))
     }
 
     /// Value out of valid range
@@ -201,7 +196,7 @@ pub mod errors {
             ErrorCode::OutOfRange,
             entity_type,
             "validate",
-            &format!("Value {} is out of valid range", value)
+            &format!("Value {} is out of valid range", value),
         )
         .with_context(&format!("field: {}, valid range: {}", field, range))
     }
@@ -212,20 +207,15 @@ pub mod errors {
             ErrorCode::MissingRequired,
             entity_type,
             "validate",
-            "Required field is missing or empty"
+            "Required field is missing or empty",
         )
         .with_context(&format!("field: {}", field))
     }
 
     /// Unauthorized action
     pub fn unauthorized(entity_type: &str, action: &str, reason: &str) -> EduNetError {
-        EduNetError::new(
-            ErrorCode::Unauthorized,
-            entity_type,
-            action,
-            reason
-        )
-        .with_hint("Ensure you are the author of the entry or have appropriate permissions")
+        EduNetError::new(ErrorCode::Unauthorized, entity_type, action, reason)
+            .with_hint("Ensure you are the author of the entry or have appropriate permissions")
     }
 
     /// Invalid state transition
@@ -234,7 +224,7 @@ pub mod errors {
             ErrorCode::InvalidStateTransition,
             entity_type,
             "transition",
-            &format!("Cannot transition from {} to {}", current, target)
+            &format!("Cannot transition from {} to {}", current, target),
         )
         .with_hint("Check the valid state transition rules for this entity type")
     }
@@ -245,7 +235,7 @@ pub mod errors {
             ErrorCode::CrossZomeCallFailed,
             target_zome,
             function,
-            reason
+            reason,
         )
         .with_hint("Check that the target zome is installed and the function exists")
     }
@@ -256,7 +246,7 @@ pub mod errors {
             ErrorCode::LimitExceeded,
             entity_type,
             "create",
-            &format!("{} limit of {} exceeded", limit_name, limit_value)
+            &format!("{} limit of {} exceeded", limit_name, limit_value),
         )
     }
 }
@@ -290,7 +280,7 @@ pub mod srs_errors {
             ErrorCode::InvalidEntityState,
             "ReviewCard",
             "review",
-            &format!("Card has been marked as leech after {} lapses", lapse_count)
+            &format!("Card has been marked as leech after {} lapses", lapse_count),
         )
         .with_context(&format!("hash: {}", hash))
         .with_hint("Consider editing this card to make it easier to remember")
@@ -301,7 +291,7 @@ pub mod srs_errors {
             ErrorCode::InvalidEntityState,
             "ReviewCard",
             "review",
-            "Card is not due for review yet"
+            "Card is not due for review yet",
         )
         .with_context(&format!("hash: {}, due_at: {}", hash, due_at))
         .with_hint("Use 'get_due_cards' to find cards ready for review")
@@ -328,7 +318,7 @@ pub mod gamification_errors {
             ErrorCode::InvalidEntityState,
             "LearnerStreak",
             "continue",
-            &format!("Streak broken after {} days of inactivity", gap_days)
+            &format!("Streak broken after {} days of inactivity", gap_days),
         )
         .with_context(&format!("last_activity: {}", last_activity))
         .with_hint("Start a new streak by completing an activity today")
@@ -339,7 +329,7 @@ pub mod gamification_errors {
             ErrorCode::ResourceExhausted,
             "LearnerStreak",
             "freeze",
-            "No streak freezes remaining"
+            "No streak freezes remaining",
         )
         .with_context(&format!("used: {}, max: {}", freezes_used, max_freezes))
         .with_hint("Complete activities to earn more streak freezes")
@@ -350,13 +340,16 @@ pub mod gamification_errors {
             ErrorCode::OutOfRange,
             "XpTransaction",
             "award",
-            "XP amount must be positive"
+            "XP amount must be positive",
         )
         .with_context(&format!("amount: {}", amount))
     }
 
     pub fn leaderboard_not_found(period: &str, scope: &str) -> EduNetError {
-        errors::not_found("Leaderboard", &format!("period: {}, scope: {}", period, scope))
+        errors::not_found(
+            "Leaderboard",
+            &format!("period: {}, scope: {}", period, scope),
+        )
     }
 }
 
@@ -380,8 +373,13 @@ pub mod adaptive_errors {
     }
 
     pub fn invalid_mastery_level(permille: u16) -> EduNetError {
-        errors::out_of_range("SkillMastery", "mastery_permille", &permille.to_string(), "0-1000")
-            .with_hint("Mastery is measured in permille (0-1000, where 1000 = 100%)")
+        errors::out_of_range(
+            "SkillMastery",
+            "mastery_permille",
+            &permille.to_string(),
+            "0-1000",
+        )
+        .with_hint("Mastery is measured in permille (0-1000, where 1000 = 100%)")
     }
 
     pub fn difficulty_mismatch(skill_difficulty: u16, content_difficulty: u16) -> EduNetError {
@@ -389,7 +387,7 @@ pub mod adaptive_errors {
             ErrorCode::InvalidEntityState,
             "Recommendation",
             "generate",
-            "Content difficulty outside learner's ZPD"
+            "Content difficulty outside learner's ZPD",
         )
         .with_context(&format!(
             "skill_level: {}, content_difficulty: {}",
@@ -403,7 +401,7 @@ pub mod adaptive_errors {
             ErrorCode::InvalidStateTransition,
             "LearningGoal",
             "complete",
-            "Goal is already marked as completed"
+            "Goal is already marked as completed",
         )
         .with_context(&format!("hash: {}", hash))
     }
@@ -413,7 +411,7 @@ pub mod adaptive_errors {
             ErrorCode::InvalidInput,
             "LearnerProfile",
             "update",
-            "Invalid learning style"
+            "Invalid learning style",
         )
         .with_context(&format!("style: {}", style))
         .with_hint("Valid styles: Visual, Auditory, ReadWrite, Kinesthetic")
@@ -436,7 +434,7 @@ pub mod integration_errors {
             ErrorCode::EntityAlreadyExists,
             "OrchestratedSession",
             "start",
-            "An active session already exists"
+            "An active session already exists",
         )
         .with_context(&format!("existing_session: {}", existing_hash))
         .with_hint("End the current session before starting a new one")
@@ -447,7 +445,7 @@ pub mod integration_errors {
             ErrorCode::InvalidStateTransition,
             "OrchestratedSession",
             "update",
-            &format!("Session is not active (current state: {})", state)
+            &format!("Session is not active (current state: {})", state),
         )
         .with_context(&format!("hash: {}", hash))
     }
@@ -465,10 +463,12 @@ pub mod integration_errors {
             ErrorCode::InvalidInput,
             "LearningEvent",
             "record",
-            "Invalid event type"
+            "Invalid event type",
         )
         .with_context(&format!("type: {}", event_type))
-        .with_hint("Valid types: SrsReview, SkillPractice, CourseProgress, GoalMilestone, SessionComplete")
+        .with_hint(
+            "Valid types: SrsReview, SkillPractice, CourseProgress, GoalMilestone, SessionComplete",
+        )
     }
 
     pub fn cross_zome_srs_failed(function: &str, reason: &str) -> EduNetError {
@@ -553,7 +553,7 @@ mod tests {
             ErrorCode::ValidationFailed,
             "TestEntity",
             "create",
-            "Test failure"
+            "Test failure",
         )
         .with_context("test context")
         .with_hint("test hint");

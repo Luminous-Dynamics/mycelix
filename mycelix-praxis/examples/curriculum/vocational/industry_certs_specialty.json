@@ -92,14 +92,14 @@
   ],
   "edges": [
     {
-      "from": "VOC-SOL-101",
+      "from": "VOC-RE-101",
       "to": "CERT-ENG-FOA-CFOT",
       "edge_type": "Recommended",
       "strength_permille": 600,
       "rationale": "DC electrical fundamentals provide the necessary context for low-voltage signal infrastructure."
     },
     {
-      "from": "HAB-VOC-301",
+      "from": "CON-VOC-301",
       "to": "CERT-HAB-INTERNACHI",
       "edge_type": "Recommended",
       "strength_permille": 850,

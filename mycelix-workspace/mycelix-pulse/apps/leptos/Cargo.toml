@@ -84,7 +84,6 @@ send_wrapper = "0.6"
 hkdf = "0.12"
 sha2 = "0.10"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
-ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 getrandom = { version = "0.2", features = ["js"] }
 base64 = "0.22"
 
@@ -92,18 +91,13 @@ base64 = "0.22"
 mail-leptos-types = { path = "../../crates/mail-leptos-types" }
 
 # Mycelix shared Leptos infrastructure
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
-domain-mail = { path = "../../../../mycelix-sensorium/crates/domain-mail" }
-
-# Symthaea HDC engine (optional — 16,384D semantic intelligence)
-symthaea-core = { path = "../../../../symthaea/symthaea-core", default-features = false, optional = true }
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
+mycelix-crypto = { path = "../../../mycelix-identity/crates/mycelix-crypto", features = ["hybrid-rc"] }
+zeroize = "1"
 
 [features]
 default = []
-# Enable full Symthaea HDC integration (16,384D vectors)
-# Build with: trunk build --release --features symthaea
-symthaea = ["dep:symthaea-core"]
 
 [profile.release]
 opt-level = "z"

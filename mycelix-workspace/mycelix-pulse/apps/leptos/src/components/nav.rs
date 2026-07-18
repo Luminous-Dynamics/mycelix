@@ -19,7 +19,8 @@ pub fn Nav() -> impl IntoView {
     let status_label = move || match hc.status.get() {
         ConnectionStatus::Connected => "Live",
         ConnectionStatus::Connecting => "Connecting",
-        ConnectionStatus::Mock => "Mock",
+        ConnectionStatus::Demo => "Demo",
+        ConnectionStatus::Unavailable => "Unavailable",
         ConnectionStatus::Disconnected => "Offline",
     };
 

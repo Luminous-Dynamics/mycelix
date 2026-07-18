@@ -41,6 +41,9 @@ integrity:
     - name: reputation_aggregator_integrity
       path: "../target/wasm32-unknown-unknown/release/reputation_aggregator_integrity.wasm"
 
+    - name: ruleset_registry_integrity
+      path: "../target/wasm32-unknown-unknown/release/ruleset_registry_integrity.wasm"
+
 coordinator:
   zomes:
     - name: did_registry
@@ -116,3 +119,8 @@ coordinator:
       dependencies:
         - name: reputation_aggregator_integrity
         - name: web_of_trust_integrity
+
+    - name: ruleset_registry
+      path: "../target/wasm32-unknown-unknown/release/ruleset_registry.wasm"
+      dependencies:
+        - name: ruleset_registry_integrity

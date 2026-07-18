@@ -3,6 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdi::prelude::*;
 
+const MAX_LISTING_PRICE_CENTS: u64 = 100_000_000;
+
 /// Listing entry type - core marketplace data structure
 ///
 /// This represents a single item for sale in the marketplace.
@@ -240,7 +242,7 @@ fn validate_listing_data(
     }
 
     // Prevent unrealistic prices (> $1,000,000)
-    if listing.price_cents > 100_000_000_00 {
+    if listing.price_cents > MAX_LISTING_PRICE_CENTS {
         return Ok(ValidateCallbackResult::Invalid(
             "Price exceeds maximum allowed ($1,000,000)".into(),
         ));
@@ -505,14 +507,14 @@ mod tests {
 
     #[test]
     fn test_validate_listing_data_price_too_high() {
-        let listing = Listing { price_cents: 100_000_000_01, ..valid_listing() };
+        let listing = Listing { price_cents: MAX_LISTING_PRICE_CENTS + 1, ..valid_listing() };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_max_valid_price() {
-        let listing = Listing { price_cents: 100_000_000_00, ..valid_listing() };
+        let listing = Listing { price_cents: MAX_LISTING_PRICE_CENTS, ..valid_listing() };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }

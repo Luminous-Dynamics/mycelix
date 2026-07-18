@@ -9,7 +9,7 @@
 //!
 //! Extracted from lib.rs as a pure structural refactor — no logic changes.
 
-use crate::mastery::{get_skill_mastery_impl, GetSkillMasteryInput};
+use crate::mastery::{GetSkillMasteryInput, get_skill_mastery_impl};
 use adaptive_integrity::*;
 use hdk::prelude::*;
 

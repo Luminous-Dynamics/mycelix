@@ -23,18 +23,14 @@ pub fn UploadPage() -> impl IntoView {
 
     let on_submit = move |ev: web_sys::SubmitEvent| {
         ev.prevent_default();
-        // TODO: use_zome_call for create_song
-        // For now, show a status message
         if title.get().is_empty() || ipfs_cid.get().is_empty() {
             status_msg.set("Title and IPFS CID are required".into());
             return;
         }
-        status_msg.set(format!(
-            "Ready to upload: '{}' (CID: {}, strategy: {}). Connect Holochain conductor to submit.",
-            title.get(),
-            ipfs_cid.get(),
-            strategy.get()
-        ));
+        status_msg.set(
+            "Publication is unavailable until create_song is wired to an authorized, signed zome call."
+                .into(),
+        );
     };
 
     let strategy_options = STRATEGIES
@@ -112,7 +108,21 @@ pub fn UploadPage() -> impl IntoView {
                     </select>
                 </div>
 
-                <button type="submit" class="btn btn-primary">"Upload Song"</button>
+                <div id="publication-gate" class="dependency-gate" role="status">
+                    <strong>"Publication unavailable"</strong>
+                    <span>
+                        " The create_song call and signed authorization flow are not connected yet. "
+                        "Your draft remains local to this page."
+                    </span>
+                </div>
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                    disabled=true
+                    aria-describedby="publication-gate"
+                >
+                    "Publication unavailable"
+                </button>
             </form>
 
             {move || {

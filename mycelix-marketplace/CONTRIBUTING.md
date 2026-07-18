@@ -342,7 +342,7 @@ New to the project? Look for issues labeled:
 
 ## 📝 License
 
-By contributing to Mycelix Marketplace, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing to Mycelix Marketplace, you agree that your contributions will be licensed under GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
 
 ## ❓ Questions?
 

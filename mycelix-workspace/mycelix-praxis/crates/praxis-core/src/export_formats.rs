@@ -178,7 +178,10 @@ pub fn learning_event_to_xapi(
             name: learner_name.map(|n| n.to_string()),
             object_type: "Agent".to_string(),
         },
-        verb: XapiVerb { id: verb_id.to_string(), display },
+        verb: XapiVerb {
+            id: verb_id.to_string(),
+            display,
+        },
         object: XapiObject {
             id: format!("https://praxis.mycelix.net/curriculum/{}", topic_id),
             object_type: "Activity".to_string(),
@@ -279,9 +282,7 @@ pub fn credential_to_open_badge(
     pol_score: Option<f64>,
     vitality: Option<u16>,
 ) -> OpenBadge {
-    let mut criteria_parts = vec![
-        format!("Completed: {}", credential_title),
-    ];
+    let mut criteria_parts = vec![format!("Completed: {}", credential_title)];
     if let Some(pol) = pol_score {
         criteria_parts.push(format!("Proof of Learning score: {:.0}%", pol * 100.0));
     }
@@ -299,7 +300,10 @@ pub fn credential_to_open_badge(
             "OpenBadgeCredential".to_string(),
         ],
         issuer: BadgeIssuer {
-            id: format!("https://praxis.mycelix.net/issuers/{}", issuer_name.to_lowercase().replace(' ', "-")),
+            id: format!(
+                "https://praxis.mycelix.net/issuers/{}",
+                issuer_name.to_lowercase().replace(' ', "-")
+            ),
             name: issuer_name.to_string(),
             url: Some("https://praxis.mycelix.net".to_string()),
         },
@@ -417,16 +421,41 @@ mod tests {
             Some(920),
         );
 
-        assert!(badge.credential_type.contains(&"OpenBadgeCredential".to_string()));
+        assert!(
+            badge
+                .credential_type
+                .contains(&"OpenBadgeCredential".to_string())
+        );
         assert_eq!(badge.credential_subject.id, "did:mycelix:agent123");
-        assert!(badge.credential_subject.achievement.criteria.narrative.contains("87%"));
-        assert!(badge.credential_subject.achievement.criteria.narrative.contains("92%"));
+        assert!(
+            badge
+                .credential_subject
+                .achievement
+                .criteria
+                .narrative
+                .contains("87%")
+        );
+        assert!(
+            badge
+                .credential_subject
+                .achievement
+                .criteria
+                .narrative
+                .contains("92%")
+        );
     }
 
     #[test]
     fn test_xapi_duration_format() {
         let stmt = learning_event_to_xapi(
-            "a", None, "LessonComplete", "t", "Test", 800, 5432, "2026-01-01T00:00:00Z",
+            "a",
+            None,
+            "LessonComplete",
+            "t",
+            "Test",
+            800,
+            5432,
+            "2026-01-01T00:00:00Z",
         );
         let duration = stmt.result.unwrap().duration.unwrap();
         assert_eq!(duration, "PT1H30M32S");
@@ -435,9 +464,22 @@ mod tests {
     #[test]
     fn test_open_badge_without_pol() {
         let badge = credential_to_open_badge(
-            "agent", "Test Badge", "A test", "Issuer", "2026-01-01", None, None,
+            "agent",
+            "Test Badge",
+            "A test",
+            "Issuer",
+            "2026-01-01",
+            None,
+            None,
         );
-        assert!(!badge.credential_subject.achievement.criteria.narrative.contains("Proof"));
+        assert!(
+            !badge
+                .credential_subject
+                .achievement
+                .criteria
+                .narrative
+                .contains("Proof")
+        );
     }
 
     #[test]

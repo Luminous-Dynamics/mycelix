@@ -22,7 +22,7 @@ just status          # Check status
 
 | Stage | Count | hApps |
 |-------|-------|-------|
-| **Core Four** | **4** | **identity** (13 zomes, 23 sweettests, MFA+PQC+recovery+name-registry+web-of-trust), **governance** (7 zomes, treasury+delegation+DKG), **core FL** (6 zomes, 62 tests, model versioning), **LUCID** (8 zomes, 92 functions, Symthaea bridge 95%) |
+| **Core Four** | **4** | **identity** (13 zomes, 23 sweettests, MFA+PQC+recovery+name-registry+web-of-trust), **governance** (7 zomes, treasury+delegation+DKG), **core FL** (6 zomes, 62 tests, model versioning), **LUCID** (8 zomes, 92 functions; UI's "Symthaea bridge 95%" claim does NOT hold — `happs/lucid/ui/src-tauri` depends on `mycelix-workspace/libs/lucid-{symthaea,zkp}`, which doesn't exist anywhere in the tree, so the real-Symthaea Tauri build is unbuildable at HEAD and only the browser-fallback/mock-heuristic UI mode runs; verified 2026-07-10, no substantive UI commits since 2026-05-26. See `SYMTHAEA_UNIFIED_UI_PLAN_2026-07-10.md` at the monorepo root, which supersedes this claim and salvages LUCID's component *ideas* into a new `symthaea-ui` Leptos app rather than reviving this Tauri path) |
 | Production | 3 | mail (12 zomes), desci (141 tests, REST not hApp), space (5 zomes + orbital-mechanics) |
 | **Cluster** | **5** | **commons** (39 zomes, 5,276 tests), **civic** (18 zomes, 2,273 tests), **hearth** (11 zomes, 1,023 tests), **personal** (3 zomes, 20 tests), **attribution** (3 zomes, 17 tests) |
 | Built | 6 | energy (5 zomes, 10K LOC), climate (3 zomes, 7K LOC), music (4 zomes + 14 crates, 33K LOC), knowledge (8 zomes, 15K LOC), health (15 zomes, 81K LOC), finance (8 zomes) |
@@ -82,22 +82,27 @@ Plugins: ConsciousnessAwareByzantinePlugin (consciousness score → weight), Met
 
 ## Version Compatibility
 
-**Single source of truth**: `nix/modules/holochain-versions.nix`
-
-All Holochain versions are declared in ONE file. When upgrading:
-1. Update `nix/modules/holochain-versions.nix`
-2. `nix flake lock --update-input holonix`
-3. `cargo update -p hdk -p hdi -p holochain_client`
+**Source of truth**: root `Cargo.toml` `[workspace.dependencies]` (exact `=` pins) for the
+Cargo side, root `flake.nix`'s `holonix` input (fixed commit, not a branch) for the nix side.
+There is no single dedicated version-pin file today — `nix/modules/holochain-versions.nix`,
+referenced by an earlier draft of this doc, does not exist. When upgrading:
+1. Update the pins in root `Cargo.toml` `[workspace.dependencies]`
+2. Update `holonix.url` in root `flake.nix` to the matching commit, then `nix flake lock --update-input holonix`
+3. `cargo update -p hdk -p hdi -p holochain_zome_types -p holochain_integrity_types -p holo_hash -p hdk_derive --precise <version>` in every Holochain-dependent lockfile (not just root — see the reconciliation series from 2026-07-03, which found every one of the ~29 non-root Holochain-dependent `Cargo.lock` files had drifted from root's pin; several are now tracked in git specifically so this can't silently happen again)
 4. Verify: `nix develop --command holochain --version`
 
 | Component | Version | Source |
 |-----------|---------|--------|
-| holochain conductor | 0.6.0 | holonix commit in versions.nix |
-| hdk | 0.6.0 | versions.nix → workspace Cargo.toml |
-| hdi | 0.7.0 | versions.nix → workspace Cargo.toml |
-| holochain_client (Rust) | =0.6.0 | versions.nix (exact pin, prevents drift) |
-| @holochain/client (JS) | 0.20.0 | versions.nix |
-| lair-keystore | 0.6.3 | holonix |
+| holochain conductor | 0.6.1 | holonix fixed commit `d21b3543` in root `flake.nix` |
+| hdk | =0.6.1 | root `Cargo.toml` `[workspace.dependencies]` |
+| hdi | =0.7.1 | root `Cargo.toml` `[workspace.dependencies]` |
+| holochain_zome_types / holochain_integrity_types / holo_hash / hdk_derive | =0.6.1 | root `Cargo.toml` — must move in lockstep with hdk/hdi, not just the top-level two |
+| lair-keystore | =0.6.3 | root `Cargo.toml` `[workspace.dependencies]` |
+
+`mycelix-pulse/crates/pulse-smtp-gateway` is a deliberate exception, intentionally tracking a
+newer pre-release Holochain generation (`holochain_client` 0.9.0-dev) for the Phase 11/12
+federated-gateway-mesh work — see the comment in its `Cargo.toml`. Don't "fix" it to match
+the table above.
 
 **Critical**: Use `getrandom v0.3` with `getrandom_backend="custom"` for WASM.
 Do NOT use `getrandom v0.2 features=["js"]` — it pulls in wasm-bindgen which is

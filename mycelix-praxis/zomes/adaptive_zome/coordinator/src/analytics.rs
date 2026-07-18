@@ -10,9 +10,9 @@
 //!
 //! Extracted from lib.rs as a pure structural refactor — no logic changes.
 
-use crate::current_time;
-use crate::TrendDirection;
 use crate::MASTERY_THRESHOLD;
+use crate::TrendDirection;
+use crate::current_time;
 use adaptive_integrity::*;
 use hdk::prelude::*;
 
@@ -758,7 +758,9 @@ pub(crate) fn detect_anomalies(input: AnomalyDetectionInput) -> ExternResult<Vec
             severity_permille: 400,
             detected_at: now - 86400 * 2,
             description: "Engagement increased 40% over past 48 hours".to_string(),
-            suggested_actions: vec!["Great momentum! Consider tackling harder content.".to_string()],
+            suggested_actions: vec![
+                "Great momentum! Consider tackling harder content.".to_string(),
+            ],
             is_positive: true,
         });
     }

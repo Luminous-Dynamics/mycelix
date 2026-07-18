@@ -1,0 +1,89 @@
+name: Leptos migration
+
+on:
+  pull_request:
+    paths:
+      - "backend/zomes/**"
+      - "contracts/**"
+      - "frontend-leptos/**"
+      - "scripts/check-*-contract.py"
+      - "scripts/check-leptos-vertical-slice.py"
+      - "scripts/check-leptos-lifecycle-slice.py"
+      - "scripts/check-arbitration-integrity.py"
+      - "scripts/check-finance-reputation-integrity.py"
+      - "scripts/check-current-claims.py"
+      - "scripts/check-deployment-promotion.py"
+      - "scripts/check-live-evidence-contract.py"
+      - "scripts/verify-live-evidence.py"
+      - "scripts/test-live-evidence-verifier.py"
+      - "scripts/run-live-promotion.sh"
+      - "contracts/deployment-promotion-v1.json"
+      - "docs/migration/DEPLOYMENT_PROMOTION_V1.md"
+      - ".github/workflows/live-evidence.yml"
+      - "contracts/leptos-vertical-slice-v1.json"
+      - "contracts/leptos-lifecycle-slice-v2.json"
+      - "contracts/arbitration-integrity-v1.json"
+      - "contracts/finance-reputation-integrity-v1.json"
+      - "docs/migration/LEPTOS_VERTICAL_SLICE_V1.md"
+      - "docs/migration/LEPTOS_LIFECYCLE_SLICE_V2.md"
+      - "docs/migration/ARBITRATION_INTEGRITY_V1.md"
+      - "docs/migration/FINANCE_REPUTATION_INTEGRITY_V1.md"
+      - "docs/CLAIMS_AND_EVIDENCE.md"
+      - "scripts/validate-leptos-migration.sh"
+      - ".github/workflows/leptos-migration.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/zomes/**"
+      - "contracts/**"
+      - "frontend-leptos/**"
+      - "scripts/check-*-contract.py"
+      - "scripts/check-leptos-vertical-slice.py"
+      - "scripts/check-leptos-lifecycle-slice.py"
+      - "scripts/check-arbitration-integrity.py"
+      - "scripts/check-finance-reputation-integrity.py"
+      - "scripts/check-current-claims.py"
+      - "scripts/check-deployment-promotion.py"
+      - "scripts/check-live-evidence-contract.py"
+      - "scripts/verify-live-evidence.py"
+      - "scripts/test-live-evidence-verifier.py"
+      - "scripts/run-live-promotion.sh"
+      - "contracts/deployment-promotion-v1.json"
+      - "docs/migration/DEPLOYMENT_PROMOTION_V1.md"
+      - ".github/workflows/live-evidence.yml"
+      - "contracts/leptos-vertical-slice-v1.json"
+      - "contracts/leptos-lifecycle-slice-v2.json"
+      - "contracts/arbitration-integrity-v1.json"
+      - "contracts/finance-reputation-integrity-v1.json"
+      - "docs/migration/LEPTOS_VERTICAL_SLICE_V1.md"
+      - "docs/migration/LEPTOS_LIFECYCLE_SLICE_V2.md"
+      - "docs/migration/ARBITRATION_INTEGRITY_V1.md"
+      - "docs/migration/FINANCE_REPUTATION_INTEGRITY_V1.md"
+      - "docs/CLAIMS_AND_EVIDENCE.md"
+      - "scripts/validate-leptos-migration.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend-leptos/bridge/package-lock.json
+      - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend-leptos
+      - name: Validate migration workspace
+        run: scripts/validate-leptos-migration.sh

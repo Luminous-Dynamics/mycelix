@@ -2,11 +2,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use mycelix_common::{bridge, error_handling, link_queries, remote_calls, time};
+use listings_integrity::{Listing, ListingStatus};
+use mycelix_common::{link_queries, remote_calls, time};
 use transactions_integrity::*;
 
-/// Application ID for Bridge reputation reporting
-const APP_ID: &str = "mycelix-marketplace";
+mod authority;
+mod resolution;
+pub use authority::{
+    AppliedTransactionConflictResolution, TransactionConflictApprovalOutput,
+    TransactionConflictResolutionOutput,
+};
+pub use resolution::{
+    TransactionResolution, TransactionResolutionReason, TransactionResolutionState,
+    TRANSACTION_CONFLICT_POLICY_VERSION,
+};
 
 /// Create a new transaction (buyer initiates purchase)
 ///
@@ -15,14 +24,22 @@ const APP_ID: &str = "mycelix-marketplace";
 #[hdk_extern]
 pub fn create_transaction(input: CreateTransactionInput) -> ExternResult<TransactionOutput> {
     let agent_info = agent_info()?;
+    let buyer = agent_info.agent_initial_pubkey.clone();
 
-    // Create transaction entry
+    // The client supplies seller and total for backwards-compatible wire
+    // compatibility, but neither value is trusted. Resolve the listing from
+    // the listings zome and require the submitted terms to match the DHT.
+    let listing = get_listing_for_purchase(input.listing_hash.clone())?;
+    let expected_total = validate_purchase_terms(&input, &listing, &buyer)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
+
+    // Create transaction entry from verified listing terms.
     let transaction = Transaction {
-        buyer: agent_info.agent_initial_pubkey.clone(),
-        seller: input.seller.clone(),
-        listing_hash: input.listing_hash.clone(),
+        buyer: buyer.clone(),
+        seller: listing.seller_agent_id.clone(),
+        listing_hash: listing.listing_hash.clone(),
         quantity: input.quantity,
-        total_price_cents: input.total_price_cents,
+        total_price_cents: expected_total,
         status: TransactionStatus::Pending,
         created_at: time::now()?,
         updated_at: time::now()?,
@@ -78,23 +95,237 @@ pub fn create_transaction(input: CreateTransactionInput) -> ExternResult<Transac
     })
 }
 
-/// Get a transaction by hash
+/// Get the single current transaction revision for an arbitrary Create/Update hash.
+///
+/// This follows the locally observed update tree. Concurrent heads are returned as
+/// an error rather than choosing a silent winner; callers that need conflict evidence
+/// should use `get_transaction_resolution`.
 #[hdk_extern]
 pub fn get_transaction(transaction_hash: ActionHash) -> ExternResult<Option<TransactionOutput>> {
-    let record = get(transaction_hash.clone(), GetOptions::default())?;
+    let Some(resolution) = resolution::resolve_transaction(transaction_hash)? else {
+        return Ok(None);
+    };
+    resolution
+        .into_resolved()
+        .map(Some)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))
+}
 
-    match record {
-        Some(record) => {
-            // Use shared utility for deserialization
-            let transaction: Transaction = error_handling::deserialize_entry(&record)?;
+/// Resolve the complete locally observed update tree for a transaction.
+///
+/// A single leaf is returned as `canonical`; concurrent leaves are returned as
+/// an explicit conflict and must not be mutated until the application resolves it.
+#[hdk_extern]
+pub fn get_transaction_resolution(
+    transaction_hash: ActionHash,
+) -> ExternResult<Option<TransactionResolution>> {
+    resolution::resolve_transaction(transaction_hash)
+}
 
-            Ok(Some(TransactionOutput {
-                transaction_hash,
-                transaction,
-            }))
-        }
-        None => Ok(None),
+
+/// Approve one existing branch of an unsafe transaction conflict.
+#[hdk_extern]
+pub fn approve_transaction_conflict(
+    input: ApproveTransactionConflictInput,
+) -> ExternResult<TransactionConflictApprovalOutput> {
+    let resolution = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    authority::ensure_resolution_policy_version(resolution.policy_version)?;
+    if resolution.state != TransactionResolutionState::Conflicted {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflict approval requires an unresolved multi-head transaction".into(),
+        )));
     }
+    let selected = authority::selected_head(&resolution.heads, &input.selected_head_hash)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Selected head is not a current transaction leaf".into(),
+            ))
+        })?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != selected.transaction.buyer && caller != selected.transaction.seller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the authoritative buyer or seller may approve a conflict branch".into(),
+        )));
+    }
+
+    authority::create_conflict_approval(
+        resolution.root_transaction_hash,
+        authority::current_head_hashes(&resolution.heads),
+        input.selected_head_hash,
+        input.rationale,
+    )
+}
+
+/// Publish the final bilateral decision after buyer and seller approve the same branch.
+#[hdk_extern]
+pub fn finalize_bilateral_transaction_conflict(
+    input: FinalizeBilateralTransactionConflictInput,
+) -> ExternResult<TransactionResolution> {
+    let current = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    authority::ensure_resolution_policy_version(current.policy_version)?;
+    if current.state != TransactionResolutionState::Conflicted {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Bilateral finalization requires an unresolved multi-head transaction".into(),
+        )));
+    }
+
+    let buyer_approval = authority::get_conflict_approval(input.buyer_approval_hash.clone())?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Buyer approval not found".into()))
+        })?;
+    let seller_approval = authority::get_conflict_approval(input.seller_approval_hash.clone())?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Seller approval not found".into()))
+        })?;
+    let expected_heads = authority::current_head_hashes(&current.heads);
+    if buyer_approval.approval.head_hashes != expected_heads
+        || seller_approval.approval.head_hashes != expected_heads
+        || buyer_approval.approval.selected_head_hash
+            != seller_approval.approval.selected_head_hash
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Buyer and seller approvals do not bind the same current conflict and selected head"
+                .into(),
+        )));
+    }
+
+    authority::create_conflict_resolution(
+        current.root_transaction_hash.clone(),
+        expected_heads,
+        buyer_approval.approval.selected_head_hash,
+        TransactionConflictAuthority::Bilateral {
+            buyer_approval_hash: input.buyer_approval_hash,
+            seller_approval_hash: input.seller_approval_hash,
+        },
+        input.summary,
+    )?;
+
+    resolution::resolve_transaction(current.root_transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction disappeared".into())))
+}
+
+
+/// Publish an arbitration-authorized projection for an exact unsafe conflict.
+#[hdk_extern]
+pub fn apply_arbitration_transaction_conflict(
+    input: ApplyArbitrationTransactionConflictInput,
+) -> ExternResult<TransactionResolution> {
+    let current = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    authority::ensure_resolution_policy_version(current.policy_version)?;
+    if current.state != TransactionResolutionState::Conflicted {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Arbitration projection requires an unresolved multi-head transaction".into(),
+        )));
+    }
+    let expected_heads = authority::current_head_hashes(&current.heads);
+
+    let dispute_resolution: Option<DisputeResolutionAuthorityWire> = remote_calls::call_zome(
+        "arbitration",
+        "get_dispute_resolution",
+        input.dispute_hash.clone(),
+    )?;
+    let dispute_resolution = dispute_resolution.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Conflict dispute not found".into()))
+    })?;
+    let dispute = dispute_resolution.current()?;
+    if dispute_resolution.root_dispute_hash != input.dispute_hash
+        || dispute.dispute.transaction_hash != current.root_transaction_hash
+        || dispute.dispute.conflict_heads != expected_heads
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Arbitration dispute is not bound to this exact transaction conflict".into(),
+        )));
+    }
+    if !matches!(
+        dispute.dispute.status,
+        DisputeStatusAuthorityWire::ResolvedBuyer | DisputeStatusAuthorityWire::ResolvedSeller
+    ) || dispute.dispute.result_hash.as_ref() != Some(&input.result_hash)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Conflict dispute is not resolved by the supplied arbitration result".into(),
+        )));
+    }
+    let caller = agent_info()?.agent_initial_pubkey;
+    if !dispute.dispute.arbitrators.contains(&caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an assigned arbitrator may publish the transaction projection".into(),
+        )));
+    }
+
+    let result: Option<ArbitrationResultOutputAuthorityWire> = remote_calls::call_zome(
+        "arbitration",
+        "get_arbitration_result",
+        input.dispute_hash.clone(),
+    )?;
+    let result = result.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Arbitration result not found".into()))
+    })?;
+    if result.result_hash != input.result_hash
+        || result.result.dispute_hash != input.dispute_hash
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Supplied result does not match the dispute's unique result".into(),
+        )));
+    }
+
+    let mut winner_heads = Vec::new();
+    for head in &current.heads {
+        let record = get(head.transaction_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "A transaction conflict head became unavailable".into(),
+            ))
+        })?;
+        if record.action().author() == &result.result.winner {
+            winner_heads.push(head.transaction_hash.clone());
+        }
+    }
+    if winner_heads.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Arbitration winner authored {} conflict heads; exactly one is required",
+            winner_heads.len()
+        ))));
+    }
+    let selected_head_hash = winner_heads.remove(0);
+
+    authority::create_conflict_resolution(
+        current.root_transaction_hash.clone(),
+        expected_heads,
+        selected_head_hash,
+        TransactionConflictAuthority::Arbitration {
+            dispute_hash: input.dispute_hash,
+            result_hash: input.result_hash,
+        },
+        input.summary,
+    )?;
+
+    resolution::resolve_transaction(current.root_transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction disappeared".into())))
+}
+
+#[hdk_extern]
+pub fn get_transaction_conflict_approvals(
+    transaction_hash: ActionHash,
+) -> ExternResult<Vec<TransactionConflictApprovalOutput>> {
+    let current = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    authority::get_conflict_approvals(current.root_transaction_hash)
+}
+
+#[hdk_extern]
+pub fn get_transaction_conflict_resolutions(
+    transaction_hash: ActionHash,
+) -> ExternResult<Vec<TransactionConflictResolutionOutput>> {
+    let current = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    authority::get_conflict_resolutions(current.root_transaction_hash)
 }
 
 /// Get all transactions for the current user (as buyer or seller)
@@ -138,6 +369,41 @@ pub fn get_my_transactions(_: ()) -> ExternResult<TransactionsResponse> {
     Ok(TransactionsResponse { transactions })
 }
 
+/// Get conflict-aware transaction resolutions for the current user.
+///
+/// Unlike `get_my_transactions`, this endpoint preserves branch evidence so the UI
+/// can stop lifecycle actions and present the competing heads.
+#[hdk_extern]
+pub fn get_my_transaction_resolutions(_: ()) -> ExternResult<TransactionResolutionsResponse> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let mut roots = Vec::new();
+
+    for link_type in [LinkTypes::BuyerToTransactions, LinkTypes::SellerToTransactions] {
+        for link in link_queries::get_links_local(agent.clone(), link_type)? {
+            let Some(action_hash) = link.target.into_action_hash() else {
+                continue;
+            };
+            let Some(resolution) = resolution::resolve_transaction(action_hash)? else {
+                continue;
+            };
+            if roots.contains(&resolution.root_transaction_hash) {
+                continue;
+            }
+            roots.push(resolution.root_transaction_hash.clone());
+        }
+    }
+
+    roots.sort_by_key(ToString::to_string);
+    let mut resolutions = Vec::with_capacity(roots.len());
+    for root in roots {
+        if let Some(resolution) = resolution::resolve_transaction(root)? {
+            resolutions.push(resolution);
+        }
+    }
+
+    Ok(TransactionResolutionsResponse { resolutions })
+}
+
 /// Seller confirms the transaction
 ///
 /// State transition: Pending → Confirmed
@@ -166,234 +432,194 @@ pub fn mark_shipped(input: MarkShippedInput) -> ExternResult<TransactionOutput> 
     )
 }
 
-/// Buyer confirms delivery
+/// Buyer confirms delivery and projects one immutable fulfillment event.
 ///
-/// State transition: Shipped → Delivered
+/// State transition: Shipped → Delivered. Retrying against an already Delivered
+/// transaction does not create a new revision; it only recovers the idempotent
+/// reputation projection.
 #[hdk_extern]
 pub fn confirm_delivery(transaction_hash: ActionHash) -> ExternResult<TransactionOutput> {
-    update_transaction_status(
-        transaction_hash,
-        TransactionStatus::Delivered,
-        None,
-        vec![TransactionStatus::Shipped],
-        RequiredParty::Buyer,
-    )
+    let (_root, current) = require_resolved_transaction(transaction_hash.clone())?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != current.transaction.buyer {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the buyer may confirm delivery".into()
+        )));
+    }
+
+    let delivered = if current.transaction.status == TransactionStatus::Delivered {
+        current
+    } else {
+        update_transaction_status(
+            transaction_hash,
+            TransactionStatus::Delivered,
+            None,
+            vec![TransactionStatus::Shipped],
+            RequiredParty::Buyer,
+        )?
+    };
+    project_fulfillment_reputation(delivered.transaction_hash.clone())?;
+    Ok(delivered)
 }
 
-/// Complete the transaction
+fn project_fulfillment_reputation(transaction_hash: ActionHash) -> ExternResult<()> {
+    let _: ReputationEventOutputWire = remote_calls::call_zome(
+        "reputation",
+        "record_fulfillment_reputation",
+        transaction_hash,
+    )?;
+    Ok(())
+}
+
+/// Compatibility wrapper for the former local `Delivered -> Completed` update.
 ///
-/// State transition: Delivered → Completed
-/// This triggers MATL score updates for both buyer and seller
-/// and reports the transaction to Bridge for cross-app reputation sharing.
+/// Settlement is now represented by an authoritative Finance record instead of
+/// a Marketplace transaction status that a modified local client could forge.
+/// The returned transaction therefore remains `Delivered`; callers must inspect
+/// `get_transaction_settlement_status` for economic finality.
 #[hdk_extern]
 pub fn complete_transaction(transaction_hash: ActionHash) -> ExternResult<TransactionOutput> {
-    // Get current transaction
-    let current = get_transaction(transaction_hash.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Transaction not found".into())
-    ))?;
+    let settlement = settle_transaction(transaction_hash.clone())?;
+    if !settlement.settled {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Finance settlement did not reach Completed: {}",
+            settlement
+                .error
+                .unwrap_or_else(|| format!("state {:?}", settlement.state))
+        ))));
+    }
+    let (_root, current) = require_resolved_transaction(transaction_hash)?;
+    Ok(current)
+}
 
-    // Verify state transition is valid
+/// Initiate or recover one idempotent Finance settlement for a delivered
+/// transaction. This function never writes a Marketplace `Completed` revision.
+#[hdk_extern]
+pub fn settle_transaction(
+    transaction_hash: ActionHash,
+) -> ExternResult<TransactionSettlementResult> {
+    let (root_transaction_hash, current) = require_resolved_transaction(transaction_hash)?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != current.transaction.buyer {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the buyer may initiate settlement".into()
+        )));
+    }
     if current.transaction.status != TransactionStatus::Delivered {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot complete transaction from status {:?}",
+            "Settlement requires Delivered status, found {:?}",
             current.transaction.status
         ))));
     }
-
-    // Settle in the finance cluster BEFORE transitioning to Completed.
-    // settle_transaction_in_finance previously existed but was never called
-    // from anywhere in the transaction lifecycle — marketplace transactions
-    // completed purely on local state with zero SAP ever moving, success or
-    // failure notwithstanding. This makes real settlement a precondition
-    // for completion: the transaction stays in Delivered (unchanged,
-    // retriable) if settlement fails, rather than silently completing
-    // unpaid. See MYCELIX_REVIEW.md P1 #4.
-    //
-    // NOTE: this will currently fail with a role-not-found error in any
-    // deployment where marketplace's happ.yaml doesn't declare a finance
-    // role (the case as of 2026-04-17 per
-    // mycelix-workspace/happs/happ.yaml's "deliberately excluded" note) —
-    // that's a separate, ops-level deployment-bundle decision, not
-    // something this code fix can resolve on its own. The fix here makes
-    // completion CORRECT once marketplace and finance are actually
-    // deployed together; it does not by itself change what's deployed.
-    let settlement = settle_transaction_in_finance(transaction_hash.clone())?;
-    if !settlement.settled {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot complete transaction: finance settlement failed ({}). Transaction remains in \
-             Delivered status and can be retried.",
-            settlement
-                .error
-                .unwrap_or_else(|| "unknown error".to_string())
-        ))));
-    }
-
-    // Update transaction status
-    let mut updated_transaction = current.transaction.clone();
-    updated_transaction.status = TransactionStatus::Completed;
-    updated_transaction.updated_at = time::now()?;
-    updated_transaction.epistemic.materiality = MaterialityLevel::M2Persistent;
-
-    let new_action_hash = update_entry(transaction_hash, &updated_transaction)?;
-
-    // Call reputation zome to update MATL scores
-    // This is where the 45% Byzantine tolerance magic happens!
-    // Use shared utility for remote calls
-    remote_calls::call_zome_void(
-        "reputation",
-        "update_matl_score",
-        UpdateMatlInput {
-            agent: updated_transaction.seller.clone(),
-            successful: true,
-            transaction_value_cents: updated_transaction.total_price_cents,
-        },
-    )?;
-
-    // Report to Bridge for cross-app reputation sharing
-    // This allows the seller's reputation to be visible in other apps
-    let seller_did = bridge::agent_to_did(&updated_transaction.seller);
-    let bridge_report = bridge::ReportReputationInput {
-        did: seller_did,
-        positive: true,
-        value_cents: updated_transaction.total_price_cents,
-        app_id: APP_ID.to_string(),
-        context: Some(format!("marketplace_transaction:{}", new_action_hash)),
-    };
-
-    // Report seller reputation (gracefully handle Bridge unavailability)
-    match bridge::report_reputation(bridge_report) {
-        bridge::BridgeResult::Success(_) => {
-            // Successfully reported to Bridge
-        }
-        bridge::BridgeResult::Unavailable => {
-            // Bridge not available - this is fine, local reputation still works
-            // Could emit a debug metric here if desired
-        }
-        bridge::BridgeResult::Error(e) => {
-            // Log error but don't fail the transaction
-            // The local reputation update already succeeded
-            monitoring::emit_metric(
-                monitoring::MetricType::BridgeError,
-                0.0,
-                Some(updated_transaction.seller.clone()),
-                Some(format!("bridge_report_error:{}", e)),
-            )?;
-        }
-    }
-
-    // Also report buyer reputation (positive for completing payment)
-    let buyer_did = bridge::agent_to_did(&updated_transaction.buyer);
-    let buyer_report = bridge::ReportReputationInput {
-        did: buyer_did,
-        positive: true,
-        value_cents: updated_transaction.total_price_cents,
-        app_id: APP_ID.to_string(),
-        context: Some("buyer_completed_transaction".to_string()),
-    };
-
-    // Report buyer reputation (gracefully handle Bridge unavailability)
-    let _ = bridge::report_reputation(buyer_report); // Ignore result for buyer
-
-    // Emit monitoring metric
-    monitoring::emit_metric(
-        monitoring::MetricType::TransactionCompleted,
-        updated_transaction.total_price_cents as f64,
-        Some(updated_transaction.buyer.clone()),
-        Some(format!("seller:{:?}", updated_transaction.seller)),
-    )?;
-
-    Ok(TransactionOutput {
-        transaction_hash: new_action_hash,
-        transaction: updated_transaction,
-    })
+    process_transaction_settlement(root_transaction_hash, current)
 }
 
-/// Dispute a transaction
-///
-/// State transition: Any (except Completed/Cancelled) → Disputed
-/// Reports negative reputation signal to Bridge (pending arbitration outcome).
+/// Recover Finance settlement state by the stable transaction root. Buyer and
+/// seller may query; Finance independently authenticates the caller as a party.
 #[hdk_extern]
-pub fn dispute_transaction(input: DisputeTransactionInput) -> ExternResult<TransactionOutput> {
-    // Get current transaction
-    let current = get_transaction(input.transaction_hash.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Transaction not found".into())
-    ))?;
+pub fn get_transaction_settlement_status(
+    transaction_hash: ActionHash,
+) -> ExternResult<TransactionSettlementResult> {
+    let (root_transaction_hash, current) = require_resolved_transaction(transaction_hash)?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != current.transaction.buyer && caller != current.transaction.seller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only transaction parties may inspect settlement status".into()
+        )));
+    }
+    query_transaction_settlement(root_transaction_hash, current)
+}
 
-    let agent_info = agent_info()?;
-    let caller = agent_info.agent_initial_pubkey;
+/// Open one recoverable arbitration case for a transaction.
+///
+/// The transaction revision is moved to Disputed first, then arbitration is
+/// called idempotently. If case creation or assignment fails, retrying this
+/// function reuses the Disputed revision and the existing case rather than
+/// creating another transaction branch.
+#[hdk_extern]
+pub fn open_dispute(input: OpenDisputeInput) -> ExternResult<OpenDisputeOutput> {
+    validate_dispute_request(&input.reason, &input.evidence_cids)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
 
-    // Verify caller is buyer or seller
+    let (root_transaction_hash, current) =
+        require_resolved_transaction(input.transaction_hash.clone())?;
+    let caller = agent_info()?.agent_initial_pubkey;
+
     if caller != current.transaction.buyer && caller != current.transaction.seller {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only buyer or seller can dispute transaction".into()
         )));
     }
-
-    // Cannot dispute completed or cancelled transactions
-    if current.transaction.status == TransactionStatus::Completed
-        || current.transaction.status == TransactionStatus::Cancelled
-    {
+    if matches!(
+        current.transaction.status,
+        TransactionStatus::Completed | TransactionStatus::Cancelled
+    ) {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Cannot dispute transaction with status {:?}",
             current.transaction.status
         ))));
     }
 
-    // Update transaction status
-    let mut updated_transaction = current.transaction.clone();
-    updated_transaction.status = TransactionStatus::Disputed;
-    updated_transaction.updated_at = time::now()?;
-
-    let new_action_hash = update_entry(input.transaction_hash, &updated_transaction)?;
-
-    // Store dispute reason (linked to transaction)
-    // This will be used by the arbitration zome
-    create_link(
-        new_action_hash.clone(),
-        new_action_hash.clone(),
-        LinkTypes::ListingToTransactions, // Reusing link type for simplicity
-        (),
-    )?;
-
-    // Report dispute to Bridge (negative signal, pending arbitration)
-    // The other party (not the caller) gets a potential negative mark
-    // This will be resolved when arbitration completes
-    let other_party = if caller == current.transaction.buyer {
-        &current.transaction.seller
+    let disputed = if current.transaction.status == TransactionStatus::Disputed {
+        current
     } else {
-        &current.transaction.buyer
+        let mut updated_transaction = current.transaction.clone();
+        updated_transaction.status = TransactionStatus::Disputed;
+        updated_transaction.updated_at = time::now()?;
+        let transaction_hash = update_entry(current.transaction_hash, &updated_transaction)?;
+        TransactionOutput {
+            transaction_hash,
+            transaction: updated_transaction,
+        }
     };
 
-    let other_did = bridge::agent_to_did(other_party);
-    let dispute_report = bridge::ReportReputationInput {
-        did: other_did,
-        positive: false, // Negative signal for dispute
-        value_cents: updated_transaction.total_price_cents,
-        app_id: APP_ID.to_string(),
-        context: Some(format!(
-            "dispute_filed:{}:reason:{}",
-            new_action_hash, input.reason
-        )),
-    };
+    let dispute: DisputeOutputWire = remote_calls::call_zome(
+        "arbitration",
+        "file_dispute",
+        FileDisputeInputWire {
+            transaction_hash: root_transaction_hash,
+            reason: input.reason,
+            evidence_cids: input.evidence_cids,
+        },
+    )?;
+    let dispute_resolution: Option<DisputeResolutionRootWire> = remote_calls::call_zome(
+        "arbitration",
+        "get_dispute_resolution",
+        dispute.dispute_hash,
+    )?;
+    let root_dispute_hash = dispute_resolution
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Arbitration case was created but its stable root could not be resolved".into(),
+            ))
+        })?
+        .root_dispute_hash;
 
-    // Report to Bridge (gracefully handle unavailability)
-    let _ = bridge::report_reputation(dispute_report);
-
-    // Emit monitoring metric
     monitoring::emit_metric(
         monitoring::MetricType::TransactionDisputed,
-        updated_transaction.total_price_cents as f64,
+        disputed.transaction.total_price_cents as f64,
         Some(caller),
         Some(format!(
-            "buyer:{:?},seller:{:?}",
-            updated_transaction.buyer, updated_transaction.seller
+            "buyer:{:?},seller:{:?},dispute:{}",
+            disputed.transaction.buyer, disputed.transaction.seller, root_dispute_hash
         )),
     )?;
 
-    Ok(TransactionOutput {
-        transaction_hash: new_action_hash,
-        transaction: updated_transaction,
+    Ok(OpenDisputeOutput {
+        transaction: disputed,
+        dispute_hash: root_dispute_hash,
     })
+}
+
+/// Backwards-compatible wrapper for callers that do not attach evidence CIDs.
+#[hdk_extern]
+pub fn dispute_transaction(input: DisputeTransactionInput) -> ExternResult<TransactionOutput> {
+    Ok(open_dispute(OpenDisputeInput {
+        transaction_hash: input.transaction_hash,
+        reason: input.reason,
+        evidence_cids: Vec::new(),
+    })?
+    .transaction)
 }
 
 /// Cancel a transaction
@@ -401,10 +627,8 @@ pub fn dispute_transaction(input: DisputeTransactionInput) -> ExternResult<Trans
 /// State transition: Pending/Confirmed → Cancelled
 #[hdk_extern]
 pub fn cancel_transaction(transaction_hash: ActionHash) -> ExternResult<TransactionOutput> {
-    // Get current transaction
-    let current = get_transaction(transaction_hash.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Transaction not found".into())
-    ))?;
+    // Resolve the canonical head before applying cancellation.
+    let (_root_transaction_hash, current) = require_resolved_transaction(transaction_hash)?;
 
     let agent_info = agent_info()?;
     let caller = agent_info.agent_initial_pubkey;
@@ -432,7 +656,7 @@ pub fn cancel_transaction(transaction_hash: ActionHash) -> ExternResult<Transact
     updated_transaction.status = TransactionStatus::Cancelled;
     updated_transaction.updated_at = time::now()?;
 
-    let new_action_hash = update_entry(transaction_hash, &updated_transaction)?;
+    let new_action_hash = update_entry(current.transaction_hash, &updated_transaction)?;
 
     Ok(TransactionOutput {
         transaction_hash: new_action_hash,
@@ -459,91 +683,469 @@ pub fn get_listing_transactions(listing_hash: ActionHash) -> ExternResult<Transa
     Ok(TransactionsResponse { transactions })
 }
 
-// ===== Gap 2: Finance Settlement Bridge =====
 
-/// Result of attempting to settle a marketplace transaction in the finance cluster.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ListingOutputForPurchase {
+    listing_hash: ActionHash,
+    listing: Listing,
+    seller_agent_id: AgentPubKey,
+}
+
+fn get_listing_for_purchase(listing_hash: ActionHash) -> ExternResult<ListingOutputForPurchase> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::from("listings"),
+        FunctionName::from("get_listing"),
+        None,
+        listing_hash,
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(extern_io) => {
+            let listing: Option<ListingOutputForPurchase> = extern_io.decode().map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode listings.get_listing response: {error:?}"
+                )))
+            })?;
+            listing.ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest("Listing not found".into()))
+            })
+        }
+        other => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "listings.get_listing failed: {other:?}"
+        )))),
+    }
+}
+
+fn validate_purchase_terms(
+    input: &CreateTransactionInput,
+    listing: &ListingOutputForPurchase,
+    buyer: &AgentPubKey,
+) -> Result<u64, String> {
+    security::validate_quantity(input.quantity)?;
+
+    if input.listing_hash != listing.listing_hash {
+        return Err("Listing response did not match the requested listing".into());
+    }
+    if listing.listing.status != ListingStatus::Active {
+        return Err("Listing is not active".into());
+    }
+    if input.quantity > listing.listing.quantity_available {
+        return Err(format!(
+            "Requested quantity {} exceeds available quantity {}",
+            input.quantity, listing.listing.quantity_available
+        ));
+    }
+    if buyer == &listing.seller_agent_id {
+        return Err("Seller cannot purchase their own listing".into());
+    }
+    if input.seller != listing.seller_agent_id {
+        return Err("Submitted seller does not match the listing owner".into());
+    }
+
+    let expected_total = listing
+        .listing
+        .price_cents
+        .checked_mul(u64::from(input.quantity))
+        .ok_or_else(|| "Transaction total overflow".to_string())?;
+
+    if input.total_price_cents != expected_total {
+        return Err(format!(
+            "Submitted total {} does not match listing total {}",
+            input.total_price_cents, expected_total
+        ));
+    }
+
+    Ok(expected_total)
+}
+
+fn require_resolved_transaction(
+    transaction_hash: ActionHash,
+) -> ExternResult<(ActionHash, TransactionOutput)> {
+    let resolution = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    let root = resolution.root_transaction_hash.clone();
+    let current = resolution
+        .into_resolved()
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
+    Ok((root, current))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum DisputeResolutionStateAuthorityWire {
+    Resolved,
+    Conflicted,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DisputeResolutionAuthorityWire {
+    root_dispute_hash: ActionHash,
+    state: DisputeResolutionStateAuthorityWire,
+    canonical: Option<DisputeOutputAuthorityWire>,
+    heads: Vec<DisputeOutputAuthorityWire>,
+}
+
+impl DisputeResolutionAuthorityWire {
+    fn current(&self) -> ExternResult<&DisputeOutputAuthorityWire> {
+        match (&self.state, &self.canonical) {
+            (DisputeResolutionStateAuthorityWire::Resolved, Some(current)) => Ok(current),
+            (DisputeResolutionStateAuthorityWire::Resolved, None) => Err(wasm_error!(
+                WasmErrorInner::Guest("Resolved dispute omitted its current revision".into())
+            )),
+            (DisputeResolutionStateAuthorityWire::Conflicted, _) => Err(wasm_error!(
+                WasmErrorInner::Guest(format!(
+                    "Dispute has {} concurrent heads",
+                    self.heads.len()
+                ))
+            )),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DisputeOutputAuthorityWire {
+    dispute_hash: ActionHash,
+    dispute: DisputeAuthorityWire,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DisputeAuthorityWire {
+    transaction_hash: ActionHash,
+    buyer: AgentPubKey,
+    seller: AgentPubKey,
+    conflict_heads: Vec<ActionHash>,
+    status: DisputeStatusAuthorityWire,
+    arbitrators: Vec<AgentPubKey>,
+    result_hash: Option<ActionHash>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum DisputeStatusAuthorityWire {
+    Filed,
+    UnderReview,
+    Voting,
+    ResolvedBuyer,
+    ResolvedSeller,
+    Withdrawn,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ArbitrationResultOutputAuthorityWire {
+    result_hash: ActionHash,
+    result: ArbitrationResultAuthorityWire,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ArbitrationResultAuthorityWire {
+    dispute_hash: ActionHash,
+    winner: AgentPubKey,
+    loser: AgentPubKey,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct FileDisputeInputWire {
+    transaction_hash: ActionHash,
+    reason: String,
+    evidence_cids: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ReputationEventOutputWire {
+    event_hash: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DisputeOutputWire {
+    dispute_hash: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DisputeResolutionRootWire {
+    root_dispute_hash: ActionHash,
+}
+
+fn validate_dispute_request(reason: &str, evidence_cids: &[String]) -> Result<(), String> {
+    if reason.trim().is_empty() || reason.len() > 5000 {
+        return Err("Dispute reason must be 1-5000 characters".into());
+    }
+    if evidence_cids.len() > 32 {
+        return Err("Disputes may attach at most 32 evidence CIDs".into());
+    }
+    for cid in evidence_cids {
+        let valid = (cid.starts_with("Qm") && cid.len() == 46)
+            || (cid.starts_with('b') && (50..=100).contains(&cid.len()));
+        if !valid {
+            return Err(format!("Invalid IPFS CID: {cid}"));
+        }
+    }
+    Ok(())
+}
+
+// ===== Finance Settlement Bridge =====
+
+const FINANCE_ROLE: &str = "finance";
+const FINANCE_ZOME: &str = "finance_bridge";
+const MARKETPLACE_HAPP_ID: &str = "mycelix-marketplace";
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TransactionSettlementState {
+    Unavailable,
+    NotFound,
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Refunded,
+    Disputed,
+    Invalid,
+}
+
+/// Authoritative settlement projection for one stable Marketplace transaction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionSettlementResult {
+    pub root_transaction_hash: ActionHash,
+    pub transaction_revision_hash: ActionHash,
+    pub state: TransactionSettlementState,
     pub settled: bool,
-    pub finance_reference: Option<String>,
+    pub idempotency_reference: String,
+    pub finance_payment_id: Option<String>,
+    pub finance_action_hash: Option<ActionHash>,
     pub error: Option<String>,
 }
 
-/// Settle a completed marketplace transaction in the finance cluster.
-///
-/// Looks up the local transaction by `transaction_hash`, builds a cross-hApp
-/// payment payload, and calls the finance cluster via `CallTargetCell::OtherRole`.
-/// If the finance cluster is not installed the call will return `Err`, which is
-/// caught and surfaced as a non-fatal result.
-pub fn settle_transaction_in_finance(
-    transaction_hash: ActionHash,
-) -> ExternResult<TransactionSettlementResult> {
-    let output = match get_transaction(transaction_hash.clone())? {
-        Some(o) => o,
-        None => {
-            return Ok(TransactionSettlementResult {
-                settled: false,
-                finance_reference: None,
-                error: Some(format!("Transaction {} not found", transaction_hash)),
-            });
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+enum FinancePaymentStatusWire {
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Refunded,
+    Disputed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct FinancePaymentWire {
+    id: String,
+    source_happ: String,
+    from_did: String,
+    to_did: String,
+    amount: u64,
+    currency: String,
+    reference: String,
+    status: FinancePaymentStatusWire,
+    created_at: Timestamp,
+    completed_at: Option<Timestamp>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct FinancePaymentInputWire {
+    source_happ: String,
+    from_did: String,
+    to_did: String,
+    amount: u64,
+    currency: String,
+    reference: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct FinancePaymentLookupWire {
+    source_happ: String,
+    reference: String,
+}
+
+fn settlement_reference(root_transaction_hash: &ActionHash) -> String {
+    format!("marketplace_tx:{root_transaction_hash}")
+}
+
+fn settlement_terms(
+    root_transaction_hash: &ActionHash,
+    transaction: &Transaction,
+) -> FinancePaymentInputWire {
+    FinancePaymentInputWire {
+        source_happ: MARKETPLACE_HAPP_ID.into(),
+        from_did: format!("did:mycelix:{}", transaction.buyer),
+        to_did: format!("did:mycelix:{}", transaction.seller),
+        amount: transaction.total_price_cents,
+        currency: "SAP".into(),
+        reference: settlement_reference(root_transaction_hash),
+    }
+}
+
+fn decode_finance_payment(record: &Record) -> ExternResult<FinancePaymentWire> {
+    record
+        .entry()
+        .to_app_option::<FinancePaymentWire>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode Finance payment: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Finance response did not contain a payment entry".into()
+            ))
+        })
+}
+
+fn validate_finance_payment(
+    expected: &FinancePaymentInputWire,
+    payment: &FinancePaymentWire,
+) -> Result<(), String> {
+    if payment.source_happ != expected.source_happ
+        || payment.from_did != expected.from_did
+        || payment.to_did != expected.to_did
+        || payment.amount != expected.amount
+        || payment.currency != expected.currency
+        || payment.reference != expected.reference
+    {
+        return Err("Finance payment does not match authoritative transaction terms".into());
+    }
+    if payment.status == FinancePaymentStatusWire::Completed && payment.completed_at.is_none() {
+        return Err("Finance payment claims Completed without a completion timestamp".into());
+    }
+    Ok(())
+}
+
+fn project_finance_record(
+    root_transaction_hash: ActionHash,
+    current: TransactionOutput,
+    record: Record,
+) -> TransactionSettlementResult {
+    let reference = settlement_reference(&root_transaction_hash);
+    let action_hash = record.action_address().clone();
+    match decode_finance_payment(&record).and_then(|payment| {
+        let expected = settlement_terms(&root_transaction_hash, &current.transaction);
+        validate_finance_payment(&expected, &payment)
+            .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
+        Ok(payment)
+    }) {
+        Ok(payment) => {
+            let state = match payment.status {
+                FinancePaymentStatusWire::Pending => TransactionSettlementState::Pending,
+                FinancePaymentStatusWire::Processing => TransactionSettlementState::Processing,
+                FinancePaymentStatusWire::Completed => TransactionSettlementState::Completed,
+                FinancePaymentStatusWire::Failed => TransactionSettlementState::Failed,
+                FinancePaymentStatusWire::Refunded => TransactionSettlementState::Refunded,
+                FinancePaymentStatusWire::Disputed => TransactionSettlementState::Disputed,
+            };
+            TransactionSettlementResult {
+                root_transaction_hash,
+                transaction_revision_hash: current.transaction_hash,
+                settled: state == TransactionSettlementState::Completed,
+                state,
+                idempotency_reference: reference,
+                finance_payment_id: Some(payment.id),
+                finance_action_hash: Some(action_hash),
+                error: None,
+            }
         }
-    };
+        Err(error) => TransactionSettlementResult {
+            root_transaction_hash,
+            transaction_revision_hash: current.transaction_hash,
+            state: TransactionSettlementState::Invalid,
+            settled: false,
+            idempotency_reference: reference,
+            finance_payment_id: None,
+            finance_action_hash: Some(action_hash),
+            error: Some(format!("{error:?}")),
+        },
+    }
+}
 
-    let tx = &output.transaction;
+fn unavailable_settlement(
+    root_transaction_hash: ActionHash,
+    current: TransactionOutput,
+    error: impl Into<String>,
+) -> TransactionSettlementResult {
+    TransactionSettlementResult {
+        idempotency_reference: settlement_reference(&root_transaction_hash),
+        root_transaction_hash,
+        transaction_revision_hash: current.transaction_hash,
+        state: TransactionSettlementState::Unavailable,
+        settled: false,
+        finance_payment_id: None,
+        finance_action_hash: None,
+        error: Some(error.into()),
+    }
+}
 
-    // Convert AgentPubKey to a DID string. MUST be "did:mycelix:{agent}" —
-    // finance's verify_caller_is_did compares this exact string against
-    // format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey)
-    // (mycelix-finance/zomes/shared/src/lib.rs). Neither "did:key:{:?}"
-    // (Debug format, not even the same shape as Display) nor
-    // bridge::agent_to_did's "did:holo:{agent}" match this — every
-    // settlement attempt was guaranteed to fail auth regardless of Phase 1's
-    // process_payment fix. See MYCELIX_REVIEW.md P1 #4.
-    let buyer_did = format!("did:mycelix:{}", tx.buyer);
-    let seller_did = format!("did:mycelix:{}", tx.seller);
-
-    let payload = serde_json::json!({
-        "source_happ": "mycelix-marketplace",
-        "from_did": buyer_did,
-        "to_did": seller_did,
-        "amount": tx.total_price_cents,
-        "currency": "SAP",
-        "reference": format!("marketplace_tx:{}", transaction_hash),
-    });
-
-    let encoded =
-        ExternIO::encode(payload).map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
-
+fn call_finance_record(
+    function: &str,
+    payload: impl Serialize + std::fmt::Debug,
+) -> Result<Record, String> {
+    let encoded = ExternIO::encode(payload).map_err(|e| e.to_string())?;
     match call(
-        CallTargetCell::OtherRole("finance".into()),
-        ZomeName::from("finance_bridge"),
-        FunctionName::from("process_payment"),
+        CallTargetCell::OtherRole(FINANCE_ROLE.into()),
+        ZomeName::from(FINANCE_ZOME),
+        FunctionName::from(function),
         None,
         encoded,
     ) {
-        Ok(ZomeCallResponse::Ok(data)) => {
-            let value: serde_json::Value = data.decode().unwrap_or(serde_json::Value::Null);
-            let finance_reference = value
-                .get("entry")
-                .and_then(|e| e.get("id"))
-                .and_then(|id| id.as_str())
-                .map(|s| s.to_string());
-            Ok(TransactionSettlementResult {
-                settled: true,
-                finance_reference,
-                error: None,
-            })
-        }
-        Ok(other) => Ok(TransactionSettlementResult {
+        Ok(ZomeCallResponse::Ok(data)) => data
+            .decode::<Record>()
+            .map_err(|e| format!("Finance returned an invalid Record: {e:?}")),
+        Ok(other) => Err(format!("Finance rejected the request: {other:?}")),
+        Err(error) => Err(format!("Finance role unavailable: {error:?}")),
+    }
+}
+
+fn call_finance_optional_record(
+    function: &str,
+    payload: impl Serialize + std::fmt::Debug,
+) -> Result<Option<Record>, String> {
+    let encoded = ExternIO::encode(payload).map_err(|e| e.to_string())?;
+    match call(
+        CallTargetCell::OtherRole(FINANCE_ROLE.into()),
+        ZomeName::from(FINANCE_ZOME),
+        FunctionName::from(function),
+        None,
+        encoded,
+    ) {
+        Ok(ZomeCallResponse::Ok(data)) => data
+            .decode::<Option<Record>>()
+            .map_err(|e| format!("Finance returned an invalid optional Record: {e:?}")),
+        Ok(other) => Err(format!("Finance rejected the request: {other:?}")),
+        Err(error) => Err(format!("Finance role unavailable: {error:?}")),
+    }
+}
+
+fn process_transaction_settlement(
+    root_transaction_hash: ActionHash,
+    current: TransactionOutput,
+) -> ExternResult<TransactionSettlementResult> {
+    let expected = settlement_terms(&root_transaction_hash, &current.transaction);
+    match call_finance_record("process_payment_remote", expected) {
+        Ok(record) => Ok(project_finance_record(root_transaction_hash, current, record)),
+        Err(error) => Ok(unavailable_settlement(root_transaction_hash, current, error)),
+    }
+}
+
+fn query_transaction_settlement(
+    root_transaction_hash: ActionHash,
+    current: TransactionOutput,
+) -> ExternResult<TransactionSettlementResult> {
+    let reference = settlement_reference(&root_transaction_hash);
+    let lookup = FinancePaymentLookupWire {
+        source_happ: MARKETPLACE_HAPP_ID.into(),
+        reference: reference.clone(),
+    };
+    match call_finance_optional_record("verify_payment_status_remote", lookup) {
+        Ok(Some(record)) => Ok(project_finance_record(root_transaction_hash, current, record)),
+        Ok(None) => Ok(TransactionSettlementResult {
+            root_transaction_hash,
+            transaction_revision_hash: current.transaction_hash,
+            state: TransactionSettlementState::NotFound,
             settled: false,
-            finance_reference: None,
-            error: Some(format!("Finance cluster rejected settlement: {:?}", other)),
+            idempotency_reference: reference,
+            finance_payment_id: None,
+            finance_action_hash: None,
+            error: None,
         }),
-        Err(_) => Ok(TransactionSettlementResult {
-            settled: false,
-            finance_reference: None,
-            error: Some("Finance cluster not available".to_string()),
-        }),
+        Err(error) => Ok(unavailable_settlement(root_transaction_hash, current, error)),
     }
 }
 
@@ -564,10 +1166,9 @@ fn update_transaction_status(
     allowed_from_states: Vec<TransactionStatus>,
     required_caller: RequiredParty,
 ) -> ExternResult<TransactionOutput> {
-    // Get current transaction
-    let current = get_transaction(transaction_hash.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Transaction not found".into())
-    ))?;
+    // Always extend the single observed leaf, even if the caller supplied the
+    // stable root or an older revision hash. Conflicts fail closed.
+    let (_root_transaction_hash, current) = require_resolved_transaction(transaction_hash)?;
 
     // Verify caller is the party authorized for this transition — mirrors
     // the buyer/seller check already used correctly by dispute_transaction
@@ -605,7 +1206,7 @@ fn update_transaction_status(
     }
 
     // Update entry
-    let new_action_hash = update_entry(transaction_hash, &updated_transaction)?;
+    let new_action_hash = update_entry(current.transaction_hash, &updated_transaction)?;
 
     Ok(TransactionOutput {
         transaction_hash: new_action_hash,
@@ -614,6 +1215,29 @@ fn update_transaction_status(
 }
 
 // ===== Input/Output Types =====
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ApproveTransactionConflictInput {
+    pub transaction_hash: ActionHash,
+    pub selected_head_hash: ActionHash,
+    pub rationale: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FinalizeBilateralTransactionConflictInput {
+    pub transaction_hash: ActionHash,
+    pub buyer_approval_hash: ActionHash,
+    pub seller_approval_hash: ActionHash,
+    pub summary: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ApplyArbitrationTransactionConflictInput {
+    pub transaction_hash: ActionHash,
+    pub dispute_hash: ActionHash,
+    pub result_hash: ActionHash,
+    pub summary: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateTransactionInput {
@@ -635,22 +1259,33 @@ pub struct TransactionsResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionResolutionsResponse {
+    pub resolutions: Vec<TransactionResolution>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MarkShippedInput {
     pub transaction_hash: ActionHash,
     pub tracking_info: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DisputeTransactionInput {
+pub struct OpenDisputeInput {
     pub transaction_hash: ActionHash,
     pub reason: String,
+    pub evidence_cids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UpdateMatlInput {
-    pub agent: AgentPubKey,
-    pub successful: bool,
-    pub transaction_value_cents: u64,
+pub struct OpenDisputeOutput {
+    pub transaction: TransactionOutput,
+    pub dispute_hash: ActionHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DisputeTransactionInput {
+    pub transaction_hash: ActionHash,
+    pub reason: String,
 }
 
 // ===== Tests =====

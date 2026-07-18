@@ -462,8 +462,6 @@ exclude = [
     "mycelix-identity/crates/mycelix-crypto/src/pqc",
     "mycelix-identity/crates/mycelix-crypto/tests",
     "mycelix-identity/crates/mycelix-trust-registry",
-    "mycelix-desci/zomes/desci_claim/coordinator",
-    "mycelix-desci/zomes/desci_claim/integrity",
     "mycelix-position/lib/positioning",
     "mycelix-identity/zomes/bridge/coordinator",
     "mycelix-identity/zomes/bridge/integrity",
@@ -558,7 +556,7 @@ exclude = [
     "mycelix-pulse/desktop/src-tauri",
     "mycelix-pulse/holochain/crates/rate_limiter",
     "mycelix-pulse/holochain/crates/stake",
-    "mycelix-pulse/tests",
+    # "mycelix-pulse/tests", # own [workspace] - cannot be a member of another workspace (task #35)
     "mycelix-sensorium/crates/domain-admin",
     "mycelix-sensorium/crates/domain-commons",
     "mycelix-sensorium/crates/domain-finance",
@@ -652,7 +650,7 @@ members = [
     # 2026-07-03 while rebuilding praxis's frontend dist). Build/test standalone instead:
     # cargo test --manifest-path mycelix-praxis/tests/Cargo.toml -- --ignored
     "mycelix-property/tests",
-    "mycelix-pulse/tests",
+    # "mycelix-pulse/tests", # own [workspace] - cannot be a member of another workspace (task #35)
 
     # "mycelix-pulse/happ/backend-rs", # depends on dna/integrity, which has its own [workspace] (WASM profile isolation) — structural conflict, build standalone instead (task #35)
     # "mycelix-pulse/happ/cli", # pins holochain_conductor_api/holochain_types to the old 0.5 generation (vs 0.6 everywhere else) — internally inconsistent with its own holochain_client=0.7 pin, likely drifted rather than a deliberate compat target. Excluded rather than guessing at a bump; still builds standalone from its own directory (task #42)
@@ -714,7 +712,6 @@ members = [
     "mycelix-civic/zomes/*/*",
     "mycelix-personal/zomes/*/*",
     # "mycelix-legacy/zomes/*/*", # manifests-only scaffold, no src/lib.rs anywhere in the cluster — would break cargo check --workspace until real implementation lands (task #43)
-    "mycelix-desci/zomes/*/*",
 
     "happs/consensus/*",
     "happs/consensus/*/*",

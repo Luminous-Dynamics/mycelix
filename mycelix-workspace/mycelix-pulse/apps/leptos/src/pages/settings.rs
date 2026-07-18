@@ -403,7 +403,7 @@ pub fn SettingsPage() -> impl IntoView {
                                 <div class="setting-card">
                                     <span class="setting-label">{n}</span>
                                     {d.then(|| view! { <span class="sig-badge">" Default"</span> })}
-                                    <div class="sig-preview" inner_html=b />
+                                    <div class="sig-preview" style="white-space: pre-wrap">{b}</div>
                                 </div>
                             }
                         }).collect::<Vec<_>>()}
@@ -474,7 +474,18 @@ pub fn SettingsPage() -> impl IntoView {
                                     let t = t3.clone();
                                     wasm_bindgen_futures::spawn_local(async move {
                                         if hc.is_mock() { t.push("Mock mode — no conductor", "info"); return; }
-                                        match hc.call_zome::<(), serde_json::Value>("mail_messages", "get_folders", &()).await {
+                                        // get_folders returns Vec<(ActionHash, EmailFolder)> —
+                                        // decoding as serde_json::Value fails on the raw
+                                        // AgentPubKey/ActionHash bytes for any non-empty
+                                        // response; see mail_context.rs's FolderWireV1.
+                                        match hc
+                                            .call_zome::<(), Vec<(Vec<u8>, crate::mail_context::FolderWireV1)>>(
+                                                "mail_messages",
+                                                "get_folders",
+                                                &(),
+                                            )
+                                            .await
+                                        {
                                             Ok(_) => t.push("Conductor OK — zome responded", "success"),
                                             Err(e) => t.push(format!("Failed: {e}"), "error"),
                                         }
@@ -519,14 +530,20 @@ pub fn SettingsPage() -> impl IntoView {
                                             "Connected to a live conductor.".into(),
                                         ));
 
-                                        let folders = match hc.call_zome::<(), serde_json::Value>(
-                                            "mail_messages", "get_folders", &()
-                                        ).await {
+                                        // get_folders returns Vec<(ActionHash, EmailFolder)> —
+                                        // decoding as serde_json::Value fails on the raw
+                                        // AgentPubKey/ActionHash bytes for any non-empty
+                                        // response; see mail_context.rs's FolderWireV1.
+                                        let folders = match hc
+                                            .call_zome::<(), Vec<(Vec<u8>, crate::mail_context::FolderWireV1)>>(
+                                                "mail_messages",
+                                                "get_folders",
+                                                &(),
+                                            )
+                                            .await
+                                        {
                                             Ok(value) => {
-                                                let count = value.as_array()
-                                                    .map(|arr| arr.len())
-                                                    .or_else(|| value.get("folders").and_then(|v| v.as_array()).map(|arr| arr.len()))
-                                                    .unwrap_or(0);
+                                                let count = value.len();
                                                 steps.push((
                                                     "Folders".into(),
                                                     true,
@@ -540,11 +557,15 @@ pub fn SettingsPage() -> impl IntoView {
                                             }
                                         };
 
-                                        let contacts = match hc.call_zome::<(), Vec<serde_json::Value>>(
+                                        // get_all_contacts returns Vec<Contact> whose
+                                        // hash/agent_pub_key are raw bytes — decoding
+                                        // element-wise as serde_json::Value fails for any
+                                        // contact with a linked agent key.
+                                        let contacts = match hc.call_zome::<(), Vec<crate::zome_adapter::WireContact>>(
                                             "mail_contacts", "get_all_contacts", &()
                                         ).await {
                                             Ok(values) => {
-                                                let contacts = crate::zome_adapter::adapt_contact_values(values);
+                                                let contacts = crate::zome_adapter::adapt_contacts(values);
                                                 steps.push((
                                                     "Contacts".into(),
                                                     true,
@@ -558,15 +579,14 @@ pub fn SettingsPage() -> impl IntoView {
                                             }
                                         };
 
-                                        let inbox = match hc.call_zome::<serde_json::Value, serde_json::Value>(
+                                        // get_inbox returns Vec<EmailListItem> whose
+                                        // hash/sender are raw bytes — decoding as
+                                        // serde_json::Value fails for any non-empty inbox.
+                                        let inbox = match hc.call_zome::<serde_json::Value, Vec<crate::zome_adapter::WireEmailListItem>>(
                                             "mail_messages", "get_inbox", &serde_json::json!({ "limit": 5 })
                                         ).await {
                                             Ok(value) => {
-                                                let count = value.as_array()
-                                                    .map(|arr| arr.len())
-                                                    .or_else(|| value.get("records").and_then(|v| v.as_array()).map(|arr| arr.len()))
-                                                    .or_else(|| value.get("data").and_then(|v| v.as_array()).map(|arr| arr.len()))
-                                                    .unwrap_or(0);
+                                                let count = value.len();
                                                 steps.push((
                                                     "Inbox".into(),
                                                     true,
@@ -629,14 +649,17 @@ pub fn SettingsPage() -> impl IntoView {
                                             .and_then(|value| value.get("id"))
                                             .and_then(|value| value.as_str())
                                         {
-                                            match hc.call_zome::<serde_json::Value, Option<serde_json::Value>>(
+                                            // resolve_identity returns Option<AgentPubKey>
+                                            // (raw bytes) — Option<Vec<u8>> decodes it
+                                            // correctly where serde_json::Value cannot.
+                                            match hc.call_zome::<serde_json::Value, Option<Vec<u8>>>(
                                                 "mail_bridge", "resolve_identity", &serde_json::json!(did)
                                             ).await {
                                                 Ok(Some(agent)) => {
                                                     steps.push((
                                                         "Identity Bridge".into(),
                                                         true,
-                                                        format!("Resolved DID to agent key {}.", crate::zome_adapter::json_hash_to_string(&agent)),
+                                                        format!("Resolved DID to agent key {}.", crate::zome_adapter::base64_encode(&agent)),
                                                     ));
                                                 }
                                                 Ok(None) => {
@@ -655,11 +678,15 @@ pub fn SettingsPage() -> impl IntoView {
                                         let first_contact_email = contacts.as_ref()
                                             .and_then(|items| items.iter().find_map(|contact| contact.email.clone()));
                                         if let Some(email) = first_contact_email {
-                                            match hc.call_zome::<serde_json::Value, serde_json::Value>(
+                                            // get_contact_by_email returns Option<Contact>,
+                                            // whose hash/agent_pub_key are raw bytes —
+                                            // decoding as serde_json::Value fails whenever
+                                            // the matched contact has a linked agent key.
+                                            match hc.call_zome::<serde_json::Value, Option<crate::zome_adapter::WireContact>>(
                                                 "mail_contacts", "get_contact_by_email", &serde_json::json!(email.clone())
                                             ).await {
                                                 Ok(value) => {
-                                                    if crate::zome_adapter::adapt_contact_value(value).is_some() {
+                                                    if value.is_some() {
                                                         steps.push((
                                                             "Contact Lookup".into(),
                                                             true,
@@ -685,17 +712,25 @@ pub fn SettingsPage() -> impl IntoView {
                                             ));
                                         }
 
-                                        let first_hash = inbox.as_ref()
-                                            .and_then(|value| value.as_array().cloned()
-                                                .or_else(|| value.get("records").and_then(|v| v.as_array()).cloned())
-                                                .or_else(|| value.get("data").and_then(|v| v.as_array()).cloned()))
-                                            .and_then(|items| items.into_iter().next())
-                                            .and_then(|item| item.get("hash").cloned());
+                                        let first_hash = inbox
+                                            .as_ref()
+                                            .and_then(|items| items.first())
+                                            .map(|item| item.hash.clone());
 
                                         if let Some(hash) = first_hash {
-                                            match hc.call_zome::<serde_json::Value, serde_json::Value>(
-                                                "mail_messages", "get_email", &hash
-                                            ).await {
+                                            // get_email's Ok/Err is all this diagnostic
+                                            // checks — serde::de::IgnoredAny accepts and
+                                            // discards any well-formed response regardless
+                                            // of shape, so it decodes correctly without
+                                            // needing to know EncryptedEmail's real fields.
+                                            match hc
+                                                .call_zome::<serde_json::Value, Option<serde::de::IgnoredAny>>(
+                                                    "mail_messages",
+                                                    "get_email",
+                                                    &serde_json::json!(hash),
+                                                )
+                                                .await
+                                            {
                                                 Ok(_) => steps.push((
                                                     "Read Fetch".into(),
                                                     true,
@@ -783,7 +818,7 @@ fn Card(#[prop(into)] label: String, children: Children) -> impl IntoView {
 fn ProfileSection() -> impl IntoView {
     let hc = crate::holochain::use_holochain();
     let toasts = use_toasts();
-    let is_mock = move || hc.status.get() == ConnectionStatus::Mock;
+    let is_mock = move || hc.status.get() == ConnectionStatus::Demo;
 
     let profile_name = RwSignal::new(String::new());
     let profile_bio = RwSignal::new(String::new());
@@ -880,8 +915,11 @@ fn ProfileSection() -> impl IntoView {
                         "avatar_url": "",
                         "bio": bio.trim(),
                     });
+                    // set_profile returns an ActionHash (raw bytes) — Vec<u8>
+                    // decodes it correctly where serde_json::Value cannot.
+                    // Same bug/fix as profile_setup.rs's onboarding call.
                     match hc
-                        .call_zome::<serde_json::Value, serde_json::Value>(
+                        .call_zome::<serde_json::Value, Vec<u8>>(
                             "mail_profiles",
                             "set_profile",
                             &profile,

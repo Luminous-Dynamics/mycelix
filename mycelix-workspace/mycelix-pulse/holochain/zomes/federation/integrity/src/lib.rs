@@ -483,8 +483,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            // No entry type in this zome has a real update_entry call anywhere in the
+            // coordinator (confirmed via direct grep) -- reject outright rather than leave
+            // the previous unbound dead-code path (P0 wide-open RegisterUpdate gap,
+            // confirmed 50+ times elsewhere in this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Federation entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Federation entries cannot be updated".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -496,11 +506,31 @@ fn validate_create_entry(
     match entry {
         EntryTypes::FederatedNetwork(network) => validate_network(&network, &action),
         EntryTypes::FederationRoute(route) => validate_route(&route, &action),
+        // FederatedEnvelope.source_agent/dest_agent are String-typed cross-network
+        // identifiers (relay/bridge agents commit envelopes on behalf of external
+        // senders), not AgentPubKey -- ambiguous external-identity case, deferred (see
+        // memory/mycelix_attribution_author_binding_jul8.md).
         EntryTypes::FederatedEnvelope(envelope) => validate_envelope(&envelope, &action),
         EntryTypes::DomainRegistration(domain) => validate_domain(&domain, &action),
         EntryTypes::BridgeAgent(bridge) => validate_bridge_agent(&bridge, &action),
+        EntryTypes::FederationAuditLog(log) => validate_federation_audit_log(&log, &action),
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Bind the log to its committer -- log_federation_action (the only constructor for this
+/// entry type) already derives actor from agent_info() coordinator-side with zero user
+/// input, always setting it to Some(agent) (P0 author-binding gap).
+fn validate_federation_audit_log(
+    log: &FederationAuditLog,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if log.actor.as_ref() != Some(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FederationAuditLog actor must match the committing agent".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_network(

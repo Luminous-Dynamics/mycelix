@@ -11,8 +11,8 @@
 //! Extracted from lib.rs as a pure structural refactor — no logic changes.
 
 use crate::{
-    current_time, mastery_anchor, DEFAULT_GUESS_RATE, DEFAULT_LEARN_RATE, DEFAULT_SLIP_RATE,
-    MASTERY_THRESHOLD, RETENTION_TARGET,
+    DEFAULT_GUESS_RATE, DEFAULT_LEARN_RATE, DEFAULT_SLIP_RATE, MASTERY_THRESHOLD, RETENTION_TARGET,
+    current_time, mastery_anchor,
 };
 use adaptive_integrity::*;
 use hdk::prelude::*;

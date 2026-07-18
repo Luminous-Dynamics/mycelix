@@ -77,12 +77,10 @@ pub fn RevokeAccessButton(
                 "reason": "UserRevoked"
             });
 
+            // rotate_keys returns an ActionHash (raw bytes) — Vec<u8> decodes
+            // it correctly where serde_json::Value cannot.
             match hc
-                .call_zome::<serde_json::Value, serde_json::Value>(
-                    "mail_keys",
-                    "rotate_keys",
-                    &payload,
-                )
+                .call_zome::<serde_json::Value, Vec<u8>>("mail_keys", "rotate_keys", &payload)
                 .await
             {
                 Ok(response) => {

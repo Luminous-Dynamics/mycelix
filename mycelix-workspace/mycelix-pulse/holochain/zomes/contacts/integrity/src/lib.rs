@@ -148,12 +148,26 @@ fn validate_create_contact(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate contact update
-fn validate_update_contact(contact: Contact) -> ExternResult<ValidateCallbackResult> {
+/// Validate contact update -- Contact has no self-reported owner field, so ownership is
+/// enforced by re-deriving the real chain-of-custody invariant via must_get_action.
+/// update_contact currently accepts an arbitrary caller-supplied hash with zero ownership
+/// check anywhere coordinator-side (P0 author-binding gap).
+fn validate_update_contact(
+    action: Update,
+    original_action_hash: ActionHash,
+    contact: Contact,
+) -> ExternResult<ValidateCallbackResult> {
     // Same validation as create
     if contact.display_name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Display name cannot be empty".to_string(),
+        ));
+    }
+
+    let original_action = must_get_action(original_action_hash)?;
+    if original_action.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original owner can update a contact".to_string(),
         ));
     }
 
@@ -205,11 +219,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
-                EntryTypes::Contact(contact) => validate_update_contact(contact),
+                EntryTypes::Contact(contact) => {
+                    validate_update_contact(action, original_action_hash, contact)
+                }
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),

@@ -99,7 +99,7 @@
       "rationale": "Active inference theory provides the conceptual framework for understanding modern Azure AI services."
     },
     {
-      "from": "VOC-SOL-101",
+      "from": "VOC-RE-101",
       "to": "CERT-EV-ASE-L3",
       "edge_type": "Recommended",
       "strength_permille": 850,

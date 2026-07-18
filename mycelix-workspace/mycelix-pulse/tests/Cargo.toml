@@ -6,6 +6,10 @@ license = "AGPL-3.0-or-later"
 description = "Integration + sweettest suite for Mycelix Pulse. Phase 0 forward."
 publish = false
 
+# This test harness has its own Holochain dependency graph and must not inherit
+# the umbrella workspace (which contains optional/generated members).
+[workspace]
+
 # The integration tests live as loose .rs files alongside this Cargo.toml
 # (not in tests/). Each gets its own [[test]] entry so cargo can discover them.
 [[test]]
@@ -18,12 +22,12 @@ path = "sweettest_mail_security.rs"
 [dev-dependencies]
 # Holochain sweettest harness. Version must match the conductor (0.6.0) per
 # mycelix-workspace/nix/modules/holochain-versions.nix.
-holochain = { version = "=0.6.0", features = ["sweettest"] }
-holochain_types = { version = "=0.6.0" }
-holo_hash = { version = "=0.6.0" }
+holochain = { version = "=0.6.1", features = ["sweettest"] }
+holochain_types = { version = "=0.6.1" }
+holo_hash = { version = "=0.6.1" }
 
 # hdi for integrity-zome types imported into tests (Timestamp, AgentPubKey, etc.)
-hdi = "0.7"
+hdi = "=0.7.1"
 
 # Async runtime for #[tokio::test]
 tokio = { version = "1", features = ["full"] }
@@ -31,3 +35,4 @@ tokio = { version = "1", features = ["full"] }
 # Serde for mirror types
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+mail-leptos-types = { path = "../crates/mail-leptos-types" }

@@ -145,6 +145,9 @@ body {
 .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
 .help-text { display: block; color: var(--text-dim); font-size: 0.8rem; margin-top: 0.3rem; }
 .status-message { margin-top: 1rem; padding: 1rem; background: var(--bg-hover); border-radius: var(--radius); border-left: 3px solid var(--accent); }
+.dependency-gate { margin: 1rem 0; padding: 1rem; background: color-mix(in srgb, var(--warning) 10%, var(--bg-card)); border: 1px solid var(--warning); border-radius: var(--radius); color: var(--text); line-height: 1.45; }
+.dependency-gate strong { color: var(--warning); }
+.fixture-label { color: var(--warning); font-weight: 600; }
 
 /* --- Gallery --- */
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--gap); margin: 1.5rem 0; }
@@ -156,6 +159,13 @@ body {
 /* --- Footer --- */
 .footer { position: fixed; bottom: 60px; left: 0; right: 0; padding: 0.4rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: var(--bg); border-top: 1px solid var(--border); font-size: 0.75rem; }
 .footer-text { color: var(--text-dim); }
+.connection-badge { display: inline-flex; align-items: center; gap: 0.4rem; }
+.connection-badge .status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; }
+.connection-badge.status-connected { color: var(--success); }
+.connection-badge.status-connecting,
+.connection-badge.status-reconnecting { color: var(--warning); }
+.connection-badge.status-disconnected { color: var(--error); }
+.connection-badge.status-mock { color: var(--warning); }
 
 /* --- Utility --- */
 h1 { font-size: 2rem; margin-bottom: 0.5rem; }

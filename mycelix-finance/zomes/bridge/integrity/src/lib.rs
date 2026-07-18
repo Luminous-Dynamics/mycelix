@@ -259,6 +259,8 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     DidToPayments,
     HappToPayments,
+    /// Stable `(source_happ, reference)` idempotency key to payment action.
+    PaymentReferenceToPayment,
     CollateralRegistry,
     RecentEvents,
     DidToDeposits,
@@ -406,7 +408,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::DepositIdToDeposit | LinkTypes::CovenantIdToCovenant => {
+            LinkTypes::PaymentReferenceToPayment
+            | LinkTypes::DepositIdToDeposit
+            | LinkTypes::CovenantIdToCovenant => {
                 if target_address.as_ref().len() != 39 {
                     return Ok(ValidateCallbackResult::Invalid(
                         "Link target must be a valid action hash".into(),
@@ -444,28 +448,36 @@ fn validate_create_cross_happ_payment(
     _action: EntryCreationAction,
     payment: CrossHappPayment,
 ) -> ExternResult<ValidateCallbackResult> {
-    // String length checks — prevent DHT bloat
+    if payment.from_did.is_empty() || payment.to_did.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment DIDs must be non-empty".into(),
+        ));
+    }
     if payment.from_did.len() > MAX_DID_LEN || payment.to_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
             "DID exceeds maximum length".into(),
         ));
     }
-    if payment.source_happ.len() > MAX_HAPP_ID_LEN {
+    if payment.from_did == payment.to_did {
         return Ok(ValidateCallbackResult::Invalid(
-            "Source hApp ID exceeds maximum length".into(),
+            "Cross-hApp payment sender and recipient must differ".into(),
         ));
     }
-    if payment.reference.len() > MAX_REFERENCE_LEN {
+    if payment.source_happ.is_empty() || payment.source_happ.len() > MAX_HAPP_ID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reference exceeds maximum length".into(),
+            "Source hApp ID is required and must fit the maximum length".into(),
         ));
     }
-    if payment.id.len() > MAX_REFERENCE_LEN {
+    if payment.reference.is_empty() || payment.reference.len() > MAX_REFERENCE_LEN {
         return Ok(ValidateCallbackResult::Invalid(
-            "Payment ID exceeds maximum length".into(),
+            "Payment reference is required and must fit the maximum length".into(),
         ));
     }
-
+    if payment.id.is_empty() || payment.id.len() > MAX_REFERENCE_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment ID is required and must fit the maximum length".into(),
+        ));
+    }
     if payment.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Amount must be positive".into(),
@@ -476,15 +488,90 @@ fn validate_create_cross_happ_payment(
             "CrossHappPayment currency must be SAP".into(),
         ));
     }
+    if payment.status != PaymentStatus::Pending || payment.completed_at.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New cross-hApp payments must begin Pending without a completion timestamp".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_payment_transition(
+    original: &CrossHappPayment,
+    updated: &CrossHappPayment,
+) -> ValidateCallbackResult {
+    if original.id != updated.id
+        || original.source_happ != updated.source_happ
+        || original.from_did != updated.from_did
+        || original.to_did != updated.to_did
+        || original.amount != updated.amount
+        || original.currency != updated.currency
+        || original.reference != updated.reference
+        || original.created_at != updated.created_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "Cross-hApp payment terms and idempotency key are immutable".into(),
+        );
+    }
+
+    let valid_transition = matches!(
+        (&original.status, &updated.status),
+        (PaymentStatus::Pending, PaymentStatus::Processing)
+            | (PaymentStatus::Processing, PaymentStatus::Completed)
+            | (PaymentStatus::Processing, PaymentStatus::Failed)
+    );
+    if !valid_transition {
+        return ValidateCallbackResult::Invalid(format!(
+            "Illegal cross-hApp payment transition: {:?} -> {:?}",
+            original.status, updated.status
+        ));
+    }
+
+    match &updated.status {
+        PaymentStatus::Completed | PaymentStatus::Failed => {
+            if updated.completed_at.is_none() {
+                return ValidateCallbackResult::Invalid(
+                    "Terminal payment states require a completion timestamp".into(),
+                );
+            }
+        }
+        PaymentStatus::Pending | PaymentStatus::Processing => {
+            if updated.completed_at.is_some() {
+                return ValidateCallbackResult::Invalid(
+                    "Non-terminal payment states cannot have a completion timestamp".into(),
+                );
+            }
+        }
+        PaymentStatus::Refunded | PaymentStatus::Disputed => {
+            return ValidateCallbackResult::Invalid(
+                "Refund and dispute transitions require a dedicated validated protocol".into(),
+            );
+        }
+    }
+
+    ValidateCallbackResult::Valid
+}
+
 fn validate_update_cross_happ_payment(
-    _action: Update,
-    _payment: CrossHappPayment,
+    action: Update,
+    payment: CrossHappPayment,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Status can be updated
-    Ok(ValidateCallbackResult::Valid)
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    if original_record.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the payment source-chain author may advance its state".into(),
+        ));
+    }
+    let original = original_record
+        .entry()
+        .to_app_option::<CrossHappPayment>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to decode original cross-hApp payment: {e:?}"
+        ))))?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+            "Original cross-hApp payment entry is missing".into()
+        )))?;
+    Ok(validate_payment_transition(&original, &payment))
 }
 
 fn validate_create_collateral_registration(
@@ -1154,6 +1241,37 @@ mod tests {
     }
 
     #[test]
+    fn test_payment_rejects_empty_reference() {
+        let mut p = valid_payment();
+        p.reference.clear();
+        let result =
+            validate_create_cross_happ_payment(EntryCreationAction::Create(make_create()), p)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_rejects_self_payment() {
+        let mut p = valid_payment();
+        p.to_did = p.from_did.clone();
+        let result =
+            validate_create_cross_happ_payment(EntryCreationAction::Create(make_create()), p)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_payment_rejects_precompleted_creation() {
+        let mut p = valid_payment();
+        p.status = PaymentStatus::Completed;
+        p.completed_at = Some(ts(1_000_000));
+        let result =
+            validate_create_cross_happ_payment(EntryCreationAction::Create(make_create()), p)
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_payment_rejects_zero_amount() {
         let mut p = valid_payment();
         p.amount = 0;
@@ -1224,13 +1342,55 @@ mod tests {
     }
 
     // =========================================================================
-    // CrossHappPayment — update (permissive, always Valid)
+    // CrossHappPayment — guarded state machine
     // =========================================================================
 
     #[test]
-    fn test_payment_update_valid() {
-        let result = validate_update_cross_happ_payment(make_update(), valid_payment()).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
+    fn test_payment_allows_pending_to_processing() {
+        let original = valid_payment();
+        let mut updated = original.clone();
+        updated.status = PaymentStatus::Processing;
+        assert!(matches!(
+            validate_payment_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_payment_allows_processing_to_completed() {
+        let mut original = valid_payment();
+        original.status = PaymentStatus::Processing;
+        let mut updated = original.clone();
+        updated.status = PaymentStatus::Completed;
+        updated.completed_at = Some(ts(2_000_000));
+        assert!(matches!(
+            validate_payment_transition(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn test_payment_rejects_term_mutation() {
+        let original = valid_payment();
+        let mut updated = original.clone();
+        updated.status = PaymentStatus::Processing;
+        updated.amount += 1;
+        assert!(matches!(
+            validate_payment_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_payment_rejects_completed_retry_transition() {
+        let mut original = valid_payment();
+        original.status = PaymentStatus::Completed;
+        original.completed_at = Some(ts(2_000_000));
+        let updated = original.clone();
+        assert!(matches!(
+            validate_payment_transition(&original, &updated),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // =========================================================================

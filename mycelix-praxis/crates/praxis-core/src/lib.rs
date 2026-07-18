@@ -1,9 +1,10 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! # EduNet Core
+//! # Praxis Core
 //!
-//! Core types, cryptographic helpers, and provenance utilities for Mycelix EduNet.
+//! Core types, wire contracts, cryptographic helpers, and provenance utilities
+//! for Mycelix Praxis.
 //!
 //! This crate provides:
 //! - Common data structures used across zomes
@@ -13,19 +14,21 @@
 //! - Proof of Learning (PoL) for verifying genuine learning
 //! - Structured error handling with descriptive messages
 
+mod benchmarks;
+pub mod contracts;
 pub mod crypto;
 pub mod errors;
-pub mod provenance;
+pub mod export_formats;
 pub mod proof_of_learning;
+pub mod provenance;
 pub mod types;
 pub mod validation;
-pub mod export_formats;
-mod benchmarks;
 
+pub use contracts::*;
 pub use crypto::*;
 pub use errors::*;
-pub use provenance::*;
 pub use proof_of_learning::*;
+pub use provenance::*;
 pub use types::*;
 
 /// Current protocol version

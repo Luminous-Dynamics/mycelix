@@ -7,8 +7,15 @@
 //! technical details are accessible via a "Verification Details" toggle.
 
 use leptos::prelude::*;
+use praxis_core::contracts::{
+    CREDENTIAL_CONTRACT_VERSION, CREDENTIAL_COORDINATOR_ZOME, CredentialList, CredentialSummary,
+    LIST_MY_CREDENTIAL_SUMMARIES_FN,
+};
 
-use crate::holochain::use_holochain;
+use crate::holochain::{
+    DataSource, LiveResourceStatus, ResourceState, tracked_data_source, use_holochain,
+};
+use crate::mode::use_app_mode;
 
 // ---------------------------------------------------------------------------
 // Data types (mirror credential_zome integrity types for UI layer)
@@ -35,12 +42,37 @@ pub struct CredentialView {
     pub epistemic_materiality: Option<u8>,
 }
 
+impl From<CredentialSummary> for CredentialView {
+    fn from(summary: CredentialSummary) -> Self {
+        let course_id = summary.course_id.0;
+        Self {
+            credential_id: summary.credential_id,
+            course_name: format!("Course {course_id}"),
+            course_id,
+            issuer: summary.issuer,
+            issuance_date: summary.issuance_date,
+            expiration_date: summary.expiration_date,
+            score: summary.score,
+            score_band: summary.score_band,
+            proof_type: summary.proof_type,
+            proof_created: summary.proof_created,
+            verification_method: summary.verification_method,
+            proof_purpose: summary.proof_purpose,
+            proof_value: summary.proof_value,
+            status_purpose: summary.status_purpose,
+            epistemic_empirical: summary.epistemic_empirical,
+            epistemic_normative: summary.epistemic_normative,
+            epistemic_materiality: summary.epistemic_materiality,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
-// Mock data (teacher/parent friendly examples)
+// Local and demo data
 // ---------------------------------------------------------------------------
 
-/// Generate real credentials from mastered topics
-fn real_credentials() -> Vec<CredentialView> {
+/// Generate local self-attestations from mastered topics.
+fn local_credentials() -> Vec<CredentialView> {
     let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
         .unwrap_or_default();
     let graph = crate::curriculum::curriculum_graph();
@@ -78,22 +110,21 @@ fn real_credentials() -> Vec<CredentialView> {
             credential_id: format!("vc:praxis:local_{}", cred_num),
             course_name: node.title.clone(),
             course_id: node.id.clone(),
-            issuer: "Praxis (self-attested, pending Holochain verification)".into(),
+            issuer: "Praxis local self-attestation".into(),
             issuance_date: date.clone(),
             expiration_date: None,
             score: Some(score),
             score_band: band.into(),
             proof_type: "LocalAttestation".into(),
             proof_created: date,
-            verification_method: "localStorage (will upgrade to did:key when conductor connects)"
-                .into(),
+            verification_method: "Browser localStorage (untrusted local record)".into(),
             proof_purpose: "assertionMethod".into(),
             proof_value: format!("local-bkt-mastery-{:.3}", bkt.p_mastery),
             status_purpose: Some(
-                "Self-attested mastery — will become W3C VC when Holochain verifies".into(),
+                "Self-attested only — not issued, signed, or cryptographically verified".into(),
             ),
-            epistemic_empirical: Some(if bkt.attempts > 10 { 3 } else { 2 }),
-            epistemic_normative: Some(1), // Self-attested
+            epistemic_empirical: Some(1), // Testimonial, not cryptographically verified
+            epistemic_normative: Some(0), // Personal
             epistemic_materiality: Some(2),
         });
     }
@@ -114,13 +145,37 @@ fn real_credentials() -> Vec<CredentialView> {
             verification_method: "".into(),
             proof_purpose: "".into(),
             proof_value: "".into(),
-            status_purpose: Some("Complete your first topic in the Knowledge Garden to earn a verifiable credential. Each mastered topic generates a W3C Verifiable Credential stored on your device.".into()),
+            status_purpose: Some("Complete your first topic in the Knowledge Garden to create a local self-attestation. Verified credentials require Live mode and a responding credential coordinator.".into()),
             epistemic_empirical: None,
             epistemic_normative: None,
             epistemic_materiality: None,
         });
     }
     creds
+}
+
+fn demo_credentials() -> Vec<CredentialView> {
+    vec![CredentialView {
+        credential_id: "vc:praxis:demo:systems-thinking".into(),
+        course_name: "Systems Thinking Foundations".into(),
+        course_id: "DEMO-SYSTEMS-101".into(),
+        issuer: "Praxis demonstration issuer".into(),
+        issuance_date: "2026-01-15T00:00:00Z".into(),
+        expiration_date: None,
+        score: Some(88.0),
+        score_band: "A".into(),
+        proof_type: "DemoProof".into(),
+        proof_created: "2026-01-15T00:00:00Z".into(),
+        verification_method: "Demonstration only".into(),
+        proof_purpose: "example".into(),
+        proof_value: "not-a-cryptographic-proof".into(),
+        status_purpose: Some(
+            "Demonstration record — not issued or cryptographically verified".into(),
+        ),
+        epistemic_empirical: Some(0),
+        epistemic_normative: Some(0),
+        epistemic_materiality: Some(0),
+    }]
 }
 
 // ---------------------------------------------------------------------------
@@ -179,20 +234,30 @@ fn trophy_for_band(band: &str) -> &'static str {
 pub fn CredentialsPage() -> impl IntoView {
     let (active_tab, set_active_tab) = signal("achievements");
     let hc = use_holochain();
+    let mode = use_app_mode();
 
     let credentials = LocalResource::new(move || {
         let hc = hc.clone();
+        let source = tracked_data_source(mode, &hc);
         async move {
-            match hc
-                .call_zome_default::<(), Vec<CredentialView>>(
-                    "credential",
-                    "get_my_credentials",
-                    &(),
-                )
-                .await
-            {
-                Ok(c) => c,
-                Err(_) => real_credentials(),
+            match source {
+                DataSource::Demo => ResourceState::Ready(demo_credentials()),
+                DataSource::Local => ResourceState::Ready(local_credentials()),
+                DataSource::LiveWaiting => ResourceState::WaitingForLive,
+                DataSource::LiveReady => match hc
+                    .call_zome_default::<(), CredentialList>(
+                        CREDENTIAL_COORDINATOR_ZOME,
+                        LIST_MY_CREDENTIAL_SUMMARIES_FN,
+                        &(),
+                    )
+                    .await
+                {
+                    Ok(data) if data.contract_version == CREDENTIAL_CONTRACT_VERSION => {
+                        ResourceState::Ready(data.credentials.into_iter().map(Into::into).collect())
+                    }
+                    Ok(_) => ResourceState::LiveError,
+                    Err(_) => ResourceState::LiveError,
+                },
             }
         }
     });
@@ -234,24 +299,41 @@ pub fn CredentialsPage() -> impl IntoView {
                     "achievements" => view! {
                         <Suspense fallback=move || view! { <CardLoading /> }>
                             {move || {
-                                credentials.get().map(|data| {
-                                    let data: Vec<CredentialView> = data.clone();
+                                credentials.get().map(|state| match state {
+                                    ResourceState::WaitingForLive => {
+                                        view! { <LiveResourceStatus failed=false /> }.into_any()
+                                    }
+                                    ResourceState::LiveError => {
+                                        view! { <LiveResourceStatus failed=true /> }.into_any()
+                                    }
+                                    ResourceState::Ready(data) => {
+                                    if data.is_empty() {
+                                        view! {
+                                            <div class="data-empty-state">
+                                                "No credentials are linked to this learner yet."
+                                            </div>
+                                        }.into_any()
+                                    } else {
                                     let selected_val = selected.get();
 
                                     if let Some(idx) = selected_val {
-                                        let cred = data[idx].clone();
-                                        view! {
-                                            <div>
-                                                <button
-                                                    class="btn-back"
-                                                    on:click=move |_| set_selected.set(None)
-                                                >
-                                                    "< Back to achievements"
-                                                </button>
-                                                <AchievementDetail credential=cred />
-                                            </div>
+                                        if let Some(cred) = data.get(idx).cloned() {
+                                            view! {
+                                                <div>
+                                                    <button
+                                                        class="btn-back"
+                                                        on:click=move |_| set_selected.set(None)
+                                                    >
+                                                        "< Back to achievements"
+                                                    </button>
+                                                    <AchievementDetail credential=cred />
+                                                </div>
+                                            }
+                                            .into_any()
+                                        } else {
+                                            set_selected.set(None);
+                                            view! { <div class="data-empty-state">"The selected credential is no longer available."</div> }.into_any()
                                         }
-                                        .into_any()
                                     } else {
                                         let cards = data
                                             .into_iter()
@@ -273,6 +355,8 @@ pub fn CredentialsPage() -> impl IntoView {
                                             </div>
                                         }
                                         .into_any()
+                                    }
+                                    }
                                     }
                                 })
                             }}
@@ -358,7 +442,7 @@ fn AchievementDetail(credential: CredentialView) -> impl IntoView {
                         <div class="certificate-footer">
                             <p class="certificate-school">{issuer.clone()}</p>
                             <p class="certificate-date">{date.clone()}</p>
-                            <p class="certificate-verified">"Verified on Holochain ✓"</p>
+                            <p class="certificate-verified">"Proof attached — verification not run"</p>
                         </div>
                     </div>
                 </div>
@@ -424,8 +508,6 @@ fn AchievementDetail(credential: CredentialView) -> impl IntoView {
 
 #[component]
 fn VerificationDetails(credential: CredentialView) -> impl IntoView {
-    let (verified, set_verified) = signal::<Option<bool>>(None);
-
     view! {
         <div class="verification-details-panel">
             // Epistemic Classification
@@ -485,7 +567,7 @@ fn VerificationDetails(credential: CredentialView) -> impl IntoView {
                             {credential
                                 .status_purpose
                                 .clone()
-                                .unwrap_or_else(|| "Not revoked".into())}
+                                .unwrap_or_else(|| "No revocation status is published".into())}
                         </span>
                     </div>
                 </div>
@@ -521,50 +603,14 @@ fn VerificationDetails(credential: CredentialView) -> impl IntoView {
             // Verification
             <div class="detail-section verification-section">
                 <h4>"Verification"</h4>
-                {move || match verified.get() {
-                    None => {
-                        view! {
-                            <div>
-                                <p class="verify-desc">
-                                    "Verify the cryptographic proof and check revocation status."
-                                </p>
-                                <button
-                                    class="btn-primary"
-                                    on:click=move |_| set_verified.set(Some(true))
-                                >
-                                    "Verify Credential"
-                                </button>
-                            </div>
-                        }
-                            .into_any()
-                    }
-                    Some(true) => {
-                        view! {
-                            <div class="verify-result verify-pass">
-                                <span class="verify-icon">"[OK]"</span>
-                                <div>
-                                    <strong>"Credential Verified"</strong>
-                                    <p>
-                                        "Signature valid. Not revoked. Epistemic classification confirmed."
-                                    </p>
-                                </div>
-                            </div>
-                        }
-                            .into_any()
-                    }
-                    Some(false) => {
-                        view! {
-                            <div class="verify-result verify-fail">
-                                <span class="verify-icon">"[X]"</span>
-                                <div>
-                                    <strong>"Verification Failed"</strong>
-                                    <p>"Signature could not be verified."</p>
-                                </div>
-                            </div>
-                        }
-                            .into_any()
-                    }
-                }}
+                <div class="verify-result">
+                    <div>
+                        <strong>"Not verified in this build"</strong>
+                        <p>
+                            "Proof fields are displayed above, but no signature or revocation check has been run."
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -663,21 +709,34 @@ fn CardLoading() -> impl IntoView {
 // ---------------------------------------------------------------------------
 
 #[component]
-fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl IntoView {
+fn PrivacySwitchboard(
+    credentials: LocalResource<ResourceState<Vec<CredentialView>>>,
+) -> impl IntoView {
     let (selected_creds, set_selected_creds) = signal(std::collections::HashSet::<String>::new());
     let (clr_title, set_clr_title) = signal("My Professional Portfolio".to_string());
 
     view! {
         <div class="privacy-switchboard">
+            <div class="data-empty-state" style="margin-bottom: 1rem">
+                "Disclosure draft only — CLR publication and sovereign export are not connected in this build."
+            </div>
             <div class="switchboard-grid">
                 <div class="selection-panel">
-                    <h3>"Private Vault"</h3>
-                    <p class="panel-desc">"Select the credentials you want to make public."</p>
+                    <h3>"Credential Selection Draft"</h3>
+                    <p class="panel-desc">"Select credentials to preview a disclosure set locally. Nothing is published."</p>
 
                     <Suspense fallback=|| view! { <CardLoading /> }>
                         {move || {
-                            credentials.get().map(|data| {
-                                data.into_iter().map(|cred| {
+                            credentials.get().map(|state| match state {
+                                ResourceState::WaitingForLive => {
+                                    view! { <LiveResourceStatus failed=false /> }.into_any()
+                                }
+                                ResourceState::LiveError => {
+                                    view! { <LiveResourceStatus failed=true /> }.into_any()
+                                }
+                                ResourceState::Ready(data) => view! {
+                                    <div>
+                                    {data.into_iter().map(|cred| {
                                     let id = cred.credential_id.clone();
                                     let id_check = id.clone();
                                     let id_toggle = id.clone();
@@ -703,7 +762,9 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                                             </div>
                                         </div>
                                     }
-                                }).collect_view()
+                                    }).collect_view()}
+                                    </div>
+                                }.into_any(),
                             })
                         }}
                     </Suspense>
@@ -732,17 +793,15 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                                     <div class="selected-summary">
                                         <div class="summary-stats">
                                             <strong>{selected.len()}" credentials"</strong>
-                                            <span>" ready for disclosure"</span>
+                                            <span>" selected locally"</span>
                                         </div>
-                                        <p class="summary-hint">"This will generate a CLR 2.0 record with an aggregate MATL trust score."</p>
+                                        <p class="summary-hint">"No CLR or aggregate trust score has been generated."</p>
                                         <button
                                             class="btn-primary"
                                             style="width: 100%; margin-top: 1rem"
-                                            on:click=move |_| {
-                                                // Trigger create_clr zome call logic
-                                            }
+                                            disabled
                                         >
-                                            "Generate CLR 2.0 Record"
+                                            "CLR publishing unavailable"
                                         </button>
                                     </div>
                                 }.into_any()
@@ -757,19 +816,17 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
                             <h4 style="margin: 0">"Sovereign Emancipation"</h4>
                         </div>
                         <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5">
-                            "True Ahimsa means no trapping. You have the absolute right to leave this ecosystem at any time with your full professional identity intact."
+                            "Portable export is a planned capability. No complete identity bundle can be generated by this build."
                         </p>
                         <button
                             class="btn-outline"
                             style="width: 100%; border-color: var(--error); color: var(--error); margin-top: 0.5rem"
-                            on:click=move |_| {
-                                // Trigger emancipate_my_data zome call and download JSON
-                            }
+                            disabled
                         >
-                            "\u{2913} Export & Emancipate Data"
+                            "Export unavailable"
                         </button>
                         <p style="font-size: 0.65rem; color: var(--text-tertiary); text-align: center; margin-top: 0.75rem">
-                            "This generates a portable SovereignDataBundle.json containing your entire knowledge graph."
+                            "A future export must enumerate its exact contents and verify the downloaded artifact."
                         </p>
                     </div>
                 </div>
@@ -782,39 +839,9 @@ fn PrivacySwitchboard(credentials: LocalResource<Vec<CredentialView>>) -> impl I
 fn PublicRecordsView() -> impl IntoView {
     view! {
         <div class="public-records">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
-                <h3>"Your Public Portfolios"</h3>
-                <span class="badge-clr">"CLR 2.0 Compliant"</span>
-            </div>
-            <p class="panel-desc">"These records are visible on the public DHT and can be shared with employers via their DIDs."</p>
-
-            <div class="records-grid">
-                <div class="record-card">
-                    <div class="record-card-header">
-                        <span class="record-icon">"\u{1F4BC}"</span>
-                        <div>
-                            <h4>"Professional Portfolio"</h4>
-                            <p class="record-date">"Generated: March 20, 2026"</p>
-                        </div>
-                    </div>
-
-                    <div class="record-stats">
-                        <div class="record-stat">
-                            <span class="stat-label">"MATL Trust"</span>
-                            <span class="stat-value highlight">"850"</span>
-                        </div>
-                        <div class="record-stat">
-                            <span class="stat-label">"Credentials"</span>
-                            <span class="stat-value">"4"</span>
-                        </div>
-                    </div>
-
-                    <div class="record-actions">
-                        <button class="btn-sm">"Copy DID Link"</button>
-                        <button class="btn-sm btn-outline">"View"</button>
-                        <button class="btn-sm btn-danger">"Revoke"</button>
-                    </div>
-                </div>
+            <h3>"Your Public Portfolios"</h3>
+            <div class="data-empty-state">
+                "Public portfolio listing is not connected in this build. No public records are claimed here."
             </div>
         </div>
     }

@@ -99,7 +99,7 @@
       "rationale": "Foundational active inference theory provides the necessary context for generative AI architectures."
     },
     {
-      "from": "HAB-VOC-101",
+      "from": "CON-VOC-101",
       "to": "CERT-GREEN-LEED-GA",
       "edge_type": "Recommended",
       "strength_permille": 900,

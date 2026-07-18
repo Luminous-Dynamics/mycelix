@@ -1,0 +1,90 @@
+name: Pulse Alpha Contracts
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'mycelix-pulse/**'
+      - 'mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-identity/Cargo.lock'
+      - '.github/workflows/pulse-alpha-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'mycelix-pulse/**'
+      - 'mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-identity/Cargo.lock'
+      - '.github/workflows/pulse-alpha-ci.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  contracts:
+    name: Protocol and hybrid crypto contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-pulse/crates/mail-leptos-types
+            mycelix-identity
+      - run: cargo test --manifest-path mycelix-pulse/crates/mail-leptos-types/Cargo.toml
+      - run: cargo test --manifest-path mycelix-identity/crates/mycelix-crypto/Cargo.toml --features hybrid-rc pulse_v2
+      - run: cargo check --manifest-path mycelix-identity/crates/mycelix-crypto/Cargo.toml --target wasm32-unknown-unknown --features hybrid-rc
+
+  browser-and-zomes:
+    name: Browser and fresh zome WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-pulse/apps/leptos
+            mycelix-pulse/holochain
+      - run: cargo check --manifest-path mycelix-pulse/apps/leptos/Cargo.toml --locked
+      - run: cargo test --manifest-path mycelix-pulse/holochain/Cargo.toml --lib
+      - name: Build every zome from the canonical Holochain workspace
+        run: cargo build --release --target wasm32-unknown-unknown
+        working-directory: mycelix-pulse/holochain
+
+  transport-harness:
+    name: Two-conductor evidence harness compiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-pulse/tests
+      - name: Install bindgen prerequisites
+        run: sudo apt-get update && sudo apt-get install --yes libclang-dev
+      - run: cargo test --manifest-path mycelix-pulse/tests/Cargo.toml --test sweettest_mail_security --no-run
+
+  pulse-contract-gate:
+    name: Pulse contract gate
+    if: always()
+    needs: [contracts, browser-and-zomes, transport-harness]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every contract job
+        env:
+          CONTRACTS: ${{ needs.contracts.result }}
+          BROWSER_ZOMES: ${{ needs.browser-and-zomes.result }}
+          TRANSPORT: ${{ needs.transport-harness.result }}
+        run: |
+          test "$CONTRACTS" = success
+          test "$BROWSER_ZOMES" = success
+          test "$TRANSPORT" = success

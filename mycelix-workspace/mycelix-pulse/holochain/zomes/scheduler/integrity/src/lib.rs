@@ -151,7 +151,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_snooze_reminder(action, reminder)
                 }
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+            OpEntry::UpdateEntry {
+                app_entry,
+                action,
+                original_action_hash,
+                original_entry_hash: _,
+            } => match app_entry {
                 EntryTypes::ScheduledEmail(scheduled) => {
                     // Validate status transitions
                     match scheduled.status {
@@ -165,9 +170,30 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         }
                         _ => {}
                     }
+                    // ScheduledEmail has no self-reported owner field -- update_schedule/
+                    // cancel_schedule currently locate the target by scanning a global
+                    // anchor and matching on `.id`, with zero author check anywhere
+                    // coordinator-side (P0 author-binding gap). Re-derive ownership via
+                    // must_get_action against the original action's real author.
+                    let original_action = must_get_action(original_action_hash)?;
+                    if original_action.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original owner can update a scheduled email".to_string(),
+                        ));
+                    }
                     Ok(ValidateCallbackResult::Valid)
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::SnoozeReminder(_) => {
+                    // Same gap as ScheduledEmail -- dismiss_reminder accepts an arbitrary
+                    // caller-supplied hash with zero ownership check.
+                    let original_action = must_get_action(original_action_hash)?;
+                    if original_action.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original owner can update a snooze reminder".to_string(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },

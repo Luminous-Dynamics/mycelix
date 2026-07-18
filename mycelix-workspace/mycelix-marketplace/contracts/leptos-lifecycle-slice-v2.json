@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "name": "marketplace-leptos-conflict-safe-lifecycle-v2",
+  "runtime_mode": "fail-closed-js-bridge",
+  "read_calls": [
+    {
+      "zome": "transactions",
+      "function": "get_transaction_resolution",
+      "purpose": "single transaction revision reduction"
+    },
+    {
+      "zome": "transactions",
+      "function": "get_my_transaction_resolutions",
+      "purpose": "conflict-aware transaction index"
+    }
+  ],
+  "enabled_mutations": [
+    {
+      "zome": "transactions",
+      "function": "confirm_transaction",
+      "actor": "seller",
+      "transition": "pending -> confirmed"
+    },
+    {
+      "zome": "transactions",
+      "function": "mark_shipped",
+      "actor": "seller",
+      "transition": "confirmed -> shipped"
+    },
+    {
+      "zome": "transactions",
+      "function": "confirm_delivery",
+      "actor": "buyer",
+      "transition": "shipped -> delivered"
+    },
+    {
+      "zome": "transactions",
+      "function": "cancel_transaction",
+      "actor": "buyer-or-seller",
+      "transition": "pending|confirmed -> cancelled"
+    }
+  ],
+  "security_invariants": [
+    "stable_create_action_identity",
+    "single_leaf_required_for_mutation",
+    "concurrent_heads_surface_as_conflict",
+    "deleted_transaction_revisions_rejected",
+    "actor_and_transition_validation_remain_in_integrity_zome",
+    "post_mutation_resolution_refresh"
+  ],
+  "deferred_mutations": [
+    {
+      "function": "settle_transaction",
+      "reason": "visible and feature-gated until the Finance role, retry-safe Finance patch, and live settlement evidence are deployed together"
+    },
+    {
+      "function": "dispute_transaction",
+      "reason": "guarded arbitration backend exists, but the Leptos dispute workflow remains disabled until live conflict-injection evidence passes"
+    }
+  ]
+}

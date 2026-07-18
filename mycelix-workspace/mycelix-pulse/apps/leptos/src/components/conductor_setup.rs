@@ -98,6 +98,7 @@ pub fn ConductorSetup() -> impl IntoView {
     let install_cmd = platform.install_command();
     let platform_label = platform.label();
     let show = RwSignal::new(false);
+    let hc_demo = hc.clone();
 
     // Check if the JS bridge already connected (works on both local and remote)
     spawn_local(async move {
@@ -204,7 +205,9 @@ pub fn ConductorSetup() -> impl IntoView {
                             </div>
                         }.into_any(),
 
-                        SetupState::NotFound => view! {
+                        SetupState::NotFound => {
+                            let hc_demo = hc_demo.clone();
+                            view! {
                             <div class="setup-status not-found">
                                 <span class="setup-icon">"\u{1F50D}"</span>
                                 <p>"No conductor found on your machine"</p>
@@ -226,12 +229,16 @@ pub fn ConductorSetup() -> impl IntoView {
 
                                 <div class="setup-alternative">
                                     <p class="alt-label">"Or continue in demo mode"</p>
-                                    <button class="btn btn-secondary" on:click=move |_| show.set(false)>
+                                    <button class="btn btn-secondary" on:click=move |_| {
+                                        hc_demo.enter_demo();
+                                        show.set(false);
+                                    }>
                                         "Stay in Demo Mode"
                                     </button>
                                 </div>
                             </div>
-                        }.into_any(),
+                            }.into_any()
+                        },
 
                         SetupState::Error(msg) => view! {
                             <div class="setup-status error">

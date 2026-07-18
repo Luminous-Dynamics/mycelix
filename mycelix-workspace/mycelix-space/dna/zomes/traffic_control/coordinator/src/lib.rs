@@ -574,6 +574,16 @@ pub fn cosign_agreement(input: CosignAgreementInput) -> ExternResult<ActionHash>
             .into_wasm_error(),
         )?;
 
+    // --- Authorization: only session participants can cosign ---
+    // This function's own doc comment always claimed this check happened, but
+    // the actual code never called verify_session_participant (every sibling
+    // function does) -- a real documented-vs-actual mismatch, not a design
+    // choice. This is a coordinator-side improvement, not itself the P0 fix
+    // (a modified coordinator could still skip it); the DHT-level identity
+    // check in validate_update_agreement (integrity zome) is the real
+    // enforcement.
+    verify_session_participant(&agreement.session_id, &agent)?;
+
     // --- Deadline check: execution_deadline must not have passed ---
     let now = SpaceTimestamp::now();
     if now.micros >= agreement.execution_deadline.micros {

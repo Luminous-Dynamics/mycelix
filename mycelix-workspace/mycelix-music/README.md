@@ -1,6 +1,6 @@
-# 🎵 Mycelix Music: Decentralized Music Platform with Modular Economics
+# 🎵 Mycelix Music: Modular Music-Economy Prototype
 
-> **The default choice for the entire music industry.**
+> **Research and prototype source—not a production release.**
 
 **Vision:** Every artist chooses their own economic operating system
 **Innovation:** First music platform with truly pluggable payment models + zero-cost streaming via Holochain
@@ -8,18 +8,18 @@
 
 ---
 
-## ⚡ Current Status (December 2025)
+## ⚡ Current Status (July 2026)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| **Smart Contracts** | ✅ Working | 2 strategies deployed, tested |
-| **Frontend** | ✅ Working | Next.js with wizard |
-| **Backend API** | ✅ Building | TypeScript, Express |
-| **IPFS Storage** | ⚠️ Mock | Web3.Storage integration pending |
-| **Holochain** | 📋 Designed | Zero-cost streaming planned |
-| **CDN** | 📋 Planned | Community-owned nodes |
+| **Smart Contracts** | ⚠️ Source present | Not audited or verified in this snapshot |
+| **Leptos Frontend** | ⚠️ Integration work | Fixture-free by default; external path dependencies required |
+| **Backend APIs** | ⚠️ Multiple prototypes | TypeScript and Rust implementations are not established as equivalent |
+| **IPFS Storage** | ⚠️ Dependency | Credentials and end-to-end verification required |
+| **Holochain** | ⚠️ Source present | Economic mutations fail closed pending real authorization and atomic settlement |
+| **CDN** | 📋 Design/prototype | Production operation is not demonstrated here |
 
-**See:** [INDUSTRY_ROADMAP.md](./INDUSTRY_ROADMAP.md) for the full transformation plan
+See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for verified behavior, blockers, and release gates. Roadmaps and historical phase reports describe intent, not current evidence.
 
 ---
 
@@ -98,7 +98,7 @@ mycelix-music/
 
 ### For Developers: Run Locally (30 Minutes)
 
-**Follow the complete guide:** [**QUICKSTART.md**](./QUICKSTART.md)
+**Follow the development guide:** [**docs/guides/QUICKSTART.md**](./docs/guides/QUICKSTART.md)
 
 #### Option A: Nix Development Shell (recommended)
 
@@ -122,7 +122,7 @@ The shell works on any system supported by `nixos-unstable`, so teammates get id
 
 ```bash
 # 1. Navigate to project
-cd /srv/luminous-dynamics/04-infinite-play/core/mycelix-music
+cd mycelix-music
 
 # 2. Install dependencies
 npm install
@@ -148,12 +148,7 @@ cd apps/web && npm run dev
 # 9. Visit http://localhost:3000 🎉
 ```
 
-**What you'll see:**
-- 3 test artists with different economic models
-- 10 test songs ready to stream
-- Full upload wizard
-- Working payment flows
-- Beautiful UI
+The guide uses development services and test data. It does not establish working production payment flows.
 
 **Detailed instructions, troubleshooting, and verification:** See [QUICKSTART.md](./QUICKSTART.md)
 
@@ -349,7 +344,7 @@ await sdk.streamSong('my-song-id', '0.01');
 - [x] IMPLEMENTATION_STATUS.md (current status)
 - [x] SESSION_CONTINUATION_SUMMARY.md (this session)
 
-**Current State:** 🟢 **Everything works locally. Ready for testnet deployment.**
+**Current State:** 🟡 **Prototype components are present; testnet readiness is not established.**
 
 ### 🔨 Phase 2: Production Ready (Next 2 weeks)
 
@@ -408,9 +403,9 @@ We welcome contributions in all areas:
 ## 📚 Key Documentation
 
 **Start here:**
-1. [ECONOMIC_MODULES_ARCHITECTURE.md](ECONOMIC_MODULES_ARCHITECTURE.md) - Core design philosophy
-2. [IMPLEMENTATION_EXAMPLE.md](IMPLEMENTATION_EXAMPLE.md) - Complete working example
-3. [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Deploy to production
+1. [Economic Modules Architecture](docs/architecture/ECONOMIC_MODULES_ARCHITECTURE.md) - Core design philosophy
+2. [Implementation Example](docs/architecture/IMPLEMENTATION_EXAMPLE.md) - Illustrative walkthrough
+3. [Deployment Guide](docs/guides/DEPLOYMENT_GUIDE.md) - Deployment design; observe the readiness gates first
 
 **Deep dives:**
 - [Business Plan v1.0](Business%20Plan%20v1.0.md) - Market strategy
@@ -451,7 +446,7 @@ If we succeed, we won't just change music. We'll show that the future of the int
 
 ## 📜 License
 
-This project is open source under the [MIT License](LICENSE).
+This snapshot is licensed under the [GNU AGPL v3 or later](LICENSE), matching its package metadata and source headers.
 
 The smart contracts have additional audit requirements before mainnet deployment (see [SECURITY.md](SECURITY.md)).
 
@@ -470,17 +465,13 @@ And inspired by the vision that technology should amplify consciousness, not exp
 
 ---
 
-**Status:** ✅ Fully Functional - 3,555 lines of production code + 37K words documentation
-**Current:** Working locally with test data - Follow [QUICKSTART.md](./QUICKSTART.md)
-**Next:** Replace mocks with real services → Testnet deployment → Beta testing
-**Timeline:** Production ready in 2 weeks, Beta in 1 month, Mainnet in 2-3 months
-**Cost:** $30K first year (audit $15-25K + infrastructure $5K + legal $10K)
+**Status:** Prototype; see [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) before deployment or economic use.
 
 🎵 **Let's rebuild music, together.** 🎵
 
 ---
 
 **Key Documents:**
-- [**QUICKSTART.md**](./QUICKSTART.md) - Get running in 30 minutes
+- [**Quickstart**](./docs/guides/QUICKSTART.md) - Development setup
 - [**IMPLEMENTATION_STATUS.md**](./IMPLEMENTATION_STATUS.md) - Complete status report
-- [**SESSION_CONTINUATION_SUMMARY.md**](./SESSION_CONTINUATION_SUMMARY.md) - What was built this session
+- [**Historical phase reports**](./docs/phases/) - Prior progress notes; not release evidence

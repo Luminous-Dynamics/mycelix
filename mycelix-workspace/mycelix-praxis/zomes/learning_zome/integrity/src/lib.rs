@@ -114,6 +114,9 @@ pub enum LinkTypes {
 
     /// Link from Course to LearnerProgress (course -> progress)
     CourseToProgress,
+
+    /// Link from the authoring learner to their progress history
+    LearnerToProgress,
 }
 
 /// Validation callback for all learning entries
@@ -212,6 +215,7 @@ fn validate_create_link(
         LinkTypes::CourseToEnrolled => validate_course_to_enrolled_link(&register_create_link),
         LinkTypes::EnrolledCourses => validate_enrolled_courses_link(&register_create_link),
         LinkTypes::CourseToProgress => validate_course_to_progress_link(&register_create_link),
+        LinkTypes::LearnerToProgress => validate_learner_to_progress_link(&register_create_link),
     }
 }
 
@@ -241,7 +245,7 @@ fn validate_delete_link(
             // Both sides of bidirectional link should be deleted together
             Ok(ValidateCallbackResult::Valid)
         }
-        LinkTypes::CourseToProgress => {
+        LinkTypes::CourseToProgress | LinkTypes::LearnerToProgress => {
             // Progress links shouldn't be deleted (maintain history)
             Ok(ValidateCallbackResult::Invalid(
                 "Cannot delete progress history links".to_string(),
@@ -337,6 +341,26 @@ fn validate_course_to_progress_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate LearnerToProgress link (from the authoring agent to progress).
+fn validate_learner_to_progress_link(
+    link: &RegisterCreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_agent = AgentPubKey::try_from(link.create_link.hashed.content.base_address.clone())
+        .map_err(|_| wasm_error!("LearnerToProgress base must be an AgentPubKey"))?;
+
+    let _progress_hash =
+        ActionHash::try_from(link.create_link.hashed.content.target_address.clone())
+            .map_err(|_| wasm_error!("LearnerToProgress target must be an ActionHash"))?;
+
+    if link.create_link.hashed.content.author != base_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Learner progress can only be indexed by its author".to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate a Course entry -- binds the entry to its committing agent.
 fn validate_course(author: &AgentPubKey, course: &Course) -> ExternResult<ValidateCallbackResult> {
     if course.creator != format!("did:mycelix:{}", author) {
@@ -426,6 +450,12 @@ fn validate_learner_progress(
 fn validate_learner_progress_shape(
     progress: &LearnerProgress,
 ) -> ExternResult<ValidateCallbackResult> {
+    if progress.course_id.0.trim().is_empty() || progress.course_id.0.len() > 512 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Progress course ID must contain 1-512 characters".to_string(),
+        ));
+    }
+
     // Progress percentage must be 0-100
     if !progress.progress_percent.is_finite()
         || progress.progress_percent < 0.0
@@ -440,6 +470,12 @@ fn validate_learner_progress_shape(
     if progress.completed_items.len() > 1000 {
         return Ok(ValidateCallbackResult::Invalid(
             "Too many completed items (max 1000)".to_string(),
+        ));
+    }
+
+    if progress.completed_items.iter().any(|item| item.len() > 512) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Completed item IDs must not exceed 512 characters".to_string(),
         ));
     }
 

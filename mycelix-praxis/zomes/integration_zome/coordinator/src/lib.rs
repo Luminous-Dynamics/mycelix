@@ -15,6 +15,10 @@
 use hdk::prelude::*;
 use integration_integrity::*;
 use mycelix_zome_helpers as _;
+use praxis_core::contracts::{
+    DASHBOARD_CONTRACT_VERSION, DashboardActivity, DashboardActivityKind, DashboardGamification,
+    DashboardRecommendation, DashboardRecommendationKind, DashboardSkillMastery, DashboardSnapshot,
+};
 
 // Explicit imports for types used in create_default_progress
 use integration_integrity::LearningStyle;
@@ -50,6 +54,50 @@ pub struct AdaptiveLearnerSummary {
     pub total_learning_minutes: u32,
     pub active_paths: u32,
     pub recommendations_count: u32,
+}
+
+/// Narrow mirrors used only to decode adaptive coordinator responses. The
+/// browser never receives these integrity-shaped values directly.
+#[derive(Clone, Debug, Deserialize)]
+struct AdaptiveSkillMastery {
+    skill_hash: ActionHash,
+    mastery_permille: u16,
+    total_attempts: u32,
+    modified_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AdaptiveRecommendation {
+    target_hash: ActionHash,
+    rec_type: AdaptiveRecommendationKind,
+    explanation: String,
+    rank: u32,
+    expires_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+enum AdaptiveRecommendationKind {
+    NextSkill,
+    Review,
+    Practice,
+    Challenge,
+    Course,
+    Pod,
+    Exploration,
+}
+
+impl From<AdaptiveRecommendationKind> for DashboardRecommendationKind {
+    fn from(value: AdaptiveRecommendationKind) -> Self {
+        match value {
+            AdaptiveRecommendationKind::NextSkill => Self::NextSkill,
+            AdaptiveRecommendationKind::Review => Self::Review,
+            AdaptiveRecommendationKind::Practice => Self::Practice,
+            AdaptiveRecommendationKind::Challenge => Self::Challenge,
+            AdaptiveRecommendationKind::Course => Self::Course,
+            AdaptiveRecommendationKind::Pod => Self::Pod,
+            AdaptiveRecommendationKind::Exploration => Self::Exploration,
+        }
+    }
 }
 
 // ============== Cross-Zome Call Helpers ==============
@@ -818,6 +866,102 @@ pub fn get_unified_dashboard(_: ()) -> ExternResult<UnifiedDashboard> {
     })
 }
 
+/// Return the stable, read-only dashboard projection consumed by the browser.
+/// Each optional section preserves partial availability when one coordinator
+/// is absent or temporarily fails.
+#[hdk_extern]
+pub fn get_dashboard_snapshot(_: ()) -> ExternResult<DashboardSnapshot> {
+    let generated_at = current_time()?;
+
+    let gamification = call_gamification::<_, GamificationSummary>("get_gamification_summary", ())
+        .ok()
+        .map(|summary| DashboardGamification {
+            total_xp: summary.total_xp,
+            level: summary.level,
+            xp_to_next_level: summary.xp_to_next_level,
+            level_progress_permille: summary.level_progress_permille,
+            current_streak: summary.current_streak,
+            longest_streak: summary.longest_streak,
+            streak_bonus_permille: summary.streak_bonus_permille,
+            badges_earned: summary.badges_earned,
+            freezes_remaining: summary.freezes_remaining,
+        });
+
+    let due_review_count = call_srs::<_, Vec<Record>>("get_due_cards", 1_000u32)
+        .ok()
+        .map(|records| records.len().min(u32::MAX as usize) as u32);
+
+    let skills = call_adaptive::<_, Vec<AdaptiveSkillMastery>>("get_my_masteries", ())
+        .ok()
+        .map(|mut masteries| {
+            masteries.sort_by(|a, b| b.mastery_permille.cmp(&a.mastery_permille));
+            masteries.truncate(8);
+            masteries
+                .into_iter()
+                .map(|mastery| DashboardSkillMastery {
+                    skill_id: mastery.skill_hash.to_string(),
+                    mastery_permille: mastery.mastery_permille,
+                    total_attempts: mastery.total_attempts,
+                    modified_at: mastery.modified_at,
+                })
+                .collect()
+        });
+
+    let recommendations =
+        call_adaptive::<_, Vec<AdaptiveRecommendation>>("get_active_recommendations", 5u32)
+            .ok()
+            .map(|items| {
+                items
+                    .into_iter()
+                    .map(|item| DashboardRecommendation {
+                        target_id: item.target_hash.to_string(),
+                        kind: item.rec_type.into(),
+                        explanation: item.explanation,
+                        rank: item.rank,
+                        expires_at: item.expires_at,
+                    })
+                    .collect()
+            });
+
+    let recent_activity = get_recent_events(10).ok().map(|events| {
+        events
+            .into_iter()
+            .map(|event| DashboardActivity {
+                kind: match event.event_type {
+                    LearningEventType::SrsReview => DashboardActivityKind::SrsReview,
+                    LearningEventType::SrsGraduated => DashboardActivityKind::SrsGraduated,
+                    LearningEventType::LessonComplete => DashboardActivityKind::LessonComplete,
+                    LearningEventType::QuizPassed => DashboardActivityKind::QuizPassed,
+                    LearningEventType::QuizFailed => DashboardActivityKind::QuizFailed,
+                    LearningEventType::ProjectSubmit => DashboardActivityKind::ProjectSubmit,
+                    LearningEventType::PeerHelp => DashboardActivityKind::PeerHelp,
+                    LearningEventType::ContentCreated => DashboardActivityKind::ContentCreated,
+                    LearningEventType::BadgeEarned => DashboardActivityKind::BadgeEarned,
+                    LearningEventType::SkillMastered => DashboardActivityKind::SkillMastered,
+                    LearningEventType::GoalAchieved => DashboardActivityKind::GoalAchieved,
+                    LearningEventType::StreakMilestone => DashboardActivityKind::StreakMilestone,
+                    LearningEventType::ChallengeComplete => {
+                        DashboardActivityKind::ChallengeComplete
+                    }
+                    LearningEventType::DailyLogin => DashboardActivityKind::DailyLogin,
+                },
+                occurred_at: event.occurred_at,
+                xp_gained: event.xp_gained,
+            })
+            .collect()
+    });
+
+    Ok(DashboardSnapshot {
+        contract_version: DASHBOARD_CONTRACT_VERSION,
+        generated_at,
+        gamification,
+        due_review_count,
+        skills,
+        recommendations,
+        recent_activity,
+    })
+}
+
 // ============== Session Orchestration ==============
 
 /// Input for starting an orchestrated session
@@ -1156,11 +1300,12 @@ pub fn plan_smart_session(input: SmartSessionPlanInput) -> ExternResult<SmartSes
             target_hash: skill_hash.clone(),
             estimated_minutes: activity_minutes,
             priority: ((smart_score / 100) as u8).min(10).max(1),
-            reasoning: vec![rec
-                .get("explanation")
-                .and_then(|v| v.as_str())
-                .unwrap_or("AI-recommended activity")
-                .to_string()],
+            reasoning: vec![
+                rec.get("explanation")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("AI-recommended activity")
+                    .to_string(),
+            ],
             difficulty_match_permille: rec
                 .get("difficulty_match_permille")
                 .and_then(|v| v.as_u64())
@@ -2587,7 +2732,7 @@ pub fn publish_to_craft(input: PublishToCraftInput) -> ExternResult<()> {
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Credential record has no app entry".into()
-            )))
+            )));
         }
     };
 

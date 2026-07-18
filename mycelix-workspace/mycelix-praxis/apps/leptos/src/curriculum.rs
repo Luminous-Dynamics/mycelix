@@ -9,6 +9,7 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::OnceLock;
 
 use crate::persistence;
@@ -19,97 +20,132 @@ use crate::persistence;
 
 const UNIFIED_JSON: &str = include_str!("../../../examples/curriculum/unified_k_to_phd.json");
 
-static UNIFIED_GRAPH: OnceLock<CurriculumGraph> = OnceLock::new();
+static UNIFIED_GRAPH: OnceLock<Result<CurriculumGraph, CurriculumLoadError>> = OnceLock::new();
+
+/// A fatal error encountered while loading the embedded curriculum.
+///
+/// This is surfaced as a diagnostic page at startup instead of panicking and
+/// leaving learners with a blank screen.
+#[derive(Debug)]
+pub struct CurriculumLoadError {
+    source: String,
+    message: String,
+}
+
+impl CurriculumLoadError {
+    fn invalid_json(source: impl Into<String>, error: serde_json::Error) -> Self {
+        Self {
+            source: source.into(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for CurriculumLoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.source, self.message)
+    }
+}
+
+impl std::error::Error for CurriculumLoadError {}
+
+/// Parse the embedded graph and return a diagnostic error on invalid content.
+pub fn try_curriculum_graph() -> Result<&'static CurriculumGraph, &'static CurriculumLoadError> {
+    UNIFIED_GRAPH.get_or_init(load_curriculum_graph).as_ref()
+}
 
 /// Get the parsed unified graph (lazily initialized and merged with seeds).
+///
+/// Application startup validates the graph before rendering routes. Code that
+/// can run outside the application root should prefer [`try_curriculum_graph`].
 pub fn curriculum_graph() -> &'static CurriculumGraph {
-    UNIFIED_GRAPH.get_or_init(|| {
-        let mut base_raw: RawCurriculumDocument =
-            serde_json::from_str(UNIFIED_JSON).expect("base unified JSON must be valid");
+    try_curriculum_graph().expect("curriculum was not validated at application startup")
+}
 
-        // Systematic merge of all vocational and professional seeds
-        let seeds = vec![
-            include_str!("../../../examples/curriculum/vocational/applied_resilience.json"),
-            include_str!("../../../examples/curriculum/vocational/mycelial_humanities.json"),
-            include_str!("../../../examples/curriculum/vocational/collective_flourishing.json"),
-            include_str!("../../../examples/curriculum/vocational/epistemic_sovereignty.json"),
-            include_str!("../../../examples/curriculum/vocational/type1_studies.json"),
-            include_str!("../../../examples/curriculum/vocational/mycelial_soul.json"),
-            include_str!("../../../examples/curriculum/vocational/bioregional_vitality.json"),
-            include_str!("../../../examples/curriculum/vocational/robotics_platforms.json"),
-            include_str!("../../../examples/curriculum/vocational/habitat_engineering.json"),
-            include_str!("../../../examples/curriculum/vocational/warehouse_stewardship.json"),
-            include_str!("../../../examples/curriculum/vocational/civilizational_synthesis.json"),
-            include_str!("../../../examples/curriculum/vocational/foundational_sovereignty.json"),
-            include_str!("../../../examples/curriculum/vocational/substrate_science.json"),
-            include_str!("../../../examples/curriculum/vocational/academic_bridge.json"),
-            include_str!("../../../examples/curriculum/vocational/sovereign_lineage.json"),
-            include_str!("../../../examples/curriculum/vocational/sovereign_it_cyber.json"),
-            include_str!("../../../examples/curriculum/vocational/planetary_repair.json"),
-            include_str!("../../../examples/curriculum/vocational/cultural_resonance.json"),
-            include_str!("../../../examples/curriculum/vocational/computational_cognition.json"),
-            include_str!("../../../examples/curriculum/vocational/universal_patterns.json"),
-            include_str!("../../../examples/curriculum/vocational/ecosystem_expansion.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs.json"),
-            include_str!("../../../examples/curriculum/vocational/global_fruits.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_expanded.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_final.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_master.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_ultimate.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_supreme.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_zenith.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_apex.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_empyrean.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_pragmatic.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_utility.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_everyday.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_essentials.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_omnibus.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_resilient.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_elite.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_trades.json"),
-            include_str!(
-                "../../../examples/curriculum/vocational/industry_certs_comprehensive.json"
-            ),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_catalyst.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_market.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_momentum.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_momentum_v2.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_revenue.json"),
-            include_str!(
-                "../../../examples/curriculum/vocational/industry_certs_frontline_trades.json"
-            ),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_specialty.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_tactical.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_vanguard.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_summit.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_ascendant.json"),
-            include_str!(
-                "../../../examples/curriculum/vocational/industry_certs_legacy_bridge.json"
-            ),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_nexus.json"),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_apex_today.json"),
-            include_str!(
-                "../../../examples/curriculum/vocational/industry_certs_practical_prosperity.json"
-            ),
-            include_str!(
-                "../../../examples/curriculum/vocational/industry_certs_global_citizen.json"
-            ),
-            include_str!("../../../examples/curriculum/vocational/industry_certs_horizon.json"),
-            include_str!("../../../examples/curriculum/vocational/universal_wisdom.json"),
-            include_str!("../../../examples/curriculum/vocational/living_tradition.json"),
-            include_str!("../../../examples/curriculum/vocational/mk0_bootstrapper.json"),
-        ];
+fn load_curriculum_graph() -> Result<CurriculumGraph, CurriculumLoadError> {
+    let mut base_raw: RawCurriculumDocument = serde_json::from_str(UNIFIED_JSON)
+        .map_err(|error| CurriculumLoadError::invalid_json("unified_k_to_phd.json", error))?;
 
-        for seed_json in seeds {
-            let seed_raw: RawCurriculumDocument =
-                serde_json::from_str(seed_json).expect("all curriculum seeds must be valid JSON");
-            base_raw.nodes.extend(seed_raw.nodes);
-            base_raw.edges.extend(seed_raw.edges);
-        }
+    // Systematic merge of all vocational and professional seeds
+    let seeds = vec![
+        include_str!("../../../examples/curriculum/vocational/applied_resilience.json"),
+        include_str!("../../../examples/curriculum/vocational/mycelial_humanities.json"),
+        include_str!("../../../examples/curriculum/vocational/collective_flourishing.json"),
+        include_str!("../../../examples/curriculum/vocational/epistemic_sovereignty.json"),
+        include_str!("../../../examples/curriculum/vocational/type1_studies.json"),
+        include_str!("../../../examples/curriculum/vocational/mycelial_soul.json"),
+        include_str!("../../../examples/curriculum/vocational/bioregional_vitality.json"),
+        include_str!("../../../examples/curriculum/vocational/robotics_platforms.json"),
+        include_str!("../../../examples/curriculum/vocational/habitat_engineering.json"),
+        include_str!("../../../examples/curriculum/vocational/warehouse_stewardship.json"),
+        include_str!("../../../examples/curriculum/vocational/civilizational_synthesis.json"),
+        include_str!("../../../examples/curriculum/vocational/foundational_sovereignty.json"),
+        include_str!("../../../examples/curriculum/vocational/substrate_science.json"),
+        include_str!("../../../examples/curriculum/vocational/academic_bridge.json"),
+        include_str!("../../../examples/curriculum/vocational/sovereign_lineage.json"),
+        include_str!("../../../examples/curriculum/vocational/sovereign_it_cyber.json"),
+        include_str!("../../../examples/curriculum/vocational/planetary_repair.json"),
+        include_str!("../../../examples/curriculum/vocational/cultural_resonance.json"),
+        include_str!("../../../examples/curriculum/vocational/computational_cognition.json"),
+        include_str!("../../../examples/curriculum/vocational/universal_patterns.json"),
+        include_str!("../../../examples/curriculum/vocational/ecosystem_expansion.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs.json"),
+        include_str!("../../../examples/curriculum/vocational/global_fruits.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_expanded.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_final.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_master.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_ultimate.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_supreme.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_zenith.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_apex.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_empyrean.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_pragmatic.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_utility.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_everyday.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_essentials.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_omnibus.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_resilient.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_elite.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_trades.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_comprehensive.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_catalyst.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_market.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_momentum.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_momentum_v2.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_revenue.json"),
+        include_str!(
+            "../../../examples/curriculum/vocational/industry_certs_frontline_trades.json"
+        ),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_specialty.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_tactical.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_vanguard.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_summit.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_ascendant.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_legacy_bridge.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_nexus.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_apex_today.json"),
+        include_str!(
+            "../../../examples/curriculum/vocational/industry_certs_practical_prosperity.json"
+        ),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_global_citizen.json"),
+        include_str!("../../../examples/curriculum/vocational/industry_certs_horizon.json"),
+        include_str!("../../../examples/curriculum/vocational/universal_wisdom.json"),
+        include_str!("../../../examples/curriculum/vocational/living_tradition.json"),
+        include_str!("../../../examples/curriculum/vocational/mk0_bootstrapper.json"),
+    ];
 
-        CurriculumGraph::from_raw(base_raw)
-    })
+    for (index, seed_json) in seeds.into_iter().enumerate() {
+        let seed_raw: RawCurriculumDocument = serde_json::from_str(seed_json).map_err(|error| {
+            CurriculumLoadError::invalid_json(
+                format!("embedded vocational curriculum seed {}", index + 1),
+                error,
+            )
+        })?;
+        base_raw.nodes.extend(seed_raw.nodes);
+        base_raw.edges.extend(seed_raw.edges);
+    }
+
+    Ok(CurriculumGraph::from_raw(base_raw))
 }
 
 // ============================================================
@@ -981,9 +1017,9 @@ impl Grade {
 }
 
 /// Provide curriculum context. Call once at app root.
-pub fn provide_curriculum_context() {
-    // Force parse on startup
-    let _ = curriculum_graph();
+pub fn provide_curriculum_context() -> Result<(), &'static CurriculumLoadError> {
+    // Validate before routes or graph consumers are rendered.
+    let _ = try_curriculum_graph()?;
 
     let initial_progress = persistence::load::<ProgressStore>(PROGRESS_KEY).unwrap_or_default();
 
@@ -1021,6 +1057,8 @@ pub fn provide_curriculum_context() {
     provide_context(set_celebrating);
     provide_context(celebration_topic);
     provide_context(set_celebration_topic);
+
+    Ok(())
 }
 
 pub fn use_subject() -> ReadSignal<Subject> {

@@ -223,15 +223,88 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::TrustClaim(claim) => validate_trust_claim(claim, action),
                 EntryTypes::VerificationStatus(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::CdnNodeReputation(rep) => validate_cdn_reputation(rep, action),
-                EntryTypes::ServiceQualityReport(report) => {
-                    validate_quality_report(report, action)
-                }
+                EntryTypes::ServiceQualityReport(report) => validate_quality_report(report, action),
                 EntryTypes::ByzantineReport(report) => validate_byzantine_report(report, action),
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                action,
+                original_action_hash,
+                original_entry_hash: _,
+            } => match app_entry {
+                EntryTypes::TrustClaim(claim) => {
+                    validate_update_trust_claim(claim, action, original_action_hash)
+                }
+                // VerificationStatus/ServiceQualityReport/ByzantineReport are confirmed
+                // create-only (no coordinator function ever calls update_entry on any of
+                // them) -- reject outright rather than leave an unbound dead-code path (P0
+                // wide-open RegisterUpdate gap, confirmed dozens of times elsewhere in this
+                // pass). CdnNodeReputation has a real update path (update_cdn_reputation,
+                // triggered by third-party ServiceQualityReport submissions, not
+                // self-authored) -- its real integrity concern is aggregation honesty, not
+                // committer identity, needing must_get chain-walk verification against the
+                // reports it claims to derive from; deliberately left untouched this turn,
+                // see memory/mycelix_attribution_author_binding_jul8.md.
+                EntryTypes::VerificationStatus(_) => Ok(ValidateCallbackResult::Invalid(
+                    "VerificationStatus entries cannot be updated".to_string(),
+                )),
+                EntryTypes::CdnNodeReputation(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::ServiceQualityReport(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ServiceQualityReport entries cannot be updated".to_string(),
+                )),
+                EntryTypes::ByzantineReport(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ByzantineReport entries cannot be updated".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Re-derives revoke_trust_claim's own real, previously coordinator-only invariant at the
+/// DHT level ("only the original claimant may update their own claim") -- since `from` is
+/// already bound to the committer on create, checking against the original action's author
+/// is equivalent. revoke_trust_claim only ever flips `active` to false; every other field
+/// must stay byte-identical to the original (P0 wide-open RegisterUpdate gap).
+fn validate_update_trust_claim(
+    claim: TrustClaim,
+    action: Update,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_action = must_get_action(original_action_hash)?;
+    if original_action.action().author() != &action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original claimant can update a trust claim".to_string(),
+        ));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let Some(original): Option<TrustClaim> = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Invalid original TrustClaim entry".to_string(),
+        ));
+    };
+
+    if claim.from != original.from
+        || claim.to != original.to
+        || claim.claim_type != original.claim_type
+        || claim.confidence_bps != original.confidence_bps
+        || claim.evidence != original.evidence
+        || claim.created_at != original.created_at
+        || claim.expires_at != original.expires_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust claim updates may only change 'active' -- all other fields must be unchanged"
+                .to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_trust_claim(claim: TrustClaim, action: Create) -> ExternResult<ValidateCallbackResult> {

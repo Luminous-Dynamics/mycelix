@@ -9,6 +9,12 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Leptos CSR frontend for Mycelix Music — zero-cost streaming with Holochain"
 
+[features]
+default = []
+# Enables clearly-labelled sample catalog data and mock connection status for
+# component development. Production builds must not enable this feature.
+fixtures = []
+
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = "0.8"

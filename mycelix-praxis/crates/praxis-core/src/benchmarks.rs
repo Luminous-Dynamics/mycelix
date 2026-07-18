@@ -29,7 +29,11 @@ mod tests {
             elapsed
         );
         // Should complete in < 100µs per validation
-        assert!(per_op.as_micros() < 100, "BKT validation too slow: {:?}", per_op);
+        assert!(
+            per_op.as_micros() < 100,
+            "BKT validation too slow: {:?}",
+            per_op
+        );
     }
 
     #[test]
@@ -50,7 +54,11 @@ mod tests {
             elapsed
         );
         // 1000 attempts should still complete in < 1ms
-        assert!(per_op.as_micros() < 1000, "BKT 1000 validation too slow: {:?}", per_op);
+        assert!(
+            per_op.as_micros() < 1000,
+            "BKT 1000 validation too slow: {:?}",
+            per_op
+        );
     }
 
     // ---- TEND Computation Performance ----
@@ -78,7 +86,11 @@ mod tests {
             total
         );
         // TEND computation is trivial arithmetic — should be < 1µs
-        assert!(per_op.as_nanos() < 1000, "TEND computation too slow: {:?}", per_op);
+        assert!(
+            per_op.as_nanos() < 1000,
+            "TEND computation too slow: {:?}",
+            per_op
+        );
     }
 
     // ---- Ebbinghaus Vitality Performance ----
@@ -96,7 +108,9 @@ mod tests {
         }
 
         fn predict_vitality(stability: f64, elapsed: f64) -> u16 {
-            if stability <= 0.0 { return 1000; }
+            if stability <= 0.0 {
+                return 1000;
+            }
             let retention = (-elapsed / stability).exp();
             (retention * 1000.0).round().clamp(0.0, 1000.0) as u16
         }
@@ -132,7 +146,9 @@ mod tests {
             let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
             let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
             let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm_a == 0.0 || norm_b == 0.0 { return 0.0; }
+            if norm_a == 0.0 || norm_b == 0.0 {
+                return 0.0;
+            }
             dot / (norm_a * norm_b)
         }
 
@@ -156,7 +172,11 @@ mod tests {
             elapsed
         );
         // 256D cosine should be < 50µs (debug mode is slower)
-        assert!(per_op.as_micros() < 50, "Cosine 256D too slow: {:?}", per_op);
+        assert!(
+            per_op.as_micros() < 50,
+            "Cosine 256D too slow: {:?}",
+            per_op
+        );
         assert!(total != 0.0); // Prevent dead code elimination
     }
 
@@ -166,14 +186,20 @@ mod tests {
             let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
             let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
             let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm_a == 0.0 || norm_b == 0.0 { return 0.0; }
+            if norm_a == 0.0 || norm_b == 0.0 {
+                return 0.0;
+            }
             dot / (norm_a * norm_b)
         }
 
         let dim = 256;
         let n = 100;
         let embeddings: Vec<Vec<f32>> = (0..n)
-            .map(|i| (0..dim).map(|j| ((i * dim + j) as f32 * 0.001).sin()).collect())
+            .map(|i| {
+                (0..dim)
+                    .map(|j| ((i * dim + j) as f32 * 0.001).sin())
+                    .collect()
+            })
             .collect();
 
         let start = Instant::now();
@@ -182,7 +208,9 @@ mod tests {
         for i in 0..n {
             for j in (i + 1)..n {
                 let sim = cosine_similarity(&embeddings[i], &embeddings[j]);
-                if sim > max_sim { max_sim = sim; }
+                if sim > max_sim {
+                    max_sim = sim;
+                }
                 comparisons += 1;
             }
         }
@@ -196,7 +224,11 @@ mod tests {
         );
         assert_eq!(comparisons, 4950); // n*(n-1)/2
         // 100 items pairwise should complete in < 1s (debug mode)
-        assert!(elapsed.as_secs() < 1, "Pairwise 100 items too slow: {:?}", elapsed);
+        assert!(
+            elapsed.as_secs() < 1,
+            "Pairwise 100 items too slow: {:?}",
+            elapsed
+        );
     }
 
     #[test]
@@ -205,14 +237,20 @@ mod tests {
             let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
             let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
             let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm_a == 0.0 || norm_b == 0.0 { return 0.0; }
+            if norm_a == 0.0 || norm_b == 0.0 {
+                return 0.0;
+            }
             dot / (norm_a * norm_b)
         }
 
         let dim = 256;
         let n = 500;
         let embeddings: Vec<Vec<f32>> = (0..n)
-            .map(|i| (0..dim).map(|j| ((i * dim + j) as f32 * 0.001).sin()).collect())
+            .map(|i| {
+                (0..dim)
+                    .map(|j| ((i * dim + j) as f32 * 0.001).sin())
+                    .collect()
+            })
             .collect();
 
         let start = Instant::now();
@@ -230,6 +268,10 @@ mod tests {
         );
         assert_eq!(comparisons, 124750);
         // 500 items pairwise should complete in < 15s (debug mode; ~1s in release)
-        assert!(elapsed.as_secs() < 15, "Pairwise 500 items too slow: {:?}", elapsed);
+        assert!(
+            elapsed.as_secs() < 15,
+            "Pairwise 500 items too slow: {:?}",
+            elapsed
+        );
     }
 }

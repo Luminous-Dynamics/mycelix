@@ -65,10 +65,7 @@ pub struct ArtistProfile {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RecordPlayInput {
     pub song_hash: ActionHash,
-    pub artist: AgentPubKey,
     pub duration_listened: u32,
-    pub song_duration: u32,
-    pub strategy_id: String,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -177,8 +174,7 @@ pub struct BridgeHealth {
 // ============================================================================
 
 fn happ_path() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     PathBuf::from(manifest_dir)
         .parent()
         .unwrap()
@@ -191,10 +187,7 @@ async fn setup_conductor() -> (SweetConductor, AgentPubKey) {
     (conductor, agent)
 }
 
-async fn install_app(
-    conductor: &mut SweetConductor,
-    agent: &AgentPubKey,
-) -> SweetApp {
+async fn install_app(conductor: &mut SweetConductor, agent: &AgentPubKey) -> SweetApp {
     let happ = happ_path();
     conductor
         .setup_app_for_agent("music", agent.clone(), &[DnaSource::Path(happ)])
@@ -327,10 +320,7 @@ async fn test_record_play_and_stats() {
     // Record a play
     let play_input = RecordPlayInput {
         song_hash: song_hash.clone(),
-        artist: agent.clone(),
         duration_listened: 180,
-        song_duration: 200,
-        strategy_id: "pay_per_stream".to_string(),
     };
 
     let play_hash: ActionHash = conductor
@@ -339,18 +329,15 @@ async fn test_record_play_and_stats() {
 
     // Verify play was recorded
     let unsettled: Vec<PlayRecord> = conductor
-        .call(
-            &app.cells()[0],
-            "plays",
-            "get_my_unsettled_plays",
-            (),
-        )
+        .call(&app.cells()[0], "plays", "get_my_unsettled_plays", ())
         .await;
 
     assert!(!unsettled.is_empty());
     let play = &unsettled[0];
     assert_eq!(play.duration_listened, 180);
     assert_eq!(play.song_duration, 200);
+    assert_eq!(play.artist, agent);
+    assert_eq!(play.strategy_id, "pay_per_stream");
     assert!(!play.settled);
     assert!(play.amount_owed > 0); // Should have calculated payment
 }
@@ -382,10 +369,7 @@ async fn test_settlement_batch() {
     for _ in 0..3 {
         let play_input = RecordPlayInput {
             song_hash: song_hash.clone(),
-            artist: agent.clone(),
             duration_listened: 180,
-            song_duration: 180,
-            strategy_id: "pay_per_stream".to_string(),
         };
         let _: ActionHash = conductor
             .call(&app.cells()[0], "plays", "record_play", play_input)
@@ -404,12 +388,7 @@ async fn test_settlement_batch() {
 
     // Verify unsettled plays are now empty
     let unsettled: Vec<PlayRecord> = conductor
-        .call(
-            &app.cells()[0],
-            "plays",
-            "get_my_unsettled_plays",
-            (),
-        )
+        .call(&app.cells()[0], "plays", "get_my_unsettled_plays", ())
         .await;
 
     assert!(unsettled.is_empty(), "All plays should be settled");
@@ -426,7 +405,7 @@ async fn test_listener_account_lifecycle() {
     let app = install_app(&mut conductor, &agent).await;
 
     // Create listener account
-    let account: Record = conductor
+    let listener: ListenerAccount = conductor
         .call(
             &app.cells()[0],
             "balances",
@@ -435,7 +414,6 @@ async fn test_listener_account_lifecycle() {
         )
         .await;
 
-    let listener: ListenerAccount = account.entry().to_app_option().unwrap().unwrap();
     assert_eq!(listener.balance, 0);
     assert_eq!(
         listener.eth_address,
@@ -450,7 +428,7 @@ async fn test_artist_account_and_deposit() {
     let app = install_app(&mut conductor, &agent).await;
 
     // Create artist account
-    let account: Record = conductor
+    let artist: ArtistAccount = conductor
         .call(
             &app.cells()[0],
             "balances",
@@ -459,7 +437,6 @@ async fn test_artist_account_and_deposit() {
         )
         .await;
 
-    let artist: ArtistAccount = account.entry().to_app_option().unwrap().unwrap();
     assert_eq!(artist.pending_balance, 0);
 
     // Record deposit (unverified — needs oracle to credit balance)
@@ -470,27 +447,20 @@ async fn test_artist_account_and_deposit() {
     };
 
     let deposit_hash: ActionHash = conductor
-        .call(
-            &app.cells()[0],
-            "balances",
-            "record_deposit",
-            deposit_input,
-        )
+        .call(&app.cells()[0], "balances", "record_deposit", deposit_input)
         .await;
 
     // Balance should still be 0 (deposit not yet verified by oracle)
     let balance: Option<ListenerAccount> = conductor
-        .call(
-            &app.cells()[0],
-            "balances",
-            "get_my_listener_balance",
-            (),
-        )
+        .call(&app.cells()[0], "balances", "get_my_listener_balance", ())
         .await;
 
     // Account exists but balance unchanged until verify_deposit()
     if let Some(acct) = balance {
-        assert_eq!(acct.balance, 0, "Balance should be 0 before oracle verification");
+        assert_eq!(
+            acct.balance, 0,
+            "Balance should be 0 before oracle verification"
+        );
     }
 }
 
@@ -517,12 +487,7 @@ async fn test_trust_claim_and_verification() {
     };
 
     let claim_hash: ActionHash = conductor
-        .call(
-            &app.cells()[0],
-            "trust",
-            "create_trust_claim",
-            claim_input,
-        )
+        .call(&app.cells()[0], "trust", "create_trust_claim", claim_input)
         .await;
 
     // Recompute verification status
@@ -552,12 +517,7 @@ async fn test_bridge_health_check() {
     let app = install_app(&mut conductor, &agent).await;
 
     let health: BridgeHealth = conductor
-        .call(
-            &app.cells()[0],
-            "music_bridge",
-            "health_check",
-            (),
-        )
+        .call(&app.cells()[0], "music_bridge", "health_check", ())
         .await;
 
     assert!(health.healthy);

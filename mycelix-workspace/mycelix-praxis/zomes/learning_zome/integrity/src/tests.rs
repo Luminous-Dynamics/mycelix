@@ -307,6 +307,28 @@ mod learner_progress_validation_tests {
     }
 
     #[test]
+    fn test_progress_rejects_empty_course_id() {
+        let mut progress = create_valid_progress();
+        progress.course_id = CourseId("  ".to_string());
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(
+            result.unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_progress_rejects_oversized_completed_item_id() {
+        let mut progress = create_valid_progress();
+        progress.completed_items = vec!["x".repeat(513)];
+        let result = validate_learner_progress_shape(&progress);
+        assert!(matches!(
+            result.unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
     fn test_progress_too_many_completed_items() {
         let mut progress = create_valid_progress();
         progress.completed_items = (0..1001).map(|i| format!("item-{}", i)).collect(); // Max is 1000

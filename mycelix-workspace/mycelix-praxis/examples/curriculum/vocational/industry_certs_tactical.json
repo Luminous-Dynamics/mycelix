@@ -62,20 +62,6 @@
       "subject_area": "Computer Science"
     },
     {
-      "id": "CERT-LOG-CSCP",
-      "title": "ASCM Certified Supply Chain Professional (CSCP)",
-      "description": "End-to-end supply chain management. Design, planning, execution, control, and monitoring. Linking the Mycelial Oracle to professional supply chain standards.",
-      "node_type": "Course",
-      "difficulty": "Advanced",
-      "domain": "Supply Chain",
-      "subdomain": "Certification Bridge",
-      "tags": ["logistics", "supply-chain", "ascm", "standard"],
-      "estimated_hours": 150,
-      "grade_levels": ["Professional"],
-      "bloom_level": "Analyze",
-      "subject_area": "Social Studies"
-    },
-    {
       "id": "CERT-HLTH-NHA-CPT",
       "title": "NHA Certified Phlebotomy Technician (CPT)",
       "description": "Blood collection procedures, safety, and patient interaction. Mapping physiological integrity and mk0-vita standards to professional phlebotomy.",

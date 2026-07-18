@@ -39,12 +39,10 @@
         # truth), not stable.latest, so devShell builds can't silently drift from the pin
         # and fragment sccache's cache (compiler binary is part of its cache key). Also
         # reused below by the pulse-smtp-gateway package build.
-        rustToolchainToml = builtins.fromTOML (builtins.readFile ../rust-toolchain.toml);
-        rustChannel = rustToolchainToml.toolchain.channel;
-        rustToolchain = pkgs.rust-bin.stable.${rustChannel}.default.override {
-          extensions = [ "rust-src" "rust-analyzer" ];
-          targets = [ "wasm32-unknown-unknown" ];
-        };
+        # `stable.${channel}` only exposes versions known when the pinned
+        # rust-overlay revision was generated. The workspace toolchain may be
+        # newer than that attribute set, so resolve the rustup file directly.
+        rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ../rust-toolchain.toml;
 
         # Common build inputs
         buildInputs = with pkgs; [
@@ -53,6 +51,7 @@
           cargo-watch
           cargo-edit
           cargo-tauri
+          llvmPackages.libclang
 
           # Holochain
           holochainPkg
@@ -116,6 +115,7 @@
             # Set up environment variables
             export RUST_BACKTRACE=1
             export RUST_LOG=info
+            export LIBCLANG_PATH=${pkgs.llvmPackages.libclang.lib}/lib
 
             # Holochain configuration
             export HC_ADMIN_PORT=4444
@@ -155,7 +155,7 @@
           # Phase 5A — sovereign SMTP gateway. The library + binary that
           # bridges legacy RFC 5322 mail to the Pulse DHT.
           #
-          # Uses rust-overlay's pinned toolchain (rustChannel, see above).
+          # Uses the workspace rustup toolchain resolved above.
           # nixos-24.05's stock cargo (1.77) is too old for several transitive
           # deps that need edition2024 (cargo 1.85+). The toolchain bundle exposes
           # `cargo` + `rustc` symlinks through one derivation; `makeRustPlatform`
@@ -163,7 +163,7 @@
           # cargoSetupHook actually runs `cargo --version` from the bundle's
           # /bin so the bundle wins over the rustPlatform default.
           pulse-smtp-gateway = let
-            rustToolchainForBuild = pkgs.rust-bin.stable.${rustChannel}.default;
+            rustToolchainForBuild = rustToolchain;
           in (pkgs.makeRustPlatform {
             cargo = rustToolchainForBuild;
             rustc = rustToolchainForBuild;

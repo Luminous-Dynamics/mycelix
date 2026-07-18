@@ -531,7 +531,7 @@ fn BatchToolbar() -> impl IntoView {
 #[component]
 fn ConnectionBanner() -> impl IntoView {
     let hc = use_holochain();
-    let is_mock = move || hc.status.get() == ConnectionStatus::Mock;
+    let is_mock = move || hc.status.get() == ConnectionStatus::Demo;
     let is_connecting = move || hc.status.get() == ConnectionStatus::Connecting;
     let is_disconnected = move || hc.status.get() == ConnectionStatus::Disconnected;
 

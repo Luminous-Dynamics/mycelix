@@ -2,26 +2,62 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-//! Employer Portal — Talent search and reputation-weighted verification.
+//! Employer talent-search concept.
+//!
+//! No employer-search wire contract exists in the supplied hApp. The concept
+//! is therefore restricted to Demo mode and never presented as network data.
 
 use leptos::prelude::*;
 
+use crate::mode::{AppMode, use_app_mode};
+
 #[component]
 pub fn EmployerPortal() -> impl IntoView {
-    let (search_query, set_search_query) = signal("2512".to_string()); // Default to SW Dev
-    let (is_searching, set_is_searching) = signal(false);
+    let mode = use_app_mode();
 
     view! {
+        {move || {
+            if mode.get() == AppMode::Demo {
+                view! { <EmployerConcept /> }.into_any()
+            } else {
+                view! {
+                    <div class="employer-portal">
+                        <header class="employer-header">
+                            <div class="portal-brand">
+                                <span class="portal-icon">"\u{1F4BC}"</span>
+                                <h1>"Praxis Talent Mesh"</h1>
+                            </div>
+                        </header>
+                        <div class="data-empty-state">
+                            <strong>"Talent search unavailable"</strong>
+                            <p>
+                                "No employer-search coordinator contract is connected. Praxis is not claiming candidates, reputation scores, ZK verification, or mesh-search results."
+                            </p>
+                        </div>
+                    </div>
+                }.into_any()
+            }
+        }}
+    }
+}
+
+#[component]
+fn EmployerConcept() -> impl IntoView {
+    view! {
         <div class="employer-portal">
+            <div class="data-empty-state" style="margin-bottom: 1rem">
+                <strong>"Demo-only talent concept"</strong>
+                <p>
+                    "Every candidate, identifier, score, skill, and proof badge below is fictional. No mesh search or credential verification is running."
+                </p>
+            </div>
+
             <header class="employer-header">
                 <div class="portal-brand">
                     <span class="portal-icon">"\u{1F4BC}"</span>
-                    <h1>"Praxis Talent Mesh"</h1>
+                    <h1>"Praxis Talent Mesh Concept"</h1>
                 </div>
-                <div class="mesh-status">
-                    <span class="pulse-dot"></span>
-                    "Searching Local Swarm Mesh (LoRa + 802.11s)"
-                </div>
+                <div class="mesh-status">"Illustrative offline layout"</div>
             </header>
 
             <section class="search-hero">
@@ -30,65 +66,42 @@ pub fn EmployerPortal() -> impl IntoView {
                         <span class="search-icon">"\u{1F50D}"</span>
                         <input
                             type="text"
-                            placeholder="Enter ESCO code (e.g. 2512 for Software Dev)"
-                            prop:value=search_query
-                            on:input=move |ev| set_search_query.set(event_target_value(&ev))
+                            value="2512"
+                            aria-label="Illustrative ESCO search"
+                            disabled
                         />
                     </div>
-                    <button
-                        class="btn-search"
-                        on:click=move |_| {
-                            set_is_searching.set(true);
-                            // Simulate mesh search delay
-                            wasm_bindgen_futures::spawn_local(async move {
-                                gloo_timers::future::sleep(std::time::Duration::from_millis(800)).await;
-                                set_is_searching.set(false);
-                            });
-                        }
-                    >
-                        {move || if is_searching.get() { "Scanning..." } else { "Scan Mesh" }}
-                    </button>
+                    <button class="btn-search" disabled>"Search unavailable"</button>
                 </div>
             </section>
 
             <main class="results-layout">
                 <aside class="search-filters">
-                    <h4>"Search Parameters"</h4>
+                    <h4>"Illustrative Parameters"</h4>
                     <div class="filter-group">
                         <label>"Framework"</label>
-                        <select><option>"ESCO (Europe)"</option><option>"O*NET (USA)"</option></select>
+                        <select disabled><option>"ESCO example"</option></select>
                     </div>
                     <div class="filter-group">
-                        <label>"Min. MATL Trust"</label>
-                        <input type="range" min="0" max="1000" step="50" />
-                    </div>
-                    <div class="filter-group">
-                        <label>"Proof Type"</label>
-                        <div class="checkbox-list">
-                            <label><input type="checkbox" checked /> "Holonic Capstone"</label>
-                            <label><input type="checkbox" checked /> "ZK-Mastery Proof"</label>
-                            <label><input type="checkbox" /> "Peer Endorsement"</label>
-                        </div>
+                        <label>"Illustrative trust threshold"</label>
+                        <input type="range" min="0" max="1000" step="50" disabled />
                     </div>
                 </aside>
 
                 <div class="results-main">
                     <div class="results-header">
-                        <h3>"Available Talent" <span class="count">"2 found in range"</span></h3>
+                        <h3>"Fictional Candidate Cards"</h3>
                     </div>
-
                     <div class="results-grid">
-                        <TalentCard
-                            did="did:mycelix:x7f2...89a"
+                        <TalentConceptCard
+                            did="did:example:praxis-candidate-a"
                             trust=880
                             skills=vec!["Software Developer", "Systems Architect"]
-                            zk_verified=true
                         />
-                        <TalentCard
-                            did="did:mycelix:u9b4...22c"
+                        <TalentConceptCard
+                            did="did:example:praxis-candidate-b"
                             trust=740
                             skills=vec!["Software Developer"]
-                            zk_verified=true
                         />
                     </div>
                 </div>
@@ -98,49 +111,37 @@ pub fn EmployerPortal() -> impl IntoView {
 }
 
 #[component]
-fn TalentCard(
-    did: &'static str,
-    trust: u16,
-    skills: Vec<&'static str>,
-    zk_verified: bool,
-) -> impl IntoView {
+fn TalentConceptCard(did: &'static str, trust: u16, skills: Vec<&'static str>) -> impl IntoView {
     view! {
         <div class="talent-card">
             <div class="talent-header">
                 <div class="talent-meta">
                     <span class="talent-did">{did}</span>
                     <div class="talent-skills">
-                        {skills.into_iter().map(|s| view! { <span class="skill-tag">{s}</span> }).collect_view()}
+                        {skills
+                            .into_iter()
+                            .map(|skill| view! { <span class="skill-tag">{skill}</span> })
+                            .collect_view()}
                     </div>
                 </div>
                 <div class="talent-scores">
                     <div class="score-pill">
-                        <span class="score-label">"Learning Rep"</span>
+                        <span class="score-label">"Illustrative score"</span>
                         <span class="score-value">{trust}</span>
-                    </div>
-                    <div class="score-pill vitality">
-                        <span class="score-label">"Craft Vitality"</span>
-                        <span class="score-value">"92%"</span>
                     </div>
                 </div>
             </div>
 
             <div class="talent-verification">
-                {if zk_verified {
-                    view! {
-                        <div class="zk-badge">
-                            <span class="zk-icon">"\u{1F512}"</span>
-                            "ZK-Mastery Verified (Threshold > 85%)"
-                        </div>
-                    }.into_any()
-                } else {
-                    view! { <span></span> }.into_any()
-                }}
+                <div class="zk-badge">
+                    <span class="zk-icon">"\u{1F512}"</span>
+                    "Concept badge — no ZK proof checked"
+                </div>
             </div>
 
             <div class="talent-actions">
-                <button class="btn-sm btn-primary">"Request Full CLR"</button>
-                <button class="btn-sm btn-outline">"View Capstone Summary"</button>
+                <button class="btn-sm btn-primary" disabled>"CLR request unavailable"</button>
+                <button class="btn-sm btn-outline" disabled>"Capstone unavailable"</button>
             </div>
         </div>
     }

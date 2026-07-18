@@ -460,8 +460,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            // No entry type in this zome has a real update_entry call anywhere in the
+            // coordinator (confirmed via direct grep -- every "update" is actually a fresh
+            // create_entry, e.g. set_online_status) -- reject outright rather than leave the
+            // previous unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed
+            // 50+ times elsewhere in this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Sync entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Sync entries cannot be updated".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -473,8 +484,28 @@ fn validate_create_entry(
     match entry {
         EntryTypes::SyncState(state) => validate_sync_state(&state, &action),
         EntryTypes::SyncOperation(op) => validate_sync_operation(&op, &action),
+        EntryTypes::SyncCheckpoint(checkpoint) => validate_sync_checkpoint(&checkpoint, &action),
+        // SyncPeer.agent is a legitimate REFERENCE to a different party (the remote peer
+        // being registered by register_sync_peer), not the committer's own self-reported
+        // identity -- deliberately not bound. SyncConflict's embedded resolver/winner
+        // fields are a deeper sub-struct-provenance gap, deferred (see
+        // memory/mycelix_attribution_author_binding_jul8.md).
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Bind the checkpoint to its committer -- create_checkpoint already derives agent from
+/// agent_info() coordinator-side with zero user input (P0 author-binding gap).
+fn validate_sync_checkpoint(
+    checkpoint: &SyncCheckpoint,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if checkpoint.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Sync checkpoint agent must match author".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_sync_state(state: &SyncState, action: &Create) -> ExternResult<ValidateCallbackResult> {

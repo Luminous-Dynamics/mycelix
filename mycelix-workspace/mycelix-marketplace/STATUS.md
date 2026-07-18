@@ -1,33 +1,53 @@
-# Status: Maintenance-only
+# Mycelix Marketplace status
 
-**As of 2026-07-02, mycelix-marketplace is frozen for new feature work.**
+**Updated: 2026-07-14**
 
-## Why
+## Classification
 
-No cross-cluster consumers (0 files anywhere in the monorepo dispatch into
-marketplace via `CallTargetCell::OtherRole`), and no product-side feature
-momentum since April 2026 — recent activity has been security/quality fixes
-(real arbitrator assignment + transaction-state auth checks, test coverage
-20 → 288) and license/formatting chores, not new capability. See
-`MYCELIX_TIER_3_4_PRODUCT_GATE.md` at the repo root for the full evidence
-and reasoning behind this call.
+Mycelix Marketplace is a **research-grade pre-alpha under stabilization**.
 
-This is a **freeze, not a retire**: the arbitration/escrow/dispute-resolution
-domain logic here is real, tested, and correct as of this fix. It's kept in
-the workspace rather than moved to `_retired/` because there's no concrete
-reason to destroy working code — only no demonstrated demand to build on it
-further right now.
+The repository has a substantial Rust/Holochain backend and an extensive SvelteKit frontend. The immediate goal is not additional feature breadth. It is to establish one honest, reproducible, adversarially defensible marketplace path.
 
-## What this means
+## Supported stabilization target
 
-- **Accepted**: security fixes, bug fixes, dependency/toolchain bumps needed
-  to keep it building alongside the rest of `mycelix-workspace/`.
-- **Not accepted without a product decision first**: new features, new
-  zomes, new bridge wiring, scope expansion.
+Two agents must be able to:
 
-## Reopening this
+1. install the same hApp bundle;
+2. create and discover a listing;
+3. create a transaction bound to that listing and its seller;
+4. confirm, ship, deliver, and settle through valid state transitions;
+5. restart and recover their state;
+6. leave one authorized review; and
+7. reproduce the journey in mandatory CI.
 
-If a product owner steps forward with a concrete need (a consumer cluster,
-a real deployment target, an external commitment), the freeze can be lifted
-— revisit `MYCELIX_TIER_3_4_PRODUCT_GATE.md`'s "find an owner" option and
-update this file.
+A second required scenario must file a dispute, assign eligible arbitrators, accept one vote per assigned arbitrator, and finalize a uniquely derivable result.
+
+## Current blockers
+
+- Frontend wrappers and backend zome exports are not yet one canonical contract.
+- Several product surfaces refer to zomes or functions not included in the marketplace DNA.
+- Security-sensitive invariants are still enforced in coordinator code instead of—or in addition to—integrity validation.
+- Reputation mutation is not yet fully derived from authenticated marketplace events.
+- The live multi-agent harness is not yet the release gate.
+- Payment/finance and optional identity/knowledge roles are not self-contained in this repository.
+
+## Change policy during stabilization
+
+Accepted:
+
+- security and integrity fixes;
+- frontend/backend contract convergence;
+- deterministic test fixtures;
+- clean-checkout build and CI fixes;
+- removal or explicit quarantine of mocks;
+- evidence and documentation corrections.
+
+Deferred until the trust loop is proven:
+
+- new marketplace verticals;
+- additional scoring dimensions;
+- new payment methods;
+- broader federation features;
+- stronger Byzantine-tolerance claims.
+
+Historical status and completion reports remain useful as development history, but they are superseded by this file and `docs/STATUS_AND_CLAIMS.md` for present-tense claims.

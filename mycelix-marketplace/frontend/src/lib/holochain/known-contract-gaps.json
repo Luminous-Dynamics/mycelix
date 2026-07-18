@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "description": "Acknowledged frontend calls that do not match an exported function in the bundled marketplace DNA. The contract gate requires every mismatch to be listed here until it is implemented, adapted, or removed.",
+  "gaps": [
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_dispute",
+      "replacement": "arbitration.get_dispute",
+      "reason": "Wrong zome name and payload/response adapters are still required."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_my_arbitration_cases",
+      "replacement": "arbitration.get_arbitration_opportunities",
+      "reason": "The backend exposes opportunities, not the richer frontend case model."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_my_disputes",
+      "reason": "No bundled coordinator export lists disputes filed by the current agent."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "file_dispute",
+      "replacement": "arbitration.file_dispute",
+      "reason": "Wrong zome name and the frontend reason/description shape differs from FileDisputeInput."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "cast_arbitrator_vote",
+      "replacement": "arbitration.submit_arbitration_vote",
+      "reason": "Wrong zome/function names and the backend returns a vote, not an updated dispute."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_arbitrator_profile",
+      "reason": "No bundled coordinator export returns an arbitrator profile."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "is_arbitrator",
+      "reason": "No bundled read API checks registration or eligibility."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_all_disputes",
+      "reason": "No bundled coordinator export enumerates all disputes."
+    },
+    {
+      "file": "disputes.ts",
+      "zome": "disputes",
+      "function": "get_disputes_by_status",
+      "reason": "No bundled coordinator export filters disputes by status."
+    },
+    {
+      "file": "listings.ts",
+      "zome": "listings",
+      "function": "increment_views",
+      "reason": "Listing view counters are not represented in the integrity entry or coordinator API."
+    },
+    {
+      "file": "reputation.ts",
+      "zome": "reputation",
+      "function": "get_trust_graph",
+      "reason": "The bundled reputation zome exposes MATL and review APIs, not a trust graph."
+    },
+    {
+      "file": "reputation.ts",
+      "zome": "reputation",
+      "function": "get_reputation_claims",
+      "reason": "No bundled coordinator export returns reputation claims."
+    },
+    {
+      "file": "reputation.ts",
+      "zome": "reputation",
+      "function": "get_proof_trail",
+      "reason": "No bundled coordinator export returns proof-trail records."
+    },
+    {
+      "file": "reputation.ts",
+      "zome": "reputation",
+      "function": "request_proof",
+      "reason": "No bundled coordinator export creates proof requests."
+    },
+    {
+      "file": "transactions.ts",
+      "zome": "transactions",
+      "function": "get_my_purchases",
+      "replacement": "transactions.get_my_transactions",
+      "reason": "Purchases must be derived from the combined response using the current agent key."
+    },
+    {
+      "file": "transactions.ts",
+      "zome": "transactions",
+      "function": "get_my_sales",
+      "replacement": "transactions.get_my_transactions",
+      "reason": "Sales must be derived from the combined response using the current agent key."
+    },
+    {
+      "file": "transactions.ts",
+      "zome": "transactions",
+      "function": "update_transaction_status",
+      "reason": "The backend deliberately exposes role-specific lifecycle transitions rather than arbitrary status mutation."
+    },
+    {
+      "file": "transactions.ts",
+      "zome": "transactions",
+      "function": "mark_as_shipped",
+      "replacement": "transactions.mark_shipped",
+      "reason": "Function name and tracking field differ."
+    },
+    {
+      "file": "transactions.ts",
+      "zome": "transactions",
+      "function": "get_transactions_by_listing",
+      "replacement": "transactions.get_listing_transactions",
+      "reason": "Function name differs and the response is wrapped in TransactionsResponse."
+    },
+    {
+      "file": "users.ts",
+      "zome": "users",
+      "function": "get_my_profile",
+      "reason": "No users zome is bundled in the marketplace DNA."
+    },
+    {
+      "file": "users.ts",
+      "zome": "users",
+      "function": "get_user_profile",
+      "reason": "No users zome is bundled in the marketplace DNA."
+    },
+    {
+      "file": "users.ts",
+      "zome": "users",
+      "function": "update_my_profile",
+      "reason": "No users zome is bundled in the marketplace DNA."
+    },
+    {
+      "file": "users.ts",
+      "zome": "reviews",
+      "function": "create_review",
+      "replacement": "reputation.submit_review",
+      "reason": "The backend requires the seller agent key and returns ReviewOutput."
+    },
+    {
+      "file": "users.ts",
+      "zome": "reviews",
+      "function": "get_reviews_for_listing",
+      "reason": "The bundled API links reviews by seller and transaction, not by listing query."
+    },
+    {
+      "file": "users.ts",
+      "zome": "reviews",
+      "function": "get_reviews_for_seller",
+      "replacement": "reputation.get_seller_reviews",
+      "reason": "Wrong zome/function names and the response is wrapped in ReviewsResponse."
+    },
+    {
+      "file": "users.ts",
+      "zome": "reviews",
+      "function": "get_my_reviews",
+      "reason": "No bundled coordinator export lists reviews received by the current agent."
+    },
+    {
+      "file": "users.ts",
+      "zome": "reviews",
+      "function": "get_reviews_i_wrote",
+      "reason": "No bundled coordinator export lists reviews authored by the current agent."
+    }
+  ]
+}

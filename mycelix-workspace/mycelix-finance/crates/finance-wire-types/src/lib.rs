@@ -478,6 +478,17 @@ pub struct ProcessPaymentInput {
     pub reference: String,
 }
 
+/// Stable lookup key for an idempotent cross-hApp payment.
+///
+/// The pair `(source_happ, reference)` is the payment idempotency key. Callers
+/// MUST reuse the same reference when recovering from a timeout or lost
+/// response, and MUST NOT reuse it for different payment terms.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerifyPaymentStatusInput {
+    pub source_happ: String,
+    pub reference: String,
+}
+
 /// Input for the simpler collateral-deposit path (raw collateral-type string
 /// instead of the richer [`RegisterCollateralInput`] + `AssetType` enum).
 #[derive(Serialize, Deserialize, Debug, Clone)]

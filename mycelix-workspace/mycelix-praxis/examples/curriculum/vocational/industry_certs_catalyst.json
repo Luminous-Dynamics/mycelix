@@ -120,7 +120,7 @@
       "rationale": "Thermodynamic governance and J/Φ metrics are the technical prerequisites for advanced SASB sustainability accounting."
     },
     {
-      "from": "DIG-ADV-201",
+      "from": "DIG-ADV-101",
       "to": "CERT-FIN-BC-BLOCKCHAIN",
       "edge_type": "Recommended",
       "strength_permille": 950,

@@ -300,14 +300,20 @@ mod tests {
         // 20 correct answers should push mastery very high
         let expected = replay_bkt(20, 20, true);
         let result = validate_bkt_integrity(expected, 20, 20, 0.05);
-        assert!(result.valid, "All correct with matching mastery should be valid");
+        assert!(
+            result.valid,
+            "All correct with matching mastery should be valid"
+        );
     }
 
     #[test]
     fn test_bkt_all_incorrect_low_mastery_valid() {
         let expected = replay_bkt(10, 0, false);
         let result = validate_bkt_integrity(expected, 10, 0, 0.05);
-        assert!(result.valid, "All incorrect with matching mastery should be valid");
+        assert!(
+            result.valid,
+            "All incorrect with matching mastery should be valid"
+        );
     }
 
     #[test]
@@ -322,12 +328,23 @@ mod tests {
         // 10 attempts, 7 correct — mastery should be moderate-high
         let best = replay_bkt(10, 7, true);
         let worst = replay_bkt(10, 7, false);
-        eprintln!("BKT 10 attempts, 7 correct: best={:.4} worst={:.4}", best, worst);
+        eprintln!(
+            "BKT 10 attempts, 7 correct: best={:.4} worst={:.4}",
+            best, worst
+        );
         // Both endpoints should validate with generous tolerance
         let result_best = validate_bkt_integrity(best, 10, 7, 0.15);
-        assert!(result_best.valid, "Best-case replay should be valid: {:?}", result_best.rejection_reason);
+        assert!(
+            result_best.valid,
+            "Best-case replay should be valid: {:?}",
+            result_best.rejection_reason
+        );
         let result_worst = validate_bkt_integrity(worst, 10, 7, 0.15);
-        assert!(result_worst.valid, "Worst-case replay should be valid: {:?}", result_worst.rejection_reason);
+        assert!(
+            result_worst.valid,
+            "Worst-case replay should be valid: {:?}",
+            result_worst.rejection_reason
+        );
     }
 
     #[test]
@@ -354,7 +371,13 @@ mod tests {
             for d in [0, 100, 900, 3600, 7200] {
                 for r in (0..=1000).step_by(200) {
                     let tend = compute_tend_pure(q, d, r, None);
-                    assert!(tend >= 0.0, "TEND must never be negative: q={} d={} r={}", q, d, r);
+                    assert!(
+                        tend >= 0.0,
+                        "TEND must never be negative: q={} d={} r={}",
+                        q,
+                        d,
+                        r
+                    );
                 }
             }
         }
@@ -369,7 +392,11 @@ mod tests {
                     assert!(
                         tend <= MAX_TEND_PER_EVENT,
                         "TEND {} exceeds cap {}: q={} d={} r={}",
-                        tend, MAX_TEND_PER_EVENT, q, d, r
+                        tend,
+                        MAX_TEND_PER_EVENT,
+                        q,
+                        d,
+                        r
                     );
                 }
             }
@@ -429,8 +456,14 @@ mod tests {
     #[test]
     fn test_state_machine_exhaustive() {
         let states = [
-            "Draft", "Submitted", "UnderReview", "Interview",
-            "Offered", "Accepted", "Rejected", "Withdrawn",
+            "Draft",
+            "Submitted",
+            "UnderReview",
+            "Interview",
+            "Offered",
+            "Accepted",
+            "Rejected",
+            "Withdrawn",
         ];
 
         // All 64 combinations (8×8)
@@ -473,15 +506,24 @@ mod tests {
         }
 
         assert_eq!(valid_count, 13, "Should have exactly 13 valid transitions");
-        assert_eq!(invalid_count, 51, "Should have exactly 51 invalid transitions");
+        assert_eq!(
+            invalid_count, 51,
+            "Should have exactly 51 invalid transitions"
+        );
     }
 
     #[test]
     fn test_terminal_states_have_no_exits() {
         let terminals = ["Accepted", "Rejected", "Withdrawn"];
         let all_states = [
-            "Draft", "Submitted", "UnderReview", "Interview",
-            "Offered", "Accepted", "Rejected", "Withdrawn",
+            "Draft",
+            "Submitted",
+            "UnderReview",
+            "Interview",
+            "Offered",
+            "Accepted",
+            "Rejected",
+            "Withdrawn",
         ];
 
         for terminal in &terminals {
@@ -489,7 +531,8 @@ mod tests {
                 assert!(
                     !is_valid_application_transition(terminal, target),
                     "Terminal state {} should not transition to {}",
-                    terminal, target
+                    terminal,
+                    target
                 );
             }
         }

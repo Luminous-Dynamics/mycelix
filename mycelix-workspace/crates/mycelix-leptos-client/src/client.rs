@@ -64,13 +64,14 @@ impl<T: HolochainTransport> HolochainClient<T> {
 
     /// Connect the underlying transport to a conductor.
     ///
-    /// Uses the client's `app_id` and an optional auth token to build
+    /// Uses the client's `app_id` and an auth token option to build
     /// the [`ConnectConfig`]. After connecting, the transport will have
     /// the role->cell_id mapping populated.
     ///
     /// # Arguments
     /// * `url` — WebSocket URL (e.g. "ws://localhost:8888")
-    /// * `auth_token` — Optional authentication token from the admin API.
+    /// * `auth_token` — Authentication token from the admin API. The browser
+    ///   and native Holochain 0.6 WebSocket transports reject `None`.
     pub async fn connect(&self, url: &str, auth_token: Option<Vec<u8>>) -> Result<(), ClientError> {
         let config = ConnectConfig {
             url: url.to_string(),

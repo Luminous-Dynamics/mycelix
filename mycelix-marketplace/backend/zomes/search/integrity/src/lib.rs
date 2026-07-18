@@ -82,20 +82,23 @@ pub enum EntryTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::SearchIndexEntry(entry) => validate_search_index_entry(&entry),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::SearchIndexEntry(entry) => {
+                    validate_create_search_index_entry(&entry, &action)
+                }
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::SearchIndexEntry(entry) => validate_search_index_entry(&entry),
-            },
+            // SearchIndexEntry is confirmed create-only (no coordinator function ever calls
+            // update_entry on it) -- reject outright rather than leave the previous unbound
+            // dead-code path (P0 wide-open RegisterUpdate gap, confirmed dozens of times
+            // elsewhere in this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "SearchIndexEntry entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(update_entry) => match update_entry {
-            OpUpdate::Entry { app_entry, .. } => match app_entry {
-                EntryTypes::SearchIndexEntry(entry) => validate_search_index_entry(&entry),
-            },
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "SearchIndexEntry entries cannot be updated".to_string(),
+        )),
         FlatOp::RegisterCreateLink { link_type, .. } => {
             // All link types are valid for search indexing
             match link_type {
@@ -107,6 +110,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Bind the index entry to its committer -- create_search_index already derives creator
+/// from agent_info() coordinator-side with zero user input (P0 author-binding gap).
+fn validate_create_search_index_entry(
+    entry: &SearchIndexEntry,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(reason) = validate_search_index_entry(entry)? {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if entry.creator != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SearchIndexEntry must be created by its creator (creator forgery)".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate search index entry data

@@ -9,10 +9,11 @@ use leptos_router::{
 };
 use wasm_bindgen::JsCast;
 
-use mycelix_leptos_client::MockTransport;
-use mycelix_leptos_core::{ConnectionStatusIndicator, HolochainProvider};
+use mycelix_leptos_core::{
+    ConnectStrategy, ConnectionBadge, HolochainProviderAuto, HolochainProviderConfig,
+};
 
-use crate::components::{Nav, Player, QueuePanel};
+use crate::components::{Nav, Player};
 use crate::pages::*;
 use crate::types::{RepeatMode, Song};
 
@@ -48,8 +49,14 @@ impl PlayerState {
 
     pub fn play_song(&self, song: Song) {
         let mut q = self.queue.get_untracked();
-        let idx = q.iter().position(|s| s.song_hash == song.song_hash)
-            .unwrap_or_else(|| { q.push(song.clone()); self.queue.set(q.clone()); q.len() - 1 });
+        let idx = q
+            .iter()
+            .position(|s| s.song_hash == song.song_hash)
+            .unwrap_or_else(|| {
+                q.push(song.clone());
+                self.queue.set(q.clone());
+                q.len() - 1
+            });
         self.queue_index.set(Some(idx));
         self.current_song.set(Some(song));
         self.progress.set(0.0);
@@ -58,12 +65,16 @@ impl PlayerState {
 
     pub fn enqueue(&self, song: Song) {
         self.queue.update(|q| {
-            if !q.iter().any(|s| s.song_hash == song.song_hash) { q.push(song); }
+            if !q.iter().any(|s| s.song_hash == song.song_hash) {
+                q.push(song);
+            }
         });
     }
 
     pub fn play_all(&self, songs: Vec<Song>) {
-        if songs.is_empty() { return; }
+        if songs.is_empty() {
+            return;
+        }
         let first = songs[0].clone();
         self.queue.set(songs);
         self.queue_index.set(Some(0));
@@ -74,29 +85,45 @@ impl PlayerState {
 
     pub fn next(&self) {
         let q = self.queue.get_untracked();
-        if q.is_empty() { return; }
+        if q.is_empty() {
+            return;
+        }
         let idx = self.queue_index.get_untracked().unwrap_or(0);
         let next = match self.repeat_mode.get_untracked() {
             RepeatMode::One => Some(idx),
             RepeatMode::All => Some((idx + 1) % q.len()),
-            RepeatMode::None => { let n = idx + 1; if n < q.len() { Some(n) } else { None } }
+            RepeatMode::None => {
+                let n = idx + 1;
+                if n < q.len() { Some(n) } else { None }
+            }
         };
         if let Some(i) = next {
             self.queue_index.set(Some(i));
             self.current_song.set(Some(q[i].clone()));
             self.progress.set(0.0);
             self.is_playing.set(true);
-        } else { self.is_playing.set(false); }
+        } else {
+            self.is_playing.set(false);
+        }
     }
 
     pub fn previous(&self) {
         let q = self.queue.get_untracked();
-        if q.is_empty() { return; }
-        if self.progress.get_untracked() > 3.0 { self.progress.set(0.0); return; }
+        if q.is_empty() {
+            return;
+        }
+        if self.progress.get_untracked() > 3.0 {
+            self.progress.set(0.0);
+            return;
+        }
         let idx = self.queue_index.get_untracked().unwrap_or(0);
-        let prev = if idx > 0 { idx - 1 }
-            else if self.repeat_mode.get_untracked() == RepeatMode::All { q.len() - 1 }
-            else { 0 };
+        let prev = if idx > 0 {
+            idx - 1
+        } else if self.repeat_mode.get_untracked() == RepeatMode::All {
+            q.len() - 1
+        } else {
+            0
+        };
         self.queue_index.set(Some(prev));
         self.current_song.set(Some(q[prev].clone()));
         self.progress.set(0.0);
@@ -112,7 +139,10 @@ pub struct ThemeState {
 
 impl ThemeState {
     pub fn new() -> Self {
-        Self { valence: RwSignal::new(0.0), arousal: RwSignal::new(0.5) }
+        Self {
+            valence: RwSignal::new(0.0),
+            arousal: RwSignal::new(0.5),
+        }
     }
 }
 
@@ -131,7 +161,11 @@ pub fn App() -> impl IntoView {
     Effect::new(move |_| {
         let v = theme.valence.get();
         let a = theme.arousal.get();
-        let hue = if v >= 0.0 { 270.0 - v * 120.0 } else { 270.0 - v * 30.0 };
+        let hue = if v >= 0.0 {
+            270.0 - v * 120.0
+        } else {
+            270.0 - v * 30.0
+        };
         let sat = 30.0 + a * 60.0;
         let light = 45.0 + a * 20.0;
         if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
@@ -146,8 +180,20 @@ pub fn App() -> impl IntoView {
         }
     });
 
+    let provider_config = HolochainProviderConfig {
+        app_id: "mycelix-music".to_string(),
+        default_role: Some("music".to_string()),
+        log_prefix: "[Mycelix Music]",
+        connect_strategy: if cfg!(feature = "fixtures") {
+            ConnectStrategy::MockOnly
+        } else {
+            ConnectStrategy::WebSocket
+        },
+        status_labels: None,
+    };
+
     view! {
-        <HolochainProvider transport=MockTransport::new()>
+        <HolochainProviderAuto config=provider_config>
             <Router>
                 <Nav />
                 <main class="main-content">
@@ -163,10 +209,13 @@ pub fn App() -> impl IntoView {
                 </main>
                 <Player />
                 <footer class="footer">
-                    <ConnectionStatusIndicator />
+                    <ConnectionBadge />
+                    {cfg!(feature = "fixtures").then(|| view! {
+                        <span class="fixture-label">"Development fixtures enabled"</span>
+                    })}
                     <span class="footer-text">"Mycelix Music — What does your consciousness sound like?"</span>
                 </footer>
             </Router>
-        </HolochainProvider>
+        </HolochainProviderAuto>
     }
 }

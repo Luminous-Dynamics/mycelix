@@ -94,25 +94,6 @@
         "market_demand": "High",
         "growth_rate_percent": 8
       }
-    },
-    {
-      "id": "CERT-LAW-CIPPE",
-      "title": "CIPP/E (Certified Information Privacy Professional/Europe)",
-      "description": "Comprehensive GDPR knowledge and European data protection requirements. Mapping sovereign privacy and ahimsa to the world's strictest legal framework.",
-      "node_type": "Course",
-      "difficulty": "Advanced",
-      "domain": "Global Privacy Law",
-      "subdomain": "Certification Bridge",
-      "tags": ["privacy", "gdpr", "law", "compliance", "standard"],
-      "estimated_hours": 120,
-      "grade_levels": ["Professional"],
-      "bloom_level": "Analyze",
-      "subject_area": "Humanities",
-      "economic_signals": {
-        "average_starting_salary": 110000,
-        "market_demand": "Extreme",
-        "growth_rate_percent": 15
-      }
     }
   ],
   "edges": [
@@ -124,7 +105,7 @@
       "rationale": "Active inference and neural homeostasis provide the necessary context for modern gen-AI hardware architectures."
     },
     {
-      "from": "HLTH-CERT-RC",
+      "from": "CERT-HLTH-REDCROSS",
       "to": "CERT-HLTH-PARAMEDIC",
       "edge_type": "Requires",
       "strength_permille": 950,

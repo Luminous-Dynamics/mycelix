@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "workflow": ".github/workflows/disposable-promotion.yml",
+  "runner_labels": ["self-hosted", "mycelix-conductor", "nix"],
+  "required_steps": [
+    "check-promotion-environment.sh",
+    "build-promotion-artifacts.sh",
+    "run-disposable-promotion.sh",
+    "seal-promotion-bundle.sh",
+    "verify-promotion-bundle.sh"
+  ],
+  "release": {
+    "signature_algorithm": "Ed25519",
+    "private_key_must_not_be_uploaded": true,
+    "upload_signed_bundle_only": true,
+    "persist_checkout_credentials": false,
+    "settlement_requires_external_finance_dna_and_funding_hook": true
+  }
+}

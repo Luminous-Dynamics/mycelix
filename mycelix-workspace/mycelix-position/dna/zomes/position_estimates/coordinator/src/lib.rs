@@ -18,7 +18,16 @@ fn anchor_for_node(node_id: &str) -> ExternResult<AnyLinkableHash> {
 
 /// Store a computed position estimate. Requires Citizen tier.
 #[hdk_extern]
-pub fn store_position_estimate(input: PositionEstimateEntry) -> ExternResult<ActionHash> {
+pub fn store_position_estimate(mut input: PositionEstimateEntry) -> ExternResult<ActionHash> {
+    // Derive computed_by server-side rather than trusting the caller's value
+    // -- unlike anchor_registry/ranging's coordinators, this one used to
+    // take the whole entry as input with zero agent_info() call anywhere,
+    // so any caller could set computed_by to an arbitrary AgentPubKey. The
+    // integrity zome now also enforces this as the real backstop (P0
+    // author-binding gap); this override keeps honest callers who don't
+    // self-populate the field correctly from failing that check.
+    input.computed_by = agent_info()?.agent_initial_pubkey;
+
     let action_hash = create_entry(&EntryTypes::PositionEstimate(input.clone()))?;
 
     let node_anchor = anchor_for_node(&input.node_id)?;

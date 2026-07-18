@@ -10,14 +10,20 @@
 //! - Supplementary resource links
 
 use leptos::prelude::*;
+use praxis_core::{
+    GET_MY_PROGRESS_FN, LEARNING_COORDINATOR_ZOME, ProgressSnapshot, ProgressSyncInput,
+    ProgressSyncReceipt, SYNC_PROGRESS_FN, curriculum_node_course_id,
+};
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 
 use crate::curriculum::{
     BktState, ProgressStatus, curriculum_graph, use_progress, use_set_progress,
 };
 use crate::games;
+use crate::holochain::{ConnectionStatus, use_holochain};
+use crate::mode::{AppMode, use_app_mode};
 use crate::persistence;
 use crate::social_proof;
 
@@ -106,47 +112,12 @@ struct Flashcard {
 // ============================================================
 
 async fn fetch_lesson(node_id: &str) -> Result<NodeContent, String> {
-    let id_lower = node_id.to_lowercase();
-    // Sanitize for filename: replace / with _ for post-Gr12 IDs like "AL/BasicAnalysis"
-    let filename = format!("{}.json", id_lower.replace('/', "_"));
-
-    // Determine subject-grade dir
-    let graph = curriculum_graph();
-    let node_meta = graph.node(node_id);
-    let grade_level = node_meta.and_then(|n| n.grade_levels.first().cloned());
-
-    let url = match grade_level.as_deref() {
-        Some("Undergraduate") | Some("Graduate") | Some("Doctoral") | Some("Adult") => {
-            // Post-Gr12: use subject-based directory
-            let subject_dir = node_meta
-                .map(|n| {
-                    n.subject_area
-                        .to_lowercase()
-                        .replace(' ', "-")
-                        .replace('&', "and")
-                })
-                .unwrap_or_else(|| "general".into());
-            format!("/curriculum/generated/{}/{}", subject_dir, filename)
-        }
-        _ => {
-            // K-12: existing logic
-            let grade_num = (1..=12)
-                .rev()
-                .find(|g| id_lower.contains(&format!("gr{}", g)))
-                .unwrap_or(12);
-            let subject_dir = if id_lower.contains("naturalsciences") {
-                format!("natsci-{}", grade_num)
-            } else if id_lower.contains("physicalsciences") {
-                format!("physics-{}", grade_num)
-            } else {
-                format!("math-{}", grade_num)
-            };
-            format!("/curriculum/generated/{}/{}", subject_dir, filename)
-        }
-    };
+    let url = crate::content_manifest::primary_lesson_url(node_id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("No generated lesson is registered for {node_id}"))?;
 
     let window = web_sys::window().ok_or("no window")?;
-    let resp = JsFuture::from(window.fetch_with_str(&url))
+    let resp = JsFuture::from(window.fetch_with_str(url))
         .await
         .map_err(|e| format!("fetch error: {:?}", e))?;
 
@@ -290,6 +261,8 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                     }
                 }
             </div>
+
+            <LiveProgressSync node_id=node_id.clone() />
 
             // Tabs
             <div class="praxis-tabs" style="max-width: 600px">
@@ -712,6 +685,135 @@ pub fn StudyPage(node_id: String) -> impl IntoView {
                     </div>
                 }
             }
+        </div>
+    }.into_any()
+}
+
+/// Explicitly publish one local curriculum topic and confirm the canonical
+/// value can be read back through the same versioned contract.
+#[component]
+fn LiveProgressSync(node_id: String) -> impl IntoView {
+    let mode = use_app_mode();
+    if mode.get_untracked() != AppMode::Live {
+        return view! { <span></span> }.into_any();
+    }
+
+    let hc = use_holochain();
+    let progress = use_progress();
+    let (syncing, set_syncing) = signal(false);
+    let (result, set_result) = signal(None::<Result<String, String>>);
+
+    let node_id_for_click = node_id.clone();
+    let hc_for_click = hc.clone();
+    let on_sync = move |_| {
+        if syncing.get_untracked() {
+            return;
+        }
+        if hc_for_click.status.get_untracked() != ConnectionStatus::Connected {
+            set_result.set(Some(Err(
+                "Live publishing requires a connected Praxis conductor.".to_string(),
+            )));
+            return;
+        }
+        if !hc_for_click.refresh_zome_call_signing_ready() {
+            set_result.set(Some(Err(
+                "Live publishing requires an authorized zome-call signer.".to_string(),
+            )));
+            return;
+        }
+
+        let local = progress.get_untracked().get(&node_id_for_click).clone();
+        let course_id = curriculum_node_course_id(&node_id_for_click);
+        let progress_percent = match local.status {
+            ProgressStatus::NotStarted => 0.0,
+            ProgressStatus::Studying => local.mastery_permille as f32 / 10.0,
+            ProgressStatus::Mastered => 100.0,
+        };
+        let input = ProgressSyncInput {
+            course_id: course_id.clone(),
+            progress_percent,
+            completed_items: if local.status == ProgressStatus::Mastered {
+                vec![node_id_for_click.clone()]
+            } else {
+                Vec::new()
+            },
+            model_version: Some("bkt-v1".into()),
+            metadata: Some(serde_json::json!({
+                "source": "praxis-leptos",
+                "status": local.status.label(),
+            })),
+        };
+        let hc = hc_for_click.clone();
+        set_syncing.set(true);
+        set_result.set(None);
+
+        spawn_local(async move {
+            let outcome = async {
+                let receipt = hc
+                    .call_zome_default::<_, ProgressSyncReceipt>(
+                        LEARNING_COORDINATOR_ZOME,
+                        SYNC_PROGRESS_FN,
+                        &input,
+                    )
+                    .await?;
+                let snapshots = hc
+                    .call_zome_default::<(), Vec<ProgressSnapshot>>(
+                        LEARNING_COORDINATOR_ZOME,
+                        GET_MY_PROGRESS_FN,
+                        &(),
+                    )
+                    .await?;
+                let read_back = snapshots
+                    .iter()
+                    .find(|snapshot| snapshot.course_id == course_id)
+                    .ok_or_else(|| {
+                        "The write succeeded but no read-back snapshot was found".to_string()
+                    })?;
+
+                if (read_back.progress_percent - receipt.progress.progress_percent).abs() > 0.01
+                    || read_back.completed_items != receipt.progress.completed_items
+                {
+                    return Err(
+                        "The read-back snapshot did not match the published value".to_string()
+                    );
+                }
+
+                Ok(format!(
+                    "Published and verified at {}%",
+                    read_back.progress_percent.round()
+                ))
+            }
+            .await;
+
+            set_result.set(Some(outcome));
+            set_syncing.set(false);
+        });
+    };
+
+    view! {
+        <div class="progress-sync-panel" style="margin: 0.75rem 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px">
+            <p style="margin: 0 0 0.5rem; color: var(--text-secondary); font-size: 0.8rem">
+                "This publishes this topic's progress to your Praxis source chain as a public learning record."
+            </p>
+            <button
+                class="praxis-filter-btn"
+                disabled=move || {
+                    hc.status.get() != ConnectionStatus::Connected
+                        || !hc.zome_call_signing_ready.get()
+                        || syncing.get()
+                }
+                on:click=on_sync
+            >
+                {move || if syncing.get() { "Publishing…" } else { "Publish & verify progress" }}
+            </button>
+            {move || result.get().map(|outcome| match outcome {
+                Ok(message) => view! {
+                    <span role="status" style="margin-left: 0.6rem; color: var(--success); font-size: 0.8rem">{message}</span>
+                }.into_any(),
+                Err(message) => view! {
+                    <span role="alert" style="display: block; margin-top: 0.5rem; color: var(--danger); font-size: 0.8rem">{message}</span>
+                }.into_any(),
+            })}
         </div>
     }.into_any()
 }

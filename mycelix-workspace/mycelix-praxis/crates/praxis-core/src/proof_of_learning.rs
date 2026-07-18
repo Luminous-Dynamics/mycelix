@@ -75,7 +75,7 @@ impl PoLComponents {
         const W_TRAJECTORY: f64 = 0.20;
         const W_ERROR: f64 = 0.15;
         const W_RETENTION: f64 = 0.20;
-        const W_TRANSFER: f64 = 0.25;  // Highest weight - hardest to fake
+        const W_TRANSFER: f64 = 0.25; // Highest weight - hardest to fake
         const W_CONTRIBUTION: f64 = 0.15;
         const W_CONSISTENCY: f64 = 0.05;
 
@@ -247,12 +247,28 @@ impl PoLAnalyzer {
     /// Analyze a learner's activities and generate PoL
     /// For WASM/Holochain, use `analyze_at()` with explicit timestamp
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn analyze(&self, learner_id: &str, domain: &str, activities: &[LearnerActivity]) -> Option<ProofOfLearning> {
-        self.analyze_at(learner_id, domain, activities, chrono::Utc::now().timestamp())
+    pub fn analyze(
+        &self,
+        learner_id: &str,
+        domain: &str,
+        activities: &[LearnerActivity],
+    ) -> Option<ProofOfLearning> {
+        self.analyze_at(
+            learner_id,
+            domain,
+            activities,
+            chrono::Utc::now().timestamp(),
+        )
     }
 
     /// Analyze a learner's activities with explicit timestamp (works in WASM)
-    pub fn analyze_at(&self, learner_id: &str, domain: &str, activities: &[LearnerActivity], generated_at: i64) -> Option<ProofOfLearning> {
+    pub fn analyze_at(
+        &self,
+        learner_id: &str,
+        domain: &str,
+        activities: &[LearnerActivity],
+        generated_at: i64,
+    ) -> Option<ProofOfLearning> {
         // Filter to relevant activities
         let relevant: Vec<_> = activities
             .iter()
@@ -314,9 +330,10 @@ impl PoLAnalyzer {
 
         for window in sorted.windows(2) {
             if let (Some(a1), Some(a2)) = (window.get(0), window.get(1)) {
-                if let (ActivityOutcome::Completed { score: Some(s1) },
-                        ActivityOutcome::Completed { score: Some(s2) }) =
-                    (&a1.outcome, &a2.outcome)
+                if let (
+                    ActivityOutcome::Completed { score: Some(s1) },
+                    ActivityOutcome::Completed { score: Some(s2) },
+                ) = (&a1.outcome, &a2.outcome)
                 {
                     comparisons += 1;
                     if s2 >= s1 {
@@ -362,7 +379,12 @@ impl PoLAnalyzer {
         // Look for revision activities
         let revisions: Vec<_> = activities
             .iter()
-            .filter(|a| matches!(a.activity_type, ActivityType::Revision | ActivityType::RetentionTest))
+            .filter(|a| {
+                matches!(
+                    a.activity_type,
+                    ActivityType::Revision | ActivityType::RetentionTest
+                )
+            })
             .collect();
 
         if revisions.is_empty() {
@@ -426,7 +448,12 @@ impl PoLAnalyzer {
     fn analyze_contribution(&self, activities: &[&LearnerActivity]) -> f64 {
         let contributions: Vec<_> = activities
             .iter()
-            .filter(|a| matches!(a.activity_type, ActivityType::PeerHelp | ActivityType::Discussion))
+            .filter(|a| {
+                matches!(
+                    a.activity_type,
+                    ActivityType::PeerHelp | ActivityType::Discussion
+                )
+            })
             .collect();
 
         if contributions.is_empty() {
@@ -463,7 +490,11 @@ impl PoLAnalyzer {
         // Calculate coefficient of variation of gaps
         // Lower CV = more consistent spacing
         let mean_gap = gaps.iter().sum::<i64>() as f64 / gaps.len() as f64;
-        let variance = gaps.iter().map(|&g| (g as f64 - mean_gap).powi(2)).sum::<f64>() / gaps.len() as f64;
+        let variance = gaps
+            .iter()
+            .map(|&g| (g as f64 - mean_gap).powi(2))
+            .sum::<f64>()
+            / gaps.len() as f64;
         let std_dev = variance.sqrt();
 
         if mean_gap == 0.0 {

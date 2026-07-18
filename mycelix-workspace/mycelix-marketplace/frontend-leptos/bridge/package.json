@@ -1,0 +1,39 @@
+{
+  "name": "mycelix-marketplace-holochain-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=../apps/marketplace-web/public/holochain-bridge.js",
+    "typecheck": "tsc --noEmit",
+    "test:wire": "rm -rf .tmp && esbuild test/wire.test.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/wire.test.mjs && node --test .tmp/wire.test.mjs",
+    "check:conductor-lifecycle": "rm -rf .tmp && esbuild test/conductor-lifecycle.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/conductor-lifecycle.mjs",
+    "test:conductor-lifecycle": "npm run check:conductor-lifecycle && node .tmp/conductor-lifecycle.mjs",
+    "check:conductor-arbitration": "rm -rf .tmp && esbuild test/conductor-arbitration.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/conductor-arbitration.mjs",
+    "test:conductor-arbitration": "npm run check:conductor-arbitration && node .tmp/conductor-arbitration.mjs",
+    "check:conductor-settlement": "rm -rf .tmp && esbuild test/conductor-settlement.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/conductor-settlement.mjs",
+    "test:conductor-settlement": "npm run check:conductor-settlement && node .tmp/conductor-settlement.mjs",
+    "test:runtime": "rm -rf .tmp && esbuild test/runtime-capabilities.test.ts --bundle --platform=node --format=cjs --target=node22 --outfile=.tmp/runtime-capabilities.test.cjs && node --test .tmp/runtime-capabilities.test.cjs",
+    "check:disposable-setup": "rm -rf .tmp && esbuild test/prepare-disposable-conductor.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/prepare-disposable-conductor.mjs",
+    "run:disposable-setup": "npm run check:disposable-setup && node .tmp/prepare-disposable-conductor.mjs",
+    "check:network-setup": "rm -rf .tmp && esbuild test/prepare-network-conductors.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/prepare-network-conductors.mjs",
+    "run:network-setup": "npm run check:network-setup && node .tmp/prepare-network-conductors.mjs",
+    "check:conductor-network": "rm -rf .tmp && esbuild test/conductor-network.ts --bundle --platform=node --format=esm --target=node22 --outfile=.tmp/conductor-network.mjs",
+    "test:conductor-network": "npm run check:conductor-network && node .tmp/conductor-network.mjs"
+  },
+  "dependencies": {
+    "@holochain/client": "0.20.5",
+    "@msgpack/msgpack": "3.1.2",
+    "buffer": "6.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.6",
+    "typescript": "5.8.3"
+  },
+  "overrides": {
+    "libsodium-wrappers": "0.7.13"
+  }
+}

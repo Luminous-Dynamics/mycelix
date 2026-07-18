@@ -11,7 +11,6 @@
 /// - Read receipts and typing indicators
 /// - MATL-gated messaging (spam prevention)
 /// - Message search and filtering
-
 use hdi::prelude::*;
 
 /// Message entry - represents a single message in a conversation
@@ -261,11 +260,14 @@ pub enum LinkTypes {
 /// Validation rules for messages
 
 /// Validate message creation
-pub fn validate_create_message(message: Message, action: &Create) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_message(
+    message: Message,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
     // Verify sender matches agent creating entry
     if message.sender != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "Sender must match creating agent".to_string()
+            "Sender must match creating agent".to_string(),
         ));
     }
 
@@ -273,23 +275,25 @@ pub fn validate_create_message(message: Message, action: &Create) -> ExternResul
     let action_time = action.timestamp.as_micros() as u64;
     let five_minutes = 300_000_000_u64; // 5 min in microseconds
 
-    if message.sent_at > action_time + five_minutes || message.sent_at < action_time.saturating_sub(five_minutes) {
+    if message.sent_at > action_time + five_minutes
+        || message.sent_at < action_time.saturating_sub(five_minutes)
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Message timestamp out of valid range".to_string()
+            "Message timestamp out of valid range".to_string(),
         ));
     }
 
     // Verify encrypted content is not empty
     if message.encrypted_content.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Message content cannot be empty".to_string()
+            "Message content cannot be empty".to_string(),
         ));
     }
 
     // Verify encrypted content is not too large (10KB limit)
     if message.encrypted_content.len() > 10_000 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Message content too large (max 10KB)".to_string()
+            "Message content too large (max 10KB)".to_string(),
         ));
     }
 
@@ -297,25 +301,27 @@ pub fn validate_create_message(message: Message, action: &Create) -> ExternResul
 }
 
 /// Validate conversation creation
-pub fn validate_create_conversation(conversation: Conversation) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_conversation(
+    conversation: Conversation,
+) -> ExternResult<ValidateCallbackResult> {
     // Verify at least 2 participants
     if conversation.participants.len() < 2 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Conversation must have at least 2 participants".to_string()
+            "Conversation must have at least 2 participants".to_string(),
         ));
     }
 
     // Verify subject is not empty
     if conversation.subject.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Conversation subject cannot be empty".to_string()
+            "Conversation subject cannot be empty".to_string(),
         ));
     }
 
     // Verify timestamps are valid
     if conversation.last_activity_at < conversation.started_at {
         return Ok(ValidateCallbackResult::Invalid(
-            "Last activity cannot be before start time".to_string()
+            "Last activity cannot be before start time".to_string(),
         ));
     }
 
@@ -323,11 +329,14 @@ pub fn validate_create_conversation(conversation: Conversation) -> ExternResult<
 }
 
 /// Validate read receipt creation
-pub fn validate_create_read_receipt(receipt: ReadReceipt, action: &Create) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_read_receipt(
+    receipt: ReadReceipt,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
     // Verify reader matches creating agent
     if receipt.reader != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reader must match creating agent".to_string()
+            "Reader must match creating agent".to_string(),
         ));
     }
 
@@ -337,7 +346,7 @@ pub fn validate_create_read_receipt(receipt: ReadReceipt, action: &Create) -> Ex
 
     if receipt.read_at > action_time + five_minutes {
         return Ok(ValidateCallbackResult::Invalid(
-            "Read timestamp cannot be in the future".to_string()
+            "Read timestamp cannot be in the future".to_string(),
         ));
     }
 
@@ -351,23 +360,39 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Message(message) => validate_create_message(message, &action),
-                EntryTypes::Conversation(conversation) => validate_create_conversation(conversation),
+                EntryTypes::Conversation(conversation) => {
+                    validate_create_conversation(conversation)
+                }
                 EntryTypes::ReadReceipt(receipt) => validate_create_read_receipt(receipt, &action),
             },
-            OpEntry::UpdateEntry {
-                app_entry, ..
-            } => match app_entry {
-                EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Valid),
+            // Message/ReadReceipt are confirmed create-only (no coordinator function ever
+            // calls update_entry on either type) -- reject outright rather than leave the
+            // previous unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed
+            // dozens of times elsewhere in this pass). Conversation has a real update path
+            // (archive_conversation/block_conversation/update_conversation_metadata/
+            // update_conversation_unread_count) whose real authorization invariant is
+            // genuinely ambiguous -- deliberately left untouched this turn, see
+            // memory/mycelix_attribution_author_binding_jul8.md for the disclosed scope.
+            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Invalid(
+                    "Message entries cannot be updated".to_string(),
+                )),
                 EntryTypes::Conversation(_conversation) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Invalid(
+                    "ReadReceipt entries cannot be updated".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterUpdate(update_entry) => match update_entry {
             OpUpdate::Entry { app_entry, .. } => match app_entry {
-                EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Invalid(
+                    "Message entries cannot be updated".to_string(),
+                )),
                 EntryTypes::Conversation(_conversation) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Invalid(
+                    "ReadReceipt entries cannot be updated".to_string(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },

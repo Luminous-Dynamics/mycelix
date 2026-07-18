@@ -1,26 +1,16 @@
 ---
 manifest_version: "0"
-name: mycelix_mail
+name: mycelix_pulse_alpha
 description: |
-  Mycelix Mail - Decentralized secure email on Holochain.
-  Features DHT storage, CRDT sync, P2P delivery, and cross-cell federation.
+  Restricted Mycelix Pulse working-alpha application.
+  Proves profile, hybrid-key, and encrypted-message behavior only.
 roles:
   - name: main
     provisioning:
       strategy: create
       deferred: false
     dna:
-      path: ./dna/mycelix_mail_dna.dna
-      modifiers:
-        network_seed: ~
-        properties: ~
-      clone_limit: 0
-  - name: identity
-    provisioning:
-      strategy: create
-      deferred: true
-    dna:
-      path: ../../mycelix-identity/dna/mycelix_identity_dna.dna
+      path: ./dna-alpha/mycelix_pulse_alpha.dna
       modifiers:
         network_seed: ~
         properties: ~

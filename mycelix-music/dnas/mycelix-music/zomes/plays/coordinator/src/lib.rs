@@ -15,13 +15,10 @@
 //! Holochain 0.6 compatible (hdk 0.6)
 
 use hdk::prelude::*;
+use mycelix_bridge_common::{CivicRequirement, civic_requirement_voting, gate_civic};
 use plays_integrity::*;
-use mycelix_bridge_common::{gate_civic, civic_requirement_voting, GovernanceRequirement};
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<()> {
+fn require_consciousness(requirement: &CivicRequirement, action_name: &str) -> ExternResult<()> {
     gate_civic("music_bridge", requirement, action_name).map(|_| ())
 }
 
@@ -37,16 +34,33 @@ fn ensure_path(path: Path, link_type: LinkTypes) -> ExternResult<EntryHash> {
 pub fn record_play(input: RecordPlayInput) -> ExternResult<ActionHash> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
-    // Calculate amount owed based on strategy
-    let amount_owed = calculate_play_amount(&input.strategy_id, input.duration_listened, input.song_duration);
+    let song_record = get(input.song_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Song not found".to_string())))?;
+    let song: catalog_integrity::Song = song_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Referenced action is not a catalog Song".to_string()
+            ))
+        })?;
+
+    // Artist, duration, strategy, and price are authoritative catalog terms.
+    // The listener supplies only the song reference and observed duration.
+    let amount_owed = calculate_play_amount(
+        &song.strategy_id,
+        input.duration_listened,
+        song.duration_seconds,
+    );
 
     let play = PlayRecord {
         song_hash: input.song_hash.clone(),
-        artist: input.artist.clone(),
+        artist: song.artist,
         played_at: sys_time()?,
         duration_listened: input.duration_listened,
-        song_duration: input.song_duration,
-        strategy_id: input.strategy_id,
+        song_duration: song.duration_seconds,
+        strategy_id: song.strategy_id,
         amount_owed,
         settled: false,
         settlement_hash: None,
@@ -78,39 +92,16 @@ pub fn record_play(input: RecordPlayInput) -> ExternResult<ActionHash> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RecordPlayInput {
     pub song_hash: ActionHash,
-    pub artist: AgentPubKey,
     pub duration_listened: u32,
-    pub song_duration: u32,
-    pub strategy_id: String,
 }
 
-/// Calculate payment amount based on strategy
-fn calculate_play_amount(strategy_id: &str, duration_listened: u32, song_duration: u32) -> u64 {
-    // Base rate: 0.001 USD per full play (in wei: ~400000000000000 at $0.40/xDAI)
-    let base_rate: u64 = 400_000_000_000_000; // 0.0004 xDAI
-
-    // Calculate completion percentage
-    let completion = if song_duration > 0 {
-        (duration_listened as f64 / song_duration as f64).min(1.0)
-    } else {
-        0.0
-    };
-
-    // Only count plays over 30 seconds or 50% completion
-    if duration_listened < 30 && completion < 0.5 {
-        return 0;
-    }
-
-    // Apply strategy multiplier
-    let multiplier = match strategy_id {
-        "premium" => 2.0,
-        "patronage" => 1.5,
-        "gift" => 0.0, // Gift economy = free
-        "pay_per_stream" => 1.0,
-        _ => 1.0,
-    };
-
-    ((base_rate as f64) * completion * multiplier) as u64
+fn has_settlement(play_hash: &ActionHash) -> ExternResult<bool> {
+    let filter = LinkTypeFilter::try_from(LinkTypes::PlayToSettlement)?;
+    let links = get_links(
+        LinkQuery::new(play_hash.clone(), filter),
+        GetStrategy::default(),
+    )?;
+    Ok(!links.is_empty())
 }
 
 /// Get my unsettled plays
@@ -128,13 +119,16 @@ pub fn get_my_unsettled_plays(_: ()) -> ExternResult<Vec<PlayRecord>> {
     let mut unsettled = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
                 if let Some(play) = record
                     .entry()
                     .to_app_option::<PlayRecord>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    if !play.settled {
+                    if record.action().author() == &my_agent
+                        && !play.settled
+                        && !has_settlement(&action_hash)?
+                    {
                         unsettled.push(play);
                     }
                 }
@@ -178,25 +172,9 @@ pub struct BalanceOwed {
 #[hdk_extern]
 pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> {
     require_consciousness(&civic_requirement_voting(), "create_settlement_batch")?;
-    let plays = get_my_unsettled_plays(())?;
 
-    // Filter plays for this artist
-    let artist_plays: Vec<PlayRecord> = plays
-        .into_iter()
-        .filter(|p| p.artist == artist)
-        .collect();
-
-    if artist_plays.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "No unsettled plays for this artist".to_string()
-        )));
-    }
-
-    // Calculate totals
-    let play_count = artist_plays.len() as u64;
-    let total_amount: u64 = artist_plays.iter().map(|p| p.amount_owed).sum();
-
-    // Collect play hashes (we need to get them from links)
+    // Resolve the exact play records and hashes in one pass so the count,
+    // total, and Merkle root describe the same set.
     let my_agent = agent_info()?.agent_initial_pubkey;
     let listener_path = Path::from(format!("listener_plays/{}", my_agent));
     let typed_path = listener_path.typed(LinkTypes::ListenerToPlays)?;
@@ -207,6 +185,7 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
     )?;
 
     let mut play_hashes = Vec::new();
+    let mut total_amount = 0u64;
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
             if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
@@ -215,7 +194,17 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
                     .to_app_option::<PlayRecord>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    if !play.settled && play.artist == artist {
+                    if record.action().author() == &my_agent
+                        && !play.settled
+                        && play.artist == artist
+                        && !has_settlement(&action_hash)?
+                    {
+                        total_amount =
+                            total_amount.checked_add(play.amount_owed).ok_or_else(|| {
+                                wasm_error!(WasmErrorInner::Guest(
+                                    "Settlement amount overflow".to_string()
+                                ))
+                            })?;
                         play_hashes.push(action_hash);
                     }
                 }
@@ -223,7 +212,15 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
         }
     }
 
-    // Create merkle root (simplified - just hash all play hashes together)
+    if play_hashes.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "No unsettled plays for this artist".to_string()
+        )));
+    }
+
+    let play_count = play_hashes.len() as u64;
+
+    // Create the canonical ordered Merkle root validated by the integrity zome.
     let merkle_root = compute_merkle_root(&play_hashes);
 
     let batch = SettlementBatch {
@@ -241,7 +238,8 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
 
     // Link batch to artist
     let artist_settlements_path = Path::from(format!("settlements/{}", artist));
-    let artist_settlements_hash = ensure_path(artist_settlements_path, LinkTypes::ArtistToSettlements)?;
+    let artist_settlements_hash =
+        ensure_path(artist_settlements_path, LinkTypes::ArtistToSettlements)?;
     create_link(
         artist_settlements_hash,
         batch_hash.clone(),
@@ -260,39 +258,6 @@ pub fn create_settlement_batch(artist: AgentPubKey) -> ExternResult<ActionHash> 
     }
 
     Ok(batch_hash)
-}
-
-/// Compute a BLAKE2b-256 merkle root from action hashes.
-///
-/// Uses proper cryptographic hashing (BLAKE2b) instead of XOR folding.
-/// XOR is commutative and self-inverse, making it trivially forgeable.
-fn compute_merkle_root(hashes: &[ActionHash]) -> Vec<u8> {
-    use hdk::prelude::holo_hash::blake2b_256;
-
-    if hashes.is_empty() {
-        return vec![0u8; 32];
-    }
-
-    let mut current: Vec<Vec<u8>> = hashes
-        .iter()
-        .map(|h| h.get_raw_39().to_vec())
-        .collect();
-
-    while current.len() > 1 {
-        let mut next = Vec::new();
-        for chunk in current.chunks(2) {
-            let combined = if chunk.len() == 2 {
-                [chunk[0].as_slice(), chunk[1].as_slice()].concat()
-            } else {
-                // Odd leaf: duplicate it
-                [chunk[0].as_slice(), chunk[0].as_slice()].concat()
-            };
-            next.push(blake2b_256(&combined).to_vec());
-        }
-        current = next;
-    }
-
-    current.into_iter().next().unwrap_or_else(|| vec![0u8; 32])
 }
 
 /// Get pending settlements for an artist
@@ -315,7 +280,7 @@ pub fn get_pending_settlements(artist: AgentPubKey) -> ExternResult<Vec<Settleme
                     .to_app_option::<SettlementBatch>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    if batch.status == SettlementStatus::Pending {
+                    if batch.artist == artist && batch.status == SettlementStatus::Pending {
                         pending.push(batch);
                     }
                 }
@@ -338,10 +303,7 @@ pub struct SongStats {
 #[hdk_extern]
 pub fn get_song_stats(song_hash: ActionHash) -> ExternResult<SongStats> {
     let filter = LinkTypeFilter::try_from(LinkTypes::SongToPlays)?;
-    let links = get_links(
-        LinkQuery::new(song_hash, filter),
-        GetStrategy::default(),
-    )?;
+    let links = get_links(LinkQuery::new(song_hash, filter), GetStrategy::default())?;
 
     let mut total_plays: u64 = 0;
     let mut total_earnings: u64 = 0;

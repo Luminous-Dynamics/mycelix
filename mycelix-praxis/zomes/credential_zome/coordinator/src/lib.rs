@@ -12,6 +12,7 @@ use base64::Engine;
 use credential_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
+use praxis_core::contracts::{CREDENTIAL_CONTRACT_VERSION, CredentialList, CredentialSummary};
 use praxis_core::{AuditResult, CourseId};
 use std::collections::{BTreeSet, HashSet};
 
@@ -95,6 +96,15 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<ActionHash>
         (),
     )?;
 
+    // Index by subject so the authenticated learner can list credentials
+    // issued to them. The read path also checks the entry's subject field.
+    create_link(
+        input.subject,
+        action_hash.clone(),
+        LinkTypes::LearnerToCredentials,
+        (),
+    )?;
+
     // Link from course to credential
     let course_anchor = Path::from(format!("course_credentials.{}", input.course_id.0));
     create_link(
@@ -122,19 +132,101 @@ pub fn verify_credential(action_hash: ActionHash) -> ExternResult<VerificationRe
             "Invalid credential entry".into()
         )))?;
 
-    // Implementation would check signatures and revocation status
+    // Fail closed until signature and revocation verification are implemented.
+    // Returning success here would turn the mere presence of proof fields into
+    // a false cryptographic claim.
     Ok(VerificationResult {
-        is_valid: true,
+        is_valid: false,
         verified_at: sys_time()?,
-        verification_notes: Some("Cryptographic integrity verified".into()),
+        verification_notes: Some(
+            "Not verified: signature and revocation checks are not implemented".into(),
+        ),
     })
 }
 
-/// Get all credentials for the current agent.
+fn linked_credentials_for_current_agent() -> ExternResult<Vec<Record>> {
+    let learner = agent_info()?.agent_initial_pubkey;
+    let learner_id = learner.to_string();
+    let links = get_links(
+        LinkQuery::try_new(learner, LinkTypes::LearnerToCredentials)?,
+        GetStrategy::Local,
+    )?;
+
+    let mut seen = HashSet::new();
+    let mut records = Vec::new();
+    for link in links {
+        let Some(action_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        if !seen.insert(action_hash.to_string()) {
+            continue;
+        }
+        let Some(record) = get(action_hash, GetOptions::default())? else {
+            continue;
+        };
+        let Some(credential) = record
+            .entry()
+            .to_app_option::<VerifiableCredential>()
+            .map_err(|e| wasm_error!(e))?
+        else {
+            continue;
+        };
+        if credential.subject_id == learner_id {
+            records.push(record);
+        }
+    }
+
+    records.sort_by_key(|record| record.action_hashed().hash.to_string());
+    Ok(records)
+}
+
+/// Compatibility endpoint for coordinator callers that still consume raw
+/// records. Browser clients use `list_my_credential_summaries` instead.
 #[hdk_extern]
 pub fn get_my_credentials(_: ()) -> ExternResult<Vec<Record>> {
-    let _agent_info = agent_info()?;
-    Ok(Vec::new())
+    linked_credentials_for_current_agent()
+}
+
+/// Return stable browser-facing projections for credentials linked to the
+/// authenticated subject.
+#[hdk_extern]
+pub fn list_my_credential_summaries(_: ()) -> ExternResult<CredentialList> {
+    let mut credentials = Vec::new();
+    for record in linked_credentials_for_current_agent()? {
+        let credential_id = record.action_hashed().hash.to_string();
+        let credential = record
+            .entry()
+            .to_app_option::<VerifiableCredential>()
+            .map_err(|e| wasm_error!(e))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Linked credential record has no credential entry".into()
+            )))?;
+        credentials.push(CredentialSummary {
+            credential_id,
+            credential_type: credential.credential_type,
+            subject_id: credential.subject_id,
+            course_id: credential.course_id,
+            issuer: credential.issuer,
+            issuance_date: credential.issuance_date,
+            expiration_date: credential.expiration_date,
+            score: credential.score,
+            score_band: credential.score_band,
+            proof_type: credential.proof_type,
+            proof_created: credential.proof_created,
+            verification_method: credential.verification_method,
+            proof_purpose: credential.proof_purpose,
+            proof_value: credential.proof_value,
+            status_purpose: credential.status_purpose,
+            epistemic_empirical: credential.epistemic_empirical,
+            epistemic_normative: credential.epistemic_normative,
+            epistemic_materiality: credential.epistemic_materiality,
+        });
+    }
+
+    Ok(CredentialList {
+        contract_version: CREDENTIAL_CONTRACT_VERSION,
+        credentials,
+    })
 }
 
 // =============================================================================

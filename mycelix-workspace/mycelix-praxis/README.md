@@ -3,11 +3,11 @@
 
   # Mycelix Praxis
 
-  **Privacy-preserving decentralized education powered by Holochain and Federated Learning**
+  **Local-first learning with an experimental Holochain synchronization layer**
 
   [![CI](https://github.com/Luminous-Dynamics/mycelix-praxis/actions/workflows/ci.yml/badge.svg)](https://github.com/Luminous-Dynamics/mycelix-praxis/actions/workflows/ci.yml)
   [![codecov](https://codecov.io/gh/Luminous-Dynamics/mycelix-praxis/branch/main/graph/badge.svg)](https://codecov.io/gh/Luminous-Dynamics/mycelix-praxis)
-  [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
   [![Rust Version](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
   [![Holochain](https://img.shields.io/badge/Holochain-agent--centric-purple)](https://holochain.org)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -21,14 +21,14 @@
 
 ## Vision
 
-Praxis reimagines online learning by putting **learners in control** of their data while enabling **collaborative intelligence**. Using federated learning, models improve from collective experience without any single server seeing your private learning data.
+Praxis reimagines learning by putting **learners in control** of their data. The current pre-alpha provides a substantial local Leptos learning experience. Holochain synchronization, verifiable credentials, governance, and federated learning are experimental integration surfaces and must not yet be treated as production guarantees.
 
 ## Features
 
 - **Agent-Centric Learning**: Holochain hApp architecture, offline-friendly
-- **Privacy-First FL**: Clipped gradient updates with optional differential privacy
-- **Verifiable Credentials**: W3C VC standard tied to model provenance
-- **Community Governance**: DAO for curricula, quality, and protocol evolution
+- **Adaptive local learning**: SM-2 review, Bayesian Knowledge Tracing, exam preparation, and generated lessons
+- **Credential research**: W3C-compatible data structures with issuance and cryptographic verification still under development
+- **Governance and FL research**: Protocol scaffolds for future community coordination and collaborative learning
 - **Provenance Tracking**: Every model traceable to its training round and contributors
 
 ---
@@ -48,26 +48,22 @@ Praxis reimagines online learning by putting **learners in control** of their da
 
 ## Quick Start
 
-Get started in under 10 minutes! Follow our **[📖 Quick Start Tutorial](docs/tutorials/quick-start.md)** for a step-by-step guide.
+Praxis currently expects the surrounding Mycelix workspace layout because the Leptos application consumes shared crates from the workspace `crates/` directory. See [`apps/leptos/SETUP.md`](apps/leptos/SETUP.md) for the full environment.
 
 ### TL;DR
 
 ```bash
-# Clone the repository
-git clone https://github.com/Luminous-Dynamics/mycelix-praxis.git
+# From the Mycelix workspace development shell
 cd mycelix-praxis
+make check
+make web
 
-# Build all components
-make build
-
-# Run tests (49 tests should pass)
-make test
-
-# Start web app
-cd apps/web && npm run dev
+# Development server
+cd apps/leptos
+trunk serve
 ```
 
-**Web app**: http://localhost:5173
+**Web app**: http://localhost:3001
 
 ### Docker
 
@@ -84,13 +80,13 @@ docker-compose up --build
 
 ## Architecture
 
-Praxis is a **monorepo** combining Rust crates, Holochain zomes, and a React web client.
+Praxis combines Rust crates, Holochain zomes, generated curriculum content, and a Leptos CSR client.
 
 ### Repository Structure
 
 ```
 mycelix-praxis/
-├── apps/web/              # React + TypeScript web client
+├── apps/leptos/           # Canonical Leptos CSR client
 ├── crates/                # Rust libraries
 │   ├── praxis-core/       # Core types, crypto, provenance
 │   └── praxis-agg/        # Robust aggregation (trimmed mean, median)
@@ -109,7 +105,7 @@ mycelix-praxis/
 
 - **Holochain**: Agent-centric distributed computing
 - **Rust**: Systems programming for zomes and crates
-- **React + TypeScript**: Modern web UI
+- **Leptos + WebAssembly**: Rust browser UI
 - **Federated Learning**: Privacy-preserving collaborative ML
 - **W3C Verifiable Credentials**: Standards-based digital credentials
 
@@ -122,6 +118,9 @@ mycelix-praxis/
 - **[Protocol Specification](docs/protocol.md)**: FL lifecycle, message types, aggregation methods
 - **[Threat Model](docs/threat-model.md)**: Security threats and mitigations
 - **[Privacy Model](docs/privacy.md)**: Data handling, DP, selective disclosure
+- **[Curriculum and content contract](docs/content-contract.md)**: Graph and lesson integrity rules
+- **[Learning client contract](docs/learning-contract.md)**: Versioned browser/coordinator DTOs and privacy boundary
+- **[Live data lifecycle](docs/live-data-lifecycle.md)**: Reactive readiness, reconnect, and honest resource states
 - **[Governance](GOVERNANCE.md)**: Decision-making processes, roles, DAO alignment
 
 ### Architecture Decision Records
@@ -198,10 +197,10 @@ make reset       # Reset local Holochain state (dev only)
 
 #### Web Client
 
-**apps/web/**:
-- React 18 + TypeScript
-- Vite for fast builds
-- Holochain client integration (planned)
+**apps/leptos/**:
+- Leptos 0.8 CSR application built with Trunk
+- Local-first progress, curriculum, review, and assessment surfaces
+- Experimental Holochain client integration
 
 ---
 
@@ -296,7 +295,7 @@ See **[GOVERNANCE.md](GOVERNANCE.md)** for roles, responsibilities, and DAO alig
 
 - [ ] Production-ready FL protocol
 - [ ] DAO-driven course curation
-- [ ] Mobile app (React Native)
+- [ ] Mobile packaging and device validation
 - [ ] External security audit
 - [ ] Public launch
 
@@ -308,20 +307,19 @@ See [GitHub Projects](https://github.com/Luminous-Dynamics/mycelix-praxis/projec
 
 - [Holochain](https://holochain.org) - Agent-centric distributed computing
 - [Rust](https://www.rust-lang.org/) - Systems programming language
-- [React](https://react.dev/) - UI library
-- [Vite](https://vitejs.dev/) - Fast build tooling
-- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
+- [Leptos](https://leptos.dev/) - Rust web UI framework
+- [Trunk](https://trunkrs.dev/) - WebAssembly application bundler
 
 ---
 
 ## License
 
-Licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+Licensed under the **GNU Affero General Public License v3.0 or later**. See [LICENSE](LICENSE) for details.
 
 ### Third-Party Licenses
 
 - Holochain: Apache-2.0 / CAL-1.0
-- React: MIT
+- Leptos: MIT
 - Rust crates: See individual crate licenses
 
 ---

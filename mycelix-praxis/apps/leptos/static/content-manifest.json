@@ -1,0 +1,2077 @@
+{
+  "lessons": {
+    "24.01": [
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.epistemology.json",
+        "title": "Epistemology: Knowledge, Belief, Justification, Skepticism & Truth"
+      },
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.ethics.json",
+        "title": "Ethics: Utilitarianism, Deontology, Virtue Ethics & Applied Ethics"
+      },
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.stoicism.json",
+        "title": "Stoic Philosophy: Seneca, Epictetus, Marcus Aurelius & Practical Wisdom"
+      }
+    ],
+    "24.118": [
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.metaphysics.json",
+        "title": "Metaphysics: Existence, Identity, Free Will & the Mind-Body Problem"
+      }
+    ],
+    "24.131": [
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.ai_ethics.json",
+        "title": "AI Ethics: Bias, Autonomy, Transparency, Alignment & Existential Risk"
+      }
+    ],
+    "24.244": [
+      {
+        "path": "/curriculum/generated/philosophy/philosophy.logic.json",
+        "title": "Formal Logic: Propositional Logic, Validity, Soundness & Syllogisms"
+      }
+    ],
+    "AL/AlgorithmicStrategies": [
+      {
+        "path": "/curriculum/generated/computer-science/al_algorithmicstrategies.json",
+        "title": "Algorithmic Strategies"
+      }
+    ],
+    "AL/Automata": [
+      {
+        "path": "/curriculum/generated/computer-science/al_automata.json",
+        "title": "Automata Theory"
+      }
+    ],
+    "AL/BasicAnalysis": [
+      {
+        "path": "/curriculum/generated/computer-science/al_basicanalysis.json",
+        "title": "Algorithm Analysis — Big-O Notation"
+      }
+    ],
+    "AL/FundamentalDataStructures": [
+      {
+        "path": "/curriculum/generated/computer-science/al_fundamentaldatastructures.json",
+        "title": "Fundamental Data Structures & Algorithms"
+      }
+    ],
+    "CAPS.Accounting.Gr12.AUDIT": [
+      {
+        "path": "/curriculum/generated/accounting-12/caps.accounting.gr12.audit.json",
+        "title": "CAPS.Accounting.Gr12.AUDIT: Auditing & Internal Controls — Internal Audit, Corporate Governance, Ethics, Fraud Prevention"
+      }
+    ],
+    "CAPS.Accounting.Gr12.COST": [
+      {
+        "path": "/curriculum/generated/accounting-12/caps.accounting.gr12.cost.json",
+        "title": "CAPS.Accounting.Gr12.COST: Cost Accounting — Production Cost Statement, Break-Even Analysis, Unit Costs"
+      }
+    ],
+    "CAPS.Accounting.Gr12.FS": [
+      {
+        "path": "/curriculum/generated/accounting-12/caps.accounting.gr12.fs.json",
+        "title": "CAPS.Accounting.Gr12.FS: Financial Statements — Income Statement, Balance Sheet, Cash Flow Statement"
+      }
+    ],
+    "CAPS.Accounting.Gr12.VAT": [
+      {
+        "path": "/curriculum/generated/accounting-12/caps.accounting.gr12.vat.json",
+        "title": "CAPS.Accounting.Gr12.VAT: VAT, Budgets & Projections — VAT at 15%, Cash Budgets, Projected Income Statements, Age Analysis, Inventory Valuation"
+      }
+    ],
+    "CAPS.Business.Gr12.HR": [
+      {
+        "path": "/curriculum/generated/business-12/caps.business.gr12.hr.json",
+        "title": "CAPS.Business.Gr12.HR: Human Resources — Recruitment, Selection, Training, Performance Appraisal, Labour Relations"
+      }
+    ],
+    "CAPS.Business.Gr12.MACRO": [
+      {
+        "path": "/curriculum/generated/business-12/caps.business.gr12.macro.json",
+        "title": "CAPS.Business.Gr12.MACRO: Business Environments — SWOT, PESTLE, Porter's Five Forces, BBBEE, Legislation"
+      }
+    ],
+    "CAPS.Business.Gr12.MANAGE": [
+      {
+        "path": "/curriculum/generated/business-12/caps.business.gr12.manage.json",
+        "title": "CAPS.Business.Gr12.MANAGE: Management & Leadership — Functions, Styles, TQM, Conflict Management"
+      }
+    ],
+    "CAPS.Business.Gr12.VENTURE": [
+      {
+        "path": "/curriculum/generated/business-12/caps.business.gr12.venture.json",
+        "title": "CAPS.Business.Gr12.VENTURE: Business Ventures — Business Plans, Forms of Ownership, Franchising, Insurance, CIPC Registration"
+      }
+    ],
+    "CAPS.CreativeArts.Design": [
+      {
+        "path": "/curriculum/generated/creative-arts/arts.design.json",
+        "title": "CAPS.CreativeArts.Design: Design Basics"
+      }
+    ],
+    "CAPS.CreativeArts.Drama": [
+      {
+        "path": "/curriculum/generated/creative-arts/arts.drama.json",
+        "title": "CAPS.CreativeArts.Drama: Drama & Performance"
+      }
+    ],
+    "CAPS.CreativeArts.Music": [
+      {
+        "path": "/curriculum/generated/creative-arts/arts.music.json",
+        "title": "CAPS.CreativeArts.Music: Music Fundamentals"
+      }
+    ],
+    "CAPS.CreativeArts.Visual": [
+      {
+        "path": "/curriculum/generated/creative-arts/arts.visual.json",
+        "title": "CAPS.CreativeArts.Visual: Visual Arts Fundamentals"
+      }
+    ],
+    "CAPS.English.Gr12.COMPREHENSION": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.comprehension.json",
+        "title": "Reading Comprehension: Main Idea, Inference, Tone, Bias & Critical Analysis"
+      }
+    ],
+    "CAPS.English.Gr12.ESSAY": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.essay.json",
+        "title": "Essay Writing: Argumentative, Discursive, Narrative & Descriptive"
+      }
+    ],
+    "CAPS.English.Gr12.LANGUAGE": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.language.json",
+        "title": "Language Structures and Conventions"
+      }
+    ],
+    "CAPS.English.Gr12.LITERATURE": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.literature.json",
+        "title": "Literature Study: Novel, Poetry & Drama Analysis"
+      }
+    ],
+    "CAPS.English.Gr12.POETRY": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.poetry.json",
+        "title": "Poetry Analysis: Imagery, Figurative Language, Sound Devices & Structure"
+      }
+    ],
+    "CAPS.English.Gr12.SUMMARY": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.summary.json",
+        "title": "Summary Writing: Key Points, Paraphrasing & Word Limit Techniques"
+      }
+    ],
+    "CAPS.English.Gr12.TRANSACTIONAL": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.transactional.json",
+        "title": "Transactional Writing: Letters, Reports, Reviews, Speeches, Minutes & CV"
+      }
+    ],
+    "CAPS.English.Gr12.VISUAL": [
+      {
+        "path": "/curriculum/generated/english-12/eng.gr12.visual.json",
+        "title": "Visual Literacy: Advertisements, Cartoons, Graphs & Infographics"
+      }
+    ],
+    "CAPS.EnglishFoundations.Reading": [
+      {
+        "path": "/curriculum/generated/english-foundations/eng.found.reading.json",
+        "title": "CAPS.EnglishFoundations.Reading: Reading Strategies"
+      }
+    ],
+    "CAPS.EnglishFoundations.Writing": [
+      {
+        "path": "/curriculum/generated/english-foundations/eng.found.writing.json",
+        "title": "CAPS.EnglishFoundations.Writing: Writing Basics"
+      }
+    ],
+    "CAPS.Geography.Gr12.CLIMATE": [
+      {
+        "path": "/curriculum/generated/geography-12/caps.geography.gr12.climate.json",
+        "title": "CAPS.Geography.Gr12.CLIMATE: Climate & Weather — SA Climate Factors, Pressure Systems, Synoptic Maps, Climate Change"
+      }
+    ],
+    "CAPS.Geography.Gr12.GEOMORPH": [
+      {
+        "path": "/curriculum/generated/geography-12/caps.geography.gr12.geomorph.json",
+        "title": "CAPS.Geography.Gr12.GEOMORPH: Geomorphology — Drainage Basins, River Profiles, Erosion & Deposition, Fluvial Landforms"
+      }
+    ],
+    "CAPS.Geography.Gr12.GIS": [
+      {
+        "path": "/curriculum/generated/geography-12/caps.geography.gr12.gis.json",
+        "title": "CAPS.Geography.Gr12.GIS: GIS & Map Skills — GIS Layers, Remote Sensing, GPS, Map Scale, Gradient, Cross-Sections"
+      }
+    ],
+    "CAPS.Geography.Gr12.SETTLE": [
+      {
+        "path": "/curriculum/generated/geography-12/caps.geography.gr12.settle.json",
+        "title": "CAPS.Geography.Gr12.SETTLE: Settlement Geography — Urbanisation, Rural-Urban Migration, Informal Settlements, Service Delivery"
+      }
+    ],
+    "CAPS.History.Gr12.APART": [
+      {
+        "path": "/curriculum/generated/history-12/caps.history.gr12.apart.json",
+        "title": "Apartheid South Africa (1948-1994)"
+      }
+    ],
+    "CAPS.History.Gr12.CIVIL": [
+      {
+        "path": "/curriculum/generated/history-12/caps.history.gr12.civil.json",
+        "title": "Civil Rights Movements: USA and South Africa"
+      }
+    ],
+    "CAPS.History.Gr12.CW": [
+      {
+        "path": "/curriculum/generated/history-12/caps.history.gr12.cw.json",
+        "title": "The Cold War (1945-1991)"
+      }
+    ],
+    "CAPS.History.Gr12.TRC": [
+      {
+        "path": "/curriculum/generated/history-12/caps.history.gr12.trc.json",
+        "title": "The Truth and Reconciliation Commission (TRC)"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Careers": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.careers.json",
+        "title": "CAPS.LifeOrientation.Gr12.Careers: Careers & Career Choices"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Democracy": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.democracy.json",
+        "title": "CAPS.LifeOrientation.Gr12.Democracy: Democracy & Human Rights in South Africa"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Environment": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.environment.json",
+        "title": "CAPS.LifeOrientation.Gr12.Environment: Environmental Responsibility"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Health": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.health.json",
+        "title": "CAPS.LifeOrientation.Gr12.Health: Health & Well-being"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Social": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.social.json",
+        "title": "CAPS.LifeOrientation.Gr12.Social: Social & Environmental Justice"
+      }
+    ],
+    "CAPS.LifeOrientation.Gr12.Study": [
+      {
+        "path": "/curriculum/generated/life-orientation/lo.gr12.study.json",
+        "title": "CAPS.LifeOrientation.Gr12.Study: Study Skills & Exam Preparation"
+      }
+    ],
+    "CAPS.LifeSciences.Gr10.BIODIV": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr10.biodiv.json",
+        "title": "Biodiversity and Classification: Five Kingdoms, Binomial Nomenclature, and South African Indigenous Species"
+      }
+    ],
+    "CAPS.LifeSciences.Gr10.CELL": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr10.cell.json",
+        "title": "Cell Biology: Prokaryotic and Eukaryotic Cells, Organelles, Membrane Transport, and Mitosis"
+      }
+    ],
+    "CAPS.LifeSciences.Gr10.CHEM": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr10.chem.json",
+        "title": "Chemistry of Life: Water Properties, Carbohydrates, Lipids, Proteins, and Nucleic Acids"
+      }
+    ],
+    "CAPS.LifeSciences.Gr10.ENV": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr10.env.json",
+        "title": "Environment and Biosphere: SA Biomes, Food Webs, and Nutrient Cycles"
+      }
+    ],
+    "CAPS.LifeSciences.Gr10.TISSUE": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr10.tissue.json",
+        "title": "Animal and Plant Tissues: Epithelial, Connective, Muscle, Nervous, Meristematic, and Vascular Tissues"
+      }
+    ],
+    "CAPS.LifeSciences.Gr11.ANIMAL": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr11.animal.json",
+        "title": "Animal Nutrition and Gas Exchange: Digestive System, Heart Structure, and Breathing Mechanism"
+      }
+    ],
+    "CAPS.LifeSciences.Gr11.BIODIV2": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr11.biodiv2.json",
+        "title": "Microbiology: Viruses, Bacteria, Protists, Fungi, and Antibiotic Resistance"
+      }
+    ],
+    "CAPS.LifeSciences.Gr11.HIST": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr11.hist.json",
+        "title": "History of Life on Earth: Fossil Evidence, Mass Extinctions, Human Evolution, and Out of Africa"
+      }
+    ],
+    "CAPS.LifeSciences.Gr11.PLANT": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr11.plant.json",
+        "title": "Plant Physiology: Photosynthesis (Light and Dark Reactions), Transpiration, Xylem and Phloem Transport"
+      }
+    ],
+    "CAPS.LifeSciences.Gr11.POP": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr11.pop.json",
+        "title": "Population Ecology: Growth Curves, Carrying Capacity, Human Population, and SA Demographics"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.DNA": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.dna.json",
+        "title": "DNA, RNA and Protein Synthesis: Replication, Transcription, Translation, and Mutations (40 marks)"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.EVOLVE": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.evolve.json",
+        "title": "Evolution by Natural Selection: Darwin, Speciation, and Molecular Evidence (35 marks)"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.GENETICS": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.genetics.json",
+        "title": "Genetics and Inheritance: Meiosis, Punnett Squares, Sex-Linked Traits, and Blood Groups (40 marks)"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.HOMEOSTASIS": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.homeostasis.json",
+        "title": "Homeostasis and Excretion: Thermoregulation, Kidney/Nephron, ADH, and Diabetes (35 marks)"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.HUMAN": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.human.json",
+        "title": "Human Reproduction: Menstrual Cycle, Pregnancy, STIs, and HIV/AIDS Prevention (35 marks)"
+      }
+    ],
+    "CAPS.LifeSciences.Gr12.NERVOUS": [
+      {
+        "path": "/curriculum/generated/life-sciences/caps.lifesciences.gr12.nervous.json",
+        "title": "Nervous and Endocrine Systems: Brain, Reflex Arc, Eye, Ear, Hormones, and Drug Abuse (35 marks)"
+      }
+    ],
+    "CAPS.Mathematics.Gr1.ADD": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.add.json",
+        "title": "CAPS.Mathematics.Gr1.ADD: Add and subtract within 20. Number bonds. Use concrete ob..."
+      }
+    ],
+    "CAPS.Mathematics.Gr1.CNT": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.cnt.json",
+        "title": "CAPS.Mathematics.Gr1.CNT: Count objects to 100. Count forwards and backwards in 1s,..."
+      }
+    ],
+    "CAPS.Mathematics.Gr1.DAT": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.dat.json",
+        "title": "CAPS.Mathematics.Gr1.DAT: Collect and sort objects. Draw picture graphs. Answer que..."
+      }
+    ],
+    "CAPS.Mathematics.Gr1.MEA": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.mea.json",
+        "title": "CAPS.Mathematics.Gr1.MEA: Compare and order objects by length, mass, and capacity u..."
+      }
+    ],
+    "CAPS.Mathematics.Gr1.PAT": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.pat.json",
+        "title": "CAPS.Mathematics.Gr1.PAT: Copy, extend, and create simple patterns using objects, s..."
+      }
+    ],
+    "CAPS.Mathematics.Gr1.SHP": [
+      {
+        "path": "/curriculum/generated/math-1/caps.mathematics.gr1.shp.json",
+        "title": "CAPS.Mathematics.Gr1.SHP: Recognise and name 2D shapes (circle, square, triangle, r..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.ALG.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.alg.1.json",
+        "title": "CAPS.Mathematics.Gr10.ALG.1: Simplify, factorise, and manipulate algebraic expressions..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.ALG.2": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.alg.2.json",
+        "title": "CAPS.Mathematics.Gr10.ALG.2: Solve linear, quadratic, literal, and simultaneous linear..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.ANAG.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.anag.1.json",
+        "title": "CAPS.Mathematics.Gr10.ANAG.1: Distance formula, midpoint formula, gradient. Inclination..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.FIN.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.fin.1.json",
+        "title": "CAPS.Mathematics.Gr10.FIN.1: Simple and compound interest. Use formulae A = P(1+in) an..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.FN.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.fn.1.json",
+        "title": "CAPS.Mathematics.Gr10.FN.1: Define function, domain, range. Investigate and sketch y ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.FN.2": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.fn.2.json",
+        "title": "CAPS.Mathematics.Gr10.FN.2: Investigate and sketch y = a/x + q (hyperbola) and y = ab..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.GEOM.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.geom.1.json",
+        "title": "CAPS.Mathematics.Gr10.GEOM.1: Properties of special quadrilaterals (parallelogram, rect..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.MEAS.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.meas.1.json",
+        "title": "CAPS.Mathematics.Gr10.MEAS.1: Conversions, perimeter, area (2D shapes), surface area an..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.PAT.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.pat.1.json",
+        "title": "CAPS.Mathematics.Gr10.PAT.1: Investigate and extend numeric and geometric patterns. De..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.PROB.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.prob.1.json",
+        "title": "CAPS.Mathematics.Gr10.PROB.1: Theoretical and experimental probability. Venn diagrams. ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.STAT.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.stat.1.json",
+        "title": "CAPS.Mathematics.Gr10.STAT.1: Collect, organise, and interpret univariate data. Measure..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.TRIG.1": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.trig.1.json",
+        "title": "CAPS.Mathematics.Gr10.TRIG.1: Define sin, cos, tan using right-angled triangles and the..."
+      }
+    ],
+    "CAPS.Mathematics.Gr10.TRIG.2": [
+      {
+        "path": "/curriculum/generated/math-10/caps.mathematics.gr10.trig.2.json",
+        "title": "CAPS.Mathematics.Gr10.TRIG.2: Sketch and interpret graphs of y = sin θ, y = cos θ, y = ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.ALG.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.alg.1.json",
+        "title": "CAPS.Mathematics.Gr11.ALG.1: Simplify expressions involving surds. Apply laws of expon..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.ALG.2": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.alg.2.json",
+        "title": "CAPS.Mathematics.Gr11.ALG.2: Solve quadratic equations (factorisation, completing the ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.ANAG.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.anag.1.json",
+        "title": "CAPS.Mathematics.Gr11.ANAG.1: Equation of a circle with centre at origin and centre (a,..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.FIN.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.fin.1.json",
+        "title": "CAPS.Mathematics.Gr11.FIN.1: Compound growth and decay: A = P(1+i)^n, A = P(1−i)^n. Ef..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.FN.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.fn.1.json",
+        "title": "CAPS.Mathematics.Gr11.FN.1: Investigate y = a(x−p)² + q, y = a/(x−p) + q, y = ab^(x−p..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.FN.2": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.fn.2.json",
+        "title": "CAPS.Mathematics.Gr11.FN.2: Concept of inverse function (reflection in y = x). Determ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.GEOM.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.geom.1.json",
+        "title": "CAPS.Mathematics.Gr11.GEOM.1: Theorems of the circle: line from centre perpendicular to..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.MEAS.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.meas.1.json",
+        "title": "CAPS.Mathematics.Gr11.MEAS.1: Surface area and volume of pyramids (right), right cones,..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.PAT.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.pat.1.json",
+        "title": "CAPS.Mathematics.Gr11.PAT.1: Arithmetic and geometric sequences. General term Tn. Sigm..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.PROB.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.prob.1.json",
+        "title": "CAPS.Mathematics.Gr11.PROB.1: Dependent and independent events. Product rule. Tree diag..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.STAT.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.stat.1.json",
+        "title": "CAPS.Mathematics.Gr11.STAT.1: Scatter plots. Intuitive line of best fit. Correlation (s..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.TRIG.1": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.trig.1.json",
+        "title": "CAPS.Mathematics.Gr11.TRIG.1: Derive and apply compound angle identities: sin(α±β), cos..."
+      }
+    ],
+    "CAPS.Mathematics.Gr11.TRIG.2": [
+      {
+        "path": "/curriculum/generated/math-11/caps.mathematics.gr11.trig.2.json",
+        "title": "CAPS.Mathematics.Gr11.TRIG.2: Prove and apply sine rule, cosine rule, and area rule. So..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.ALG": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.alg.json",
+        "title": "CAPS.Mathematics.Gr12.P1.ALG: Solve equations: quadratic (all methods), surd, exponenti..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.CALC": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.calc.json",
+        "title": "CAPS.Mathematics.Gr12.P1.CALC: Limits (intuitive). First principles: f'(x) = lim[h→0] (f..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.COUNT": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.count.json",
+        "title": "CAPS.Mathematics.Gr12.P1.COUNT: Fundamental counting principle. Factorial notation (n!). ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.FIN": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.fin.json",
+        "title": "CAPS.Mathematics.Gr12.P1.FIN: Future value and present value annuities: F = x[(1+i)^n −..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.FN": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.fn.json",
+        "title": "CAPS.Mathematics.Gr12.P1.FN: Revise linear, quadratic (y = a(x−p)²+q), hyperbolic (y =..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P1.SEQ": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p1.seq.json",
+        "title": "CAPS.Mathematics.Gr12.P1.SEQ: Arithmetic sequences (Tn = a + (n−1)d, Sn = n/2[2a + (n−1..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P2.ANAG": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p2.anag.json",
+        "title": "CAPS.Mathematics.Gr12.P2.ANAG: Revise distance, midpoint, gradient, collinear points. Eq..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P2.GEOM": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p2.geom.json",
+        "title": "CAPS.Mathematics.Gr12.P2.GEOM: Circle geometry theorems (prove examinable theorems, appl..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P2.STAT": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p2.stat.json",
+        "title": "CAPS.Mathematics.Gr12.P2.STAT: Symmetric and skewed data. Variance and standard deviatio..."
+      }
+    ],
+    "CAPS.Mathematics.Gr12.P2.TRIG": [
+      {
+        "path": "/curriculum/generated/math-12/caps.mathematics.gr12.p2.trig.json",
+        "title": "CAPS.Mathematics.Gr12.P2.TRIG: Compound angles: sin(α±β), cos(α±β), sin2α, cos2α. Solve ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.ADD": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.add.json",
+        "title": "CAPS.Mathematics.Gr2.ADD: Add and subtract within 99. Mental strategies. Word probl..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.DAT": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.dat.json",
+        "title": "CAPS.Mathematics.Gr2.DAT: Collect data using tally marks. Draw and read pictographs..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.FRC": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.frc.json",
+        "title": "CAPS.Mathematics.Gr2.FRC: Halves and quarters of shapes and groups. Equal sharing"
+      }
+    ],
+    "CAPS.Mathematics.Gr2.MEA": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.mea.json",
+        "title": "CAPS.Mathematics.Gr2.MEA: Length in cm and m. Mass in kg. Capacity in litres. Time:..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.MUL": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.mul.json",
+        "title": "CAPS.Mathematics.Gr2.MUL: Repeated addition. Multiply by 2, 5, 10. Array model. Sha..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.NUM": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.num.json",
+        "title": "CAPS.Mathematics.Gr2.NUM: Place value to 99. Count in 2s, 3s, 5s, 10s to 200. Compa..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.PAT": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.pat.json",
+        "title": "CAPS.Mathematics.Gr2.PAT: Number patterns with constant difference. Geometric patte..."
+      }
+    ],
+    "CAPS.Mathematics.Gr2.SHP": [
+      {
+        "path": "/curriculum/generated/math-2/caps.mathematics.gr2.shp.json",
+        "title": "CAPS.Mathematics.Gr2.SHP: 2D and 3D shapes. Symmetry. Views of objects. Directions ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.ADD": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.add.json",
+        "title": "CAPS.Mathematics.Gr3.ADD: Add and subtract within 999. Column method. Estimate. Sol..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.DAT": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.dat.json",
+        "title": "CAPS.Mathematics.Gr3.DAT: Collect, organise data. Bar graphs and pictographs. Mode...."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.FRC": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.frc.json",
+        "title": "CAPS.Mathematics.Gr3.FRC: Fractions of whole: halves, thirds, quarters, fifths, six..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.GEO": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.geo.json",
+        "title": "CAPS.Mathematics.Gr3.GEO: Properties of 2D shapes. Angles (right, acute, obtuse). L..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.MEA": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.mea.json",
+        "title": "CAPS.Mathematics.Gr3.MEA: Perimeter of shapes. Area by counting squares. Time: anal..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.MUL": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.mul.json",
+        "title": "CAPS.Mathematics.Gr3.MUL: Times tables 2-10. Multiply 2-digit by 1-digit. Division ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.NUM": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.num.json",
+        "title": "CAPS.Mathematics.Gr3.NUM: Place value to 999. Round to nearest 10 and 100. Compare ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr3.PAT": [
+      {
+        "path": "/curriculum/generated/math-3/caps.mathematics.gr3.pat.json",
+        "title": "CAPS.Mathematics.Gr3.PAT: Patterns in addition and multiplication tables. Describe ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.DAT": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.dat.json",
+        "title": "CAPS.Mathematics.Gr4.DAT: Collect and organise data. Bar graphs, pie charts intro. ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.DEC": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.dec.json",
+        "title": "CAPS.Mathematics.Gr4.DEC: Tenths and hundredths. Convert between fractions and deci..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.FRC": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.frc.json",
+        "title": "CAPS.Mathematics.Gr4.FRC: Equivalent fractions. Simplify fractions. Add and subtrac..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.GEO": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.geo.json",
+        "title": "CAPS.Mathematics.Gr4.GEO: Properties of quadrilaterals. Classify triangles by sides..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.MEA": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.mea.json",
+        "title": "CAPS.Mathematics.Gr4.MEA: Convert between mm, cm, m, km. Area of rectangle. Volume ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.NUM": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.num.json",
+        "title": "CAPS.Mathematics.Gr4.NUM: Place value to 9999. Rounding. Properties of numbers (eve..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.OPS": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.ops.json",
+        "title": "CAPS.Mathematics.Gr4.OPS: All four operations. Long multiplication. Long division. ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr4.PAT": [
+      {
+        "path": "/curriculum/generated/math-4/caps.mathematics.gr4.pat.json",
+        "title": "CAPS.Mathematics.Gr4.PAT: Investigate patterns in number sequences. Describe rules ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.DAT": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.dat.json",
+        "title": "CAPS.Mathematics.Gr5.DAT: Double bar graphs. Mean, median, mode. Probability as fra..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.DEC": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.dec.json",
+        "title": "CAPS.Mathematics.Gr5.DEC: Thousandths. Multiply and divide decimals by 10, 100, 100..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.FRC": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.frc.json",
+        "title": "CAPS.Mathematics.Gr5.FRC: Add and subtract fractions with different denominators. M..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.GEO": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.geo.json",
+        "title": "CAPS.Mathematics.Gr5.GEO: Properties of 3D objects. Nets of cubes and prisms. Trans..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.MEA": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.mea.json",
+        "title": "CAPS.Mathematics.Gr5.MEA: Perimeter and area of irregular shapes. Volume of rectang..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.NUM": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.num.json",
+        "title": "CAPS.Mathematics.Gr5.NUM: Place value to 999999. Properties of numbers. Common fact..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.OPS": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.ops.json",
+        "title": "CAPS.Mathematics.Gr5.OPS: Multiply 3-digit by 2-digit. Division with remainders. Mu..."
+      }
+    ],
+    "CAPS.Mathematics.Gr5.PAT": [
+      {
+        "path": "/curriculum/generated/math-5/caps.mathematics.gr5.pat.json",
+        "title": "CAPS.Mathematics.Gr5.PAT: Number patterns with two operations. Input-output tables...."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.DAT": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.dat.json",
+        "title": "CAPS.Mathematics.Gr6.DAT: Histograms. Pie charts (reading and interpreting). Range...."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.EXP": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.exp.json",
+        "title": "CAPS.Mathematics.Gr6.EXP: Squares and cubes. Square roots and cube roots. Exponent ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.FRC": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.frc.json",
+        "title": "CAPS.Mathematics.Gr6.FRC: Convert between fractions, decimals, percentages. Calcula..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.GEO": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.geo.json",
+        "title": "CAPS.Mathematics.Gr6.GEO: Angles: measuring with protractor, calculating angles on ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.MEA": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.mea.json",
+        "title": "CAPS.Mathematics.Gr6.MEA: Area of triangles. Volume of triangular prisms. Convert b..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.NUM": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.num.json",
+        "title": "CAPS.Mathematics.Gr6.NUM: Numbers to millions. Introduction to integers (positive a..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.OPS": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.ops.json",
+        "title": "CAPS.Mathematics.Gr6.OPS: All operations with whole numbers. Order of operations (B..."
+      }
+    ],
+    "CAPS.Mathematics.Gr6.PAT": [
+      {
+        "path": "/curriculum/generated/math-6/caps.mathematics.gr6.pat.json",
+        "title": "CAPS.Mathematics.Gr6.PAT: Describe rules for patterns algebraically. Input-output w..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.ALG": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.alg.json",
+        "title": "CAPS.Mathematics.Gr7.ALG: Variables and constants. Algebraic language. Evaluate exp..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.DAT": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.dat.json",
+        "title": "CAPS.Mathematics.Gr7.DAT: Mean, median, mode of grouped data. Scatter plots intro. ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.EQN": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.eqn.json",
+        "title": "CAPS.Mathematics.Gr7.EQN: Solve simple linear equations. Write equations from word ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.EXP": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.exp.json",
+        "title": "CAPS.Mathematics.Gr7.EXP: Laws of exponents: product rule, quotient rule, power rul..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.GEO": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.geo.json",
+        "title": "CAPS.Mathematics.Gr7.GEO: Properties of triangles and quadrilaterals. Angle relatio..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.MEA": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.mea.json",
+        "title": "CAPS.Mathematics.Gr7.MEA: Circumference and area of circle (π). Surface area of pri..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.NUM": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.num.json",
+        "title": "CAPS.Mathematics.Gr7.NUM: Operations with integers. Rules for multiplying/dividing ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr7.PAT": [
+      {
+        "path": "/curriculum/generated/math-7/caps.mathematics.gr7.pat.json",
+        "title": "CAPS.Mathematics.Gr7.PAT: Input-output relationships. Tables of values. Plot points..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.ALG": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.alg.json",
+        "title": "CAPS.Mathematics.Gr8.ALG: Expand brackets. Factorise common factor. Solve linear eq..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.DAT": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.dat.json",
+        "title": "CAPS.Mathematics.Gr8.DAT: Frequency tables. Histograms from grouped data. Mean, med..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.EXP": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.exp.json",
+        "title": "CAPS.Mathematics.Gr8.EXP: Exponents with integer exponents including zero and negat..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.FN": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.fn.json",
+        "title": "CAPS.Mathematics.Gr8.FN: Input-output tables. Represent functions as equations and..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.GEO": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.geo.json",
+        "title": "CAPS.Mathematics.Gr8.GEO: Angles in triangles and quadrilaterals. Parallel lines cu..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.MEA": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.mea.json",
+        "title": "CAPS.Mathematics.Gr8.MEA: Area and perimeter of composite shapes. Surface area and ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.NUM": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.num.json",
+        "title": "CAPS.Mathematics.Gr8.NUM: All operations with rational numbers (fractions, decimals..."
+      }
+    ],
+    "CAPS.Mathematics.Gr8.PRB": [
+      {
+        "path": "/curriculum/generated/math-8/caps.mathematics.gr8.prb.json",
+        "title": "CAPS.Mathematics.Gr8.PRB: Probability of events. Relative frequency. Compare experi..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.ALG.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.alg.1.json",
+        "title": "CAPS.Mathematics.Gr9.ALG.1: Identify and classify like terms, coefficients, constants..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.ALG.2": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.alg.2.json",
+        "title": "CAPS.Mathematics.Gr9.ALG.2: Solve linear equations including equations with fractions..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.EXP.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.exp.1.json",
+        "title": "CAPS.Mathematics.Gr9.EXP.1: Laws of exponents with integer exponents: aᵐ × aⁿ = aᵐ⁺ⁿ,..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.FN.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.fn.1.json",
+        "title": "CAPS.Mathematics.Gr9.FN.1: Input-output tables. Represent functions as equations (y ..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.GEOM.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.geom.1.json",
+        "title": "CAPS.Mathematics.Gr9.GEOM.1: Angles on a straight line (180°), vertically opposite ang..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.GEOM.2": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.geom.2.json",
+        "title": "CAPS.Mathematics.Gr9.GEOM.2: Properties of triangles and quadrilaterals. Congruency (S..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.MEAS.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.meas.1.json",
+        "title": "CAPS.Mathematics.Gr9.MEAS.1: Area and perimeter of polygons. Surface area and volume o..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.NUM.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.num.1.json",
+        "title": "CAPS.Mathematics.Gr9.NUM.1: Properties of integers. Order of operations (BODMAS). Cal..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.NUM.2": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.num.2.json",
+        "title": "CAPS.Mathematics.Gr9.NUM.2: Operations with fractions and decimals. Converting betwee..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.PAT.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.pat.1.json",
+        "title": "CAPS.Mathematics.Gr9.PAT.1: Investigate and describe numeric patterns (including geom..."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.PROB.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.prob.1.json",
+        "title": "CAPS.Mathematics.Gr9.PROB.1: Probability of single events. Probability scale (0 to 1)...."
+      }
+    ],
+    "CAPS.Mathematics.Gr9.STAT.1": [
+      {
+        "path": "/curriculum/generated/math-9/caps.mathematics.gr9.stat.1.json",
+        "title": "CAPS.Mathematics.Gr9.STAT.1: Collect, organise, summarise, and represent data. Mean, m..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.EC.1": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.ec.1.json",
+        "title": "CAPS.NaturalSciences.Gr9.EC.1: Energy transfer and transformation. Series and parallel c..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.EC.2": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.ec.2.json",
+        "title": "CAPS.NaturalSciences.Gr9.EC.2: Contact and non-contact forces. Gravitational force and w..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.EC.3": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.ec.3.json",
+        "title": "CAPS.NaturalSciences.Gr9.EC.3: How batteries work. Series and parallel circuits. Measuri..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.EC.4": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.ec.4.json",
+        "title": "CAPS.NaturalSciences.Gr9.EC.4: Transverse and longitudinal waves. Properties: wavelength..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.MM.1": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.mm.1.json",
+        "title": "CAPS.NaturalSciences.Gr9.MM.1: Classify materials by properties (density, hardness, flex..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.MM.2": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.mm.2.json",
+        "title": "CAPS.NaturalSciences.Gr9.MM.2: The particle model to explain states of matter, changes o..."
+      }
+    ],
+    "CAPS.NaturalSciences.Gr9.MM.3": [
+      {
+        "path": "/curriculum/generated/natsci-9/caps.naturalsciences.gr9.mm.3.json",
+        "title": "CAPS.NaturalSciences.Gr9.MM.3: Reactions of metals with oxygen, water, and acids. Reacti..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.1": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.1.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.1: Models of the atom (Bohr). Electron configuration. Period..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.2": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.2.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.2: Ionic bonding (electron transfer, lattice structures). Co..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.3": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.3.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.3: Van der Waals forces (London, dipole-dipole). Hydrogen bo..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.4": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.4.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.4: Mole concept (n = m/M, n = cV, n = N/Nₐ). Balanced equati..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.5": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.5.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.5: Acid-base reactions. Redox reactions (oxidation numbers)...."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.CHM.6": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.chm.6.json",
+        "title": "CAPS.PhysicalSciences.Gr10.CHM.6: Water as a resource. The water cycle. Water quality (pH, ..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.1": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.1.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.1: Vectors and scalars. Reference frames. Position, displace..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.2": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.2.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.2: Gravitational potential energy (Ep = mgh). Kinetic energy..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.3": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.3.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.3: Pulse, wavelength, frequency, period, amplitude. Transver..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.4": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.4.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.4: Speed of sound. Pitch and loudness. Ultrasound applicatio..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.5": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.5.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.5: Electromagnetic spectrum. Nature of EM waves. Properties:..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.6": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.6.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.6: Two kinds of charge. Coulomb's law: F = kQ₁Q₂/r². Electri..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr10.PHY.7": [
+      {
+        "path": "/curriculum/generated/physics-10/caps.physicalsciences.gr10.phy.7.json",
+        "title": "CAPS.PhysicalSciences.Gr10.PHY.7: EMF and internal resistance. Ohm's law (V = IR). Series a..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.CHM.1": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.chm.1.json",
+        "title": "CAPS.PhysicalSciences.Gr11.CHM.1: Molecular and structural formulae. Functional groups: alk..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.CHM.2": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.chm.2.json",
+        "title": "CAPS.PhysicalSciences.Gr11.CHM.2: Rate of reaction. Factors affecting rate: concentration, ..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.CHM.3": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.chm.3.json",
+        "title": "CAPS.PhysicalSciences.Gr11.CHM.3: Open and closed systems. Reversible reactions. Dynamic eq..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.CHM.4": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.chm.4.json",
+        "title": "CAPS.PhysicalSciences.Gr11.CHM.4: Arrhenius, Brønsted-Lowry definitions. Strong/weak acids ..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.CHM.5": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.chm.5.json",
+        "title": "CAPS.PhysicalSciences.Gr11.CHM.5: Oxidation and reduction (electron transfer). Galvanic (vo..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.1": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.1.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.1: Resolution of vectors into components. Addition by compon..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.2": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.2.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.2: Newton's first, second (Fnet = ma), and third laws. Free-..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.3": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.3.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.3: Momentum (p = mv). Newton's second law in terms of moment..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.4": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.4.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.4: Work (W = FΔx cos θ). Work-energy theorem. Conservation o..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.5": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.5.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.5: Refraction (Snell's law: n₁sin θ₁ = n₂sin θ₂). Total inte..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr11.PHY.6": [
+      {
+        "path": "/curriculum/generated/physics-11/caps.physicalsciences.gr11.phy.6.json",
+        "title": "CAPS.PhysicalSciences.Gr11.PHY.6: Electrical machines: generators (AC and DC) and motors. F..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.DOP": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.dop.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.DOP: The Doppler effect with sound. Observer frequency formula..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.ELEC1": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.elec1.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.ELEC1: Internal resistance and EMF (ε = I(R + r)). Series-parall..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.ELEC2": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.elec2.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.ELEC2: Generators (AC and DC principles). Faraday's law of elect..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.MECH1": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.mech1.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.MECH1: Conservation of linear momentum (Σpi = Σpf). Impulse (Fne..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.MECH2": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.mech2.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.MECH2: Motion in one dimension under gravity. Equations of motio..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.MECH3": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.mech3.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.MECH3: Work (W = FΔx cos θ, positive/negative/zero work). Work-e..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.MOD1": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.mod1.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.MOD1: Dual nature of light. Photoelectric effect: threshold fre..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P1.MOD2": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p1.mod2.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P1.MOD2: Atomic energy levels. Emission spectra (continuous, line/..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.ACID": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.acid.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.ACID: Brønsted-Lowry model. Conjugate acid-base pairs. Strong v..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.ECHEM": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.echem.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.ECHEM: Galvanic cells: spontaneous redox reactions, cell notatio..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.EQUIL": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.equil.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.EQUIL: Reversible reactions and dynamic equilibrium. Le Chatelie..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.FERT": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.fert.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.FERT: N, P, K in fertilisers. Haber process (NH₃). Ostwald proc..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.ORG1": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.org1.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.ORG1: IUPAC naming: alkanes, alkenes, alkynes, alcohols (primar..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.ORG2": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.org2.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.ORG2: Substitution (haloalkanes + OH⁻). Elimination (dehydrohal..."
+      }
+    ],
+    "CAPS.PhysicalSciences.Gr12.P2.RATE": [
+      {
+        "path": "/curriculum/generated/physics-12/caps.physicalsciences.gr12.p2.rate.json",
+        "title": "CAPS.PhysicalSciences.Gr12.P2.RATE: Qualitative and quantitative rate. Rate = −Δ[reactant]/Δt..."
+      }
+    ],
+    "CAPS.Tourism.Gr12.SA": [
+      {
+        "path": "/curriculum/generated/tourism-12/caps.tourism.gr12.sa.json",
+        "title": "Tourism in South Africa"
+      }
+    ],
+    "CAPS.Tourism.Gr12.SUSTAIN": [
+      {
+        "path": "/curriculum/generated/tourism-12/caps.tourism.gr12.sustain.json",
+        "title": "Sustainable and Responsible Tourism"
+      }
+    ],
+    "CAPS.Tourism.Gr12.WORLD": [
+      {
+        "path": "/curriculum/generated/tourism-12/caps.tourism.gr12.world.json",
+        "title": "World Tourism: International Travel and Global Destinations"
+      }
+    ],
+    "CYBER.FND.ACAD": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.acad.json",
+        "title": "Academic Security Research"
+      }
+    ],
+    "CYBER.FND.ACCESS": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.access.json",
+        "title": "Access Control & Identity"
+      }
+    ],
+    "CYBER.FND.CIA": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.cia.json",
+        "title": "CIA Triad & Security Principles"
+      }
+    ],
+    "CYBER.FND.CRYPTO": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.crypto.json",
+        "title": "Cryptography Fundamentals"
+      }
+    ],
+    "CYBER.FND.NET": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.net.json",
+        "title": "Network Security Basics"
+      }
+    ],
+    "CYBER.FND.RISK": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.fnd.risk.json",
+        "title": "Risk Management"
+      }
+    ],
+    "CYBER.SEC.AUDIT": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.audit.json",
+        "title": "Security Auditing"
+      }
+    ],
+    "CYBER.SEC.AWARE": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.aware.json",
+        "title": "Security Awareness"
+      }
+    ],
+    "CYBER.SEC.DEFEND": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.defend.json",
+        "title": "Defensive Security"
+      }
+    ],
+    "CYBER.SEC.GRC": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.compliance.json",
+        "title": "Compliance & Governance: POPIA, GDPR, ISO 27001 & Security Frameworks"
+      }
+    ],
+    "CYBER.SEC.INCIDENT": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.incident.json",
+        "title": "Incident Response"
+      }
+    ],
+    "CYBER.SEC.OPS": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.forensics.json",
+        "title": "Digital Forensics: Evidence Collection, Analysis & Chain of Custody"
+      }
+    ],
+    "CYBER.SEC.THREAT": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.threat.json",
+        "title": "Threat Analysis"
+      }
+    ],
+    "CYBER.SEC.THREATS": [
+      {
+        "path": "/curriculum/generated/cybersecurity/cyber.sec.social.json",
+        "title": "Social Engineering: Phishing, Pretexting, Tailgating & Awareness Training"
+      }
+    ],
+    "DS/Combinatorics": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_combinatorics.json",
+        "title": "Basics of Counting"
+      }
+    ],
+    "DS/Graphs": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_graphs.json",
+        "title": "Graphs and Trees"
+      }
+    ],
+    "DS/Logic": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_logic.json",
+        "title": "Basic Logic — Propositional and Predicate Logic"
+      }
+    ],
+    "DS/Probability": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_probability.json",
+        "title": "Discrete Probability"
+      }
+    ],
+    "DS/ProofTechniques": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_prooftechniques.json",
+        "title": "Proof Techniques"
+      }
+    ],
+    "DS/SetsRelations": [
+      {
+        "path": "/curriculum/generated/computer-science/ds_setsrelations.json",
+        "title": "Sets, Relations, and Functions"
+      }
+    ],
+    "ECON.BEHAV.DECIDE": [
+      {
+        "path": "/curriculum/generated/economics/econ.behavioral.json",
+        "title": "Behavioral Economics: Bounded rationality, loss aversion, anchoring, nudge theory, SA applications"
+      }
+    ],
+    "ECON.DEV.SA": [
+      {
+        "path": "/curriculum/generated/economics/econ.development.json",
+        "title": "Development Economics: HDI, poverty line R624/month, social grants, land reform, infrastructure, NDP 2030"
+      }
+    ],
+    "ECON.MACRO.FISCAL": [
+      {
+        "path": "/curriculum/generated/economics/econ.macro.fiscal.json",
+        "title": "Fiscal & Monetary Policy: SARB, repo rate, inflation targeting, government budget, national debt"
+      }
+    ],
+    "ECON.MACRO.GDP": [
+      {
+        "path": "/curriculum/generated/economics/econ.macro.gdp.json",
+        "title": "GDP & Economic Growth: Measuring GDP, real vs nominal, economic indicators, SA GDP composition"
+      }
+    ],
+    "ECON.MACRO.TRADE": [
+      {
+        "path": "/curriculum/generated/economics/econ.macro.trade.json",
+        "title": "International Trade: Comparative advantage, balance of payments, exchange rates, Rand/Dollar, trade agreements"
+      }
+    ],
+    "ECON.MACRO.UNEMP": [
+      {
+        "path": "/curriculum/generated/economics/econ.macro.unemp.json",
+        "title": "Unemployment & Inequality: SA unemployment ~32%, structural/cyclical/frictional, Gini coefficient, BBBEE, NDP"
+      }
+    ],
+    "ECON.MICRO.MARKET": [
+      {
+        "path": "/curriculum/generated/economics/econ.micro.market.json",
+        "title": "Market Structures: Perfect competition, monopoly, oligopoly, and monopolistic competition"
+      }
+    ],
+    "ECON.MICRO.SUPPLY": [
+      {
+        "path": "/curriculum/generated/economics/econ.micro.supply.json",
+        "title": "Supply & Demand: Price determination, market equilibrium, shifts, and elasticity"
+      }
+    ],
+    "ENG.FOUND.GRAMMAR": [
+      {
+        "path": "/curriculum/generated/english-foundations/eng.found.grammar.json",
+        "title": "Grammar Essentials"
+      }
+    ],
+    "ENG.FOUND.VOCAB": [
+      {
+        "path": "/curriculum/generated/english-foundations/eng.found.vocab.json",
+        "title": "Vocabulary Building"
+      }
+    ],
+    "IAS/Cryptography": [
+      {
+        "path": "/curriculum/generated/computer-science/ias_cryptography.json",
+        "title": "Cryptography"
+      }
+    ],
+    "IAS/Foundations": [
+      {
+        "path": "/curriculum/generated/computer-science/ias_foundations.json",
+        "title": "Security Foundations"
+      }
+    ],
+    "LEGAL.BUSINESS.REG": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.business.reg.json",
+        "title": "Starting a Business in South Africa"
+      }
+    ],
+    "LEGAL.CIVIL.SMALL": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.civil.small.json",
+        "title": "Small Claims Court"
+      }
+    ],
+    "LEGAL.CONSUMER.CPA": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.consumer.cpa.json",
+        "title": "Consumer Protection Act"
+      }
+    ],
+    "LEGAL.DATA.POPIA": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.data.popia.json",
+        "title": "Data Protection (POPIA)"
+      }
+    ],
+    "LEGAL.EMPLOY.BCEA": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.employ.bcea.json",
+        "title": "Employment Rights (BCEA & LRA)"
+      }
+    ],
+    "LEGAL.PROPERTY.BASIC": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.property.basic.json",
+        "title": "Property & Tenancy Law"
+      }
+    ],
+    "LEGAL.RIGHTS.ARREST": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.rights.arrest.json",
+        "title": "Rights During Arrest & Detention"
+      }
+    ],
+    "LEGAL.RIGHTS.CONST": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.rights.const.json",
+        "title": "Know Your Constitutional Rights"
+      }
+    ],
+    "LEGAL.ROAD.TRAFFIC": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.road.traffic.json",
+        "title": "Traffic Law & Licensing"
+      }
+    ],
+    "LEGAL.TAX.PERSONAL": [
+      {
+        "path": "/curriculum/generated/legal-awareness/legal.tax.personal.json",
+        "title": "Personal Tax Obligations (SARS)"
+      }
+    ],
+    "SDF/DevMethods": [
+      {
+        "path": "/curriculum/generated/computer-science/sdf_devmethods.json",
+        "title": "Development Methods"
+      }
+    ],
+    "SDF/FundProg": [
+      {
+        "path": "/curriculum/generated/computer-science/sdf_fundprog.json",
+        "title": "Fundamental Programming Concepts"
+      }
+    ],
+    "TRADE.AGRI.CROP": [
+      {
+        "path": "/curriculum/generated/agriculture/trade.agri.crop.json",
+        "title": "Crop Production Basics"
+      }
+    ],
+    "TRADE.AGRI.SMALL": [
+      {
+        "path": "/curriculum/generated/agriculture/trade.agri.small.json",
+        "title": "Small-Scale Farming & Food Gardens"
+      }
+    ],
+    "TRADE.AUTO.BRAKE": [
+      {
+        "path": "/curriculum/generated/automotive-trade/trade.auto.brake.json",
+        "title": "Braking & Suspension Systems"
+      }
+    ],
+    "TRADE.AUTO.ELEC": [
+      {
+        "path": "/curriculum/generated/automotive-trade/trade.auto.elec.json",
+        "title": "Automotive Electrical Systems"
+      }
+    ],
+    "TRADE.AUTO.ENGINE": [
+      {
+        "path": "/curriculum/generated/automotive-trade/trade.auto.engine.json",
+        "title": "Petrol & Diesel Engines"
+      }
+    ],
+    "TRADE.BUILD.FOUND": [
+      {
+        "path": "/curriculum/generated/construction-trade/trade.build.found.json",
+        "title": "Foundations & Brickwork"
+      }
+    ],
+    "TRADE.BUILD.READ": [
+      {
+        "path": "/curriculum/generated/construction-trade/trade.build.read.json",
+        "title": "Building Plan Reading"
+      }
+    ],
+    "TRADE.BUILD.ROOF": [
+      {
+        "path": "/curriculum/generated/construction-trade/trade.build.roof.json",
+        "title": "Roofing & Carpentry"
+      }
+    ],
+    "TRADE.ELEC.CERT": [
+      {
+        "path": "/curriculum/generated/electrical-trade/trade.elec.cert.json",
+        "title": "Wireman's Licence & COC"
+      }
+    ],
+    "TRADE.ELEC.CIRCUITS": [
+      {
+        "path": "/curriculum/generated/electrical-trade/trade.elec.circuits.json",
+        "title": "Domestic Wiring & Circuits"
+      }
+    ],
+    "TRADE.ELEC.SAFETY": [
+      {
+        "path": "/curriculum/generated/electrical-trade/trade.elec.safety.json",
+        "title": "Electrical Safety & SANS 10142"
+      }
+    ],
+    "TRADE.ELEC.SOLAR": [
+      {
+        "path": "/curriculum/generated/electrical-trade/trade.elec.solar.json",
+        "title": "Solar PV Installation"
+      }
+    ],
+    "TRADE.ELEC.THREE": [
+      {
+        "path": "/curriculum/generated/electrical-trade/trade.elec.three.json",
+        "title": "Three-Phase Power Systems"
+      }
+    ],
+    "TRADE.HOSP.FOOD": [
+      {
+        "path": "/curriculum/generated/hospitality/trade.hosp.food.json",
+        "title": "Food Safety & Hygiene (HACCP)"
+      }
+    ],
+    "TRADE.HOSP.SERVICE": [
+      {
+        "path": "/curriculum/generated/hospitality/trade.hosp.service.json",
+        "title": "Restaurant Service & Management"
+      }
+    ],
+    "TRADE.IT.HARDWARE": [
+      {
+        "path": "/curriculum/generated/it-support/trade.it.hardware.json",
+        "title": "Computer Hardware & Repair"
+      }
+    ],
+    "TRADE.IT.NETWORK": [
+      {
+        "path": "/curriculum/generated/it-support/trade.it.network.json",
+        "title": "Basic Networking"
+      }
+    ],
+    "TRADE.IT.SUPPORT": [
+      {
+        "path": "/curriculum/generated/it-support/trade.it.support.json",
+        "title": "Help Desk & Customer Service"
+      }
+    ],
+    "TRADE.PLUMB.BASIC": [
+      {
+        "path": "/curriculum/generated/plumbing-trade/trade.plumb.basic.json",
+        "title": "Plumbing Fundamentals"
+      }
+    ],
+    "TRADE.PLUMB.DRAIN": [
+      {
+        "path": "/curriculum/generated/plumbing-trade/trade.plumb.drain.json",
+        "title": "Drainage & Sanitation Systems"
+      }
+    ],
+    "TRADE.PLUMB.SOLAR": [
+      {
+        "path": "/curriculum/generated/plumbing-trade/trade.plumb.solar.json",
+        "title": "Solar Water Heating"
+      }
+    ],
+    "TRADE.WELD.ARC": [
+      {
+        "path": "/curriculum/generated/welding-trade/trade.weld.arc.json",
+        "title": "Arc Welding (SMAW/MMA)"
+      }
+    ],
+    "TRADE.WELD.MIG": [
+      {
+        "path": "/curriculum/generated/welding-trade/trade.weld.mig.json",
+        "title": "MIG/MAG Welding (GMAW)"
+      }
+    ],
+    "TRADE.WELD.TIG": [
+      {
+        "path": "/curriculum/generated/welding-trade/trade.weld.tig.json",
+        "title": "TIG Welding (GTAW)"
+      }
+    ],
+    "UNI.CIVIC.CIV.ENGAGE": [
+      {
+        "path": "/curriculum/generated/civic-literacy/uni.civic.civ.engage.json",
+        "title": "Civic Engagement"
+      }
+    ],
+    "UNI.CIVIC.CIV.GOV": [
+      {
+        "path": "/curriculum/generated/civic-literacy/uni.civic.civ.gov.json",
+        "title": "How Government Works"
+      }
+    ],
+    "UNI.CIVIC.CIV.RIGHTS": [
+      {
+        "path": "/curriculum/generated/civic-literacy/uni.civic.civ.rights.json",
+        "title": "Rights & Responsibilities"
+      }
+    ],
+    "UNI.CIVIC.CIV.VOTE": [
+      {
+        "path": "/curriculum/generated/civic-literacy/uni.civic.civ.vote.json",
+        "title": "Voting & Elections"
+      }
+    ],
+    "UNI.COMMUNICATION.COM.LISTEN": [
+      {
+        "path": "/curriculum/generated/communication/uni.communication.com.listen.json",
+        "title": "Active Listening"
+      }
+    ],
+    "UNI.COMMUNICATION.COM.PERSUADE": [
+      {
+        "path": "/curriculum/generated/communication/uni.communication.com.persuade.json",
+        "title": "Persuasion & Negotiation"
+      }
+    ],
+    "UNI.COMMUNICATION.COM.SPEAK": [
+      {
+        "path": "/curriculum/generated/communication/uni.communication.com.speak.json",
+        "title": "Public Speaking"
+      }
+    ],
+    "UNI.COMMUNICATION.COM.WRITE": [
+      {
+        "path": "/curriculum/generated/communication/uni.communication.com.write.json",
+        "title": "Clear Writing"
+      }
+    ],
+    "UNI.CRITICAL.CT.ARGS": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.args.json",
+        "title": "Argument Structure"
+      }
+    ],
+    "UNI.CRITICAL.CT.BIAS": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.bias.json",
+        "title": "Cognitive Biases"
+      }
+    ],
+    "UNI.CRITICAL.CT.DECIDE": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.decide.json",
+        "title": "Decision Making"
+      }
+    ],
+    "UNI.CRITICAL.CT.EVID": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.evid.json",
+        "title": "Evidence Evaluation"
+      }
+    ],
+    "UNI.CRITICAL.CT.FALL": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.fall.json",
+        "title": "Logical Fallacies"
+      }
+    ],
+    "UNI.CRITICAL.CT.MEDIA": [
+      {
+        "path": "/curriculum/generated/critical-thinking/uni.critical.ct.media.json",
+        "title": "Media Literacy"
+      }
+    ],
+    "UNI.DIGITAL.DL.CITIZEN": [
+      {
+        "path": "/curriculum/generated/digital-literacy/uni.digital.dl.citizen.json",
+        "title": "Digital Citizenship"
+      }
+    ],
+    "UNI.DIGITAL.DL.CREATE": [
+      {
+        "path": "/curriculum/generated/digital-literacy/uni.digital.dl.create.json",
+        "title": "Digital Creation"
+      }
+    ],
+    "UNI.DIGITAL.DL.INFO": [
+      {
+        "path": "/curriculum/generated/digital-literacy/uni.digital.dl.info.json",
+        "title": "Information Literacy"
+      }
+    ],
+    "UNI.DIGITAL.DL.SAFE": [
+      {
+        "path": "/curriculum/generated/digital-literacy/uni.digital.dl.safe.json",
+        "title": "Digital Safety"
+      }
+    ],
+    "UNI.EMOTIONAL.EQ.DECIDE": [
+      {
+        "path": "/curriculum/generated/emotional-intelligence/uni.emotional.eq.decide.json",
+        "title": "Responsible Decision-Making"
+      }
+    ],
+    "UNI.EMOTIONAL.EQ.MGMT": [
+      {
+        "path": "/curriculum/generated/emotional-intelligence/uni.emotional.eq.mgmt.json",
+        "title": "Self-Management"
+      }
+    ],
+    "UNI.EMOTIONAL.EQ.REL": [
+      {
+        "path": "/curriculum/generated/emotional-intelligence/uni.emotional.eq.rel.json",
+        "title": "Relationship Skills"
+      }
+    ],
+    "UNI.EMOTIONAL.EQ.SELF": [
+      {
+        "path": "/curriculum/generated/emotional-intelligence/uni.emotional.eq.self.json",
+        "title": "Self-Awareness"
+      }
+    ],
+    "UNI.EMOTIONAL.EQ.SOCIAL": [
+      {
+        "path": "/curriculum/generated/emotional-intelligence/uni.emotional.eq.social.json",
+        "title": "Social Awareness"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.BUDGET": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.budget.json",
+        "title": "Budgeting"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.DEBT": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.debt.json",
+        "title": "Borrowing & Credit"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.EARN": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.earn.json",
+        "title": "Earning & Income"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.INSURE": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.insure.json",
+        "title": "Insurance"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.INVEST": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.invest.json",
+        "title": "Investing Basics"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.PLAN": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.plan.json",
+        "title": "Financial Planning"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.SAVE": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.save.json",
+        "title": "Saving & Compound Interest"
+      }
+    ],
+    "UNI.FINANCIAL.FIN.TAX": [
+      {
+        "path": "/curriculum/generated/financial-literacy/uni.financial.fin.tax.json",
+        "title": "Tax Basics"
+      }
+    ],
+    "UNI.HEALTH.HL.BODY": [
+      {
+        "path": "/curriculum/generated/health-literacy/uni.health.hl.body.json",
+        "title": "How Your Body Works"
+      }
+    ],
+    "UNI.HEALTH.HL.FIRST": [
+      {
+        "path": "/curriculum/generated/health-literacy/uni.health.hl.first.json",
+        "title": "First Aid Basics"
+      }
+    ],
+    "UNI.HEALTH.HL.MENTAL": [
+      {
+        "path": "/curriculum/generated/health-literacy/uni.health.hl.mental.json",
+        "title": "Mental Health"
+      }
+    ],
+    "UNI.HEALTH.HL.NUTR": [
+      {
+        "path": "/curriculum/generated/health-literacy/uni.health.hl.nutr.json",
+        "title": "Nutrition & Diet"
+      }
+    ],
+    "UNI.HEALTH.HL.PREVENT": [
+      {
+        "path": "/curriculum/generated/health-literacy/uni.health.hl.prevent.json",
+        "title": "Disease Prevention"
+      }
+    ],
+    "UNI.LEARNING.LEARN.DELIB": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.delib.json",
+        "title": "Deliberate Practice"
+      }
+    ],
+    "UNI.LEARNING.LEARN.INTER": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.inter.json",
+        "title": "Interleaving & Variation"
+      }
+    ],
+    "UNI.LEARNING.LEARN.META": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.meta.json",
+        "title": "Metacognition"
+      }
+    ],
+    "UNI.LEARNING.LEARN.RECALL": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.recall.json",
+        "title": "Active Recall"
+      }
+    ],
+    "UNI.LEARNING.LEARN.SLEEP": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.sleep.json",
+        "title": "Sleep & Learning"
+      }
+    ],
+    "UNI.LEARNING.LEARN.SRS": [
+      {
+        "path": "/curriculum/generated/learning-science/uni.learning.learn.srs.json",
+        "title": "Spaced Repetition"
+      }
+    ],
+    "UNI.STATISTICS.STAT.BIAS": [
+      {
+        "path": "/curriculum/generated/statistics-literacy/uni.statistics.stat.bias.json",
+        "title": "Data Bias & Ethics"
+      }
+    ],
+    "UNI.STATISTICS.STAT.DESC": [
+      {
+        "path": "/curriculum/generated/statistics-literacy/uni.statistics.stat.desc.json",
+        "title": "Descriptive Statistics"
+      }
+    ],
+    "UNI.STATISTICS.STAT.INFER": [
+      {
+        "path": "/curriculum/generated/statistics-literacy/uni.statistics.stat.infer.json",
+        "title": "Inference & Hypothesis Testing"
+      }
+    ],
+    "UNI.STATISTICS.STAT.PROB": [
+      {
+        "path": "/curriculum/generated/statistics-literacy/uni.statistics.stat.prob.json",
+        "title": "Probability Basics"
+      }
+    ],
+    "UNI.STATISTICS.STAT.VIZ": [
+      {
+        "path": "/curriculum/generated/statistics-literacy/uni.statistics.stat.viz.json",
+        "title": "Data Visualisation"
+      }
+    ],
+    "UNI.SUSTAINABILITY.SUST.ACTION": [
+      {
+        "path": "/curriculum/generated/sustainability/uni.sustainability.sust.action.json",
+        "title": "Sustainable Action"
+      }
+    ],
+    "UNI.SUSTAINABILITY.SUST.CLIMATE": [
+      {
+        "path": "/curriculum/generated/sustainability/uni.sustainability.sust.climate.json",
+        "title": "Climate Science"
+      }
+    ],
+    "UNI.SUSTAINABILITY.SUST.JUST": [
+      {
+        "path": "/curriculum/generated/sustainability/uni.sustainability.sust.just.json",
+        "title": "Environmental Justice"
+      }
+    ],
+    "UNI.SUSTAINABILITY.SUST.RESOURCE": [
+      {
+        "path": "/curriculum/generated/sustainability/uni.sustainability.sust.resource.json",
+        "title": "Resource Management"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.BOUND": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.bound.json",
+        "title": "System Boundaries"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.EMERGE": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.emerge.json",
+        "title": "Emergence"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.FEED": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.feed.json",
+        "title": "Feedback Loops"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.LEVER": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.lever.json",
+        "title": "Leverage Points"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.MENTAL": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.mental.json",
+        "title": "Mental Models"
+      }
+    ],
+    "UNI.SYSTEMS.SYS.STOCK": [
+      {
+        "path": "/curriculum/generated/systems-thinking/uni.systems.sys.stock.json",
+        "title": "Stocks and Flows"
+      }
+    ]
+  },
+  "schema_version": 1
+}

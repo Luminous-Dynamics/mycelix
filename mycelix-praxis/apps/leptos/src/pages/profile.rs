@@ -2,14 +2,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //
-// NOTE: Craft zome calls (craft_graph.*) require the unified hApp with a "craft" role.
-// Currently calls use the Praxis default role — these will need cross-role dispatch
-// once the Praxis frontend migrates to mycelix-leptos-core's HolochainProviderAuto.
+// NOTE: Craft zome calls (craft_graph.*) require a compatible coordinator in
+// the installed Praxis hApp. Failures remain visible rather than becoming
+// local or empty data.
 
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::holochain::{ConnectionBadge, HolochainProvider, use_holochain};
+use crate::holochain::{
+    ConnectionBadge, DataSource, LiveResourceStatus, ResourceState, tracked_data_source,
+    use_holochain,
+};
+use crate::mode::{AppMode, use_app_mode};
 
 use crate::pages::credentials::real_credentials;
 use crate::persistence;
@@ -95,19 +99,17 @@ fn initial_profile(student_name: String) -> ProfessionalProfileDraft {
 
 #[component]
 pub fn ProfilePage() -> impl IntoView {
-    // Profile page connects to the Professional DNA for credential publishing.
-    // In mock mode, all operations use localStorage.
-    view! {
-        <HolochainProvider>
-            <ProfileInner />
-        </HolochainProvider>
-    }
+    // The application owns the single shared provider. Mounting a nested
+    // provider here would split status from the rest of the UI and duplicate
+    // the connection lifecycle.
+    view! { <ProfileInner /> }
 }
 
 #[component]
 fn ProfileInner() -> impl IntoView {
     let student = use_profile();
     let hc = use_holochain();
+    let mode = use_app_mode();
     let hc_save = hc.clone();
     let hc_endorsements = hc.clone();
     let hc_pubkey = hc.clone();
@@ -148,20 +150,34 @@ fn ProfileInner() -> impl IntoView {
     let credentials = real_credentials();
     let my_pubkey = LocalResource::new(move || {
         let hc = hc_pubkey.clone();
+        let source = tracked_data_source(mode, &hc);
         async move {
-            match hc
-                .call_zome_default::<(), String>("craft_graph", "get_my_agent_pubkey", &())
-                .await
-            {
-                Ok(key) => key,
-                Err(_) => String::new(),
+            match source {
+                DataSource::Demo | DataSource::Local => ResourceState::Ready(String::new()),
+                DataSource::LiveWaiting => ResourceState::WaitingForLive,
+                DataSource::LiveReady => match hc
+                    .call_zome_default::<(), String>("craft_graph", "get_my_agent_pubkey", &())
+                    .await
+                {
+                    Ok(key) => ResourceState::Ready(key),
+                    Err(_) => ResourceState::LiveError,
+                },
             }
         }
     });
     let endorsements = LocalResource::new(move || {
         let hc = hc_endorsements.clone();
+        let source = tracked_data_source(mode, &hc);
+        let target = view_agent.get();
         async move {
-            let target = view_agent.get();
+            match source {
+                DataSource::Demo | DataSource::Local => {
+                    return ResourceState::Ready(Vec::new());
+                }
+                DataSource::LiveWaiting => return ResourceState::WaitingForLive,
+                DataSource::LiveReady => {}
+            }
+
             let result = if target.trim().is_empty() {
                 hc.call_zome_default::<(), Vec<SkillEndorsementView>>(
                     "craft_graph",
@@ -179,8 +195,8 @@ fn ProfileInner() -> impl IntoView {
             };
 
             match result {
-                Ok(list) => list,
-                Err(_) => Vec::new(),
+                Ok(list) => ResourceState::Ready(list),
+                Err(_) => ResourceState::LiveError,
             }
         }
     });
@@ -208,9 +224,16 @@ fn ProfileInner() -> impl IntoView {
             },
         };
 
-        if hc.is_mock() {
+        if mode.get_untracked() != AppMode::Live {
             set_status.set(Some(
-                "Saved locally — connect a conductor to publish.".into(),
+                "Profile draft saved locally. Switch to Live mode to publish.".into(),
+            ));
+            return;
+        }
+        if !hc.zome_calls_ready_untracked() {
+            set_status.set(Some(
+                "Live publish is unavailable until the conductor and zome-call signer are ready."
+                    .into(),
             ));
             return;
         }
@@ -256,9 +279,16 @@ fn ProfileInner() -> impl IntoView {
             },
         };
 
-        if hc.is_mock() {
+        if mode.get_untracked() != AppMode::Live {
             set_status.set(Some(
-                "Endorsement saved locally — connect to publish.".into(),
+                "Endorsement draft saved locally. Switch to Live mode to publish.".into(),
+            ));
+            return;
+        }
+        if !hc.zome_calls_ready_untracked() {
+            set_status.set(Some(
+                "Live endorsement is unavailable until the conductor and zome-call signer are ready."
+                    .into(),
             ));
             return;
         }
@@ -308,10 +338,22 @@ fn ProfileInner() -> impl IntoView {
                 </div>
                 <div class="profile-identity-row">
                     <Suspense fallback=move || view! { <div class="profile-empty">"Connecting..."</div> }>
-                        {move || my_pubkey.get().map(|key| {
-                            if key.is_empty() {
-                                view! { <div class="profile-empty">"Connect to fetch your key."</div> }.into_any()
-                            } else {
+                        {move || my_pubkey.get().map(|state| match state {
+                            ResourceState::WaitingForLive => {
+                                view! { <LiveResourceStatus failed=false /> }.into_any()
+                            }
+                            ResourceState::LiveError => {
+                                view! { <LiveResourceStatus failed=true /> }.into_any()
+                            }
+                            ResourceState::Ready(key) if key.is_empty() => {
+                                let message = match mode.get() {
+                                    AppMode::Demo => "Identity keys are not generated in Demo mode.",
+                                    AppMode::Local => "Identity keys require Live mode.",
+                                    AppMode::Live => "The connected coordinator returned an empty identity key.",
+                                };
+                                view! { <div class="profile-empty">{message}</div> }.into_any()
+                            }
+                            ResourceState::Ready(key) => {
                                 view! {
                                     <>
                                         <input class="profile-identity-input" type="text" readonly value=key.clone() />
@@ -440,7 +482,7 @@ fn ProfileInner() -> impl IntoView {
                             let mut next = publish_state.get();
                             if next.published_ids.contains(&credential_id) {
                                 next.published_ids.retain(|id| id != &credential_id);
-                                set_status.set(Some("Credential hidden from professional graph.".into()));
+                                set_status.set(Some("Credential removed from the local disclosure selection. Existing graph entries are unchanged.".into()));
                                 set_publish_state.set(next);
                                 return;
                             }
@@ -448,8 +490,12 @@ fn ProfileInner() -> impl IntoView {
                             next.published_ids.push(credential_id.clone());
                             set_publish_state.set(next);
 
-                            if hc.is_mock() {
-                                set_status.set(Some("Saved locally — connect to publish.".into()));
+                            if mode.get_untracked() != AppMode::Live {
+                                set_status.set(Some("Disclosure selection saved locally. Switch to Live mode to publish it.".into()));
+                                return;
+                            }
+                            if !hc.zome_calls_ready_untracked() {
+                                set_status.set(Some("Disclosure selection saved locally, but no graph mutation was sent because Live signing is not ready.".into()));
                                 return;
                             }
 
@@ -490,7 +536,7 @@ fn ProfileInner() -> impl IntoView {
                                     class=move || if published.get() { "publish-toggle active" } else { "publish-toggle" }
                                     on:click=on_toggle
                                 >
-                                    {move || if published.get() { "Published" } else { "Publish" }}
+                                    {move || if published.get() { "Selected" } else { "Select" }}
                                 </button>
                             </div>
                         }
@@ -566,7 +612,14 @@ fn ProfileInner() -> impl IntoView {
                 }}
 
                 <Suspense fallback=move || view! { <div class="profile-empty">"Loading endorsements..."</div> }>
-                    {move || endorsements.get().map(|list| {
+                    {move || endorsements.get().map(|state| match state {
+                        ResourceState::WaitingForLive => {
+                            view! { <LiveResourceStatus failed=false /> }.into_any()
+                        }
+                        ResourceState::LiveError => {
+                            view! { <LiveResourceStatus failed=true /> }.into_any()
+                        }
+                        ResourceState::Ready(list) => {
                         let needle = filter_skill.get().trim().to_lowercase();
                         let filtered: Vec<SkillEndorsementView> = if needle.is_empty() {
                             list
@@ -608,6 +661,7 @@ fn ProfileInner() -> impl IntoView {
                                     }).collect_view()}
                                 </div>
                             }.into_any()
+                        }
                         }
                     })}
                 </Suspense>

@@ -14,6 +14,7 @@ use crate::consciousness::ConsciousnessProvider;
 use crate::curriculum::provide_curriculum_context;
 use crate::holochain::{ConnectionBadge, HolochainProvider};
 use crate::learning_engine::LearningEngineProvider;
+use crate::mode::{ModeSelector, provide_app_mode};
 use crate::pages::*;
 use crate::role::{UserRole, provide_role_context};
 use crate::student_profile::provide_profile_context;
@@ -21,8 +22,9 @@ use crate::theme::{provide_theme_context, use_set_theme, use_theme};
 
 #[component]
 pub fn App() -> impl IntoView {
+    let (mode, _set_mode) = provide_app_mode();
     view! {
-        <HolochainProvider>
+        <HolochainProvider mode=mode>
             <ConsciousnessProvider>
             <LearningEngineProvider>
             <AdaptivityProvider>
@@ -41,7 +43,20 @@ fn AppInner() -> impl IntoView {
     let (role, _set_role) = provide_role_context();
     let (_theme, _set_theme) = provide_theme_context();
     let (_profile, _set_profile) = provide_profile_context();
-    provide_curriculum_context();
+    if let Err(error) = provide_curriculum_context() {
+        let diagnostic = error.to_string();
+        return view! {
+            <main class="startup-error" role="alert">
+                <h1>"Praxis could not load its curriculum"</h1>
+                <p>
+                    "The bundled curriculum failed validation. Learning data was not modified. "
+                    "Please report the diagnostic below to the Praxis maintainers."
+                </p>
+                <pre>{diagnostic}</pre>
+            </main>
+        }
+        .into_any();
+    }
     crate::location::provide_biome_context();
     crate::persistence::provide_mutation_queue();
     crate::mesh::provide_mesh_context();
@@ -63,12 +78,14 @@ fn AppInner() -> impl IntoView {
                 </div>
                 <crate::search::SearchBar />
                 <div class="nav-actions">
+                    <ModeSelector />
                     <crate::mesh::MeshStatusBadge />
                     <crate::i18n::LanguagePicker />
                     <ThemeToggle />
                     <ConnectionBadge />
                 </div>
             </nav>
+            <crate::holochain::ModeStatusBanner />
             <crate::tutor::ResonantWhisper />
             <CelebrationOverlay />
             <main>
@@ -95,6 +112,7 @@ fn AppInner() -> impl IntoView {
             <MobileBottomNav />
         </Router>
     }
+    .into_any()
 }
 
 #[component]

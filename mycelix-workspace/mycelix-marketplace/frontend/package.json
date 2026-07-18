@@ -2,7 +2,6 @@
   "name": "mycelix-marketplace-frontend",
   "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
-
   "description": "Mycelix Decentralized Marketplace - SvelteKit Frontend",
   "private": true,
   "type": "module",
@@ -22,11 +21,13 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:mock": "playwright test tests/e2e/happy-path.spec.ts"
+    "test:e2e:mock": "playwright test tests/e2e/happy-path.spec.ts",
+    "contract:check": "node ../scripts/check-zome-contract.mjs",
+    "validate": "npm run contract:check && npm run check && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@holochain/client": "^0.20.0",
-    "@mycelix/knowledge-client": "^0.1.0",
+    "@mycelix/knowledge-client": "file:vendor/mycelix-knowledge-client",
     "pinata-web3": "^0.4.0"
   },
   "devDependencies": {
@@ -79,7 +80,9 @@
         "parser": "svelte-eslint-parser",
         "parserOptions": {
           "parser": "@typescript-eslint/parser",
-          "extraFileExtensions": [".svelte"]
+          "extraFileExtensions": [
+            ".svelte"
+          ]
         }
       },
       {

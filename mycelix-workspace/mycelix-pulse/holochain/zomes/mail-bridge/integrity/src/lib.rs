@@ -84,8 +84,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 _ => Ok(ValidateCallbackResult::Valid),
             },
+            // Neither entry type has a real update_entry call anywhere in the coordinator
+            // (confirmed via direct grep) -- reject outright rather than leave the previous
+            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times
+            // elsewhere in this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "Mail bridge entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "Mail bridge entries cannot be updated".to_string(),
+        )),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }

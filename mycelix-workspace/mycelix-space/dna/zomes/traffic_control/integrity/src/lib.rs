@@ -461,21 +461,67 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
-            EntryTypes::NegotiationSession(session) => validate_session(&session),
-            EntryTypes::NegotiationPosition(pos) => validate_position(&pos),
-            EntryTypes::ManeuverProposal(prop) => validate_proposal(&prop),
-            EntryTypes::NegotiationAgreement(agr) => validate_agreement(&agr),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::NegotiationSession(session) => {
+                validate_create_session(EntryCreationAction::Create(action), session)
+            }
+            EntryTypes::NegotiationPosition(pos) => {
+                validate_create_position(EntryCreationAction::Create(action), pos)
+            }
+            EntryTypes::ManeuverProposal(prop) => {
+                validate_create_proposal(EntryCreationAction::Create(action), prop)
+            }
+            EntryTypes::NegotiationAgreement(agr) => {
+                validate_create_agreement(EntryCreationAction::Create(action), agr)
+            }
             EntryTypes::AvoidanceOption(opt) => validate_avoidance_option(&opt),
-            EntryTypes::ConjunctionProposal(cp) => validate_conjunction_proposal(&cp),
-            EntryTypes::OperatorVote(vote) => validate_operator_vote(&vote),
+            EntryTypes::ConjunctionProposal(cp) => {
+                validate_create_conjunction_proposal(EntryCreationAction::Create(action), cp)
+            }
+            EntryTypes::OperatorVote(vote) => {
+                validate_create_operator_vote(EntryCreationAction::Create(action), vote)
+            }
             EntryTypes::MultiPartyAgreement(mpa) => validate_multi_party_agreement(&mpa),
+        },
+        // Most entry types here are create-only in practice (no coordinator function ever
+        // calls update_entry on them) -- reject outright rather than leave an unbound
+        // dead-code path (P0 wide-open RegisterUpdate gap, confirmed dozens of times
+        // elsewhere in this pass). NegotiationAgreement (cosign_agreement) and
+        // ConjunctionProposal (tally_proposal) have real update paths and get their own
+        // validators below -- see those functions' doc comments for why neither uses the
+        // simple author-binding pattern.
+        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+            app_entry, action, ..
+        }) => match app_entry {
+            EntryTypes::NegotiationSession(_) => Ok(ValidateCallbackResult::Invalid(
+                "NegotiationSession entries cannot be updated".to_string(),
+            )),
+            EntryTypes::NegotiationPosition(_) => Ok(ValidateCallbackResult::Invalid(
+                "NegotiationPosition entries cannot be updated".to_string(),
+            )),
+            EntryTypes::ManeuverProposal(_) => Ok(ValidateCallbackResult::Invalid(
+                "ManeuverProposal entries cannot be updated".to_string(),
+            )),
+            EntryTypes::NegotiationAgreement(agr) => validate_update_agreement(action, agr),
+            EntryTypes::AvoidanceOption(_) => Ok(ValidateCallbackResult::Invalid(
+                "AvoidanceOption entries cannot be updated".to_string(),
+            )),
+            EntryTypes::ConjunctionProposal(cp) => validate_update_conjunction_proposal(action, cp),
+            EntryTypes::OperatorVote(_) => Ok(ValidateCallbackResult::Invalid(
+                "OperatorVote entries cannot be updated".to_string(),
+            )),
+            EntryTypes::MultiPartyAgreement(_) => Ok(ValidateCallbackResult::Invalid(
+                "MultiPartyAgreement entries cannot be updated".to_string(),
+            )),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
-fn validate_session(session: &NegotiationSession) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_session(
+    action: EntryCreationAction,
+    session: NegotiationSession,
+) -> ExternResult<ValidateCallbackResult> {
     // Session ID must not be empty
     if session.session_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -525,10 +571,28 @@ fn validate_session(session: &NegotiationSession) -> ExternResult<ValidateCallba
         ));
     }
 
+    // Bind the session to its committer -- initiate_negotiation takes BOTH
+    // primary_operator and secondary_operator as raw caller input with no
+    // agent_info() derivation, so unlike most other zomes in this pass this
+    // isn't a single self-reported field to bind: require the committing
+    // agent be one of the two named parties, not an arbitrary third agent
+    // naming two victims (P0 author-binding gap).
+    if *action.author() != session.primary_operator
+        && *action.author() != session.secondary_operator
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationSession must be initiated by one of its named operators (impersonation)"
+                .to_string(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_position(pos: &NegotiationPosition) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_position(
+    action: EntryCreationAction,
+    pos: NegotiationPosition,
+) -> ExternResult<ValidateCallbackResult> {
     // Session ID must not be empty
     if pos.session_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -590,10 +654,23 @@ fn validate_position(pos: &NegotiationPosition) -> ExternResult<ValidateCallback
         )));
     }
 
+    // Bind the position to its committer -- submit_position already derives
+    // operator from agent_info() coordinator-side with zero user input (P0
+    // author-binding gap).
+    if pos.operator != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationPosition must be submitted by the committing agent (operator forgery)"
+                .to_string(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_proposal(
+    action: EntryCreationAction,
+    prop: ManeuverProposal,
+) -> ExternResult<ValidateCallbackResult> {
     // Session ID must not be empty
     if prop.session_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -659,30 +736,40 @@ fn validate_proposal(prop: &ManeuverProposal) -> ExternResult<ValidateCallbackRe
         }
     }
 
+    // Bind the proposal to its committer -- submit_proposal already derives
+    // proposer from agent_info() coordinator-side with zero user input (P0
+    // author-binding gap).
+    if prop.proposer != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ManeuverProposal must be proposed by the committing agent (proposer forgery)"
+                .to_string(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_agreement(agr: &NegotiationAgreement) -> ExternResult<ValidateCallbackResult> {
-    // Session ID must not be empty
+/// Structural checks shared by create and update -- no author-binding here, each caller
+/// applies its own binding rule (create: primary_signature == committer; update: see
+/// `validate_update_agreement`'s doc comment for why a simple bind doesn't fit there).
+fn validate_agreement_content(agr: &NegotiationAgreement) -> Option<ValidateCallbackResult> {
     if agr.session_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Some(ValidateCallbackResult::Invalid(
             "Session ID cannot be empty".to_string(),
         ));
     }
 
     // At least the primary signature must be present (creator signs first)
     if agr.primary_signature.is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Some(ValidateCallbackResult::Invalid(
             "Agreement must have at least a primary signature".to_string(),
         ));
     }
 
     // If both signatures are present, they must be different
-    if let (Some(ref primary), Some(ref secondary)) =
-        (&agr.primary_signature, &agr.secondary_signature)
-    {
+    if let (Some(primary), Some(secondary)) = (&agr.primary_signature, &agr.secondary_signature) {
         if primary == secondary {
-            return Ok(ValidateCallbackResult::Invalid(
+            return Some(ValidateCallbackResult::Invalid(
                 "Primary and secondary signatures must be from different agents".to_string(),
             ));
         }
@@ -690,8 +777,88 @@ fn validate_agreement(agr: &NegotiationAgreement) -> ExternResult<ValidateCallba
 
     // Execution deadline must be after agreement time
     if agr.execution_deadline.micros < agr.agreed_at.micros {
-        return Ok(ValidateCallbackResult::Invalid(
+        return Some(ValidateCallbackResult::Invalid(
             "Execution deadline cannot be before agreement time".to_string(),
+        ));
+    }
+
+    None
+}
+
+fn validate_create_agreement(
+    action: EntryCreationAction,
+    agr: NegotiationAgreement,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Some(invalid) = validate_agreement_content(&agr) {
+        return Ok(invalid);
+    }
+
+    // Bind the agreement to its committer -- accept_proposal already derives
+    // primary_signature: Some(agent_info()) coordinator-side with zero user
+    // input, so this never rejects a legitimate accept; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    if agr.primary_signature != Some(action.author().clone()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationAgreement's primary_signature must be the committing agent \
+             (signature forgery)"
+                .to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Re-derives `cosign_agreement`'s own exact intended invariant at the DHT level (mirrors the
+/// `debris_bounties` precedent from the prior mycelix-space pass: re-derive a specific
+/// coordinator-disclosed rule, not a blanket one). `cosign_agreement` is the ONLY coordinator
+/// function that updates this entry, and it only ever does one thing: set
+/// `secondary_signature` from `agent_info()`, after checking (coordinator-side only, until
+/// now) that it isn't already set and isn't the same as `primary_signature`. This closes both
+/// the wide-open-update bug (every field was previously unvalidated on update) and the
+/// identity-forgery gap (the committing agent must actually BE the new secondary_signature) in
+/// one check -- every other field must be byte-identical to the pre-update entry.
+fn validate_update_agreement(
+    action: Update,
+    agr: NegotiationAgreement,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Some(invalid) = validate_agreement_content(&agr) {
+        return Ok(invalid);
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: NegotiationAgreement = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid original NegotiationAgreement entry".to_string()
+        )))?;
+
+    if agr.session_id != original.session_id
+        || agr.accepted_proposal != original.accepted_proposal
+        || agr.primary_signature != original.primary_signature
+        || agr.agreed_at.micros != original.agreed_at.micros
+        || agr.execution_deadline.micros != original.execution_deadline.micros
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationAgreement updates may only set secondary_signature -- all other \
+             fields must be unchanged"
+                .to_string(),
+        ));
+    }
+
+    if original.secondary_signature.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationAgreement already has both signatures".to_string(),
+        ));
+    }
+
+    if agr.secondary_signature != Some(action.author.clone()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NegotiationAgreement's secondary_signature must be set to the committing agent \
+             (cosignature forgery)"
+                .to_string(),
         ));
     }
 
@@ -763,7 +930,12 @@ fn validate_avoidance_option(opt: &AvoidanceOption) -> ExternResult<ValidateCall
 // Multi-party negotiation validation
 // =============================================================================
 
-fn validate_conjunction_proposal(cp: &ConjunctionProposal) -> ExternResult<ValidateCallbackResult> {
+/// Structural checks shared by create and update, unchanged from before this pass -- see
+/// `validate_create_conjunction_proposal`/`validate_update_conjunction_proposal` for the
+/// author-binding (create) and transition-validation (update) rules layered on top.
+fn validate_conjunction_proposal_content(
+    cp: &ConjunctionProposal,
+) -> ExternResult<ValidateCallbackResult> {
     // proposal_id must not be empty and <= 256 chars
     if cp.proposal_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -920,7 +1092,75 @@ fn validate_conjunction_proposal(cp: &ConjunctionProposal) -> ExternResult<Valid
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_operator_vote(vote: &OperatorVote) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_conjunction_proposal(
+    action: EntryCreationAction,
+    cp: ConjunctionProposal,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ok @ Ok(ValidateCallbackResult::Invalid(_)) = validate_conjunction_proposal_content(&cp)
+    {
+        return ok;
+    }
+
+    // Bind the proposal to its committer -- create_conjunction_proposal
+    // already derives created_by from agent_info() coordinator-side with
+    // zero user input (P0 author-binding gap). affected_operators is
+    // deliberately left unbound: unlike created_by, it's ambiguous whether
+    // the creator must be a member of that list -- an automated
+    // conjunction-screening service plausibly needs to name operators it
+    // isn't one of. Disclosed, not fixed; would need a real design
+    // decision, not a mechanical bind.
+    if cp.created_by != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ConjunctionProposal must be created by the committing agent (creator forgery)"
+                .to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// `tally_proposal` is intentionally callable by ANY observer (it has no `gate_space_operation`
+/// call at all) and only ever updates `status`, guarded by
+/// `MultiPartyProposalStatus::is_valid_transition`'s state machine -- previously enforced only
+/// coordinator-side. This is not an author-binding rule (there's no "correct committer" for a
+/// tally anyone may compute) -- it re-applies the existing structural checks to the updated
+/// entry and re-derives the transition-validity check at the DHT level, closing "a modified
+/// coordinator could write anything on update" without restricting who may call it. Does NOT
+/// verify the tally itself was honest (i.e. that `status` genuinely reflects the real vote
+/// weights) -- that would need re-deriving the whole weighted quorum via `must_get` over every
+/// `OperatorVote`, a substantially larger piece of work; disclosed, not fixed here.
+fn validate_update_conjunction_proposal(
+    action: Update,
+    cp: ConjunctionProposal,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ok @ Ok(ValidateCallbackResult::Invalid(_)) = validate_conjunction_proposal_content(&cp)
+    {
+        return ok;
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ConjunctionProposal = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid original ConjunctionProposal entry".to_string()
+        )))?;
+
+    if !original.status.is_valid_transition(&cp.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid ConjunctionProposal status transition: {:?} -> {:?}",
+            original.status, cp.status
+        )));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_operator_vote(
+    action: EntryCreationAction,
+    vote: OperatorVote,
+) -> ExternResult<ValidateCallbackResult> {
     // proposal_id must not be empty
     if vote.proposal_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -959,9 +1199,28 @@ fn validate_operator_vote(vote: &OperatorVote) -> ExternResult<ValidateCallbackR
         ));
     }
 
+    // Bind the vote to its committer -- vote_on_proposal already derives
+    // voter from agent_info() coordinator-side with zero user input (P0
+    // author-binding gap).
+    if vote.voter != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "OperatorVote must be cast by the committing agent (voter forgery)".to_string(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Deliberately no author-binding here, and left as-is (structural checks only) --
+/// `approving_operators` is constructed server-side in `tally_proposal` by filtering already-
+/// created (and, after this pass, genuinely author-bound) `OperatorVote` entries for the
+/// winning option, so it's trustworthy *by construction* as long as `tally_proposal` is what
+/// actually created it. But nothing here stops a modified coordinator from skipping
+/// `tally_proposal` and calling `create_entry` directly with a fabricated
+/// `approving_operators` list -- closing that would need this validator to independently
+/// re-derive the entire weighted quorum tally via `must_get` chain-walking over every real
+/// vote for the referenced proposal, a substantially larger, genuinely new piece of work, not
+/// a variant of this pass's established author-binding pattern. Disclosed, not fixed.
 fn validate_multi_party_agreement(
     mpa: &MultiPartyAgreement,
 ) -> ExternResult<ValidateCallbackResult> {

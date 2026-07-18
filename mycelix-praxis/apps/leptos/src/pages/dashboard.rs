@@ -9,13 +9,20 @@
 //! sovereignty level, cognitive state, and active adaptations.
 
 use leptos::prelude::*;
+use praxis_core::contracts::{
+    DASHBOARD_CONTRACT_VERSION, DashboardActivityKind, DashboardRecommendationKind,
+    DashboardSnapshot, GET_DASHBOARD_SNAPSHOT_FN, INTEGRATION_COORDINATOR_ZOME,
+};
 
 use crate::adaptivity_provider::use_adaptivity;
 use crate::cognitive_adaptivity::*;
 use crate::components::suggestion_overlay::{CognitiveStateMirror, SuggestionOverlay};
 use crate::curriculum::{ProgressStatus, curriculum_graph, use_progress};
-use crate::holochain::use_holochain;
+use crate::holochain::{
+    DataSource, LiveResourceStatus, ResourceState, tracked_data_source, use_holochain,
+};
 use crate::ledger::StewardshipLedger;
+use crate::mode::{AppMode, use_app_mode};
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -24,8 +31,8 @@ use crate::ledger::StewardshipLedger;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LearnerStats {
     pub xp_total: u64,
-    pub xp_today: u64,
-    pub xp_this_week: u64,
+    pub xp_today: Option<u64>,
+    pub xp_this_week: Option<u64>,
     pub level: u32,
     pub xp_to_next_level: u64,
     pub xp_in_current_level: u64,
@@ -42,8 +49,8 @@ pub struct StreakInfo {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DueReviews {
     pub total_due: u32,
-    pub overdue: u32,
-    pub new_available: u32,
+    pub overdue: Option<u32>,
+    pub new_available: Option<u32>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -77,6 +84,93 @@ pub enum ActivityKind {
 }
 
 // ---------------------------------------------------------------------------
+// Explicit demonstration data
+// ---------------------------------------------------------------------------
+
+fn demo_stats() -> LearnerStats {
+    LearnerStats {
+        xp_total: 2_450,
+        xp_today: Some(120),
+        xp_this_week: Some(680),
+        level: 4,
+        xp_to_next_level: 900,
+        xp_in_current_level: 850,
+    }
+}
+
+fn demo_streak() -> StreakInfo {
+    StreakInfo {
+        current_days: 12,
+        freeze_count: 2,
+        bonus_multiplier: 1.1,
+        longest_streak: 27,
+    }
+}
+
+fn demo_due_reviews() -> DueReviews {
+    DueReviews {
+        total_due: 7,
+        overdue: Some(2),
+        new_available: Some(3),
+    }
+}
+
+fn demo_skills() -> Vec<SkillMastery> {
+    vec![
+        SkillMastery {
+            name: "Systems Thinking".into(),
+            level: 0.82,
+            domain: "Interdisciplinary".into(),
+        },
+        SkillMastery {
+            name: "Rust Fundamentals".into(),
+            level: 0.68,
+            domain: "Programming".into(),
+        },
+        SkillMastery {
+            name: "Cooperative Governance".into(),
+            level: 0.54,
+            domain: "Civics".into(),
+        },
+    ]
+}
+
+fn demo_recommendations() -> Vec<Recommendation> {
+    vec![
+        Recommendation {
+            title: "Practice feedback loops".into(),
+            reason: "A short review will strengthen your lowest recent mastery signal".into(),
+            course_domain: "Systems Thinking".into(),
+        },
+        Recommendation {
+            title: "Continue Rust ownership".into(),
+            reason: "You are one lesson away from the next checkpoint".into(),
+            course_domain: "Programming".into(),
+        },
+    ]
+}
+
+fn demo_activity() -> Vec<ActivityEvent> {
+    vec![
+        ActivityEvent {
+            description: "Completed a systems-mapping review".into(),
+            timestamp: "Earlier today".into(),
+            kind: ActivityKind::ReviewCompleted,
+        },
+        ActivityEvent {
+            description: "Earned the Feedback Loops badge".into(),
+            timestamp: "Yesterday".into(),
+            kind: ActivityKind::BadgeEarned,
+        },
+        ActivityEvent {
+            description: "Reached a 12-day study streak".into(),
+            timestamp: "This week".into(),
+            kind: ActivityKind::StreakMilestone,
+        },
+    ]
+}
+
+// ---------------------------------------------------------------------------
 // Real data generators — computed from localStorage, no mocks
 // ---------------------------------------------------------------------------
 
@@ -101,8 +195,8 @@ fn real_stats(
 
     LearnerStats {
         xp_total: total,
-        xp_today: pomodoro_xp.min(200),    // approximate
-        xp_this_week: total.min(2000) / 4, // approximate
+        xp_today: Some(pomodoro_xp.min(200)),    // approximate
+        xp_this_week: Some(total.min(2000) / 4), // approximate
         level,
         xp_to_next_level: (xp_for_next - xp_for_current) as u64,
         xp_in_current_level: (total - xp_for_current) as u64,
@@ -140,12 +234,14 @@ fn real_due_reviews(progress: &crate::curriculum::ProgressStore) -> DueReviews {
         .count() as u32;
     DueReviews {
         total_due: due.len() as u32,
-        overdue,
-        new_available: progress
-            .srs_cards
-            .values()
-            .filter(|c| c.repetitions == 0)
-            .count() as u32,
+        overdue: Some(overdue),
+        new_available: Some(
+            progress
+                .srs_cards
+                .values()
+                .filter(|c| c.repetitions == 0)
+                .count() as u32,
+        ),
     }
 }
 
@@ -277,6 +373,178 @@ fn real_activity(
     events
 }
 
+#[derive(Clone, Debug)]
+struct DashboardViewData {
+    stats: Option<LearnerStats>,
+    streak: Option<StreakInfo>,
+    due_reviews: Option<DueReviews>,
+    skills: Option<Vec<SkillMastery>>,
+    recommendations: Option<Vec<Recommendation>>,
+    activity: Option<Vec<ActivityEvent>>,
+}
+
+fn demo_dashboard_data() -> DashboardViewData {
+    DashboardViewData {
+        stats: Some(demo_stats()),
+        streak: Some(demo_streak()),
+        due_reviews: Some(demo_due_reviews()),
+        skills: Some(demo_skills()),
+        recommendations: Some(demo_recommendations()),
+        activity: Some(demo_activity()),
+    }
+}
+
+fn local_dashboard_data() -> DashboardViewData {
+    let progress = crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
+        .unwrap_or_default();
+    let tracker =
+        crate::persistence::load::<crate::study_tracker::StudyTracker>("praxis_study_tracker")
+            .unwrap_or_default();
+
+    DashboardViewData {
+        stats: Some(real_stats(&progress, &tracker)),
+        streak: Some(real_streak(&tracker)),
+        due_reviews: Some(real_due_reviews(&progress)),
+        skills: Some(real_skills(&progress)),
+        recommendations: Some(real_recommendations(&progress)),
+        activity: Some(real_activity(&tracker, &progress)),
+    }
+}
+
+fn abbreviated_reference(value: &str) -> String {
+    let prefix: String = value.chars().take(12).collect();
+    if prefix.len() == value.len() {
+        prefix
+    } else {
+        format!("{prefix}\u{2026}")
+    }
+}
+
+fn network_activity(kind: DashboardActivityKind) -> (&'static str, ActivityKind) {
+    match kind {
+        DashboardActivityKind::SrsReview => (
+            "Completed a spaced-repetition review",
+            ActivityKind::ReviewCompleted,
+        ),
+        DashboardActivityKind::SrsGraduated => {
+            ("Graduated a review card", ActivityKind::ReviewCompleted)
+        }
+        DashboardActivityKind::LessonComplete => {
+            ("Completed a lesson", ActivityKind::CourseProgress)
+        }
+        DashboardActivityKind::QuizPassed => ("Passed a quiz", ActivityKind::CourseProgress),
+        DashboardActivityKind::QuizFailed => ("Attempted a quiz", ActivityKind::CourseProgress),
+        DashboardActivityKind::ProjectSubmit => {
+            ("Submitted a project", ActivityKind::CourseProgress)
+        }
+        DashboardActivityKind::PeerHelp => ("Helped a peer", ActivityKind::CourseProgress),
+        DashboardActivityKind::ContentCreated => {
+            ("Created learning content", ActivityKind::CourseProgress)
+        }
+        DashboardActivityKind::BadgeEarned => ("Earned a badge", ActivityKind::BadgeEarned),
+        DashboardActivityKind::SkillMastered => ("Mastered a skill", ActivityKind::CourseProgress),
+        DashboardActivityKind::GoalAchieved => {
+            ("Achieved a learning goal", ActivityKind::CourseProgress)
+        }
+        DashboardActivityKind::StreakMilestone => {
+            ("Reached a streak milestone", ActivityKind::StreakMilestone)
+        }
+        DashboardActivityKind::ChallengeComplete => {
+            ("Completed a challenge", ActivityKind::CourseProgress)
+        }
+        DashboardActivityKind::DailyLogin => ("Opened Praxis", ActivityKind::CourseProgress),
+    }
+}
+
+impl From<DashboardSnapshot> for DashboardViewData {
+    fn from(snapshot: DashboardSnapshot) -> Self {
+        let stats = snapshot.gamification.as_ref().map(|summary| {
+            let progress = (summary.xp_to_next_level as u128)
+                .saturating_mul(summary.level_progress_permille as u128)
+                / 1_000;
+            LearnerStats {
+                xp_total: summary.total_xp,
+                xp_today: None,
+                xp_this_week: None,
+                level: summary.level,
+                xp_to_next_level: summary.xp_to_next_level,
+                xp_in_current_level: progress.min(u64::MAX as u128) as u64,
+            }
+        });
+        let streak = snapshot.gamification.map(|summary| StreakInfo {
+            current_days: summary.current_streak,
+            freeze_count: summary.freezes_remaining as u32,
+            bonus_multiplier: summary.streak_bonus_permille as f32 / 1_000.0,
+            longest_streak: summary.longest_streak,
+        });
+        let due_reviews = snapshot.due_review_count.map(|total_due| DueReviews {
+            total_due,
+            overdue: None,
+            new_available: None,
+        });
+        let skills = snapshot.skills.map(|items| {
+            items
+                .into_iter()
+                .map(|skill| SkillMastery {
+                    name: format!("Skill {}", abbreviated_reference(&skill.skill_id)),
+                    level: skill.mastery_permille as f32 / 1_000.0,
+                    domain: format!("{} attempts", skill.total_attempts),
+                })
+                .collect()
+        });
+        let recommendations = snapshot.recommendations.map(|items| {
+            items
+                .into_iter()
+                .map(|recommendation| {
+                    let title = match recommendation.kind {
+                        DashboardRecommendationKind::NextSkill => "Next skill",
+                        DashboardRecommendationKind::Review => "Review",
+                        DashboardRecommendationKind::Practice => "Practice",
+                        DashboardRecommendationKind::Challenge => "Challenge",
+                        DashboardRecommendationKind::Course => "Course",
+                        DashboardRecommendationKind::Pod => "Learning pod",
+                        DashboardRecommendationKind::Exploration => "Explore",
+                    };
+                    Recommendation {
+                        title: format!("{title} recommendation"),
+                        reason: recommendation.explanation,
+                        course_domain: format!(
+                            "Target {}",
+                            abbreviated_reference(&recommendation.target_id)
+                        ),
+                    }
+                })
+                .collect()
+        });
+        let activity = snapshot.recent_activity.map(|items| {
+            items
+                .into_iter()
+                .map(|event| {
+                    let (description, kind) = network_activity(event.kind);
+                    ActivityEvent {
+                        description: if event.xp_gained > 0 {
+                            format!("{description} (+{} XP)", event.xp_gained)
+                        } else {
+                            description.to_string()
+                        },
+                        timestamp: format!("Network timestamp {}", event.occurred_at),
+                        kind,
+                    }
+                })
+                .collect()
+        });
+
+        Self {
+            stats,
+            streak,
+            due_reviews,
+            skills,
+            recommendations,
+            activity,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard page (layout)
 // ---------------------------------------------------------------------------
@@ -284,19 +552,37 @@ fn real_activity(
 #[component]
 pub fn DashboardPage() -> impl IntoView {
     let progress = use_progress();
+    let mode = use_app_mode();
 
     view! {
         <div class="dashboard">
             <h2>"Dashboard"</h2>
 
+            <DashboardLearningOverview />
+
             // Exam countdown + streak (real data)
             <crate::study_tracker::ExamCountdown />
 
-            // Stewardship Ledger (New: Economic & Reputation Loop)
-            <StewardshipLedger />
-
             // CAPS Progress Overview
             <ProgressCard />
+
+            {move || {
+                if mode.get() != AppMode::Demo {
+                    return view! { <></> }.into_any();
+                }
+
+                view! {
+                <section class="concept-simulation" aria-label="Illustrative concept simulation">
+                    <div style="margin: 1.5rem 0; padding: 1rem; background: var(--warning-low); border: 2px solid var(--warning); border-radius: 12px">
+                        <strong>"Demo-only concept simulation"</strong>
+                        <p style="margin: 0.5rem 0 0; font-size: 0.8rem; line-height: 1.5">
+                            "The scenarios below are illustrative and inactive. No device, municipal, financial, legal, logistics, housing, or emergency-service state is connected. Values and statuses are fictional examples."
+                        </p>
+                    </div>
+
+            // Fictional economic and reputation concept. This must remain
+            // inside the Demo-only branch and below the disclosure above.
+            <StewardshipLedger />
 
             // THE MINIMUM VIABLE PARASITE (MVP): Inrush Shock-Absorber
             <div class="mvp-box" style="margin: 1.5rem 0; padding: 2rem; background: linear-gradient(135deg, var(--surface-high), var(--primary-low)); border: 3px solid var(--primary); border-radius: 16px; text-align: center">
@@ -315,7 +601,7 @@ pub fn DashboardPage() -> impl IntoView {
                     <h4 style="margin: 0">"Analog Seed"</h4>
                     <p style="font-size: 0.7rem; color: var(--text-secondary)">"Indestructible 1-page survival PDF. Print and laminate."</p>
                 </div>
-                <button class="btn-sm btn-outline" style="margin-left: auto">"Export PDF"</button>
+                <button class="btn-sm btn-outline" style="margin-left: auto" disabled title="Illustrative control only">"Concept only"</button>
             </div>
 
             // Pending TEND — economic value from learning
@@ -331,11 +617,10 @@ pub fn DashboardPage() -> impl IntoView {
                 <button
                     class="btn-primary"
                     style="background: var(--accent); border-color: var(--accent)"
-                    on:click=move |_| {
-                        // Trigger WebBluetooth / Wi-Fi Direct Gossip logic
-                    }
+                    disabled
+                    title="Illustrative control only"
                 >
-                    "Activate Local Edge Server"
+                    "Concept only"
                 </button>
             </div>
 
@@ -378,8 +663,8 @@ pub fn DashboardPage() -> impl IntoView {
                 <p style="font-size: 0.75rem; margin-top: 0.5rem">
                     "Have copper or batteries? Don't strip them for R50. Convert them to power banks for 500 TEND."
                 </p>
-                <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem; border-color: var(--warning); color: var(--warning)">
-                    "Begin Conversion \u{2192}"
+                <button class="btn-sm btn-outline" style="width: 100%; margin-top: 0.5rem; border-color: var(--warning); color: var(--warning)" disabled title="Illustrative control only">
+                    "Concept only"
                 </button>
             </div>
 
@@ -444,8 +729,8 @@ pub fn DashboardPage() -> impl IntoView {
                 <div class="shield-card" style="padding: 1rem; background: var(--error-low); border-radius: 12px; border: 1px solid var(--error)">
                     <h5 style="margin: 0; color: var(--error)">"Dobsonville Shield"</h5>
                     <p style="font-size: 0.65rem; color: var(--text-tertiary)">"ZK-Routing to Guardian Elders."</p>
-                    <button class="btn-sm btn-primary" style="width: 100%; background: var(--error); border-color: var(--error); margin-top: 0.5rem">
-                        "Panic \u{26A0}\u{FE0F}"
+                    <button class="btn-sm btn-primary" style="width: 100%; background: var(--error); border-color: var(--error); margin-top: 0.5rem" disabled title="Illustrative control only">
+                        "Concept only"
                     </button>
                 </div>
                 <div class="shelter-card" style="padding: 1rem; background: var(--surface-high); border-radius: 12px; border: 1px solid var(--success)">
@@ -508,6 +793,9 @@ pub fn DashboardPage() -> impl IntoView {
                 <br />
                 <strong>"Cooperation multiplier: 1.2x TEND for group study sessions."</strong>
             </div>
+                </section>
+                }.into_any()
+            }}
 
             // Start Session — links to highest priority topic
             {move || {
@@ -898,373 +1186,245 @@ fn LearningReadinessCard() -> impl IntoView {
 }
 
 // ---------------------------------------------------------------------------
-// XP & Level card
+// Shared learner overview
 // ---------------------------------------------------------------------------
 
 #[component]
-fn XpLevelCard() -> impl IntoView {
+fn DashboardLearningOverview() -> impl IntoView {
     let hc = use_holochain();
+    let mode = use_app_mode();
 
-    let stats = LocalResource::new(move || {
+    let dashboard = LocalResource::new(move || {
         let hc = hc.clone();
+        let source = tracked_data_source(mode, &hc);
         async move {
-            match hc
-                .call_zome_default::<(), LearnerStats>("gamification", "get_learner_stats", &())
-                .await
-            {
-                Ok(s) => s,
-                Err(_) => {
-                    let p = crate::persistence::load::<crate::curriculum::ProgressStore>(
-                        "praxis_progress",
+            match source {
+                DataSource::Demo => ResourceState::Ready(demo_dashboard_data()),
+                DataSource::Local => ResourceState::Ready(local_dashboard_data()),
+                DataSource::LiveWaiting => ResourceState::WaitingForLive,
+                DataSource::LiveReady => match hc
+                    .call_zome_default::<(), DashboardSnapshot>(
+                        INTEGRATION_COORDINATOR_ZOME,
+                        GET_DASHBOARD_SNAPSHOT_FN,
+                        &(),
                     )
-                    .unwrap_or_default();
-                    let t = crate::persistence::load::<crate::study_tracker::StudyTracker>(
-                        "praxis_study_tracker",
-                    )
-                    .unwrap_or_default();
-                    real_stats(&p, &t)
-                }
+                    .await
+                {
+                    Ok(snapshot) if snapshot.contract_version == DASHBOARD_CONTRACT_VERSION => {
+                        ResourceState::Ready(snapshot.into())
+                    }
+                    Ok(_) | Err(_) => ResourceState::LiveError,
+                },
             }
         }
     });
 
     view! {
-        <div class="dash-card xp-card">
-            <h3>"XP & Level"</h3>
+        <section class="dashboard-learning-overview" aria-label="Learner overview">
             <Suspense fallback=move || view! { <CardLoading /> }>
                 {move || {
-                    stats.get().map(|s| {
-                        let s: LearnerStats = s.clone();
-                        let progress_pct = if s.xp_to_next_level > 0 {
-                            (s.xp_in_current_level as f64 / s.xp_to_next_level as f64 * 100.0).min(100.0)
-                        } else {
-                            100.0
-                        };
-                        view! {
-                            <div class="stat-big">
-                                <span class="level-badge">"Lv. " {s.level}</span>
-                                <span class="xp-total">{format!("{} XP", s.xp_total)}</span>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar"
-                                    style=format!("width: {}%", progress_pct)>
-                                </div>
-                            </div>
-                            <div class="xp-details">
-                                <span>"Today: " <strong>{format!("+{}", s.xp_today)}</strong></span>
-                                <span>"This week: " <strong>{format!("+{}", s.xp_this_week)}</strong></span>
-                            </div>
+                    dashboard.get().map(|state| match state {
+                        ResourceState::WaitingForLive => {
+                            view! { <LiveResourceStatus failed=false /> }.into_any()
                         }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Streak card
-// ---------------------------------------------------------------------------
-
-#[component]
-fn StreakCard() -> impl IntoView {
-    let hc = use_holochain();
-
-    let streak = LocalResource::new(move || {
-        let hc = hc.clone();
-        async move {
-            match hc
-                .call_zome_default::<(), StreakInfo>("gamification", "get_streak", &())
-                .await
-            {
-                Ok(s) => s,
-                Err(_) => {
-                    let t = crate::persistence::load::<crate::study_tracker::StudyTracker>(
-                        "praxis_study_tracker",
-                    )
-                    .unwrap_or_default();
-                    real_streak(&t)
-                }
-            }
-        }
-    });
-
-    view! {
-        <div class="dash-card streak-card">
-            <h3>"Streak"</h3>
-            <Suspense fallback=move || view! { <CardLoading /> }>
-                {move || {
-                    streak.get().map(|s| {
-                        let s: StreakInfo = s.clone();
-                        view! {
-                            <div class="stat-big">
-                                <span class="streak-count">{s.current_days} " days"</span>
-                            </div>
-                            <div class="streak-details">
-                                <div class="streak-row">
-                                    <span class="label">"Bonus"</span>
-                                    <span class="value">{format!("{:.1}x", s.bonus_multiplier)}</span>
-                                </div>
-                                <div class="streak-row">
-                                    <span class="label">"Freezes left"</span>
-                                    <span class="value">{s.freeze_count}</span>
-                                </div>
-                                <div class="streak-row">
-                                    <span class="label">"Best"</span>
-                                    <span class="value">{s.longest_streak} " days"</span>
-                                </div>
-                            </div>
+                        ResourceState::LiveError => {
+                            view! { <LiveResourceStatus failed=true /> }.into_any()
                         }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
+                        ResourceState::Ready(data) => {
+                            let DashboardViewData {
+                                stats,
+                                streak,
+                                due_reviews,
+                                skills,
+                                recommendations,
+                                activity,
+                            } = data;
 
-// ---------------------------------------------------------------------------
-// Due reviews card
-// ---------------------------------------------------------------------------
-
-#[component]
-fn DueReviewsCard() -> impl IntoView {
-    let hc = use_holochain();
-
-    let reviews = LocalResource::new(move || {
-        let hc = hc.clone();
-        async move {
-            match hc
-                .call_zome_default::<(), DueReviews>("srs", "get_due_summary", &())
-                .await
-            {
-                Ok(r) => r,
-                Err(_) => {
-                    let p = crate::persistence::load::<crate::curriculum::ProgressStore>(
-                        "praxis_progress",
-                    )
-                    .unwrap_or_default();
-                    real_due_reviews(&p)
-                }
-            }
-        }
-    });
-
-    view! {
-        <div class="dash-card reviews-card">
-            <h3>"Due Reviews"</h3>
-            <Suspense fallback=move || view! { <CardLoading /> }>
-                {move || {
-                    reviews.get().map(|r| {
-                        let r: DueReviews = r.clone();
-                        view! {
-                            <div class="stat-big">
-                                <span class="due-count">{r.total_due}</span>
-                                <span class="due-label">" cards due"</span>
-                            </div>
-                            <div class="review-breakdown">
-                                <span class="overdue">{r.overdue} " overdue"</span>
-                                <span class="new-cards">{r.new_available} " new"</span>
-                            </div>
-                            <a href="/review" class="btn-primary">"Start Review"</a>
-                        }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Skills card
-// ---------------------------------------------------------------------------
-
-#[component]
-fn SkillsCard() -> impl IntoView {
-    let hc = use_holochain();
-
-    let skills = LocalResource::new(move || {
-        let hc = hc.clone();
-        async move {
-            match hc
-                .call_zome_default::<(), Vec<SkillMastery>>("adaptive", "get_top_skills", &())
-                .await
-            {
-                Ok(s) => s,
-                Err(_) => {
-                    let p = crate::persistence::load::<crate::curriculum::ProgressStore>(
-                        "praxis_progress",
-                    )
-                    .unwrap_or_default();
-                    real_skills(&p)
-                }
-            }
-        }
-    });
-
-    view! {
-        <div class="dash-card skills-card">
-            <h3>"What I'm Learning"</h3>
-            <Suspense fallback=move || view! { <CardLoading /> }>
-                {move || {
-                    skills.get().map(|data| {
-                        let data: Vec<SkillMastery> = data.clone();
-                        view! {
-                            <div class="skills-list">
-                                {data.into_iter().map(|skill| {
-                                    let pct = (skill.level * 100.0) as u32;
-                                    view! {
-                                        <div class="skill-row">
-                                            <div class="skill-info">
-                                                <span class="skill-name">{skill.name}</span>
-                                                <span class="skill-domain">{skill.domain}</span>
+                            view! {
+                                <div class="dashboard-grid">
+                                    {if let Some(s) = stats {
+                                        let progress_pct = if s.xp_to_next_level > 0 {
+                                            (s.xp_in_current_level as f64
+                                                / s.xp_to_next_level as f64
+                                                * 100.0)
+                                                .min(100.0)
+                                        } else {
+                                            100.0
+                                        };
+                                        view! {
+                                            <div class="dash-card xp-card">
+                                                <h3>"XP & Level"</h3>
+                                                <div class="stat-big">
+                                                    <span class="level-badge">"Lv. " {s.level}</span>
+                                                    <span class="xp-total">{format!("{} XP", s.xp_total)}</span>
+                                                </div>
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar" style=format!("width: {}%", progress_pct)></div>
+                                                </div>
+                                                {match (s.xp_today, s.xp_this_week) {
+                                                    (Some(today), Some(week)) => view! {
+                                                        <div class="xp-details">
+                                                            <span>"Today: " <strong>{format!("+{today}")}</strong></span>
+                                                            <span>"This week: " <strong>{format!("+{week}")}</strong></span>
+                                                        </div>
+                                                    }.into_any(),
+                                                    _ => view! {
+                                                        <p class="data-note">"Daily and weekly XP are not exposed by the live contract."</p>
+                                                    }.into_any(),
+                                                }}
                                             </div>
-                                            <div class="skill-bar-container">
-                                                <div class="skill-bar"
-                                                    style=format!("width: {}%", pct)>
+                                        }.into_any()
+                                    } else {
+                                        view! { <UnavailableDashboardCard title="XP & Level" /> }.into_any()
+                                    }}
+
+                                    {if let Some(s) = streak {
+                                        view! {
+                                            <div class="dash-card streak-card">
+                                                <h3>"Streak"</h3>
+                                                <div class="stat-big">
+                                                    <span class="streak-count">{s.current_days} " days"</span>
+                                                </div>
+                                                <div class="streak-details">
+                                                    <div class="streak-row">
+                                                        <span class="label">"Bonus"</span>
+                                                        <span class="value">{format!("{:.1}x", s.bonus_multiplier)}</span>
+                                                    </div>
+                                                    <div class="streak-row">
+                                                        <span class="label">"Freezes left"</span>
+                                                        <span class="value">{s.freeze_count}</span>
+                                                    </div>
+                                                    <div class="streak-row">
+                                                        <span class="label">"Best"</span>
+                                                        <span class="value">{s.longest_streak} " days"</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <span class="skill-pct">{pct} "%"</span>
-                                        </div>
-                                    }
-                                }).collect_view()}
-                            </div>
-                        }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
+                                        }.into_any()
+                                    } else {
+                                        view! { <UnavailableDashboardCard title="Streak" /> }.into_any()
+                                    }}
 
-// ---------------------------------------------------------------------------
-// Recommendations section
-// ---------------------------------------------------------------------------
-
-#[component]
-fn RecommendationsSection() -> impl IntoView {
-    let hc = use_holochain();
-
-    let recs = LocalResource::new(move || {
-        let hc = hc.clone();
-        async move {
-            match hc
-                .call_zome_default::<(), Vec<Recommendation>>(
-                    "adaptive",
-                    "get_recommendations",
-                    &(),
-                )
-                .await
-            {
-                Ok(r) => r,
-                Err(_) => {
-                    let p = crate::persistence::load::<crate::curriculum::ProgressStore>(
-                        "praxis_progress",
-                    )
-                    .unwrap_or_default();
-                    real_recommendations(&p)
-                }
-            }
-        }
-    });
-
-    view! {
-        <div class="dash-section recommendations">
-            <h3>"What's Next"</h3>
-            <Suspense fallback=move || view! { <CardLoading /> }>
-                {move || {
-                    recs.get().map(|data| {
-                        let data: Vec<Recommendation> = data.clone();
-                        view! {
-                            <div class="rec-grid">
-                                {data.into_iter().map(|rec| {
-                                    view! {
-                                        <div class="rec-card">
-                                            <h4>{rec.title}</h4>
-                                            <p>{rec.reason}</p>
-                                            <span class="domain-tag">{rec.course_domain}</span>
-                                        </div>
-                                    }
-                                }).collect_view()}
-                            </div>
-                        }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Recent activity section
-// ---------------------------------------------------------------------------
-
-#[component]
-fn RecentActivitySection() -> impl IntoView {
-    let hc = use_holochain();
-
-    let activity = LocalResource::new(move || {
-        let hc = hc.clone();
-        async move {
-            match hc
-                .call_zome_default::<(), Vec<ActivityEvent>>(
-                    "gamification",
-                    "get_recent_activity",
-                    &(),
-                )
-                .await
-            {
-                Ok(a) => a,
-                Err(_) => {
-                    let t = crate::persistence::load::<crate::study_tracker::StudyTracker>(
-                        "praxis_study_tracker",
-                    )
-                    .unwrap_or_default();
-                    let p = crate::persistence::load::<crate::curriculum::ProgressStore>(
-                        "praxis_progress",
-                    )
-                    .unwrap_or_default();
-                    real_activity(&t, &p)
-                }
-            }
-        }
-    });
-
-    view! {
-        <div class="dash-section activity">
-            <h3>"What I Did Today"</h3>
-            <Suspense fallback=move || view! { <CardLoading /> }>
-                {move || {
-                    activity.get().map(|data| {
-                        let data: Vec<ActivityEvent> = data.clone();
-                        view! {
-                            <ul class="activity-feed">
-                                {data.into_iter().map(|event| {
-                                    let icon = match event.kind {
-                                        ActivityKind::CourseProgress => "^",
-                                        ActivityKind::ReviewCompleted => "*",
-                                        ActivityKind::BadgeEarned => "#",
-                                        ActivityKind::LevelUp => "+",
-                                        ActivityKind::StreakMilestone => "~",
-                                    };
-                                    view! {
-                                        <li class="activity-item">
-                                            <span class="activity-icon">{icon}</span>
-                                            <div class="activity-content">
-                                                <span class="activity-desc">{event.description}</span>
-                                                <span class="activity-time">{event.timestamp}</span>
+                                    {if let Some(reviews) = due_reviews {
+                                        view! {
+                                            <div class="dash-card reviews-card">
+                                                <h3>"Due Reviews"</h3>
+                                                <div class="stat-big">
+                                                    <span class="due-count">{reviews.total_due}</span>
+                                                    <span class="due-label">" cards due"</span>
+                                                </div>
+                                                {match (reviews.overdue, reviews.new_available) {
+                                                    (Some(overdue), Some(new_available)) => view! {
+                                                        <div class="review-breakdown">
+                                                            <span class="overdue">{overdue} " overdue"</span>
+                                                            <span class="new-cards">{new_available} " new"</span>
+                                                        </div>
+                                                    }.into_any(),
+                                                    _ => view! {
+                                                        <p class="data-note">"The live contract exposes the total due count only."</p>
+                                                    }.into_any(),
+                                                }}
+                                                <a href="/review" class="btn-primary">"Start Review"</a>
                                             </div>
-                                        </li>
-                                    }
-                                }).collect_view()}
-                            </ul>
+                                        }.into_any()
+                                    } else {
+                                        view! { <UnavailableDashboardCard title="Due Reviews" /> }.into_any()
+                                    }}
+                                </div>
+
+                                <div class="dash-card skills-card">
+                                    <h3>"What I'm Learning"</h3>
+                                    {match skills {
+                                        None => view! { <p>"Mastery service unavailable."</p> }.into_any(),
+                                        Some(items) if items.is_empty() => view! { <p>"No mastery records yet."</p> }.into_any(),
+                                        Some(items) => view! {
+                                            <div class="skills-list">
+                                                {items.into_iter().map(|skill| {
+                                                    let pct = (skill.level * 100.0) as u32;
+                                                    view! {
+                                                        <div class="skill-row">
+                                                            <div class="skill-info">
+                                                                <span class="skill-name">{skill.name}</span>
+                                                                <span class="skill-domain">{skill.domain}</span>
+                                                            </div>
+                                                            <div class="skill-bar-container">
+                                                                <div class="skill-bar" style=format!("width: {pct}%")></div>
+                                                            </div>
+                                                            <span class="skill-pct">{pct} "%"</span>
+                                                        </div>
+                                                    }
+                                                }).collect_view()}
+                                            </div>
+                                        }.into_any(),
+                                    }}
+                                </div>
+
+                                <div class="dash-section recommendations">
+                                    <h3>"What's Next"</h3>
+                                    {match recommendations {
+                                        None => view! { <p>"Recommendation service unavailable."</p> }.into_any(),
+                                        Some(items) if items.is_empty() => view! { <p>"No active recommendations."</p> }.into_any(),
+                                        Some(items) => view! {
+                                            <div class="rec-grid">
+                                                {items.into_iter().map(|recommendation| view! {
+                                                    <div class="rec-card">
+                                                        <h4>{recommendation.title}</h4>
+                                                        <p>{recommendation.reason}</p>
+                                                        <span class="domain-tag">{recommendation.course_domain}</span>
+                                                    </div>
+                                                }).collect_view()}
+                                            </div>
+                                        }.into_any(),
+                                    }}
+                                </div>
+
+                                <div class="dash-section activity">
+                                    <h3>"Recent Learning Activity"</h3>
+                                    {match activity {
+                                        None => view! { <p>"Activity service unavailable."</p> }.into_any(),
+                                        Some(items) if items.is_empty() => view! { <p>"No signed learning events yet."</p> }.into_any(),
+                                        Some(items) => view! {
+                                            <ul class="activity-feed">
+                                                {items.into_iter().map(|event| {
+                                                    let icon = match event.kind {
+                                                        ActivityKind::CourseProgress => "^",
+                                                        ActivityKind::ReviewCompleted => "*",
+                                                        ActivityKind::BadgeEarned => "#",
+                                                        ActivityKind::LevelUp => "+",
+                                                        ActivityKind::StreakMilestone => "~",
+                                                    };
+                                                    view! {
+                                                        <li class="activity-item">
+                                                            <span class="activity-icon">{icon}</span>
+                                                            <div class="activity-content">
+                                                                <span class="activity-desc">{event.description}</span>
+                                                                <span class="activity-time">{event.timestamp}</span>
+                                                            </div>
+                                                        </li>
+                                                    }
+                                                }).collect_view()}
+                                            </ul>
+                                        }.into_any(),
+                                    }}
+                                </div>
+                            }.into_any()
                         }
                     })
                 }}
             </Suspense>
-        </div>
+        </section>
     }
 }
 
+#[component]
+fn UnavailableDashboardCard(#[prop(into)] title: String) -> impl IntoView {
+    view! {
+        <div class="dash-card">
+            <h3>{title}</h3>
+            <p>"This live dashboard section is unavailable."</p>
+        </div>
+    }
+}
 // ---------------------------------------------------------------------------
 // Shared loading skeleton
 // ---------------------------------------------------------------------------
@@ -1387,15 +1547,15 @@ fn ProgressCard() -> impl IntoView {
                         }
                     }}
                 </div>
-                // Mesh Certification
+                // Locally stored progress only. Do not imply mesh verification.
                 <div>
-                    <div style="font-size: 0.8rem; color: var(--info); margin-bottom: 0.25rem">"Mesh-Certified"</div>
+                    <div style="font-size: 0.8rem; color: var(--info); margin-bottom: 0.25rem">"Local Progress"</div>
                     {move || {
-                        let count = crate::mesh::use_mesh().mesh_certified_count.get();
+                        let (_, mastered, studying) = counts.get();
                         view! {
-                            <div style="font-size: 1.5rem; font-weight: 700">{count}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700">{mastered + studying}</div>
                             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem">
-                                "Verified via local Swarm Mesh"
+                                "Topics with browser-local progress"
                             </div>
                         }
                     }}
@@ -1723,188 +1883,26 @@ fn SubjectMasteryBreakdown() -> impl IntoView {
     }
 }
 
-/// Pending TEND card — shows economic value earned from learning.
+/// Demo-only view of a possible learning-economy card.
 ///
-/// Also the Trial-Mode -> Sovereign-Mode graduation point: under the native
-/// Tauri app, "Connect & Claim TEND" replays every claimed BKT mastery state
-/// through `validate_pwa_import` (real BKT-integrity check, hard-capped at
-/// 10 retroactive TEND) and marks the reconciled pending events as synced.
-/// In a plain browser, there is no conductor to validate against, so the
-/// same slot instead prompts the learner to go get the native app.
+/// This component is rendered only inside `DashboardPage`'s `AppMode::Demo`
+/// branch. It deliberately performs no conductor call and exposes no claim
+/// action: local counters are not balances, grants, credit, or verification.
 #[component]
 fn PendingTendCard() -> impl IntoView {
-    let (ledger, set_ledger) = signal(crate::persistence::PendingTendLedger::load());
-    let (sync_result, set_sync_result) =
-        signal(None::<Result<crate::tauri_bridge::PwaImportResult, String>>);
-    let (syncing, set_syncing) = signal(false);
-    let is_tauri = crate::tauri_bridge::is_tauri();
-
-    let on_connect_claim = move |_: leptos::ev::MouseEvent| {
-        if syncing.get_untracked() {
-            return;
-        }
-        set_syncing.set(true);
-        set_sync_result.set(None);
-
-        wasm_bindgen_futures::spawn_local(async move {
-            let progress =
-                crate::persistence::load::<crate::curriculum::ProgressStore>("praxis_progress")
-                    .unwrap_or_default();
-
-            let outcome = match serde_json::to_string(&progress) {
-                Ok(json) => crate::tauri_bridge::validate_pwa_import(json).await,
-                Err(e) => Err(format!("Could not export local progress: {e}")),
-            };
-
-            if let Ok(result) = &outcome {
-                // The learner's claimed mastery held up to BKT replay — the
-                // pending local ledger has now been reconciled against a
-                // real, verified TEND grant, so retire the unsynced events.
-                let mut l = crate::persistence::PendingTendLedger::load();
-                let unsynced = l.unsynced_count();
-                if unsynced > 0 {
-                    l.mark_synced(unsynced);
-                }
-                let _ = result; // validated_tend is shown, not re-added — it's already reflected via mark_synced
-                set_ledger.set(l);
-            }
-
-            set_sync_result.set(Some(outcome));
-            set_syncing.set(false);
-        });
-    };
+    let ledger = crate::persistence::PendingTendLedger::load();
+    let local_activity = ledger.events.len();
 
     view! {
         <div class="dash-card tend-card">
-            <h3>"Learning Economy"</h3>
-            {move || {
-                let l = ledger.get();
-                let total = l.total_earned;
-                let pending = l.total_pending;
-                let event_count = l.events.len();
-                let should_prompt = l.should_prompt_connection();
-                let credit_limit = 40 + (total as i32 / 5); // Simple local mock of get_credit_capacity logic
-
-                view! {
-                    <div style="display: flex; align-items: baseline; gap: 0.5rem">
-                        <span style="font-size: 2rem; font-weight: 700; color: var(--primary)">{format!("{:.1}", total)}</span>
-                        <span style="font-size: 0.9rem; color: var(--text-secondary)">"TEND earned"</span>
-                    </div>
-
-                    // Mutual Credit Capacity
-                    <div style="margin-top: 1rem; padding: 0.75rem; background: var(--surface-low); border-radius: 6px; border: 1px solid var(--border)">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem">
-                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase">"Credit Capacity"</span>
-                            <span style="font-size: 0.85rem; font-weight: 700; color: var(--success)">"\u{00B1}"{credit_limit}" TEND"</span>
-                        </div>
-                        <div class="progress-bar" style="height: 4px; margin-bottom: 0.25rem">
-                            <div class="progress-bar-fill success" style=format!("width: {}%", (total as i32 * 100 / credit_limit).min(100))></div>
-                        </div>
-                        <p style="font-size: 0.65rem; color: var(--text-secondary); margin: 0">"Your credit limit grows as your MATL trust score increases."</p>
-                    </div>
-
-                    {if pending > 0.0 {
-                        view! {
-                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem">
-                                {format!("{:.1} pending", pending)}" \u{2014} connect to claim"
-                            </div>
-                        }.into_any()
-                    } else {
-                        view! { <span></span> }.into_any()
-                    }}
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem">
-                        {event_count}" sessions \u{2014} 1 TEND = 1 hour community service"
-                    </div>
-                    {if should_prompt {
-                        view! {
-                            <div role="status" style="margin-top: 0.75rem; padding: 0.75rem; background: var(--primary, #7c3aed); color: #fff; border-radius: 0.5rem; text-align: center">
-                                <strong>"Your knowledge has value."</strong>
-                                <div style="font-size: 0.85rem; margin-top: 0.25rem">
-                                    "Connect to the network to secure "{format!("{:.1}", pending)}" TEND and join the mesh."
-                                </div>
-                            </div>
-                        }.into_any()
-                    } else {
-                        view! { <span></span> }.into_any()
-                    }}
-                }
-            }}
-
-            // Trial Mode -> Sovereign Mode graduation action
-            {if is_tauri {
-                view! {
-                    <button
-                        class="btn-primary"
-                        style="width: 100%; margin-top: 0.75rem"
-                        disabled=move || syncing.get()
-                        on:click=on_connect_claim
-                    >
-                        {move || if syncing.get() { "Verifying with conductor\u{2026}" } else { "Connect & Claim TEND" }}
-                    </button>
-                    {move || sync_result.get().map(|r| match r {
-                        Ok(result) => {
-                            let msg = if result.rejected_nodes > 0 {
-                                format!(
-                                    "{:.1} TEND verified and claimed \u{2014} {} topics validated, {} rejected as inconsistent with your practice history",
-                                    result.validated_tend, result.validated_nodes, result.rejected_nodes
-                                )
-                            } else {
-                                format!(
-                                    "{:.1} TEND verified and claimed from {} validated topics",
-                                    result.validated_tend, result.validated_nodes
-                                )
-                            };
-                            view! {
-                                <div role="status" style="margin-top: 0.5rem; padding: 0.5rem; background: var(--success-low, #e6f7ec); color: var(--success); border-radius: 0.4rem; font-size: 0.8rem">
-                                    {msg}
-                                </div>
-                            }.into_any()
-                        }
-                        Err(msg) => view! {
-                            <div role="alert" style="margin-top: 0.5rem; padding: 0.5rem; background: var(--error-low, #fdeaea); color: var(--error); border-radius: 0.4rem; font-size: 0.8rem">
-                                {format!("Could not claim TEND: {msg}")}
-                            </div>
-                        }.into_any(),
-                    })}
-                }.into_any()
-            } else {
-                view! { <GoSovereignPrompt /> }.into_any()
-            }}
+            <h3>"Illustrative Learning Economy"</h3>
+            <div role="note" style="padding: 0.75rem; background: var(--warning-low); border: 1px solid var(--warning); border-radius: 8px; font-size: 0.8rem; line-height: 1.5">
+                <strong>"Demo only — no balance, credit, grant, or verification"</strong>
+                <div>"This browser has "{local_activity}" local activity records. They have not been submitted to or validated by a conductor and create no TEND entitlement."</div>
+            </div>
+            <button class="btn-primary" style="width: 100%; margin-top: 0.75rem" disabled title="No learning-economy claim contract is connected">
+                "Claim unavailable"
+            </button>
         </div>
-    }
-}
-
-/// Browser-mode call-to-action: no conductor means TEND can't actually be
-/// verified/claimed here — invite the learner to the native app instead of
-/// pretending a "Connect" button would do anything in a plain browser tab.
-#[component]
-fn GoSovereignPrompt() -> impl IntoView {
-    let (expanded, set_expanded) = signal(false);
-
-    view! {
-        <button
-            class="btn-outline"
-            style="display: block; text-align: center; width: 100%; margin-top: 0.75rem"
-            on:click=move |_| set_expanded.update(|v| *v = !*v)
-        >
-            "Go Sovereign \u{2014} verify and claim real TEND"
-        </button>
-        {move || if expanded.get() {
-            view! {
-                <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--surface-low); border: 1px solid var(--border); border-radius: 8px; font-size: 0.8rem; color: var(--text-secondary)">
-                    <p style="margin: 0 0 0.5rem">
-                        "Pending TEND here is a local estimate \u{2014} it isn't yet backed by a running "
-                        "Holochain conductor, so there's nothing to verify it against in a browser tab."
-                    </p>
-                    <p style="margin: 0">
-                        "Install the native Praxis desktop app to connect to the mesh. It replays your "
-                        "practice history against the real BKT mastery formula and mints verified TEND "
-                        "(up to 10 retroactively) \u{2014} tampered or fabricated progress is rejected."
-                    </p>
-                </div>
-            }.into_any()
-        } else {
-            view! { <span></span> }.into_any()
-        }}
     }
 }

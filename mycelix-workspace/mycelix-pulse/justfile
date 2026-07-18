@@ -1,224 +1,107 @@
-# Mycelix-Mail Development Commands
-# Run `just` to see all available commands
+# Mycelix Pulse canonical working-alpha commands.
 
 set dotenv-load
 
-# Default: show help
 default:
     @just --list
 
-# ============================================================================
-# Development
-# ============================================================================
+# Run the canonical Leptos application. A live conductor is expected on :8888.
+dev:
+    cd apps/leptos && trunk serve --address 127.0.0.1 --port 8117
 
-# Start all services for development
-dev: ipfs-start
-    @echo "🍄 Starting Mycelix-Mail development environment..."
-    just backend &
-    just frontend &
-    @echo ""
-    @echo "Services:"
-    @echo "  Backend:  http://localhost:3001"
-    @echo "  Frontend: http://localhost:5173"
-    @echo "  IPFS:     http://localhost:5001"
-    @echo ""
-    wait
+# Compile the canonical browser application without rewriting tracked files.
+check-ui:
+    cargo check --manifest-path apps/leptos/Cargo.toml --locked
 
-# Start backend only
-backend:
-    cd happ/backend-rs && cargo run
+# Test versioned browser-safe protocol contracts.
+test-protocol:
+    cargo test --manifest-path crates/mail-leptos-types/Cargo.toml
 
-# Start backend with auto-reload
-backend-watch:
-    cd happ/backend-rs && cargo watch -x run
+# Shared Pulse V2 primitives: native behavior plus browser-target compilation.
+test-crypto:
+    cargo test --manifest-path ../mycelix-identity/crates/mycelix-crypto/Cargo.toml --features hybrid-rc pulse_v2
+    cargo check --manifest-path ../mycelix-identity/crates/mycelix-crypto/Cargo.toml --target wasm32-unknown-unknown --features hybrid-rc
 
-# Start frontend dev server
-frontend:
-    cd ui/frontend && npm run dev
+# Test the canonical Holochain coordinator workspace.
+test-zomes:
+    CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-holochain-target} cargo test --manifest-path holochain/Cargo.toml --lib
 
-# ============================================================================
-# Building
-# ============================================================================
+# Fast canonical alpha gate. Formatting commands are checks and do not rewrite files.
+check: fmt-check check-ui test-protocol test-crypto test-zomes
 
-# Build all components
-build: build-dna build-backend build-frontend
-    @echo "✅ All components built successfully"
+fmt-check:
+    cargo fmt --manifest-path apps/leptos/Cargo.toml -- --check
+    cargo fmt --manifest-path crates/mail-leptos-types/Cargo.toml -- --check
+    cargo fmt --manifest-path holochain/Cargo.toml \
+      -p contacts_integrity -p contacts \
+      -p mail_profiles_integrity -p mail_profiles \
+      -p mail_trust_integrity -p mail_trust \
+      -p keys_integrity -p keys \
+      -p mail_messages_integrity -p mail_messages \
+      -- --check
 
-# Build Holochain DNA
+# Build the browser bundle.
+build-ui:
+    cd apps/leptos && trunk build --release
+
+# Build from holochain/ so its WASM getrandom backend configuration applies.
+# Pack only after every zome WASM has been freshly produced. The release
+# artifact is intentionally the restricted alpha DNA, not the broad
+# experimental DNA in holochain/dna.
+#
+# `holochain/dna-alpha/dna.yaml` references static relative paths under
+# `holochain/target/wasm32-unknown-unknown/release/`. Cargo, however, writes
+# to `$CARGO_TARGET_DIR` (session-isolated per repo Rule 5 and reclaimed
+# after ~48h) — those two locations silently diverge across sessions if
+# nothing bridges them, which let a stale/dangling `holochain/target` symlink
+# from a prior, now-reclaimed session pass `hc dna pack` without error while
+# actually packing WASM that no longer matched the source (caught 2026-07-15).
+# The explicit copy below makes packing correct regardless of what
+# CARGO_TARGET_DIR resolves to for the session running this recipe.
 build-dna:
-    @echo "Building DNA..."
-    cd happ/dna/integrity && cargo build --release --target wasm32-unknown-unknown
-    cd happ/dna/zomes/mail_messages && cargo build --release --target wasm32-unknown-unknown
-    cd happ/dna/zomes/trust_filter && cargo build --release --target wasm32-unknown-unknown
-    @echo "✅ DNA zomes built"
+    hc --version | rg -x 'holochain_cli 0\.6\.1'
+    cd holochain && cargo build --release --target wasm32-unknown-unknown
+    mkdir -p holochain/target/wasm32-unknown-unknown/release
+    cp -f "${CARGO_TARGET_DIR:-holochain/target}"/wasm32-unknown-unknown/release/*.wasm holochain/target/wasm32-unknown-unknown/release/
+    cd holochain && hc dna pack dna-alpha -o dna-alpha/mycelix_pulse_alpha.dna
 
-# Build Rust backend
-build-backend:
-    @echo "Building backend..."
-    cd happ/backend-rs && cargo build --release
-    @echo "✅ Backend built: happ/backend-rs/target/release/mycelix-mail-backend"
+build-happ: build-dna
+    cd holochain && hc app pack . -o mycelix_pulse_alpha.happ
 
-# Build frontend for production
-build-frontend:
-    @echo "Building frontend..."
-    cd ui/frontend && npm run build
-    @echo "✅ Frontend built: ui/frontend/dist/"
+# Experimental SMTP gateway; not part of the working-alpha support claim.
+test-smtp-experimental:
+    cargo test --manifest-path crates/pulse-smtp-gateway/Cargo.toml
 
-# ============================================================================
-# Testing
-# ============================================================================
+# Deterministic delivery proof. DNA must have been freshly packed first.
+# Runs transport, negative-path, and restart-recovery evidence sequentially
+# (--test-threads=1 — each spins up its own pair of conductors, so parallel
+# runs would multiply memory/CPU pressure for no benefit). The outer timeout
+# is deliberately generous (each test's own internal tokio::time::timeout is
+# the real 1500s-per-test bound); this is only a belt-and-suspenders backstop
+# against a hang that bypasses that timeout entirely.
+test-delivery:
+    test -n "${LIBCLANG_PATH:-}" || (echo "LIBCLANG_PATH is required; run inside nix develop" && exit 1)
+    timeout 4800s env CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security phase0_v2 -- --ignored --test-threads=1
 
-# Run all tests
-test: test-dna test-backend test-frontend
-    @echo "✅ All tests passed"
+# The fast half of test-delivery: transport + negative-paths, no restart
+# (which Holochain's own test suite gates behind `slow_tests` — see the
+# doc comment on phase0_v2_conductor_restart_recovery). Prefer this when
+# you just need quick signal on the core send/verify/reject behavior.
+test-delivery-fast:
+    test -n "${LIBCLANG_PATH:-}" || (echo "LIBCLANG_PATH is required; run inside nix develop" && exit 1)
+    timeout 3600s env CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security -- --ignored --test-threads=1 phase0_v2_hybrid_pqc_transport phase0_v2_negative_paths
 
-# Test DNA zomes
-test-dna:
-    @echo "Testing DNA..."
-    cd happ/dna && cargo test
-    @echo "✅ DNA tests passed"
+# Restart recovery in isolation. Deliberately not part of test-delivery-fast
+# — inherently slow (see doc comment), give it a dedicated window.
+test-delivery-restart:
+    test -n "${LIBCLANG_PATH:-}" || (echo "LIBCLANG_PATH is required; run inside nix develop" && exit 1)
+    timeout 3000s env CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security phase0_v2_conductor_restart_recovery -- --ignored --test-threads=1
 
-# Test backend
-test-backend:
-    @echo "Testing backend..."
-    cd happ/backend-rs && cargo test
-    @echo "✅ Backend tests passed"
+# Compatibility evidence for the readable V1 path; not the default alpha send.
+test-v1-transport-compat:
+    test -n "${LIBCLANG_PATH:-}" || (echo "LIBCLANG_PATH is required; run inside nix develop" && exit 1)
+    timeout 420s env CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security phase0_alice_sends_bob_receives -- --ignored --test-threads=1
 
-# Test frontend
-test-frontend:
-    @echo "Testing frontend..."
-    cd ui/frontend && npm test -- --run
-    @echo "✅ Frontend tests passed"
-
-# Run backend tests with coverage
-test-coverage:
-    cd happ/backend-rs && cargo tarpaulin --out Html
-
-# ============================================================================
-# Linting & Formatting
-# ============================================================================
-
-# Format all code
-fmt: fmt-rust fmt-frontend
-    @echo "✅ All code formatted"
-
-# Format Rust code
-fmt-rust:
-    cd happ/backend-rs && cargo fmt
-    cd happ/dna && cargo fmt
-    cd happ/cli && cargo fmt
-
-# Format frontend code
-fmt-frontend:
-    cd ui/frontend && npm run lint:fix
-
-# Check code style
-lint: lint-rust lint-frontend
-    @echo "✅ All linting passed"
-
-# Lint Rust code
-lint-rust:
-    cd happ/backend-rs && cargo clippy -- -D warnings
-    cd happ/dna && cargo clippy -- -D warnings
-
-# Lint frontend code
-lint-frontend:
-    cd ui/frontend && npm run lint
-
-# ============================================================================
-# Infrastructure
-# ============================================================================
-
-# Start IPFS daemon
-ipfs-start:
-    @if ! pgrep -x "ipfs" > /dev/null; then \
-        echo "Starting IPFS daemon..."; \
-        ipfs daemon --init &; \
-        sleep 2; \
-    else \
-        echo "IPFS already running"; \
-    fi
-
-# Stop IPFS daemon
-ipfs-stop:
-    @pkill ipfs || true
-    @echo "IPFS stopped"
-
-# Start Holochain conductor
-holochain-start:
-    @echo "Starting Holochain conductor..."
-    holochain sandbox generate --run=4444 workdir
-
-# Install DNA to conductor
-holochain-install:
-    hc sandbox call install-app happ/workdir/mycelix-mail.happ
-
-# ============================================================================
-# Setup
-# ============================================================================
-
-# Initial setup for new developers
-setup: setup-frontend setup-env
-    @echo "✅ Setup complete! Run 'just dev' to start development"
-
-# Install frontend dependencies
-setup-frontend:
-    cd ui/frontend && npm install
-
-# Create .env files from examples
-setup-env:
-    @if [ ! -f happ/backend-rs/.env ]; then \
-        cp happ/backend-rs/.env.example happ/backend-rs/.env; \
-        echo "Created happ/backend-rs/.env"; \
-    fi
-    @if [ ! -f ui/frontend/.env ]; then \
-        cp ui/frontend/.env.example ui/frontend/.env; \
-        echo "Created ui/frontend/.env"; \
-    fi
-
-# ============================================================================
-# Cleanup
-# ============================================================================
-
-# Clean all build artifacts
-clean: clean-rust clean-frontend
-    @echo "✅ All build artifacts cleaned"
-
-# Clean Rust build artifacts
-clean-rust:
-    cd happ/backend-rs && cargo clean
-    cd happ/dna && cargo clean
-    cd happ/cli && cargo clean
-
-# Clean frontend build artifacts
-clean-frontend:
-    rm -rf ui/frontend/dist
-    rm -rf ui/frontend/node_modules/.vite
-
-# ============================================================================
-# Documentation
-# ============================================================================
-
-# Generate API documentation
-docs:
-    cd happ/backend-rs && cargo doc --open
-
-# ============================================================================
-# Release
-# ============================================================================
-
-# Create a release build
-release: build
-    @echo "Creating release..."
-    mkdir -p release
-    cp happ/backend-rs/target/release/mycelix-mail-backend release/
-    cp -r ui/frontend/dist release/frontend
-    @echo "✅ Release created in release/"
-
-# Check release readiness
-check-release:
-    @echo "Checking release readiness..."
-    just lint
-    just test
-    just build
-    @echo "✅ Ready for release"
+# Compile the conductor evidence harness without requiring a packed DNA.
+check-delivery-harness:
+    CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security --no-run

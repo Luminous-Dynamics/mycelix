@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "authority_paths": {
+    "bilateral": {
+      "required_approvers": ["buyer", "seller"],
+      "same_exact_binding": true,
+      "unilateral_resolution_forbidden": true
+    },
+    "arbitration": {
+      "conflict_bound_dispute_required": true,
+      "resolved_result_required": true,
+      "selected_head_rule": "unique_head_authored_by_result_winner",
+      "resolution_author": "assigned_arbitrator"
+    }
+  },
+  "binding": {
+    "stable_transaction_root": true,
+    "minimum_heads": 2,
+    "heads_sorted_and_unique": true,
+    "selected_head_must_be_bound": true,
+    "immutable_identity_must_match": true
+  },
+  "reducer": {
+    "state": "authorized_resolved",
+    "selected_branch_may_advance": true,
+    "selected_branch_may_not_fork": true,
+    "superseded_descendants_remain_visible": true,
+    "conflicting_authorities_fail_closed": true
+  },
+  "forbidden_authority": [
+    "timestamp_order",
+    "action_hash_order",
+    "arrival_order",
+    "single_party_approval",
+    "synthesized_transaction_state"
+  ]
+}

@@ -19,20 +19,6 @@
   },
   "nodes": [
     {
-      "id": "CERT-MGT-GOOGLE-PM",
-      "title": "Google Project Management Certificate",
-      "description": "Foundations of project management: initiating, planning, and executing projects. Agile, Waterfall, and Lean methodologies. Practical skills for guild leaders.",
-      "node_type": "Course",
-      "difficulty": "Beginner",
-      "domain": "Modern Leadership",
-      "subdomain": "Wisdom Bridge",
-      "tags": ["google", "management", "project", "standard"],
-      "estimated_hours": 120,
-      "grade_levels": ["Professional"],
-      "bloom_level": "Apply",
-      "subject_area": "Social Studies"
-    },
-    {
       "id": "ANC-STO-101",
       "title": "Stoic Logic & The Inner Citadel",
       "description": "Ancient techniques for emotional resilience and epistemic humility. Marcus Aurelius and Epictetus. Managing the 'internal substrate' during systemic crisis.",

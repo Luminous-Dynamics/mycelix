@@ -3,11 +3,34 @@
 
 //! Compose page with reply/forward prefill (#3).
 
-use crate::components::{FileDropZone, RichEditor};
+use crate::components::RichEditor;
 use crate::mail_context::use_mail;
 use crate::toasts::use_toasts;
 use leptos::prelude::*;
 use mail_leptos_types::ComposeMode;
+use mail_leptos_types::protocol::{
+    AuthenticatedMetadataV1, ENVELOPE_V2_HYBRID_PQC, EncryptedEnvelopeV2HybridPqc, EncryptionKeyId,
+    MessageId, MessagePlaintextV2, SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65,
+};
+use mycelix_crypto::CryptoError;
+use mycelix_crypto::pulse_v2::{RecipientPublicKeys, seal_with_aad};
+use serde::Deserialize;
+
+#[derive(Clone, Debug, Deserialize)]
+struct HybridBundleWireV2 {
+    key_id: [u8; 32],
+    x25519_public_key: [u8; 32],
+    ml_kem_768_public_key: Vec<u8>,
+    ml_dsa_65_public_key: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct HybridSendContextWireV2 {
+    sender_agent_raw: Vec<u8>,
+    recipient_agent_raw: Vec<u8>,
+    sender_bundle: HybridBundleWireV2,
+    recipient_bundle: HybridBundleWireV2,
+}
 
 #[component]
 pub fn ComposePage() -> impl IntoView {
@@ -111,13 +134,9 @@ pub fn ComposePage() -> impl IntoView {
             }
         });
     }
-    let use_pqc = RwSignal::new(true);
     let show_cc = RwSignal::new(false);
     let sending = RwSignal::new(false);
     let show_templates = RwSignal::new(false);
-    let attachments = RwSignal::new(Vec::<crate::components::Attachment>::new());
-    let schedule_send = RwSignal::new(false);
-    let schedule_datetime = RwSignal::new(String::new());
 
     let reply_thread_send = RwSignal::new(reply_thread.clone());
     let reply_hash_send = RwSignal::new(reply_hash.clone());
@@ -159,12 +178,7 @@ pub fn ComposePage() -> impl IntoView {
         }
 
         sending.set(true);
-        let pqc = use_pqc.get();
-        let crypto_label = if pqc {
-            "PQC (Kyber+Dilithium)"
-        } else {
-            "E2E (X25519+Ed25519)"
-        };
+        let crypto_label = "Hybrid PQC V2 (X25519 + ML-KEM-768 + ML-DSA-65)";
 
         // Expand template variables
         let now = js_sys::Date::new_0();
@@ -185,33 +199,6 @@ pub fn ComposePage() -> impl IntoView {
             .replace("{{date}}", &today)
             .replace("{{time}}", &time_now)
             .replace("{{sender}}", "You");
-
-        // Handle scheduled send
-        if schedule_send.get() {
-            let dt = schedule_datetime.get();
-            if !dt.is_empty() {
-                // Queue in localStorage for later dispatch
-                if let Some(s) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-                    let queued = serde_json::json!({
-                        "to": to.trim(), "subject": subject, "body": body,
-                        "pqc": pqc, "scheduled_at": dt,
-                    });
-                    let key = format!("mycelix_scheduled_{}", js_sys::Date::now() as u64);
-                    let _ = s.set_item(&key, &queued.to_string());
-                }
-                toasts_send.push(format!("Scheduled for {dt}"), "success");
-                to_field.set(String::new());
-                subject_field.set(String::new());
-                body_field.set(String::new());
-                sending.set(false);
-                schedule_send.set(false);
-                schedule_datetime.set(String::new());
-                if let Some(s) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-                    let _ = s.remove_item(draft_key);
-                }
-                return;
-            }
-        }
 
         // Undo send: 5-second delay before actually sending
         let undo = RwSignal::new(false);
@@ -240,7 +227,17 @@ pub fn ComposePage() -> impl IntoView {
         let send_to = to.trim().to_string();
         let send_subject = subject.clone();
         let send_body = body.clone();
-        let send_pqc = pqc;
+
+        // Resolve the Holochain context now, synchronously, while the
+        // Compose page's reactive owner is still alive — NOT after the 5s
+        // undo sleep below. `use_holochain()`/`expect_context` walks the
+        // current reactive-owner tree, which can be disposed by the time a
+        // delayed `spawn_local` task resumes (e.g. after navigating away),
+        // causing a hard WASM panic ("expected context ... to be present")
+        // that silently kills the whole send — found live via the browser
+        // proof: the send button's "Sending..." state clears synchronously
+        // above and gives no indication the delayed zome call ever panics.
+        let hc = crate::holochain::use_holochain();
 
         // Delayed send — 5s undo window, then actual zome call
         wasm_bindgen_futures::spawn_local(async move {
@@ -249,8 +246,6 @@ pub fn ComposePage() -> impl IntoView {
                 toasts_undo.push("Send cancelled", "info");
                 return;
             }
-
-            let hc = crate::holochain::use_holochain();
             if hc.is_mock() {
                 // Demo mode: add the email to the local inbox so the demo feels alive
                 let now = (js_sys::Date::now() / 1000.0) as u64;
@@ -281,9 +276,9 @@ pub fn ComposePage() -> impl IntoView {
                             labels: vec![],
                             thread_id: reply_thread_send.get_untracked(),
                             crypto_suite: mail_leptos_types::CryptoSuiteView {
-                                key_exchange: if send_pqc { "kyber1024" } else { "x25519" }.into(),
-                                symmetric: "chacha20-poly1305".into(),
-                                signature: if send_pqc { "dilithium3" } else { "ed25519" }.into(),
+                                key_exchange: "x25519+ml-kem-768".into(),
+                                symmetric: "aes-256-gcm".into(),
+                                signature: "agent-ed25519+ml-dsa-65".into(),
                             },
                         },
                     );
@@ -292,148 +287,163 @@ pub fn ComposePage() -> impl IntoView {
                 return;
             }
 
-            let recipient_bundle = match hc
-                .call_zome::<serde_json::Value, serde_json::Value>(
+            let context = match hc
+                .call_zome::<serde_json::Value, Option<HybridSendContextWireV2>>(
                     "mail_keys",
-                    "get_pre_key_bundle",
+                    "resolve_hybrid_send_context_v2",
                     &serde_json::json!(send_to),
                 )
                 .await
             {
-                Ok(bundle) if !bundle.is_null() => bundle,
-                Ok(_) => {
-                    toasts_undo.push("Recipient has no published key bundle yet", "error");
-                    crate::offline::enqueue_action(mail_leptos_types::OfflineAction::Send {
-                        to: send_to,
-                        subject: send_subject,
-                        body: send_body,
-                        use_pqc: send_pqc,
-                    });
+                Ok(Some(context)) => context,
+                Ok(None) => {
+                    toasts_undo.push("Recipient has no active hybrid-PQC V2 key bundle", "error");
                     return;
                 }
                 Err(e) => {
                     toasts_undo.push(format!("Could not fetch recipient keys: {e}"), "error");
-                    crate::offline::enqueue_action(mail_leptos_types::OfflineAction::Send {
-                        to: send_to,
-                        subject: send_subject,
-                        body: send_body,
-                        use_pqc: send_pqc,
-                    });
                     return;
                 }
             };
 
-            let recipient_pubkey: Vec<u8> = recipient_bundle
-                .get("identity_key")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_u64().map(|n| n as u8))
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-
-            if recipient_pubkey.len() != 32 {
-                toasts_undo.push("Recipient bundle is missing a valid identity key", "error");
+            let identity = match crate::device_keystore::load_hybrid_identity().await {
+                Ok(identity) => identity,
+                Err(e) => {
+                    toasts_undo.push(format!("Device identity unavailable: {e}"), "error");
+                    return;
+                }
+            };
+            let local_public = identity.public_bundle();
+            if local_public.x25519_public_key != context.sender_bundle.x25519_public_key
+                || local_public.ml_kem_768_public_key != context.sender_bundle.ml_kem_768_public_key
+                || local_public.ml_dsa_65_public_key != context.sender_bundle.ml_dsa_65_public_key
+            {
+                toasts_undo.push("Device keys do not match the active sender bundle; refusing to replace or downgrade", "error");
                 return;
             }
 
-            let crypto = match crate::crypto::derive_message_crypto(&recipient_pubkey) {
-                Ok(crypto) => crypto,
-                Err(e) => {
-                    toasts_undo.push(format!("Could not derive message keys: {e}"), "error");
+            let message_id: [u8; 32] = crate::crypto::generate_nonce(32)
+                .try_into()
+                .expect("secure RNG returned the requested message ID length");
+            let timestamp_micros = (js_sys::Date::now() * 1000.0) as i64;
+            let plaintext = MessagePlaintextV2 {
+                subject: send_subject,
+                body: send_body,
+                content_type: "text/plain; charset=utf-8".into(),
+            };
+            let plaintext = match plaintext.canonical_bytes() {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    toasts_undo.push(format!("Message encoding failed: {error:?}"), "error");
                     return;
                 }
             };
-
-            let encrypted_subject = match crate::crypto::encrypt_with_key(
-                send_subject.as_bytes(),
-                &crypto.subject_key,
-                &crypto.nonce,
-            )
-            .await
-            {
-                Ok(ct) => ct,
-                Err(e) => {
-                    toasts_undo.push(format!("Subject encryption failed: {e}"), "error");
+            let recipient_keys = RecipientPublicKeys {
+                x25519: context.recipient_bundle.x25519_public_key,
+                ml_kem_768: context.recipient_bundle.ml_kem_768_public_key.clone(),
+            };
+            let sealed =
+                match seal_with_aad(&recipient_keys, &plaintext, |ephemeral, kem, nonce| {
+                    EncryptedEnvelopeV2HybridPqc {
+                        version: ENVELOPE_V2_HYBRID_PQC,
+                        cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+                        message_id: MessageId(message_id),
+                        sender_agent: context.sender_agent_raw.clone(),
+                        recipient_agent: context.recipient_agent_raw.clone(),
+                        sender_mldsa_key_id: EncryptionKeyId(context.sender_bundle.key_id),
+                        recipient_hybrid_key_id: EncryptionKeyId(context.recipient_bundle.key_id),
+                        x25519_ephemeral_public_key: *ephemeral,
+                        ml_kem_ciphertext: kem.to_vec(),
+                        nonce: *nonce,
+                        ciphertext: Vec::new(),
+                        metadata: AuthenticatedMetadataV1 {
+                            in_reply_to: None,
+                            thread_id: None,
+                        },
+                        created_at_micros: timestamp_micros,
+                        agent_signature: Vec::new(),
+                        ml_dsa_signature: Vec::new(),
+                    }
+                    .canonical_aad()
+                    .map_err(|error| {
+                        CryptoError::Validation(format!("invalid canonical V2 AAD: {error:?}"))
+                    })
+                }) {
+                    Ok(sealed) => sealed,
+                    Err(error) => {
+                        toasts_undo.push(format!("Hybrid-PQC encryption failed: {error}"), "error");
+                        return;
+                    }
+                };
+            let mut envelope = EncryptedEnvelopeV2HybridPqc {
+                version: ENVELOPE_V2_HYBRID_PQC,
+                cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+                message_id: MessageId(message_id),
+                sender_agent: context.sender_agent_raw,
+                recipient_agent: context.recipient_agent_raw,
+                sender_mldsa_key_id: EncryptionKeyId(context.sender_bundle.key_id),
+                recipient_hybrid_key_id: EncryptionKeyId(context.recipient_bundle.key_id),
+                x25519_ephemeral_public_key: sealed.x25519_ephemeral_public,
+                ml_kem_ciphertext: sealed.ml_kem_ciphertext,
+                nonce: sealed.nonce,
+                ciphertext: sealed.ciphertext,
+                metadata: AuthenticatedMetadataV1 {
+                    in_reply_to: None,
+                    thread_id: None,
+                },
+                created_at_micros: timestamp_micros,
+                agent_signature: Vec::new(),
+                ml_dsa_signature: Vec::new(),
+            };
+            let transcript = match envelope.canonical_signing_bytes() {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    toasts_undo.push(format!("V2 transcript failed: {error:?}"), "error");
                     return;
                 }
             };
-
-            let encrypted_body = match crate::crypto::encrypt_with_key(
-                send_body.as_bytes(),
-                &crypto.body_key,
-                &crypto.nonce,
-            )
-            .await
-            {
-                Ok(ct) => ct,
-                Err(e) => {
-                    toasts_undo.push(format!("Body encryption failed: {e}"), "error");
-                    return;
-                }
-            };
-
-            if send_pqc {
-                toasts_undo.push(
-                    "Live send currently uses X25519 + AES-GCM while PQC transport is still being wired",
-                    "info",
-                );
-            }
-
-            let crypto_suite = serde_json::json!({
-                "key_exchange": "x25519",
-                "symmetric": "aes-256-gcm",
-                "signature": "ed25519"
-            });
-            let signature = crate::crypto::sign_message(&encrypted_body, &crypto.nonce);
-
-            let message_id = format!("<{}@mycelix.net>", js_sys::Date::now() as u64);
+            envelope.ml_dsa_signature = identity.ml_dsa.sign(&transcript);
 
             let payload = serde_json::json!({
-                "recipients": [send_to],
-                "cc": [],
-                "bcc": [],
-                "encrypted_subject": encrypted_subject,
-                "encrypted_body": encrypted_body,
-                "encrypted_attachments": [],
-                "ephemeral_pubkey": crypto.ephemeral_pubkey,
-                "nonce": crypto.nonce.to_vec(),
-                "signature": signature,
-                "crypto_suite": crypto_suite,
+                "recipient": send_to,
                 "message_id": message_id,
-                "in_reply_to": reply_hash_send.get_untracked().as_deref().unwrap_or("").to_string(),
-                "references": reply_thread_send.get_untracked().as_deref().map(|t| vec![t.to_string()]).unwrap_or_default(),
-                "priority": "Normal",
-                "read_receipt_requested": false,
-                "expires_at": serde_json::Value::Null
+                "sender_mldsa_key_id": envelope.sender_mldsa_key_id.0,
+                "recipient_hybrid_key_id": envelope.recipient_hybrid_key_id.0,
+                "x25519_ephemeral_public_key": envelope.x25519_ephemeral_public_key,
+                "ml_kem_ciphertext": envelope.ml_kem_ciphertext,
+                "nonce": envelope.nonce,
+                "ciphertext": envelope.ciphertext,
+                "in_reply_to": serde_json::Value::Null,
+                "thread_id": serde_json::Value::Null,
+                "created_at_micros": timestamp_micros,
+                "ml_dsa_signature": envelope.ml_dsa_signature,
             });
 
+            // send_email_v2 returns an ActionHash (raw bytes on the wire) —
+            // decoding that as serde_json::Value fails ("invalid type: byte
+            // array, expected any valid JSON value"; msgpack's bin type has
+            // no JSON equivalent). The DHT write itself would still succeed
+            // despite the client seeing an Err here — see the identical fix
+            // and full explanation in profile_setup.rs's set_profile /
+            // publish_hybrid_key_bundle_v2 calls, found live via the Pulse
+            // browser proof.
             match hc
-                .call_zome::<serde_json::Value, serde_json::Value>(
-                    "mail_messages",
-                    "send_email",
-                    &payload,
-                )
+                .call_zome::<serde_json::Value, Vec<u8>>("mail_messages", "send_email_v2", &payload)
                 .await
             {
                 Ok(response) => {
                     web_sys::console::log_1(
-                        &format!("[Mail] send_email response: {:?}", response).into(),
+                        &format!("[Mail] send_email_v2 response: {:?}", response).into(),
                     );
                     toasts_undo.push("Message sent and committed to DHT", "success");
                     mail.versions.inbox.update(|v| *v += 1);
                 }
                 Err(e) => {
-                    web_sys::console::warn_1(&format!("[Mail] send_email failed: {e}").into());
-                    // Queue for offline retry
-                    crate::offline::enqueue_action(mail_leptos_types::OfflineAction::Send {
-                        to: send_to,
-                        subject: send_subject,
-                        body: send_body,
-                        use_pqc: send_pqc,
-                    });
-                    toasts_undo.push(format!("Send failed: {e}. Queued for retry."), "error");
+                    web_sys::console::warn_1(&format!("[Mail] send_email_v2 failed: {e}").into());
+                    toasts_undo.push(
+                        format!("Send failed: {e}. Reconnect and try again."),
+                        "error",
+                    );
                 }
             }
         });
@@ -486,17 +496,20 @@ pub fn ComposePage() -> impl IntoView {
             if !hc.is_mock() {
                 let q = query.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    if let Ok(contact) = hc
-                        .call_zome::<serde_json::Value, serde_json::Value>(
+                    // get_contact_by_email returns Option<Contact>, whose
+                    // hash/agent_pub_key are raw bytes — decoding as
+                    // serde_json::Value fails whenever the matched contact
+                    // has a linked agent key.
+                    if let Ok(Some(contact)) = hc
+                        .call_zome::<serde_json::Value, Option<crate::zome_adapter::WireContact>>(
                             "mail_contacts",
                             "get_contact_by_email",
                             &serde_json::json!(q),
                         )
                         .await
                     {
-                        if let Some(contact) = crate::zome_adapter::adapt_contact_value(contact) {
-                            dht_suggestions.set(vec![contact]);
-                        }
+                        let contact = crate::zome_adapter::adapt_contacts(vec![contact]).remove(0);
+                        dht_suggestions.set(vec![contact]);
                     }
                 });
             }
@@ -519,21 +532,17 @@ pub fn ComposePage() -> impl IntoView {
                 </div>
             </div>
 
-            // Keyboard shortcuts: Ctrl+Enter=send, Ctrl+Shift+S=schedule
+            // Keyboard shortcut: Ctrl+Enter sends while live.
             <div class="compose-form"
                  on:keydown=move |ev: web_sys::KeyboardEvent| {
                      if ev.ctrl_key() && ev.key() == "Enter" {
                          ev.prevent_default();
                          // Trigger send button click
                          let _ = js_sys::eval("document.querySelector('.page-compose .btn-primary')?.click()");
-                     } else if ev.ctrl_key() && ev.shift_key() && ev.key() == "S" {
-                         ev.prevent_default();
-                         schedule_send.set(true);
                      }
                  }>
                 <div class="compose-shortcuts-hint">
                     <kbd>"Ctrl+Enter"</kbd>" send  "
-                    <kbd>"Ctrl+Shift+S"</kbd>" schedule  "
                     <kbd>"Tab"</kbd>" complete contact"
                 </div>
                 // Template picker
@@ -662,41 +671,8 @@ pub fn ComposePage() -> impl IntoView {
                     <crate::components::ToneIndicator text=body_field />
                 </div>
 
-                // Attachments
-                <FileDropZone attachments=attachments />
-
                 <div class="compose-options">
-                    <label class="option-toggle">
-                        <input
-                            type="checkbox"
-                            prop:checked=move || use_pqc.get()
-                            on:change=move |ev| use_pqc.set(event_target_checked(&ev))
-                        />
-                        <span class="option-label">
-                            {move || if use_pqc.get() {
-                                "\u{1F6E1} Post-Quantum Encryption (Kyber1024 + Dilithium3)"
-                            } else {
-                                "\u{1F512} Standard E2E Encryption (X25519 + Ed25519)"
-                            }}
-                        </span>
-                    </label>
-                    // Scheduled send
-                    <label class="option-toggle">
-                        <input
-                            type="checkbox"
-                            prop:checked=move || schedule_send.get()
-                            on:change=move |ev| schedule_send.set(event_target_checked(&ev))
-                        />
-                        <span class="option-label">"\u{23F0} Schedule send"</span>
-                    </label>
-                    <div class="schedule-picker" style=move || if schedule_send.get() { "" } else { "display:none" }>
-                        <input
-                            type="datetime-local"
-                            class="schedule-input"
-                            prop:value=move || schedule_datetime.get()
-                            on:input=move |ev| schedule_datetime.set(event_target_value(&ev))
-                        />
-                    </div>
+                    <span class="option-label">"\u{1F512} X25519 + AES-256-GCM + agent Ed25519 signature"</span>
                     // Template variable hint
                     <div class="template-vars-hint">
                         <details>
@@ -727,12 +703,4 @@ fn event_target_value(ev: &leptos::ev::Event) -> String {
                 .map(|el| el.value())
         })
         .unwrap_or_default()
-}
-
-fn event_target_checked(ev: &leptos::ev::Event) -> bool {
-    use wasm_bindgen::JsCast;
-    ev.target()
-        .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
-        .map(|el| el.checked())
-        .unwrap_or(false)
 }

@@ -225,10 +225,10 @@ mod tests {
         assert!(suspicious_pogq.entropy > 0.7);
     }
 
-    // ===== 45% Byzantine Tolerance Tests =====
+    // ===== Illustrative reputation-weighting arithmetic (not a safety proof) =====
 
     #[test]
-    fn test_byzantine_power_calculation_concept() {
+    fn illustrative_reputation_power_calculation() {
         // Byzantine_Power = Σ(malicious_reputation²)
         // System safe when: Byzantine_Power < Honest_Power / 3
 
@@ -259,12 +259,12 @@ mod tests {
             threshold
         );
 
-        // This proves 40% malicious agents can be tolerated!
+        // This only checks one chosen numerical scenario; it is not a protocol proof.
     }
 
     #[test]
-    fn test_45_percent_byzantine_tolerance() {
-        // Test the theoretical 45% limit
+    fn illustrative_45_percent_parameter_scenario() {
+        // Exercise one historical parameter scenario without claiming a protocol limit
         let total_agents = 100;
         let malicious_agents = 45; // 45%
         let honest_agents = 55;
@@ -279,16 +279,16 @@ mod tests {
 
         let threshold = honest_power / 3.0;
 
-        // At 45%, system should still be safe
+        // The selected arithmetic satisfies the selected threshold.
         assert!(
             byzantine_power < threshold,
-            "System should tolerate 45% Byzantine agents"
+            "Selected illustrative arithmetic should satisfy its threshold"
         );
     }
 
     #[test]
     fn test_reputation_weighting_advantage() {
-        // Show why reputation-weighting breaks the 33% limit
+        // Compare selected equal-weight and reputation-weighted counts; not a BFT proof
 
         // Classical BFT: All agents equal weight
         // → Safe up to 33% malicious
@@ -296,7 +296,7 @@ mod tests {
         // MATL: Agents weighted by reputation²
         // → New attackers have low reputation
         // → Need MORE nodes to reach same Byzantine power
-        // → Safe up to 45%!
+        // → This model assigns less power to low-reputation identities
 
         let malicious_count_classical = 33;
         let malicious_count_matl = 45;

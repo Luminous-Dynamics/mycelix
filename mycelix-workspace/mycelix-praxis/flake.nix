@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 {
-  description = "Mycelix EduNet - Privacy-Preserving Decentralized Education Platform";
+  description = "Mycelix Praxis - local-first decentralized learning platform";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -39,7 +39,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "mycelix-edunet-dev";
+          name = "mycelix-praxis-dev";
 
           buildInputs = with pkgs; [
             # Rust with WASM support

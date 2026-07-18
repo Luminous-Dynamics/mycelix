@@ -90,11 +90,21 @@ pub enum EntryTypes {
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::SecurityLog(log) => validate_security_log(&log),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::SecurityLog(log) => validate_create_security_log(&log, &action),
             },
+            // SecurityLog is confirmed create-only (no coordinator function ever calls
+            // update_entry on it) -- reject outright rather than leave an unbound dead-code
+            // path (P0 wide-open RegisterUpdate gap, confirmed dozens of times elsewhere in
+            // this pass).
+            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
+                "SecurityLog entries cannot be updated".to_string(),
+            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
+            "SecurityLog entries cannot be updated".to_string(),
+        )),
         FlatOp::RegisterCreateLink { link_type, .. } => {
             // All link types are valid for security logging
             match link_type {
@@ -105,6 +115,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+/// Bind the log to its committer -- log_security_event already derives agent from
+/// agent_info() coordinator-side with zero user input (P0 author-binding gap).
+fn validate_create_security_log(
+    log: &SecurityLog,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(reason) = validate_security_log(log)? {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if log.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SecurityLog must be recorded by the committing agent (agent forgery)".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate security log data

@@ -11,7 +11,7 @@ use finance_bridge_integrity::*;
 use finance_wire_types::{
     BalanceResponse, DepositCollateralInput, FeeTierResponse, FinanceBridgeHealth,
     FinanceRuntimeDiscovery, GetPaymentHistoryInput, ProcessPaymentInput, RegisterCollateralInput,
-    UpdateCollateralHealthInput,
+    UpdateCollateralHealthInput, VerifyPaymentStatusInput,
 };
 use hdk::prelude::*;
 use mycelix_bridge_common::SovereignProfile;
@@ -93,44 +93,261 @@ pub fn process_payment_remote(input: ProcessPaymentInput) -> ExternResult<Record
     process_payment(input)
 }
 
-/// Process a cross-hApp payment.
+/// Remote-callable recovery lookup for a stable payment idempotency key.
 ///
-/// Actually moves SAP: debits `from_did` and credits `to_did` via cross-zome
-/// calls into `payments::debit_sap`/`credit_sap` before recording the
-/// CrossHappPayment as Completed. Previously this function only wrote an
-/// audit-trail entry and never touched a real balance — any caller (e.g.
-/// mycelix-supplychain's or mycelix-marketplace's settlement bridge) that
-/// treated a successful response here as "payment settled" was wrong; no
-/// SAP ever moved. See MYCELIX_REVIEW.md P1 #4.
+/// A missing payment returns `None`. A found payment is returned at its latest
+/// visible revision after verifying that the caller is the payer represented by
+/// `from_did`.
+#[hdk_extern]
+pub fn verify_payment_status_remote(
+    input: VerifyPaymentStatusInput,
+) -> ExternResult<Option<Record>> {
+    verify_payment_status(input)
+}
+
+#[hdk_extern]
+pub fn verify_payment_status(
+    input: VerifyPaymentStatusInput,
+) -> ExternResult<Option<Record>> {
+    validate_payment_lookup_key(&input.source_happ, &input.reference)?;
+    let Some(record) = find_payment_by_reference(&input.source_happ, &input.reference)? else {
+        return Ok(None);
+    };
+    let payment = decode_cross_happ_payment(&record)?;
+    let caller_did = format!(
+        "did:mycelix:{}",
+        agent_info()?.agent_initial_pubkey
+    );
+    if caller_did != payment.from_did && caller_did != payment.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the payment sender or recipient may query its status".into()
+        )));
+    }
+    Ok(Some(record))
+}
+
+fn validate_payment_lookup_key(source_happ: &str, reference: &str) -> ExternResult<()> {
+    if source_happ.is_empty() || source_happ.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "source_happ is required and must be at most 256 bytes".into()
+        )));
+    }
+    if reference.is_empty() || reference.len() > 1024 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "reference is required and must be at most 1024 bytes".into()
+        )));
+    }
+    Ok(())
+}
+
+fn payment_reference_key(source_happ: &str, reference: &str) -> String {
+    format!("cross-happ-payment:{source_happ}:{reference}")
+}
+
+fn decode_cross_happ_payment(record: &Record) -> ExternResult<CrossHappPayment> {
+    record
+        .entry()
+        .to_app_option::<CrossHappPayment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode cross-hApp payment: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Cross-hApp payment entry is missing".into()
+            ))
+        })
+}
+
+fn find_payment_by_reference(
+    source_happ: &str,
+    reference: &str,
+) -> ExternResult<Option<Record>> {
+    let key = payment_reference_key(source_happ, reference);
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&key)?,
+            LinkTypes::PaymentReferenceToPayment,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut targets = HashSet::new();
+    for link in links {
+        let target = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Payment-reference link target is not an action hash".into()
+            ))
+        })?;
+        targets.insert(target);
+    }
+
+    if targets.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Conflicting payment records exist for source_happ={source_happ:?}, reference={reference:?}; refusing to move value"
+        ))));
+    }
+
+    let Some(root) = targets.into_iter().next() else {
+        return Ok(None);
+    };
+    Ok(Some(follow_update_chain(root)?))
+}
+
+fn ensure_same_payment_terms(
+    existing: &CrossHappPayment,
+    input: &ProcessPaymentInput,
+) -> ExternResult<()> {
+    if existing.source_happ != input.source_happ
+        || existing.from_did != input.from_did
+        || existing.to_did != input.to_did
+        || existing.amount != input.amount
+        || existing.currency != input.currency
+        || existing.reference != input.reference
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Payment idempotency key was reused with conflicting terms".into()
+        )));
+    }
+    Ok(())
+}
+
+fn update_payment_status(
+    record: &Record,
+    payment: CrossHappPayment,
+    status: PaymentStatus,
+    completed_at: Option<Timestamp>,
+) -> ExternResult<Record> {
+    let updated = CrossHappPayment {
+        status,
+        completed_at,
+        ..payment
+    };
+    let action_hash = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::CrossHappPayment(updated),
+    )?;
+    get(action_hash, GetOptions::default())?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Updated cross-hApp payment was not found".into()
+        ))
+    })
+}
+
+/// Process an idempotent cross-hApp SAP payment.
 ///
-/// Debit happens before credit (same ordering as `payments::send_payment`):
-/// if the debit fails (e.g. insufficient balance), nothing is created and
-/// the caller gets a real error instead of a false-positive Processing
-/// record. If credit fails after a successful debit, the sender's SAP is
-/// already gone — this narrow window exists in `send_payment` too and is a
-/// pre-existing, not newly introduced, limitation of not having atomic
-/// multi-entry transactions on the DHT.
+/// `(source_happ, reference)` is a stable idempotency key. The payment marker
+/// and reference link are committed before value moves. Retries return an
+/// existing Completed record without transferring again. A Processing or
+/// Failed record is deliberately fail-closed because a caller cannot prove
+/// whether a lost response happened before or after the value transfer.
 #[hdk_extern]
 pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
     verify_participant_tier()?;
     verify_caller_is_did(&input.from_did)?;
+    validate_payment_lookup_key(&input.source_happ, &input.reference)?;
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cross-hApp payment amount must be positive".into()
+        )));
+    }
+    if input.from_did == input.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cross-hApp payment sender and recipient must differ".into()
+        )));
+    }
     if input.currency != "SAP" {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Cross-hApp payments must use SAP currency".into()
         )));
     }
-    let now = sys_time()?;
 
-    // A cross-hApp payment is a pure member→member transfer, so route it through
-    // the sanctioned conservation-preserving `transfer_sap` (debit from + credit to,
-    // caller==from) instead of a raw debit + raw credit — no bare mint surface.
+    let pending_record = if let Some(record) =
+        find_payment_by_reference(&input.source_happ, &input.reference)?
+    {
+        let payment = decode_cross_happ_payment(&record)?;
+        ensure_same_payment_terms(&payment, &input)?;
+        match payment.status {
+            PaymentStatus::Completed => return Ok(record),
+            PaymentStatus::Pending => record,
+            PaymentStatus::Processing => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Payment is Processing; refusing an automatic retry because transfer outcome is indeterminate. Query payment status or reconcile manually.".into()
+                )));
+            }
+            PaymentStatus::Failed => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Payment is Failed; create a new reference after reconciliation instead of retrying this idempotency key".into()
+                )));
+            }
+            PaymentStatus::Refunded | PaymentStatus::Disputed => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Payment is in a terminal exception state and cannot be retried".into()
+                )));
+            }
+        }
+    } else {
+        let now = sys_time()?;
+        let payment = CrossHappPayment {
+            id: format!(
+                "payment:{}:{}:{}",
+                input.source_happ,
+                input.from_did,
+                now.as_micros()
+            ),
+            source_happ: input.source_happ.clone(),
+            from_did: input.from_did.clone(),
+            to_did: input.to_did.clone(),
+            amount: input.amount,
+            currency: input.currency.clone(),
+            reference: input.reference.clone(),
+            status: PaymentStatus::Pending,
+            created_at: now,
+            completed_at: None,
+        };
+        let hash = create_entry(&EntryTypes::CrossHappPayment(payment))?;
+        create_link(
+            anchor_hash(&input.from_did)?,
+            hash.clone(),
+            LinkTypes::DidToPayments,
+            (),
+        )?;
+        create_link(
+            anchor_hash(&input.source_happ)?,
+            hash.clone(),
+            LinkTypes::HappToPayments,
+            (),
+        )?;
+        create_link(
+            anchor_hash(&payment_reference_key(&input.source_happ, &input.reference))?,
+            hash.clone(),
+            LinkTypes::PaymentReferenceToPayment,
+            (),
+        )?;
+        get(hash, GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Pending cross-hApp payment was not found".into()
+            ))
+        })?
+    };
+
+    let pending = decode_cross_happ_payment(&pending_record)?;
+    let processing_record = update_payment_status(
+        &pending_record,
+        pending,
+        PaymentStatus::Processing,
+        None,
+    )?;
+    let processing = decode_cross_happ_payment(&processing_record)?;
+
     #[derive(Serialize, Debug)]
     struct TransferSapPayload {
         from_did: String,
         to_did: String,
         amount: u64,
     }
-    match call(
+    let transfer_result = call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
         FunctionName::from("transfer_sap"),
@@ -140,55 +357,48 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
             to_did: input.to_did.clone(),
             amount: input.amount,
         },
-    ) {
+    );
+
+    match transfer_result {
         Ok(ZomeCallResponse::Ok(_)) => {}
         Ok(other) => {
+            let failed_at = sys_time()?;
+            let _ = update_payment_status(
+                &processing_record,
+                processing,
+                PaymentStatus::Failed,
+                Some(failed_at),
+            );
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to transfer SAP for cross-happ payment ({} → {}): unexpected response {:?}",
+                "Failed to transfer SAP for cross-hApp payment ({} → {}): unexpected response {:?}",
                 input.from_did, input.to_did, other
             ))));
         }
         Err(e) => {
+            let failed_at = sys_time()?;
+            let _ = update_payment_status(
+                &processing_record,
+                processing,
+                PaymentStatus::Failed,
+                Some(failed_at),
+            );
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to transfer SAP for cross-happ payment ({} → {}): {:?}",
+                "Failed to transfer SAP for cross-hApp payment ({} → {}): {:?}",
                 input.from_did, input.to_did, e
             ))));
         }
     }
 
-    let payment = CrossHappPayment {
-        id: format!(
-            "payment:{}:{}:{}",
-            input.source_happ,
-            input.from_did,
-            now.as_micros()
-        ),
-        source_happ: input.source_happ.clone(),
-        from_did: input.from_did.clone(),
-        to_did: input.to_did.clone(),
-        amount: input.amount,
-        currency: input.currency.clone(),
-        reference: input.reference.clone(),
-        status: PaymentStatus::Completed,
-        created_at: now,
-        completed_at: Some(now),
-    };
-
-    let hash = create_entry(&EntryTypes::CrossHappPayment(payment))?;
-
-    create_link(
-        anchor_hash(&input.from_did)?,
-        hash.clone(),
-        LinkTypes::DidToPayments,
-        (),
-    )?;
-    create_link(
-        anchor_hash(&input.source_happ)?,
-        hash.clone(),
-        LinkTypes::HappToPayments,
-        (),
+    let completed_at = sys_time()?;
+    let completed_record = update_payment_status(
+        &processing_record,
+        processing,
+        PaymentStatus::Completed,
+        Some(completed_at),
     )?;
 
+    // Notification failure cannot roll value back. A retry returns the existing
+    // Completed record and therefore cannot transfer a second time.
     broadcast_finance_event(BroadcastFinanceEventInput {
         event_type: FinanceEventType::PaymentCompleted,
         subject_did: input.from_did,
@@ -201,9 +411,7 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
         .to_string(),
     })?;
 
-    get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Payment not found".into()
-    )))
+    Ok(completed_record)
 }
 
 /// Register collateral from another hApp

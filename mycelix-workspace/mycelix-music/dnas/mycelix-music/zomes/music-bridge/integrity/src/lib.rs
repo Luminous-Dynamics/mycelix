@@ -10,8 +10,8 @@
 use hdi::prelude::*;
 pub use mycelix_bridge_entry_types::CachedCredentialEntry;
 use mycelix_bridge_entry_types::{
-    check_author_match, check_link_author_match, validate_cached_credential,
-    validate_event_fields, validate_query_fields, BridgeEventEntry, BridgeQueryEntry,
+    BridgeEventEntry, BridgeQueryEntry, check_author_match, check_link_author_match,
+    validate_cached_credential, validate_event_fields, validate_query_fields,
 };
 
 /// Anchor entry for deterministic link bases
@@ -100,22 +100,30 @@ const VALID_DOMAINS: &[&str] = &["catalog", "plays", "balances", "trust"];
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             EntryTypes::Query(query) => validate_query(&query),
             EntryTypes::Event(event) => validate_event(&event),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::ConsciousComposition(comp) => validate_conscious_composition(&comp),
+            EntryTypes::ConsciousComposition(comp) => {
+                validate_create_conscious_composition(&comp, &action)
+            }
         },
+        // ConsciousComposition is confirmed create-only (no coordinator function ever calls
+        // update_entry on it) -- reject outright rather than leave the previous
+        // structural-only-but-unbound dead-code path (P0 wide-open RegisterUpdate gap,
+        // confirmed dozens of times elsewhere in this pass). Anchor/Query/Event/
+        // CachedCredential are shared bridge-common entry types used across multiple
+        // clusters (Commons/Civic too) with a real Query update flow -- left untouched,
+        // out of scope for this turn's ConsciousComposition-specific investigation.
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             EntryTypes::Query(query) => validate_query(&query),
             EntryTypes::Event(event) => validate_event(&event),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::ConsciousComposition(comp) => validate_conscious_composition(&comp),
+            EntryTypes::ConsciousComposition(_) => Ok(ValidateCallbackResult::Invalid(
+                "ConsciousComposition entries cannot be updated".to_string(),
+            )),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
@@ -171,6 +179,27 @@ fn validate_credential_cache(cred: &CachedCredentialEntry) -> ExternResult<Valid
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
     }
+}
+
+/// Bind the composition to its committer -- record_conscious_composition already derives
+/// composer_agent from agent_info() coordinator-side with zero user input (P0
+/// author-binding gap). Update-side authorship is already covered generically by this
+/// zome's FlatOp::RegisterUpdate handler (check_author_match against the original action),
+/// so no separate update-path work is needed here.
+fn validate_create_conscious_composition(
+    comp: &ConsciousCompositionEntry,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(reason) = validate_conscious_composition(comp)? {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+    if comp.composer_agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ConsciousComposition must be created by the composing agent (composer forgery)"
+                .to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_conscious_composition(

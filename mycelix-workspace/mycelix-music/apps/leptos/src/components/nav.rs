@@ -12,7 +12,6 @@ pub fn Nav() -> impl IntoView {
             <a href="/" class="logo">"Mycelix Music"</a>
             <div class="nav-links">
                 <A href="/">"Synthesize"</A>
-                <A href="/">"Synthesize"</A>
                 <A href="/discover">"Discover"</A>
                 <A href="/gallery">"Gallery"</A>
                 <A href="/dashboard">"Dashboard"</A>

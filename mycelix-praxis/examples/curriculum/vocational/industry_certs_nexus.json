@@ -48,20 +48,6 @@
       "subject_area": "Humanities"
     },
     {
-      "id": "CERT-ENV-HAZWOPER",
-      "title": "HAZWOPER 40-Hour (Hazardous Waste Operations)",
-      "description": "Safety training for workers involved in hazardous waste clean-up and emergency response. Linked to Planetary Repair and Bio-remediation.",
-      "node_type": "Course",
-      "difficulty": "Intermediate",
-      "domain": "Bio-Remediation",
-      "subdomain": "Certification Bridge",
-      "tags": ["hazwoper", "safety", "environment", "repair", "standard"],
-      "estimated_hours": 40,
-      "grade_levels": ["Professional"],
-      "bloom_level": "Apply",
-      "subject_area": "Science"
-    },
-    {
       "id": "CERT-URBAN-AICP",
       "title": "AICP Urban Planning Fundamentals",
       "description": "Land use, transportation, infrastructure, and environmental planning. Bridging habitat engineering to professional municipal planning.",
@@ -92,14 +78,14 @@
   ],
   "edges": [
     {
-      "from": "DIG-ADV-201",
+      "from": "SYM-ADV-201",
       "to": "CERT-GAME-UNREAL",
       "edge_type": "Recommended",
       "strength_permille": 750,
       "rationale": "High-dimensional vector mastery provides the mathematical foundation for real-time 3D engine physics."
     },
     {
-      "from": "HUM-LAW-301",
+      "from": "HUM-LAW-101",
       "to": "CERT-PRIVACY-CIPP",
       "edge_type": "Recommended",
       "strength_permille": 900,
@@ -113,7 +99,7 @@
       "rationale": "Planetary repair capstones provide the field-experience context for hazardous waste safety operations."
     },
     {
-      "from": "HAB-VOC-301",
+      "from": "CON-VOC-301",
       "to": "CERT-URBAN-AICP",
       "edge_type": "Recommended",
       "strength_permille": 700,

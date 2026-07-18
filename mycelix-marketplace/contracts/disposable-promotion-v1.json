@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "topology": "single_conductor_multi_agent",
+  "reason": "avoids external bootstrap and signaling dependencies while retaining distinct agent keys, installed app ids, app interfaces, and authentication tokens",
+  "profiles": {
+    "base": {"actors": ["SELLER", "BUYER"], "scenario": "lifecycle"},
+    "settlement": {"actors": ["SELLER", "BUYER"], "scenarios": ["lifecycle", "settlement"], "requires_funding_hook": true},
+    "arbitration": {"actors": ["SELLER", "BUYER", "ARBITRATOR"], "scenarios": ["lifecycle", "arbitration"]}
+  },
+  "isolation": {
+    "temporary_data_root": true,
+    "danger_test_keystore_only": true,
+    "distinct_installed_app_per_actor": true,
+    "distinct_bound_app_interface_per_actor": true,
+    "tokens_must_not_enter_evidence": true,
+    "conductor_logs_must_enter_evidence": true
+  }
+}

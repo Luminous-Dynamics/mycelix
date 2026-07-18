@@ -102,11 +102,11 @@ The Rust API (Axum) serves as the bridge between:
 
 ```
 1. Artist uploads song → Catalog zome stores metadata
-2. Listener deposits xDAI → Balances records deposit
+2. Listener submits an unverified deposit claim → no balance is credited
 3. Listener plays song → Plays records FREE play on source chain
 4. Plays accumulate → Amount owed calculated per strategy
-5. Periodic batching → Settlement batch created
-6. Artist requests cashout → On-chain tx (single tx for many plays!)
+5. Periodic batching → immutable pending settlement batch created
+6. Deposit verification, transfers, and cashout remain disabled until an authorized, idempotent, atomic settlement protocol is implemented
 ```
 
 ## Why This Matters
@@ -120,4 +120,4 @@ The Rust API (Axum) serves as the bridge between:
 
 ## License
 
-MIT
+GNU AGPL v3 or later. See the repository-root `LICENSE` file.

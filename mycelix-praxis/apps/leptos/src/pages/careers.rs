@@ -66,7 +66,7 @@ pub fn CareerPathPage() -> impl IntoView {
         all
     });
 
-    // Derived: Find all nodes that represent professional certifications (filtered by sector, domain, search, and difficulty)
+    // Derived: Find curriculum nodes with illustrative industry mappings.
     let certifications = Memo::new(move |_| {
         let graph = curriculum_graph();
         let p = progress.get();
@@ -155,13 +155,13 @@ pub fn CareerPathPage() -> impl IntoView {
                 };
 
                 let status = if p.get(&n.id).status == ProgressStatus::Mastered {
-                    "Certified"
+                    "Mastered locally"
                 } else if coverage >= 80 {
-                    "Ready to Certify"
+                    "Most prerequisites recorded"
                 } else if coverage > 0 {
-                    "In Progress"
+                    "Some prerequisites recorded"
                 } else {
-                    "Locked"
+                    "No prerequisites recorded"
                 };
 
                 let industry_code = n
@@ -179,7 +179,8 @@ pub fn CareerPathPage() -> impl IntoView {
         certs
     });
 
-    // ACTION: Copy Sovereign Resume to Clipboard
+    // Export only a local planning draft. Curriculum mappings and locally
+    // recorded progress are not credentials, standards compliance, or proof.
     let copy_resume = move |_| {
         let cert_data = certifications.get();
         let top_matches: Vec<_> = cert_data
@@ -187,19 +188,15 @@ pub fn CareerPathPage() -> impl IntoView {
             .filter(|(_, coverage, _, _, _)| *coverage >= 50)
             .take(3)
             .map(|(node, coverage, _, _, code)| {
-                let mastery_hash = format!("{:x}", md5::compute(format!("{}-mastery", node.id)));
                 format!(
-                    "{} ({}) - {}% Match [Hash: {}...]",
-                    node.title,
-                    code,
-                    coverage,
-                    &mastery_hash[0..8]
+                    "{} ({}) - {}% of mapped local prerequisites recorded",
+                    node.title, code, coverage
                 )
             })
             .collect();
 
         let resume_text = format!(
-            "VERIFIABLE SOVEREIGN PROFESSIONAL SUMMARY\nPlatform: Mycelix Praxis (CLR 2.0 Compliant)\nAgent DID: did:mycelix:praxis-alpha-student\n\nTOP INDUSTRY ALIGNMENTS:\n- {}\n\nROOT MASTERY:\nLocal contribution verified by community consensus and Symthaea Auditor.\n\nVERIFICATION GATEWAY: https://mycelix.org/verify/praxis-alpha-student",
+            "LOCAL DRAFT PROFESSIONAL SUMMARY\nSource: progress stored in this Praxis browser profile\n\nIMPORTANT: This draft is not a credential, certification, transcript, CLR document, DID claim, or verification result. Curriculum-to-industry mappings and economic signals have not been validated by an issuer or standards body.\n\nILLUSTRATIVE PATH MAPPINGS:\n- {}",
             top_matches.join("\n- ")
         );
 
@@ -216,15 +213,19 @@ pub fn CareerPathPage() -> impl IntoView {
         <div class="career-path-page">
             <header class="career-header">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">
-                    <h2>"Professional Path Visualizer"</h2>
+                    <h2>"Professional Path Planner"</h2>
                     <button
                         class="btn-primary"
                         on:click=copy_resume
                     >
-                        "\u{1F4C4} Copy Sovereign Resume"
+                        "\u{1F4C4} Copy Local Draft"
                     </button>
                 </div>
-                <p class="career-subtitle">"Real-time semantic mapping between your local mastery and global industry standards."</p>
+                <p class="career-subtitle">"Explore curriculum mappings using progress stored in this browser."</p>
+                <div role="note" style="margin: 0.75rem 0 1rem; padding: 0.9rem; background: var(--warning-low); border: 2px solid var(--warning); border-radius: 8px; font-size: 0.8rem; line-height: 1.5">
+                    <strong>"Local planning data — not a credential"</strong>
+                    <div>"No issuer, standards body, employer, community, or network has verified these mappings, percentages, economic signals, or locally recorded mastery states. Nothing on this page establishes certification or eligibility."</div>
+                </div>
 
                 <div class="metabolic-sector-filter" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem">
                     {MetabolicSector::all().iter().map(|s| {
@@ -284,7 +285,7 @@ pub fn CareerPathPage() -> impl IntoView {
 
             <div class="career-visualizer-container">
                 <div class="visualizer-roots">
-                    <h3>"Sovereign Roots"</h3>
+                    <h3>"Locally Recorded Topics"</h3>
                     <div class="root-nodes">
                         {move || {
                             let p = progress.get();
@@ -309,7 +310,7 @@ pub fn CareerPathPage() -> impl IntoView {
                 </div>
 
                 <div class="visualizer-fruits">
-                    <h3>"Global Fruits"</h3>
+                    <h3>"Illustrative Path Mappings"</h3>
                     <div class="fruit-nodes">
                         {move || certifications.get().into_iter().map(|(node, coverage, status, missing, industry_code)| {
                             let title = node.title.clone();
@@ -356,7 +357,7 @@ fn FruitCard(
             <div class="fruit-header">
                 <span class="fruit-category">{category}</span>
                 <span class="fruit-code-badge" style="background: var(--surface-high); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 800; border: 1px solid var(--border)">
-                    {industry_code}
+                    {format!("Example mapping: {industry_code}")}
                 </span>
                 <span class="fruit-status">{status}</span>
             </div>
@@ -366,15 +367,15 @@ fn FruitCard(
                 view! {
                     <div class="economic-signals" style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem">
                         <span class="signal-badge" style="font-size: 0.65rem; background: var(--surface-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--primary); color: var(--primary); font-weight: 700">
-                            {format!("${}k+", s.average_starting_salary / 1000)}
+                            {format!("Illustrative salary: ${}k+", s.average_starting_salary / 1000)}
                         </span>
                         <span class="signal-badge" style="font-size: 0.65rem; background: var(--surface-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--success); color: var(--success); font-weight: 700">
-                            {format!("{} Demand", s.market_demand)}
+                            {format!("Illustrative demand: {}", s.market_demand)}
                         </span>
                         {move || if s.local_demand_multiplier > 1.0 {
                             view! {
                                 <span class="signal-badge" style="font-size: 0.65rem; background: var(--warning-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--warning); color: var(--warning); font-weight: 800">
-                                    {format!("COMMUNITY NEED: {}x TEND", s.local_demand_multiplier)}
+                                    {format!("Illustrative local multiplier: {}x", s.local_demand_multiplier)}
                                 </span>
                             }.into_any()
                         } else {
@@ -386,7 +387,7 @@ fn FruitCard(
 
             <div class="coverage-bar-wrap">
                 <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 0.2rem">
-                    <span>"Match Coverage"</span>
+                    <span>"Mapped prerequisites recorded locally"</span>
                     <span style=format!("color: {}; font-weight: 700", color)>{coverage}"%"</span>
                 </div>
                 <div class="progress-bar" style="height: 6px">
@@ -402,7 +403,7 @@ fn FruitCard(
                             <div
                                 style=format!("width: 10px; height: 10px; border-radius: 50%; background: {}",
                                     if is_mastered { "var(--success)" } else { "var(--surface-high)" })
-                                title=if is_mastered { "Mastered Core Competency" } else { "Missing Requirement" }
+                                title=if is_mastered { "Prerequisite recorded locally" } else { "Mapped prerequisite not recorded" }
                             ></div>
                         }
                     }).collect_view()
@@ -431,7 +432,7 @@ fn FruitCard(
                 view! { <span></span> }.into_any()
             }}
 
-            <button class="btn-sm btn-outline" style="width: 100%; margin-top: 1rem">"Request Legacy Transcript"</button>
+            <button class="btn-sm btn-outline" style="width: 100%; margin-top: 1rem" disabled title="No transcript issuer is connected">"Transcript unavailable"</button>
         </div>
     }
 }

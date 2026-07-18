@@ -4,7 +4,7 @@
 
 use hdi::prelude::*;
 use mycelix_position_shared::{
-    validate_geodetic, validate_node_id, AnchorCertification, AnchorNode,
+    AnchorCertification, AnchorNode, validate_geodetic, validate_node_id,
 };
 
 #[hdk_entry_types]
@@ -33,22 +33,32 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => validate_entry(app_entry),
-            OpEntry::UpdateEntry { app_entry, .. } => validate_entry(app_entry),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::AnchorNode(node) => {
+                    validate_create_anchor_node(EntryCreationAction::Create(action), node)
+                }
+                EntryTypes::AnchorCertification(cert) => {
+                    validate_create_anchor_certification(EntryCreationAction::Create(action), cert)
+                }
+            },
+            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::AnchorNode(_) => Ok(ValidateCallbackResult::Invalid(
+                    "AnchorNode entries cannot be updated".to_string(),
+                )),
+                EntryTypes::AnchorCertification(_) => Ok(ValidateCallbackResult::Invalid(
+                    "AnchorCertification entries cannot be updated".to_string(),
+                )),
+            },
             _ => Ok(ValidateCallbackResult::Valid),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
-fn validate_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
-    match entry {
-        EntryTypes::AnchorNode(node) => validate_anchor_node(&node),
-        EntryTypes::AnchorCertification(cert) => validate_certification(&cert),
-    }
-}
-
-fn validate_anchor_node(node: &AnchorNode) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_anchor_node(
+    action: EntryCreationAction,
+    node: AnchorNode,
+) -> ExternResult<ValidateCallbackResult> {
     if let Err(e) = validate_node_id(&node.node_id) {
         return Ok(ValidateCallbackResult::Invalid(e));
     }
@@ -66,10 +76,24 @@ fn validate_anchor_node(node: &AnchorNode) -> ExternResult<ValidateCallbackResul
             "Accuracy > 100km is not useful for positioning".to_string(),
         ));
     }
+    // Bind the anchor to its committer -- register_anchor already derives
+    // registered_by from agent_info() coordinator-side with zero user input,
+    // so this never rejects a legitimate registration; it's the real
+    // DHT-level enforcement a modified coordinator could otherwise bypass
+    // (P0 author-binding gap).
+    if node.registered_by != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AnchorNode must be registered by the committing agent (registration forgery)"
+                .to_string(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_certification(cert: &AnchorCertification) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_anchor_certification(
+    action: EntryCreationAction,
+    cert: AnchorCertification,
+) -> ExternResult<ValidateCallbackResult> {
     if let Err(e) = validate_node_id(&cert.anchor_node_id) {
         return Ok(ValidateCallbackResult::Invalid(e));
     }
@@ -81,6 +105,14 @@ fn validate_certification(cert: &AnchorCertification) -> ExternResult<ValidateCa
     if cert.certification_method.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Certification method cannot be empty".to_string(),
+        ));
+    }
+    // Bind the certification to its committer, same reasoning as
+    // validate_create_anchor_node above (P0 author-binding gap).
+    if cert.certifier != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AnchorCertification must be certified by the committing agent (certifier forgery)"
+                .to_string(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)

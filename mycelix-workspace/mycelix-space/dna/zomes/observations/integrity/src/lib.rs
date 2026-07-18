@@ -214,17 +214,38 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
-            EntryTypes::Observation(obs) => validate_observation(&obs),
-            EntryTypes::Sensor(sensor) => validate_sensor(&sensor),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Observation(obs) => {
+                validate_create_observation(EntryCreationAction::Create(action), obs)
+            }
+            EntryTypes::Sensor(sensor) => {
+                validate_create_sensor(EntryCreationAction::Create(action), sensor)
+            }
             EntryTypes::ObservationBatch(batch) => validate_batch(&batch),
             EntryTypes::FusedEstimate(est) => validate_fused_estimate(&est),
+        },
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Observation(_) => Ok(ValidateCallbackResult::Invalid(
+                "Observation entries cannot be updated".to_string(),
+            )),
+            EntryTypes::Sensor(_) => Ok(ValidateCallbackResult::Invalid(
+                "Sensor entries cannot be updated".to_string(),
+            )),
+            EntryTypes::ObservationBatch(_) => Ok(ValidateCallbackResult::Invalid(
+                "ObservationBatch entries cannot be updated".to_string(),
+            )),
+            EntryTypes::FusedEstimate(_) => Ok(ValidateCallbackResult::Invalid(
+                "FusedEstimate entries cannot be updated".to_string(),
+            )),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
-fn validate_observation(obs: &Observation) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_observation(
+    action: EntryCreationAction,
+    obs: Observation,
+) -> ExternResult<ValidateCallbackResult> {
     // NORAD ID if present must be valid
     if let Some(norad_id) = obs.norad_id {
         if norad_id == 0 || norad_id > 999999 {
@@ -252,6 +273,15 @@ fn validate_observation(obs: &Observation) -> ExternResult<ValidateCallbackResul
     // Validate measurement data
     if let Err(msg) = validate_measurement(&obs.measurement) {
         return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    // Bind the observation to its committer -- submit_observation already
+    // derives submitted_by from agent_info() coordinator-side with zero
+    // user input (P0 author-binding gap).
+    if obs.submitted_by != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Observation must be submitted by the committing agent (submitter forgery)".to_string(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -370,7 +400,10 @@ fn validate_measurement(m: &Measurement) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_sensor(sensor: &Sensor) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_sensor(
+    action: EntryCreationAction,
+    sensor: Sensor,
+) -> ExternResult<ValidateCallbackResult> {
     if sensor.sensor_id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Sensor ID cannot be empty".to_string(),
@@ -423,6 +456,15 @@ fn validate_sensor(sensor: &Sensor) -> ExternResult<ValidateCallbackResult> {
                 accuracy
             )));
         }
+    }
+
+    // Bind the sensor to its committer -- register_sensor already derives
+    // operator from agent_info() coordinator-side with zero user input
+    // (P0 author-binding gap).
+    if sensor.operator != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Sensor must be registered by the committing agent (operator forgery)".to_string(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)

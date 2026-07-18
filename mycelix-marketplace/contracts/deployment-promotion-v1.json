@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "base_profile": {
+    "manifest": "backend/happ.yaml",
+    "required_active_roles": [
+      "marketplace"
+    ],
+    "settlement_capable": false
+  },
+  "settlement_profile": {
+    "generator": "scripts/render-marketplace-deployment.py",
+    "required_active_roles": [
+      "marketplace",
+      "finance"
+    ],
+    "optional_roles": [
+      "identity"
+    ],
+    "finance_role_name": "finance",
+    "marketplace_role_name": "marketplace"
+  },
+  "runtime": {
+    "source": "AppInfo.cell_info",
+    "deferred_roles_are_active": false,
+    "missing_marketplace_role_fails_connection": true,
+    "missing_finance_role_disables_settlement": true
+  },
+  "promotion": {
+    "profiles": {
+      "base": {
+        "required_scenarios": [
+          "lifecycle"
+        ],
+        "required_active_roles": [
+          "marketplace"
+        ]
+      },
+      "settlement": {
+        "required_scenarios": [
+          "lifecycle",
+          "settlement"
+        ],
+        "required_active_roles": [
+          "marketplace",
+          "finance"
+        ]
+      },
+      "arbitration": {
+        "required_scenarios": [
+          "lifecycle",
+          "arbitration"
+        ],
+        "required_active_roles": [
+          "marketplace"
+        ],
+        "keep_ui_gated_without_conflict_injection": true
+      },
+      "network": {
+        "required_scenarios": [
+          "network"
+        ],
+        "required_active_roles": [
+          "marketplace"
+        ],
+        "required_topology": "two_conductor_isolated_network",
+        "require_partition_divergence": true,
+        "require_post_heal_explicit_conflict": true
+      }
+    },
+    "forbid_fixture_evidence": true,
+    "require_exact_client_version": true,
+    "require_clean_claims_gate": true
+  }
+}

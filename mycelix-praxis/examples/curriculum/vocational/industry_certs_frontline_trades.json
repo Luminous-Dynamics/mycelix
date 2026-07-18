@@ -92,7 +92,7 @@
   ],
   "edges": [
     {
-      "from": "VOC-KINETIC-101",
+      "from": "VOC-000-S",
       "to": "CERT-SAFE-OSHA10",
       "edge_type": "Recommended",
       "strength_permille": 900,

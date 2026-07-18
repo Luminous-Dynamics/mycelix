@@ -48,9 +48,15 @@ currency_mint = { path = "../zomes/currency-mint/coordinator" }
 hdk = "0.6"
 hdi = "0.7"
 
-# Holochain testing dependencies
+# Holochain testing dependencies — MUST be regular deps, not dev-deps: the crate's
+# [lib] (fixtures/mod.rs) uses holochain::sweettest, and a library cannot access
+# dev-dependencies. (They were dev-deps after the workspace reorg, which silently
+# broke every finance sweettest — the harness lib no longer compiled.)
+holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
+holochain_types = "0.6"
 
 # Async runtime for tests
+tokio = { version = "1", features = ["full", "test-util"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -144,7 +150,5 @@ path = "sweettest_day_in_the_life.rs"
 # without the heavy Holochain dependency. Run with:
 #   cargo test -p mycelix_finance_types --test economics_stress_test
 
-[dev-dependencies]
-holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
-holochain_types = "0.6"
-tokio = { version = "1", features = ["full", "test-util"] }
+# (holochain / holochain_types / tokio moved to [dependencies] above — the [lib]
+# fixtures need them, and a lib cannot see dev-dependencies.)

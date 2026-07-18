@@ -10,6 +10,11 @@ use hdk::prelude::HdkPathExt;
 use hdk::prelude::*;
 use learning_integrity::{Course, EntryTypes, LearnerProgress, LearningActivity, LinkTypes};
 use mycelix_zome_helpers as _;
+use praxis_core::{
+    CourseSummary, GET_MY_PROGRESS_FN, LearningContractInfo, ProgressSnapshot, ProgressSyncInput,
+    ProgressSyncReceipt, SYNC_PROGRESS_FN,
+};
+use std::collections::BTreeMap;
 
 /// Create a new course
 #[hdk_extern]
@@ -101,6 +106,65 @@ pub fn list_courses(_: ()) -> ExternResult<Vec<Record>> {
     Ok(courses)
 }
 
+/// Describe the stable client contract implemented by this coordinator.
+#[hdk_extern]
+pub fn get_learning_contract(_: ()) -> ExternResult<LearningContractInfo> {
+    let mut contract = LearningContractInfo::default();
+    contract.capabilities.extend(
+        [SYNC_PROGRESS_FN, GET_MY_PROGRESS_FN]
+            .into_iter()
+            .map(str::to_owned),
+    );
+    Ok(contract)
+}
+
+/// List courses through the shared, versioned client projection.
+///
+/// `list_courses` remains available for zome-internal and legacy callers that
+/// need raw Holochain records. Browser clients should use this endpoint so the
+/// integrity entry shape is not mistaken for a wire API.
+#[hdk_extern]
+pub fn list_course_summaries(_: ()) -> ExternResult<Vec<CourseSummary>> {
+    list_courses(())?
+        .into_iter()
+        .map(|record| {
+            let course = record
+                .entry()
+                .to_app_option::<Course>()
+                .map_err(|error| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to decode linked Course entry: {error}"
+                    )))
+                })?
+                .ok_or_else(|| {
+                    wasm_error!(WasmErrorInner::Guest(
+                        "AllCourses link resolved to a non-Course record".into()
+                    ))
+                })?;
+            Ok(course_summary(course))
+        })
+        .collect()
+}
+
+fn course_summary(course: Course) -> CourseSummary {
+    let domain = course
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("domain"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| course.tags.first().cloned())
+        .unwrap_or_else(|| "General".to_string());
+
+    CourseSummary {
+        course_id: course.course_id,
+        title: course.title,
+        description: course.description,
+        domain,
+        updated_at: course.updated_at,
+    }
+}
+
 /// Update an existing course
 #[hdk_extern]
 pub fn update_course(input: UpdateCourseInput) -> ExternResult<ActionHash> {
@@ -124,8 +188,115 @@ pub fn update_progress(mut progress: LearnerProgress) -> ExternResult<ActionHash
     // as create_course's identical fix above.
     let agent = agent_info()?.agent_initial_pubkey;
     progress.learner = format!("did:mycelix:{}", agent);
+    progress.last_active = sys_time()?.as_micros();
+    write_progress(agent, progress)
+}
+
+/// Publish progress using the shared client contract.
+///
+/// Identity and time are coordinator-derived. A browser cannot attribute an
+/// entry to another learner or choose a timestamp that wins latest-value
+/// reconciliation.
+#[hdk_extern]
+pub fn sync_progress(input: ProgressSyncInput) -> ExternResult<ProgressSyncReceipt> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let progress = LearnerProgress {
+        course_id: input.course_id,
+        learner: format!("did:mycelix:{}", agent),
+        progress_percent: input.progress_percent,
+        completed_items: input.completed_items,
+        model_version: input.model_version,
+        last_active: sys_time()?.as_micros(),
+        metadata: input.metadata,
+    };
+    let snapshot = progress_snapshot(&progress);
+    let action_hash = write_progress(agent, progress)?;
+
+    Ok(ProgressSyncReceipt {
+        action_hash: action_hash.to_string(),
+        progress: snapshot,
+    })
+}
+
+fn write_progress(learner: AgentPubKey, progress: LearnerProgress) -> ExternResult<ActionHash> {
     let action_hash = create_entry(EntryTypes::LearnerProgress(progress))?;
+    create_link(
+        learner,
+        action_hash.clone(),
+        LinkTypes::LearnerToProgress,
+        (),
+    )?;
     Ok(action_hash)
+}
+
+fn progress_snapshot(progress: &LearnerProgress) -> ProgressSnapshot {
+    ProgressSnapshot {
+        course_id: progress.course_id.clone(),
+        progress_percent: progress.progress_percent,
+        completed_items: progress.completed_items.clone(),
+        model_version: progress.model_version.clone(),
+        last_active: progress.last_active,
+    }
+}
+
+/// Return the latest authored snapshot for each course or curriculum unit.
+#[hdk_extern]
+pub fn get_my_progress(_: ()) -> ExternResult<Vec<ProgressSnapshot>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    let learner_did = format!("did:mycelix:{}", agent);
+    let links = get_links(
+        LinkQuery::try_new(agent, LinkTypes::LearnerToProgress)?,
+        GetStrategy::Network,
+    )?;
+
+    // BTreeMap makes the wire order deterministic. The action hash is a
+    // deterministic tie-breaker if two entries share the same timestamp.
+    let mut latest: BTreeMap<String, (i64, String, ProgressSnapshot)> = BTreeMap::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!("LearnerToProgress target was not an ActionHash"))?;
+        let Some(record) = get(action_hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let progress = record
+            .entry()
+            .to_app_option::<LearnerProgress>()
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode indexed LearnerProgress: {error}"
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "LearnerToProgress link resolved to a non-progress record".into()
+                ))
+            })?;
+
+        // Link validation binds the index to its author; this additional
+        // check keeps an accidental self-authored link to another learner's
+        // record out of the projection.
+        if progress.learner != learner_did {
+            continue;
+        }
+
+        let key = progress.course_id.0.clone();
+        let candidate = (
+            progress.last_active,
+            action_hash.to_string(),
+            progress_snapshot(&progress),
+        );
+        match latest.get(&key) {
+            Some(current) if (current.0, &current.1) >= (candidate.0, &candidate.1) => {}
+            _ => {
+                latest.insert(key, candidate);
+            }
+        }
+    }
+
+    Ok(latest
+        .into_values()
+        .map(|(_, _, snapshot)| snapshot)
+        .collect())
 }
 
 /// Get learner progress

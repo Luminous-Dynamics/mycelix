@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "name": "marketplace-finance-reputation-integrity-v1",
+  "finance_contract": {
+    "stable_reference": "marketplace_tx:{stable_transaction_root}",
+    "process_function": "process_payment_remote",
+    "status_function": "verify_payment_status_remote",
+    "marketplace_finality": "external_finance_record",
+    "marketplace_lifecycle_after_settlement": "delivered"
+  },
+  "reputation_contract": {
+    "event_kinds": [
+      "fulfillment_delivered",
+      "arbitration_won",
+      "arbitration_lost"
+    ],
+    "direct_score_mutation": "disabled",
+    "authorization_weight": "never_derived_reputation",
+    "projection": "immutable_evidence_events"
+  },
+  "security_invariants": [
+    "settlement_reference_uses_stable_root",
+    "settlement_terms_derive_from_authoritative_transaction",
+    "marketplace_does_not_write_local_completed_finality",
+    "finance_status_is_recoverable_by_reference",
+    "fulfillment_event_binds_exact_delivered_revision",
+    "arbitration_events_bind_exact_result",
+    "semantic_event_keys_are_idempotent",
+    "conflicting_duplicate_events_fail_closed",
+    "direct_matl_mutation_is_disabled",
+    "derived_reputation_is_not_an_authorization_weight"
+  ],
+  "typed_calls": [
+    {
+      "zome": "transactions",
+      "function": "settle_transaction"
+    },
+    {
+      "zome": "transactions",
+      "function": "get_transaction_settlement_status"
+    },
+    {
+      "zome": "reputation",
+      "function": "record_fulfillment_reputation"
+    },
+    {
+      "zome": "reputation",
+      "function": "project_arbitration_reputation"
+    },
+    {
+      "zome": "reputation",
+      "function": "get_agent_reputation_events"
+    },
+    {
+      "zome": "reputation",
+      "function": "get_derived_reputation"
+    }
+  ],
+  "ui_gate": {
+    "feature": "finance-settlement",
+    "label": "Settle with Finance",
+    "default_enabled": false
+  }
+}

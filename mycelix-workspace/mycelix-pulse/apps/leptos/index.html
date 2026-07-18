@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Decentralized PQC-encrypted email over Holochain" />
+    <meta name="description" content="Authenticated encrypted communication over Holochain" />
     <meta name="theme-color" content="#06D6C8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -112,7 +112,8 @@
          Sets the conductor URL override for WASM based on hostname, then
          fetches an authentication token from the SPA server's /api/token gate.
          On success: __HC_AUTH_TOKEN and __HC_STATUS='connected'.
-         On failure/timeout: __HC_STATUS='mock' and the UI degrades gracefully. -->
+         On failure/timeout: __HC_STATUS='unavailable'. Demo mode requires an
+         explicit user action or the designated demo deployment. -->
     <script id="holochain-bridge">
     (async function() {
         // Choose conductor URL by hostname
@@ -149,8 +150,8 @@
             
             var timer = setTimeout(function() {
                 try { ws.close(); } catch (_) {}
-                window.__HC_STATUS = 'mock';
-                console.warn('[pulse] conductor probe timed out — using mock mode');
+                window.__HC_STATUS = 'unavailable';
+                console.warn('[pulse] conductor probe timed out — live mode unavailable');
             }, TIMEOUT_MS);
 
             ws.onopen = function() {
@@ -162,12 +163,12 @@
 
             ws.onerror = function() {
                 clearTimeout(timer);
-                window.__HC_STATUS = 'mock';
-                console.warn('[pulse] conductor probe failed (WSS connection error) — using mock mode');
+                window.__HC_STATUS = 'unavailable';
+                console.warn('[pulse] conductor probe failed — live mode unavailable');
             };
         } catch (e) {
-            window.__HC_STATUS = 'mock';
-            console.warn('[pulse] real mode initialization failed: ' + e.message + ' — falling back to mock mode');
+            window.__HC_STATUS = 'unavailable';
+            console.warn('[pulse] live mode initialization failed: ' + e.message);
         }
     })();
     </script>

@@ -219,13 +219,14 @@ async function getIndexerState(): Promise<{ lastBlock: number | null; source: 'd
 }
 
 // Middleware
-// CORS: restrict origins unless ENABLE_CORS=true
-const enableCors = String(process.env.ENABLE_CORS || 'true').toLowerCase() === 'true';
+// CORS is allowlist-only by default. Opening every origin is an explicit,
+// development-only opt-in because this API permits credentialed requests.
+const allowAnyOrigin = String(process.env.ALLOW_ANY_ORIGIN || 'false').toLowerCase() === 'true';
 const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const allowedOrigins = allowedOriginsEnv.split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors({
-  origin: (origin: any, callback: any) => {
-    if (enableCors) return callback(null, true);
+  origin: (origin, callback) => {
+    if (allowAnyOrigin) return callback(null, true);
     if (!origin) return callback(null, true); // SSR / server-to-server
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('CORS blocked'), false);

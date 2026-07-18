@@ -110,20 +110,91 @@ pub enum LinkTypes {
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => {
-            match app_entry {
-                EntryTypes::Notification(n) => {
-                    if n.title.is_empty() {
-                        return Ok(ValidateCallbackResult::Invalid("Notification title required".into()));
-                    }
-                    if n.message.is_empty() {
-                        return Ok(ValidateCallbackResult::Invalid("Notification message required".into()));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                _ => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Notification(n) => validate_notification_content(&n),
+            EntryTypes::NotificationPreferences(prefs) => {
+                validate_create_notification_preferences(&prefs, &action)
             }
-        }
+        },
+        // Notification has no self-reported owner field -- ownership is enforced by
+        // re-deriving the real chain-of-custody invariant (mark_notification_read/
+        // dismiss_notification take an arbitrary caller-supplied hash with zero ownership
+        // check coordinator-side today; this closes that gap at the DHT level). Both
+        // StoreEntry::UpdateEntry and RegisterUpdate::Entry must carry the identical check --
+        // HDI validates the same physical update from two different validating authorities.
+        FlatOp::StoreEntry(OpEntry::UpdateEntry {
+            app_entry, action, ..
+        }) => match app_entry {
+            EntryTypes::Notification(_) => validate_update_notification(&action),
+            EntryTypes::NotificationPreferences(prefs) => {
+                validate_update_notification_preferences(&prefs, &action)
+            }
+        },
+        FlatOp::RegisterUpdate(OpUpdate::Entry {
+            app_entry, action, ..
+        }) => match app_entry {
+            EntryTypes::Notification(_) => validate_update_notification(&action),
+            EntryTypes::NotificationPreferences(prefs) => {
+                validate_update_notification_preferences(&prefs, &action)
+            }
+        },
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_notification_content(n: &Notification) -> ExternResult<ValidateCallbackResult> {
+    if n.title.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Notification title required".into(),
+        ));
+    }
+    if n.message.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Notification message required".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Only the notification's original recipient (re-derived via the action chain, since
+/// Notification carries no self-reported owner field) may mark it read/dismissed --
+/// mark_notification_read/dismiss_notification currently accept an arbitrary caller-supplied
+/// notification_hash with zero ownership check anywhere coordinator-side (P0 author-binding
+/// gap).
+fn validate_update_notification(action: &Update) -> ExternResult<ValidateCallbackResult> {
+    let original_action = must_get_action(action.original_action_address.clone())?;
+    let original_author = original_action.action().author().clone();
+    if action.author != original_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original recipient may update their own notification".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Bind preferences to their committer -- update_notification_preferences already checks
+/// `preferences.agent != my_agent` coordinator-side, but with zero DHT-level enforcement
+/// (P0 author-binding gap).
+fn validate_create_notification_preferences(
+    prefs: &NotificationPreferences,
+    action: &Create,
+) -> ExternResult<ValidateCallbackResult> {
+    if prefs.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NotificationPreferences must be self-registered by the committing agent".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_update_notification_preferences(
+    prefs: &NotificationPreferences,
+    action: &Update,
+) -> ExternResult<ValidateCallbackResult> {
+    if prefs.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "NotificationPreferences must be self-registered by the committing agent".to_string(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }

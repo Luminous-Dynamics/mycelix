@@ -1,21 +1,68 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Sensorium summary adapter for the Pulse shell.
+//! Local inbox summary used by the canonical Pulse shell.
 //!
-//! This keeps Pulse's local reactive mail state aligned with the cross-domain
-//! `domain-mail` summary contract consumed by Mycelix Sensorium.
+//! This intentionally owns its alpha contract. The previous dependency pointed
+//! at a non-existent Sensorium crate outside this checkout, making the canonical
+//! application impossible to build from a clean workspace.
 
 use std::collections::HashMap;
 
-use domain_mail::types::{InboxSummary, InboxSummarySource, ThreadSummary, TrustHealth, TrustTier};
 use leptos::prelude::*;
 use mail_leptos_types::{ContactView, EmailListItem, EmailPriority};
+use serde::{Deserialize, Serialize};
 
 use crate::mail_context::{MailCtx, use_mail};
 use crate::offline::{OfflineState, use_offline};
 
 pub const PULSE_SUMMARY_STORAGE_KEY: &str = "mycelix:pulse:inbox_summary:v1";
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum InboxSummarySource {
+    Local,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TrustTier {
+    High,
+    Medium,
+    Low,
+    Unknown,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ThreadSummary {
+    pub id: String,
+    pub subject: String,
+    pub from_name: String,
+    pub from_email: String,
+    pub preview: String,
+    pub trust_tier: TrustTier,
+    pub timestamp: i64,
+    pub is_read: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TrustHealth {
+    pub trusted_contacts: u32,
+    pub quarantined: u32,
+    pub introductions_pending: u32,
+    pub average_trust_score: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InboxSummary {
+    pub unread_count: u32,
+    pub total_count: u32,
+    pub urgent_count: u32,
+    pub high_priority_count: u32,
+    pub queued_actions: u32,
+    pub recent_threads: Vec<ThreadSummary>,
+    pub trust_health: TrustHealth,
+    pub source: InboxSummarySource,
+    pub updated_at: Option<i64>,
+}
 
 #[derive(Clone, Copy)]
 pub struct PulseSummaryCtx {

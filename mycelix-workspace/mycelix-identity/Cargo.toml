@@ -37,6 +37,10 @@ members = [
     # Cross-Cluster Reputation Aggregator
     "zomes/reputation-aggregator/coordinator",
     "zomes/reputation-aggregator/integrity",
+    # Ruleset Registry (Warded Node design Phase 5b: federated marketplace
+    # of shareable memetic-pathogen rulesets, no canonical publisher)
+    "zomes/ruleset_registry/coordinator",
+    "zomes/ruleset_registry/integrity",
 ]
 
 [workspace.package]

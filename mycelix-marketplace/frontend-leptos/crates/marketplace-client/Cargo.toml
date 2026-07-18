@@ -1,0 +1,21 @@
+[package]
+name = "marketplace-client"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+dev-fixtures = []
+js-bridge = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+
+[dependencies]
+async-trait.workspace = true
+marketplace-domain = { path = "../marketplace-domain" }
+rmp-serde.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+js-sys = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }

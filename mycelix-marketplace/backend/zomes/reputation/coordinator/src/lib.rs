@@ -3,14 +3,14 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
 use reputation_integrity::*;
-use mycelix_common::{bridge, error_handling, link_queries, time};
+use mycelix_common::{bridge, error_handling, link_queries, remote_calls, time};
 
 mod cache;
 
 /// Get or initialize MATL score for an agent
 ///
-/// This is the entry point for the 45% Byzantine fault tolerance system.
-/// New agents start with neutral reputation (0.5).
+/// Legacy MATL lookup retained for compatibility.
+/// Canonical new reputation is returned by `get_derived_reputation`.
 #[hdk_extern]
 pub fn get_agent_matl_score(agent: AgentPubKey) -> ExternResult<Option<MatlScore>> {
     let path = agent.clone();
@@ -23,6 +23,11 @@ pub fn get_agent_matl_score(agent: AgentPubKey) -> ExternResult<Option<MatlScore
             if let Some(record) = record {
                 // Use shared utility for deserialization
                 let score: MatlScore = error_handling::deserialize_entry(&record)?;
+                if score.agent != agent {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "AgentToScore link targets a score for another agent".into()
+                    )));
+                }
                 return Ok(Some(score));
             }
         }
@@ -124,96 +129,427 @@ pub fn get_cross_app_reputation(agent: AgentPubKey) -> ExternResult<CrossAppRepu
     }
 }
 
-/// Update MATL score after a transaction
+/// Legacy mutable score updates are disabled.
 ///
-/// This implements the core MATL algorithm:
-/// 1. Compute PoGQ (quality, consistency, entropy)
-/// 2. Update reputation based on transaction outcome
-/// 3. Detect Byzantine patterns
-/// 4. Calculate composite score
+/// Reputation must be projected from immutable, integrity-validated evidence
+/// through `record_fulfillment_reputation` or
+/// `project_arbitration_reputation`.
 #[hdk_extern]
-pub fn update_matl_score(input: UpdateMatlInput) -> ExternResult<MatlScore> {
-    let agent = input.agent.clone();
+pub fn update_matl_score(_input: UpdateMatlInput) -> ExternResult<MatlScore> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Direct MATL mutation is disabled; use evidence-derived reputation events".into()
+    )))
+}
 
-    // Get existing score or create new one
-    let mut score = match get_agent_matl_score(agent.clone())? {
-        Some(existing) => existing,
-        None => {
-            // Initialize new agent with neutral score
-            MatlScore {
-                agent: agent.clone(),
-                pogq: ProofOfGradientQuality {
-                    quality: 0.5,
-                    consistency: 0.5,
-                    entropy: 0.0,
-                    timestamp: time::now()?,
-                },
-                reputation: 0.5, // Neutral starting point
-                composite: 0.5,
-                transaction_count: 0,
-                total_value_cents: 0,
-                updated_at: time::now()?,
-                flags: ByzantineFlags {
-                    cartel_detected: false,
-                    volatile_reputation: false,
-                    gradient_poisoning: false,
-                    sybil_suspected: false,
-                    risk_score: 0.0,
-                },
-            }
-        }
-    };
-
-    // Update transaction stats
-    score.transaction_count += 1;
-    score.total_value_cents += input.transaction_value_cents;
-
-    // Compute new PoGQ based on transaction outcome
-    score.pogq = compute_pogq(&score, &input)?;
-
-    // Update reputation with exponential moving average
-    let alpha = 0.3; // Learning rate
-    let transaction_quality = if input.successful { 1.0 } else { 0.0 };
-    score.reputation = alpha * transaction_quality + (1.0 - alpha) * score.reputation;
-
-    // Detect Byzantine patterns
-    score.flags = detect_byzantine_patterns(&score)?;
-
-    // Calculate composite score (MATL formula)
-    score.composite = compute_composite_score(&score.pogq, score.reputation);
-
-    // Update timestamp
-    score.updated_at = time::now()?;
-
-    // Save score
-    let action_hash = create_entry(&EntryTypes::MatlScore(score.clone()))?;
-
-    // Create/update link
-    create_link(agent.clone(), action_hash, LinkTypes::AgentToScore, ())?;
-
-    // Invalidate cache after update
-    cache::invalidate_matl_cache(&agent);
-
-    // Emit monitoring metric
-    monitoring::emit_metric(
-        monitoring::MetricType::MatlScoreUpdated,
-        score.composite,
-        Some(agent.clone()),
-        Some(format!("quality:{:.2},consistency:{:.2},reputation:{:.2}",
-            score.pogq.quality, score.pogq.consistency, score.reputation)),
+/// Record one buyer-authored, Delivered-transaction fulfillment event for
+/// the seller. Repeating the call returns the existing event by semantic key.
+#[hdk_extern]
+pub fn record_fulfillment_reputation(
+    transaction_hash: ActionHash,
+) -> ExternResult<ReputationEventOutput> {
+    let resolution: Option<TransactionResolutionWire> = remote_calls::call_zome(
+        "transactions",
+        "get_transaction_resolution",
+        transaction_hash,
     )?;
-
-    // Check for Byzantine behavior and emit alert if needed
-    if score.flags.risk_score >= 0.5 {
-        monitoring::emit_metric(
-            monitoring::MetricType::HighRiskAgent,
-            score.flags.risk_score,
-            Some(agent.clone()),
-            Some(format!("composite:{:.2}", score.composite)),
-        )?;
+    let resolution = resolution.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
+    })?;
+    let current = resolution.current()?;
+    if current.transaction.status != TransactionStatusWire::Delivered {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Fulfillment reputation requires a Delivered transaction".into()
+        )));
+    }
+    let caller = agent_info()?.agent_initial_pubkey;
+    if caller != current.transaction.buyer {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the buyer may attest delivered fulfillment".into()
+        )));
     }
 
-    Ok(score)
+    let event = ReputationEvent {
+        event_key: fulfillment_event_key(
+            &resolution.root_transaction_hash,
+            &current.transaction.seller,
+        ),
+        subject: current.transaction.seller.clone(),
+        counterparty: current.transaction.buyer.clone(),
+        transaction_hash: resolution.root_transaction_hash,
+        source_hash: current.transaction_hash.clone(),
+        kind: ReputationEventKind::FulfillmentDelivered,
+        value_cents: current.transaction.total_price_cents,
+        occurred_at: current.transaction.updated_at,
+    };
+    create_or_get_reputation_event(event)
+}
+
+/// Project winner and loser events from one immutable ArbitrationResult.
+/// Any assigned arbitrator can recover this projection; retries are idempotent
+/// by semantic event key and integrity validation binds the source result.
+#[hdk_extern]
+pub fn project_arbitration_reputation(
+    result_hash: ActionHash,
+) -> ExternResult<ReputationEventsResponse> {
+    let result_record = get(result_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Arbitration result not found".into())))?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    let result: ArbitrationResultWire = error_handling::deserialize_entry(&result_record)?;
+    let dispute_record = get(
+        result.dispute_revision_hash.clone(),
+        GetOptions::default(),
+    )?
+    .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Dispute revision not found".into())))?;
+    let dispute: DisputeWire = error_handling::deserialize_entry(&dispute_record)?;
+    if !dispute.arbitrators.contains(&caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an assigned arbitrator may project arbitration reputation".into()
+        )));
+    }
+    let transaction_record = get(
+        dispute.transaction_revision_hash.clone(),
+        GetOptions::default(),
+    )?
+    .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction revision not found".into())))?;
+    let transaction: TransactionEvidenceWire =
+        error_handling::deserialize_entry(&transaction_record)?;
+
+    if dispute.transaction_hash != transaction_root(dispute.transaction_revision_hash.clone())? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Dispute transaction revision does not belong to its stable root".into()
+        )));
+    }
+    if transaction.buyer != dispute.buyer || transaction.seller != dispute.seller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Dispute parties do not match the transaction".into()
+        )));
+    }
+
+    let winner = ReputationEvent {
+        event_key: arbitration_event_key(
+            &result_hash,
+            &ReputationEventKind::ArbitrationWon,
+            &result.winner,
+        ),
+        subject: result.winner.clone(),
+        counterparty: result.loser.clone(),
+        transaction_hash: dispute.transaction_hash.clone(),
+        source_hash: result_hash.clone(),
+        kind: ReputationEventKind::ArbitrationWon,
+        value_cents: transaction.total_price_cents,
+        occurred_at: result.finalized_at,
+    };
+    let loser = ReputationEvent {
+        event_key: arbitration_event_key(
+            &result_hash,
+            &ReputationEventKind::ArbitrationLost,
+            &result.loser,
+        ),
+        subject: result.loser.clone(),
+        counterparty: result.winner,
+        transaction_hash: dispute.transaction_hash,
+        source_hash: result_hash,
+        kind: ReputationEventKind::ArbitrationLost,
+        value_cents: transaction.total_price_cents,
+        occurred_at: result.finalized_at,
+    };
+
+    Ok(ReputationEventsResponse {
+        events: vec![
+            create_or_get_reputation_event(winner)?,
+            create_or_get_reputation_event(loser)?,
+        ],
+    })
+}
+
+#[hdk_extern]
+pub fn get_agent_reputation_events(
+    agent: AgentPubKey,
+) -> ExternResult<ReputationEventsResponse> {
+    let links = link_queries::get_links_local(agent.clone(), LinkTypes::AgentToReputationEvents)?;
+    let mut by_key: HashMap<String, ReputationEventOutput> = HashMap::new();
+    for link in links {
+        let Some(action_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(action_hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let event: ReputationEvent = error_handling::deserialize_entry(&record)?;
+        if event.subject != agent {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Agent reputation link targets an event for another subject".into()
+            )));
+        }
+        let output = ReputationEventOutput {
+            event_hash: action_hash,
+            event,
+        };
+        if let Some(existing) = by_key.get(&output.event.event_key) {
+            if existing.event != output.event {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Conflicting reputation events share key {}",
+                    output.event.event_key
+                ))));
+            }
+            continue;
+        }
+        by_key.insert(output.event.event_key.clone(), output);
+    }
+    let mut events = by_key.into_values().collect::<Vec<_>>();
+    events.sort_by_key(|output| output.event.occurred_at);
+    Ok(ReputationEventsResponse { events })
+}
+
+#[hdk_extern]
+pub fn get_derived_reputation(agent: AgentPubKey) -> ExternResult<DerivedReputation> {
+    let events = get_agent_reputation_events(agent.clone())?.events;
+    let mut positive_events = 0_u32;
+    let mut negative_events = 0_u32;
+    let mut fulfilled_value_cents = 0_u64;
+    let mut arbitration_value_cents = 0_u64;
+
+    for output in &events {
+        match output.event.kind {
+            ReputationEventKind::FulfillmentDelivered => {
+                positive_events += 1;
+                fulfilled_value_cents = fulfilled_value_cents
+                    .saturating_add(output.event.value_cents);
+            }
+            ReputationEventKind::ArbitrationWon => {
+                positive_events += 1;
+                arbitration_value_cents = arbitration_value_cents
+                    .saturating_add(output.event.value_cents);
+            }
+            ReputationEventKind::ArbitrationLost => {
+                negative_events += 1;
+                arbitration_value_cents = arbitration_value_cents
+                    .saturating_add(output.event.value_cents);
+            }
+        }
+    }
+
+    // Transparent Laplace-smoothed evidence ratio. This is not a Byzantine
+    // tolerance claim and is never used as an integrity authorization weight.
+    let score = (positive_events as f64 + 1.0)
+        / (positive_events as f64 + negative_events as f64 + 2.0);
+    Ok(DerivedReputation {
+        agent,
+        score,
+        positive_events,
+        negative_events,
+        event_count: events.len() as u32,
+        fulfilled_value_cents,
+        arbitration_value_cents,
+    })
+}
+
+fn create_or_get_reputation_event(
+    event: ReputationEvent,
+) -> ExternResult<ReputationEventOutput> {
+    let links = link_queries::get_links_local(
+        event.source_hash.clone(),
+        LinkTypes::SourceToReputationEvents,
+    )?;
+    let mut matching = Vec::new();
+    for link in links {
+        let Some(action_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(action_hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let existing: ReputationEvent = error_handling::deserialize_entry(&record)?;
+        if existing.event_key == event.event_key {
+            matching.push(ReputationEventOutput {
+                event_hash: action_hash,
+                event: existing,
+            });
+        }
+    }
+    if matching.len() > 1 {
+        let first = &matching[0].event;
+        if matching.iter().any(|output| &output.event != first) {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Conflicting reputation events share key {}",
+                event.event_key
+            ))));
+        }
+    }
+    if let Some(existing) = matching.into_iter().next() {
+        if existing.event != event {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Reputation event key {} was reused with different evidence",
+                event.event_key
+            ))));
+        }
+        return Ok(existing);
+    }
+
+    let event_hash = create_entry(&EntryTypes::ReputationEvent(event.clone()))?;
+    create_link(
+        event.subject.clone(),
+        event_hash.clone(),
+        LinkTypes::AgentToReputationEvents,
+        (),
+    )?;
+    create_link(
+        event.source_hash.clone(),
+        event_hash.clone(),
+        LinkTypes::SourceToReputationEvents,
+        (),
+    )?;
+    Ok(ReputationEventOutput { event_hash, event })
+}
+
+fn fulfillment_event_key(transaction_hash: &ActionHash, seller: &AgentPubKey) -> String {
+    format!("fulfillment:{transaction_hash}:seller:{seller}")
+}
+
+fn arbitration_event_key(
+    result_hash: &ActionHash,
+    kind: &ReputationEventKind,
+    subject: &AgentPubKey,
+) -> String {
+    let kind = match kind {
+        ReputationEventKind::ArbitrationWon => "won",
+        ReputationEventKind::ArbitrationLost => "lost",
+        ReputationEventKind::FulfillmentDelivered => "fulfillment",
+    };
+    format!("arbitration:{result_hash}:{kind}:{subject}")
+}
+
+fn transaction_root(mut cursor: ActionHash) -> ExternResult<ActionHash> {
+    let mut visited = Vec::new();
+    for _ in 0..=32 {
+        if visited.contains(&cursor) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Transaction update ancestry contains a cycle".into()
+            )));
+        }
+        visited.push(cursor.clone());
+        let record = get(cursor.clone(), GetOptions::default())?
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction action missing".into())))?;
+        match record.action() {
+            Action::Create(_) => return Ok(cursor),
+            Action::Update(update) => cursor = update.original_action_address.clone(),
+            _ => {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Transaction source must be a Create or Update action".into()
+                )))
+            }
+        }
+    }
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Transaction update ancestry exceeds the depth limit".into()
+    )))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReputationEventOutput {
+    pub event_hash: ActionHash,
+    pub event: ReputationEvent,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReputationEventsResponse {
+    pub events: Vec<ReputationEventOutput>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DerivedReputation {
+    pub agent: AgentPubKey,
+    pub score: f64,
+    pub positive_events: u32,
+    pub negative_events: u32,
+    pub event_count: u32,
+    pub fulfilled_value_cents: u64,
+    pub arbitration_value_cents: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TransactionResolutionStateWire {
+    Resolved,
+    AutoResolved,
+    AuthorizedResolved,
+    Conflicted,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TransactionResolutionWire {
+    root_transaction_hash: ActionHash,
+    state: TransactionResolutionStateWire,
+    canonical: Option<TransactionOutputWire>,
+}
+
+impl TransactionResolutionWire {
+    fn current(&self) -> ExternResult<&TransactionOutputWire> {
+        match (&self.state, &self.canonical) {
+            (
+                TransactionResolutionStateWire::Resolved
+                | TransactionResolutionStateWire::AutoResolved
+                | TransactionResolutionStateWire::AuthorizedResolved,
+                Some(current),
+            ) => Ok(current),
+            (
+                TransactionResolutionStateWire::Resolved
+                | TransactionResolutionStateWire::AutoResolved
+                | TransactionResolutionStateWire::AuthorizedResolved,
+                None,
+            ) => Err(wasm_error!(WasmErrorInner::Guest(
+                "Resolved transaction omitted its current revision".into()
+            ))),
+            (TransactionResolutionStateWire::Conflicted, _) => Err(wasm_error!(
+                WasmErrorInner::Guest("Conflicted transaction cannot produce reputation".into())
+            )),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TransactionOutputWire {
+    transaction_hash: ActionHash,
+    transaction: TransactionEvidenceWire,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct TransactionEvidenceWire {
+    buyer: AgentPubKey,
+    seller: AgentPubKey,
+    total_price_cents: u64,
+    status: TransactionStatusWire,
+    updated_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum TransactionStatusWire {
+    Pending,
+    Confirmed,
+    Shipped,
+    Delivered,
+    Completed,
+    Disputed,
+    Cancelled,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct ArbitrationResultWire {
+    dispute_hash: ActionHash,
+    dispute_revision_hash: ActionHash,
+    winner: AgentPubKey,
+    loser: AgentPubKey,
+    finalized_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+struct DisputeWire {
+    transaction_hash: ActionHash,
+    transaction_revision_hash: ActionHash,
+    buyer: AgentPubKey,
+    seller: AgentPubKey,
+    arbitrators: Vec<AgentPubKey>,
 }
 
 /// Compute Proof of Gradient Quality
@@ -267,10 +603,10 @@ fn compute_entropy(score: &MatlScore) -> ExternResult<f64> {
     Ok((quality_variance + consistency_penalty) / 2.0)
 }
 
-/// Detect Byzantine attack patterns
+/// Legacy heuristic flags retained for compatibility.
 ///
-/// This implements the key innovation for 45% Byzantine tolerance:
-/// detecting coordinated attacks, Sybil identities, and malicious behavior.
+/// These indicators are not a proof of any Byzantine-tolerance threshold and
+/// are not used as arbitration weights or integrity authorization.
 fn detect_byzantine_patterns(score: &MatlScore) -> ExternResult<ByzantineFlags> {
     let mut flags = score.flags.clone();
 
@@ -526,13 +862,6 @@ pub fn submit_review(input: SubmitReviewInput) -> ExternResult<ReviewOutput> {
         LinkTypes::TransactionToReview,
         (),
     )?;
-
-    // Update seller's MATL score based on review
-    update_matl_score(UpdateMatlInput {
-        agent: input.seller.clone(),
-        successful: input.rating >= 4, // 4-5 stars = successful
-        transaction_value_cents: 0,    // Value tracked elsewhere
-    })?;
 
     // Emit monitoring metric
     monitoring::emit_metric(

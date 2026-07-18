@@ -50,8 +50,14 @@ struct StoredContactMetadata {
 /// Wire type matching the zome's EmailListItem exactly.
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct WireEmailListItem {
-    pub hash: serde_json::Value,   // ActionHash (base64 or bytes)
-    pub sender: serde_json::Value, // AgentPubKey
+    // `hash`/`sender` are ActionHash/AgentPubKey — raw bytes on the wire.
+    // serde_json::Value cannot represent msgpack's raw byte-array type
+    // ("invalid type: byte array, expected any valid JSON value"), which
+    // failed decoding the WHOLE Vec<WireEmailListItem> response for any
+    // non-empty V1 inbox — the same bug class found and fixed throughout
+    // this codebase's V2 path; this is the V1 (legacy get_inbox) instance.
+    pub hash: Vec<u8>,
+    pub sender: Vec<u8>,
     pub encrypted_subject: Vec<u8>,
     pub timestamp: serde_json::Value, // Timestamp (i64 microseconds or [seconds, nanos])
     pub priority: String,
@@ -87,8 +93,12 @@ pub struct WireFolder {
 
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct WireContact {
-    pub hash: serde_json::Value,
-    pub agent_pub_key: serde_json::Value,
+    // `hash`/`agent_pub_key` are ActionHash/AgentPubKey — raw bytes on the
+    // wire. serde_json::Value cannot represent msgpack's raw byte-array
+    // type; Vec<u8>/Option<Vec<u8>> decode correctly. Same bug class as
+    // WireEmailListItem above.
+    pub hash: Vec<u8>,
+    pub agent_pub_key: Option<Vec<u8>>,
     pub display_name: String,
     #[serde(default)]
     pub nickname: Option<String>,
@@ -123,7 +133,7 @@ pub fn json_hash_to_string(val: &serde_json::Value) -> String {
 }
 
 /// Convert Holochain Timestamp to Unix seconds.
-fn wire_timestamp_to_u64(val: &serde_json::Value) -> u64 {
+pub fn wire_timestamp_to_u64(val: &serde_json::Value) -> u64 {
     match val {
         serde_json::Value::Number(n) => {
             let v = n.as_i64().unwrap_or(0);
@@ -142,7 +152,7 @@ fn wire_timestamp_to_u64(val: &serde_json::Value) -> u64 {
     }
 }
 
-fn base64_encode(bytes: &[u8]) -> String {
+pub fn base64_encode(bytes: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut result = String::with_capacity((bytes.len() * 4 + 2) / 3);
     for chunk in bytes.chunks(3) {
@@ -172,7 +182,7 @@ pub fn adapt_inbox(
 ) -> Vec<mail_leptos_types::EmailListItem> {
     wire.into_iter()
         .map(|w| {
-            let sender_key = json_hash_to_string(&w.sender);
+            let sender_key = base64_encode(&w.sender);
             let sender_name = contacts
                 .iter()
                 .find(|c| c.agent_pub_key.as_deref() == Some(&sender_key))
@@ -192,7 +202,7 @@ pub fn adapt_inbox(
                 });
 
             mail_leptos_types::EmailListItem {
-                hash: json_hash_to_string(&w.hash),
+                hash: base64_encode(&w.hash),
                 sender: sender_key,
                 sender_name,
                 encrypted_subject: w.encrypted_subject.clone(),
@@ -243,12 +253,12 @@ pub fn adapt_folders(wire: Vec<WireFolder>) -> Vec<FolderView> {
 pub fn adapt_contacts(wire: Vec<WireContact>) -> Vec<ContactView> {
     wire.into_iter()
         .map(|w| ContactView {
-            hash: json_hash_to_string(&w.hash),
+            hash: base64_encode(&w.hash),
             id: w.display_name.to_lowercase().replace(' ', "-"),
             display_name: w.display_name,
             nickname: w.nickname,
             email: w.email,
-            agent_pub_key: Some(json_hash_to_string(&w.agent_pub_key)),
+            agent_pub_key: w.agent_pub_key.as_deref().map(base64_encode),
             organization: w.organization,
             avatar: None,
             groups: w.groups,

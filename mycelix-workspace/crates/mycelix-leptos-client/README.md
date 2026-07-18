@@ -1,8 +1,10 @@
 # mycelix-leptos-client
 
-**Browser-compatible Holochain client for Leptos frontends.**
+**Experimental browser Holochain transport for Leptos frontends.**
 
-A pure-Rust replacement for [`@holochain/client`](https://www.npmjs.com/package/@holochain/client) (JavaScript) intended for WASM frontends — particularly [Leptos](https://leptos.dev) apps shipping AGPL application code that wants to stay out of the Node.js ecosystem.
+A browser-native Rust transport experiment intended for WASM frontends. It is
+not yet a drop-in replacement for
+[`@holochain/client`](https://www.npmjs.com/package/@holochain/client).
 
 Uses `web-sys::WebSocket` + [`rmp-serde`](https://crates.io/crates/rmp-serde) (MessagePack) to communicate with a Holochain conductor over binary WebSocket frames.
 
@@ -10,18 +12,23 @@ Uses `web-sys::WebSocket` + [`rmp-serde`](https://crates.io/crates/rmp-serde) (M
 
 The official Rust client, [`holochain_client`](https://crates.io/crates/holochain_client), is built for native Rust — it transitively depends on `tokio`, `holochain_websocket`, and other crates that do not compile to `wasm32-unknown-unknown`. For browser WASM frontends, the official path is `@holochain/client` (TypeScript) + some JS bundling layer.
 
-`mycelix-leptos-client` is the third option: a fresh-written, browser-native Rust client that avoids the TypeScript round-trip entirely. If you are building a Leptos / Yew / any-Rust-WASM frontend against a Holochain conductor, this crate lets you call zome functions without ever touching npm.
+`mycelix-leptos-client` explores a third option: a browser-native Rust client
+that avoids a TypeScript application layer. Connection and app-info discovery
+are implemented. Zome calls fail closed unless an authorized signer is
+installed through Rust or the official launcher host-signer convention.
 
 ## Features
 
-- **Pure Rust, pure WASM.** Zero JS shim, no bundler dance — just add the crate and call zome functions.
+- **Rust-first WASM transport.** WebSocket and protocol handling stay in Rust;
+  launcher deployments can delegate key custody to the standard host-signer hook.
 - **MessagePack wire format.** Matches what Holochain conductors speak natively; no JSON adaptation layer.
 - **Trait-based transport** so the same `HolochainClient` type works across:
   - [`BrowserWsTransport`] — browser WebSocket (feature `browser`, default)
   - [`NativeWsTransport`] — native integration tests (feature `native`)
   - `TauriIpcTransport` — planned, invoke a Tauri backend
   - `MockTransport` — unit tests, no network
-- **Typed zome calls** via serde-derived input/output structs.
+- **Typed zome calls** via serde-derived input/output structs, gated on an explicit signer.
+- **No unsigned fallback.** Missing credentials, zero signatures, and unavailable secure randomness are errors.
 - **AGPL-3.0-or-later.** Intended for application-layer code. Pair with your own AGPL app or negotiate a commercial exception.
 
 ## Example
@@ -38,10 +45,12 @@ struct ProposalHash { hash: Vec<u8> }
 
 async fn example() -> Result<(), Box<dyn std::error::Error>> {
     let transport = BrowserWsTransport::new();
+    // A launcher/native host must expose window.__HC_ZOME_CALL_SIGNER__, or
+    // the application must call transport.set_zome_call_signer(...).
     let client = HolochainClient::new(transport, "mycelix-unified", "governance");
 
-    // Connect; auth token is optional (None = no auth)
-    client.connect("ws://localhost:8888", None).await?;
+    // Holochain 0.6 app WebSockets require an app authentication token.
+    client.connect("ws://localhost:8888", Some(app_token)).await?;
 
     let result: ProposalHash = client
         .call_zome(
@@ -70,19 +79,27 @@ The default feature set is correct for a Leptos WASM frontend. For a Tauri deskt
 
 ## Compatibility
 
-- **Holochain conductor:** 0.6+ (tracks the protocol, not the specific conductor version). Tested against the "shared conductor" bootstrap of the Mycelix ecosystem.
-- **Rust:** 1.85+ (edition 2021, matches the Leptos 0.8 line).
+- **Holochain conductor:** targets the 0.6 app wire and official `CallZomeRequestSigned`/host-signer shapes; release still requires a real-conductor conformance lane.
+- **Rust:** 1.94+ (edition 2024, as declared by the crate manifest).
 - **Browser:** anything with WebSocket + WebCrypto; no Service Worker assumptions.
 
-## Where this ships
+## Readiness
 
-This crate is developed inside the Luminous Dynamics monorepo (private) and published to crates.io from there. The public mirror at <https://github.com/Luminous-Dynamics/mycelix-leptos-client> carries the per-release source snapshots.
+Treat the browser transport as experimental until tests exercise authentication,
+authorized host signing, zome calls, errors, signals, reconnects, and payload
+compatibility through this implementation against each supported conductor
+line. Tests that use only the official client do not establish compatibility
+for this crate.
 
-It is used in production by several Mycelix ecosystem apps:
+Run the dependency-free source drift guard before the Rust/WASM and
+real-conductor lanes:
 
-- [Mycelix Praxis](https://praxis.mycelix.net) — sovereign learning platform, Leptos + Holochain
-- [Mycelix Craft](https://github.com/Luminous-Dynamics/mycelix) — talent / credentials marketplace
-- [Mycelix Sovereign](https://github.com/Luminous-Dynamics/xenia-peer) — remote-session PAM suite (via the Xenia admin console)
+```sh
+python3 scripts/validate_wire_contract.py
+```
+
+The connection and reconnect state machine is documented in
+[`docs/transport-lifecycle.md`](docs/transport-lifecycle.md).
 
 ## License
 

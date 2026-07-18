@@ -942,6 +942,51 @@ pub struct GenerateRecsInput {
     pub rec_type: Option<RecommendationType>,
 }
 
+/// Return already-generated, unexpired recommendations without creating DHT
+/// entries. Dashboard reads must remain side-effect free.
+#[hdk_extern]
+pub fn get_active_recommendations(limit: u32) -> ExternResult<Vec<Recommendation>> {
+    let now = current_time()?;
+    let learner = agent_info()?.agent_initial_pubkey;
+    let anchor = recommendation_anchor()?;
+    let links = get_links(
+        LinkQuery::try_new(anchor, LinkTypes::LearnerToRecommendations)?,
+        GetStrategy::Local,
+    )?;
+
+    let mut recommendations = Vec::new();
+    for link in links {
+        let Some(action_hash) = link.target.into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(action_hash, GetOptions::default())? else {
+            continue;
+        };
+        let Some(recommendation) = record
+            .entry()
+            .to_app_option::<Recommendation>()
+            .map_err(|e| wasm_error!(e))?
+        else {
+            continue;
+        };
+
+        if recommendation.learner == learner
+            && recommendation.is_valid
+            && recommendation.expires_at > now
+        {
+            recommendations.push(recommendation);
+        }
+    }
+
+    recommendations.sort_by(|a, b| {
+        a.rank
+            .cmp(&b.rank)
+            .then_with(|| b.generated_at.cmp(&a.generated_at))
+    });
+    recommendations.truncate(limit.min(50) as usize);
+    Ok(recommendations)
+}
+
 /// Generate personalized recommendations
 #[hdk_extern]
 pub fn generate_recommendations(input: GenerateRecsInput) -> ExternResult<Vec<Recommendation>> {

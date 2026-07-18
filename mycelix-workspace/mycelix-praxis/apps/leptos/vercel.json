@@ -1,12 +1,12 @@
 {
   "version": 2,
-  "name": "edunet",
+  "name": "mycelix-praxis",
   "buildCommand": "",
   "outputDirectory": "dist",
   "routes": [
     {
-      "src": "/caps/(.*)",
-      "dest": "/caps/$1"
+      "src": "/curriculum/(.*)",
+      "dest": "/curriculum/$1"
     },
     {
       "src": "/sw.js",

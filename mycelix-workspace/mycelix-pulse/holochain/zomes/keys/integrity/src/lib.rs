@@ -6,6 +6,14 @@
 //! Pre-key bundles for E2E encryption key exchange.
 
 use hdi::prelude::*;
+use sha2::{Digest, Sha256};
+
+pub const HYBRID_KEY_BUNDLE_V2: u16 = 2;
+pub const HYBRID_SUITE_V2: &str = "x25519+ml-kem-768-hkdf-sha256-aes256gcm-agent-ed25519+ml-dsa-65";
+pub const ML_KEM_768_PUBLIC_KEY_BYTES: usize = 1184;
+pub const ML_DSA_65_PUBLIC_KEY_BYTES: usize = 1952;
+const HYBRID_KEY_ID_DOMAIN: &[u8] = b"mycelix-pulse/key-bundle/v2\0";
+const HYBRID_KEY_SIGNATURE_DOMAIN: &[u8] = b"mycelix-pulse/key-bundle-signature/v2\0";
 
 /// Pre-key bundle for X3DH key exchange
 #[hdk_entry_helper]
@@ -32,6 +40,72 @@ pub struct OneTimePreKey {
     pub key_id: u32,
     pub public_key: Vec<u8>,
     pub used: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum HybridKeyStateV2 {
+    Active,
+    Retired,
+    RevokedCompromised,
+    Lost,
+}
+
+/// Agent-bound static keys used by the Pulse V2 envelope. Secret material is
+/// device-local and never enters this record.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct HybridKeyBundleV2 {
+    pub version: u16,
+    pub suite: String,
+    pub key_id: [u8; 32],
+    pub x25519_public_key: [u8; 32],
+    pub ml_kem_768_public_key: Vec<u8>,
+    pub ml_dsa_65_public_key: Vec<u8>,
+    pub state: HybridKeyStateV2,
+    pub created_at: u64,
+    pub expires_at: u64,
+    /// Active Holochain agent signature over `hybrid_key_signing_content`.
+    pub agent_signature: Vec<u8>,
+}
+
+fn put_bytes(out: &mut Vec<u8>, value: &[u8]) {
+    out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+    out.extend_from_slice(value);
+}
+
+pub fn hybrid_key_id(bundle: &HybridKeyBundleV2) -> [u8; 32] {
+    let mut transcript = Vec::with_capacity(
+        128 + bundle.ml_kem_768_public_key.len() + bundle.ml_dsa_65_public_key.len(),
+    );
+    transcript.extend_from_slice(HYBRID_KEY_ID_DOMAIN);
+    put_bytes(&mut transcript, bundle.suite.as_bytes());
+    transcript.extend_from_slice(&bundle.x25519_public_key);
+    put_bytes(&mut transcript, &bundle.ml_kem_768_public_key);
+    put_bytes(&mut transcript, &bundle.ml_dsa_65_public_key);
+    Sha256::digest(&transcript).into()
+}
+
+pub fn hybrid_key_signing_content(bundle: &HybridKeyBundleV2) -> Vec<u8> {
+    let mut content = Vec::with_capacity(
+        192 + bundle.ml_kem_768_public_key.len() + bundle.ml_dsa_65_public_key.len(),
+    );
+    content.extend_from_slice(HYBRID_KEY_SIGNATURE_DOMAIN);
+    content.extend_from_slice(&bundle.version.to_be_bytes());
+    put_bytes(&mut content, bundle.suite.as_bytes());
+    content.extend_from_slice(&bundle.key_id);
+    content.extend_from_slice(&bundle.x25519_public_key);
+    put_bytes(&mut content, &bundle.ml_kem_768_public_key);
+    put_bytes(&mut content, &bundle.ml_dsa_65_public_key);
+    content.push(match bundle.state {
+        HybridKeyStateV2::Active => 1,
+        HybridKeyStateV2::Retired => 2,
+        HybridKeyStateV2::RevokedCompromised => 3,
+        HybridKeyStateV2::Lost => 4,
+    });
+    content.extend_from_slice(&bundle.created_at.to_be_bytes());
+    content.extend_from_slice(&bundle.expires_at.to_be_bytes());
+    content
 }
 
 /// Used pre-key record (to prevent reuse)
@@ -66,8 +140,57 @@ pub enum RotationReason {
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     PreKeyBundle(PreKeyBundle),
+    HybridKeyBundleV2(HybridKeyBundleV2),
     UsedPreKey(UsedPreKey),
     KeyRotation(KeyRotation),
+}
+
+fn validate_create_hybrid_key_bundle_v2(
+    action: Create,
+    bundle: HybridKeyBundleV2,
+) -> ExternResult<ValidateCallbackResult> {
+    if bundle.version != HYBRID_KEY_BUNDLE_V2 || bundle.suite != HYBRID_SUITE_V2 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Unsupported hybrid key bundle version or suite".into(),
+        ));
+    }
+    if bundle.key_id != hybrid_key_id(&bundle) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hybrid key ID does not match its public-key transcript".into(),
+        ));
+    }
+    if bundle.ml_kem_768_public_key.len() != ML_KEM_768_PUBLIC_KEY_BYTES {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ML-KEM-768 public key must be 1184 bytes".into(),
+        ));
+    }
+    if bundle.ml_dsa_65_public_key.len() != ML_DSA_65_PUBLIC_KEY_BYTES {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ML-DSA-65 public key must be 1952 bytes".into(),
+        ));
+    }
+    if bundle.expires_at <= bundle.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Expiration must be after creation time".into(),
+        ));
+    }
+    if bundle.agent_signature.len() != 64 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Agent signature must be 64 bytes".into(),
+        ));
+    }
+    let mut signature = [0; 64];
+    signature.copy_from_slice(&bundle.agent_signature);
+    if !verify_signature_raw(
+        action.author,
+        Signature(signature),
+        hybrid_key_signing_content(&bundle),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Hybrid key bundle agent signature verification failed".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 #[hdk_link_types]
@@ -77,9 +200,20 @@ pub enum LinkTypes {
     KeyRotations,
 }
 
+pub fn pre_key_signing_content(bundle: &PreKeyBundle) -> Vec<u8> {
+    let mut content = Vec::with_capacity(128);
+    content.extend_from_slice(b"mycelix-pulse/pre-key/v1\0");
+    content.extend_from_slice(&bundle.identity_key);
+    content.extend_from_slice(&bundle.signed_pre_key);
+    content.extend_from_slice(&bundle.signed_pre_key_id.to_be_bytes());
+    content.extend_from_slice(&bundle.created_at.to_be_bytes());
+    content.extend_from_slice(&bundle.expires_at.to_be_bytes());
+    content
+}
+
 /// Validate pre-key bundle
 fn validate_create_pre_key_bundle(
-    _action: Create,
+    action: Create,
     bundle: PreKeyBundle,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate identity key length (32 bytes for X25519)
@@ -100,6 +234,17 @@ fn validate_create_pre_key_bundle(
     if bundle.signed_pre_key_signature.len() != 64 {
         return Ok(ValidateCallbackResult::Invalid(
             "Signature must be 64 bytes".to_string(),
+        ));
+    }
+    let mut signature = [0u8; 64];
+    signature.copy_from_slice(&bundle.signed_pre_key_signature);
+    if !verify_signature_raw(
+        action.author,
+        Signature(signature),
+        pre_key_signing_content(&bundle),
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Signed pre-key signature verification failed".to_string(),
         ));
     }
 
@@ -133,15 +278,25 @@ fn validate_create_pre_key_bundle(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate used pre-key record
+/// Validate used pre-key record -- bind to its committer. consume_pre_key already derives
+/// used_by from agent_info() coordinator-side with zero user input (P0 author-binding gap).
+/// Note: consume_pre_key legitimately calls update_entry on the OTHER agent's PreKeyBundle
+/// (X3DH protocol -- the consumer marks the bundle owner's one-time key used) -- that
+/// cross-agent update path is a real, deliberate exception and is NOT touched here.
 fn validate_create_used_pre_key(
-    _action: Create,
+    action: Create,
     used: UsedPreKey,
 ) -> ExternResult<ValidateCallbackResult> {
     // Basic validation
     if used.key_id == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Key ID cannot be 0".to_string(),
+        ));
+    }
+
+    if used.used_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "UsedPreKey must be recorded by the consuming agent (used_by forgery)".to_string(),
         ));
     }
 
@@ -170,6 +325,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::PreKeyBundle(bundle) => validate_create_pre_key_bundle(action, bundle),
+                EntryTypes::HybridKeyBundleV2(bundle) => {
+                    validate_create_hybrid_key_bundle_v2(action, bundle)
+                }
                 EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action, used),
                 EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action, rotation),
             },
@@ -183,6 +341,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
+                EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
+                )),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -193,5 +354,54 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bundle() -> HybridKeyBundleV2 {
+        let mut value = HybridKeyBundleV2 {
+            version: HYBRID_KEY_BUNDLE_V2,
+            suite: HYBRID_SUITE_V2.into(),
+            key_id: [0; 32],
+            x25519_public_key: [1; 32],
+            ml_kem_768_public_key: vec![2; ML_KEM_768_PUBLIC_KEY_BYTES],
+            ml_dsa_65_public_key: vec![3; ML_DSA_65_PUBLIC_KEY_BYTES],
+            state: HybridKeyStateV2::Active,
+            created_at: 10,
+            expires_at: 20,
+            agent_signature: vec![0; 64],
+        };
+        value.key_id = hybrid_key_id(&value);
+        value
+    }
+
+    #[test]
+    fn key_id_binds_both_pq_and_classical_public_keys() {
+        let original = bundle();
+        let id = original.key_id;
+        let mut changed = original.clone();
+        changed.x25519_public_key[0] ^= 1;
+        assert_ne!(id, hybrid_key_id(&changed));
+        let mut changed = original.clone();
+        changed.ml_kem_768_public_key[0] ^= 1;
+        assert_ne!(id, hybrid_key_id(&changed));
+        let mut changed = original;
+        changed.ml_dsa_65_public_key[0] ^= 1;
+        assert_ne!(id, hybrid_key_id(&changed));
+    }
+
+    #[test]
+    fn signature_transcript_binds_state_and_expiry() {
+        let original = bundle();
+        let transcript = hybrid_key_signing_content(&original);
+        let mut changed = original.clone();
+        changed.state = HybridKeyStateV2::Retired;
+        assert_ne!(transcript, hybrid_key_signing_content(&changed));
+        let mut changed = original;
+        changed.expires_at += 1;
+        assert_ne!(transcript, hybrid_key_signing_content(&changed));
     }
 }
