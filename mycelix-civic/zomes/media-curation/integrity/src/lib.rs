@@ -205,10 +205,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -468,32 +465,48 @@ fn validate_update_featured_content(
 
 fn validate_gallery(gallery: &Gallery) -> ExternResult<ValidateCallbackResult> {
     if gallery.name.is_empty() || gallery.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery name must be 1-256 chars".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery name must be 1-256 chars".to_string(),
+        ));
     }
     if gallery.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery description must be <= 4KB".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery description must be <= 4KB".to_string(),
+        ));
     }
     if !gallery.curator_did.starts_with("did:") || gallery.curator_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "curator_did must be a valid DID".to_string(),
+        ));
     }
     if gallery.publication_ids.len() > 500 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery may contain at most 500 publications".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery may contain at most 500 publications".to_string(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_exhibition(exhibition: &Exhibition) -> ExternResult<ValidateCallbackResult> {
     if exhibition.name.is_empty() || exhibition.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition name must be 1-256 chars".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition name must be 1-256 chars".to_string(),
+        ));
     }
     if exhibition.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition description must be <= 4KB".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition description must be <= 4KB".to_string(),
+        ));
     }
     if !exhibition.curator_did.starts_with("did:") || exhibition.curator_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "curator_did must be a valid DID".to_string(),
+        ));
     }
     if exhibition.featured_publication_ids.len() > 100 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition may feature at most 100 publications".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition may feature at most 100 publications".to_string(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }

@@ -591,9 +591,10 @@ mod tests {
         assert_eq!(back.season, "Summer");
         assert_eq!(back.pattern_type, PatternType::Drought);
         assert_eq!(back.indicators.len(), 3);
-        assert!(back
-            .indicators
-            .contains(&"Increased wildfire risk".to_string()));
+        assert!(
+            back.indicators
+                .contains(&"Increased wildfire risk".to_string())
+        );
     }
 
     #[test]

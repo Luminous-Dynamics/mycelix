@@ -7,8 +7,8 @@
 //! rhythm occurrences (check-ins), and member presence tracking.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use hearth_types::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types
@@ -150,10 +150,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }

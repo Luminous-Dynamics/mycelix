@@ -4,7 +4,7 @@
 //! Fact-Check Coordinator Zome
 use hdk::prelude::*;
 use media_factcheck_integrity::*;
-use mycelix_bridge_common::{civic_requirement_proposal, GovernanceEligibility};
+use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_proposal};
 use mycelix_zome_helpers::get_latest_record;
 
 use mycelix_zome_helpers as _;

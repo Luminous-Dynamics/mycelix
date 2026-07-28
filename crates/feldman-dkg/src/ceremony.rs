@@ -1613,9 +1613,11 @@ mod tests {
             !violations.is_empty(),
             "participant 3 should have violations"
         );
-        assert!(violations
-            .iter()
-            .any(|v| matches!(v.violation_type, ViolationType::CommitRevealMismatch)));
+        assert!(
+            violations
+                .iter()
+                .any(|v| matches!(v.violation_type, ViolationType::CommitRevealMismatch))
+        );
 
         // Ceremony should still finalize with 2 qualified (threshold met)
         let result = ceremony.finalize().unwrap();

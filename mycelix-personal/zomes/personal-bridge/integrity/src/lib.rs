@@ -8,8 +8,8 @@
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{
-    validate_event_fields, validate_query_fields, BridgeEventEntry, BridgeQueryEntry,
-    CrossClusterNotification,
+    BridgeEventEntry, BridgeQueryEntry, CrossClusterNotification, validate_event_fields,
+    validate_query_fields,
 };
 
 /// Anchor entry for deterministic link bases.

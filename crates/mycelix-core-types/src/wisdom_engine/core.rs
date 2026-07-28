@@ -992,21 +992,15 @@ impl Epistemology {
             Self::IslamicScholarly => {
                 "Knowledge through revealed text, scholarly consensus (ijma), and analogical reasoning (qiyas)"
             }
-            Self::AfricanUbuntu => {
-                "Knowledge through community - 'I am because we are'"
-            }
+            Self::AfricanUbuntu => "Knowledge through community - 'I am because we are'",
             Self::HinduDarshana => {
                 "Knowledge through multiple valid perspectives (darshanas) and experiential realization"
             }
             Self::Taoist => {
                 "Knowledge through harmony with nature, embracing paradox, and non-action (wu wei)"
             }
-            Self::Pragmatist => {
-                "Knowledge validated by practical consequences - 'what works'"
-            }
-            Self::FeministStandpoint => {
-                "Knowledge as situated, valuing marginalized perspectives"
-            }
+            Self::Pragmatist => "Knowledge validated by practical consequences - 'what works'",
+            Self::FeministStandpoint => "Knowledge as situated, valuing marginalized perspectives",
             Self::Constructivist => "Knowledge as social construction, contextual truth",
             Self::Custom => "Community-defined epistemological framework",
         }

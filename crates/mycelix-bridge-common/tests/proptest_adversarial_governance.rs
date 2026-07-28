@@ -10,10 +10,10 @@
 use proptest::prelude::*;
 
 use mycelix_bridge_common::consciousness_profile::{
-    evaluate_governance, evaluate_governance_with_reputation, requirement_for_basic,
-    requirement_for_constitutional, requirement_for_guardian, requirement_for_voting,
-    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, GovernanceRequirement,
-    ReputationState, GRACE_PERIOD_US, REPUTATION_BLACKLIST_THRESHOLD,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, GRACE_PERIOD_US,
+    GovernanceRequirement, REPUTATION_BLACKLIST_THRESHOLD, ReputationState, evaluate_governance,
+    evaluate_governance_with_reputation, requirement_for_basic, requirement_for_constitutional,
+    requirement_for_guardian, requirement_for_voting,
 };
 use mycelix_bridge_common::consciousness_thresholds::BOOTSTRAP_TTL_US;
 use mycelix_bridge_common::offline_credential::OfflineCredential;

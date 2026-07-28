@@ -12,7 +12,7 @@ use mutualaid_requests_integrity::{
     RequestStatus, RequestType, Urgency,
 };
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, gate_civic, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal, gate_civic,
 };
 use mycelix_zome_helpers as _;
 

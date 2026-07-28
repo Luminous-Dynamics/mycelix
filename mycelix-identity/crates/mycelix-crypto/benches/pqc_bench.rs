@@ -8,7 +8,7 @@
 //! Covers keygen, sign, and verify for all 5 signature algorithms,
 //! plus ML-KEM-768 encapsulate/decapsulate and XChaCha20-Poly1305 AEAD.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 use mycelix_crypto::pqc::dilithium::{
     MlDsa65Signer, MlDsa65Verifier, MlDsa87Signer, MlDsa87Verifier,

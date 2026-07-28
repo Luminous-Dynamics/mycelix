@@ -9,8 +9,8 @@
 use proptest::prelude::*;
 
 use mycelix_bridge_common::consciousness_profile::{
-    continuous_vote_weight, decay_reputation, ConsciousnessCredential, ConsciousnessProfile,
-    ConsciousnessTier, VOTE_WEIGHT_MAX_BP, VOTE_WEIGHT_TEMPERATURE,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, VOTE_WEIGHT_MAX_BP,
+    VOTE_WEIGHT_TEMPERATURE, continuous_vote_weight, decay_reputation,
 };
 use mycelix_bridge_common::offline_credential::OfflineCredential;
 use mycelix_bridge_common::saga::{self, SagaAction, SagaDefinition, SagaStatus, SagaStep};

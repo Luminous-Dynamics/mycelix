@@ -140,10 +140,7 @@ fn validate_create_event(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_rsvp(
-    _action: Create,
-    rsvp: Rsvp,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_rsvp(_action: Create, rsvp: Rsvp) -> ExternResult<ValidateCallbackResult> {
     if rsvp.attendee_did.trim().is_empty() || rsvp.attendee_did.len() > 256 {
         return Ok(ValidateCallbackResult::Invalid(
             "attendee_did must be 1-256 non-whitespace characters".into(),

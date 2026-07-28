@@ -280,11 +280,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ..
             } => {
                 let original_action = must_get_action(original_action_hash)?;
-                let author_check = check_author_match(
-                    original_action.action().author(),
-                    &action.author,
-                    "update",
-                );
+                let author_check =
+                    check_author_match(original_action.action().author(), &action.author, "update");
                 if author_check != ValidateCallbackResult::Valid {
                     return Ok(author_check);
                 }
@@ -292,9 +289,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type, tag, ..
-        } => validate_link_tag(&link_type, &tag),
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => validate_link_tag(&link_type, &tag),
         FlatOp::RegisterDeleteLink {
             link_type,
             tag,
@@ -302,10 +297,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }

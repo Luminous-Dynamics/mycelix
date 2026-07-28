@@ -121,7 +121,10 @@ pub fn geohash_decode(hash: &str) -> (f64, f64) {
         }
     }
 
-    ((lat_range.0 + lat_range.1) / 2.0, (lon_range.0 + lon_range.1) / 2.0)
+    (
+        (lat_range.0 + lat_range.1) / 2.0,
+        (lon_range.0 + lon_range.1) / 2.0,
+    )
 }
 
 /// Get the 8 neighboring geohash cells of the given geohash.
@@ -137,9 +140,14 @@ pub fn geohash_neighbors(hash: &str) -> Vec<String> {
     let (lat_err, lon_err) = geohash_error(precision);
 
     let offsets: [(f64, f64); 8] = [
-        (-lat_err, -lon_err), (-lat_err, 0.0), (-lat_err, lon_err),
-        (0.0, -lon_err),                       (0.0, lon_err),
-        (lat_err, -lon_err),  (lat_err, 0.0),  (lat_err, lon_err),
+        (-lat_err, -lon_err),
+        (-lat_err, 0.0),
+        (-lat_err, lon_err),
+        (0.0, -lon_err),
+        (0.0, lon_err),
+        (lat_err, -lon_err),
+        (lat_err, 0.0),
+        (lat_err, lon_err),
     ];
 
     offsets
@@ -160,8 +168,7 @@ pub fn haversine_distance_km(a: &GeoLocation, b: &GeoLocation) -> f64 {
     let lat1 = a.latitude.to_radians();
     let lat2 = b.latitude.to_radians();
 
-    let h = (dlat / 2.0).sin().powi(2)
-        + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+    let h = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
     let c = 2.0 * h.sqrt().asin();
     R * c
 }
@@ -180,8 +187,12 @@ fn geohash_error(precision: u8) -> (f64, f64) {
 /// Wrap longitude to [-180, 180).
 fn wrap_longitude(lon: f64) -> f64 {
     let mut l = lon;
-    while l > 180.0 { l -= 360.0; }
-    while l < -180.0 { l += 360.0; }
+    while l > 180.0 {
+        l -= 360.0;
+    }
+    while l < -180.0 {
+        l += 360.0;
+    }
     l
 }
 
@@ -195,7 +206,11 @@ mod tests {
         let hash = geohash_encode(32.95, -96.73, 6);
         assert_eq!(hash.len(), 6);
         // Should start with "9vg" (North America)
-        assert!(hash.starts_with("9v"), "Richardson TX should start with 9v, got {}", hash);
+        assert!(
+            hash.starts_with("9v"),
+            "Richardson TX should start with 9v, got {}",
+            hash
+        );
     }
 
     #[test]
@@ -204,8 +219,18 @@ mod tests {
         let lon = 2.3522;
         let hash = geohash_encode(lat, lon, 8);
         let (dlat, dlon) = geohash_decode(&hash);
-        assert!((dlat - lat).abs() < 0.001, "Latitude drift: {} vs {}", dlat, lat);
-        assert!((dlon - lon).abs() < 0.001, "Longitude drift: {} vs {}", dlon, lon);
+        assert!(
+            (dlat - lat).abs() < 0.001,
+            "Latitude drift: {} vs {}",
+            dlat,
+            lat
+        );
+        assert!(
+            (dlon - lon).abs() < 0.001,
+            "Longitude drift: {} vs {}",
+            dlon,
+            lon
+        );
     }
 
     #[test]
@@ -228,26 +253,50 @@ mod tests {
 
     #[test]
     fn haversine_same_point_is_zero() {
-        let p = GeoLocation { latitude: 32.95, longitude: -96.73, altitude_m: None };
+        let p = GeoLocation {
+            latitude: 32.95,
+            longitude: -96.73,
+            altitude_m: None,
+        };
         assert!((haversine_distance_km(&p, &p)).abs() < 0.001);
     }
 
     #[test]
     fn haversine_known_distance() {
         // Richardson TX to Dallas TX (~15 km)
-        let richardson = GeoLocation { latitude: 32.95, longitude: -96.73, altitude_m: None };
-        let dallas = GeoLocation { latitude: 32.78, longitude: -96.80, altitude_m: None };
+        let richardson = GeoLocation {
+            latitude: 32.95,
+            longitude: -96.73,
+            altitude_m: None,
+        };
+        let dallas = GeoLocation {
+            latitude: 32.78,
+            longitude: -96.80,
+            altitude_m: None,
+        };
         let dist = haversine_distance_km(&richardson, &dallas);
         assert!(dist > 10.0 && dist < 25.0, "Expected ~15km, got {}", dist);
     }
 
     #[test]
     fn haversine_antipodal_is_half_circumference() {
-        let a = GeoLocation { latitude: 0.0, longitude: 0.0, altitude_m: None };
-        let b = GeoLocation { latitude: 0.0, longitude: 180.0, altitude_m: None };
+        let a = GeoLocation {
+            latitude: 0.0,
+            longitude: 0.0,
+            altitude_m: None,
+        };
+        let b = GeoLocation {
+            latitude: 0.0,
+            longitude: 180.0,
+            altitude_m: None,
+        };
         let dist = haversine_distance_km(&a, &b);
         // Should be ~20,015 km (half Earth circumference)
-        assert!(dist > 19_000.0 && dist < 21_000.0, "Expected ~20015km, got {}", dist);
+        assert!(
+            dist > 19_000.0 && dist < 21_000.0,
+            "Expected ~20015km, got {}",
+            dist
+        );
     }
 
     #[test]

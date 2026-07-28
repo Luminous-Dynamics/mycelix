@@ -10,8 +10,8 @@
 use hdk::prelude::*;
 use mediation_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
-    GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
+    civic_requirement_voting,
 };
 use mycelix_zome_helpers as _;
 

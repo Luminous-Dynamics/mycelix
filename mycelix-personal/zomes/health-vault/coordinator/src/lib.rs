@@ -6,7 +6,7 @@
 //! CRUD operations for the agent's private health data.
 //! Access is gated by consent grants.
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use hdk::prelude::*;
 use health_vault_integrity::*;
 

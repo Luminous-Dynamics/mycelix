@@ -20,8 +20,8 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::symthaea::SymthaeaPattern;
 use super::PatternId;
+use super::symthaea::SymthaeaPattern;
 
 // =============================================================================
 // Similarity Metrics

@@ -949,11 +949,13 @@ mod tests {
         assert_eq!(decoded.usage_limits.len(), 2);
         assert!(decoded.maintenance_rotation);
         assert_eq!(decoded.decision_method, DecisionMethod::Consensus);
-        assert!(decoded
-            .penalty_for_violation
-            .as_ref()
-            .unwrap()
-            .contains("warning"));
+        assert!(
+            decoded
+                .penalty_for_violation
+                .as_ref()
+                .unwrap()
+                .contains("warning")
+        );
     }
 
     #[test]

@@ -1021,14 +1021,18 @@ mod tests {
     fn test_emergency_session_number_range() {
         let mut es = make_emergency_session();
         es.session_number = 0;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("Session number must be 1-3"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("Session number must be 1-3")
+        );
 
         es.session_number = 4;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("Session number must be 1-3"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("Session number must be 1-3")
+        );
     }
 
     #[test]
@@ -1037,9 +1041,11 @@ mod tests {
         let mut es = make_emergency_session();
         es.session_number = 2;
         es.preceding_session_id = None;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("must reference the preceding"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("must reference the preceding")
+        );
 
         // Session 2 with preceding is OK
         es.preceding_session_id = Some("es-1".into());
@@ -1049,9 +1055,11 @@ mod tests {
         let mut es1 = make_emergency_session();
         es1.session_number = 1;
         es1.preceding_session_id = Some("bogus".into());
-        assert!(check_create_emergency_session(&es1)
-            .unwrap_err()
-            .contains("must not have a preceding"));
+        assert!(
+            check_create_emergency_session(&es1)
+                .unwrap_err()
+                .contains("must not have a preceding")
+        );
     }
 
     #[test]
@@ -1059,9 +1067,11 @@ mod tests {
         let mut es = make_emergency_session();
         // 15 days exceeds 14-day max
         es.expires_at = ts(es.started_at.as_micros() as i64 + 15 * 24 * 3600 * 1_000_000);
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("exceeds maximum"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("exceeds maximum")
+        );
     }
 
     #[test]
@@ -1079,17 +1089,16 @@ mod tests {
         // Too short cooldown rejected
         let mut short = cooldown.clone();
         short.cooldown_ends = ts(1_000_000 + 29 * 24 * 3600 * 1_000_000); // 29 days < 30
-        assert!(check_create_emergency_cooldown(&short)
-            .unwrap_err()
-            .contains("at least 30 days"));
+        assert!(
+            check_create_emergency_cooldown(&short)
+                .unwrap_err()
+                .contains("at least 30 days")
+        );
     }
 
     #[test]
     fn test_membership_term_is_365_days() {
-        assert_eq!(
-            DEFAULT_MEMBERSHIP_TERM_US,
-            365 * 24 * 3600 * 1_000_000_i64
-        );
+        assert_eq!(DEFAULT_MEMBERSHIP_TERM_US, 365 * 24 * 3600 * 1_000_000_i64);
     }
 
     #[test]

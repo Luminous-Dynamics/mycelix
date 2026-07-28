@@ -1417,11 +1417,13 @@ mod tests {
         // Still blocked during cooldown
         assert!(circuit_breaker::check_breaker(target, opened_at + 1000).is_err());
         // Allowed after cooldown
-        assert!(circuit_breaker::check_breaker(
-            target,
-            opened_at + circuit_breaker::COOLDOWN_MICROS + 1
-        )
-        .is_ok());
+        assert!(
+            circuit_breaker::check_breaker(
+                target,
+                opened_at + circuit_breaker::COOLDOWN_MICROS + 1
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -1486,10 +1488,10 @@ mod tests {
 
     mod consciousness_gating_tests {
         use mycelix_bridge_common::{
+            CivicTier, GovernanceRequirement, SovereignCredential, SovereignProfile,
             decay_reputation, evaluate_governance, requirement_for_basic,
             requirement_for_constitutional, requirement_for_guardian, requirement_for_proposal,
-            requirement_for_voting, CivicTier, GovernanceRequirement, SovereignCredential,
-            SovereignProfile,
+            requirement_for_voting,
         };
 
         // --- Tier thresholds from combined score ---

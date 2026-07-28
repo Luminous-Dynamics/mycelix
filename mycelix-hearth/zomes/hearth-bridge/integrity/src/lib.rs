@@ -9,8 +9,8 @@
 use hdi::prelude::*;
 pub use mycelix_bridge_entry_types::CachedCredentialEntry;
 use mycelix_bridge_entry_types::{
-    check_author_match, check_link_author_match, validate_cached_credential, BridgeEventEntry,
-    BridgeQueryEntry, CrossClusterNotification,
+    BridgeEventEntry, BridgeQueryEntry, CrossClusterNotification, check_author_match,
+    check_link_author_match, validate_cached_credential,
 };
 
 /// Anchor entry for deterministic link bases.
@@ -107,10 +107,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }

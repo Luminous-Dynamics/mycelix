@@ -181,9 +181,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::SecondaryMaterialListing(listing) => {
                     validate_create_listing(action, listing)
                 }
-                EntryTypes::SecondaryMaterialOrder(order) => {
-                    validate_create_order(action, order)
-                }
+                EntryTypes::SecondaryMaterialOrder(order) => validate_create_order(action, order),
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -203,22 +201,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllListings
-                | LinkTypes::TypeToListings
-                | LinkTypes::ListingToOrders
-                | LinkTypes::BuyerToOrders
-                | LinkTypes::FacilityToListings => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllListings
+            | LinkTypes::TypeToListings
+            | LinkTypes::ListingToOrders
+            | LinkTypes::BuyerToOrders
+            | LinkTypes::FacilityToListings => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -320,17 +317,12 @@ fn validate_create_order(
             "Order quantity must be a positive finite number".into(),
         ));
     }
-    if !order.delivery_lat.is_finite()
-        || order.delivery_lat < -90.0
-        || order.delivery_lat > 90.0
-    {
+    if !order.delivery_lat.is_finite() || order.delivery_lat < -90.0 || order.delivery_lat > 90.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Delivery latitude must be between -90 and 90".into(),
         ));
     }
-    if !order.delivery_lon.is_finite()
-        || order.delivery_lon < -180.0
-        || order.delivery_lon > 180.0
+    if !order.delivery_lon.is_finite() || order.delivery_lon < -180.0 || order.delivery_lon > 180.0
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Delivery longitude must be between -180 and 180".into(),
@@ -393,7 +385,10 @@ mod tests {
     fn test_listing_zero_price_allowed() {
         let mut listing = make_valid_listing();
         listing.price_per_kg = 0.0;
-        assert!(listing.price_per_kg >= 0.0, "Free/donation listings should be valid");
+        assert!(
+            listing.price_per_kg >= 0.0,
+            "Free/donation listings should be valid"
+        );
     }
 
     #[test]

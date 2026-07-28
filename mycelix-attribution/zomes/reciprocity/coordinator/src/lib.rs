@@ -371,11 +371,7 @@ pub fn compute_stewardship_score(dep_id: String) -> ExternResult<StewardshipScor
     };
 
     let ratio = if usage_count == 0 {
-        if pledge_count > 0 {
-            1.0
-        } else {
-            0.0
-        }
+        if pledge_count > 0 { 1.0 } else { 0.0 }
     } else {
         pledge_count as f64 / usage_count as f64
     };
@@ -632,11 +628,7 @@ fn validate_page_limit(limit: u64) -> Result<(), String> {
 #[cfg(test)]
 fn compute_ratio(pledge_count: u64, usage_count: u64) -> f64 {
     if usage_count == 0 {
-        if pledge_count > 0 {
-            1.0
-        } else {
-            0.0
-        }
+        if pledge_count > 0 { 1.0 } else { 0.0 }
     } else {
         pledge_count as f64 / usage_count as f64
     }

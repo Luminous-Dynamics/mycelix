@@ -1,5 +1,4 @@
 #![allow(clippy::manual_range_contains, clippy::useless_vec)]
-
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
@@ -3830,9 +3829,11 @@ mod consciousness_weighted_consensus_tests {
         // Basic > ProposalSubmission violates ordering
         config.consciousness_gate_basic = 0.5;
         config.consciousness_gate_proposal = 0.3;
-        assert!(check_consciousness_config(&config)
-            .unwrap_err()
-            .contains("consciousness_gate_basic"));
+        assert!(
+            check_consciousness_config(&config)
+                .unwrap_err()
+                .contains("consciousness_gate_basic")
+        );
     }
 
     #[test]
@@ -3840,9 +3841,11 @@ mod consciousness_weighted_consensus_tests {
         let mut config = default_config();
         config.min_voter_consciousness_standard = 0.4;
         config.min_voter_consciousness_emergency = 0.3;
-        assert!(check_consciousness_config(&config)
-            .unwrap_err()
-            .contains("min_voter_consciousness_standard"));
+        assert!(
+            check_consciousness_config(&config)
+                .unwrap_err()
+                .contains("min_voter_consciousness_standard")
+        );
     }
 
     #[test]
@@ -3876,15 +3879,19 @@ mod consciousness_weighted_consensus_tests {
 
         // Too low
         config.max_voting_weight = 0.3;
-        assert!(check_consciousness_config(&config)
-            .unwrap_err()
-            .contains("max_voting_weight"));
+        assert!(
+            check_consciousness_config(&config)
+                .unwrap_err()
+                .contains("max_voting_weight")
+        );
 
         // Too high
         config.max_voting_weight = 6.0;
-        assert!(check_consciousness_config(&config)
-            .unwrap_err()
-            .contains("max_voting_weight"));
+        assert!(
+            check_consciousness_config(&config)
+                .unwrap_err()
+                .contains("max_voting_weight")
+        );
 
         // Valid custom value
         config.max_voting_weight = 2.0;

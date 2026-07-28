@@ -8,10 +8,10 @@
 use proptest::prelude::*;
 
 use mycelix_bridge_common::consciousness_profile::{
-    evaluate_bootstrap_governance, evaluate_governance, is_bootstrap_eligible,
-    requirement_for_basic, requirement_for_constitutional, requirement_for_guardian,
-    requirement_for_proposal, requirement_for_voting, should_audit, ConsciousnessCredential,
-    ConsciousnessProfile, ConsciousnessTier, GovernanceRequirement, GRACE_PERIOD_US,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, GRACE_PERIOD_US,
+    GovernanceRequirement, evaluate_bootstrap_governance, evaluate_governance,
+    is_bootstrap_eligible, requirement_for_basic, requirement_for_constitutional,
+    requirement_for_guardian, requirement_for_proposal, requirement_for_voting, should_audit,
 };
 use mycelix_bridge_common::consciousness_thresholds::{
     BOOTSTRAP_COMMUNITY_THRESHOLD, BOOTSTRAP_MIN_IDENTITY, BOOTSTRAP_TTL_US,

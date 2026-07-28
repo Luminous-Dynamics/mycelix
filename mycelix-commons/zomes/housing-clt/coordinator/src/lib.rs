@@ -925,10 +925,12 @@ mod tests {
             decoded.resale_formula.formula_type,
             FormulaType::ConsumerPriceIndex
         );
-        assert!(decoded
-            .resale_formula
-            .max_appreciation_percent_annual
-            .is_none());
+        assert!(
+            decoded
+                .resale_formula
+                .max_appreciation_percent_annual
+                .is_none()
+        );
     }
 
     // ── Land trust with all optional fields ─────────────────────────

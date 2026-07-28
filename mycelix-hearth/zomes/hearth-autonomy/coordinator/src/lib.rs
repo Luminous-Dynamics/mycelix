@@ -14,8 +14,8 @@ use hearth_coordinator_common::{
 };
 use hearth_types::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_constitutional, civic_requirement_voting,
-    GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_constitutional,
+    civic_requirement_voting,
 };
 use mycelix_zome_helpers as _;
 

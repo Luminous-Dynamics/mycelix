@@ -2990,27 +2990,35 @@ mod tests {
     #[test]
     fn test_circuit_breaker_blocks_advancement() {
         assert!(!CircuitBreakerOutcome::Allow.blocks_advancement());
-        assert!(!CircuitBreakerOutcome::Advisory {
-            reason: String::new(),
-            severity: 5
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::Escalate {
-            reason: String::new(),
-            severity: 7
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::CoolingPeriod {
-            reason: String::new(),
-            severity: 9,
-            cooling_hours: 72
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::MandatoryReview {
-            reason: String::new(),
-            severity: 5
-        }
-        .blocks_advancement());
+        assert!(
+            !CircuitBreakerOutcome::Advisory {
+                reason: String::new(),
+                severity: 5
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::Escalate {
+                reason: String::new(),
+                severity: 7
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::CoolingPeriod {
+                reason: String::new(),
+                severity: 9,
+                cooling_hours: 72
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::MandatoryReview {
+                reason: String::new(),
+                severity: 5
+            }
+            .blocks_advancement()
+        );
     }
 
     #[test]

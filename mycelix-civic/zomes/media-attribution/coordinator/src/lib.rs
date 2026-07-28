@@ -5,7 +5,7 @@
 use hdk::prelude::*;
 use media_attribution_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
 };
 use mycelix_zome_helpers::get_latest_record;
 

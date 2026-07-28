@@ -243,11 +243,7 @@ pub fn targets_immutable_core(amendment: &Amendment) -> Option<String> {
         .as_deref()
         .unwrap_or("")
         .to_lowercase();
-    let article_lower = amendment
-        .article
-        .as_deref()
-        .unwrap_or("")
-        .to_lowercase();
+    let article_lower = amendment.article.as_deref().unwrap_or("").to_lowercase();
 
     // Check RemoveRight/ModifyRight against immutable core rights
     if matches!(

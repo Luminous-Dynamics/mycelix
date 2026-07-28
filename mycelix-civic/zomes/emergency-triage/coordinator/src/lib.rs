@@ -7,7 +7,7 @@
 use emergency_triage_integrity::*;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
 };
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;

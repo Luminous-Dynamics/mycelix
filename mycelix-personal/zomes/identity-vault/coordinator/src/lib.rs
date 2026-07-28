@@ -17,7 +17,7 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
     Ok(())
 }
 
-use mycelix_zkp_core::consciousness::{verify_consciousness_tier, CivicTier};
+use mycelix_zkp_core::consciousness::{CivicTier, verify_consciousness_tier};
 use personal_leptos_types::{MasterKeyView, ProfileView};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -40,7 +40,7 @@ pub fn submit_tier_proof(input: SubmitTierProofInput) -> ExternResult<ActionHash
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Unsupported tier".into()
-            )))
+            )));
         }
     };
 

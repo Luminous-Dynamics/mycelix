@@ -379,7 +379,7 @@ pub fn revoke_trust_credential(input: RevokeTrustCredentialInput) -> ExternResul
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Active credential not found".into()
-            )))
+            )));
         }
     };
 
@@ -626,7 +626,7 @@ pub fn fulfill_attestation(
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Attestation request not found".into()
-            )))
+            )));
         }
     };
 
@@ -768,7 +768,7 @@ pub fn decline_attestation(input: DeclineAttestationInput) -> ExternResult<Recor
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Pending attestation request not found".into()
-            )))
+            )));
         }
     };
 

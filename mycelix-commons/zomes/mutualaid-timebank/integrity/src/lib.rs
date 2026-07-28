@@ -8,8 +8,8 @@
 //! 1 hour = 1 hour, regardless of service type.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Entry types for the timebank zome
 #[hdk_entry_types]

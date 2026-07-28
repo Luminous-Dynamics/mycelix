@@ -9,9 +9,9 @@
 //! Run: `cargo run --example mvb_demo` (from crates/mycelix-bridge-common/)
 
 use mycelix_bridge_common::consciousness_profile::{
-    evaluate_governance, requirement_for_basic, requirement_for_constitutional,
-    requirement_for_proposal, requirement_for_voting, should_audit, ConsciousnessCredential,
-    ConsciousnessProfile, GateAuditInput,
+    ConsciousnessCredential, ConsciousnessProfile, GateAuditInput, evaluate_governance,
+    requirement_for_basic, requirement_for_constitutional, requirement_for_proposal,
+    requirement_for_voting, should_audit,
 };
 
 fn now_us() -> u64 {

@@ -8,7 +8,9 @@
 //! from `mycelix-bridge-entry-types` for shared cross-cluster validation.
 
 use hdi::prelude::*;
-pub use mycelix_bridge_entry_types::{validate_jurisdiction_constraint, JurisdictionConstraintEntry};
+pub use mycelix_bridge_entry_types::{
+    JurisdictionConstraintEntry, validate_jurisdiction_constraint,
+};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -97,9 +99,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Jurisdiction(record) => {
-                    validate_create_jurisdiction(action, record)
-                }
+                EntryTypes::Jurisdiction(record) => validate_create_jurisdiction(action, record),
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -190,12 +190,7 @@ mod tests {
         JurisdictionRecord {
             entry: JurisdictionConstraintEntry {
                 zone_id: "eu-gdpr-zone-1".into(),
-                zone_polygon: vec![
-                    (35.0, -10.0),
-                    (71.0, -10.0),
-                    (71.0, 40.0),
-                    (35.0, 40.0),
-                ],
+                zone_polygon: vec![(35.0, -10.0), (71.0, -10.0), (71.0, 40.0), (35.0, 40.0)],
                 regulatory_tags: vec!["gdpr".into(), "right_to_erasure".into()],
                 fiat_zone: Some("EUR".into()),
                 enforcement_risk: 0.85,

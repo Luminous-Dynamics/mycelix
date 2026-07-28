@@ -259,82 +259,82 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::RegisterDeleteLink {
-            link_type, tag, action, ..
+            link_type,
+            tag,
+            action,
+            ..
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             match link_type {
-            LinkTypes::AllMeetings => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "AllMeetings delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AllMeetings => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "AllMeetings delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::MeetingToResolution => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "MeetingToResolution delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::MeetingToResolution => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "MeetingToResolution delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::AllByLaws => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "AllByLaws delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AllByLaws => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "AllByLaws delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::ByLawSupersedes => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "ByLawSupersedes delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::ByLawSupersedes => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "ByLawSupersedes delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::AllElections => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "AllElections delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AllElections => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "AllElections delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::ElectionToBallot => {
-                if tag.0.len() > 512 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "ElectionToBallot delete link tag too long (max 512 bytes)".into(),
-                    ));
+                LinkTypes::ElectionToBallot => {
+                    if tag.0.len() > 512 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "ElectionToBallot delete link tag too long (max 512 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::VoterToBallot => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "VoterToBallot delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::VoterToBallot => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "VoterToBallot delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::ProposerToResolution => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "ProposerToResolution delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::ProposerToResolution => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "ProposerToResolution delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
             }
-        }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),

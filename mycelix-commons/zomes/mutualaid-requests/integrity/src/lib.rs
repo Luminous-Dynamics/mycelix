@@ -398,8 +398,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 &action.author,
             ))
         }
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }

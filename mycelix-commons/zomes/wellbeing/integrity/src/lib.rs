@@ -199,11 +199,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => {
                 // Only original author can update
                 let original_action = must_get_action(original_action_hash)?;
-                let author_check = check_author_match(
-                    original_action.action().author(),
-                    &action.author,
-                    "update",
-                );
+                let author_check =
+                    check_author_match(original_action.action().author(), &action.author, "update");
                 if author_check != ValidateCallbackResult::Valid {
                     return Ok(author_check);
                 }
@@ -211,9 +208,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink {
-            link_type, tag, ..
-        } => validate_link_tag(&link_type, &tag),
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => validate_link_tag(&link_type, &tag),
         FlatOp::RegisterDeleteLink {
             link_type,
             tag,
@@ -221,10 +216,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -289,17 +281,26 @@ fn validate_create_entry(
         }
 
         EntryTypes::WellbeingAggregate(agg) => {
-            if !agg.mean_stress.is_finite() || agg.mean_stress < 0.0 || agg.mean_stress > MAX_AGGREGATE_MEAN {
+            if !agg.mean_stress.is_finite()
+                || agg.mean_stress < 0.0
+                || agg.mean_stress > MAX_AGGREGATE_MEAN
+            {
                 return Ok(ValidateCallbackResult::Invalid(format!(
                     "mean_stress must be finite and 0.0-{MAX_AGGREGATE_MEAN}"
                 )));
             }
-            if !agg.mean_connection.is_finite() || agg.mean_connection < 0.0 || agg.mean_connection > MAX_AGGREGATE_MEAN {
+            if !agg.mean_connection.is_finite()
+                || agg.mean_connection < 0.0
+                || agg.mean_connection > MAX_AGGREGATE_MEAN
+            {
                 return Ok(ValidateCallbackResult::Invalid(format!(
                     "mean_connection must be finite and 0.0-{MAX_AGGREGATE_MEAN}"
                 )));
             }
-            if !agg.mean_engagement.is_finite() || agg.mean_engagement < 0.0 || agg.mean_engagement > MAX_AGGREGATE_MEAN {
+            if !agg.mean_engagement.is_finite()
+                || agg.mean_engagement < 0.0
+                || agg.mean_engagement > MAX_AGGREGATE_MEAN
+            {
                 return Ok(ValidateCallbackResult::Invalid(format!(
                     "mean_engagement must be finite and 0.0-{MAX_AGGREGATE_MEAN}"
                 )));
@@ -337,9 +338,7 @@ fn validate_create_entry(
             Ok(ValidateCallbackResult::Valid)
         }
 
-        EntryTypes::CheckInShare(_share) => {
-            Ok(ValidateCallbackResult::Valid)
-        }
+        EntryTypes::CheckInShare(_share) => Ok(ValidateCallbackResult::Valid),
     }
 }
 

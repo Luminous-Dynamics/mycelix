@@ -7,8 +7,8 @@
 //! (Living Primitives Liminality).
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use hearth_types::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 // ============================================================================
 // Entry Types

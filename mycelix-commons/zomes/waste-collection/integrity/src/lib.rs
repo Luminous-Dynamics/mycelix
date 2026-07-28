@@ -187,23 +187,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllRequests
-                | LinkTypes::AllRuns
-                | LinkTypes::AgentToRequests
-                | LinkTypes::FacilityToRuns
-                | LinkTypes::RunToRequests
-                | LinkTypes::StatusToRequests => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllRequests
+            | LinkTypes::AllRuns
+            | LinkTypes::AgentToRequests
+            | LinkTypes::FacilityToRuns
+            | LinkTypes::RunToRequests
+            | LinkTypes::StatusToRequests => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -298,9 +297,10 @@ fn validate_create_run(
     // Stops must be in sequence order
     for (i, stop) in run.stops.iter().enumerate() {
         if stop.sequence != i as u32 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("Stop {} has sequence {}, expected {}", i, stop.sequence, i),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Stop {} has sequence {}, expected {}",
+                i, stop.sequence, i
+            )));
         }
     }
 

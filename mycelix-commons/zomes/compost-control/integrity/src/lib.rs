@@ -257,22 +257,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllBatches
-                | LinkTypes::FacilityToBatches
-                | LinkTypes::BatchToReadings
-                | LinkTypes::BatchToActions
-                | LinkTypes::StatusToBatches => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllBatches
+            | LinkTypes::FacilityToBatches
+            | LinkTypes::BatchToReadings
+            | LinkTypes::BatchToActions
+            | LinkTypes::StatusToBatches => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -376,10 +375,7 @@ fn validate_create_reading(
             "Moisture must be between 0 and 100 percent".into(),
         ));
     }
-    if !reading.oxygen_pct.is_finite()
-        || reading.oxygen_pct < 0.0
-        || reading.oxygen_pct > 100.0
-    {
+    if !reading.oxygen_pct.is_finite() || reading.oxygen_pct < 0.0 || reading.oxygen_pct > 100.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Oxygen must be between 0 and 100 percent".into(),
         ));
@@ -432,7 +428,10 @@ mod tests {
     #[test]
     fn test_thermophilic_range() {
         assert!(THERMOPHILIC_MIN_C >= 55.0, "EPA 40 CFR 503 requires >= 55C");
-        assert!(THERMOPHILIC_MAX_C <= 70.0, "Above ~65-70C kills beneficial microbes");
+        assert!(
+            THERMOPHILIC_MAX_C <= 70.0,
+            "Above ~65-70C kills beneficial microbes"
+        );
     }
 
     #[test]

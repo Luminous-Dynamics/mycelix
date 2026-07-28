@@ -7,8 +7,8 @@
 //! in the Mycelix Mutual Aid hApp. Supports tools, vehicles, spaces, and equipment.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Entry types for the resources zome
 #[hdk_entry_types]

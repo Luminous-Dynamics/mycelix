@@ -31,12 +31,12 @@ use commons_bridge_integrity::*;
 use commons_types::{CommonsEvent, CommonsQuery};
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, resolve_commons_zome, routing_registry,
-    AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
+    self as bridge, AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
     CareAvailabilityQuery, CareAvailabilityResult, ConsciousnessCredential, ConsciousnessProfile,
     ConsciousnessTier, CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult,
     EventTypeQuery, GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult,
-    PropertyOwnershipQuery, PropertyOwnershipResult, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
+    PropertyOwnershipQuery, PropertyOwnershipResult, RATE_LIMIT_WINDOW_SECS, ResolveQueryInput,
+    check_rate_limit_count, needs_refresh, resolve_commons_zome, routing_registry,
 };
 use mycelix_zome_helpers as _;
 
@@ -1945,9 +1945,10 @@ pub fn get_nearby(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Re
             return Ok(vec![]);
         }
         Some(other) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                format!("Unknown entry_type for get_nearby: '{}'. Supported: property, housing, food, water, shelter", other)
-            )));
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Unknown entry_type for get_nearby: '{}'. Supported: property, housing, food, water, shelter",
+                other
+            ))));
         }
     };
 

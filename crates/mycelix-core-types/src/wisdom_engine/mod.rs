@@ -221,14 +221,14 @@ pub use similarity::{
 // Associative Learner module (Component 22)
 pub use associative_learner::{
     ActionPrediction, ActionRegistry, AssociativeLearner, AssociativeLearnerConfig,
-    AssociativeLearnerStats, BinaryHV, ContinuousHV, ExperienceEncoding, MemorySnapshot,
-    SparseProjector, WisdomContext, HDC_BYTES, HDC_DIMENSION,
+    AssociativeLearnerStats, BinaryHV, ContinuousHV, ExperienceEncoding, HDC_BYTES, HDC_DIMENSION,
+    MemorySnapshot, SparseProjector, WisdomContext,
 };
 
 // Python bindings (Component 23 - PyO3 Integration)
 #[cfg(feature = "python")]
 pub use python_bindings::{
-    register_wisdom_classes, PyActionPrediction, PyPattern, PyPatternEpistemics, PyWisdomBridge,
+    PyActionPrediction, PyPattern, PyPatternEpistemics, PyWisdomBridge, register_wisdom_classes,
 };
 
 #[cfg(test)]

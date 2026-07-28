@@ -75,7 +75,7 @@ pub trait SimulationModule {
 
     /// Execute one tick. Receives feedback from earlier-phase modules.
     fn tick(&mut self, tick: u32, feedback: &HashMap<String, f64>)
-        -> Result<ModuleOutputs, String>;
+    -> Result<ModuleOutputs, String>;
 
     /// Optional report section for the final summary.
     fn report_section(&self) -> Option<ReportSection> {

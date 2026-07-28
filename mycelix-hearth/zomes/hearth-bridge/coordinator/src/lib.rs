@@ -23,10 +23,10 @@ use hearth_types::{
     SeveranceSummaryData, WeeklyDigest,
 };
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, routing_registry, BridgeHealth,
-    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, CrossClusterDispatchInput,
-    CrossClusterRole, DispatchInput, DispatchResult, EventTypeQuery, GateAuditInput,
-    GovernanceAuditFilter, GovernanceAuditResult, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
+    self as bridge, BridgeHealth, ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
+    CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult, EventTypeQuery,
+    GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult, RATE_LIMIT_WINDOW_SECS,
+    ResolveQueryInput, check_rate_limit_count, needs_refresh, routing_registry,
 };
 use mycelix_zome_helpers as _;
 

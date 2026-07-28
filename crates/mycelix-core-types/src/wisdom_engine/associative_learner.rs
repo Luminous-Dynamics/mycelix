@@ -219,11 +219,7 @@ impl BinaryHV {
                 .zip(weights.iter())
                 .map(|(hv, &w)| {
                     let bit_set = (hv.bits[word_idx] >> bit_idx) & 1 == 1;
-                    if bit_set {
-                        w
-                    } else {
-                        -w
-                    }
+                    if bit_set { w } else { -w }
                 })
                 .sum();
 
@@ -281,11 +277,7 @@ impl BinaryHV {
         let values: Vec<f32> = (0..self.dim)
             .map(|i| {
                 let bit = self.get_bit(i);
-                if bit {
-                    weight
-                } else {
-                    -weight
-                }
+                if bit { weight } else { -weight }
             })
             .collect();
         ContinuousHV::from_vec(values)

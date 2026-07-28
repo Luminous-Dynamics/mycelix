@@ -108,7 +108,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         Ok(ValidateCallbackResult::Valid)
                     }
                     EntryTypes::ResourceAlert(alert) => {
-                        if !["info", "warning", "critical", "emergency"].contains(&alert.severity.as_str()) {
+                        if !["info", "warning", "critical", "emergency"]
+                            .contains(&alert.severity.as_str())
+                        {
                             return Ok(ValidateCallbackResult::Invalid(
                                 "Invalid severity level".to_string(),
                             ));

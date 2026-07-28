@@ -1035,9 +1035,11 @@ mod tests {
         sig.pq_signature = Some(vec![0u8; 100]); // too short
         let result = check_signature_validity(&sig);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("ML-DSA-65 signature must be exactly 3309"));
+        assert!(
+            result
+                .unwrap_err()
+                .contains("ML-DSA-65 signature must be exactly 3309")
+        );
     }
 
     #[test]
@@ -1274,8 +1276,8 @@ mod tests {
 
     #[test]
     fn test_e2e_dkg_ceremony_through_validators() {
-        use rand::rngs::StdRng;
         use rand::SeedableRng;
+        use rand::rngs::StdRng;
 
         let threshold = 3usize;
         let n_members = 5usize;

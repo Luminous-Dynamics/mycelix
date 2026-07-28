@@ -18,7 +18,7 @@
 
 use hdi::prelude::*;
 pub use mycelix_finance_types::{
-    Currency, TendLimitTier, HEARTH_MAX_MEMBERS, HEARTH_TEND_CREDIT_LIMIT,
+    Currency, HEARTH_MAX_MEMBERS, HEARTH_TEND_CREDIT_LIMIT, TendLimitTier,
 };
 
 // =============================================================================

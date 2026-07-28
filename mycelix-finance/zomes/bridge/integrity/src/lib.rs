@@ -565,12 +565,16 @@ fn validate_update_cross_happ_payment(
     let original = original_record
         .entry()
         .to_app_option::<CrossHappPayment>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Failed to decode original cross-hApp payment: {e:?}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Original cross-hApp payment entry is missing".into()
-        )))?;
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original cross-hApp payment: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original cross-hApp payment entry is missing".into()
+            ))
+        })?;
     Ok(validate_payment_transition(&original, &payment))
 }
 

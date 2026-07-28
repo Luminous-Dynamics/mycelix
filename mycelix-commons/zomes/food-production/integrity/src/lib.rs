@@ -1862,14 +1862,20 @@ mod tests {
     fn resource_input_infinity_quantity_rejected() {
         let mut ri = valid_resource_input();
         ri.quantity_kg = f64::INFINITY;
-        assert_invalid(validate_resource_input(ri), "Quantity must be a finite number");
+        assert_invalid(
+            validate_resource_input(ri),
+            "Quantity must be a finite number",
+        );
     }
 
     #[test]
     fn resource_input_nan_quantity_rejected() {
         let mut ri = valid_resource_input();
         ri.quantity_kg = f64::NAN;
-        assert_invalid(validate_resource_input(ri), "Quantity must be a finite number");
+        assert_invalid(
+            validate_resource_input(ri),
+            "Quantity must be a finite number",
+        );
     }
 
     #[test]

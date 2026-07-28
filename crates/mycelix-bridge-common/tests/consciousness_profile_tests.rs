@@ -273,16 +273,20 @@ fn test_from_symthaea_weights() {
 #[test]
 fn test_is_valid() {
     assert!(ConsciousnessProfile::zero().is_valid());
-    assert!(!ConsciousnessProfile {
-        identity: f64::NAN,
-        ..ConsciousnessProfile::zero()
-    }
-    .is_valid());
-    assert!(!ConsciousnessProfile {
-        reputation: f64::INFINITY,
-        ..ConsciousnessProfile::zero()
-    }
-    .is_valid());
+    assert!(
+        !ConsciousnessProfile {
+            identity: f64::NAN,
+            ..ConsciousnessProfile::zero()
+        }
+        .is_valid()
+    );
+    assert!(
+        !ConsciousnessProfile {
+            reputation: f64::INFINITY,
+            ..ConsciousnessProfile::zero()
+        }
+        .is_valid()
+    );
 }
 
 #[test]

@@ -7,8 +7,8 @@
 //! in the Mycelix Mutual Aid hApp. Implements mutual credit with automatic clearing.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Entry types for the circles zome
 #[hdk_entry_types]

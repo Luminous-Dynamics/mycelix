@@ -131,7 +131,7 @@ pub fn advance_cycle_phase(input: AdvanceCycleInput) -> ExternResult<ActionHash>
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "Cannot advance from phase {:?}",
                 other
-            ))))
+            ))));
         }
     };
 

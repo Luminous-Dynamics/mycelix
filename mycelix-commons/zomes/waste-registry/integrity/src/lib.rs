@@ -302,9 +302,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::WasteClassification(classification) => {
                     validate_create_classification(action, classification)
                 }
-                EntryTypes::WasteFacility(facility) => {
-                    validate_create_facility(action, facility)
-                }
+                EntryTypes::WasteFacility(facility) => validate_create_facility(action, facility),
                 EntryTypes::WasteRoute(route) => validate_create_route(action, route),
             },
             OpEntry::UpdateEntry {
@@ -328,25 +326,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllStreams
-                | LinkTypes::AllFacilities
-                | LinkTypes::AgentToStreams
-                | LinkTypes::CategoryToStreams
-                | LinkTypes::StatusToStreams
-                | LinkTypes::StreamToClassification
-                | LinkTypes::StreamToRoute
-                | LinkTypes::FacilityToStreams => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllStreams
+            | LinkTypes::AllFacilities
+            | LinkTypes::AgentToStreams
+            | LinkTypes::CategoryToStreams
+            | LinkTypes::StatusToStreams
+            | LinkTypes::StreamToClassification
+            | LinkTypes::StreamToRoute
+            | LinkTypes::FacilityToStreams => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -411,9 +408,7 @@ fn validate_create_stream(
     }
 
     // Location must be valid GPS coordinates
-    if !stream.location_lat.is_finite()
-        || stream.location_lat < -90.0
-        || stream.location_lat > 90.0
+    if !stream.location_lat.is_finite() || stream.location_lat < -90.0 || stream.location_lat > 90.0
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Latitude must be between -90 and 90".into(),
@@ -571,9 +566,10 @@ fn validate_create_route(
         ("contamination_compatibility", f.contamination_compatibility),
     ] {
         if !val.is_finite() || val < 0.0 || val > 1.0 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("{} must be between 0.0 and 1.0", name),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "{} must be between 0.0 and 1.0",
+                name
+            )));
         }
     }
 
@@ -590,9 +586,17 @@ mod tests {
 
     #[test]
     fn test_contamination_level_severity_ordering() {
-        assert!(ContaminationLevel::Clean.severity() < ContaminationLevel::LightlyContaminated.severity());
-        assert!(ContaminationLevel::LightlyContaminated.severity() < ContaminationLevel::Contaminated.severity());
-        assert!(ContaminationLevel::Contaminated.severity() < ContaminationLevel::Hazardous.severity());
+        assert!(
+            ContaminationLevel::Clean.severity()
+                < ContaminationLevel::LightlyContaminated.severity()
+        );
+        assert!(
+            ContaminationLevel::LightlyContaminated.severity()
+                < ContaminationLevel::Contaminated.severity()
+        );
+        assert!(
+            ContaminationLevel::Contaminated.severity() < ContaminationLevel::Hazardous.severity()
+        );
     }
 
     #[test]
@@ -603,7 +607,11 @@ mod tests {
             capacity_score: 1.0,
             contamination_compatibility: 1.0,
         };
-        assert_eq!(factors.overall_score(), 0.0, "No category match should yield zero score");
+        assert_eq!(
+            factors.overall_score(),
+            0.0,
+            "No category match should yield zero score"
+        );
     }
 
     #[test]
@@ -615,7 +623,11 @@ mod tests {
             contamination_compatibility: 1.0,
         };
         let score = factors.overall_score();
-        assert!((score - 1.0).abs() < 0.001, "Perfect match should score ~1.0, got {}", score);
+        assert!(
+            (score - 1.0).abs() < 0.001,
+            "Perfect match should score ~1.0, got {}",
+            score
+        );
     }
 
     #[test]
@@ -627,7 +639,11 @@ mod tests {
             contamination_compatibility: 0.5,
         };
         let score = factors.overall_score();
-        assert!((score - 0.5).abs() < 0.001, "Half scores should yield ~0.5, got {}", score);
+        assert!(
+            (score - 0.5).abs() < 0.001,
+            "Half scores should yield ~0.5, got {}",
+            score
+        );
     }
 
     #[test]
@@ -720,10 +736,16 @@ mod tests {
     fn test_stream_quantity_must_be_positive() {
         let mut stream = make_valid_stream();
         stream.quantity_kg = 0.0;
-        assert!(stream.quantity_kg <= 0.0, "Zero quantity should fail validation");
+        assert!(
+            stream.quantity_kg <= 0.0,
+            "Zero quantity should fail validation"
+        );
 
         stream.quantity_kg = -1.0;
-        assert!(stream.quantity_kg <= 0.0, "Negative quantity should fail validation");
+        assert!(
+            stream.quantity_kg <= 0.0,
+            "Negative quantity should fail validation"
+        );
     }
 
     #[test]
@@ -751,7 +773,10 @@ mod tests {
     fn test_facility_capacity_must_be_positive() {
         let mut facility = make_valid_facility();
         facility.capacity_kg_per_day = 0.0;
-        assert!(facility.capacity_kg_per_day <= 0.0, "Zero capacity should fail");
+        assert!(
+            facility.capacity_kg_per_day <= 0.0,
+            "Zero capacity should fail"
+        );
     }
 
     #[test]
@@ -781,7 +806,10 @@ mod tests {
         assert!(route.factors.category_match >= 0.0 && route.factors.category_match <= 1.0);
         assert!(route.factors.proximity_score >= 0.0 && route.factors.proximity_score <= 1.0);
         assert!(route.factors.capacity_score >= 0.0 && route.factors.capacity_score <= 1.0);
-        assert!(route.factors.contamination_compatibility >= 0.0 && route.factors.contamination_compatibility <= 1.0);
+        assert!(
+            route.factors.contamination_compatibility >= 0.0
+                && route.factors.contamination_compatibility <= 1.0
+        );
     }
 
     #[test]
@@ -802,7 +830,10 @@ mod tests {
     fn test_inf_capacity_rejected() {
         let mut facility = make_valid_facility();
         facility.capacity_kg_per_day = f64::INFINITY;
-        assert!(!facility.capacity_kg_per_day.is_finite(), "Infinity should be rejected");
+        assert!(
+            !facility.capacity_kg_per_day.is_finite(),
+            "Infinity should be rejected"
+        );
     }
 
     #[test]

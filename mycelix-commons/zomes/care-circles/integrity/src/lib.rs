@@ -140,14 +140,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_membership(action, membership)
                 }
                 EntryTypes::CircleTendExchange(exchange) => {
-                    if exchange.hours <= 0.0 || !exchange.hours.is_finite() || exchange.hours > 168.0 {
-                        return Ok(ValidateCallbackResult::Invalid("Exchange hours must be positive, finite, <= 168".into()));
+                    if exchange.hours <= 0.0
+                        || !exchange.hours.is_finite()
+                        || exchange.hours > 168.0
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Exchange hours must be positive, finite, <= 168".into(),
+                        ));
                     }
                     if exchange.provider == exchange.receiver {
-                        return Ok(ValidateCallbackResult::Invalid("Provider and receiver must differ".into()));
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Provider and receiver must differ".into(),
+                        ));
                     }
-                    if exchange.service_description.is_empty() || exchange.service_description.len() > 2048 {
-                        return Ok(ValidateCallbackResult::Invalid("Service description: 1-2048 chars".into()));
+                    if exchange.service_description.is_empty()
+                        || exchange.service_description.len() > 2048
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Service description: 1-2048 chars".into(),
+                        ));
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
@@ -215,58 +226,58 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::RegisterDeleteLink {
-            link_type, tag, action, ..
+            link_type,
+            tag,
+            action,
+            ..
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             match link_type {
-            LinkTypes::AllCircles => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "AllCircles delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AllCircles => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "AllCircles delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::TypeToCircle => {
-                if tag.0.len() > 512 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "TypeToCircle delete link tag too long (max 512 bytes)".into(),
-                    ));
+                LinkTypes::TypeToCircle => {
+                    if tag.0.len() > 512 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "TypeToCircle delete link tag too long (max 512 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::CircleToMembership => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "CircleToMembership delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::CircleToMembership => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "CircleToMembership delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::AgentToMembership => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "AgentToMembership delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AgentToMembership => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "AgentToMembership delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
-            }
-            LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
-                if tag.0.len() > 256 {
-                    return Ok(ValidateCallbackResult::Invalid(
-                        "Delete link tag too long (max 256 bytes)".into(),
-                    ));
+                LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
+                    if tag.0.len() > 256 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Delete link tag too long (max 256 bytes)".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
                 }
-                Ok(ValidateCallbackResult::Valid)
             }
-        }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),

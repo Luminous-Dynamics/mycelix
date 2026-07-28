@@ -1551,7 +1551,7 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Request not found".into()
-            )))
+            )));
         }
     };
 
@@ -1681,7 +1681,9 @@ pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> Exte
             );
         }
         SchemaValidationStatus::SchemaZomeUnavailable => {
-            warn!("Pre-signed credential schema validation skipped: credential_schema zome unavailable");
+            warn!(
+                "Pre-signed credential schema validation skipped: credential_schema zome unavailable"
+            );
         }
         SchemaValidationStatus::SchemaNotFound => {
             debug!("Pre-signed credential schema validation skipped: schema not found");

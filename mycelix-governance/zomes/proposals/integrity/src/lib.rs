@@ -602,18 +602,22 @@ mod tests {
     fn test_proposal_description_not_empty() {
         let mut p = make_proposal();
         p.description = "".into();
-        assert!(check_create_proposal(&p)
-            .unwrap_err()
-            .contains("description"));
+        assert!(
+            check_create_proposal(&p)
+                .unwrap_err()
+                .contains("description")
+        );
     }
 
     #[test]
     fn test_proposal_voting_period_end_after_start() {
         let mut p = make_proposal();
         p.voting_ends = ts(500000); // before start
-        assert!(check_create_proposal(&p)
-            .unwrap_err()
-            .contains("Voting end"));
+        assert!(
+            check_create_proposal(&p)
+                .unwrap_err()
+                .contains("Voting end")
+        );
     }
 
     #[test]
@@ -675,9 +679,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.status = ProposalStatus::Active;
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("Invalid status"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("Invalid status")
+        );
     }
 
     #[test]
@@ -686,9 +692,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.id = "MIP-999".into();
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("proposal ID"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("proposal ID")
+        );
     }
 
     #[test]
@@ -698,9 +706,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.title = "Changed Title".into();
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("content"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("content")
+        );
     }
 
     #[test]
@@ -709,9 +719,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.status = ProposalStatus::Active;
         updated.version = orig.version; // same version
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("Version"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("Version")
+        );
     }
 
     // --- Amendment validation ---
@@ -800,8 +812,10 @@ mod tests {
             readiness_reasoning: "Not ready".into(),
             summary: "Test reflection".into(),
         };
-        assert!(check_create_reflection(&r)
-            .unwrap_err()
-            .contains("Harmony diversity"));
+        assert!(
+            check_create_reflection(&r)
+                .unwrap_err()
+                .contains("Harmony diversity")
+        );
     }
 }
