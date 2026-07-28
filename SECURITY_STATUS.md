@@ -27,6 +27,21 @@ mycelix.net's Risks page. It reflects this repository's own internal
 engineering tracking, not an independent third-party audit — treat "fixed"
 below as "fixed and internally tested," not "externally verified."
 
+**Sync-lag disclosure, found during final review (2026-07-28):** this
+project's primary development happens in a private monorepo, and this public
+repository receives periodic exports from it. **"Fixed internally" below
+means fixed in that primary development history — it does not always mean
+the fix has landed in *this* public repository's current `main` yet.**
+Checked directly while finalizing this document: the `mycelix-commons`
+care-credentials fix (2026-07-26) has synced here; the civic
+`media-publication`/`media-curation` fixes and the `civitas_dna` fix
+(2026-07-27/28, i.e. very recent relative to this document) had **not**
+synced to this repository as of the commit cited below — see those rows'
+individual notes. The other ~20 "Fixed internally" rows were not
+individually re-checked against this repository's current file contents for
+this revision; if a specific fix matters to you, verify the actual file in
+this repo directly rather than trusting the table alone.
+
 **Last reviewed:** 2026-07-28, against
 [commit `bd97865e`](https://github.com/Luminous-Dynamics/mycelix/commit/bd97865e8cffb730a284b8a386c613df9ed58db9)
 (2026-07-28) on `main`. An earlier version of this document cited `0c60c66e`
@@ -72,10 +87,10 @@ detail behind any row.
 | `mycelix-position` | Fixed internally | Client-supplied author field | Coordinator `agent_info()` binding | not tracked at this granularity | present, name not tracked here | 2026-07 pass |
 | `mycelix-space` (incl. `traffic_control`) | Fixed internally | Client-supplied author field + self-grant privilege escalation | Coordinator `agent_info()` binding | not tracked at this granularity | present, name not tracked here | 2026-07 pass |
 | `mycelix-commons` (7 non-shadow zomes: circular-marketplace, compost-control, waste-collection, waste-registry, community-calendar, space, support-diagnostics) | Fixed internally | Client-supplied author field; `community-calendar` had zero authorization on its entire entry set | Coordinator `agent_info()` binding | not tracked at this granularity | present, name not tracked here | 2026-07 pass |
-| civic `emergency-*`/`media-*`/`mediation` slice (11 zomes) | Fixed internally (2 of 11) / already clean (9 of 11) | Self-reported `requester_did` vs. self-reported `author_did`, both attacker-controlled | Shared `check_author_match`/`gate_civic` helper, real `agent_info()` | `e104512f02`, `dd4aed2215` | present, name not tracked here | 2026-07-27 |
-| `mycelix-care-credentials` | Fixed internally | Unbound `holder` field; self-declared `verified` bypassed higher-trust gate | `agent_info()` binding + create-time restriction | `48a460dcf` (first fix, lost/re-landed) | 94/94 pass | 2026-07-26 |
+| civic `emergency-*`/`media-*`/`mediation` slice (11 zomes) | Fixed internally (2 of 11) / already clean (9 of 11). **Confirmed NOT yet synced to this repo as of this review** — `media-publication`'s coordinator here still has zero `agent_info()` calls. | Self-reported `requester_did` vs. self-reported `author_did`, both attacker-controlled | Shared `check_author_match`/`gate_civic` helper, real `agent_info()` | `e104512f02`, `dd4aed2215` (private monorepo history — not resolvable against this public repo until the next export sync) | present, name not tracked here | 2026-07-27 |
+| `mycelix-care-credentials` | Fixed internally — **confirmed present in this repo** (`agent_info()` calls verified in the coordinator) | Unbound `holder` field; self-declared `verified` bypassed higher-trust gate | `agent_info()` binding + create-time restriction | `48a4460dcf` (first fix, lost/re-landed; private monorepo hash) | 94/94 pass | 2026-07-26 |
 | payments (self-mint) | Fixed internally | Unauthenticated self-mint | Authenticated mint path | not tracked at this granularity | present, name not tracked here | 2026-07 pass |
-| `civitas_dna` | Fixed internally | `update_causal_reputation` accepted client-supplied agent+score with no caller authentication; root cause traced one level upstream to `record_contribution` | Re-derivation from a signature-verified upstream record via `must_get_valid_record`, not trusted client input | `33fb1630b6`, `f82d949ec5` | 9/9 new + 3/3 pre-existing pass | 2026-07-28 |
+| `civitas_dna` | Fixed internally. **Confirmed NOT yet synced to this repo as of this review** — this fix landed 2026-07-28, the same day as this review, and this repo's `civitas_dna` path does not yet exist here. | `update_causal_reputation` accepted client-supplied agent+score with no caller authentication; root cause traced one level upstream to `record_contribution` | Re-derivation from a signature-verified upstream record via `must_get_valid_record`, not trusted client input | `33fb1630b6`, `f82d949ec5` (private monorepo history — not resolvable against this public repo until the next export sync) | 9/9 new + 3/3 pre-existing pass | 2026-07-28 |
 | `mycelix-lawful-identity` | Not affected (author-binding); separately fixed (RegisterUpdate/RegisterDelete) | No self-reported identity field exists to bind at all — deliberate unlinkability design, not an oversight. Ownership derives from real `agent_info()`-authenticated links. The unrelated wide-open RegisterUpdate/RegisterDelete gap (present in nearly every cluster audited) was still closed here as a matter of course. | Authenticated links (not a field) | not tracked at this granularity | present, name not tracked here | 2026-07 pass |
 
 ## Open
