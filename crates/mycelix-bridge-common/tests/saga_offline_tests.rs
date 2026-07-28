@@ -7,7 +7,6 @@ use mycelix_bridge_common::consciousness_profile::{
     ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
 };
 use mycelix_bridge_common::offline_credential::{FreshnessAttestation, OfflineCredential};
-use mycelix_bridge_common::saga::*;
 
 // ============================================================================
 // Constants
@@ -42,218 +41,226 @@ fn make_credential(tier: ConsciousnessTier) -> ConsciousnessCredential {
     }
 }
 
-// ============================================================================
-// Saga — basic workflow
-// ============================================================================
+#[cfg(feature = "infrastructure")]
+mod saga_tests {
+    use mycelix_bridge_common::saga::*;
 
-fn make_saga_steps() -> Vec<SagaStep> {
-    vec![
-        SagaStep::new(
-            "finance",
-            "payments",
-            "create_payment",
-            Some("cancel_payment".into()),
-            vec![1, 2, 3],
-        ),
-        SagaStep::new(
-            "commons",
-            "property_transfer",
-            "execute_transfer",
-            Some("revert_transfer".into()),
-            vec![4, 5, 6],
-        ),
-        SagaStep::new(
-            "identity",
-            "did_registry",
-            "update_ownership",
-            None, // No compensation needed
-            vec![7, 8],
-        ),
-    ]
-}
+    use super::*;
 
-#[test]
-fn test_saga_creation() {
-    let saga = SagaDefinition::new(
-        "property-sale",
-        make_saga_steps(),
-        BASE_US,
-        5 * 60 * 1_000_000,
-    );
-    assert_eq!(saga.name, "property-sale");
-    assert_eq!(saga.steps.len(), 3);
-    assert_eq!(saga.current_step, 0);
-    assert_eq!(saga.status, SagaStatus::Created);
-    assert_eq!(saga.completed_count(), 0);
-    assert!(!saga.is_terminal());
-}
+    // ============================================================================
+    // Saga — basic workflow
+    // ============================================================================
 
-#[test]
-fn test_saga_happy_path() {
-    let mut saga = SagaDefinition::new("test-saga", make_saga_steps(), BASE_US, 0);
-
-    // Step 1: first advance returns Dispatch for step 0
-    let action = advance(&mut saga, BASE_US);
-    match &action {
-        SagaAction::Dispatch { zome, fn_name, .. } => {
-            assert_eq!(zome, "payments");
-            assert_eq!(fn_name, "create_payment");
-        }
-        _ => panic!("Expected Dispatch, got {:?}", action),
+    fn make_saga_steps() -> Vec<SagaStep> {
+        vec![
+            SagaStep::new(
+                "finance",
+                "payments",
+                "create_payment",
+                Some("cancel_payment".into()),
+                vec![1, 2, 3],
+            ),
+            SagaStep::new(
+                "commons",
+                "property_transfer",
+                "execute_transfer",
+                Some("revert_transfer".into()),
+                vec![4, 5, 6],
+            ),
+            SagaStep::new(
+                "identity",
+                "did_registry",
+                "update_ownership",
+                None, // No compensation needed
+                vec![7, 8],
+            ),
+        ]
     }
-    assert_eq!(saga.status, SagaStatus::Running);
 
-    // Record success
-    record_success(&mut saga, Some(vec![10]));
-    assert_eq!(saga.steps[0].status, SagaStepStatus::Completed);
-
-    // Step 2: advance to next step
-    let action = advance(&mut saga, BASE_US + 1);
-    match &action {
-        SagaAction::Dispatch { zome, fn_name, .. } => {
-            assert_eq!(zome, "property_transfer");
-            assert_eq!(fn_name, "execute_transfer");
-        }
-        _ => panic!("Expected Dispatch for step 2, got {:?}", action),
+    #[test]
+    fn test_saga_creation() {
+        let saga = SagaDefinition::new(
+            "property-sale",
+            make_saga_steps(),
+            BASE_US,
+            5 * 60 * 1_000_000,
+        );
+        assert_eq!(saga.name, "property-sale");
+        assert_eq!(saga.steps.len(), 3);
+        assert_eq!(saga.current_step, 0);
+        assert_eq!(saga.status, SagaStatus::Created);
+        assert_eq!(saga.completed_count(), 0);
+        assert!(!saga.is_terminal());
     }
-    record_success(&mut saga, None);
 
-    // Step 3
-    let action = advance(&mut saga, BASE_US + 2);
-    match &action {
-        SagaAction::Dispatch { zome, fn_name, .. } => {
-            assert_eq!(zome, "did_registry");
-            assert_eq!(fn_name, "update_ownership");
+    #[test]
+    fn test_saga_happy_path() {
+        let mut saga = SagaDefinition::new("test-saga", make_saga_steps(), BASE_US, 0);
+
+        // Step 1: first advance returns Dispatch for step 0
+        let action = advance(&mut saga, BASE_US);
+        match &action {
+            SagaAction::Dispatch { zome, fn_name, .. } => {
+                assert_eq!(zome, "payments");
+                assert_eq!(fn_name, "create_payment");
+            }
+            _ => panic!("Expected Dispatch, got {:?}", action),
         }
-        _ => panic!("Expected Dispatch for step 3, got {:?}", action),
-    }
-    record_success(&mut saga, None);
+        assert_eq!(saga.status, SagaStatus::Running);
 
-    // Saga should be complete
-    let action = advance(&mut saga, BASE_US + 3);
-    assert!(matches!(action, SagaAction::Complete));
-    assert_eq!(saga.status, SagaStatus::Completed);
-    assert_eq!(saga.completed_count(), 3);
-    assert!(saga.is_terminal());
-}
+        // Record success
+        record_success(&mut saga, Some(vec![10]));
+        assert_eq!(saga.steps[0].status, SagaStepStatus::Completed);
 
-#[test]
-fn test_saga_failure_triggers_compensation() {
-    let mut saga = SagaDefinition::new("fail-saga", make_saga_steps(), BASE_US, 0);
-
-    // Complete step 0
-    advance(&mut saga, BASE_US);
-    record_success(&mut saga, Some(vec![1]));
-
-    // Start step 1 and fail
-    advance(&mut saga, BASE_US + 1);
-    record_failure(&mut saga, "Transfer denied".into());
-
-    // Advance should trigger compensation
-    let action = advance(&mut saga, BASE_US + 2);
-    match action {
-        SagaAction::Compensate(actions) => {
-            // Should compensate step 0 (step 1 has no compensation since it failed)
-            assert!(
-                !actions.is_empty(),
-                "Should have compensation actions for completed steps"
-            );
-            // The compensation should target the completed step's compensate_fn
-            let first = &actions[0];
-            assert_eq!(first.fn_name, "cancel_payment");
+        // Step 2: advance to next step
+        let action = advance(&mut saga, BASE_US + 1);
+        match &action {
+            SagaAction::Dispatch { zome, fn_name, .. } => {
+                assert_eq!(zome, "property_transfer");
+                assert_eq!(fn_name, "execute_transfer");
+            }
+            _ => panic!("Expected Dispatch for step 2, got {:?}", action),
         }
-        _ => panic!("Expected Compensate, got {:?}", action),
-    }
-}
-
-#[test]
-fn test_saga_timeout() {
-    let timeout_us = 5 * 60 * 1_000_000; // 5 minutes
-    let mut saga = SagaDefinition::new("timeout-saga", make_saga_steps(), BASE_US, timeout_us);
-
-    // Start the saga
-    advance(&mut saga, BASE_US);
-
-    // Advance after timeout
-    let action = advance(&mut saga, BASE_US + timeout_us + 1);
-    assert!(matches!(action, SagaAction::Timeout));
-    assert_eq!(saga.status, SagaStatus::Failed);
-}
-
-#[test]
-fn test_saga_terminal_state_idempotent() {
-    let mut saga = SagaDefinition::new("terminal-saga", make_saga_steps(), BASE_US, 0);
-
-    // Complete all steps
-    for _ in 0..3 {
-        advance(&mut saga, BASE_US);
         record_success(&mut saga, None);
+
+        // Step 3
+        let action = advance(&mut saga, BASE_US + 2);
+        match &action {
+            SagaAction::Dispatch { zome, fn_name, .. } => {
+                assert_eq!(zome, "did_registry");
+                assert_eq!(fn_name, "update_ownership");
+            }
+            _ => panic!("Expected Dispatch for step 3, got {:?}", action),
+        }
+        record_success(&mut saga, None);
+
+        // Saga should be complete
+        let action = advance(&mut saga, BASE_US + 3);
+        assert!(matches!(action, SagaAction::Complete));
+        assert_eq!(saga.status, SagaStatus::Completed);
+        assert_eq!(saga.completed_count(), 3);
+        assert!(saga.is_terminal());
     }
-    advance(&mut saga, BASE_US);
-    assert_eq!(saga.status, SagaStatus::Completed);
 
-    // Further advances should be no-op
-    let action = advance(&mut saga, BASE_US + DAY_US);
-    assert!(matches!(action, SagaAction::Complete));
-}
+    #[test]
+    fn test_saga_failure_triggers_compensation() {
+        let mut saga = SagaDefinition::new("fail-saga", make_saga_steps(), BASE_US, 0);
 
-#[test]
-fn test_saga_mark_compensated() {
-    let mut saga = SagaDefinition::new("comp-saga", make_saga_steps(), BASE_US, 0);
-    saga.status = SagaStatus::Compensating;
-    mark_compensated(&mut saga);
-    assert_eq!(saga.status, SagaStatus::Compensated);
-    assert!(saga.is_terminal());
-}
+        // Complete step 0
+        advance(&mut saga, BASE_US);
+        record_success(&mut saga, Some(vec![1]));
 
-#[test]
-fn test_saga_mark_compensation_failed() {
-    let mut saga = SagaDefinition::new("comp-fail", make_saga_steps(), BASE_US, 0);
-    saga.status = SagaStatus::Compensating;
-    mark_compensation_failed(&mut saga, "DB unreachable".into());
-    assert_eq!(saga.status, SagaStatus::CompensationFailed);
-    assert!(saga.is_terminal());
-}
+        // Start step 1 and fail
+        advance(&mut saga, BASE_US + 1);
+        record_failure(&mut saga, "Transfer denied".into());
 
-// ============================================================================
-// Saga — pre-built workflows
-// ============================================================================
-
-#[test]
-fn test_property_sale_saga_structure() {
-    let saga = property_sale_saga("prop-hash-123".into(), "did:buyer".into(), 100_000, BASE_US);
-    assert!(!saga.steps.is_empty());
-    assert_eq!(saga.name, "property-sale");
-    // All steps should start Pending
-    for step in &saga.steps {
-        assert_eq!(step.status, SagaStepStatus::Pending);
+        // Advance should trigger compensation
+        let action = advance(&mut saga, BASE_US + 2);
+        match action {
+            SagaAction::Compensate(actions) => {
+                // Should compensate step 0 (step 1 has no compensation since it failed)
+                assert!(
+                    !actions.is_empty(),
+                    "Should have compensation actions for completed steps"
+                );
+                // The compensation should target the completed step's compensate_fn
+                let first = &actions[0];
+                assert_eq!(first.fn_name, "cancel_payment");
+            }
+            _ => panic!("Expected Compensate, got {:?}", action),
+        }
     }
-}
 
-#[test]
-fn test_emergency_response_saga_structure() {
-    let saga = emergency_response_saga("incident-001".into(), 33.0, -97.0, BASE_US);
-    assert!(!saga.steps.is_empty());
-    assert_eq!(saga.name, "emergency-response");
-}
+    #[test]
+    fn test_saga_timeout() {
+        let timeout_us = 5 * 60 * 1_000_000; // 5 minutes
+        let mut saga = SagaDefinition::new("timeout-saga", make_saga_steps(), BASE_US, timeout_us);
 
-#[test]
-fn test_course_completion_saga_structure() {
-    let saga = course_completion_saga("course-rust-101".into(), "did:student".into(), BASE_US);
-    assert!(!saga.steps.is_empty());
-    assert_eq!(saga.name, "course-completion");
-}
+        // Start the saga
+        advance(&mut saga, BASE_US);
 
-#[test]
-fn test_justice_enforcement_saga_structure() {
-    let saga = justice_enforcement_saga("case-42".into(), "did:defendant".into(), 5000, BASE_US);
-    assert!(!saga.steps.is_empty());
-}
+        // Advance after timeout
+        let action = advance(&mut saga, BASE_US + timeout_us + 1);
+        assert!(matches!(action, SagaAction::Timeout));
+        assert_eq!(saga.status, SagaStatus::Failed);
+    }
 
-#[test]
-fn test_carbon_credit_saga_structure() {
-    let saga = carbon_credit_saga("route-jnb-cpt".into(), 1400.0, BASE_US);
-    assert!(!saga.steps.is_empty());
+    #[test]
+    fn test_saga_terminal_state_idempotent() {
+        let mut saga = SagaDefinition::new("terminal-saga", make_saga_steps(), BASE_US, 0);
+
+        // Complete all steps
+        for _ in 0..3 {
+            advance(&mut saga, BASE_US);
+            record_success(&mut saga, None);
+        }
+        advance(&mut saga, BASE_US);
+        assert_eq!(saga.status, SagaStatus::Completed);
+
+        // Further advances should be no-op
+        let action = advance(&mut saga, BASE_US + DAY_US);
+        assert!(matches!(action, SagaAction::Complete));
+    }
+
+    #[test]
+    fn test_saga_mark_compensated() {
+        let mut saga = SagaDefinition::new("comp-saga", make_saga_steps(), BASE_US, 0);
+        saga.status = SagaStatus::Compensating;
+        mark_compensated(&mut saga);
+        assert_eq!(saga.status, SagaStatus::Compensated);
+        assert!(saga.is_terminal());
+    }
+
+    #[test]
+    fn test_saga_mark_compensation_failed() {
+        let mut saga = SagaDefinition::new("comp-fail", make_saga_steps(), BASE_US, 0);
+        saga.status = SagaStatus::Compensating;
+        mark_compensation_failed(&mut saga, "DB unreachable".into());
+        assert_eq!(saga.status, SagaStatus::CompensationFailed);
+        assert!(saga.is_terminal());
+    }
+
+    // ============================================================================
+    // Saga — pre-built workflows
+    // ============================================================================
+
+    #[test]
+    fn test_property_sale_saga_structure() {
+        let saga = property_sale_saga("prop-hash-123".into(), "did:buyer".into(), 100_000, BASE_US);
+        assert!(!saga.steps.is_empty());
+        assert_eq!(saga.name, "property-sale");
+        // All steps should start Pending
+        for step in &saga.steps {
+            assert_eq!(step.status, SagaStepStatus::Pending);
+        }
+    }
+
+    #[test]
+    fn test_emergency_response_saga_structure() {
+        let saga = emergency_response_saga("incident-001".into(), 33.0, -97.0, BASE_US);
+        assert!(!saga.steps.is_empty());
+        assert_eq!(saga.name, "emergency-response");
+    }
+
+    #[test]
+    fn test_course_completion_saga_structure() {
+        let saga = course_completion_saga("course-rust-101".into(), "did:student".into(), BASE_US);
+        assert!(!saga.steps.is_empty());
+        assert_eq!(saga.name, "course-completion");
+    }
+
+    #[test]
+    fn test_justice_enforcement_saga_structure() {
+        let saga =
+            justice_enforcement_saga("case-42".into(), "did:defendant".into(), 5000, BASE_US);
+        assert!(!saga.steps.is_empty());
+    }
+
+    #[test]
+    fn test_carbon_credit_saga_structure() {
+        let saga = carbon_credit_saga("route-jnb-cpt".into(), 1400.0, BASE_US);
+        assert!(!saga.steps.is_empty());
+    }
 }
 
 // ============================================================================

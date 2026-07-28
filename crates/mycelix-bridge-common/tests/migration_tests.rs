@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Tests for the migration module, including mock Migratable implementations.
+//!
+//! Entirely about `migration`/`merkle_timestamp`, both gated behind the
+//! `infrastructure` feature (see mycelix-bridge-common/src/lib.rs), which is
+//! off in CI's default `cargo test --workspace` -- gated to match.
+#![cfg(feature = "infrastructure")]
 
 use mycelix_bridge_common::migration::*;
 

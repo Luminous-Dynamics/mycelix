@@ -13,6 +13,10 @@ use mycelix_bridge_common::consciousness_profile::{
     VOTE_WEIGHT_TEMPERATURE, continuous_vote_weight, decay_reputation,
 };
 use mycelix_bridge_common::offline_credential::OfflineCredential;
+// `saga` requires the `infrastructure` feature (see mycelix-bridge-common/src/lib.rs),
+// which is off in CI's default `cargo test --workspace` -- gated to match, along with
+// Property 5 below, the only user of these symbols.
+#[cfg(feature = "infrastructure")]
 use mycelix_bridge_common::saga::{self, SagaAction, SagaDefinition, SagaStatus, SagaStep};
 
 const BASE_US: u64 = 1_767_225_600_000_000;
@@ -166,6 +170,7 @@ proptest! {
 // Property 5: Saga advance on terminal state is always Complete
 // ============================================================================
 
+#[cfg(feature = "infrastructure")]
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(500))]
 
