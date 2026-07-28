@@ -10,10 +10,10 @@
 use std::collections::HashMap;
 
 use mycelix_bridge_common::consciousness_profile::{
-    bootstrap_credential, evaluate_bootstrap_governance, evaluate_governance,
-    evaluate_governance_with_reputation, requirement_for_basic, requirement_for_guardian,
-    requirement_for_voting, ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier,
-    ReputationState, GRACE_PERIOD_US, REPUTATION_BLACKLIST_THRESHOLD,
+    ConsciousnessCredential, ConsciousnessProfile, ConsciousnessTier, GRACE_PERIOD_US,
+    REPUTATION_BLACKLIST_THRESHOLD, ReputationState, bootstrap_credential,
+    evaluate_bootstrap_governance, evaluate_governance, evaluate_governance_with_reputation,
+    requirement_for_basic, requirement_for_guardian, requirement_for_voting,
 };
 use mycelix_bridge_common::consciousness_thresholds::BOOTSTRAP_TTL_US;
 use mycelix_bridge_common::offline_credential::{FreshnessAttestation, OfflineCredential};
