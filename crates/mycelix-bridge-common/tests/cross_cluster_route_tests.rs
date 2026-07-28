@@ -729,9 +729,15 @@ fn praxis_to_identity_has_2_zomes() {
 // Structural invariants
 // ============================================================================
 
-/// There are exactly 36 registered cross-cluster routes (non-empty allowlists).
+/// There are exactly 63 registered cross-cluster routes (non-empty allowlists).
+///
+/// This count has grown before (36 -> 53 -> 63) as clusters were added to
+/// `CrossClusterRole` (now 30 variants, not the original 8) and new routes
+/// were registered between them -- legitimate growth, not drift to paper
+/// over silently. If this fails, verify the new count reflects an
+/// intentional route addition before just bumping the number.
 #[test]
-fn total_registered_routes_is_36() {
+fn total_registered_routes_is_63() {
     let mut count = 0;
     for &src in CrossClusterRole::ALL {
         for &dst in CrossClusterRole::ALL {
@@ -743,7 +749,7 @@ fn total_registered_routes_is_36() {
             }
         }
     }
-    assert_eq!(count, 53, "Expected 53 registered routes, found {count}");
+    assert_eq!(count, 63, "Expected 63 registered routes, found {count}");
 }
 
 /// Every registered route has at least 1 allowed zome.
