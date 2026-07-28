@@ -78,11 +78,11 @@ The default feature set is correct for a Leptos WASM frontend. For a Tauri deskt
 
 This crate is developed inside the Luminous Dynamics monorepo (private) and published to crates.io from there. The public mirror at <https://github.com/Luminous-Dynamics/mycelix-leptos-client> carries the per-release source snapshots.
 
-It is used in production by several Mycelix ecosystem apps:
+It is used by several Mycelix ecosystem apps, at varying maturity — the broader ecosystem is pre-alpha research (see the [`mycelix`](https://github.com/Luminous-Dynamics/mycelix) README's maturity matrix), and "in production" would overstate that:
 
-- [Mycelix Praxis](https://praxis.mycelix.net) — sovereign learning platform, Leptos + Holochain
-- [Mycelix Craft](https://github.com/Luminous-Dynamics/mycelix) — talent / credentials marketplace
-- [Mycelix Sovereign](https://github.com/Luminous-Dynamics/xenia-peer) — remote-session PAM suite (via the Xenia admin console)
+- [Mycelix Praxis](https://praxis.mycelix.net) — **live**, but the deployed site is currently served from a frozen snapshot rather than the latest source (see Praxis's own status notes); not a claim that this crate is exercised in a continuously-deployed production path today
+- Mycelix Craft — built (Leptos CSR frontend, backing zomes tested), not currently deployed anywhere public
+- [Xenia's `sovereign-admin`](https://github.com/Luminous-Dynamics/xenia-peer) — a real, live operator console (DID login + signer-delegation), part of the separate Mycelix Sovereign Suite, itself pre-alpha
 
 ## License
 
