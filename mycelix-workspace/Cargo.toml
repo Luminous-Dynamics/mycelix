@@ -651,7 +651,13 @@ exclude = [
 
 resolver = "2"
 members = [
-    "sdk",
+    # "sdk" removed 2026-07-29 -- it now declares its own [workspace] (see
+    # sdk/Cargo.toml) to isolate CI's test-sdk job from Holochain's broken
+    # transitive ed25519-dalek/curve25519-dalek pre-release chain. A crate can't
+    # simultaneously be a member of one workspace and its own separate workspace
+    # root ("multiple workspace roots found in the same workspace"). The
+    # mycelix-sdk path dependency alias below (in [workspace.dependencies]) is
+    # left as-is -- unaffected, since path deps don't require workspace membership.
     "crates/*",
     "mycelix-prism/*",
     # "mycelix-multiworld-sim", # pre-staged for task #40 — not yet migrated, dir doesn't exist here
