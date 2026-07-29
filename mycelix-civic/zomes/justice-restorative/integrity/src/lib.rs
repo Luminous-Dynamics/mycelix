@@ -4087,7 +4087,8 @@ mod tests {
             | LinkTypes::DecisionToEnforcement
             | LinkTypes::CaseToRestorativeCircle
             | LinkTypes::ArbitratorToCases
-            | LinkTypes::AllCases => {
+            | LinkTypes::AllCases
+            | LinkTypes::CircleToRestitution => {
                 if tag_len > 256 {
                     ValidateCallbackResult::Invalid("Link tag too long (max 256 bytes)".into())
                 } else {

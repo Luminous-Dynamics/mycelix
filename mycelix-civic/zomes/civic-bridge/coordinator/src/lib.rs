@@ -13,6 +13,7 @@
 //! 3. **broadcast_event** — pub-sub event distribution across domains
 
 use civic_bridge_integrity::*;
+use hdk::prelude::holo_hash::AgentPubKeyB64;
 use hdk::prelude::*;
 use mycelix_bridge_common::{
     self as bridge, AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
@@ -41,12 +42,15 @@ fn get_identity_target() -> ConstellationTarget {
     let simulation_links = agent_info()
         .ok()
         .and_then(|info| LinkQuery::try_new(info.agent_initial_pubkey, LinkTypes::GateAudit).ok())
-        .and_then(|query| get_links(query).ok());
+        .and_then(|query| get_links(query, GetStrategy::default()).ok());
     if let Some(links) = simulation_links {
         for link in links {
-            if let Some(target_str) = link.tag.to_string().ok() {
-                if let Ok(agent) = AgentPubKey::from_b64_str(&target_str) {
-                    return ConstellationTarget::External { agent };
+            if let Ok(target_str) = String::from_utf8(link.tag.0.clone()) {
+                if let Ok(agent) = AgentPubKeyB64::from_b64_str(&target_str) {
+                    return ConstellationTarget::External {
+                        agent: agent.into(),
+                        cap_secret: None,
+                    };
                 }
             }
         }
@@ -56,16 +60,17 @@ fn get_identity_target() -> ConstellationTarget {
     // Query the global registry for agents providing 'identity' substrate.
     if let Ok(response) = call(
         CallTargetCell::Local,
-        "did_registry".into(), // Assuming did_registry is local to this hApp or reachable
+        "did_registry", // Assuming did_registry is local to this hApp or reachable
         "resolve_substrate".into(),
         None,
         "identity".to_string(),
     ) {
-        if let Ok(ZomeCallResponse::Ok(bytes)) = response {
+        if let ZomeCallResponse::Ok(bytes) = response {
             if let Ok(agents) = bytes.decode::<Vec<AgentPubKey>>() {
                 if let Some(agent) = agents.first() {
                     return ConstellationTarget::External {
                         agent: agent.clone(),
+                        cap_secret: None,
                     };
                 }
             }
@@ -1145,24 +1150,23 @@ pub fn query_audit_trail(query: AuditTrailQuery) -> ExternResult<AuditTrailResul
     let from = Timestamp::from_micros(query.from_us);
     let to = Timestamp::from_micros(query.to_us);
 
-    let records =
-        if let (Some(ref domain), Some(ref event_type)) = (&query.domain, &query.event_type) {
-            let type_anchor = anchor_hash(&format!("event_type:{}:{}", domain, event_type))?;
-            let links = get_links(
-                LinkQuery::try_new(type_anchor, LinkTypes::EventTypeToEvent)?,
-                GetStrategy::default(),
-            )?;
-            bridge::records_from_links(links)?
-        } else if let Some(ref domain) = query.domain {
-            let domain_anchor = anchor_hash(&format!("domain_events:{}", domain))?;
-            let links = get_links(
-                LinkQuery::try_new(domain_anchor, LinkTypes::DomainToEvent)?,
-                GetStrategy::default(),
-            )?;
-            bridge::records_from_links(links)?
-        } else {
-            get_all_events(())?
-        };
+    let records = if let (Some(domain), Some(event_type)) = (&query.domain, &query.event_type) {
+        let type_anchor = anchor_hash(&format!("event_type:{}:{}", domain, event_type))?;
+        let links = get_links(
+            LinkQuery::try_new(type_anchor, LinkTypes::EventTypeToEvent)?,
+            GetStrategy::default(),
+        )?;
+        bridge::records_from_links(links)?
+    } else if let Some(ref domain) = query.domain {
+        let domain_anchor = anchor_hash(&format!("domain_events:{}", domain))?;
+        let links = get_links(
+            LinkQuery::try_new(domain_anchor, LinkTypes::DomainToEvent)?,
+            GetStrategy::default(),
+        )?;
+        bridge::records_from_links(links)?
+    } else {
+        get_all_events(())?
+    };
 
     let mut entries = Vec::new();
     for record in &records {

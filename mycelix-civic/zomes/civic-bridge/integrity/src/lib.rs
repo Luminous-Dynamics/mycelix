@@ -59,6 +59,11 @@ pub enum LinkTypes {
     NotificationSubscription,
     /// Agent → saga workflows
     AgentToSaga,
+    /// Agent → sweettest-injected simulation target for get_identity_target()
+    /// (coordinator's set_remote_substrate_target/get_identity_target pair).
+    /// Was referenced by both but never defined -- found 2026-07-29 chasing
+    /// test-civic's CI failure.
+    GateAudit,
 }
 
 #[hdk_extern]
@@ -156,6 +161,7 @@ mod tests {
 
     fn make_query(domain: &str, params: &str) -> BridgeQueryEntry {
         BridgeQueryEntry {
+            schema_version: 1,
             domain: domain.into(),
             query_type: "test_query".into(),
             requester: fake_agent(),
@@ -169,6 +175,7 @@ mod tests {
 
     fn make_event(domain: &str, payload: &str) -> BridgeEventEntry {
         BridgeEventEntry {
+            schema_version: 1,
             domain: domain.into(),
             event_type: "test_event".into(),
             source_agent: fake_agent(),
