@@ -6,6 +6,18 @@ description = "Mycelix SDK - Trust infrastructure for the Mycelix Conscious Ecos
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/luminous-dynamics/mycelix"
 
+# Deliberately its own workspace root (added 2026-07-29). Without this, `cargo test
+# --workspace` run from here (CI's test-sdk job) expands to the ENTIRE outer
+# mycelix-workspace, pulling in tests/sweettest's Holochain dev-dependency -- which
+# transitively hard-pins two broken dalek-cryptography pre-releases
+# (ed25519-dalek =3.0.0-pre.1, curve25519-dalek =5.0.0-pre.1) via iroh-base, neither
+# of which compiles against the current stable RustCrypto ecosystem. That's an
+# upstream bug in Holochain's own dependency chain (iroh-base's exact version pins),
+# not anything sdk actually needs -- sdk has zero Holochain dependency itself. Same
+# isolation rationale as mycelix-space/tests (see that crate's CLAUDE.md note).
+[workspace]
+members = ["."]
+
 [features]
 default = ["simulation"]
 holochain = []
