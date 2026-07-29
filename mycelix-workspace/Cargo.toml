@@ -57,12 +57,15 @@ exclude = [
     "crates/mycelix-fl",
     "crates/mycelix-fl/src/aggregation",
     "crates/mycelix-fl/tests",
-    "crates/mycelix-leptos-client",
-    "crates/mycelix-leptos-client/tests",
-    "crates/mycelix-leptos-core",
-    "crates/mycelix-leptos-core/style",
+    # mycelix-leptos-client/-core/-ui exclude entries removed here — those
+    # directories under crates/ (which the "crates/*" member glob below would
+    # otherwise have swept up) were an orphaned duplicate of the real,
+    # actively-maintained crates at the top-level crates/ (moved there in an
+    # earlier session; this workspace-local copy was never deleted, and PR
+    # #7/#9 found and fixed every consumer that was accidentally still
+    # resolving to it via a wrong relative-path depth). The directories are
+    # now deleted, so excluding them is moot.
     "crates/mycelix-leptos-i18n",
-    "crates/mycelix-leptos-ui",
     "crates/mycelix-mock-data",
     "crates/mycelix-zkp-core/benches",
     "crates/mycelix-zkp-core",
@@ -292,7 +295,7 @@ exclude = [
     "mycelix-core/libs/bootstrap/examples",
     "mycelix-core/libs/differential-privacy/benches",
     "mycelix-core/libs/differential-privacy",
-    "crates/feldman-dkg",
+    "mycelix-core/libs/feldman-dkg",
     "mycelix-core/libs/fl-aggregator.archived-v0.1",
     "mycelix-core/libs/fl-aggregator.archived-v0.1/integration_tests",
     "mycelix-core/libs/homomorphic-encryption/benches",
@@ -312,9 +315,9 @@ exclude = [
     "mycelix-core/libs/luminous-nix/tests",
     "mycelix-core/libs/matl-bridge",
     "mycelix-core/libs/matl-bridge/tests",
-    "crates/mycelix-core-types/examples",
-    "crates/mycelix-core-types",
-    "crates/mycelix-core-types/src/wisdom_engine",
+    "mycelix-core/libs/mycelix-core-types/examples",
+    "mycelix-core/libs/mycelix-core-types",
+    "mycelix-core/libs/mycelix-core-types/src/wisdom_engine",
     "mycelix-core/libs/mycelix-fl/benches",
     "mycelix-core/libs/mycelix-fl/docs",
     "mycelix-core/libs/mycelix-fl/proto",
@@ -618,6 +621,32 @@ exclude = [
     "mycelix-energy/zomes/shared",
     # DIAGNOSTIC TEST — mycelix-finance/types/fuzz has its own [workspace]
     "mycelix-finance/types/fuzz",
+
+    # Added 2026-07-28 (MYCELIX_COMPREHENSIVE_REVIEW_2026-07-28.md, F2/F3).
+    # The "mycelix-prism/*" members glob matches these, but none is a loadable
+    # crate, so `cargo metadata` failed for the WHOLE workspace — no aggregate
+    # build or test was possible.
+    #   prism-attestation    — Cargo.toml is literally `// placeholder`; all 11
+    #                          source files are placeholders too, and nothing
+    #                          anywhere references it (verified 2026-07-28).
+    #   prism-security-tests — src/lib.rs is `// placeholder`, no manifest.
+    #   nix / scripts / security — not crates at all.
+    # Excluded rather than deleted so the implement-vs-delete decision stays
+    # open (review Phase 4). If they are ever implemented, drop the exclude.
+    "mycelix-prism/prism-attestation",
+    "mycelix-prism/prism-security-tests",
+    "mycelix-prism/nix",
+    "mycelix-prism/scripts",
+    "mycelix-prism/security",
+
+    # Same class, same date. No Cargo.toml at all; its only two source files
+    # (lib.rs, policy_authorization.rs) are both `// placeholder`.
+    # NOTE: 14 `mycelix-supplychain/scripts/verify-*.py` scripts read files from
+    # this crate that were NEVER written (trusted_time.rs, restriction_recovery.rs,
+    # restriction_renewal.rs, restriction_completeness.rs). They crash with
+    # FileNotFoundError — verified by running one on 2026-07-28. Excluding this
+    # crate does not make that worse; see review F3.
+    "mycelix-supplychain/crates/supplychain-proof-policy",
 ]
 
 resolver = "2"
@@ -627,29 +656,43 @@ members = [
     "mycelix-prism/*",
     # "mycelix-multiworld-sim", # pre-staged for task #40 — not yet migrated, dir doesn't exist here
     # "mycelix-knowledge/tests", # own [workspace] - cannot be a member of another workspace (task #35)
-    "mycelix-space/tests",
+    # "mycelix-space/tests", # meant to be independently resolved (own CLAUDE.md: "separate Cargo
+    # workspace... because sweettest pulls in heavy Holochain conductor dependencies"), but was
+    # never commented out here like its siblings -- the force-include overrode the exclude entry
+    # above (line 588) and pulled a loose `holochain = "0.6"` req into the unified resolution,
+    # which resolved to 0.6.0 (vs the workspace's pinned =0.6.1) and version-conflicted with
+    # music_bridge's holochain_serialized_bytes=0.0.57. Build/test standalone instead:
+    # cd mycelix-space/tests && cargo test --test sweettest_integration -- --ignored (task #35)
     # "mycelix-water/tests", # own [workspace] - cannot be a member of another workspace (task #35)
     # "mycelix-attribution/tests", # own [workspace] - cannot be a member of another workspace (task #35)
     # "mycelix-care/tests", # own [workspace] - cannot be a member of another workspace (task #35)
-    "mycelix-civic/tests",
+    # "mycelix-civic/tests", # missed alongside mycelix-space/tests above (2026-07-29): same loose
+    # `holochain = "0.6"` (unpinned to the workspace's =0.6.1) pulled into unified resolution,
+    # conflicting with music_bridge's holochain_serialized_bytes=0.0.57. Build/test standalone:
+    # cd mycelix-civic/tests && cargo test -- --ignored (task #35)
     # "mycelix-emergency/tests", # own [workspace] - cannot be a member of another workspace (task #35)
 
-    "mycelix-energy/tests",
+    # "mycelix-energy/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-energy/tests && cargo test -- --ignored
     # "mycelix-finance/tests", # own [workspace] - cannot be a member of another workspace (task #35)
     # "mycelix-governance/tests", # own [workspace] - cannot be a member of another workspace (task #35)
-    "mycelix-hearth/tests",
+    # "mycelix-hearth/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-hearth/tests && cargo test -- --ignored
     # "mycelix-housing/tests", # own [workspace] - cannot be a member of another workspace (task #35)
     # "mycelix-justice/tests", # own [workspace] - cannot be a member of another workspace (task #35)
 
-    "mycelix-media/tests",
-    "mycelix-personal/tests",
+    # "mycelix-media/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-media/tests && cargo test -- --ignored
+    # "mycelix-personal/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-personal/tests && cargo test -- --ignored
     # "mycelix-praxis/tests", # depends via path on mycelix-praxis/zomes/adaptive_zome/coordinator,
     # which is a member of mycelix-praxis/Cargo.toml's own [workspace] — same structural conflict
     # already fixed for governance/housing/justice above (task #35). Broke `cargo metadata`/`trunk
     # build` for every crate in this outer workspace with "member of the wrong workspace" (found
     # 2026-07-03 while rebuilding praxis's frontend dist). Build/test standalone instead:
     # cargo test --manifest-path mycelix-praxis/tests/Cargo.toml -- --ignored
-    "mycelix-property/tests",
+    # "mycelix-property/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-property/tests && cargo test -- --ignored
     # "mycelix-pulse/tests", # own [workspace] - cannot be a member of another workspace (task #35)
 
     # "mycelix-pulse/happ/backend-rs", # depends on dna/integrity, which has its own [workspace] (WASM profile isolation) — structural conflict, build standalone instead (task #35)
@@ -685,7 +728,7 @@ members = [
     "mycelix-praxis/apps/leptos",
     "mycelix-praxis/crates/*",
     # "mycelix-sensorium/crates/*", # sensorium deliberately stays top-level (cross-cutting dashboard), not migrated
-    "mycelix-supplychain/crates/*",
+    # "mycelix-supplychain/crates/*", # excluded from this sync -- own standalone repo, directory doesn't exist here (see rsync excludes above)
     # "mycelix-supplychain/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
     "mycelix-knowledge/crates/*",
     # "mycelix-knowledge/apps/leptos", # own [workspace] - cannot be a member of another workspace (task #35)
@@ -703,7 +746,8 @@ members = [
     "mycelix-*/zomes/shared",
     "mycelix-justice/dna/integrity",
     "mycelix-music/dnas/mycelix-music/zomes/*/*",
-    "mycelix-music/tests",
+    # "mycelix-music/tests", # same missed-entry bug as mycelix-civic/tests above (2026-07-29,
+    # task #35) — cd mycelix-music/tests && cargo test -- --ignored
 
     "mycelix-core/zomes/*/*",
     "mycelix-identity/zomes/*/*",
@@ -883,7 +927,7 @@ mutualaid-common = { path = "mycelix-commons/crates/mutualaid-common" }
 mutualaid_common = { path = "mycelix-mutualaid/crates/mutualaid_common" }
 
 support-types = { path = "mycelix-commons/crates/support-types" }
-mycelix-core-types = { path = "crates/mycelix-core-types" }
+mycelix-core-types = { path = "mycelix-core/libs/mycelix-core-types" }
 governance-utils = { path = "mycelix-governance/crates/governance-utils" }
 hearth-types = { path = "mycelix-hearth/crates/hearth-types" }
 hearth-coordinator-common = { path = "mycelix-hearth/crates/hearth-coordinator-common" }

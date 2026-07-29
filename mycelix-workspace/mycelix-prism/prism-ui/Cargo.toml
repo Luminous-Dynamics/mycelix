@@ -20,7 +20,7 @@ mycelix-claim-types = { path = "../../crates/mycelix-claim-types" }
 mycelix-leptos-client = { path = "../../crates/mycelix-leptos-client" }
 
 # Symthaea consciousness kernel (WASM-safe, no default features)
-symthaea-spore = { path = "../../../symthaea/crates/domains/symthaea-spore", default-features = false }
+symthaea-spore = { git = "https://github.com/Luminous-Dynamics/symthaea", package = "symthaea-spore", default-features = false }
 
 # Leptos
 leptos = { workspace = true }
