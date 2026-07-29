@@ -270,9 +270,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: mycelix-workspace/sdk
+      # Swatinem/rust-cache step TEMPORARILY REMOVED (2026-07-29) to test
+      # whether it's the cause of a persistent (2x reproduced, ~6h apart)
+      # `ed25519-dalek-3.0.0-pre.1` resolution -- a version that shouldn't
+      # be reachable at all under this workspace's `ed25519-dalek = "2.1"`
+      # requirement (verified: a fresh local `cargo tree` resolves 2.2.0
+      # correctly, and 3.0.0-pre.1 "did not match any packages"). No
+      # Cargo.lock is checked in, so there's nothing for the cache to
+      # restore that should affect resolution -- but the registry INDEX
+      # itself is part of what Swatinem caches, and a stale index snapshot
+      # is the only remaining hypothesis that fits. Restore this step (and
+      # remove this comment) once confirmed either way.
+      - name: Diagnose ed25519-dalek resolution (temporary, 2026-07-29)
+        run: |
+          cd mycelix-workspace/sdk
+          echo "=== cargo tree -i ed25519-dalek (all matching versions) ==="
+          cargo tree -i ed25519-dalek 2>&1 || true
       - name: Test Rust SDK
         run: cd mycelix-workspace/sdk && cargo test --workspace
       - uses: actions/setup-node@v4
