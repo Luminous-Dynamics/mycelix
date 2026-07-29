@@ -3300,7 +3300,12 @@ mod tests {
             description: "request".into(),
             category: ServiceCategory::CareWork,
             estimated_hours: Some(3.0),
-            urgency: Urgency::Normal,
+            // `Urgency::Normal` does not exist and never has — the variants are
+            // Flexible / SoonPreferred / Urgent / Emergency. This test could not
+            // compile, so `cargo test`/`cargo check --all-targets` were red for the
+            // whole finance workspace. Urgency is irrelevant to what this test
+            // asserts (activity_dao_did), so any real variant works.
+            urgency: Urgency::Flexible,
             open: true,
             created: ts(),
         });
