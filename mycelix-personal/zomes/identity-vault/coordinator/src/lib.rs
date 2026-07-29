@@ -103,6 +103,7 @@ pub fn set_profile_view(profile: ProfileView) -> ExternResult<Record> {
         bio: profile.bio,
         metadata: profile.metadata,
         updated_at: sys_time()?,
+        mineralized_at: None,
     })
 }
 

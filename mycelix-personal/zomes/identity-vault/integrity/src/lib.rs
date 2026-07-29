@@ -113,10 +113,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }) => match app_entry {
             EntryTypes::Profile(profile) => validate_profile(&profile),
             EntryTypes::MasterKey(key) => validate_master_key(&key),
+            // TierMembershipProof/DigitalWill/AiMineralization/SymbioteSnapshot have no
+            // dedicated validation logic yet (never written, not a regression) -- this match
+            // was non-exhaustive and failed to compile until this arm was added. All of these
+            // entry types are private-source-chain-only per this file's own doc comment, so
+            // the current gap is "an agent can write anything to their own private chain",
+            // not a cross-agent forgery surface. Real validation for each is separate,
+            // unstarted work -- do not read this arm as "validated".
+            EntryTypes::TierMembershipProof(_)
+            | EntryTypes::DigitalWill(_)
+            | EntryTypes::AiMineralization(_)
+            | EntryTypes::SymbioteSnapshot(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Profile(profile) => validate_profile(&profile),
             EntryTypes::MasterKey(key) => validate_master_key(&key),
+            EntryTypes::TierMembershipProof(_)
+            | EntryTypes::DigitalWill(_)
+            | EntryTypes::AiMineralization(_)
+            | EntryTypes::SymbioteSnapshot(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
@@ -181,6 +196,7 @@ mod tests {
             bio: None,
             metadata: std::collections::HashMap::new(),
             updated_at: Timestamp::from_micros(0),
+            mineralized_at: None,
         }
     }
 

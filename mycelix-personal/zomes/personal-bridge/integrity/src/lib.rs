@@ -104,6 +104,7 @@ mod tests {
 
     fn make_query(domain: &str, params: &str) -> BridgeQueryEntry {
         BridgeQueryEntry {
+            schema_version: 1,
             domain: domain.into(),
             query_type: "test_query".into(),
             requester: fake_agent(),
@@ -117,6 +118,7 @@ mod tests {
 
     fn make_event(domain: &str, payload: &str) -> BridgeEventEntry {
         BridgeEventEntry {
+            schema_version: 1,
             domain: domain.into(),
             event_type: "test_event".into(),
             source_agent: fake_agent(),
