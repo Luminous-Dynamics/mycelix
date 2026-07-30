@@ -141,7 +141,14 @@ pub fn register_ambassador(credential: AmbassadorCredential) -> ExternResult<Act
         anchor_hash("active_ambassadors")?,
         action_hash.clone(),
         LinkTypes::ActiveZones, // Reusing existing link type for simplicity
-        credential.home_constellation_root.as_hash().to_vec(),
+        // `HoloHash` has no `to_vec()`; it implements `AsRef<[u8]>`, so this is
+        // the same bytes the old call intended. (Pre-existing build break —
+        // E0599 — that kept the whole governance cluster from compiling.)
+        credential
+            .home_constellation_root
+            .as_hash()
+            .as_ref()
+            .to_vec(),
     )?;
 
     Ok(action_hash)

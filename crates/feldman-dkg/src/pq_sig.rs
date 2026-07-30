@@ -18,7 +18,14 @@
 //! ```
 
 use ml_dsa::signature::{Keypair, SignatureEncoding, Signer, Verifier};
-use ml_dsa::{EncodedVerifyingKey, KeyGen, MlDsa65, SigningKey, VerifyingKey};
+// ml-dsa 0.1.1 API note: `KeyGen` was removed and `MlDsa65::from_seed` no longer
+// exists. Keypair construction moved onto the key itself:
+// `SigningKey::<MlDsa65>::from_seed(&seed)`. The manifest asked for
+// "0.1.0-rc.7", but that caret requirement resolves to 0.1.1, so this file had
+// been written against an API cargo never actually selected — the whole
+// mycelix-governance cluster failed to compile as a result (E0432 + E0599).
+// Ported to the released 0.1.1 API 2026-07-29.
+use ml_dsa::{EncodedVerifyingKey, MlDsa65, SigningKey, VerifyingKey};
 
 /// An ML-DSA-65 keypair for post-quantum digital signatures.
 pub struct MlDsaKeyPair {
@@ -45,10 +52,10 @@ impl MlDsaKeyPair {
 pub fn generate_signing_keypair() -> MlDsaKeyPair {
     let mut seed = ml_dsa::B32::default();
     getrandom::fill(&mut seed).expect("OS CSPRNG unavailable");
-    let kp = MlDsa65::from_seed(&seed);
-    let verifying_key = kp.verifying_key();
+    let signing_key = SigningKey::<MlDsa65>::from_seed(&seed);
+    let verifying_key = signing_key.verifying_key();
     MlDsaKeyPair {
-        signing_key: kp,
+        signing_key,
         verifying_key,
     }
 }
