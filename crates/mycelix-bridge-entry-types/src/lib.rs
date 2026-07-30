@@ -509,6 +509,108 @@ pub fn check_author_match(
     }
 }
 
+// ============================================================================
+// Author binding, and what to do when it does not apply
+// ============================================================================
+//
+// Two rules cover almost every integrity validator in this workspace. Pick by
+// asking: *can the committer alone legitimately assert this?*
+//
+// 1. AUTHOR BINDING — the committer IS the subject.
+//    Use [`require_did_is_author`] with [`did_for_author`]. Mechanical, cheap,
+//    unit-testable. Covers `Payment.from_did`, `Vote.voter`, `LoanOffer.lender_did`.
+//
+// 2. DERIVATION FROM A BOUND WITNESS — the committer is NOT (only) the subject,
+//    or the value is an aggregate the committer should not get to assert.
+//    An author bind is WRONG here and will break real flows. Instead, the entry
+//    must reference an already-validated, author-bound *witness* entry, and
+//    integrity must re-derive the claimed value from it.
+//
+// Worked example of why rule 2 exists: `SapBalance` is written by many agents by
+// design — `transfer_sap` credits the payee from the SENDER's agent context, and
+// `credit_sap` carries a standing comment explaining that no caller-rule is
+// correct because legitimate credits target other members *and* the caller's own
+// balance. Binding `member_did` to the committer would break every transfer. The
+// correct fix (specified in MYCELIX_ECONOMY_IMPROVEMENT_PLAN_2026-07-10.md) is to
+// validate each balance *increase* against a valid, unconsumed `SapMintRecord` or
+// a matching debit.
+//
+// SHAPE FOR RULE 2 — follow the in-tree precedent at
+// `mycelix-commons/zomes/care-timebank/integrity` (`validate_exchange_transition`):
+//
+//     // Thin, untestable fetch — keep it to these three lines.
+//     let original = must_get_valid_record(action.original_action_address)?;
+//     let original: MyEntry = original.entry().to_app_option()?.ok_or(...)?;
+//     validate_my_transition(&original, &updated, &action.author)
+//
+//     // Pure, fully unit-testable — put ALL the rules here.
+//     fn validate_my_transition(
+//         original: &MyEntry, updated: &MyEntry, author: &AgentPubKey,
+//     ) -> ValidateCallbackResult { ... }
+//
+// `must_get_valid_record` has no test mock in this codebase, so anything inside
+// the fetch is untested by construction. Keeping the fetch to three lines is what
+// makes rule 2 verifiable at all.
+//
+// There is deliberately no shared helper for rule 2: the re-derivation arithmetic
+// is domain-specific every time (a balance delta, a reputation aggregate, a
+// two-party exchange). Sharing the *pattern* is the reusable part; sharing a
+// function would be speculative generality.
+
+/// The canonical `did:mycelix:<agent>` string for an agent key.
+///
+/// Coordinators derive the same string via
+/// `format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey)`. Integrity
+/// validators MUST use this helper rather than re-formatting inline: the format
+/// was duplicated across 8 zomes before this was hoisted, so a change to the DID
+/// scheme would have silently desynchronised them.
+pub fn did_for_author(author: &AgentPubKey) -> String {
+    format!("did:mycelix:{}", author)
+}
+
+/// Check that a self-reported DID field on a *created* entry is the agent that
+/// actually committed it.
+///
+/// This is the create-time counterpart to [`check_author_match`] (which guards
+/// updates and deletes). Without it, a DID field is just a string that no peer
+/// ever checks against the signer, so any agent can commit an entry in someone
+/// else's name — payment debit forgery, vote forgery, credit-profile forgery,
+/// and so on.
+///
+/// # When NOT to use this
+///
+/// Only for entries whose owner field is genuinely the committer. It is **wrong**
+/// for:
+/// * *shared mutable state* — e.g. a balance written by many agents by design
+///   (in Mycelix, `transfer_sap` credits the payee from the *sender's* agent
+///   context). Those need derivation from a validated witness entry, not an
+///   author bind.
+/// * *two-party or on-behalf-of records* — where a legitimate committer is not
+///   the subject.
+///
+/// Check the coordinator's creation path before binding. See
+/// `MYCELIX_PHASE1_EXECUTION_PLAN_2026-07-28.md` (risk R1).
+///
+/// # Arguments
+/// * `entry` / `field` — names used in the rejection message, e.g. `"Payment"`,
+///   `"from_did"`.
+/// * `did` — the self-reported DID on the entry.
+/// * `author_did` — the committing agent's DID, from [`did_for_author`].
+pub fn require_did_is_author(
+    entry: &str,
+    field: &str,
+    did: &str,
+    author_did: &str,
+) -> ValidateCallbackResult {
+    if did != author_did {
+        return ValidateCallbackResult::Invalid(format!(
+            "{entry} {field} must be the committing agent (forgery). \
+             Expected '{author_did}', got '{did}'"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 /// Check that the author of a delete-link matches the original link author.
 ///
 /// Returns `ValidateCallbackResult::Valid` if authors match, or
@@ -1647,4 +1749,64 @@ pub fn validate_saga_entry(entry: &SagaEntry) -> Result<(), String> {
         return Err("initiator cannot be empty".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod author_binding_helper_tests {
+    use super::*;
+
+    fn key() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0; 36])
+    }
+
+    #[test]
+    fn did_for_author_matches_the_coordinator_format() {
+        // Coordinators build this string as
+        //   format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey)
+        // If this ever diverges, every author bind in the ecosystem breaks open.
+        let k = key();
+        assert_eq!(did_for_author(&k), format!("did:mycelix:{}", k));
+        assert!(did_for_author(&k).starts_with("did:mycelix:"));
+    }
+
+    #[test]
+    fn matching_did_is_valid() {
+        let d = did_for_author(&key());
+        assert!(matches!(
+            require_did_is_author("Payment", "from_did", &d, &d),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn forged_did_is_rejected_and_names_the_field() {
+        let result = require_did_is_author(
+            "Payment",
+            "from_did",
+            "did:mycelix:uhCAkVictim",
+            &did_for_author(&key()),
+        );
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"), "got: {msg}");
+                assert!(
+                    msg.contains("Payment"),
+                    "message should name the entry: {msg}"
+                );
+                assert!(
+                    msg.contains("from_did"),
+                    "message should name the field: {msg}"
+                );
+            }
+            other => panic!("forged did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_author_does_not_accidentally_match() {
+        assert!(matches!(
+            require_did_is_author("E", "f", "did:mycelix:uhCAkalice", ""),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
 }
