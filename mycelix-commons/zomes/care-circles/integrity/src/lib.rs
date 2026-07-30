@@ -1191,7 +1191,7 @@ mod tests {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::AgentToCreatedCircle => {
+            LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
                         "AgentToCreatedCircle link tag too long (max 256 bytes)".into(),
@@ -1240,7 +1240,7 @@ mod tests {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::AgentToCreatedCircle => {
+            LinkTypes::AgentToCreatedCircle | LinkTypes::CircleToTendExchange => {
                 if tag.0.len() > 256 {
                     return Ok(ValidateCallbackResult::Invalid(
                         "AgentToCreatedCircle delete link tag too long (max 256 bytes)".into(),
