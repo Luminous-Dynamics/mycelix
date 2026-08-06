@@ -24,4 +24,6 @@ roles:
       modifiers:
         network_seed: ~
         properties: ~
-      clone_limit: 0
+      # One isolated clone cell/DHT per household. The provisioned cell is a
+      # template/control cell and must not receive household records.
+      clone_limit: 128

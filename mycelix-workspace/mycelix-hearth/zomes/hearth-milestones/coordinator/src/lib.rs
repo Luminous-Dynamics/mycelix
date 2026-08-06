@@ -11,7 +11,7 @@ use hearth_coordinator_common::{records_from_links, require_guardian, require_me
 use hearth_milestones_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
 };
 use mycelix_zome_helpers as _;
 

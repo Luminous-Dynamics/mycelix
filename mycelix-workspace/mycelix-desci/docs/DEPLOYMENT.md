@@ -1,5 +1,9 @@
 # Production Deployment Guide
 
+> [!WARNING]
+> **Historical compatibility document.** This guide predates the signed-event refoundation and may describe mutable claims, automatic E-tier promotion, mock integrations, or deployment readiness that is no longer authoritative. Use [`CANONICAL_EVENT_API.md`](CANONICAL_EVENT_API.md) and [`LEGACY_MIGRATION.md`](LEGACY_MIGRATION.md) for current behavior.
+
+
 Complete guide for deploying Mycelix-DeSci in production environments.
 
 ## Table of Contents

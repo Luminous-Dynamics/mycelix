@@ -1,0 +1,39 @@
+# Nested workspaces (clusters with their own [workspace]).
+# Format:  <cluster>  <ci|unverified>
+#
+# Root-level cargo commands CANNOT see inside these, so a green root
+# workspace proves nothing about them. `unverified` is the backlog:
+# it means nothing in CI builds or tests that cluster at all.
+#
+# A NEW nested workspace not listed here fails the check — nested
+# workspaces fragment verification and should be a deliberate choice.
+# See MYCELIX_COMPREHENSIVE_REVIEW_2026-07-28.md (F2).
+mycelix-attribution  unverified
+mycelix-care  unverified
+mycelix-civic  unverified
+mycelix-climate  unverified
+mycelix-commons  unverified
+mycelix-craft  unverified
+mycelix-desci  unverified
+mycelix-emergency  unverified
+mycelix-energy  unverified
+mycelix-finance  ci
+mycelix-governance  ci
+mycelix-health  unverified
+mycelix-hearth  unverified
+mycelix-housing  unverified
+mycelix-identity  unverified
+mycelix-justice  unverified
+mycelix-knowledge  unverified
+mycelix-lawful-identity  unverified
+mycelix-manufacturing  unverified
+mycelix-media  unverified
+mycelix-mutualaid  unverified
+mycelix-personal  unverified
+mycelix-position  unverified
+mycelix-praxis  unverified
+mycelix-property  unverified
+mycelix-space  unverified
+mycelix-supplychain  unverified
+mycelix-water  unverified
+sdk  unverified

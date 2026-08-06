@@ -56,10 +56,7 @@ impl TrustManager {
 
     /// Get trust score for a participant
     pub fn get_score(&self, participant_id: &str) -> TrustScore {
-        self.scores
-            .get(participant_id)
-            .copied()
-            .unwrap_or_default()
+        self.scores.get(participant_id).copied().unwrap_or_default()
     }
 
     /// Update trust score based on behavior
@@ -122,9 +119,7 @@ mod tests {
         let mut manager = TrustManager::new();
 
         // Update with positive behavior
-        manager
-            .update_score("participant_1", true, 1.0)
-            .unwrap();
+        manager.update_score("participant_1", true, 1.0).unwrap();
         let score = manager.get_score("participant_1");
 
         assert!(score.score > 0.5);
@@ -140,9 +135,7 @@ mod tests {
 
         // Boost trust
         for _ in 0..5 {
-            manager
-                .update_score("participant_1", true, 1.0)
-                .unwrap();
+            manager.update_score("participant_1", true, 1.0).unwrap();
         }
 
         assert!(manager.is_trusted("participant_1"));

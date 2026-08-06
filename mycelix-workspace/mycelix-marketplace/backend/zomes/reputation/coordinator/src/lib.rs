@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use reputation_integrity::*;
 use mycelix_common::{bridge, error_handling, link_queries, remote_calls, time};
+use reputation_integrity::*;
 
 mod cache;
 
@@ -152,9 +152,8 @@ pub fn record_fulfillment_reputation(
         "get_transaction_resolution",
         transaction_hash,
     )?;
-    let resolution = resolution.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let resolution = resolution
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     let current = resolution.current()?;
     if current.transaction.status != TransactionStatusWire::Delivered {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -195,11 +194,8 @@ pub fn project_arbitration_reputation(
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Arbitration result not found".into())))?;
     let caller = agent_info()?.agent_initial_pubkey;
     let result: ArbitrationResultWire = error_handling::deserialize_entry(&result_record)?;
-    let dispute_record = get(
-        result.dispute_revision_hash.clone(),
-        GetOptions::default(),
-    )?
-    .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Dispute revision not found".into())))?;
+    let dispute_record = get(result.dispute_revision_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Dispute revision not found".into())))?;
     let dispute: DisputeWire = error_handling::deserialize_entry(&dispute_record)?;
     if !dispute.arbitrators.contains(&caller) {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -210,7 +206,11 @@ pub fn project_arbitration_reputation(
         dispute.transaction_revision_hash.clone(),
         GetOptions::default(),
     )?
-    .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction revision not found".into())))?;
+    .ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Transaction revision not found".into()
+        ))
+    })?;
     let transaction: TransactionEvidenceWire =
         error_handling::deserialize_entry(&transaction_record)?;
 
@@ -263,9 +263,7 @@ pub fn project_arbitration_reputation(
 }
 
 #[hdk_extern]
-pub fn get_agent_reputation_events(
-    agent: AgentPubKey,
-) -> ExternResult<ReputationEventsResponse> {
+pub fn get_agent_reputation_events(agent: AgentPubKey) -> ExternResult<ReputationEventsResponse> {
     let links = link_queries::get_links_local(agent.clone(), LinkTypes::AgentToReputationEvents)?;
     let mut by_key: HashMap<String, ReputationEventOutput> = HashMap::new();
     for link in links {
@@ -313,26 +311,26 @@ pub fn get_derived_reputation(agent: AgentPubKey) -> ExternResult<DerivedReputat
         match output.event.kind {
             ReputationEventKind::FulfillmentDelivered => {
                 positive_events += 1;
-                fulfilled_value_cents = fulfilled_value_cents
-                    .saturating_add(output.event.value_cents);
+                fulfilled_value_cents =
+                    fulfilled_value_cents.saturating_add(output.event.value_cents);
             }
             ReputationEventKind::ArbitrationWon => {
                 positive_events += 1;
-                arbitration_value_cents = arbitration_value_cents
-                    .saturating_add(output.event.value_cents);
+                arbitration_value_cents =
+                    arbitration_value_cents.saturating_add(output.event.value_cents);
             }
             ReputationEventKind::ArbitrationLost => {
                 negative_events += 1;
-                arbitration_value_cents = arbitration_value_cents
-                    .saturating_add(output.event.value_cents);
+                arbitration_value_cents =
+                    arbitration_value_cents.saturating_add(output.event.value_cents);
             }
         }
     }
 
     // Transparent Laplace-smoothed evidence ratio. This is not a Byzantine
     // tolerance claim and is never used as an integrity authorization weight.
-    let score = (positive_events as f64 + 1.0)
-        / (positive_events as f64 + negative_events as f64 + 2.0);
+    let score =
+        (positive_events as f64 + 1.0) / (positive_events as f64 + negative_events as f64 + 2.0);
     Ok(DerivedReputation {
         agent,
         score,
@@ -344,9 +342,7 @@ pub fn get_derived_reputation(agent: AgentPubKey) -> ExternResult<DerivedReputat
     })
 }
 
-fn create_or_get_reputation_event(
-    event: ReputationEvent,
-) -> ExternResult<ReputationEventOutput> {
+fn create_or_get_reputation_event(event: ReputationEvent) -> ExternResult<ReputationEventOutput> {
     let links = link_queries::get_links_local(
         event.source_hash.clone(),
         LinkTypes::SourceToReputationEvents,
@@ -428,15 +424,16 @@ fn transaction_root(mut cursor: ActionHash) -> ExternResult<ActionHash> {
             )));
         }
         visited.push(cursor.clone());
-        let record = get(cursor.clone(), GetOptions::default())?
-            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction action missing".into())))?;
+        let record = get(cursor.clone(), GetOptions::default())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest("Transaction action missing".into()))
+        })?;
         match record.action() {
             Action::Create(_) => return Ok(cursor),
             Action::Update(update) => cursor = update.original_action_address.clone(),
             _ => {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Transaction source must be a Create or Update action".into()
-                )))
+                )));
             }
         }
     }
@@ -753,11 +750,23 @@ fn analyze_transaction_clustering(score: &MatlScore) -> ExternResult<f64> {
     // High quality + high consistency + low transaction count = potential cluster
     let clustering_indicators = [
         // Low diversity indicator
-        if score.transaction_count < 10 { 0.3 } else { 0.0 },
+        if score.transaction_count < 10 {
+            0.3
+        } else {
+            0.0
+        },
         // Perfect metrics indicator
-        if score.pogq.quality > 0.9 && score.pogq.consistency > 0.9 { 0.3 } else { 0.0 },
+        if score.pogq.quality > 0.9 && score.pogq.consistency > 0.9 {
+            0.3
+        } else {
+            0.0
+        },
         // Low entropy indicator (uniform patterns)
-        if score.pogq.entropy < 0.2 { 0.4 } else { score.pogq.entropy * 0.2 },
+        if score.pogq.entropy < 0.2 {
+            0.4
+        } else {
+            score.pogq.entropy * 0.2
+        },
     ];
 
     let clustering_score: f64 = clustering_indicators.iter().sum();
@@ -895,7 +904,12 @@ pub fn get_seller_reviews(seller: AgentPubKey) -> ExternResult<ReviewsResponse> 
                 let review: Review = record
                     .entry()
                     .to_app_option()
-                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Deserialization error: {:?}", e))))?
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Deserialization error: {:?}",
+                            e
+                        )))
+                    })?
                     .ok_or(wasm_error!(WasmErrorInner::Guest(
                         "Could not deserialize review".into()
                     )))?;
@@ -975,7 +989,6 @@ pub struct CrossAppReputationResponse {
     /// Error message if unavailable
     pub error: Option<String>,
 }
-
 
 // ===== Tests =====
 #[cfg(test)]

@@ -1,0 +1,35 @@
+{
+  "external_path_dependencies": [
+    {
+      "features": [],
+      "manifest": "apps/leptos/Cargo.toml",
+      "name": "mycelix-leptos-core",
+      "package": "mycelix-leptos-core",
+      "target": "../crates/mycelix-leptos-core"
+    },
+    {
+      "features": [
+        "browser"
+      ],
+      "manifest": "apps/leptos/Cargo.toml",
+      "name": "mycelix-leptos-client",
+      "package": "mycelix-leptos-client",
+      "target": "../crates/mycelix-leptos-client"
+    },
+    {
+      "features": [
+        "hybrid-rc"
+      ],
+      "manifest": "apps/leptos/Cargo.toml",
+      "name": "mycelix-crypto",
+      "package": "mycelix-crypto",
+      "target": "../mycelix-identity/crates/mycelix-crypto"
+    }
+  ],
+  "roots": [
+    "apps/leptos/Cargo.toml",
+    "crates/mail-leptos-types/Cargo.toml",
+    "holochain/Cargo.toml",
+    "tests/Cargo.toml"
+  ]
+}

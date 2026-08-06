@@ -10,7 +10,7 @@ use hdk::prelude::*;
 use hearth_coordinator_common::{get_latest_record, records_from_links, require_membership};
 use hearth_rhythms_integrity::*;
 use hearth_types::*;
-use mycelix_bridge_common::{civic_requirement_basic, GovernanceEligibility};
+use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_basic};
 use mycelix_zome_helpers as _;
 
 // ============================================================================

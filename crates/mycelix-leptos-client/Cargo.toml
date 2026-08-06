@@ -28,6 +28,15 @@ web-sys = { version = "0.3", features = [
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 serde_json = "1"
 serde-wasm-bindgen = "0.6"
+# Used by admin_granted_signer's ZomeCallParamsWire to force genuine
+# MessagePack Bin encoding for raw-bytes fields, matching the real
+# conductor's holo_hash/ExternIO/Nonce256Bits types.
+serde_bytes = "0.11"
+# Ed25519 signing for admin_granted_signer — a ZomeCallSigner impl for
+# test/dev environments with no Launcher/Moss host signer. Pure Rust, no
+# OS-level deps, compiles cleanly to wasm32-unknown-unknown.
+ed25519-dalek = "2"
+sha2 = "0.10"
 
 # Native transport (for testing against real conductor without browser)
 tokio = { version = "1", features = ["rt", "macros", "sync", "net", "time"], optional = true }
@@ -47,3 +56,7 @@ crate-type = ["cdylib", "rlib"]
 holochain_client = "=0.6.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde_json = "1"
+# Only used by a test fixture to force genuine MessagePack Bin encoding
+# (matching what a real conductor sends) — not needed at runtime, see
+# decode_tagged's doc comment in src/types.rs.
+serde_bytes = "0.11"

@@ -12,6 +12,7 @@
 //! Constitutional: MYCEL is non-transferable (soulbound).
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::ContributionType;
 
 // =============================================================================
@@ -248,18 +249,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Enforce that a recognition event's `recognizer_did` is the committing agent.
-/// Pure so it can be unit-tested without a full Create action.
-fn require_recognizer_is_author(recognizer_did: &str, author_did: &str) -> ValidateCallbackResult {
-    if recognizer_did != author_did {
-        return ValidateCallbackResult::Invalid(format!(
-            "Recognizer DID must be the committing agent (recognition forgery / Sybil). \
-             Expected '{author_did}', got '{recognizer_did}'"
-        ));
-    }
-    ValidateCallbackResult::Valid
-}
-
 fn validate_create_recognition(
     action: EntryCreationAction,
     event: RecognitionEvent,
@@ -268,10 +257,13 @@ fn validate_create_recognition(
     // recognizer's MYCEL score, so a forged `recognizer_did` impersonates a
     // high-trust recognizer (Sybil). The coordinator sets recognizer_did to the
     // caller's own DID, so this never rejects a legitimate recognition.
-    let author_did = format!("did:mycelix:{}", action.author());
-    if let ValidateCallbackResult::Invalid(msg) =
-        require_recognizer_is_author(&event.recognizer_did, &author_did)
-    {
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "RecognitionEvent",
+        "recognizer_did",
+        &event.recognizer_did,
+        &author_did,
+    ) {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
@@ -492,9 +484,21 @@ fn validate_update_mycel_state(
 }
 
 fn validate_create_allocation(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     alloc: RecognitionAllocation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. `get_or_create_allocation` (recognition/coordinator:811) has exactly one caller (:138), which passes `caller_did` derived from agent_info() at :703-704. A forged recognizer_did would let an agent spend another member's recognition allocation.
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A.)
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "RecognitionAllocation",
+        "recognizer_did",
+        &alloc.recognizer_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if alloc.recognizer_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -543,11 +547,16 @@ mod tests {
         let me = "did:mycelix:uhCAkSELF";
         // Honest path: the recognizer DID is the committer's own.
         assert!(matches!(
-            require_recognizer_is_author(me, me),
+            require_did_is_author("RecognitionEvent", "recognizer_did", me, me),
             ValidateCallbackResult::Valid
         ));
         // Forgery: impersonating another (high-MYCEL) recognizer is rejected.
-        match require_recognizer_is_author("did:mycelix:uhCAkWHALE", me) {
+        match require_did_is_author(
+            "RecognitionEvent",
+            "recognizer_did",
+            "did:mycelix:uhCAkWHALE",
+            me,
+        ) {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(
                     msg.contains("forgery") || msg.contains("Sybil"),

@@ -463,6 +463,6 @@ mycelix-desci query --category longevity --format json > longevity_claims.json
 
 ## Next Steps
 
-- Read [Architecture Guide](architecture.md) for system design
-- See [Federated Learning Guide](federated-learning.md) for FL workflows
-- Check [Integration Guide](integrations.md) for DeSci platform connections
+- Read [Architecture Guide](../ARCHITECTURE.md) for system design
+- See [current documentation map](../README.md) for FL workflows
+- Check [current architecture guide](../ARCHITECTURE.md) for DeSci platform connections

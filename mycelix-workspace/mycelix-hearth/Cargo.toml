@@ -49,7 +49,7 @@ members = [
     "zomes/hearth-bridge/integrity",
     "zomes/hearth-bridge/coordinator",
 ]
-exclude = ["tests"]
+exclude = ["tests", "tools/hearth-evidence-verifier"]
 
 [workspace.package]
 version = "0.1.0"
@@ -80,6 +80,7 @@ hearth-types = { path = "crates/hearth-types" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
 mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
 
 [profile.dev]

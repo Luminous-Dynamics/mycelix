@@ -13,9 +13,9 @@
 use hdi::prelude::*;
 pub use mycelix_bridge_entry_types::CachedCredentialEntry;
 use mycelix_bridge_entry_types::{
-    check_author_match, check_link_author_match,
-    validate_cached_credential, validate_event_fields, validate_query_fields, BridgeEventEntry,
-    BridgeQueryEntry, CrossClusterNotification,
+    BridgeEventEntry, BridgeQueryEntry, CrossClusterNotification, check_author_match,
+    check_link_author_match, validate_cached_credential, validate_event_fields,
+    validate_query_fields,
 };
 
 /// Anchor entry for deterministic link bases

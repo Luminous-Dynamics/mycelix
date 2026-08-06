@@ -82,6 +82,28 @@ pub enum MembershipStatus {
     Ancestral,
 }
 
+/// Provenance proving how a membership was admitted to a hearth.
+///
+/// Membership entries are always authored by the member themselves. The
+/// admission proof prevents an arbitrary agent from self-enrolling in a hearth.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MembershipAdmission {
+    /// The creator of the referenced hearth admitting themselves as Founder.
+    Founder,
+    /// An accepted invitation and the invitee-authored response that consumed it.
+    Invitation {
+        invitation_hash: ActionHash,
+        response_hash: ActionHash,
+    },
+}
+
+/// Immutable response to a hearth invitation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InvitationDecision {
+    Accepted,
+    Declined,
+}
+
 /// Type of kinship bond between two members.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BondType {
@@ -740,6 +762,31 @@ pub enum HearthSignal {
         swap_hash: ActionHash,
         hearth_hash: ActionHash,
     },
+}
+
+/// Verify that a self-reported "claimed agent" field on an entry actually matches
+/// the real DHT action author, preventing an agent from writing another agent's
+/// pubkey into a data field they don't control (identity spoofing in-band).
+///
+/// This was called from 7 sites across hearth-kinship and hearth-bridge (break_glass)
+/// but never defined anywhere in the workspace -- an author-binding check that was
+/// wired up at the call sites but whose implementation was never landed, leaving
+/// every consumer uncompiled. Added 2026-07-29 while chasing test-hearth's CI
+/// failure; semantics inferred from the consistent (action_author, claimed_field,
+/// field_label) call shape used identically at all 7 sites.
+pub fn validate_claimed_agent(
+    action_author: &AgentPubKey,
+    claimed_agent: &AgentPubKey,
+    field_label: &str,
+) -> ValidateCallbackResult {
+    if action_author != claimed_agent {
+        ValidateCallbackResult::Invalid(format!(
+            "{} must be the entry's actual author (agent {:?} claimed to be {:?})",
+            field_label, action_author, claimed_agent
+        ))
+    } else {
+        ValidateCallbackResult::Valid
+    }
 }
 
 #[cfg(test)]

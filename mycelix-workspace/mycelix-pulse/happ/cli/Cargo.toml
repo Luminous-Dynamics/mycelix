@@ -19,7 +19,7 @@ clap = { version = "4.5", features = ["derive", "cargo", "env"] }
 colored = "2.1"
 
 # Holochain integration (Phase C - HDK 0.5.6 compatible)
-holochain_client = "0.7"
+holochain_client = "=0.8.1" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client
 holochain_types = "0.5"
 holochain_conductor_api = "0.5"
 

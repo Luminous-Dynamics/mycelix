@@ -21,7 +21,10 @@ impl OutputMode {
             "table" => Ok(OutputMode::Table),
             "json" => Ok(OutputMode::Json),
             "plain" => Ok(OutputMode::Plain),
-            _ => anyhow::bail!("Invalid output format: {}. Use 'table', 'json', or 'plain'", s),
+            _ => anyhow::bail!(
+                "Invalid output format: {}. Use 'table', 'json', or 'plain'",
+                s
+            ),
         }
     }
 }
@@ -48,8 +51,7 @@ pub fn warning(message: &str) {
 
 /// Print value as JSON
 pub fn print_json<T: Serialize>(value: &T) -> Result<()> {
-    let json = serde_json::to_string_pretty(value)
-        .context("Failed to serialize to JSON")?;
+    let json = serde_json::to_string_pretty(value).context("Failed to serialize to JSON")?;
     println!("{}", json);
     Ok(())
 }
@@ -66,10 +68,7 @@ pub fn print_key_value_table(items: &[(&str, String)]) {
     let mut table = create_table(&["Key", "Value"]);
 
     for (key, value) in items {
-        table.add_row(vec![
-            Cell::new(key.bold()),
-            Cell::new(value),
-        ]);
+        table.add_row(vec![Cell::new(key.bold()), Cell::new(value)]);
     }
 
     println!("{}", table);

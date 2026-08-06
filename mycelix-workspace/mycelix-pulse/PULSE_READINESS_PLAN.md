@@ -5,6 +5,8 @@
 **Branch:** `session-pulse-readiness` (worktree)
 **Philosophy gate:** post-state, sovereign civilization OS. No Big Tech bridged accounts. Own MX, own DKIM, own bootstrap, own ratchet.
 
+> **Status note (added 2026-07-25): this document is largely superseded on facts, kept for its architecture and research appendices.** Section 2's "killer gap" — "Nobody has verified that Alice sending a message results in Bob receiving it" — is **no longer true**; see `PULSE_NEXT_SESSION_PLAN_2026-07-18.md`'s opening section and `docs/ALPHA_EVIDENCE.md` for the live-browser + Sweettest proof. Section 2's zome inventory also predates the alpha's actual deliberate scope: `holochain/dna-alpha/dna.yaml` bundles only 5 zomes (`mail_profiles`, `mail_trust`, `mail_keys`, `mail_messages`, `mail_capabilities`) — `contacts`, `sync`, `search`, `federation`, `mail-bridge`, `scheduler`, `audit`, `backup` are real code but **not installed** in the alpha build. Phase 3 (epoch PQ ratchet) and Phase 5 (SMTP gateway) below describe the originally-envisioned scope; what actually shipped differs — see the per-phase notes further down and `PULSE_GOLDEN_PATH_2026-07-07.md`. For current status, read `PULSE_NEXT_SESSION_PLAN_2026-07-18.md` first, then this doc for architecture/research context.
+
 ---
 
 ## 1. Scope decisions (locked by principal)
@@ -184,6 +186,14 @@ Ten phases, mapped to the eight blockers plus infrastructure and deferred items.
 ### Phase 3 — Epoch PQ ratchet (Weeks 2–4) [#5 blocker]
 **Goal: forward secrecy against a quantum adversary with stolen ciphertexts.**
 
+> **Note (2026-07-25): what actually shipped is not this epoch ratchet.** Instead a
+> non-ratcheted `V2HybridPqc` envelope landed (X25519+ML-KEM-768 hybrid KEM, ML-DSA-65
+> signatures, `send_email_v2`, live-verified per `PULSE_NEXT_SESSION_PLAN_2026-07-18.md`
+> item 3 and `docs/ALPHA_EVIDENCE.md`). Per `docs/PULSE_V2_CRYPTO_SPEC.md` and the README,
+> forward secrecy against later static-key compromise is explicitly **not** claimed for
+> this envelope — the epoch-ratchet forward-secrecy goal described below remains
+> undone/deferred, not delivered under a different name.
+
 Design already in research report. Key commitments:
 - **Policy:** `N=64` messages or `T=24h` per epoch, whichever first. `G=7 days` key retention. `K=16` most recent epochs kept in receive ring buffer. Hard-fail if `incoming_epoch > known_epoch + 4`.
 - **Primitives:** `pqcrypto-kyber::kyber1024` + `pqcrypto-dilithium::dilithium3` (keep current stack — migrating to RustCrypto `ml-kem`/`ml-dsa` is a separate PR). NEVER DIY crypto; DIY only the state machine.
@@ -213,6 +223,18 @@ Tasks:
 
 ### Phase 5 — SMTP gateway daemon (Weeks 4–7) [#2 + #6 blockers — biggest phase]
 **Goal: own MX, own DKIM, two-way interop with Gmail/Outlook.**
+
+> **Note (2026-07-25): split into 5A (done) / 5B (deliberately descoped).** The gateway
+> daemon crate described in 5.3 below was built — `crates/pulse-smtp-gateway/` (~1,050 LOC,
+> 13 modules, unit tests + a nix VM smoke check), referred to elsewhere as "Phase 5A"
+> (see root `CLAUDE.md`'s Pulse SMTP gateway section). It uses a `StubZomeBridge`, not a
+> real `holochain_client`. The rest of this phase — real VPS, own MX/DKIM, port-25,
+> reputation warmup (5.1, 5.4, and the real `holochain_client` swap) — is "Phase 5B",
+> **deliberately descoped 2026-07-19** (not just blocked): see
+> `PULSE_NEXT_SESSION_PLAN_2026-07-18.md` item 5. A serverless alternative was considered
+> and rejected as conflicting with this plan's own Phase 11 sovereignty rationale below.
+> Pulse stays Holochain-native-only until real external-interop demand justifies revisiting
+> this.
 
 Uses `mailin-embedded` + `mail-auth` + `mail-send` + `mail-parser` + `hickory-resolver` + `rspamdclient` + `governor` + `holochain_client`. All MIT/Apache — no AGPL viral contamination from Stalwart server.
 

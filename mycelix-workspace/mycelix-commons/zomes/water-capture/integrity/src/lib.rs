@@ -218,15 +218,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::HarvestSystem(system) => validate_update_harvest_system(system),
-                EntryTypes::StorageTank(tank) => validate_update_storage_tank(tank),
-                EntryTypes::HarvestRecord(record) => validate_update_harvest_record(record),
-                EntryTypes::RechargeProject(project) => validate_update_recharge_project(project),
+                EntryTypes::HarvestSystem(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Harvest systems are immutable (re-register to change details)".into(),
+                )),
+                EntryTypes::StorageTank(tank) => {
+                    validate_update_storage_tank(action, tank, original_action_hash)
+                }
+                EntryTypes::HarvestRecord(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Harvest records are immutable".into(),
+                )),
+                EntryTypes::RechargeProject(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Recharge projects are immutable (re-register to change details)".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -347,9 +355,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_harvest_system(
-    _action: Create,
+    action: Create,
     system: HarvestSystem,
 ) -> ExternResult<ValidateCallbackResult> {
+    if system.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Harvest system owner must match the committing agent".into(),
+        ));
+    }
     if system.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Harvest system ID cannot be empty".into(),
@@ -404,9 +417,14 @@ fn validate_create_harvest_system(
 }
 
 fn validate_create_storage_tank(
-    _action: Create,
+    action: Create,
     tank: StorageTank,
 ) -> ExternResult<ValidateCallbackResult> {
+    if tank.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Tank owner must match the committing agent".into(),
+        ));
+    }
     if tank.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Tank ID cannot be empty".into(),
@@ -461,9 +479,14 @@ fn validate_create_storage_tank(
 }
 
 fn validate_create_harvest_record(
-    _action: Create,
+    action: Create,
     record: HarvestRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    if record.credited_to != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Harvest record credited_to must match the committing agent".into(),
+        ));
+    }
     if record.liters_collected == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Harvest liters must be greater than zero".into(),
@@ -546,64 +569,54 @@ fn validate_create_recharge_project(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_harvest_system(system: HarvestSystem) -> ExternResult<ValidateCallbackResult> {
-    if system.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Harvest system ID must be 256 characters or fewer".into(),
-        ));
-    }
-    if system.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Harvest system name must be 256 characters or fewer".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
+// validate_update_harvest_system/validate_update_harvest_record/
+// validate_update_recharge_project no longer exist: the dispatcher now
+// rejects updates to these three entry types outright (immutable) --
+// confirmed no live coordinator update flow exists for any of them (only
+// StorageTank has one, `update_tank_level`).
 
-fn validate_update_storage_tank(tank: StorageTank) -> ExternResult<ValidateCallbackResult> {
+/// Pure logic for a `StorageTank` update, factored out of
+/// [`validate_update_storage_tank`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase). The
+/// coordinator's `update_tank_level` already checks ownership, but the
+/// integrity validator is the real security boundary.
+fn validate_tank_transition(
+    original: &StorageTank,
+    tank: &StorageTank,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
     if tank.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Tank ID must be 256 characters or fewer".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Tank ID must be 256 characters or fewer".into());
     }
     if tank.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Tank name must be 256 characters or fewer".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Tank name must be 256 characters or fewer".into());
     }
-    Ok(ValidateCallbackResult::Valid)
+    if tank.current_level_liters > tank.capacity_liters {
+        return ValidateCallbackResult::Invalid("Current level cannot exceed capacity".into());
+    }
+    if original.owner != *author {
+        return ValidateCallbackResult::Invalid("Only the tank owner can update the tank".into());
+    }
+    if tank.owner != original.owner {
+        return ValidateCallbackResult::Invalid("Tank owner cannot be changed".into());
+    }
+    ValidateCallbackResult::Valid
 }
 
-fn validate_update_harvest_record(record: HarvestRecord) -> ExternResult<ValidateCallbackResult> {
-    if let Some(ref wc) = record.weather_conditions {
-        if wc.len() > 4096 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Weather conditions must be 4096 characters or fewer".into(),
-            ));
-        }
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-fn validate_update_recharge_project(
-    project: RechargeProject,
+fn validate_update_storage_tank(
+    action: Update,
+    tank: StorageTank,
+    original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if project.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recharge project ID must be 256 characters or fewer".into(),
-        ));
-    }
-    if project.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recharge project name must be 256 characters or fewer".into(),
-        ));
-    }
-    if project.aquifer_id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Aquifer ID must be 256 characters or fewer".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: StorageTank = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original StorageTank entry not found".to_string()
+        )))?;
+    Ok(validate_tank_transition(&original, &tank, &action.author))
 }
 
 // ============================================================================
@@ -620,6 +633,10 @@ mod tests {
 
     fn fake_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xef; 36])
     }
 
     fn fake_action_hash() -> ActionHash {
@@ -780,6 +797,18 @@ mod tests {
     // ========================================================================
     // HARVEST SYSTEM VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn harvest_system_forged_owner_rejected() {
+        let mut sys = make_harvest_system();
+        sys.owner = other_agent();
+        let result = validate_create_harvest_system(fake_create(), sys);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Harvest system owner must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_harvest_system_passes() {
@@ -1007,6 +1036,70 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn storage_tank_forged_owner_rejected() {
+        let mut tank = make_storage_tank();
+        tank.owner = other_agent();
+        let result = validate_create_storage_tank(fake_create(), tank);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Tank owner must match the committing agent"
+        );
+    }
+
+    // ── validate_tank_transition (pure update logic) tests ─────────────
+
+    #[test]
+    fn tank_transition_valid_level_change_by_owner() {
+        let original = make_storage_tank();
+        let mut tank = original.clone();
+        tank.current_level_liters = 1_000;
+        let result = validate_tank_transition(&original, &tank, &fake_agent());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn tank_transition_rejects_non_owner_author() {
+        let original = make_storage_tank();
+        let tank = original.clone();
+        let result = validate_tank_transition(&original, &tank, &other_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only the tank owner"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn tank_transition_rejects_owner_change() {
+        let original = make_storage_tank();
+        let mut tank = original.clone();
+        tank.owner = other_agent();
+        let result = validate_tank_transition(&original, &tank, &fake_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("owner cannot be changed"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn tank_transition_rejects_level_over_capacity() {
+        let original = make_storage_tank();
+        let mut tank = original.clone();
+        tank.current_level_liters = tank.capacity_liters + 1;
+        let result = validate_tank_transition(&original, &tank, &fake_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Current level cannot exceed capacity"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
     fn valid_storage_tank_passes() {
         let result = validate_create_storage_tank(fake_create(), make_storage_tank());
         assert!(is_valid(&result));
@@ -1212,6 +1305,18 @@ mod tests {
     // ========================================================================
     // HARVEST RECORD VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn harvest_record_forged_credited_to_rejected() {
+        let mut rec = make_harvest_record();
+        rec.credited_to = other_agent();
+        let result = validate_create_harvest_record(fake_create(), rec);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Harvest record credited_to must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_harvest_record_passes() {

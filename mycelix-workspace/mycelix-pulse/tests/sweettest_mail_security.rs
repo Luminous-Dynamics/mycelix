@@ -106,40 +106,142 @@ pub struct TrustAttestationInput {
     pub expires_at: Option<Timestamp>,
 }
 
+// Mirrors mail_federation_integrity's real NetworkType/NetworkCapabilities/
+// TrustRequirements/RouteType wire schema (holochain/zomes/federation/integrity/src/lib.rs).
+// These fields previously drifted from the real schema (String network_type/route_type,
+// no capabilities/trust_requirements) which made every RegisterNetworkInput/CreateRouteInput
+// zome call fail to deserialize -- see MYCELIX_PULSE_MOSS_WEAVE_PLAN_2026-07-27.md.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum NetworkType {
+    HolochainNative,
+    SmtpBridge,
+    MatrixBridge,
+    ActivityPubBridge,
+    XmppBridge,
+    CustomBridge { protocol: String },
+    OrganizationPrivate,
+    PublicOpen,
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct NetworkCapabilities {
+    pub supports_e2e: bool,
+    pub supports_pqc: bool,
+    pub supports_attachments: bool,
+    pub max_attachment_size: Option<u64>,
+    pub supports_read_receipts: bool,
+    pub supports_threading: bool,
+    pub supports_rich_text: bool,
+    pub supports_reactions: bool,
+    pub rate_limit_per_hour: Option<u32>,
+    pub custom: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct TrustRequirements {
+    pub min_trust_score: Option<f64>,
+    pub require_admin_attestation: bool,
+    pub require_member_attestations: Option<u32>,
+    pub required_categories: Vec<String>,
+    pub auto_approve_known_contacts: bool,
+    pub quarantine_period: Option<u64>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum RouteType {
+    DirectHolochain,
+    BridgeAgent { bridge_agent: AgentPubKey },
+    RelayServer { relay_url: String },
+    Gateway { gateway_id: String },
+    Multipath { routes: Vec<String> },
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RegisterNetworkInput {
     pub network_id: String,
-    pub dna_hash: DnaHash,
     pub name: String,
     pub domain: String,
-    pub network_type: String,
-    pub network_pubkey: Vec<u8>,
+    pub network_type: NetworkType,
+    pub capabilities: NetworkCapabilities,
+    pub trust_requirements: TrustRequirements,
     pub bootstrap_nodes: Vec<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CreateRouteInput {
-    pub route_id: String,
     pub source_network: String,
     pub source_pattern: String,
     pub dest_network: String,
     pub dest_pattern: String,
     pub priority: u32,
-    pub route_type: String,
+    pub route_type: RouteType,
+}
+
+// Mirrors mail_federation_integrity's real FederatedEnvelope entry + the
+// receive_federated_envelope coordinator extern's input (holochain/zomes/federation/).
+// There is no "relay_envelope" zome function -- it's a private coordinator helper, not
+// an extern -- so tests must go through receive_federated_envelope to exercise
+// validate_envelope's loop-detection/max-hops-cap checks. See
+// MYCELIX_PULSE_MOSS_WEAVE_PLAN_2026-07-27.md's federation-test-fix note.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum EncryptionScheme {
+    X25519ChaCha20,
+    KyberAesGcm,
+    HybridX25519Kyber,
+    Plaintext,
+    Custom(String),
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct FederatedEnvelopeInput {
+pub struct EnvelopeEncryption {
+    pub scheme: EncryptionScheme,
+    pub ephemeral_pubkey: Vec<u8>,
+    pub key_exchange: Vec<u8>,
+    pub nonce: Vec<u8>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum EnvelopePriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum DeliveryStatus {
+    Queued,
+    InTransit { current_hop: String },
+    Delivered { delivered_at: Timestamp },
+    DeliveredToRecipient { delivered_at: Timestamp },
+    Failed { error: String, failed_at: Timestamp },
+    Bounced { reason: String },
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct FederatedEnvelope {
     pub envelope_id: String,
     pub source_network: String,
     pub source_agent: String,
     pub dest_network: String,
     pub dest_agent: String,
     pub encrypted_payload: Vec<u8>,
+    pub encryption_meta: EnvelopeEncryption,
     pub signature: Vec<u8>,
+    pub timestamp: Timestamp,
     pub ttl: u64,
+    pub hop_count: u8,
     pub max_hops: u8,
     pub previous_hops: Vec<String>,
+    pub priority: EnvelopePriority,
+    pub status: DeliveryStatus,
+    pub relay_bridge_registration_hash: Option<ActionHash>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ReceiveFederatedEnvelopeInput {
+    pub envelope: FederatedEnvelope,
+    pub relay_bridge_registration_hash: Option<ActionHash>,
 }
 
 // ============================================================================
@@ -1022,15 +1124,13 @@ async fn test_federation_network_id_uniqueness() {
         .unwrap()
         .into_tuple();
 
-    let dna_hash = alice.cell_id().dna_hash().clone();
-
     let input = RegisterNetworkInput {
         network_id: "net-alpha".to_string(),
-        dna_hash: dna_hash.clone(),
         name: "Alpha Network".to_string(),
         domain: "alpha.example.com".to_string(),
-        network_type: "HolochainNative".to_string(),
-        network_pubkey: vec![0u8; 32],
+        network_type: NetworkType::HolochainNative,
+        capabilities: NetworkCapabilities::default(),
+        trust_requirements: TrustRequirements::default(),
         bootstrap_nodes: vec![],
     };
 
@@ -1062,22 +1162,22 @@ async fn test_federation_route_requires_network_ownership() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&mail_dna_path()).await.unwrap();
 
-    let (alice, bob) = conductor
-        .setup_app("test-app", &[dna_file.clone()])
+    // Genuinely two different agents (not two cells of one agent's app) --
+    // `create_route`'s ownership check is meaningless without a real second identity.
+    let ((alice,), (bob,)) = conductor
+        .setup_apps("test-app", 2, &[dna_file.clone()])
         .await
         .unwrap()
-        .into_tuple();
-
-    let dna_hash = alice.cell_id().dna_hash().clone();
+        .into_tuples();
 
     // Alice registers network "net-alice"
     let network_input = RegisterNetworkInput {
         network_id: "net-alice".to_string(),
-        dna_hash,
         name: "Alice Network".to_string(),
         domain: "alice.example.com".to_string(),
-        network_type: "HolochainNative".to_string(),
-        network_pubkey: vec![0u8; 32],
+        network_type: NetworkType::HolochainNative,
+        capabilities: NetworkCapabilities::default(),
+        trust_requirements: TrustRequirements::default(),
         bootstrap_nodes: vec![],
     };
 
@@ -1091,13 +1191,12 @@ async fn test_federation_route_requires_network_ownership() {
 
     // Bob (not owner of net-alice) tries to create route from net-alice
     let route_input = CreateRouteInput {
-        route_id: "route-bob-unauthorized".to_string(),
         source_network: "net-alice".to_string(),
         source_pattern: "*@alice.example.com".to_string(),
         dest_network: "net-bob".to_string(),
         dest_pattern: "*@bob.example.com".to_string(),
         priority: 50,
-        route_type: "DirectHolochain".to_string(),
+        route_type: RouteType::DirectHolochain,
     };
 
     let result: Result<ActionHash, _> = conductor
@@ -1123,14 +1222,34 @@ async fn test_federation_route_priority_capped_at_100() {
         .unwrap()
         .into_tuple();
 
+    // Register+own "net-a" first -- otherwise create_route fails on the ownership
+    // check ("Only the network owner can create routes for a network") before ever
+    // reaching the priority-cap validator, and this test would pass for the wrong
+    // reason (see MYCELIX_PULSE_MOSS_WEAVE_PLAN_2026-07-27.md's federation-test-fix note).
+    let network_input = RegisterNetworkInput {
+        network_id: "net-a".to_string(),
+        name: "Network A".to_string(),
+        domain: "a.example.com".to_string(),
+        network_type: NetworkType::HolochainNative,
+        capabilities: NetworkCapabilities::default(),
+        trust_requirements: TrustRequirements::default(),
+        bootstrap_nodes: vec![],
+    };
+    let _: ActionHash = conductor
+        .call(
+            &alice.zome("mail_federation"),
+            "register_network",
+            network_input,
+        )
+        .await;
+
     let route_input = CreateRouteInput {
-        route_id: "route-high-priority".to_string(),
         source_network: "net-a".to_string(),
         source_pattern: "*@a.example.com".to_string(),
         dest_network: "net-b".to_string(),
         dest_pattern: "*@b.example.com".to_string(),
         priority: 150, // OVER CAP: max is 100
-        route_type: "DirectHolochain".to_string(),
+        route_type: RouteType::DirectHolochain,
     };
 
     let result: Result<ActionHash, _> = conductor
@@ -1140,6 +1259,12 @@ async fn test_federation_route_priority_capped_at_100() {
     assert!(
         result.is_err(),
         "Route with priority > 100 must be rejected"
+    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("priority") || err_msg.contains("100"),
+        "Error should mention the priority cap, got: {}",
+        err_msg,
     );
 }
 
@@ -1158,24 +1283,64 @@ async fn test_federation_envelope_loop_detection() {
         .unwrap()
         .into_tuple();
 
-    let input = FederatedEnvelopeInput {
-        envelope_id: "env-loop-001".to_string(),
+    // dest_network == our own network routes through deliver_locally's create_entry,
+    // exercising validate_envelope's loop-detection check directly -- there is no
+    // "relay_envelope" extern to call (it's a private coordinator helper), and routing
+    // through the actual relay path would additionally require a registered route.
+    let our_network = alice.cell_id().dna_hash().to_string();
+    let envelope_id = "env-loop-001".to_string();
+    let encrypted_payload = vec![1u8, 2, 3];
+
+    // Case 1 (self-authenticated): source_agent == committer, verified via a real
+    // Ed25519 signature over envelope_id bytes ++ payload bytes (verify_signature_raw's
+    // exact construction) -- a fake identity here would be rejected on the identity
+    // check before ever reaching loop detection, which is not what this test exercises.
+    let mut signed_data = envelope_id.as_bytes().to_vec();
+    signed_data.extend_from_slice(&encrypted_payload);
+    let sig = conductor
+        .keystore()
+        .sign(alice.agent_pubkey().clone(), signed_data.into())
+        .await
+        .expect("alice sign");
+
+    let envelope = FederatedEnvelope {
+        envelope_id,
         source_network: "net-A".to_string(),
-        source_agent: "agent-alice".to_string(),
-        dest_network: "net-C".to_string(),
+        source_agent: alice.agent_pubkey().to_string(),
+        dest_network: our_network,
         dest_agent: "agent-charlie".to_string(),
-        encrypted_payload: vec![1, 2, 3],
-        signature: vec![0u8; 64],
+        encrypted_payload,
+        encryption_meta: EnvelopeEncryption {
+            scheme: EncryptionScheme::X25519ChaCha20,
+            ephemeral_pubkey: vec![0u8; 32],
+            key_exchange: vec![0u8; 32],
+            nonce: vec![0u8; 24],
+        },
+        signature: sig.0.to_vec(),
+        timestamp: Timestamp::now(),
         ttl: 3600,
+        hop_count: 0,
         max_hops: 10,
         previous_hops: vec![
             "net-B".to_string(),
             "net-A".to_string(), // LOOP: net-A already visited
         ],
+        priority: EnvelopePriority::Normal,
+        status: DeliveryStatus::Queued,
+        relay_bridge_registration_hash: None,
     };
 
-    let result: Result<ActionHash, _> = conductor
-        .call_fallible(&alice.zome("mail_federation"), "relay_envelope", input)
+    let input = ReceiveFederatedEnvelopeInput {
+        envelope,
+        relay_bridge_registration_hash: None,
+    };
+
+    let result: Result<bool, _> = conductor
+        .call_fallible(
+            &alice.zome("mail_federation"),
+            "receive_federated_envelope",
+            input,
+        )
         .await;
 
     assert!(
@@ -1203,26 +1368,68 @@ async fn test_federation_max_hop_count_enforced() {
         .unwrap()
         .into_tuple();
 
-    let input = FederatedEnvelopeInput {
-        envelope_id: "env-too-many-hops".to_string(),
+    // Same rationale as test_federation_envelope_loop_detection: route through
+    // deliver_locally (dest_network == our own network) to reach validate_envelope's
+    // "Max hops cap" check directly, with a real self-authenticated signature so the
+    // identity check doesn't reject it before the max_hops check is ever reached.
+    let our_network = alice.cell_id().dna_hash().to_string();
+    let envelope_id = "env-too-many-hops".to_string();
+    let encrypted_payload = vec![1u8, 2, 3];
+
+    let mut signed_data = envelope_id.as_bytes().to_vec();
+    signed_data.extend_from_slice(&encrypted_payload);
+    let sig = conductor
+        .keystore()
+        .sign(alice.agent_pubkey().clone(), signed_data.into())
+        .await
+        .expect("alice sign");
+
+    let envelope = FederatedEnvelope {
+        envelope_id,
         source_network: "net-origin".to_string(),
-        source_agent: "agent-origin".to_string(),
-        dest_network: "net-dest".to_string(),
+        source_agent: alice.agent_pubkey().to_string(),
+        dest_network: our_network,
         dest_agent: "agent-dest".to_string(),
-        encrypted_payload: vec![1, 2, 3],
-        signature: vec![0u8; 64],
+        encrypted_payload,
+        encryption_meta: EnvelopeEncryption {
+            scheme: EncryptionScheme::X25519ChaCha20,
+            ephemeral_pubkey: vec![0u8; 32],
+            key_exchange: vec![0u8; 32],
+            nonce: vec![0u8; 24],
+        },
+        signature: sig.0.to_vec(),
+        timestamp: Timestamp::now(),
         ttl: 3600,
+        hop_count: 0,
         max_hops: 25, // OVER LIMIT: max_hops cannot exceed 20
         previous_hops: vec![],
+        priority: EnvelopePriority::Normal,
+        status: DeliveryStatus::Queued,
+        relay_bridge_registration_hash: None,
     };
 
-    let result: Result<ActionHash, _> = conductor
-        .call_fallible(&alice.zome("mail_federation"), "relay_envelope", input)
+    let input = ReceiveFederatedEnvelopeInput {
+        envelope,
+        relay_bridge_registration_hash: None,
+    };
+
+    let result: Result<bool, _> = conductor
+        .call_fallible(
+            &alice.zome("mail_federation"),
+            "receive_federated_envelope",
+            input,
+        )
         .await;
 
     assert!(
         result.is_err(),
         "Envelope with max_hops > 20 must be rejected"
+    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("max_hops") || err_msg.contains("20") || err_msg.contains("hops"),
+        "Error should mention the max_hops cap, got: {}",
+        err_msg,
     );
 }
 
@@ -2178,6 +2385,8 @@ struct SendEmailV2Input {
     message_id: [u8; 32],
     sender_mldsa_key_id: [u8; 32],
     recipient_hybrid_key_id: [u8; 32],
+    sender_mldsa_bundle_hash: Vec<u8>,
+    recipient_bundle_hash: Vec<u8>,
     x25519_ephemeral_public_key: [u8; 32],
     ml_kem_ciphertext: Vec<u8>,
     nonce: [u8; 12],
@@ -2197,6 +2406,8 @@ struct EncryptedEmailV2Wire {
     recipient: AgentPubKey,
     sender_mldsa_key_id: [u8; 32],
     recipient_hybrid_key_id: [u8; 32],
+    sender_mldsa_bundle_hash: ActionHash,
+    recipient_bundle_hash: ActionHash,
     x25519_ephemeral_public_key: [u8; 32],
     ml_kem_ciphertext: Vec<u8>,
     nonce: [u8; 12],
@@ -2223,6 +2434,7 @@ struct HybridSendContextV2 {
     sender_agent_raw: Vec<u8>,
     recipient_agent_raw: Vec<u8>,
     sender_bundle: HybridKeyBundleV2,
+    sender_bundle_hash: Vec<u8>,
     recipient_bundle: HybridKeyBundleV2,
 }
 
@@ -2239,6 +2451,66 @@ fn unpublished_bundle(marker: u8, now_micros: u64) -> HybridKeyBundleV2 {
         expires_at: now_micros + 30 * 24 * 60 * 60 * 1_000_000,
         agent_signature: vec![0; 64],
     }
+}
+
+/// Path to the standalone real-ML-DSA-65 signer binary, relative to this
+/// crate's own manifest dir (known at compile time). See that crate's
+/// Cargo.toml doc comment for why it's a separate process rather than a
+/// dependency of this crate: `ml-dsa`'s full signing feature set (getrandom
+/// 0.4) conflicts with the pre-release RustCrypto crates already pulled in
+/// by `holochain`'s own dependency tree here.
+fn ml_dsa_signer_manifest() -> String {
+    format!(
+        "{}/ml-dsa-test-signer/Cargo.toml",
+        env!("CARGO_MANIFEST_DIR")
+    )
+}
+
+fn run_ml_dsa_signer(args: &[&str]) -> Vec<String> {
+    let manifest = ml_dsa_signer_manifest();
+    let mut command_args = vec![
+        "run",
+        "--release",
+        "--quiet",
+        "--manifest-path",
+        &manifest,
+        "--",
+    ];
+    command_args.extend_from_slice(args);
+    let output = std::process::Command::new("cargo")
+        .args(&command_args)
+        .output()
+        .expect("failed to spawn ml-dsa-test-signer subprocess");
+    assert!(
+        output.status.success(),
+        "ml-dsa-test-signer failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout)
+        .expect("ml-dsa-test-signer produced non-UTF8 output")
+        .lines()
+        .map(str::to_string)
+        .collect()
+}
+
+/// Generates a real ML-DSA-65 keypair via the standalone signer subprocess
+/// and returns (signing_key_hex, bundle-with-the-real-verifying-key). The
+/// signing key hex is kept only in test memory to later sign a real message
+/// transcript — never published or persisted.
+fn real_ml_dsa_bundle(marker: u8, now_micros: u64) -> (String, HybridKeyBundleV2) {
+    let lines = run_ml_dsa_signer(&["keygen"]);
+    let signing_key_hex = lines[0].clone();
+    let verifying_key_hex = lines[1].clone();
+    let verifying_key = hex::decode(verifying_key_hex).expect("keygen printed invalid hex");
+    let mut bundle = unpublished_bundle(marker, now_micros);
+    bundle.ml_dsa_65_public_key = verifying_key;
+    (signing_key_hex, bundle)
+}
+
+fn ml_dsa_sign(signing_key_hex: &str, message: &[u8]) -> Vec<u8> {
+    let message_hex = hex::encode(message);
+    let lines = run_ml_dsa_signer(&["sign", signing_key_hex, &message_hex]);
+    hex::decode(&lines[0]).expect("sign printed invalid hex")
 }
 
 /// Retry wrapper for signed/nonce'd zome-call write paths
@@ -2330,22 +2602,33 @@ async fn phase0_v2_hybrid_pqc_transport() {
         let now = Timestamp::now().as_micros() as u64;
         let alice_keys_zome = alice.zome("mail_keys");
         let bob_keys_zome = bob.zome("mail_keys");
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
-            conductors[0].call_fallible(
-                &alice_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(11, now),
-            )
-        })
-        .await;
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
-            conductors[1].call_fallible(
-                &bob_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(22, now),
-            )
-        })
-        .await;
+        // Alice needs a *real* ML-DSA-65 keypair now: `verify_ml_dsa_v2` in
+        // `mail_messages_integrity` fetches her published bundle and
+        // cryptographically verifies the message signature against it (see
+        // that function's doc comment) — a placeholder public key would make
+        // any signature fail, including a genuinely-signed one. Generated via
+        // a standalone subprocess (`ml-dsa-test-signer`) because `ml-dsa`'s
+        // full signing feature set can't link alongside `holochain`'s own
+        // dependency tree in this binary.
+        let (alice_signing_key_hex, alice_bundle_to_publish) = real_ml_dsa_bundle(11, now);
+        let alice_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+                conductors[0].call_fallible(
+                    &alice_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    alice_bundle_to_publish.clone(),
+                )
+            })
+            .await;
+        let bob_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+                conductors[1].call_fallible(
+                    &bob_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    unpublished_bundle(22, now),
+                )
+            })
+            .await;
         eprintln!("pulse-v2: awaiting key-bundle gossip");
         await_consistency([&alice, &bob])
             .await
@@ -2368,12 +2651,42 @@ async fn phase0_v2_hybrid_pqc_transport() {
         let kem_ciphertext = vec![8; 1088];
         let nonce = [9; 12];
         let ciphertext = b"opaque-aead-output-and-tag".to_vec();
-        let ml_dsa_signature = vec![10; 3309];
+        // Sign the exact canonical transcript — the same bytes both the
+        // agent Ed25519 signature and the ML-DSA-65 signature cover (see
+        // `PULSE_V2_CRYPTO_SPEC.md` "Canonical AAD and signature transcript").
+        let transcript_envelope = EncryptedEnvelopeV2HybridPqc {
+            version: mail_leptos_types::protocol::ENVELOPE_V2_HYBRID_PQC,
+            cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: MessageId(message_id),
+            sender_agent: alice.agent_pubkey().get_raw_39().to_vec(),
+            recipient_agent: bob.agent_pubkey().get_raw_39().to_vec(),
+            sender_mldsa_key_id: EncryptionKeyId(alice_bundle.key_id),
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            recipient_hybrid_key_id: EncryptionKeyId(bob_bundle.key_id),
+            x25519_ephemeral_public_key: ephemeral,
+            ml_kem_ciphertext: kem_ciphertext.clone(),
+            nonce,
+            ciphertext: ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: None,
+                thread_id: None,
+            },
+            created_at_micros,
+            agent_signature: Vec::new(),
+            ml_dsa_signature: Vec::new(),
+        };
+        let transcript = transcript_envelope
+            .canonical_signing_bytes()
+            .expect("transcript must encode");
+        let ml_dsa_signature = ml_dsa_sign(&alice_signing_key_hex, &transcript);
         let send_input = SendEmailV2Input {
             recipient: bob.agent_pubkey().clone(),
             message_id,
             sender_mldsa_key_id: alice_bundle.key_id,
             recipient_hybrid_key_id: bob_bundle.key_id,
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
             x25519_ephemeral_public_key: ephemeral,
             ml_kem_ciphertext: kem_ciphertext.clone(),
             nonce,
@@ -2407,6 +2720,16 @@ async fn phase0_v2_hybrid_pqc_transport() {
             sender_agent: received.sender_agent_raw.clone(),
             recipient_agent: received.recipient_agent_raw.clone(),
             sender_mldsa_key_id: EncryptionKeyId(received.envelope.sender_mldsa_key_id),
+            sender_mldsa_bundle_hash: received
+                .envelope
+                .sender_mldsa_bundle_hash
+                .get_raw_39()
+                .to_vec(),
+            recipient_bundle_hash: received
+                .envelope
+                .recipient_bundle_hash
+                .get_raw_39()
+                .to_vec(),
             recipient_hybrid_key_id: EncryptionKeyId(received.envelope.recipient_hybrid_key_id),
             x25519_ephemeral_public_key: received.envelope.x25519_ephemeral_public_key,
             ml_kem_ciphertext: received.envelope.ml_kem_ciphertext.clone(),
@@ -2441,11 +2764,13 @@ async fn phase0_v2_hybrid_pqc_transport() {
 /// hardcodes version/suite/sender/agent_signature itself, so a client cannot
 /// even construct an off-spec envelope through the real network path).
 ///
-/// Also exercises the documented DHT-validation/client-verification boundary
-/// (see ADR-002 "Enforcement boundary"): a garbage-but-correctly-sized
-/// ML-DSA-65 signature is *accepted* by the network (case C) because HDI/WASM
-/// cannot cryptographically verify ML-DSA — proving that claim is real, not
-/// just asserted in a doc.
+/// Also exercises the (now-closed) documented DHT-validation/client-
+/// verification boundary from ADR-002 "Enforcement boundary": a
+/// garbage-but-correctly-sized ML-DSA-65 signature is *rejected* by the
+/// network itself (case C) — `verify_ml_dsa_v2` in `mail_messages_integrity`
+/// fetches the sender's real published bundle via `sender_mldsa_bundle_hash`
+/// and cryptographically verifies against it, closing the gap this test
+/// used to document as an accepted trust boundary.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires freshly packed Pulse DNA and Holochain runtime"]
 async fn phase0_v2_negative_paths() {
@@ -2467,22 +2792,24 @@ async fn phase0_v2_negative_paths() {
         let now = Timestamp::now().as_micros() as u64;
         let alice_keys_zome = alice.zome("mail_keys");
         let bob_keys_zome = bob.zome("mail_keys");
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
-            conductors[0].call_fallible(
-                &alice_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(11, now),
-            )
-        })
-        .await;
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
-            conductors[1].call_fallible(
-                &bob_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(22, now),
-            )
-        })
-        .await;
+        let alice_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+                conductors[0].call_fallible(
+                    &alice_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    unpublished_bundle(11, now),
+                )
+            })
+            .await;
+        let bob_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+                conductors[1].call_fallible(
+                    &bob_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    unpublished_bundle(22, now),
+                )
+            })
+            .await;
         eprintln!("pulse-v2-neg: awaiting key-bundle gossip");
         await_consistency([&alice, &bob])
             .await
@@ -2503,6 +2830,8 @@ async fn phase0_v2_negative_paths() {
             message_id: [77; 32],
             sender_mldsa_key_id: alice_bundle.key_id,
             recipient_hybrid_key_id: bob_bundle.key_id,
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
             x25519_ephemeral_public_key: [7; 32],
             ml_kem_ciphertext: vec![8; 1088],
             nonce: [9; 12],
@@ -2551,39 +2880,30 @@ async fn phase0_v2_negative_paths() {
             "rejection must be the real validation error, not an exhausted nonce retry: {error:?}"
         );
 
-        // Case C: garbage-but-correctly-sized ML-DSA signature. The network
-        // layer accepts and gossips this — it only checks length, not
-        // cryptographic validity (see ADR-002 enforcement-boundary note).
-        // `mycelix_crypto::pulse_v2::verify_ml_dsa` independently proves this
-        // exact class of input fails client-side verification (see
-        // `malformed_components_fail_closed` / `ml_dsa_round_trip_and_tampering_failure`
-        // in `mycelix-identity/crates/mycelix-crypto/src/pulse_v2.rs`); it
-        // cannot be linked into this Sweettest binary directly (Holochain
-        // 0.6.1's RC crypto graph conflicts with RustCrypto's ML-KEM/ML-DSA
-        // graph in one Cargo process), so the two tests together are the
-        // full closed-loop evidence for this boundary.
+        // Case C: garbage-but-correctly-sized ML-DSA signature, referencing
+        // Alice's real published bundle. This USED to be accepted (ADR-002's
+        // original "not enforced by any DHT validator" disclosure) — now
+        // `verify_ml_dsa_v2` fetches that real bundle via
+        // `sender_mldsa_bundle_hash` and cryptographically verifies the
+        // signature against its real ML-DSA-65 public key, so a garbage
+        // signature fails and the entry is rejected before it ever reaches
+        // the DHT (this runs synchronously as part of the author's own
+        // `send_email_v2` call, not just for received gossip).
         let garbage_sig_input = base_input(vec![0xAB; 3309], b"opaque-aead-output".to_vec());
-        let accepted: ActionHash = call_with_nonce_retry("send_email_v2(case C)", || {
-            conductors[0].call_fallible(
-                &alice_messages_zome,
-                "send_email_v2",
-                garbage_sig_input.clone(),
-            )
-        })
-        .await;
-        let _ = accepted;
-        await_consistency([&alice, &bob])
-            .await
-            .expect("garbage-ML-DSA message must still gossip");
-        let inbox: Vec<EmailV2Wire> = conductors[1]
-            .call(&bob.zome("mail_messages"), "get_inbox_v2", ())
+        let result: Result<ActionHash, _> =
+            call_skipping_nonce_flakiness("send_email_v2(case C)", || {
+                conductors[0].call_fallible(
+                    &alice_messages_zome,
+                    "send_email_v2",
+                    garbage_sig_input.clone(),
+                )
+            })
             .await;
+        let error =
+            result.expect_err("a cryptographically bogus ML-DSA signature must be rejected");
         assert!(
-            inbox
-                .iter()
-                .any(|item| item.envelope.message_id == [77; 32]),
-            "network must accept a structurally valid but cryptographically bogus \
-             ML-DSA signature — this is the documented boundary, not a bug"
+            !format!("{error:?}").contains("BadNonce"),
+            "rejection must be the real validation error, not an exhausted nonce retry: {error:?}"
         );
 
         // Case D: resolve_hybrid_send_context_v2 for a recipient who never
@@ -2662,22 +2982,31 @@ async fn phase0_v2_conductor_restart_recovery() {
         let now = Timestamp::now().as_micros() as u64;
         let alice_keys_zome = alice.zome("mail_keys");
         let bob_keys_zome = bob.zome("mail_keys");
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
-            conductors[0].call_fallible(
-                &alice_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(31, now),
-            )
-        })
-        .await;
-        let _: ActionHash = call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
-            conductors[1].call_fallible(
-                &bob_keys_zome,
-                "publish_hybrid_key_bundle_v2",
-                unpublished_bundle(32, now),
-            )
-        })
-        .await;
+        // Both need real ML-DSA-65 keypairs: Alice sends pre-restart, Bob
+        // sends post-restart, and `verify_ml_dsa_v2` cryptographically
+        // checks both against their published bundles (see that function's
+        // doc comment). Bob's must be real from the start — his bundle is
+        // never republished after restart, only proven to survive it.
+        let (alice_signing_key_hex, alice_bundle_to_publish) = real_ml_dsa_bundle(31, now);
+        let (bob_signing_key_hex, bob_bundle_to_publish) = real_ml_dsa_bundle(32, now);
+        let alice_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(alice)", || {
+                conductors[0].call_fallible(
+                    &alice_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    alice_bundle_to_publish.clone(),
+                )
+            })
+            .await;
+        let bob_bundle_hash: ActionHash =
+            call_with_nonce_retry("publish_hybrid_key_bundle_v2(bob)", || {
+                conductors[1].call_fallible(
+                    &bob_keys_zome,
+                    "publish_hybrid_key_bundle_v2",
+                    bob_bundle_to_publish.clone(),
+                )
+            })
+            .await;
         await_consistency([&alice, &bob])
             .await
             .expect("key bundles must gossip");
@@ -2691,19 +3020,54 @@ async fn phase0_v2_conductor_restart_recovery() {
             .await;
         let bob_bundle_before = bob_bundle_before.expect("Bob V2 bundle");
 
+        let pre_restart_message_id = [50; 32];
+        let pre_restart_ephemeral = [7; 32];
+        let pre_restart_kem_ciphertext = vec![8; 1088];
+        let pre_restart_nonce = [9; 12];
+        let pre_restart_ciphertext = b"pre-restart-opaque-aead-output".to_vec();
+        let pre_restart_created_at_micros = Timestamp::now().as_micros();
+        let pre_restart_transcript_envelope = EncryptedEnvelopeV2HybridPqc {
+            version: mail_leptos_types::protocol::ENVELOPE_V2_HYBRID_PQC,
+            cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: MessageId(pre_restart_message_id),
+            sender_agent: alice.agent_pubkey().get_raw_39().to_vec(),
+            recipient_agent: bob_agent.get_raw_39().to_vec(),
+            sender_mldsa_key_id: EncryptionKeyId(alice_bundle.key_id),
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            recipient_hybrid_key_id: EncryptionKeyId(bob_bundle_before.key_id),
+            x25519_ephemeral_public_key: pre_restart_ephemeral,
+            ml_kem_ciphertext: pre_restart_kem_ciphertext.clone(),
+            nonce: pre_restart_nonce,
+            ciphertext: pre_restart_ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: None,
+                thread_id: None,
+            },
+            created_at_micros: pre_restart_created_at_micros,
+            agent_signature: Vec::new(),
+            ml_dsa_signature: Vec::new(),
+        };
+        let pre_restart_transcript = pre_restart_transcript_envelope
+            .canonical_signing_bytes()
+            .expect("transcript must encode");
+        let pre_restart_ml_dsa_signature =
+            ml_dsa_sign(&alice_signing_key_hex, &pre_restart_transcript);
         let pre_restart_input = SendEmailV2Input {
             recipient: bob_agent.clone(),
-            message_id: [50; 32],
+            message_id: pre_restart_message_id,
             sender_mldsa_key_id: alice_bundle.key_id,
             recipient_hybrid_key_id: bob_bundle_before.key_id,
-            x25519_ephemeral_public_key: [7; 32],
-            ml_kem_ciphertext: vec![8; 1088],
-            nonce: [9; 12],
-            ciphertext: b"pre-restart-opaque-aead-output".to_vec(),
+            sender_mldsa_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            x25519_ephemeral_public_key: pre_restart_ephemeral,
+            ml_kem_ciphertext: pre_restart_kem_ciphertext,
+            nonce: pre_restart_nonce,
+            ciphertext: pre_restart_ciphertext,
             in_reply_to: None,
             thread_id: None,
-            created_at_micros: Timestamp::now().as_micros(),
-            ml_dsa_signature: vec![10; 3309],
+            created_at_micros: pre_restart_created_at_micros,
+            ml_dsa_signature: pre_restart_ml_dsa_signature,
         };
         let alice_messages_zome = alice.zome("mail_messages");
         let _: ActionHash = call_with_nonce_retry("send_email_v2(pre-restart)", || {
@@ -2758,19 +3122,54 @@ async fn phase0_v2_conductor_restart_recovery() {
         // still author new source-chain entries and gossip after restart.
         eprintln!("pulse-v2-restart: re-establishing peer info after restart");
         conductors.exchange_peer_info().await;
+        let post_restart_message_id = [51; 32];
+        let post_restart_ephemeral = [11; 32];
+        let post_restart_kem_ciphertext = vec![12; 1088];
+        let post_restart_nonce = [13; 12];
+        let post_restart_ciphertext = b"post-restart-opaque-aead-output".to_vec();
+        let post_restart_created_at_micros = Timestamp::now().as_micros();
+        let post_restart_transcript_envelope = EncryptedEnvelopeV2HybridPqc {
+            version: mail_leptos_types::protocol::ENVELOPE_V2_HYBRID_PQC,
+            cipher_suite: SUITE_X25519_MLKEM768_AES_256_GCM_AGENT_MLDSA65.into(),
+            message_id: MessageId(post_restart_message_id),
+            sender_agent: bob_agent.get_raw_39().to_vec(),
+            recipient_agent: alice.agent_pubkey().get_raw_39().to_vec(),
+            sender_mldsa_key_id: EncryptionKeyId(bob_bundle_after.key_id),
+            sender_mldsa_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            recipient_hybrid_key_id: EncryptionKeyId(alice_bundle.key_id),
+            x25519_ephemeral_public_key: post_restart_ephemeral,
+            ml_kem_ciphertext: post_restart_kem_ciphertext.clone(),
+            nonce: post_restart_nonce,
+            ciphertext: post_restart_ciphertext.clone(),
+            metadata: AuthenticatedMetadataV1 {
+                in_reply_to: None,
+                thread_id: None,
+            },
+            created_at_micros: post_restart_created_at_micros,
+            agent_signature: Vec::new(),
+            ml_dsa_signature: Vec::new(),
+        };
+        let post_restart_transcript = post_restart_transcript_envelope
+            .canonical_signing_bytes()
+            .expect("transcript must encode");
+        let post_restart_ml_dsa_signature =
+            ml_dsa_sign(&bob_signing_key_hex, &post_restart_transcript);
         let post_restart_input = SendEmailV2Input {
             recipient: alice.agent_pubkey().clone(),
-            message_id: [51; 32],
+            message_id: post_restart_message_id,
             sender_mldsa_key_id: bob_bundle_after.key_id,
             recipient_hybrid_key_id: alice_bundle.key_id,
-            x25519_ephemeral_public_key: [11; 32],
-            ml_kem_ciphertext: vec![12; 1088],
-            nonce: [13; 12],
-            ciphertext: b"post-restart-opaque-aead-output".to_vec(),
+            sender_mldsa_bundle_hash: bob_bundle_hash.get_raw_39().to_vec(),
+            recipient_bundle_hash: alice_bundle_hash.get_raw_39().to_vec(),
+            x25519_ephemeral_public_key: post_restart_ephemeral,
+            ml_kem_ciphertext: post_restart_kem_ciphertext,
+            nonce: post_restart_nonce,
+            ciphertext: post_restart_ciphertext,
             in_reply_to: None,
             thread_id: None,
-            created_at_micros: Timestamp::now().as_micros(),
-            ml_dsa_signature: vec![14; 3309],
+            created_at_micros: post_restart_created_at_micros,
+            ml_dsa_signature: post_restart_ml_dsa_signature,
         };
         let bob_messages_zome = bob.zome("mail_messages");
         let _: ActionHash = call_with_nonce_retry("send_email_v2(post-restart)", || {

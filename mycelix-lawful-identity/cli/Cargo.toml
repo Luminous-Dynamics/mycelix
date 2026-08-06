@@ -32,11 +32,15 @@ sha2 = "0.10"
 
 # Optional: live conductor round-trip.
 # Targets Holochain 0.6.x (shared ecosystem conductor per monorepo
-# CLAUDE.md). Older holochain_client 0.7 / types 0.5 fails to
-# deserialize the 0.6-era `Enabled` app-status variant. The 0.9-dev
-# line tracks the 0.7-dev types pre-release.
-holochain_client = { version = "0.9.0-dev.20", optional = true }
-holochain_types = { version = "0.7.0-dev.19", optional = true }
-holochain_conductor_api = { version = "0.7.0-dev.19", optional = true }
+# CLAUDE.md). The old note here was directionally right but overshot by a
+# full generation: client 0.7 IS the Holochain 0.5 client (hence the 0.6-era
+# `Enabled` app-status deserialization failure), but the fix is client 0.8.1,
+# not the 0.9-dev line -- 0.9-dev tracks Holochain 0.7 pre-release, one
+# generation PAST our conductor. Client 0.8.1 was cut from the same release
+# commit as Holochain 0.6.1. The 2-arg AdminWebsocket::connect this crate
+# already uses was introduced in 0.8.0, so src/live.rs compiles unchanged.
+holochain_client = { version = "=0.8.1", optional = true }
+holochain_types = { version = "=0.6.1", optional = true }
+holochain_conductor_api = { version = "=0.6.1", optional = true }
 tokio = { version = "1.40", features = ["full"], optional = true }
 anyhow = { version = "1", optional = true }

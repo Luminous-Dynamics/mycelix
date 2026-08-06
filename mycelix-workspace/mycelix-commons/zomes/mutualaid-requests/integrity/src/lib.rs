@@ -313,6 +313,90 @@ fn validate_aid_offer(offer: &AidOffer) -> ExternResult<ValidateCallbackResult> 
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// **Zome-wide disclosed, NOT-fixed gap**: `AidRequest.requester_did`/
+/// `AidOffer.offerer_did` are free-form String DIDs asserted by the
+/// caller with NO local convention anywhere in this coordinator for
+/// deriving or verifying a DID string from the committing agent's real
+/// `action.author`. Notably, the coordinator's OWN doc comments for
+/// cancel_request/withdraw_offer claim "only by the requester"/"only by
+/// the offerer" restrictions that were NEVER actually implemented in
+/// code -- both functions just call update_request_status/
+/// update_offer_status directly, which have zero caller-identity checks
+/// of any kind. Needs real call-provenance/capability-grant
+/// infrastructure, not author-binding. Content is still restricted below
+/// (status/fulfilled_amount/updated_at for requests; status/updated_at
+/// for offers) to at least prevent unrelated-field tampering.
+fn validate_update_entry_type(
+    original_action_hash: ActionHash,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::AidRequest(request) => {
+            validate_update_aid_request(original_action_hash, request)
+        }
+        EntryTypes::AidOffer(offer) => validate_update_aid_offer(original_action_hash, offer),
+    }
+}
+
+fn validate_update_aid_request(
+    original_action_hash: ActionHash,
+    request: AidRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: AidRequest = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original request not found".to_string()
+        )))?;
+
+    if request.id != original.id
+        || request.requester_did != original.requester_did
+        || request.request_type != original.request_type
+        || request.description != original.description
+        || request.urgency != original.urgency
+        || request.location != original.location
+        || request.amount_needed != original.amount_needed
+        || request.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/fulfilled_amount/updated_at can change on a request update".into(),
+        ));
+    }
+
+    validate_aid_request(&request)
+}
+
+fn validate_update_aid_offer(
+    original_action_hash: ActionHash,
+    offer: AidOffer,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: AidOffer = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original offer not found".to_string()
+        )))?;
+
+    if offer.id != original.id
+        || offer.request_id != original.request_id
+        || offer.offerer_did != original.offerer_did
+        || offer.amount != original.amount
+        || offer.message != original.message
+        || offer.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/updated_at can change on an offer update".into(),
+        ));
+    }
+
+    validate_aid_offer(&offer)
+}
+
 /// Genesis self-check callback
 #[hdk_extern]
 pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
@@ -324,13 +408,16 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::AidRequest(request) => validate_aid_request(&request),
-                    EntryTypes::AidOffer(offer) => validate_aid_offer(&offer),
-                }
-            }
+            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::AidRequest(request) => validate_aid_request(&request),
+                EntryTypes::AidOffer(offer) => validate_aid_offer(&offer),
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                ..
+            } => validate_update_entry_type(original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
@@ -398,8 +485,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 &action.author,
             ))
         }
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }

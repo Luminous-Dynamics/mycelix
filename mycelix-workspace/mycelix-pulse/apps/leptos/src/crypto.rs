@@ -10,6 +10,7 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use hkdf::Hkdf;
 use sha2::Sha256;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -142,34 +143,59 @@ pub fn derive_message_crypto_for_local_recipient(
     })
 }
 
+fn web_crypto() -> Result<web_sys::SubtleCrypto, String> {
+    web_sys::window()
+        .ok_or_else(|| "window unavailable".to_string())?
+        .crypto()
+        .map_err(|e| format!("Web Crypto unavailable: {e:?}"))
+        .map(|crypto| crypto.subtle())
+}
+
+async fn import_aes_gcm_key(key: &[u8; 32], usage: &str) -> Result<web_sys::CryptoKey, String> {
+    let subtle = web_crypto()?;
+    let key_bytes = js_sys::Uint8Array::from(key.as_slice());
+    let usages = js_sys::Array::new();
+    usages.push(&JsValue::from_str(usage));
+    let key_data: &js_sys::Object = key_bytes.unchecked_ref::<js_sys::Object>();
+    let promise = subtle
+        .import_key_with_str("raw", key_data, "AES-GCM", false, usages.as_ref())
+        .map_err(|e| format!("AES-GCM key import failed: {e:?}"))?;
+    JsFuture::from(promise)
+        .await
+        .map_err(|e| format!("AES-GCM key import failed: {e:?}"))?
+        .dyn_into::<web_sys::CryptoKey>()
+        .map_err(|e| format!("AES-GCM key result was invalid: {e:?}"))
+}
+
+fn aes_gcm_params(nonce: &[u8; 24]) -> Result<js_sys::Object, String> {
+    let params = js_sys::Object::new();
+    js_sys::Reflect::set(
+        &params,
+        &JsValue::from_str("name"),
+        &JsValue::from_str("AES-GCM"),
+    )
+    .map_err(|e| format!("Could not set AES-GCM algorithm name: {e:?}"))?;
+    let iv = js_sys::Uint8Array::from(&nonce[..12]);
+    js_sys::Reflect::set(&params, &JsValue::from_str("iv"), iv.as_ref())
+        .map_err(|e| format!("Could not set AES-GCM IV: {e:?}"))?;
+    Ok(params)
+}
+
 pub async fn encrypt_with_key(
     plaintext: &[u8],
     key: &[u8; 32],
     nonce: &[u8; 24],
 ) -> Result<Vec<u8>, String> {
-    let pt_b64 = base64_encode(plaintext);
-    let key_b64 = base64_encode(key);
-    let iv_b64 = base64_encode(&nonce[..12]);
-
-    let js_code = format!(
-        r#"(async function() {{
-            const keyBytes = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const iv = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const data = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
-            const ct = await crypto.subtle.encrypt({{name: 'AES-GCM', iv}}, key, data);
-            return btoa(String.fromCharCode(...new Uint8Array(ct)));
-        }})()"#,
-        key_b64, iv_b64, pt_b64
-    );
-
-    let promise = js_sys::eval(&js_code).map_err(|e| format!("eval failed: {e:?}"))?;
-    let result = JsFuture::from(js_sys::Promise::from(promise))
+    let subtle = web_crypto()?;
+    let crypto_key = import_aes_gcm_key(key, "encrypt").await?;
+    let params = aes_gcm_params(nonce)?;
+    let promise = subtle
+        .encrypt_with_object_and_u8_array(&params, &crypto_key, plaintext)
+        .map_err(|e| format!("AES-GCM encrypt setup failed: {e:?}"))?;
+    let result = JsFuture::from(promise)
         .await
         .map_err(|e| format!("AES-GCM encrypt failed: {e:?}"))?;
-
-    let ct_b64 = result.as_string().ok_or("not a string")?;
-    Ok(base64_decode(&ct_b64))
+    Ok(js_sys::Uint8Array::new(&result).to_vec())
 }
 
 pub async fn decrypt_with_key(
@@ -177,29 +203,16 @@ pub async fn decrypt_with_key(
     key: &[u8; 32],
     nonce: &[u8; 24],
 ) -> Result<Vec<u8>, String> {
-    let ct_b64 = base64_encode(ciphertext);
-    let key_b64 = base64_encode(key);
-    let iv_b64 = base64_encode(&nonce[..12]);
-
-    let js_code = format!(
-        r#"(async function() {{
-            const keyBytes = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const iv = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const data = Uint8Array.from(atob('{}'), c => c.charCodeAt(0));
-            const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
-            const pt = await crypto.subtle.decrypt({{name: 'AES-GCM', iv}}, key, data);
-            return btoa(String.fromCharCode(...new Uint8Array(pt)));
-        }})()"#,
-        key_b64, iv_b64, ct_b64
-    );
-
-    let promise = js_sys::eval(&js_code).map_err(|e| format!("eval failed: {e:?}"))?;
-    let result = JsFuture::from(js_sys::Promise::from(promise))
+    let subtle = web_crypto()?;
+    let crypto_key = import_aes_gcm_key(key, "decrypt").await?;
+    let params = aes_gcm_params(nonce)?;
+    let promise = subtle
+        .decrypt_with_object_and_u8_array(&params, &crypto_key, ciphertext)
+        .map_err(|e| format!("AES-GCM decrypt setup failed: {e:?}"))?;
+    let result = JsFuture::from(promise)
         .await
         .map_err(|e| format!("AES-GCM decrypt failed: {e:?}"))?;
-
-    let pt_b64 = result.as_string().ok_or("not a string")?;
-    Ok(base64_decode(&pt_b64))
+    Ok(js_sys::Uint8Array::new(&result).to_vec())
 }
 
 fn store_local_identity(secret: &[u8; 32], public: &[u8; 32]) -> Result<(), String> {

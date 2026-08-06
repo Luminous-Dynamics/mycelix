@@ -6,14 +6,13 @@ use async_trait::async_trait;
 use marketplace_domain::{
     ActionHash, AgentPubKey, ApplyArbitrationTransactionConflictInput,
     ApproveTransactionConflictInput, ArbitrationResultOutput, ArbitrationVoteOutput,
-    ArbitrationVotesResponse, CreateListingInput, CreateTransactionInput, DisputeOutput,
-    DisputeResolution, DisputesResponse, FileDisputeInput,
-    FinalizeBilateralTransactionConflictInput, ListingOutput, ListingsResponse,
-    MarkShippedInput, OpenDisputeInput, OpenDisputeOutput, ReputationEventOutput,
-    ReputationEventsResponse, DerivedReputation, SubmitArbitrationVoteInput,
-    TransactionConflictApprovalOutput, TransactionConflictResolutionOutput, TransactionOutput,
-    TransactionResolution, TransactionResolutionsResponse, TransactionSettlementResult,
-    TransactionsResponse,
+    ArbitrationVotesResponse, CreateListingInput, CreateTransactionInput, DerivedReputation,
+    DisputeOutput, DisputeResolution, DisputesResponse, FileDisputeInput,
+    FinalizeBilateralTransactionConflictInput, ListingOutput, ListingsResponse, MarkShippedInput,
+    OpenDisputeInput, OpenDisputeOutput, ReputationEventOutput, ReputationEventsResponse,
+    SubmitArbitrationVoteInput, TransactionConflictApprovalOutput,
+    TransactionConflictResolutionOutput, TransactionOutput, TransactionResolution,
+    TransactionResolutionsResponse, TransactionSettlementResult, TransactionsResponse,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -128,7 +127,6 @@ where
         .await
     }
 
-
     pub async fn get_transaction_resolution(
         &self,
         transaction_hash: &ActionHash,
@@ -140,7 +138,6 @@ where
         )
         .await
     }
-
 
     pub async fn approve_transaction_conflict(
         &self,
@@ -353,7 +350,6 @@ where
         .await
     }
 
-
     pub async fn file_transaction_conflict_dispute(
         &self,
         input: &FileDisputeInput,
@@ -455,7 +451,6 @@ where
         )
         .await
     }
-
 }
 
 #[derive(Clone, Default)]

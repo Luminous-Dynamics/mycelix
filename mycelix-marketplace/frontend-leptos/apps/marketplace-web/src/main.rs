@@ -7,10 +7,10 @@ use leptos_router::{
 use marketplace_client::MarketplaceClient;
 use marketplace_domain::{
     ActionHash, AgentPubKey, ApproveTransactionConflictInput, CreateTransactionInput,
-    DerivedReputation, FileDisputeInput, FinalizeBilateralTransactionConflictInput,
-    ListingOutput, ListingStatus, MarkShippedInput, TransactionConflictApprovalOutput,
-    TransactionOutput, TransactionResolution, TransactionResolutionReason,
-    TransactionResolutionState, TransactionSettlementResult, TransactionStatus,
+    DerivedReputation, FileDisputeInput, FinalizeBilateralTransactionConflictInput, ListingOutput,
+    ListingStatus, MarkShippedInput, TransactionConflictApprovalOutput, TransactionOutput,
+    TransactionResolution, TransactionResolutionReason, TransactionResolutionState,
+    TransactionSettlementResult, TransactionStatus,
 };
 use std::str::FromStr;
 
@@ -58,11 +58,12 @@ impl ConnectionState {
 
     fn has_active_role(&self, role: &str) -> bool {
         match self {
-            Self::Ready { active_roles, .. } => active_roles.iter().any(|candidate| candidate == role),
+            Self::Ready { active_roles, .. } => {
+                active_roles.iter().any(|candidate| candidate == role)
+            }
             _ => false,
         }
     }
-
 }
 
 #[component]
@@ -686,7 +687,8 @@ fn TransactionResolutionCard(resolution: TransactionResolution) -> impl IntoView
                     </div>
                     <span class="evidence-chip">{materiality}</span>
                 </article>
-            }.into_any()
+            }
+            .into_any()
         }
         None => {
             let head_count = resolution.heads.len();
@@ -772,7 +774,8 @@ fn TransactionDetail(initial: TransactionResolution) -> impl IntoView {
                     applied_conflict_resolutions=snapshot.applied_conflict_resolutions
                     resolution
                 />
-            }.into_any(),
+            }
+            .into_any(),
             None => view! { <TransactionConflict resolution /> }.into_any(),
         }
     }
@@ -804,10 +807,7 @@ fn TransactionConflict(resolution: RwSignal<TransactionResolution>) -> impl Into
             .as_ref()
             .is_some_and(|agent| Some(agent) == buyer.as_ref() || Some(agent) == seller.as_ref());
 
-        let approval_values = approvals
-            .get()
-            .and_then(Result::ok)
-            .unwrap_or_default();
+        let approval_values = approvals.get().and_then(Result::ok).unwrap_or_default();
         let buyer_approval = buyer.as_ref().and_then(|buyer| {
             approval_values
                 .iter()
@@ -823,8 +823,10 @@ fn TransactionConflict(resolution: RwSignal<TransactionResolution>) -> impl Into
         let bilateral_pair = match (buyer_approval.clone(), seller_approval.clone()) {
             (Some(buyer), Some(seller))
                 if buyer.approval.head_hashes == seller.approval.head_hashes
-                    && buyer.approval.selected_head_hash
-                        == seller.approval.selected_head_hash => Some((buyer, seller)),
+                    && buyer.approval.selected_head_hash == seller.approval.selected_head_hash =>
+            {
+                Some((buyer, seller))
+            }
             _ => None,
         };
 
@@ -1069,14 +1071,12 @@ fn execute_bilateral_resolution(
     spawn_local(async move {
         let client = MarketplaceClient::new(transport);
         match client
-            .finalize_bilateral_transaction_conflict(
-                &FinalizeBilateralTransactionConflictInput {
-                    transaction_hash: root,
-                    buyer_approval_hash,
-                    seller_approval_hash,
-                    summary: "Buyer and seller selected the same authored transaction branch".into(),
-                },
-            )
+            .finalize_bilateral_transaction_conflict(&FinalizeBilateralTransactionConflictInput {
+                transaction_hash: root,
+                buyer_approval_hash,
+                seller_approval_hash,
+                summary: "Buyer and seller selected the same authored transaction branch".into(),
+            })
             .await
         {
             Ok(next) if next.is_authorized_resolved() => {
@@ -1225,10 +1225,9 @@ fn execute_settlement(
                 )));
             }
             Ok(result) => {
-                let message = result
-                    .error
-                    .clone()
-                    .unwrap_or_else(|| format!("Finance settlement state: {}", result.state.label()));
+                let message = result.error.clone().unwrap_or_else(|| {
+                    format!("Finance settlement state: {}", result.state.label())
+                });
                 settlement.set(Some(result));
                 feedback.set(Some(Err(message)));
             }

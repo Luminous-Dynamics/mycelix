@@ -42,6 +42,18 @@ pub enum ClientError {
     #[error("Authentication failed: {0}")]
     AuthenticationFailed(String),
 
+    /// No authorized signer has been configured for zome calls.
+    #[error("Zome call signing is unavailable: {0}")]
+    SigningUnavailable(String),
+
+    /// A signer returned a malformed or explicitly unsigned call.
+    #[error("Invalid zome call signature: {0}")]
+    InvalidSignature(String),
+
+    /// The runtime could not provide cryptographically secure random bytes.
+    #[error("Secure randomness unavailable: {0}")]
+    SecureRandomUnavailable(String),
+
     /// The requested role name was not found in the app info.
     #[error("Unknown role: {0}")]
     UnknownRole(String),

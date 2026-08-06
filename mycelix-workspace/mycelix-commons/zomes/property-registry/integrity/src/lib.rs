@@ -151,9 +151,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry {
-                app_entry, action, ..
+                app_entry,
+                action,
+                original_action_hash,
+                ..
             } => match app_entry {
-                EntryTypes::Property(property) => validate_update_property(action, property),
+                EntryTypes::Property(property) => {
+                    validate_update_property(action, property, original_action_hash)
+                }
                 EntryTypes::TitleDeed(_) => Ok(ValidateCallbackResult::Invalid(
                     "Title deeds cannot be updated".into(),
                 )),
@@ -217,10 +222,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -293,9 +295,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_property(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     property: Property,
 ) -> ExternResult<ValidateCallbackResult> {
+    let expected_owner = format!("did:mycelix:{}", action.author());
+    if property.owner_did != expected_owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Property owner must be the committing agent (forgery)".into(),
+        ));
+    }
     if property.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Property ID cannot be empty".into(),
@@ -473,98 +481,116 @@ fn validate_create_property(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_property(
-    _action: Update,
-    property: Property,
-) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-only validation for a `Property` update, factored out of
+/// [`validate_update_property`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_property_fields_update(property: &Property) -> ValidateCallbackResult {
     if property.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Property ID must be 256 characters or fewer".into(),
-        ));
+        );
     }
     if property.title.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Property title must be 256 characters or fewer".into(),
-        ));
+        );
     }
     if property.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Property description must be 4096 characters or fewer".into(),
-        ));
+        );
     }
     if property.owner_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Owner DID must be 256 characters or fewer".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Owner DID must be 256 characters or fewer".into());
     }
     if property.co_owners.len() > 50 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 50 co-owners".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Cannot have more than 50 co-owners".into());
     }
     if property.metadata.attachments.len() > 20 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 20 attachments".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Cannot have more than 20 attachments".into());
     }
     if let Some(ref addr) = property.address {
         if addr.street.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Street must be 256 characters or fewer".into(),
-            ));
+            );
         }
         if addr.city.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "City must be 256 characters or fewer".into(),
-            ));
+            return ValidateCallbackResult::Invalid("City must be 256 characters or fewer".into());
         }
         if addr.region.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Region must be 256 characters or fewer".into(),
-            ));
+            );
         }
         if addr.country.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Country must be 256 characters or fewer".into(),
-            ));
+            );
         }
         if let Some(ref pc) = addr.postal_code {
             if pc.len() > 256 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Postal code must be 256 characters or fewer".into(),
-                ));
+                );
             }
         }
     }
     if let Some(ref ld) = property.metadata.legal_description {
         if ld.len() > 4096 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Legal description must be 4096 characters or fewer".into(),
-            ));
+            );
         }
     }
     if let Some(ref pn) = property.metadata.parcel_number {
         if pn.len() > 128 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Parcel number must be 128 characters or fewer".into(),
-            ));
+            );
         }
     }
     if let Some(ref geo) = property.geolocation {
         if let Some(ref boundaries) = geo.boundaries {
             if boundaries.len() > 1000 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Cannot have more than 1000 boundary points".into(),
-                ));
+                );
             }
         }
     }
     for co_owner in &property.co_owners {
         if co_owner.did.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Co-owner DID must be 256 characters or fewer".into(),
-            ));
+            );
         }
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_property(
+    action: Update,
+    property: Property,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields_result = validate_property_fields_update(&property);
+    if fields_result != ValidateCallbackResult::Valid {
+        return Ok(fields_result);
+    }
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_property: Property = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original property entry not found".to_string()
+        )))?;
+    let committer_did = format!("did:mycelix:{}", action.author);
+    if original_property.owner_did != committer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Property update must be committed by its current owner".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -649,6 +675,12 @@ mod tests {
         AgentPubKey::from_raw_36(vec![0u8; 36])
     }
 
+    /// The DID the default `fake_entry_creation_action()`/`fake_update()`
+    /// author binds to.
+    fn fake_owner_did() -> String {
+        format!("did:mycelix:{}", fake_agent())
+    }
+
     fn fake_action_hash() -> ActionHash {
         ActionHash::from_raw_36(vec![0u8; 36])
     }
@@ -677,24 +709,6 @@ mod tests {
         EntryCreationAction::Create(fake_create())
     }
 
-    fn fake_update() -> Update {
-        Update {
-            author: fake_agent(),
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 1,
-            prev_action: fake_action_hash(),
-            original_action_address: fake_action_hash(),
-            original_entry_address: fake_entry_hash(),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: fake_entry_hash(),
-            weight: EntryRateWeight::default(),
-        }
-    }
-
     fn is_valid(result: &ExternResult<ValidateCallbackResult>) -> bool {
         matches!(result, Ok(ValidateCallbackResult::Valid))
     }
@@ -709,7 +723,7 @@ mod tests {
             property_type: PropertyType::Building,
             title: "Community Center".into(),
             description: "A shared community building".into(),
-            owner_did: "did:key:z6Mk001".into(),
+            owner_did: fake_owner_did(),
             co_owners: vec![],
             geolocation: Some(GeoLocation {
                 latitude: 32.9483,
@@ -1344,18 +1358,29 @@ mod tests {
 
     #[test]
     fn property_owner_did_too_long_rejected() {
+        // The create path binds owner_did to the committing agent, so the
+        // length boundary itself is exercised via the shared pure field
+        // validator (also used by the update path) instead.
         let mut p = make_property();
         p.owner_did = format!("did:{}", "x".repeat(253));
-        let result = validate_create_property(fake_entry_creation_action(), p);
-        assert!(is_invalid(&result));
+        let result = validate_property_fields_update(&p);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn property_owner_did_exactly_256_chars_accepted() {
         let mut p = make_property();
         p.owner_did = format!("did:{}", "x".repeat(252));
+        let result = validate_property_fields_update(&p);
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn property_owner_forged_owner_did_rejected() {
+        let mut p = make_property();
+        p.owner_did = "did:mycelix:someone_else".into();
         let result = validate_create_property(fake_entry_creation_action(), p);
-        assert!(is_valid(&result));
+        assert!(is_invalid(&result));
     }
 
     // ========================================================================
@@ -1854,7 +1879,7 @@ mod tests {
     fn property_update_title_too_long_rejected() {
         let mut p = make_property();
         p.title = "x".repeat(257);
-        let result = validate_update_property(fake_update(), p);
+        let result = Ok(validate_property_fields_update(&p));
         assert!(is_invalid(&result));
     }
 
@@ -1862,7 +1887,7 @@ mod tests {
     fn property_update_description_too_long_rejected() {
         let mut p = make_property();
         p.description = "x".repeat(4097);
-        let result = validate_update_property(fake_update(), p);
+        let result = Ok(validate_property_fields_update(&p));
         assert!(is_invalid(&result));
     }
 
@@ -1875,7 +1900,7 @@ mod tests {
                 share_percentage: 1.0,
             })
             .collect();
-        let result = validate_update_property(fake_update(), p);
+        let result = Ok(validate_property_fields_update(&p));
         assert!(is_invalid(&result));
     }
 
@@ -1883,7 +1908,7 @@ mod tests {
     fn property_update_too_many_attachments_rejected() {
         let mut p = make_property();
         p.metadata.attachments = (0..21).map(|i| format!("doc_{}.pdf", i)).collect();
-        let result = validate_update_property(fake_update(), p);
+        let result = Ok(validate_property_fields_update(&p));
         assert!(is_invalid(&result));
     }
 
@@ -1896,13 +1921,13 @@ mod tests {
             boundaries: Some((0..1001).map(|i| (i as f64, i as f64)).collect()),
             area_sqm: Some(500.0),
         });
-        let result = validate_update_property(fake_update(), p);
+        let result = Ok(validate_property_fields_update(&p));
         assert!(is_invalid(&result));
     }
 
     #[test]
     fn property_update_valid_passes() {
-        let result = validate_update_property(fake_update(), make_property());
+        let result = Ok(validate_property_fields_update(&make_property()));
         assert!(is_valid(&result));
     }
 
@@ -1956,9 +1981,9 @@ mod tests {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::GeoIndex
-            | LinkTypes::PropertyIdIndex
-            | LinkTypes::DeedIdIndex => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GeoIndex | LinkTypes::PropertyIdIndex | LinkTypes::DeedIdIndex => {
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
     }
 
@@ -2000,9 +2025,9 @@ mod tests {
                 }
                 Ok(ValidateCallbackResult::Valid)
             }
-            LinkTypes::GeoIndex
-            | LinkTypes::PropertyIdIndex
-            | LinkTypes::DeedIdIndex => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::GeoIndex | LinkTypes::PropertyIdIndex | LinkTypes::DeedIdIndex => {
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
     }
 

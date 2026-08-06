@@ -117,13 +117,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EmergencyResource(resource) => validate_update_resource(resource),
-                EntryTypes::ResourceRequest(request) => validate_update_request(request),
+                EntryTypes::EmergencyResource(resource) => {
+                    validate_update_resource(action, resource)
+                }
+                EntryTypes::ResourceRequest(request) => validate_update_request(action, request),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -281,33 +283,58 @@ fn validate_create_resource(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_resource(resource: EmergencyResource) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for an `EmergencyResource` update, factored
+/// out of [`validate_update_resource`] so it can be unit-tested without a
+/// live HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_resource_fields(resource: &EmergencyResource) -> ValidateCallbackResult {
     if resource.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resource ID cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Resource ID cannot be empty".into());
     }
     if resource.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resource ID too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Resource ID too long (max 256)".into());
     }
     if resource.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resource name too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Resource name too long (max 256)".into());
     }
     if resource.unit.len() > 128 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resource unit too long (max 128)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Resource unit too long (max 128)".into());
     }
     if resource.location.len() > 4096 {
+        return ValidateCallbackResult::Invalid("Resource location too long (max 4096)".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// deploy_resource has no caller-identity check at all in the coordinator
+/// (deployment is typically ordered by a dispatcher, not necessarily the
+/// resource's registered owner) -- no established authority model here to
+/// bind against. Content is restricted to status/deployed_to/location --
+/// this closes the wide-open bug that previously let any field (including
+/// owner, quantity, or resource_type) change unconditionally on update.
+fn validate_update_resource(
+    action: Update,
+    resource: EmergencyResource,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: EmergencyResource = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original resource not found".to_string()
+        )))?;
+    if resource.id != original.id
+        || resource.resource_type != original.resource_type
+        || resource.name != original.name
+        || resource.quantity != original.quantity
+        || resource.unit != original.unit
+        || resource.owner != original.owner
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Resource location too long (max 4096)".into(),
+            "Only status/deployed_to/location can change on a resource update".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_resource_fields(&resource))
 }
 
 fn validate_create_request(
@@ -338,18 +365,50 @@ fn validate_create_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_request(request: ResourceRequest) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `ResourceRequest` update, factored
+/// out of [`validate_update_request`] so it can be unit-tested without a
+/// live HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_request_fields(request: &ResourceRequest) -> ValidateCallbackResult {
     if request.location.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Request location cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Request location cannot be empty".into());
     }
     if request.location.len() > 4096 {
+        return ValidateCallbackResult::Invalid("Request location too long (max 4096)".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// fulfill_request has no caller-identity check at all in the coordinator
+/// (any agent holding a matching resource may fulfill a request) -- no
+/// established authority model here to bind against. Content is
+/// restricted to status/fulfilled_by -- this closes the wide-open bug
+/// that previously let any field (including requesting_team,
+/// resource_type, quantity_needed, or location) change unconditionally
+/// on update.
+fn validate_update_request(
+    action: Update,
+    request: ResourceRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ResourceRequest = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original request not found".to_string()
+        )))?;
+    if request.disaster_hash != original.disaster_hash
+        || request.requesting_team != original.requesting_team
+        || request.resource_type != original.resource_type
+        || request.quantity_needed != original.quantity_needed
+        || request.urgency != original.urgency
+        || request.location != original.location
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Request location too long (max 4096)".into(),
+            "Only status/fulfilled_by can change on a request update".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_request_fields(&request))
 }
 
 #[cfg(test)]
@@ -822,7 +881,7 @@ mod tests {
 
     #[test]
     fn update_resource_valid_passes() {
-        let result = validate_update_resource(make_resource());
+        let result = Ok(validate_resource_fields(&make_resource()));
         assert!(is_valid(&result));
     }
 
@@ -830,7 +889,7 @@ mod tests {
     fn update_resource_empty_id_rejected() {
         let mut r = make_resource();
         r.id = "".into();
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Resource ID cannot be empty");
     }
@@ -840,7 +899,7 @@ mod tests {
         // validate_update_resource only checks id, not name
         let mut r = make_resource();
         r.name = "".into();
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_valid(&result));
     }
 
@@ -849,7 +908,7 @@ mod tests {
         // validate_update_resource only checks id
         let mut r = make_resource();
         r.unit = "".into();
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_valid(&result));
     }
 
@@ -858,7 +917,7 @@ mod tests {
         // validate_update_resource only checks id
         let mut r = make_resource();
         r.location = "".into();
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_valid(&result));
     }
 
@@ -866,7 +925,7 @@ mod tests {
     fn update_resource_zero_quantity_passes() {
         let mut r = make_resource();
         r.quantity = 0;
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_valid(&result));
     }
 
@@ -874,7 +933,7 @@ mod tests {
     fn update_resource_depleted_status_passes() {
         let mut r = make_resource();
         r.status = ResourceStatus::Depleted;
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_valid(&result));
     }
 
@@ -1030,7 +1089,7 @@ mod tests {
 
     #[test]
     fn update_request_valid_passes() {
-        let result = validate_update_request(make_request());
+        let result = Ok(validate_request_fields(&make_request()));
         assert!(is_valid(&result));
     }
 
@@ -1038,7 +1097,7 @@ mod tests {
     fn update_request_empty_location_rejected() {
         let mut req = make_request();
         req.location = "".into();
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Request location cannot be empty");
     }
@@ -1048,7 +1107,7 @@ mod tests {
         // validate_update_request only checks location, not quantity
         let mut req = make_request();
         req.quantity_needed = 0;
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_valid(&result));
     }
 
@@ -1056,7 +1115,7 @@ mod tests {
     fn update_request_cancelled_status_passes() {
         let mut req = make_request();
         req.status = RequestStatus::Cancelled;
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_valid(&result));
     }
 
@@ -1064,7 +1123,7 @@ mod tests {
     fn update_request_unicode_location_passes() {
         let mut req = make_request();
         req.location = "\u{00C1}rea de desastre, M\u{00E9}xico".into();
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_valid(&result));
     }
 
@@ -1072,7 +1131,7 @@ mod tests {
     fn update_request_whitespace_only_location_rejected() {
         let mut req = make_request();
         req.location = " \t ".into();
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_invalid(&result));
     }
 
@@ -1348,7 +1407,7 @@ mod tests {
     fn update_resource_id_over_limit_rejected() {
         let mut r = make_resource();
         r.id = "x".repeat(257);
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Resource ID too long (max 256)");
     }
@@ -1357,7 +1416,7 @@ mod tests {
     fn update_resource_name_over_limit_rejected() {
         let mut r = make_resource();
         r.name = "x".repeat(257);
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Resource name too long (max 256)");
     }
@@ -1366,7 +1425,7 @@ mod tests {
     fn update_resource_unit_over_limit_rejected() {
         let mut r = make_resource();
         r.unit = "x".repeat(129);
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Resource unit too long (max 128)");
     }
@@ -1375,7 +1434,7 @@ mod tests {
     fn update_resource_location_over_limit_rejected() {
         let mut r = make_resource();
         r.location = "x".repeat(4097);
-        let result = validate_update_resource(r);
+        let result = Ok(validate_resource_fields(&r));
         assert!(is_invalid(&result));
         assert_eq!(
             invalid_msg(&result),
@@ -1389,7 +1448,7 @@ mod tests {
     fn update_request_location_over_limit_rejected() {
         let mut req = make_request();
         req.location = "x".repeat(4097);
-        let result = validate_update_request(req);
+        let result = Ok(validate_request_fields(&req));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Request location too long (max 4096)");
     }

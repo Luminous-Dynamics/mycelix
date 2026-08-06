@@ -31,11 +31,7 @@ pub fn truncate_middle(s: &str, max_len: usize) -> String {
     let start_len = (available + 1) / 2;
     let end_len = available / 2;
 
-    format!(
-        "{}...{}",
-        &s[..start_len],
-        &s[s.len() - end_len..]
-    )
+    format!("{}...{}", &s[..start_len], &s[s.len() - end_len..])
 }
 
 /// Pluralize a word based on count
@@ -233,7 +229,9 @@ pub fn wrap(text: &str, width: usize) -> String {
 
 /// Escape special characters for shell/command line use
 pub fn shell_escape(s: &str) -> String {
-    if s.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.') {
+    if s.chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
+    {
         s.to_string()
     } else {
         format!("'{}'", s.replace('\'', "'\\''"))
@@ -265,11 +263,7 @@ pub fn is_ascii(s: &str) -> bool {
 
 /// Count the number of lines in a string
 pub fn line_count(s: &str) -> usize {
-    if s.is_empty() {
-        0
-    } else {
-        s.lines().count()
-    }
+    if s.is_empty() { 0 } else { s.lines().count() }
 }
 
 /// Extract the first line of a string
@@ -389,7 +383,10 @@ mod tests {
         assert_eq!(join_with_and(&[] as &[&str]), "");
         assert_eq!(join_with_and(&["one"]), "one");
         assert_eq!(join_with_and(&["one", "two"]), "one and two");
-        assert_eq!(join_with_and(&["one", "two", "three"]), "one, two, and three");
+        assert_eq!(
+            join_with_and(&["one", "two", "three"]),
+            "one, two, and three"
+        );
         assert_eq!(join_with_and(&["a", "b", "c", "d"]), "a, b, c, and d");
     }
 

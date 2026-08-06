@@ -205,7 +205,7 @@ pub fn complete_transfer(transfer_id: String) -> ExternResult<Record> {
                         return Err(wasm_error!(WasmErrorInner::Guest(format!(
                             "Zome call failed: {:?}",
                             other
-                        ))))
+                        ))));
                     }
                 };
 

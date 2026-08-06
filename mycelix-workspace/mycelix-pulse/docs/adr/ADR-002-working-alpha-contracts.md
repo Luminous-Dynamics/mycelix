@@ -57,39 +57,64 @@ plaintext previously displayed by the browser.
 
 ## Enforcement boundary: DHT validation vs. client verification
 
-This boundary is a real, disclosed constraint, not an oversight — state it
-precisely rather than let "ML-DSA verification is mandatory" be read as
-network-enforced.
+**Update (2026-07-18): the ML-DSA gap described below is closed.** The
+original claim — "HDI/WASM zomes cannot currently link the RustCrypto
+ML-DSA crate" — was true only for `ml-dsa`'s *default* feature set, which
+pulls in `getrandom` 0.4's browser-only Web Crypto backend for
+signing/keygen. Signature **verification** needs no randomness at all
+(`ml-dsa`'s `verifying.rs` has no `rand_core`/`getrandom` gating anywhere),
+so `mail_messages_integrity` now depends on `ml-dsa` with
+`default-features = false, features = ["alloc"]` — proven to link cleanly
+in a real `cargo build --release --target wasm32-unknown-unknown`, not
+just `cargo check` (which had falsely "passed" earlier by skipping the
+link step entirely). See `verify_ml_dsa_v2` in that crate for the
+implementation and its own doc comment for the full mechanism (a new
+`sender_mldsa_bundle_hash` pointer field lets the validator fetch the
+sender's real bundle via `must_get_valid_record`, then independently
+re-derives and checks its content hash, authorship, and state before
+verifying).
 
 **Enforced by every DHT validator** (`mail_messages_integrity`, host-independent
 and unit-tested in `validate_email_v2_structure`, plus the host-dependent
 checks in `validate_encrypted_email_v2`): `sender == action.author`; ciphertext
 length bounds; ML-DSA-65 and Holochain-agent signature *lengths*; canonical
 transcript encoding (unknown version/suite fails closed); the Holochain agent's
-Ed25519 signature over that exact transcript; and `created_at` skew against the
-action timestamp.
+Ed25519 signature over that exact transcript; `created_at` skew against the
+action timestamp; **and now the ML-DSA-65 signature's cryptographic validity
+against the sender's real historical key bundle, and that bundle's lifecycle
+state (rejecting anything other than `Active`)**.
 
-**Not enforced by any DHT validator**: the ML-DSA-65 signature's cryptographic
-validity, and the sender/recipient hybrid key bundle's lifecycle state
-(`active`/`retired`/`revoked_compromised`/`lost`) at send time. HDI/WASM
-zomes cannot currently link the RustCrypto ML-DSA crate (the same dependency-
-graph conflict documented in `PULSE_V2_CRYPTO_SPEC.md`), so a structurally
-valid but cryptographically bogus ML-DSA signature — or a message referencing
-a revoked/lost key ID — is accepted onto the DHT and gossiped like any other
-valid entry.
+**Update (2026-07-19): the recipient-side gap described below is also
+closed.** `EncryptedEmailV2` gained a `recipient_bundle_hash: ActionHash`
+lookup pointer, mirroring `sender_mldsa_bundle_hash`'s contract exactly (not
+itself trusted — the validator independently re-derives the fetched
+bundle's content hash and checks it against the already-signed
+`recipient_hybrid_key_id`, and its real Holochain authorship, before
+trusting it). A new `verify_recipient_key_state` in `mail_messages_integrity`
+rejects the message if the recipient's bundle isn't in the `Active` state at
+send time — closing the asymmetry described below. Proven via 3 new native
+mocked-HDI-host unit tests (accept-Active / reject-Revoked /
+reject-wrong-author), same evidence tier as the sender-side fix, plus a real
+`cargo build --release --target wasm32-unknown-unknown`. ~~Still not
+enforced by any DHT validator: the *recipient* hybrid key bundle's lifecycle
+state at send time (only the *sender's* state was checked, since only the
+sender's key was what `verify_ml_dsa_v2` needed) — a message addressed to a
+recipient whose key has since been revoked/lost was still accepted onto the
+DHT; the recipient client remained the enforcement point for that specific
+case.~~
 
-**The recipient client is the actual enforcement point** for both: it calls
-`verify_ml_dsa` against the sender's historical key bundle before decrypting
-(`load_v2_inbox` in `apps/leptos/src/mail_context.rs`), and it refuses to
-trust a sender bundle whose state is `revoked_compromised` or `lost`. The
-Holochain agent signature still makes ciphertext authorship and integrity
-fully network-verifiable — an attacker cannot forge *who* published given
-bytes — but the *application-layer* post-quantum authentication claim is
-honest only as "verified by the recipient before use," not "verified by
-consensus." `phase0_v2_negative_paths` in the Sweettest suite exercises this
-boundary directly: a garbage-but-correctly-sized ML-DSA signature is accepted
-by `send_email_v2` and gossips normally, then fails `verify_ml_dsa` when the
-recipient attempts to open it.
+**The recipient client remains an additional, independent enforcement
+point**, not the sole one: it *also* calls `verify_ml_dsa` against the
+sender's historical key bundle before decrypting (`load_v2_inbox` in
+`apps/leptos/src/mail_context.rs`, via a separate by-agent-and-key-id
+lookup), and refuses to trust a sender bundle whose state is
+`revoked_compromised` or `lost`. This is deliberately redundant with the
+DHT-level check, not a stand-in for it. `phase0_v2_negative_paths` in the
+Sweettest suite exercises the DHT-level boundary directly: a
+garbage-but-correctly-sized ML-DSA signature referencing the sender's real
+published bundle is now **rejected by `send_email_v2` itself**, synchronously,
+before the entry ever reaches the DHT — the inverse of what this test used
+to prove.
 
 ## Delivery semantics
 

@@ -32,11 +32,7 @@ pub enum ClaimsCommand {
         /// Claim ID
         id: String,
 
-        /// Verifier identifier
-        #[arg(long)]
-        verifier: String,
-
-        /// Signature (hex)
+        /// Signature or attestation material (hex)
         #[arg(long)]
         signature: String,
 
@@ -66,9 +62,7 @@ pub enum ClaimsCommand {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct CreateClaimRequest {
-    tier: String,
     content: ClaimContentRequest,
-    creator: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,7 +78,6 @@ struct ClaimContentRequest {
 
 #[derive(Debug, Serialize)]
 struct AddVerificationRequest {
-    verifier: String,
     signature: Vec<u8>,
     notes: Option<String>,
 }
@@ -104,20 +97,21 @@ pub async fn execute(
     match command {
         ClaimsCommand::Create { file } => create_claim(client, &file, output_mode).await,
         ClaimsCommand::Get { id } => get_claim(client, &id, output_mode).await,
-        ClaimsCommand::Verify { id, verifier, signature, notes } => {
-            verify_claim(client, &id, &verifier, &signature, notes, output_mode).await
-        }
-        ClaimsCommand::Provenance { id, source, source_type, url } => {
-            add_provenance(client, &id, &source, &source_type, url, output_mode).await
-        }
+        ClaimsCommand::Verify {
+            id,
+            signature,
+            notes,
+        } => verify_claim(client, &id, &signature, notes, output_mode).await,
+        ClaimsCommand::Provenance {
+            id,
+            source,
+            source_type,
+            url,
+        } => add_provenance(client, &id, &source, &source_type, url, output_mode).await,
     }
 }
 
-async fn create_claim(
-    client: ApiClient,
-    file_path: &str,
-    output_mode: OutputMode,
-) -> Result<()> {
+async fn create_claim(client: ApiClient, file_path: &str, output_mode: OutputMode) -> Result<()> {
     output::info(&format!("Creating claim from {}", file_path));
 
     // Read and parse JSON file
@@ -142,11 +136,7 @@ async fn create_claim(
     Ok(())
 }
 
-async fn get_claim(
-    client: ApiClient,
-    id: &str,
-    output_mode: OutputMode,
-) -> Result<()> {
+async fn get_claim(client: ApiClient, id: &str, output_mode: OutputMode) -> Result<()> {
     let uuid = Uuid::parse_str(id)?;
     output::info(&format!("Retrieving claim {}", uuid));
 
@@ -169,7 +159,6 @@ async fn get_claim(
 async fn verify_claim(
     client: ApiClient,
     id: &str,
-    verifier: &str,
     signature_hex: &str,
     notes: Option<String>,
     output_mode: OutputMode,
@@ -180,27 +169,20 @@ async fn verify_claim(
     // Convert hex signature to bytes
     let signature = hex::decode(signature_hex)?;
 
-    let request = AddVerificationRequest {
-        verifier: verifier.to_string(),
-        signature,
-        notes,
-    };
+    let request = AddVerificationRequest { signature, notes };
 
     let response: ClaimResponse = client
         .put(&format!("/api/v1/claims/{}/verify", uuid), &request)
         .await?;
 
-    output::success(&format!(
-        "Verification added. New tier: {}",
-        response.tier
-    ));
+    output::success("Verification material recorded for later policy assessment");
 
     match output_mode {
         OutputMode::Json => output::print_json(&response)?,
         OutputMode::Table => print_claim_table(&response),
         OutputMode::Plain => {
             println!("Claim ID: {}", response.id);
-            println!("New tier: {}", response.tier);
+            println!("Current derived tier: {}", response.tier);
             println!("Verifications: {}", response.verifications_count);
         }
     }

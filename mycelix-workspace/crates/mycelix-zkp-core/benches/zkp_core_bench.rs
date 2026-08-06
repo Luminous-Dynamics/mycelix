@@ -91,11 +91,13 @@ fn bench_domain_tag(iterations: u64) {
 }
 
 fn bench_signed_message(iterations: u64) {
-    use mycelix_zkp_core::types::{BackendId, ProofMetadata};
+    use mycelix_zkp_core::types::{
+        AUTHENTICATED_PROOF_PROTOCOL_VERSION, BackendId, ProofMetadata,
+    };
 
     let meta = ProofMetadata {
         domain_tag: DomainTag::new("Bench", "SignedMsg", 1),
-        protocol_version: 1,
+        protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
         client_id: [0xAA; 32],
         timestamp: 1700000000,
         nonce: [0xBB; 32],
@@ -106,6 +108,7 @@ fn bench_signed_message(iterations: u64) {
         signature: vec![],
         metadata: meta,
         public_inputs_hash: [0xCC; 32],
+        energy_millijoules: 0,
     };
 
     let start = Instant::now();

@@ -217,9 +217,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 /// Validate listing data (used for both create and update)
-fn validate_listing_data(
-    listing: &Listing,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_listing_data(listing: &Listing) -> ExternResult<ValidateCallbackResult> {
     // Title validation
     if listing.title.is_empty() || listing.title.len() > 200 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -284,12 +282,12 @@ fn validate_listing_data(
         EmpiricalLevel::E0Null => {
             return Ok(ValidateCallbackResult::Invalid(
                 "Listings cannot be E0 (unverifiable)".into(),
-            ))
+            ));
         }
         EmpiricalLevel::E3Cryptographic | EmpiricalLevel::E4PublicRepro => {
             return Ok(ValidateCallbackResult::Invalid(
                 "New listings cannot claim E3/E4 without proof".into(),
-            ))
+            ));
         }
         _ => {} // E1, E2 are valid
     }
@@ -336,12 +334,10 @@ fn validate_update_listing(
 
     // Authorization check: the updater must be the original seller
     if updater != original_author {
-        return Ok(ValidateCallbackResult::Invalid(
-            format!(
-                "Only the original seller can update this listing. Updater: {}, Original seller: {}",
-                updater, original_author
-            )
-        ));
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Only the original seller can update this listing. Updater: {}, Original seller: {}",
+            updater, original_author
+        )));
     }
 
     // 3. Validate that certain fields cannot be changed (seller protection)
@@ -354,14 +350,14 @@ fn validate_update_listing(
             // created_at should never change
             if listing.created_at != original_listing.created_at {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot modify the creation timestamp".into()
+                    "Cannot modify the creation timestamp".into(),
                 ));
             }
 
             // updated_at should be greater than or equal to original
             if listing.updated_at < original_listing.updated_at {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Update timestamp cannot be earlier than original".into()
+                    "Update timestamp cannot be earlier than original".into(),
                 ));
             }
 
@@ -370,7 +366,7 @@ fn validate_update_listing(
                 && listing.status != ListingStatus::Deleted
             {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot reactivate a deleted listing - create a new one instead".into()
+                    "Cannot reactivate a deleted listing - create a new one instead".into(),
                 ));
             }
         }
@@ -385,9 +381,10 @@ fn validate_update_listing(
 fn is_valid_ipfs_cid(cid: &str) -> bool {
     // CIDv0: Qm + 44 base58 characters
     if cid.len() == 46 && cid.starts_with("Qm") {
-        return cid.chars().skip(2).all(|c| {
-            c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l'
-        });
+        return cid
+            .chars()
+            .skip(2)
+            .all(|c| c.is_ascii_alphanumeric() && c != '0' && c != 'O' && c != 'I' && c != 'l');
     }
 
     // CIDv1: b + 58 base32 characters (simplified check)
@@ -458,7 +455,9 @@ mod tests {
     fn test_ipfs_cid_validation_v0_with_invalid_base58_chars() {
         // '0', 'O', 'I', 'l' are not in base58
         // 46 chars starting with Qm but containing '0'
-        assert!(!is_valid_ipfs_cid("Qm0wAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"));
+        assert!(!is_valid_ipfs_cid(
+            "Qm0wAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+        ));
     }
 
     // ===== Listing Validation Tests =====
@@ -472,56 +471,80 @@ mod tests {
 
     #[test]
     fn test_validate_listing_data_empty_title() {
-        let listing = Listing { title: String::new(), ..valid_listing() };
+        let listing = Listing {
+            title: String::new(),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_title_too_long() {
-        let listing = Listing { title: "x".repeat(201), ..valid_listing() };
+        let listing = Listing {
+            title: "x".repeat(201),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_empty_description() {
-        let listing = Listing { description: String::new(), ..valid_listing() };
+        let listing = Listing {
+            description: String::new(),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_description_too_long() {
-        let listing = Listing { description: "x".repeat(5001), ..valid_listing() };
+        let listing = Listing {
+            description: "x".repeat(5001),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_zero_price() {
-        let listing = Listing { price_cents: 0, ..valid_listing() };
+        let listing = Listing {
+            price_cents: 0,
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_price_too_high() {
-        let listing = Listing { price_cents: MAX_LISTING_PRICE_CENTS + 1, ..valid_listing() };
+        let listing = Listing {
+            price_cents: MAX_LISTING_PRICE_CENTS + 1,
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_listing_data_max_valid_price() {
-        let listing = Listing { price_cents: MAX_LISTING_PRICE_CENTS, ..valid_listing() };
+        let listing = Listing {
+            price_cents: MAX_LISTING_PRICE_CENTS,
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_listing_data_no_photos() {
-        let listing = Listing { photos_ipfs_cids: vec![], ..valid_listing() };
+        let listing = Listing {
+            photos_ipfs_cids: vec![],
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -529,7 +552,10 @@ mod tests {
     #[test]
     fn test_validate_listing_data_too_many_photos() {
         let cid = "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".to_string();
-        let listing = Listing { photos_ipfs_cids: vec![cid; 11], ..valid_listing() };
+        let listing = Listing {
+            photos_ipfs_cids: vec![cid; 11],
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -537,14 +563,20 @@ mod tests {
     #[test]
     fn test_validate_listing_data_max_photos_valid() {
         let cid = "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".to_string();
-        let listing = Listing { photos_ipfs_cids: vec![cid; 10], ..valid_listing() };
+        let listing = Listing {
+            photos_ipfs_cids: vec![cid; 10],
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_listing_data_zero_quantity() {
-        let listing = Listing { quantity_available: 0, ..valid_listing() };
+        let listing = Listing {
+            quantity_available: 0,
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -596,11 +628,16 @@ mod tests {
     #[test]
     fn test_all_listing_categories() {
         let categories = vec![
-            ListingCategory::Electronics, ListingCategory::Fashion,
-            ListingCategory::HomeGarden, ListingCategory::SportsOutdoors,
-            ListingCategory::BooksMedia, ListingCategory::ToysGames,
-            ListingCategory::HealthBeauty, ListingCategory::Automotive,
-            ListingCategory::ArtCollectibles, ListingCategory::Other,
+            ListingCategory::Electronics,
+            ListingCategory::Fashion,
+            ListingCategory::HomeGarden,
+            ListingCategory::SportsOutdoors,
+            ListingCategory::BooksMedia,
+            ListingCategory::ToysGames,
+            ListingCategory::HealthBeauty,
+            ListingCategory::Automotive,
+            ListingCategory::ArtCollectibles,
+            ListingCategory::Other,
         ];
         assert_eq!(categories.len(), 10);
     }
@@ -608,8 +645,10 @@ mod tests {
     #[test]
     fn test_all_listing_statuses() {
         let statuses = vec![
-            ListingStatus::Active, ListingStatus::Sold,
-            ListingStatus::Inactive, ListingStatus::Deleted,
+            ListingStatus::Active,
+            ListingStatus::Sold,
+            ListingStatus::Inactive,
+            ListingStatus::Deleted,
         ];
         assert_eq!(statuses.len(), 4);
     }
@@ -627,28 +666,40 @@ mod tests {
 
     #[test]
     fn test_validate_listing_title_exactly_200_chars() {
-        let listing = Listing { title: "x".repeat(200), ..valid_listing() };
+        let listing = Listing {
+            title: "x".repeat(200),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_listing_description_exactly_5000_chars() {
-        let listing = Listing { description: "x".repeat(5000), ..valid_listing() };
+        let listing = Listing {
+            description: "x".repeat(5000),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_listing_single_char_title() {
-        let listing = Listing { title: "A".to_string(), ..valid_listing() };
+        let listing = Listing {
+            title: "A".to_string(),
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_listing_min_price() {
-        let listing = Listing { price_cents: 1, ..valid_listing() };
+        let listing = Listing {
+            price_cents: 1,
+            ..valid_listing()
+        };
         let result = validate_listing_data(&listing).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }

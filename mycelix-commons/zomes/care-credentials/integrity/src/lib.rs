@@ -120,13 +120,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::CareCredential(cred) => validate_update_credential(cred),
-                EntryTypes::CareReference(reference) => validate_update_reference(reference),
+                EntryTypes::CareReference(reference) => {
+                    validate_update_reference(action, reference)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -226,9 +228,24 @@ fn validate_credential_type_other(credential_type: &CredentialType) -> Result<()
 }
 
 fn validate_create_credential(
-    _action: Create,
+    action: Create,
     cred: CareCredential,
 ) -> ExternResult<ValidateCallbackResult> {
+    if cred.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "CareCredential holder must be the committing agent (self-attested credential; \
+             matches CareReference.from_recipient's binding below)"
+                .to_string(),
+        ));
+    }
+    if cred.verified {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New credentials must start unverified -- only the separate, higher-trust \
+             verify_credential path (civic_requirement_proposal) may mark a credential \
+             verified"
+                .to_string(),
+        ));
+    }
     if cred.issuer.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Issuer cannot be empty".into(),
@@ -303,9 +320,14 @@ fn validate_update_credential(cred: CareCredential) -> ExternResult<ValidateCall
 }
 
 fn validate_create_reference(
-    _action: Create,
+    action: Create,
     reference: CareReference,
 ) -> ExternResult<ValidateCallbackResult> {
+    if reference.from_recipient != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reference from_recipient must match the committing agent".into(),
+        ));
+    }
     if reference.rating < 1 || reference.rating > 5 {
         return Ok(ValidateCallbackResult::Invalid(
             "Rating must be between 1 and 5".into(),
@@ -339,7 +361,15 @@ fn validate_create_reference(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_reference(reference: CareReference) -> ExternResult<ValidateCallbackResult> {
+fn validate_update_reference(
+    action: Update,
+    reference: CareReference,
+) -> ExternResult<ValidateCallbackResult> {
+    if reference.from_recipient != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reference from_recipient must match the committing agent".into(),
+        ));
+    }
     if reference.rating < 1 || reference.rating > 5 {
         return Ok(ValidateCallbackResult::Invalid(
             "Rating must be between 1 and 5".into(),
@@ -751,11 +781,16 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_credential_verified_true() {
+    fn test_validate_credential_verified_true_rejected_on_create() {
+        // A credential must start unverified -- self-declaring verified=true on
+        // create would bypass the higher-trust verify_credential gate entirely.
         let mut cred = valid_credential();
         cred.verified = true;
         let result = validate_create_credential(valid_create_action(), cred).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        if let ValidateCallbackResult::Invalid(msg) = result {
+            assert!(msg.contains("must start unverified"));
+        }
     }
 
     #[test]
@@ -764,6 +799,30 @@ mod tests {
         cred.verified = false;
         let result = validate_create_credential(valid_create_action(), cred).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_validate_credential_holder_matches_author_is_valid() {
+        let cred = valid_credential();
+        let action = valid_create_action();
+        assert_eq!(cred.holder, action.author);
+        let result = validate_create_credential(action, cred).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_validate_credential_holder_mismatch_rejected() {
+        // holder must be the committing agent (self-attestation) -- otherwise any
+        // basic-tier agent could fabricate a credential claiming someone else holds it.
+        let mut cred = valid_credential();
+        cred.holder = valid_agent_key_2();
+        let action = valid_create_action();
+        assert_ne!(cred.holder, action.author);
+        let result = validate_create_credential(action, cred).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        if let ValidateCallbackResult::Invalid(msg) = result {
+            assert!(msg.contains("holder must be the committing agent"));
+        }
     }
 
     #[test]
@@ -792,18 +851,58 @@ mod tests {
     // CareReference Validation Tests
     // ============================================================================
 
+    /// valid_reference()'s from_recipient is valid_agent_key_2(); the
+    /// committing action's author must match it under the new bind.
+    fn valid_reference_create_action() -> Create {
+        let mut action = valid_create_action();
+        action.author = valid_agent_key_2();
+        action
+    }
+
+    fn valid_reference_update_action() -> Update {
+        Update {
+            author: valid_agent_key_2(),
+            timestamp: valid_timestamp(),
+            action_seq: 1,
+            prev_action: holo_hash::ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: holo_hash::ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: holo_hash::EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef {
+                entry_index: 0.into(),
+                zome_index: 0.into(),
+                visibility: EntryVisibility::Public,
+            }),
+            entry_hash: holo_hash::EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
     #[test]
     fn test_validate_reference_valid() {
         let reference = valid_reference();
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_validate_reference_forged_from_recipient_rejected() {
+        let reference = valid_reference();
+        // valid_create_action()'s author (valid_agent_key()) doesn't match
+        // from_recipient (valid_agent_key_2()).
+        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("from_recipient must match"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]
     fn test_validate_reference_rating_1() {
         let mut reference = valid_reference();
         reference.rating = 1;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -811,7 +910,7 @@ mod tests {
     fn test_validate_reference_rating_2() {
         let mut reference = valid_reference();
         reference.rating = 2;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -819,7 +918,7 @@ mod tests {
     fn test_validate_reference_rating_3() {
         let mut reference = valid_reference();
         reference.rating = 3;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -827,7 +926,7 @@ mod tests {
     fn test_validate_reference_rating_4() {
         let mut reference = valid_reference();
         reference.rating = 4;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -835,7 +934,7 @@ mod tests {
     fn test_validate_reference_rating_5() {
         let mut reference = valid_reference();
         reference.rating = 5;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -843,7 +942,7 @@ mod tests {
     fn test_validate_reference_rating_0() {
         let mut reference = valid_reference();
         reference.rating = 0;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Rating must be between 1 and 5");
@@ -854,7 +953,7 @@ mod tests {
     fn test_validate_reference_rating_6() {
         let mut reference = valid_reference();
         reference.rating = 6;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Rating must be between 1 and 5");
@@ -865,7 +964,7 @@ mod tests {
     fn test_validate_reference_rating_255() {
         let mut reference = valid_reference();
         reference.rating = 255;
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Rating must be between 1 and 5");
@@ -876,7 +975,7 @@ mod tests {
     fn test_validate_reference_comment_empty() {
         let mut reference = valid_reference();
         reference.comment = "".to_string();
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Comment cannot be empty");
@@ -887,7 +986,7 @@ mod tests {
     fn test_validate_reference_comment_too_long() {
         let mut reference = valid_reference();
         reference.comment = "a".repeat(2049);
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Comment must be 2048 characters or fewer");
@@ -898,7 +997,7 @@ mod tests {
     fn test_validate_reference_comment_exactly_2048() {
         let mut reference = valid_reference();
         reference.comment = "a".repeat(2048);
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -906,7 +1005,7 @@ mod tests {
     fn test_validate_reference_care_type_empty() {
         let mut reference = valid_reference();
         reference.care_type = "".to_string();
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Care type cannot be empty");
@@ -917,7 +1016,7 @@ mod tests {
     fn test_validate_reference_care_type_too_long() {
         let mut reference = valid_reference();
         reference.care_type = "a".repeat(129);
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Care type must be 128 characters or fewer");
@@ -928,7 +1027,7 @@ mod tests {
     fn test_validate_reference_care_type_exactly_128() {
         let mut reference = valid_reference();
         reference.care_type = "a".repeat(128);
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -937,6 +1036,8 @@ mod tests {
         let mut reference = valid_reference();
         reference.provider = valid_agent_key();
         reference.from_recipient = valid_agent_key();
+        // author must match from_recipient (valid_agent_key()) to reach the
+        // self-reference check rather than the from_recipient bind.
         let result = validate_create_reference(valid_create_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
@@ -949,7 +1050,7 @@ mod tests {
         let mut reference = valid_reference();
         reference.provider = valid_agent_key();
         reference.from_recipient = valid_agent_key_2();
-        let result = validate_create_reference(valid_create_action(), reference).unwrap();
+        let result = validate_create_reference(valid_reference_create_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -1244,7 +1345,7 @@ mod tests {
     #[test]
     fn test_update_reference_valid() {
         let reference = valid_reference();
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -1252,7 +1353,7 @@ mod tests {
     fn test_update_reference_rating_zero() {
         let mut reference = valid_reference();
         reference.rating = 0;
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Rating must be between 1 and 5");
@@ -1263,7 +1364,7 @@ mod tests {
     fn test_update_reference_rating_six() {
         let mut reference = valid_reference();
         reference.rating = 6;
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Rating must be between 1 and 5");
@@ -1274,7 +1375,7 @@ mod tests {
     fn test_update_reference_comment_empty() {
         let mut reference = valid_reference();
         reference.comment = "".to_string();
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Comment cannot be empty");
@@ -1285,7 +1386,7 @@ mod tests {
     fn test_update_reference_comment_at_limit() {
         let mut reference = valid_reference();
         reference.comment = "a".repeat(2048);
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -1293,7 +1394,7 @@ mod tests {
     fn test_update_reference_comment_too_long() {
         let mut reference = valid_reference();
         reference.comment = "a".repeat(2049);
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Comment must be 2048 characters or fewer");
@@ -1304,7 +1405,7 @@ mod tests {
     fn test_update_reference_care_type_empty() {
         let mut reference = valid_reference();
         reference.care_type = "".to_string();
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Care type cannot be empty");
@@ -1315,7 +1416,7 @@ mod tests {
     fn test_update_reference_care_type_at_limit() {
         let mut reference = valid_reference();
         reference.care_type = "a".repeat(128);
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
@@ -1323,7 +1424,7 @@ mod tests {
     fn test_update_reference_care_type_too_long() {
         let mut reference = valid_reference();
         reference.care_type = "a".repeat(129);
-        let result = validate_update_reference(reference).unwrap();
+        let result = validate_update_reference(valid_reference_update_action(), reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Care type must be 128 characters or fewer");
@@ -1335,7 +1436,11 @@ mod tests {
         let mut reference = valid_reference();
         reference.provider = valid_agent_key();
         reference.from_recipient = valid_agent_key();
-        let result = validate_update_reference(reference).unwrap();
+        // author must match from_recipient (valid_agent_key()) to reach the
+        // self-reference check rather than the from_recipient bind.
+        let mut action = valid_reference_update_action();
+        action.author = valid_agent_key();
+        let result = validate_update_reference(action, reference).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         if let ValidateCallbackResult::Invalid(msg) = result {
             assert_eq!(msg, "Cannot write a reference for yourself");

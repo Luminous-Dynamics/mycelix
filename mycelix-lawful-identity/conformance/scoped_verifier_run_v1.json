@@ -1,0 +1,21 @@
+{
+  "expected_evidence_hash_b64": "Hq7bYDaBsLJS5XnqREPW63tTjW10t/KC1zYwhAu7MYw=",
+  "expected_proof_hash_b64": "B+E2yicY3S/MLaB/ypcLdUSWCnIYhibe03Zosu/5RJI=",
+  "expected_request_hash_b64": "TFPAwGzAVvx+qeMepiOvLEWc/lAxJhIAWD5fFklCBqE=",
+  "expected_result_hash_b64": "hvArTjRjuS3M1KrtRbwtkgCrjjbg69XJSMA/hsIAxh0=",
+  "request": {
+    "challenge_nonce_hash_b64": "IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiI=",
+    "circuit_digest_b64": "/skGRskHl7Wn/SrMqo/fe2qv9L1b49Hul+VOlD99W1I=",
+    "lawful_pseudonym_b64": "qEqkTdYR5ZXwvA5dBDNnEqu3h9fDmOeXwMuDV7QNxVM=",
+    "primary_pseudonym_b64": "CMeV8rjt+5NC627lCAQBL8nMgR4RsQUNKTCzjWmSaDs=",
+    "proof_b64": "KHS/oJnOXiCTTqEqov9/GGmLK8xR4x0CfhIFMmCrY1iQEUJ3ojgA5gXywQ5YmyrQx/aEy8k0+TEgdAKraiJwK6V9TIqcZV0agh5/WZm7QgDFmsii4v880hPXz927NqwC",
+    "protocol": "mycelix-scoped-subject-binding-verifier-request-v1",
+    "pseudonym_scope_hash_b64": "MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM=",
+    "relation_id": "ristretto255:dleq-scoped-subject-binding:v2",
+    "statement_context_hash_b64": "ERERERERERERERERERERERERERERERERERERERERERE=",
+    "verifier_implementation": "mycelix-zkp-core/ristretto-dleq-scoped-subject-binding/v2",
+    "verifier_parameter_id_b64": "96eQioeOHWBKlcl4HHEZrW0q8U4x6EbVJSyBXVxjc4o=",
+    "verifier_release_manifest_hash_b64": "TcVnvzNNax9frFGFxbW3VlHbsRcj1jtDlVo9PJ7bK3c="
+  },
+  "schema": "mycelix-scoped-verifier-run-conformance-v1"
+}

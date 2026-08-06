@@ -11,6 +11,7 @@
 
 use crate::holochain::{ConnectionStatus, use_holochain};
 use leptos::prelude::*;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::spawn_local;
 
 #[derive(Clone, PartialEq)]
@@ -72,22 +73,56 @@ impl Platform {
     }
 }
 
+/// Return whether the browser bootstrap has established the canonical bridge.
+fn bridge_connected(require_caller: bool) -> bool {
+    let Some(window) = web_sys::window() else {
+        return false;
+    };
+    let target: &JsValue = window.as_ref();
+    let status = js_sys::Reflect::get(target, &JsValue::from_str("__HC_STATUS"))
+        .ok()
+        .and_then(|value| value.as_string());
+
+    if status.as_deref() != Some("connected") {
+        return false;
+    }
+    if !require_caller {
+        return true;
+    }
+
+    js_sys::Reflect::get(target, &JsValue::from_str("__HC_CALL_ZOME"))
+        .ok()
+        .and_then(|value| value.dyn_into::<js_sys::Function>().ok())
+        .is_some()
+}
+
 /// Probe a WebSocket port to check for a conductor.
 async fn probe_port(port: u16) -> bool {
     let url = format!("ws://localhost:{port}");
-    let result = js_sys::eval(&format!(
-        "new Promise((resolve) => {{ try {{ const ws = new WebSocket('{url}'); const t = setTimeout(() => {{ ws.close(); resolve(false); }}, 2000); ws.onopen = () => {{ clearTimeout(t); ws.close(); resolve(true); }}; ws.onerror = () => {{ clearTimeout(t); resolve(false); }}; }} catch(e) {{ resolve(false); }} }})"
-    ));
-    match result {
-        Ok(promise) => {
-            let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-            match future.await {
-                Ok(val) => val.as_bool().unwrap_or(false),
-                Err(_) => false,
+    let Ok(socket) = web_sys::WebSocket::new(&url) else {
+        return false;
+    };
+
+    // Polling avoids installing content-derived JavaScript handlers while still
+    // bounding the probe. The socket is always closed before returning.
+    for _ in 0..40 {
+        match socket.ready_state() {
+            web_sys::WebSocket::OPEN => {
+                let _ = socket.close();
+                return true;
+            }
+            web_sys::WebSocket::CLOSING | web_sys::WebSocket::CLOSED => {
+                let _ = socket.close();
+                return false;
+            }
+            _ => {
+                gloo_timers::future::sleep(std::time::Duration::from_millis(50)).await;
             }
         }
-        Err(_) => false,
     }
+
+    let _ = socket.close();
+    false
 }
 
 #[component]
@@ -103,12 +138,7 @@ pub fn ConductorSetup() -> impl IntoView {
     // Check if the JS bridge already connected (works on both local and remote)
     spawn_local(async move {
         // First check: did the JS bootstrap in index.html already connect?
-        let js_connected = js_sys::eval(
-            "window.__HC_STATUS === 'connected' && typeof window.__HC_CALL_ZOME === 'function'",
-        )
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+        let js_connected = bridge_connected(true);
 
         if js_connected {
             web_sys::console::log_1(&"[Setup] JS bridge already connected".into());
@@ -135,10 +165,7 @@ pub fn ConductorSetup() -> impl IntoView {
         // Poll for JS bridge connection (handles async race with bootstrap)
         for _ in 0..20 {
             gloo_timers::future::sleep(std::time::Duration::from_millis(500)).await;
-            let connected = js_sys::eval("window.__HC_STATUS === 'connected'")
-                .ok()
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
+            let connected = bridge_connected(false);
             if connected || hc.status.get_untracked() == ConnectionStatus::Connected {
                 state.set(SetupState::Connected);
                 return;
@@ -162,10 +189,9 @@ pub fn ConductorSetup() -> impl IntoView {
     });
 
     let copy_command = move |_| {
-        let _ = js_sys::eval(&format!(
-            "navigator.clipboard.writeText('{}').then(() => {{}})",
-            install_cmd
-        ));
+        if let Some(window) = web_sys::window() {
+            let _ = window.navigator().clipboard().write_text(install_cmd);
+        }
     };
 
     view! {

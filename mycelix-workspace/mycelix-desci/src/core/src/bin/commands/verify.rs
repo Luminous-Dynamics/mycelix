@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-use mycelix_desci_core::{claims::DesciClaim, hash, Result};
+use mycelix_desci_core::{Result, claims::DesciClaim, hash};
 use std::path::PathBuf;
 use tracing::info;
 
@@ -22,9 +22,8 @@ pub async fn execute(claim_id: String, file: Option<PathBuf>) -> Result<()> {
         mycelix_desci_core::Error::Generic(format!("Failed to read claim file: {}", e))
     })?;
 
-    let claim: DesciClaim = DesciClaim::from_json(&claim_json).map_err(|e| {
-        mycelix_desci_core::Error::Generic(format!("Failed to parse claim: {}", e))
-    })?;
+    let claim: DesciClaim = DesciClaim::from_json(&claim_json)
+        .map_err(|e| mycelix_desci_core::Error::Generic(format!("Failed to parse claim: {}", e)))?;
 
     println!("Claim Information:");
     println!("  ID: {}", claim.id);
@@ -37,9 +36,19 @@ pub async fn execute(claim_id: String, file: Option<PathBuf>) -> Result<()> {
     // Verify tier requirements
     let is_valid_tier = claim.is_valid_for_tier();
     println!("\nTier Validation:");
-    println!("  Required verifications: {}", claim.epistemic_tier.min_verifications());
+    println!(
+        "  Required verifications: {}",
+        claim.epistemic_tier.min_verifications()
+    );
     println!("  Current verifications: {}", claim.verifications.len());
-    println!("  Status: {}", if is_valid_tier { "✓ Valid" } else { "✗ Invalid - needs more verifications" });
+    println!(
+        "  Status: {}",
+        if is_valid_tier {
+            "✓ Valid"
+        } else {
+            "✗ Invalid - needs more verifications"
+        }
+    );
 
     // If file provided, verify hash
     if let Some(file_path) = file {
@@ -50,7 +59,8 @@ pub async fn execute(claim_id: String, file: Option<PathBuf>) -> Result<()> {
         } else {
             // Parse the stored hash
             let expected_hash = hash::Hash::from_string(&claim.content.dataset_hash)?;
-            let computed_hash = hash::hash_file_with_algorithm(&file_path, expected_hash.algorithm)?;
+            let computed_hash =
+                hash::hash_file_with_algorithm(&file_path, expected_hash.algorithm)?;
 
             if computed_hash.bytes == expected_hash.bytes {
                 println!("  ✓ Hash matches!");

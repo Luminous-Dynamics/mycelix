@@ -1,0 +1,40 @@
+# Known placeholder-only tracked files, as of the last baseline update.
+# The integrity check fails on any placeholder NOT listed here, so this
+# file stops the backlog from growing while it is worked down.
+#
+# To retire an entry: implement or delete the file, then re-run
+#   scripts/check-workspace-integrity.py --update-baseline
+# Do NOT add entries by hand to silence a new failure — that is the
+# exact habit this guard exists to break.
+# See MYCELIX_COMPREHENSIVE_REVIEW_2026-07-28.md (F3).
+apps/leptos/src/components/nav.rs
+holochain/zomes/capabilities/coordinator/src/lib.rs
+holochain/zomes/mail-bridge/coordinator/src/lib.rs
+holochain/zomes/mail-bridge/integrity/src/lib.rs
+mycelix-hearth/.github/workflows/clone-cell-contract.yml
+mycelix-hearth/.github/workflows/static-contracts.yml
+mycelix-hearth/apps/leptos/src/hearth_clone.rs
+mycelix-hearth/mycelix-leptos-client/src/browser.rs
+mycelix-hearth/mycelix-leptos-client/src/lib.rs
+mycelix-hearth/mycelix-leptos-client/src/types.rs
+mycelix-hearth/mycelix-leptos-core/src/holochain_provider.rs
+mycelix-prism/Cargo.toml
+mycelix-prism/prism-attestation/Cargo.toml
+mycelix-prism/prism-attestation/src/bin/admit_release_promotion.rs
+mycelix-prism/prism-attestation/src/bin/audit_release_promotions.rs
+mycelix-prism/prism-attestation/src/bin/prepare_release_health.rs
+mycelix-prism/prism-attestation/src/bin/verify_release_health.rs
+mycelix-prism/prism-attestation/src/bin/verify_release_promotion.rs
+mycelix-prism/prism-attestation/src/build_evidence.rs
+mycelix-prism/prism-attestation/src/lib.rs
+mycelix-prism/prism-attestation/src/promotion.rs
+mycelix-prism/prism-attestation/src/promotion_state.rs
+mycelix-prism/prism-attestation/src/release_health.rs
+mycelix-prism/prism-ingest/src/review_agent.rs
+mycelix-prism/prism-security-tests/src/lib.rs
+mycelix-pulse/apps/leptos/src/browser.rs
+mycelix-supplychain/crates/supplychain-proof-policy/src/lib.rs
+mycelix-supplychain/crates/supplychain-proof-policy/src/policy_authorization.rs
+src/lib.rs
+src/promotion.rs
+src/verifier_release.rs

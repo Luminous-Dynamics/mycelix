@@ -50,6 +50,12 @@ export type BondType =
 
 export type InvitationStatus = 'Pending' | 'Accepted' | 'Declined' | 'Expired';
 
+export type InvitationDecision = 'Accepted' | 'Declined';
+
+export type MembershipAdmission =
+  | 'Founder'
+  | { Invitation: { invitation_hash: ActionHash; response_hash: ActionHash } };
+
 // ============================================================================
 // Enums — Decisions
 // ============================================================================
@@ -235,6 +241,7 @@ export interface HearthMembership {
   status: MembershipStatus;
   display_name: string;
   joined_at: Timestamp;
+  admission: MembershipAdmission;
 }
 
 export interface KinshipBond {
@@ -255,6 +262,15 @@ export interface HearthInvitation {
   message: string;
   expires_at: Timestamp;
   status: InvitationStatus;
+}
+
+export interface InvitationResponse {
+  hearth_hash: ActionHash;
+  invitation_hash: ActionHash;
+  invitee_agent: AgentPubKey;
+  decision: InvitationDecision;
+  display_name?: string;
+  responded_at: Timestamp;
 }
 
 // ============================================================================

@@ -44,7 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Verify file integrity
     println!("Verifying file integrity...");
     let is_valid = hash::verify_file(temp_file.path(), &blake3_hash)?;
-    println!("  ✓ Verification: {}", if is_valid { "PASSED" } else { "FAILED" });
+    println!(
+        "  ✓ Verification: {}",
+        if is_valid { "PASSED" } else { "FAILED" }
+    );
     println!();
 
     // 5. Hash bytes directly
@@ -66,10 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         b"Chunk 4: Dataset footer".as_slice(),
     ];
 
-    let chunk_hashes: Vec<_> = chunks
-        .iter()
-        .map(|chunk| hash::hash_bytes(chunk))
-        .collect();
+    let chunk_hashes: Vec<_> = chunks.iter().map(|chunk| hash::hash_bytes(chunk)).collect();
 
     println!("  Individual chunk hashes:");
     for (i, h) in chunk_hashes.iter().enumerate() {

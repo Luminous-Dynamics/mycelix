@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "recovery_drill_plan": "/absolute/private/prism-recovery-drill-plan.json",
+  "release_journal_audit": "/absolute/private/prism-release-journal-audit.json",
+  "transparency_journal_audit": "/absolute/private/prism-transparency-journal-audit.json",
+  "archive_restore_receipt": "/absolute/private/prism-archive-restore.json",
+  "recovery_drill_receipt": "/absolute/private/prism-recovery-drill.json",
+  "promotion_receipt": "/absolute/private/prism-promotion.json",
+  "promotion_head": "/absolute/private/prism-promotion-head.json",
+  "promotion_audit": "/absolute/private/prism-promotion-audit.json",
+  "source_release_audit": "/absolute/private/prism-source-release-audit.json",
+  "target_release_audit": "/absolute/private/prism-target-release-audit.json",
+  "promotion_recovery_receipt": "/absolute/private/prism-promotion-recovery.json",
+  "promotion_policy_history": "/absolute/private/prism-promotion-policy-history.json",
+  "promotion_policy_history_receipt": "/absolute/private/prism-promotion-policy-history-receipt.json",
+  "source_channel": "beta",
+  "target_channel": "stable"
+}

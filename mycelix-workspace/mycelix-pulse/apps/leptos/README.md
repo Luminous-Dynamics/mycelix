@@ -1,121 +1,102 @@
-# Mycelix Pulse — Decentralized Communication Platform
+# Mycelix Pulse — Security-Focused Working Alpha
 
-Mail, chat, video calls, and calendar in one encrypted app. Built on Holochain.
+Mycelix Pulse is an authenticated encrypted-messaging alpha built with Leptos
+and Holochain. The canonical release surface is deliberately smaller than the
+repository's wider product vision.
 
-**Live:** [mail.mycelix.net](https://mail.mycelix.net)
+**Canonical public origin:** `mail.mycelix.net`
 
-## What It Is
+## Implemented alpha claim
 
-Mycelix Pulse is a unified communication workspace where messages are encrypted by default (post-quantum cryptography), data lives on a distributed hash table (no central server), and spam is prevented by economic trust (not ML that reads your mail).
+The supported browser path provides:
 
-## Features
+- device-local X25519 and ML-KEM-768 recipient keys;
+- AES-256-GCM message encryption;
+- Ed25519 agent authentication plus ML-DSA-65 bundle authentication;
+- canonical transcript and AAD encoding;
+- Holochain profiles, trust, keys, messages, and capability zomes;
+- a plaintext-by-construction composer and renderer;
+- explicit Live, Demo, and Unavailable runtime states;
+- a service worker that never handles or caches `/api/*` credentials;
+- same-browser-profile wrapped-key recovery through IndexedDB.
 
-- **12 pages**: Inbox, Compose, Read, Contacts, Search, Settings, Drafts, Accounts, Calendar, Chat, Meet
-- **41+ commodity features**: Threading, labels, batch actions, rich text compose, search operators, keyboard shortcuts, dark/light themes, PWA, offline queue
-- **14 unique features**: PQC encryption (Kyber1024 + Dilithium3), trust-gated inbox (TEND staking), revocable email, CRDT offline sync, federation (SMTP/Matrix/ActivityPub), immune memory, attention budgets
-- **Command palette** (Cmd+K): Search and execute any action
-- **Theme engine**: 10 named themes, accent color picker, density slider, custom CSS injection
+Calendar, contacts, search, chat, meetings, SMTP federation, economic staking,
+and other screens remain experimental or frozen unless
+`docs/SURFACE_STATUS.md` says otherwise. Their presence is not a release claim.
 
-## Architecture
+## Canonical architecture
 
+```text
+Leptos WASM
+    │
+    ├── POST /api/token and /api/signing-credentials
+    │       └── authenticated loopback credential broker
+    │               └── private Holochain admin interface
+    │
+    └── authenticated app WebSocket
+            └── restricted alpha hApp
+                    ├── mail_profiles
+                    ├── mail_trust
+                    ├── mail_keys
+                    ├── mail_messages
+                    └── mail_capabilities
 ```
-Leptos 0.8 (WASM) → WebSocket → Holochain Conductor → DHT
-                                      ↓
-                              12 zomes (messages, keys, contacts,
-                              trust, federation, sync, search,
-                              backup, scheduler, audit, capabilities)
-```
+
+The installed app id and role remain `mycelix_mail` and `main` for compatibility.
 
 ## Build
 
+The Leptos crate has path dependencies on the surrounding Mycelix workspace.
+Build from the complete workspace, not from this directory in isolation.
+
 ```bash
-# Prerequisites: Rust, trunk, wasm32-unknown-unknown target
 rustup target add wasm32-unknown-unknown
 cargo install trunk
-
-# Build
 cd apps/leptos
 trunk build --release
-
-# Serve locally
-trunk serve  # → http://localhost:8117
 ```
 
-## Deploy
+## Local runtime
+
+A local app interface normally listens at `ws://localhost:8888`. Live mode is
+published only after transport authentication, signer acquisition, a signed
+`mail_profiles.get_my_profile` call, and response decoding all succeed. Failure
+becomes **Unavailable**; the app does not silently replace Live data with demo
+data. Demo mode requires an explicit path.
+
+## Credential broker
+
+The browser must never reach the Holochain admin interface. Deploy the reference
+broker on loopback behind an authenticating reverse proxy:
 
 ```bash
-# NixOS (production)
-sudo cp _infrastructure/nixos/mail-services.nix /etc/nixos/
-# Add to configuration.nix imports
-sudo nixos-rebuild switch
-
-# Or manual
-./deploy.sh
+npm ci --prefix scripts/live-browser-proof --omit=dev
+npm test --prefix services/pulse-credential-broker
+npm start --prefix services/pulse-credential-broker
 ```
 
-## Holochain Conductor
+See `services/pulse-credential-broker/README.md` and
+`deploy/nginx/pulse-security-headers.conf` for the required trust boundary.
 
-The app connects to a local Holochain conductor on `ws://localhost:8888`. Without a conductor, it runs in mock mode with sample data.
+## Verification
 
-The product name is now `Mycelix Pulse`, but the installed Holochain app id and
-role names remain `mycelix_mail` for compatibility until a migration is
-completed.
+Fast source and manifest guard:
 
 ```bash
-# Start conductor
-printf "\n" | holochain -c conductor-config.yaml --piped
-
-# Install hApp
-hc sandbox call --running 33800 install-app mycelix_mail.happ
-hc sandbox call --running 33800 enable-app mycelix_mail
-hc sandbox call --running 33800 add-app-ws 8888
+python3 scripts/verify-pulse-alpha-boundary.py
+node --test services/pulse-credential-broker/test/*.test.mjs
 ```
 
-## IMAP Bridge (Legacy Email)
+The full live-browser proof drives two conductors and two independent browser
+contexts through onboarding, wrapped-identity reload recovery, send, gossip,
+verification, decryption, and rendering. See `scripts/live-browser-proof/`.
 
-Connect Gmail, Outlook, Yahoo, etc. to receive legacy email alongside Holochain-native messages.
+## Repository status
 
-```bash
-cd bridge
-cargo build --release
-MAIL_BRIDGE_CONFIG=bridge-config.toml ./target/release/mycelix-mail-bridge
-```
-
-## Project Structure
-
-```
-apps/leptos/           Leptos WASM frontend (this crate)
-  src/pages/           12 page components
-  src/components/      14 shared components
-  style/main.css       2600+ lines of design system
-  public/              PWA manifest, service worker, landing page
-bridge/                IMAP/SMTP bridge agent (Rust)
-crates/mail-leptos-types/  WASM-safe view types
-holochain/             12 zomes + DNA + hApp bundle (18MB)
-```
-
-## Metrics
-
-| Metric | Value |
-|--------|-------|
-| Rust LOC | ~7,400 |
-| CSS LOC | ~2,600 |
-| WASM | 669KB gzipped |
-| Pages | 12 + landing |
-| Zomes | 12 |
-| hApp size | 18MB |
-
-## Planning Documents
-
-- [ROADMAP.md](../../ROADMAP.md) — 30 paradigm features, 4 phases
-- [WORKSPACE_PLAN.md](../../WORKSPACE_PLAN.md) — Full Teams competitor plan
-- [CALENDAR_PLAN.md](../../CALENDAR_PLAN.md) — Calendar with attention budgets
-- [COMPETITIVE_ANALYSIS.md](../../COMPETITIVE_ANALYSIS.md) — Gmail/Outlook feature matrix
+`docs/SURFACE_STATUS.md` is authoritative. Legacy React, Node, desktop, mobile,
+SMTP, alternate DNA, and broad deployment trees remain reference or
+experimental surfaces until explicitly promoted.
 
 ## License
 
 AGPL-3.0-or-later
-
----
-
-*Consciousness-first technology serving all beings* — [Luminous Dynamics](https://luminousdynamics.org)

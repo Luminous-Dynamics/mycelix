@@ -154,6 +154,9 @@ pub struct BackupMetadata {
 pub struct BackupChunk {
     /// Parent backup ID
     pub backup_id: String,
+    /// The BackupManifest this chunk belongs to. Lets a validator confirm the
+    /// chunk's committer actually owns the backup it claims to be part of.
+    pub manifest_hash: ActionHash,
     /// Chunk index (0-based)
     pub chunk_index: u32,
     /// Total chunks
@@ -415,6 +418,30 @@ fn validate_create_entry(
                     "Invalid chunk index".to_string(),
                 ));
             }
+
+            // Cross-check that this chunk really belongs to the committer's own
+            // backup -- without this, any agent could submit a BackupChunk citing
+            // someone else's backup_id, polluting or forging pieces of their backup.
+            let manifest_record = must_get_valid_record(chunk.manifest_hash.clone())?;
+            let manifest: BackupManifest = manifest_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "manifest_hash entry must decode as BackupManifest".to_string()
+                )))?;
+
+            if manifest.agent != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "BackupChunk's manifest is not owned by the chunk's committer".to_string(),
+                ));
+            }
+            if manifest.backup_id != chunk.backup_id {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "BackupChunk's backup_id does not match its manifest_hash".to_string(),
+                ));
+            }
+
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::RestoreOperation(restore) => {
@@ -425,9 +452,6 @@ fn validate_create_entry(
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        // BackupChunk has no owner field and no cross-check that its backup_id really
-        // belongs to the committer's own manifest -- deferred, needs must_get
-        // cross-verification (see memory/mycelix_attribution_author_binding_jul8.md).
         EntryTypes::BackupSchedule(schedule) => {
             // Bind to its committer -- set_backup_schedule already overrides `.agent` from
             // agent_info() coordinator-side despite taking the whole struct as raw input,
@@ -439,5 +463,193 @@ fn validate_create_entry(
             }
             Ok(ValidateCallbackResult::Valid)
         }
+    }
+}
+
+/// Proves the P0 author-binding fix: a BackupChunk citing a manifest_hash whose real
+/// owner differs from the chunk's own committer is rejected (previously any agent could
+/// submit a chunk citing someone else's backup_id). Mocks the HDI host's
+/// `must_get_valid_record` so this runs as a plain `cargo test`, no live conductor needed.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockRecordHdi {
+        records: std::collections::HashMap<ActionHash, Record>,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            self.records
+                .get(&input.0)
+                .cloned()
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("no such record in mock".into())))
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by this fix")
+        }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<SerializedBytes>,
+        <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_manifest(agent: AgentPubKey, backup_id: &str) -> BackupManifest {
+        BackupManifest {
+            backup_id: backup_id.to_string(),
+            agent,
+            backup_type: BackupType::Full,
+            contents: BackupContents::default(),
+            created_at: Timestamp::from_micros(0),
+            size_bytes: 100,
+            entry_count: 1,
+            checksum: vec![1, 2, 3],
+            encryption: BackupEncryption {
+                is_encrypted: true,
+                algorithm: None,
+                kdf: None,
+                salt: None,
+                nonce: None,
+                key_hint: None,
+            },
+            status: BackupStatus::Completed,
+            metadata: BackupMetadata {
+                app_version: "1".to_string(),
+                dna_version: "1".to_string(),
+                device_id: None,
+                device_name: None,
+                notes: None,
+                tags: vec![],
+            },
+        }
+    }
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn chunk_citing_someone_elses_manifest_is_rejected() {
+        let real_owner = AgentPubKey::from_raw_36(vec![1; 36]);
+        let impostor = AgentPubKey::from_raw_36(vec![99; 36]);
+        let manifest_hash = ActionHash::from_raw_36(vec![10; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                manifest_hash.clone(),
+                wrap_entry_record(real_owner.clone(), test_manifest(real_owner, "backup-1")),
+            )]),
+        });
+
+        let chunk = EntryTypes::BackupChunk(BackupChunk {
+            backup_id: "backup-1".to_string(),
+            manifest_hash,
+            chunk_index: 0,
+            total_chunks: 1,
+            data: vec![1, 2, 3],
+            checksum: vec![4, 5, 6],
+        });
+
+        let result = validate_create_entry(chunk, test_action(impostor)).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "a BackupChunk whose manifest_hash is not owned by the chunk's committer must \
+             be rejected -- previously any agent could submit a chunk citing someone else's \
+             backup_id"
+        );
+    }
+
+    #[test]
+    fn chunk_citing_its_own_manifest_is_accepted() {
+        let owner = AgentPubKey::from_raw_36(vec![1; 36]);
+        let manifest_hash = ActionHash::from_raw_36(vec![10; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                manifest_hash.clone(),
+                wrap_entry_record(owner.clone(), test_manifest(owner.clone(), "backup-1")),
+            )]),
+        });
+
+        let chunk = EntryTypes::BackupChunk(BackupChunk {
+            backup_id: "backup-1".to_string(),
+            manifest_hash,
+            chunk_index: 0,
+            total_chunks: 1,
+            data: vec![1, 2, 3],
+            checksum: vec![4, 5, 6],
+        });
+
+        let result = validate_create_entry(chunk, test_action(owner)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 }

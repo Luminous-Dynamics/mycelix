@@ -91,11 +91,7 @@ pub fn PresenceValidator(
 }
 
 #[component]
-pub fn SafetyGuard<F, IV>(children: F) -> impl IntoView
-where
-    F: Fn() -> IV + Send + 'static,
-    IV: IntoView + 'static,
-{
+pub fn SafetyGuard(children: ChildrenFn) -> impl IntoView {
     let progress = use_progress();
     let is_safe = move || progress.get().get("VOC-000-S").status == ProgressStatus::Mastered;
 

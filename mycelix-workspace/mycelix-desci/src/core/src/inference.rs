@@ -450,10 +450,7 @@ impl InferenceEngine {
                         let b = citers[j];
 
                         // Check if they already have a relationship
-                        let has_relation = graph
-                            .outgoing(a)
-                            .iter()
-                            .any(|e| e.to == b)
+                        let has_relation = graph.outgoing(a).iter().any(|e| e.to == b)
                             || graph.outgoing(b).iter().any(|e| e.to == a);
 
                         if !has_relation {
@@ -474,7 +471,10 @@ impl InferenceEngine {
         let mut dependent_sources: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
         for edge in graph.edges() {
             if edge.relation_type == ClaimRelationType::DependsOn {
-                dependent_sources.entry(edge.from).or_default().push(edge.to);
+                dependent_sources
+                    .entry(edge.from)
+                    .or_default()
+                    .push(edge.to);
             }
         }
 
@@ -493,10 +493,7 @@ impl InferenceEngine {
                         let a = sources[i];
                         let b = sources[j];
 
-                        let has_relation = graph
-                            .outgoing(a)
-                            .iter()
-                            .any(|e| e.to == b)
+                        let has_relation = graph.outgoing(a).iter().any(|e| e.to == b)
                             || graph.outgoing(b).iter().any(|e| e.to == a);
 
                         if !has_relation {
@@ -537,8 +534,7 @@ impl InferenceEngine {
             contradictions_found: contradictions.len(),
             suggested_links: suggestions.len(),
             graph_density: if graph.node_count() > 1 {
-                graph.edge_count() as f64
-                    / (graph.node_count() * (graph.node_count() - 1)) as f64
+                graph.edge_count() as f64 / (graph.node_count() * (graph.node_count() - 1)) as f64
             } else {
                 0.0
             },
@@ -618,9 +614,11 @@ mod tests {
         let contradictions = engine.detect_contradictions(&graph);
 
         assert!(!contradictions.is_empty());
-        assert!(contradictions
-            .iter()
-            .any(|c| c.contradiction_type == ContradictionType::DirectRefutation));
+        assert!(
+            contradictions
+                .iter()
+                .any(|c| c.contradiction_type == ContradictionType::DirectRefutation)
+        );
     }
 
     #[test]
@@ -640,9 +638,11 @@ mod tests {
         let engine = InferenceEngine::new();
         let contradictions = engine.detect_contradictions(&graph);
 
-        assert!(contradictions
-            .iter()
-            .any(|c| c.contradiction_type == ContradictionType::InconsistentRelation));
+        assert!(
+            contradictions
+                .iter()
+                .any(|c| c.contradiction_type == ContradictionType::InconsistentRelation)
+        );
     }
 
     #[test]
@@ -665,9 +665,11 @@ mod tests {
         let suggestions = engine.suggest_missing_links(&graph);
 
         // Should suggest A and B are related
-        assert!(suggestions
-            .iter()
-            .any(|s| (s.from == a && s.to == b) || (s.from == b && s.to == a)));
+        assert!(
+            suggestions
+                .iter()
+                .any(|s| (s.from == a && s.to == b) || (s.from == b && s.to == a))
+        );
     }
 
     #[test]

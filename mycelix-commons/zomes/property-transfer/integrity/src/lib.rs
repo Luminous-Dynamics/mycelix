@@ -117,9 +117,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
             OpEntry::UpdateEntry {
-                app_entry, action, ..
+                app_entry,
+                action,
+                original_action_hash,
+                ..
             } => match app_entry {
-                EntryTypes::Transfer(transfer) => validate_update_transfer(action, transfer),
+                EntryTypes::Transfer(transfer) => {
+                    validate_update_transfer(action, transfer, original_action_hash)
+                }
                 EntryTypes::Escrow(escrow) => validate_update_escrow(action, escrow),
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             },
@@ -195,9 +200,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_transfer(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     transfer: Transfer,
 ) -> ExternResult<ValidateCallbackResult> {
+    let expected_from = format!("did:mycelix:{}", action.author());
+    if transfer.from_did != expected_from {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer from_did must be the committing agent (forgery)".into(),
+        ));
+    }
     // --- Empty string checks (required fields) ---
     if transfer.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -246,12 +257,37 @@ fn validate_create_transfer(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Pure logic for a `Transfer` update, factored out of
+/// [`validate_update_transfer`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase). Only the
+/// original seller or buyer may commit status changes to a transfer.
+fn validate_transfer_transition(original: &Transfer, author_did: &str) -> ValidateCallbackResult {
+    if original.from_did != author_did && original.to_did != author_did {
+        return ValidateCallbackResult::Invalid(
+            "Transfer update must be committed by the seller or buyer".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_update_transfer(
-    _action: Update,
+    action: Update,
     _transfer: Transfer,
+    original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Status can be updated
-    Ok(ValidateCallbackResult::Valid)
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_transfer: Transfer = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original transfer entry not found".to_string()
+        )))?;
+    let committer_did = format!("did:mycelix:{}", action.author);
+    Ok(validate_transfer_transition(
+        &original_transfer,
+        &committer_did,
+    ))
 }
 
 fn validate_create_escrow(
@@ -407,6 +443,12 @@ mod tests {
         })
     }
 
+    /// The DID the default `create_test_entry_creation_action()`/
+    /// `create_test_update_action()` author binds to.
+    fn mock_from_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0u8; 36]))
+    }
+
     fn create_test_update_action() -> Update {
         Update {
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
@@ -431,62 +473,21 @@ mod tests {
 
     #[test]
     fn test_transfer_valid_dids() {
+        let transfer = create_test_transfer(&mock_from_did(), "did:key:buyer456");
+        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_transfer_forged_from_did_rejected() {
+        // from_did doesn't match the committing agent's own mycelix DID.
         let transfer = create_test_transfer("did:key:seller123", "did:key:buyer456");
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
-    }
-
-    #[test]
-    fn test_transfer_valid_did_web() {
-        let transfer = create_test_transfer("did:web:example.com", "did:web:buyer.com");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
-    }
-
-    #[test]
-    fn test_transfer_valid_did_pkh() {
-        let transfer = create_test_transfer("did:pkh:eth:0x123", "did:pkh:btc:bc1abc");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
-    }
-
-    #[test]
-    fn test_transfer_invalid_from_did_empty() {
-        let transfer = create_test_transfer("", "did:key:buyer456");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
         match result.unwrap() {
             ValidateCallbackResult::Invalid(msg) => {
-                assert!(msg.contains("Seller must be a valid DID"));
-            }
-            _ => panic!("Expected invalid result"),
-        }
-    }
-
-    #[test]
-    fn test_transfer_invalid_from_did_no_prefix() {
-        let transfer = create_test_transfer("key:seller123", "did:key:buyer456");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        match result.unwrap() {
-            ValidateCallbackResult::Invalid(msg) => {
-                assert!(msg.contains("Seller must be a valid DID"));
-            }
-            _ => panic!("Expected invalid result"),
-        }
-    }
-
-    #[test]
-    fn test_transfer_invalid_from_did_plain_string() {
-        let transfer = create_test_transfer("seller123", "did:key:buyer456");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        match result.unwrap() {
-            ValidateCallbackResult::Invalid(msg) => {
-                assert!(msg.contains("Seller must be a valid DID"));
+                assert!(msg.contains("forgery"));
             }
             _ => panic!("Expected invalid result"),
         }
@@ -494,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_transfer_invalid_to_did_empty() {
-        let transfer = create_test_transfer("did:key:seller123", "");
+        let transfer = create_test_transfer(&mock_from_did(), "");
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
         match result.unwrap() {
@@ -507,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_transfer_invalid_to_did_no_prefix() {
-        let transfer = create_test_transfer("did:key:seller123", "key:buyer456");
+        let transfer = create_test_transfer(&mock_from_did(), "key:buyer456");
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
         match result.unwrap() {
@@ -520,25 +521,12 @@ mod tests {
 
     #[test]
     fn test_transfer_invalid_to_did_plain_string() {
-        let transfer = create_test_transfer("did:key:seller123", "buyer456");
+        let transfer = create_test_transfer(&mock_from_did(), "buyer456");
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
         match result.unwrap() {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(msg.contains("Buyer must be a valid DID"));
-            }
-            _ => panic!("Expected invalid result"),
-        }
-    }
-
-    #[test]
-    fn test_transfer_invalid_both_dids_missing_prefix() {
-        let transfer = create_test_transfer("seller123", "buyer456");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        match result.unwrap() {
-            ValidateCallbackResult::Invalid(msg) => {
-                assert!(msg.contains("Seller must be a valid DID"));
             }
             _ => panic!("Expected invalid result"),
         }
@@ -550,21 +538,7 @@ mod tests {
 
     #[test]
     fn test_transfer_self_transfer_same_did() {
-        let transfer = create_test_transfer("did:key:same123", "did:key:same123");
-        let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
-        assert!(result.is_ok());
-        match result.unwrap() {
-            ValidateCallbackResult::Invalid(msg) => {
-                assert!(msg.contains("Cannot transfer to yourself"));
-            }
-            _ => panic!("Expected invalid result"),
-        }
-    }
-
-    #[test]
-    fn test_transfer_self_transfer_different_methods() {
-        // Even different DID methods with same identifier should be caught
-        let transfer = create_test_transfer("did:key:abc123", "did:key:abc123");
+        let transfer = create_test_transfer(&mock_from_did(), &mock_from_did());
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
         match result.unwrap() {
@@ -578,7 +552,7 @@ mod tests {
     #[test]
     fn test_transfer_not_self_transfer_similar_dids() {
         // Similar but different DIDs should be allowed
-        let transfer = create_test_transfer("did:key:abc123", "did:key:abc124");
+        let transfer = create_test_transfer(&mock_from_did(), "did:key:abc124");
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
@@ -587,31 +561,34 @@ mod tests {
     // ========================================================================
     // Transfer Update Validation Tests
     // ========================================================================
+    // validate_update_transfer itself needs a live HDI (must_get_valid_record
+    // has no test mock in this codebase), so these exercise the pure
+    // validate_transfer_transition helper directly.
 
     #[test]
-    fn test_transfer_update_always_valid() {
-        let transfer = create_test_transfer("did:key:seller123", "did:key:buyer456");
-        let result = validate_update_transfer(create_test_update_action(), transfer);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+    fn test_transfer_transition_valid_for_seller() {
+        let original = create_test_transfer(&mock_from_did(), "did:key:buyer456");
+        let result = validate_transfer_transition(&original, &mock_from_did());
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn test_transfer_update_invalid_dids_allowed() {
-        // Update validation doesn't check DIDs
-        let transfer = create_test_transfer("invalid", "also-invalid");
-        let result = validate_update_transfer(create_test_update_action(), transfer);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+    fn test_transfer_transition_valid_for_buyer() {
+        let original = create_test_transfer("did:key:seller123", &mock_from_did());
+        let result = validate_transfer_transition(&original, &mock_from_did());
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn test_transfer_update_self_transfer_allowed() {
-        // Update validation doesn't check self-transfer
-        let transfer = create_test_transfer("did:key:same", "did:key:same");
-        let result = validate_update_transfer(create_test_update_action(), transfer);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+    fn test_transfer_transition_rejects_third_party() {
+        let original = create_test_transfer("did:key:seller123", "did:key:buyer456");
+        let result = validate_transfer_transition(&original, &mock_from_did());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("seller or buyer"));
+            }
+            _ => panic!("Expected invalid result"),
+        }
     }
 
     // ========================================================================
@@ -897,27 +874,27 @@ mod tests {
 
     #[test]
     fn test_transfer_with_none_price() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.price = None;
         assert!(transfer.price.is_none());
     }
 
     #[test]
     fn test_transfer_with_none_currency() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.currency = None;
         assert!(transfer.currency.is_none());
     }
 
     #[test]
     fn test_transfer_with_none_completed() {
-        let transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         assert!(transfer.completed.is_none());
     }
 
     #[test]
     fn test_transfer_with_some_completed() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.completed = Some(Timestamp::from_micros(2_000_000));
         assert!(transfer.completed.is_some());
     }
@@ -993,7 +970,7 @@ mod tests {
 
     #[test]
     fn test_transfer_with_empty_conditions() {
-        let transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         assert_eq!(transfer.conditions.len(), 0);
     }
 
@@ -1013,7 +990,7 @@ mod tests {
         ];
 
         for transfer_type in types {
-            let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+            let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
             transfer.transfer_type = transfer_type.clone();
             let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
             assert!(result.is_ok());
@@ -1034,7 +1011,7 @@ mod tests {
         ];
 
         for status in statuses {
-            let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+            let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
             transfer.status = status.clone();
             let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
             assert!(result.is_ok());
@@ -1117,7 +1094,7 @@ mod tests {
 
     #[test]
     fn test_transfer_empty_id() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.id = "".to_string();
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1128,7 +1105,7 @@ mod tests {
 
     #[test]
     fn test_transfer_whitespace_id() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.id = "   ".to_string();
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1139,7 +1116,7 @@ mod tests {
 
     #[test]
     fn test_transfer_id_too_long() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.id = "x".repeat(257);
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1150,7 +1127,7 @@ mod tests {
 
     #[test]
     fn test_transfer_id_at_limit() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.id = "x".repeat(64);
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
@@ -1158,7 +1135,7 @@ mod tests {
 
     #[test]
     fn test_transfer_empty_property_id() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.property_id = "".to_string();
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1169,7 +1146,7 @@ mod tests {
 
     #[test]
     fn test_transfer_property_id_too_long() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.property_id = "x".repeat(257);
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1180,7 +1157,7 @@ mod tests {
 
     #[test]
     fn test_transfer_currency_too_long() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.currency = Some("x".repeat(17));
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert!(matches!(
@@ -1191,7 +1168,7 @@ mod tests {
 
     #[test]
     fn test_transfer_currency_at_limit() {
-        let mut transfer = create_test_transfer("did:key:seller", "did:key:buyer");
+        let mut transfer = create_test_transfer(&mock_from_did(), "did:key:buyer");
         transfer.currency = Some("x".repeat(16));
         let result = validate_create_transfer(create_test_entry_creation_action(), transfer);
         assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);

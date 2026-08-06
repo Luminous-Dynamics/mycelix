@@ -1,0 +1,217 @@
+# Create-validators that deliberately discard their action.
+# Format:  <path>:<line>:<fn>  # <Class C|Class D>: <why>
+#
+# The check fails on any create-validator NOT listed here, so this file
+# stops the backlog from growing while it is worked down. Entries are
+# matched on path+function, NOT line number.
+#
+# DO NOT add an entry to silence a failure without reading the
+# coordinator's creation path first. If every legitimate caller IS the
+# subject, it is Class A — bind it, do not exempt it.
+# See MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md for the taxonomy.
+happs/lucid/zomes/lucid/integrity/src/lib.rs:655:validate_create_thought  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/lucid/integrity/src/lib.rs:778:validate_create_tag  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/lucid/integrity/src/lib.rs:797:validate_create_domain  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/lucid/integrity/src/lib.rs:816:validate_create_relationship  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/sources/integrity/src/lib.rs:361:validate_create_source  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/sources/integrity/src/lib.rs:386:validate_create_citation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+happs/lucid/zomes/sources/integrity/src/lib.rs:408:validate_create_verification  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-care/zomes/matching/integrity/src/lib.rs:176:validate_create_match  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-care/zomes/timebank/integrity/src/lib.rs:507:validate_create_credit  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/emergency-coordination/integrity/src/lib.rs:324:validate_create_team  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/emergency-coordination/integrity/src/lib.rs:390:validate_create_sitrep  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/emergency-shelters/integrity/src/lib.rs:272:validate_create_shelter  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/emergency-shelters/integrity/src/lib.rs:302:validate_create_registration  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-attribution/integrity/src/lib.rs:249:validate_create_attribution  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-attribution/integrity/src/lib.rs:310:validate_create_royalty_rule  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-attribution/integrity/src/lib.rs:324:validate_create_usage_record  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-curation/integrity/src/lib.rs:252:validate_create_endorsement  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-curation/integrity/src/lib.rs:296:validate_create_collection  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-curation/integrity/src/lib.rs:418:validate_create_quality_score  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-curation/integrity/src/lib.rs:478:validate_create_featured_content  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-factcheck/integrity/src/lib.rs:225:validate_create_fact_check  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-factcheck/integrity/src/lib.rs:309:validate_create_source_credibility  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-factcheck/integrity/src/lib.rs:340:validate_create_fact_check_dispute  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-publication/integrity/src/lib.rs:243:validate_create_publication  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-publication/integrity/src/lib.rs:422:validate_create_content_block  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-civic/zomes/media-publication/integrity/src/lib.rs:459:validate_create_publication_version  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/care-matching/integrity/src/lib.rs:191:validate_create_match  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/care-timebank/integrity/src/lib.rs:588:validate_create_credit  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/circular-marketplace/integrity/src/lib.rs:254:validate_create_listing  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/community-calendar/integrity/src/lib.rs:107:validate_create_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/community-calendar/integrity/src/lib.rs:144:validate_create_rsvp  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/compost-control/integrity/src/lib.rs:315:validate_create_batch  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/compost-control/integrity/src/lib.rs:360:validate_create_reading  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-finances/integrity/src/lib.rs:242:validate_create_charge  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-finances/integrity/src/lib.rs:269:validate_create_payment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-finances/integrity/src/lib.rs:288:validate_create_fund  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-finances/integrity/src/lib.rs:315:validate_create_budget  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-governance/integrity/src/lib.rs:374:validate_create_meeting  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-governance/integrity/src/lib.rs:594:validate_create_bylaw  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-governance/integrity/src/lib.rs:637:validate_create_election  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-maintenance/integrity/src/lib.rs:320:validate_create_work_order  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-membership/integrity/src/lib.rs:282:validate_create_member  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-membership/integrity/src/lib.rs:374:validate_create_waitlist  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-membership/integrity/src/lib.rs:381:validate_create_agreement  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-units/integrity/src/lib.rs:225:validate_create_building  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/housing-units/integrity/src/lib.rs:294:validate_create_unit  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/property-commons/integrity/src/lib.rs:220:validate_create_common_resource  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/property-commons/integrity/src/lib.rs:317:validate_create_usage_right  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/property-registry/integrity/src/lib.rs:598:validate_create_title_deed  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/property-transfer/integrity/src/lib.rs:293:validate_create_escrow  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/waste-registry/integrity/src/lib.rs:386:validate_create_stream  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/waste-registry/integrity/src/lib.rs:447:validate_create_classification  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/waste-registry/integrity/src/lib.rs:478:validate_create_facility  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/waste-registry/integrity/src/lib.rs:553:validate_create_route  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/water-capture/integrity/src/lib.rs:510:validate_create_recharge_project  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/water-purity/integrity/src/lib.rs:404:validate_create_remediation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/water-steward/integrity/src/lib.rs:383:validate_create_watershed  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-commons/zomes/water-wisdom/integrity/src/lib.rs:352:validate_create_conservation_method  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-emergency/zomes/coordination/integrity/src/lib.rs:293:validate_create_team  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-emergency/zomes/coordination/integrity/src/lib.rs:344:validate_create_sitrep  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-emergency/zomes/shelters/integrity/src/lib.rs:190:validate_create_shelter  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-emergency/zomes/shelters/integrity/src/lib.rs:292:validate_create_registration  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/grid/integrity/src/lib.rs:166:validate_create_energy_production  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/grid/integrity/src/lib.rs:179:validate_create_energy_consumption  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/grid/integrity/src/lib.rs:192:validate_create_trade_offer  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/grid/integrity/src/lib.rs:218:validate_create_trade  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/investments/integrity/src/lib.rs:148:validate_create_investment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/investments/integrity/src/lib.rs:174:validate_create_dividend  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/investments/integrity/src/lib.rs:187:validate_create_portfolio  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/projects/integrity/src/lib.rs:169:validate_create_energy_project  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/projects/integrity/src/lib.rs:198:validate_create_project_milestone  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/regenerative/integrity/src/lib.rs:169:validate_create_regenerative_contract  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/regenerative/integrity/src/lib.rs:195:validate_create_readiness_assessment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-energy/zomes/regenerative/integrity/src/lib.rs:208:validate_create_ownership_transfer  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:1028:validate_create_agricultural_asset  # Class D: issuance/attestation against an external asset.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:1088:validate_create_multi_collateral_position  # Class D: issuance/attestation against an external asset.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:447:validate_create_cross_happ_payment  # Class D: cross-hApp debit — the committer is a bridge, not the payer.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:581:validate_create_collateral_registration  # Class D: issuance/attestation against an external asset.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:658:validate_create_finance_bridge_event  # Class C: an event/label record with no forgeable owner field (source_happ is a free-text label, per the triage doc's Class B/C note).
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:692:validate_create_collateral_bridge_deposit  # Class D: issuance. Mints SAP against external collateral, called cross-zome by a non-governance user — no coordinator caller-rule is correct. Needs the integrity-conservation model (author-bound SapMintRecord + derived balance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN_2026-07-10.md.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:806:validate_create_covenant  # Class D: beneficiary_did is the grant RECIPIENT, not the committer.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:863:validate_create_collateral_health  # Class D: derived health metric, not a self-reported owner claim.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:891:validate_create_fiat_bridge_deposit  # Class D: issuance, same as collateral_bridge_deposit.
+mycelix-finance/zomes/bridge/integrity/src/lib.rs:961:validate_create_energy_certificate  # Class D: issuance/attestation against an external asset.
+mycelix-finance/zomes/cgc/integrity/src/lib.rs:430:validate_create_allocation  # Class D: `member_did`/`recipient_did` is the allocation RECIPIENT, not the committer — an allocation is granted TO someone. Needs a grantor-authority model.
+mycelix-finance/zomes/cgc/integrity/src/lib.rs:484:validate_create_recognition  # Class D: CgcRecognition aggregates recognitions RECEIVED by member_did (unique_givers, max_from_single_giver) — it is about the member, not authored by them. Needs derivation from the underlying bound CgcGift entries.
+mycelix-finance/zomes/cgc/integrity/src/lib.rs:509:validate_create_flag  # Class D: an anti-abuse flag ABOUT a member (member_did is assigned from receiver_did). Self-binding would be exactly backwards — the flagged party must not control it.
+mycelix-finance/zomes/cgc/integrity/src/lib.rs:557:validate_create_alias  # Class D: dao_did is an organisation identity, not the committing agent. Needs DAO authority.
+mycelix-finance/zomes/credit_scoring/integrity/src/lib.rs:216:validate_create_payment_record  # Class D: profile_did is the BORROWER the payment record is about; recorded by the counterparty. Two-party — needs must_get against the referenced loan.
+mycelix-finance/zomes/hearth/integrity/src/lib.rs:424:validate_create_pool  # Class D: dao_did is an organisation identity, not the committing agent.
+mycelix-finance/zomes/hearth/integrity/src/lib.rs:601:validate_create_disbursement  # Class D: recipient_did is the payee — someone disburses TO them. Bind via the referenced allocation instead.
+mycelix-finance/zomes/lending/integrity/src/lib.rs:193:validate_create_loan  # Class D: two-party (borrower_did + lender_did); which side commits depends on the offer/acceptance flow.
+mycelix-finance/zomes/lending/integrity/src/lib.rs:298:validate_create_payment_schedule  # Class C: no identity field to bind — derived schedule data.
+mycelix-finance/zomes/payments/integrity/src/lib.rs:569:validate_create_payment_channel  # Class D: two-party channel — party_a/party_b, committer is one of them.
+mycelix-finance/zomes/payments/integrity/src/lib.rs:605:validate_create_receipt  # Class D: a receipt attests to a payment between two parties; bind via the referenced Payment instead.
+mycelix-finance/zomes/recognition/integrity/src/lib.rs:335:validate_create_mycel_state  # Class D: MemberMycelState is an aggregate ABOUT member_did (their MYCEL score), not a self-assertion. Must be re-derived from bound RecognitionEvent entries — self-binding would let an agent set their own score.
+mycelix-finance/zomes/tend/integrity/src/lib.rs:775:validate_create_exchange  # Class D: two-party record (provider + receiver) — decide which side binds, or derive from a bound listing/request pair.
+mycelix-finance/zomes/tend/integrity/src/lib.rs:900:validate_create_balance  # Class D: shared mutable state. Balances are written by many agents by design (transfer credits the payee from the SENDER agent context). Needs derivation from a validated witness, not an author bind.
+mycelix-finance/zomes/treasury/integrity/src/lib.rs:291:validate_create_treasury  # Class C: no identity field to bind.
+mycelix-finance/zomes/treasury/integrity/src/lib.rs:406:validate_create_allocation  # Class D: `member_did`/`recipient_did` is the allocation RECIPIENT, not the committer — an allocation is granted TO someone. Needs a grantor-authority model.
+mycelix-finance/zomes/treasury/integrity/src/lib.rs:459:validate_create_savings_pool  # Class C/D: `members` is a list, not a single owner; membership authority is a separate model.
+mycelix-finance/zomes/treasury/integrity/src/lib.rs:530:validate_create_commons_pool  # Class D: dao_did is an organisation identity, not the committing agent.
+mycelix-finance/zomes/treasury/integrity/src/lib.rs:571:validate_create_compost_receival  # Class D: source_member_did identifies where the compost came from; the committer is the receiving pool. Bind via the referenced source transaction.
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:1675:validate_create_query  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:1688:validate_create_proposal_ref  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:1696:validate_create_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:1709:validate_create_execution_req  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:2142:validate_create_matl_score  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:2347:validate_create_consensus_round  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/bridge/integrity/src/lib.rs:2390:validate_create_slashing_record  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/constitution/integrity/src/lib.rs:441:validate_create_charter  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/constitution/integrity/src/lib.rs:515:validate_create_parameter  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/councils/integrity/src/lib.rs:714:validate_create_council  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/councils/integrity/src/lib.rs:780:validate_create_reflection  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/councils/integrity/src/lib.rs:791:validate_create_decision  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/execution/integrity/src/lib.rs:549:validate_create_timelock  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/execution/integrity/src/lib.rs:654:validate_create_override_result  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/execution/integrity/src/lib.rs:665:validate_create_fund_allocation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/jurisdiction/integrity/src/lib.rs:150:validate_create_jurisdiction  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/proposals/integrity/src/lib.rs:515:validate_create_amendment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/proposals/integrity/src/lib.rs:539:validate_create_contribution  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/proposals/integrity/src/lib.rs:550:validate_create_discussion_reflection  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:419:validate_create_committee  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:555:validate_create_member  # Class D pending design: DKG committee membership. NO coordinator creation path exists for any threshold-signing entry type (verified 2026-07-29), so there is no evidence whether members self-enrol (bindable) or a dealer/ceremony enrols them (not bindable). Binding on a guess could foreclose the correct DKG design. Decide the ceremony first.
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:685:validate_create_signature  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:696:validate_create_share  # Class D pending design: DKG share — same reasoning as validate_create_member; shares are typically produced by a dealer, not self-asserted.
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:769:validate_create_violation_report  # Class D pending design: a violation report is inherently ABOUT another participant; reporter-vs-subject needs the ceremony design.
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:814:validate_create_hash_commitment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:842:validate_create_hash_reveal  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/threshold-signing/integrity/src/lib.rs:853:validate_create_pq_attestor  # Class D pending design: attestor registration — same DKG ceremony question.
+mycelix-governance/zomes/voting/integrity/src/lib.rs:1610:validate_create_tally  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:1777:validate_create_voice_credits  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:1821:validate_create_phi_tally  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:1885:validate_create_quadratic_tally  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:2026:validate_create_verified_vote  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:2081:validate_create_proof_attestation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-governance/zomes/voting/integrity/src/lib.rs:2144:validate_create_proposal_reflection  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/finances/integrity/src/lib.rs:270:validate_create_charge  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/finances/integrity/src/lib.rs:315:validate_create_payment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/finances/integrity/src/lib.rs:334:validate_create_fund  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/finances/integrity/src/lib.rs:351:validate_create_budget  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/governance/integrity/src/lib.rs:360:validate_create_meeting  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/governance/integrity/src/lib.rs:416:validate_create_bylaw  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/governance/integrity/src/lib.rs:440:validate_create_election  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/maintenance/integrity/src/lib.rs:290:validate_create_work_order  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/membership/integrity/src/lib.rs:283:validate_create_member  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/membership/integrity/src/lib.rs:338:validate_create_waitlist  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/membership/integrity/src/lib.rs:351:validate_create_agreement  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/units/integrity/src/lib.rs:205:validate_create_building  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-housing/zomes/units/integrity/src/lib.rs:249:validate_create_unit  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-identity/zomes/bridge/integrity/src/lib.rs:285:validate_create_happ_registration  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-identity/zomes/bridge/integrity/src/lib.rs:364:validate_create_identity_query  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-identity/zomes/bridge/integrity/src/lib.rs:401:validate_create_identity_verification  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-identity/zomes/bridge/integrity/src/lib.rs:429:validate_create_bridge_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-identity/zomes/bridge/integrity/src/lib.rs:471:validate_create_identity_reputation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-justice/zomes/arbitration/integrity/src/lib.rs:80:validate_create_entry_arbitration  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-justice/zomes/arbitration/integrity/src/lib.rs:91:validate_create_entry_judgment  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-justice/zomes/enforcement/integrity/src/lib.rs:71:validate_create_entry_enforcement_order  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/bridge/integrity/src/lib.rs:759:validate_create_query  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/bridge/integrity/src/lib.rs:775:validate_create_result  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/bridge/integrity/src/lib.rs:802:validate_create_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/claims/integrity/src/lib.rs:1433:validate_create_classification_consensus  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/graph/integrity/src/lib.rs:527:validate_create_concept  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/graph/integrity/src/lib.rs:554:validate_create_belief_node  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/graph/integrity/src/lib.rs:587:validate_create_information_value  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/inference/integrity/src/lib.rs:532:validate_create_inference  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/inference/integrity/src/lib.rs:566:validate_create_credibility_score  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/inference/integrity/src/lib.rs:602:validate_create_pattern  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/inference/integrity/src/lib.rs:628:validate_create_enhanced_credibility  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/inference/integrity/src/lib.rs:668:validate_create_author_reputation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/invention/integrity/src/lib.rs:687:validate_create_royalty_rule  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/invention/integrity/src/lib.rs:753:validate_create_ledger_entry  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-knowledge/zomes/query/integrity/src/lib.rs:272:validate_create_result  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/attribution/integrity/src/lib.rs:207:validate_create_attribution  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/attribution/integrity/src/lib.rs:266:validate_create_royalty_rule  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/attribution/integrity/src/lib.rs:315:validate_create_usage_record  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/bridge/integrity/src/lib.rs:220:validate_create_content_verification_request  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/bridge/integrity/src/lib.rs:232:validate_create_author_reputation_query  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/bridge/integrity/src/lib.rs:244:validate_create_author_reputation_result  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/bridge/integrity/src/lib.rs:256:validate_create_media_bridge_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/curation/integrity/src/lib.rs:219:validate_create_endorsement  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/curation/integrity/src/lib.rs:231:validate_create_collection  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/curation/integrity/src/lib.rs:280:validate_create_quality_score  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/curation/integrity/src/lib.rs:290:validate_create_featured_content  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/factcheck/integrity/src/lib.rs:231:validate_create_fact_check  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/factcheck/integrity/src/lib.rs:260:validate_create_source_credibility  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/factcheck/integrity/src/lib.rs:311:validate_create_fact_check_dispute  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/publication/integrity/src/lib.rs:207:validate_create_publication  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/publication/integrity/src/lib.rs:266:validate_create_content_block  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-media/zomes/publication/integrity/src/lib.rs:273:validate_create_publication_version  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/bridge/integrity/src/lib.rs:201:validate_create_entry_ownership_query  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/bridge/integrity/src/lib.rs:216:validate_create_entry_ownership_result  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/bridge/integrity/src/lib.rs:262:validate_create_entry_property_bridge_event  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/bridge/integrity/src/lib.rs:279:validate_create_entry_anchor  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/commons/integrity/src/lib.rs:163:validate_create_common_resource  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/commons/integrity/src/lib.rs:218:validate_create_usage_right  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/registry/integrity/src/lib.rs:241:validate_create_title_deed  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-property/zomes/transfer/integrity/src/lib.rs:203:validate_create_escrow  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/audit/integrity/src/lib.rs:125:validate_create_audit_entry  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/contacts/integrity/src/lib.rs:120:validate_create_contact  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/keys/integrity/src/lib.rs:153:validate_create_used_pre_key  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/keys/integrity/src/lib.rs:168:validate_create_key_rotation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/scheduler/integrity/src/lib.rs:128:validate_create_snooze_reminder  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-pulse/holochain/zomes/scheduler/integrity/src/lib.rs:93:validate_create_scheduled_email  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-water/zomes/capture/integrity/src/lib.rs:383:validate_create_recharge_project  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?
+mycelix-water/zomes/purity/integrity/src/lib.rs:330:validate_create_remediation  # TODO: triage — Class A (bind), C (nothing to bind), or D (authority model)?

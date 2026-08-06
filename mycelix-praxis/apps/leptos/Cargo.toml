@@ -5,7 +5,7 @@
 [package]
 name = "mycelix-praxis-ui"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Leptos CSR frontend for Mycelix Praxis — pilot for ecosystem-wide Leptos migration"
 
@@ -20,26 +20,25 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 serde-wasm-bindgen = "0.6"
-web-sys = { version = "0.3", features = [
-    "console", "HtmlSelectElement", "HtmlInputElement", "HtmlTextAreaElement",
-    "EventTarget", "Window", "Navigator", "Clipboard", "Location", "Storage",
-    "MediaQueryList", "Blob", "BlobPropertyBag", "Url", "HtmlElement", "Document",
-    "Element", "FileReader", "File", "FileList", "HtmlAnchorElement", "Worker",
-    "MessageEvent", "ErrorEvent", "IdbFactory", "IdbDatabase", "IdbObjectStore",
-    "IdbObjectStoreParameters", "IdbRequest", "IdbTransaction", "IdbTransactionMode",
-    "IdbOpenDbRequest", "DomStringList", "HtmlCanvasElement", "WebGl2RenderingContext",
-    "WebGlProgram", "WebGlShader", "WebGlBuffer", "WebGlUniformLocation",
-    "WebGlVertexArrayObject", "WebGlTexture"
-] }
+web-sys = { version = "0.3", features = ["console", "HtmlSelectElement", "HtmlInputElement", "HtmlTextAreaElement", "EventTarget", "Window", "Navigator", "Clipboard", "Location", "Storage", "MediaQueryList", "Blob", "BlobPropertyBag", "Url", "HtmlElement", "Document", "Element", "FileReader", "File", "FileList", "HtmlAnchorElement", "Worker", "MessageEvent", "ErrorEvent", "IdbFactory", "IdbDatabase", "IdbObjectStore", "IdbObjectStoreParameters", "IdbRequest", "IdbTransaction", "IdbTransactionMode", "IdbOpenDbRequest", "DomStringList"] }
 console_error_panic_hook = "0.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
+rand = "0.8"
+# rand 0.8's transitive getrandom 0.2.x needs the "js" feature explicitly
+# activated for wasm32-unknown-unknown (a plain `cargo add rand` leaves this
+# target unsupported -- confirmed via a real build error, not assumed).
+# NOTE: this is the browser wasm-bindgen backend, distinct from the
+# getrandom_backend="custom" convention documented for Holochain *zome*
+# WASM guests elsewhere in this workspace -- this crate is a browser-target
+# Leptos CSR app (already depends on wasm-bindgen directly), not a zome.
+getrandom = { version = "0.2", features = ["js"] }
 
 # Shared types from the praxis backend
 praxis-core = { path = "../../crates/praxis-core", default-features = false }
 
 # Shared Holochain client + UI components for Leptos apps
-mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
-mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
+mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
 send_wrapper = "0.6"
 
 [profile.release]

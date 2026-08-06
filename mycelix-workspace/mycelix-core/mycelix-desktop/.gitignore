@@ -1,0 +1,3 @@
+# Sidecar binaries fetched from the holochain release (see scripts/fetch-sidecars.sh).
+# 66MB for linux-x86_64 alone; never commit these.
+src-tauri/binaries/

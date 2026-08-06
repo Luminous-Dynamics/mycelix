@@ -137,7 +137,10 @@ async fn get_trust_stats(client: ApiClient, output_mode: OutputMode) -> Result<(
         OutputMode::Json => output::print_json(&response)?,
         OutputMode::Table => {
             output::print_key_value_table(&[
-                ("Total Participants", response.total_participants.to_string()),
+                (
+                    "Total Participants",
+                    response.total_participants.to_string(),
+                ),
                 ("Average Score", format!("{:.3}", response.average_score)),
                 ("Median Score", format!("{:.3}", response.median_score)),
                 ("Highest Score", format!("{:.3}", response.highest_score)),

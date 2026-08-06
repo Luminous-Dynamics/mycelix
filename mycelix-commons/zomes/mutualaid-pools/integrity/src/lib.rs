@@ -547,6 +547,109 @@ fn validate_pool_membership(membership: &PoolMembership) -> ExternResult<Validat
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// **Zome-wide disclosed, NOT-fixed gap**: every identity-bearing field
+/// here (MutualAidPool.members, Contribution.member_did,
+/// Disbursement.recipient_did/approved_by/rejected_by,
+/// PoolMembership.member_did) is a free-form String DID with NO local
+/// convention for verifying it against the committing agent's real
+/// action.author -- unlike the AgentPubKey-based zomes fixed elsewhere in
+/// this pass, there's no author-binding possible here. This only closes
+/// the separate "wide-open update" bug (arbitrary field changes on
+/// update) -- it does not and cannot fix the vote-forgery or
+/// threshold-bypass gaps this implies (e.g. vote_disbursement takes
+/// voter_did directly from caller input with zero membership check).
+///
+/// MutualAidPool/Disbursement have live coordinator update paths;
+/// Contribution/PoolMembership have none (confirmed via grep for
+/// `update_entry`) and are made explicitly immutable.
+fn validate_update_entry_type(
+    original_action_hash: ActionHash,
+    app_entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::MutualAidPool(pool) => validate_update_pool(original_action_hash, pool),
+        EntryTypes::Contribution(_) => Ok(ValidateCallbackResult::Invalid(
+            "Contributions are immutable".into(),
+        )),
+        EntryTypes::Disbursement(disbursement) => {
+            validate_update_disbursement(original_action_hash, disbursement)
+        }
+        EntryTypes::PoolMembership(_) => Ok(ValidateCallbackResult::Invalid(
+            "Pool memberships are immutable".into(),
+        )),
+    }
+}
+
+/// Content restricted to members/balance/status/updated_at -- the union
+/// of fields changed across add_member/contribute/update_pool_status. No
+/// author requirement: none of those three flows have any caller-identity
+/// check.
+fn validate_update_pool(
+    original_action_hash: ActionHash,
+    pool: MutualAidPool,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: MutualAidPool = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original pool not found".to_string()
+        )))?;
+
+    if pool.id != original.id
+        || pool.name != original.name
+        || pool.description != original.description
+        || pool.contribution_rules != original.contribution_rules
+        || pool.disbursement_rules != original.disbursement_rules
+        || pool.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only members/balance/status/updated_at can change on a pool update".into(),
+        ));
+    }
+
+    validate_mutual_aid_pool(&pool)
+}
+
+/// Content restricted to approved_by/rejected_by/status/processed_at --
+/// the union of fields changed across vote_disbursement/
+/// process_disbursement. No author requirement possible (String-DID gap
+/// above) -- this closes only the wide-open bug that previously let
+/// pool_id/recipient_did/amount/reason change unconditionally on update
+/// too; it does NOT and cannot fix the vote-forgery or threshold-bypass
+/// findings disclosed above.
+fn validate_update_disbursement(
+    original_action_hash: ActionHash,
+    disbursement: Disbursement,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: Disbursement = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original disbursement not found".to_string()
+        )))?;
+
+    if disbursement.id != original.id
+        || disbursement.pool_id != original.pool_id
+        || disbursement.recipient_did != original.recipient_did
+        || disbursement.amount != original.amount
+        || disbursement.reason != original.reason
+        || disbursement.is_emergency != original.is_emergency
+        || disbursement.requested_at != original.requested_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only approved_by/rejected_by/status/processed_at can change on a disbursement update"
+                .into(),
+        ));
+    }
+
+    validate_disbursement(&disbursement)
+}
+
 /// Genesis self-check callback
 #[hdk_extern]
 pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
@@ -558,15 +661,18 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. } => {
-                match app_entry {
-                    EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                    EntryTypes::MutualAidPool(pool) => validate_mutual_aid_pool(&pool),
-                    EntryTypes::Contribution(contribution) => validate_contribution(&contribution),
-                    EntryTypes::Disbursement(disbursement) => validate_disbursement(&disbursement),
-                    EntryTypes::PoolMembership(membership) => validate_pool_membership(&membership),
-                }
-            }
+            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::MutualAidPool(pool) => validate_mutual_aid_pool(&pool),
+                EntryTypes::Contribution(contribution) => validate_contribution(&contribution),
+                EntryTypes::Disbursement(disbursement) => validate_disbursement(&disbursement),
+                EntryTypes::PoolMembership(membership) => validate_pool_membership(&membership),
+            },
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                ..
+            } => validate_update_entry_type(original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
@@ -2145,5 +2251,32 @@ mod tests {
             validate_disbursement(&disb),
             "Recipient DID must be 256 characters or fewer",
         );
+    }
+
+    // ── validate_update_entry_type: immutability tests ──────────────────
+    // These entry types have no live update_entry call at all -- testable
+    // without must_get_valid_record. MutualAidPool/Disbursement updates
+    // require must_get and so aren't unit-tested directly, matching the
+    // established pattern from every other zome's update validator this
+    // pass.
+
+    #[test]
+    fn update_entry_type_rejects_contribution_update() {
+        let result = validate_update_entry_type(
+            ActionHash::from_raw_36(vec![9u8; 36]),
+            EntryTypes::Contribution(valid_contribution()),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_pool_membership_update() {
+        let result = validate_update_entry_type(
+            ActionHash::from_raw_36(vec![9u8; 36]),
+            EntryTypes::PoolMembership(valid_membership()),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

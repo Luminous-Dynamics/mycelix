@@ -1,0 +1,206 @@
+name: Mycelix CI
+
+# Replaces a one-line `// placeholder` file — a C-style comment in a YAML file,
+# committed 2026-07-21 by a "patchset application" commit. It could never have
+# parsed, so this repository has had no working `ci.yml` since that date.
+# See MYCELIX_COMPREHENSIVE_REVIEW_2026-07-28.md (F2, F3).
+#
+# SCOPE (deliberately small): this is the gate that makes other claims checkable,
+# not a full test suite. It proves the workspace loads and that the two clusters
+# targeted by Phase 1 still compile. Expand the `cluster` matrix as clusters are
+# verified green — do not add legs that are known-red, or this file stops being
+# a signal.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Gate 1: the workspace can be loaded at all ────────────────────────────
+  #
+  # On 2026-07-28 `cargo metadata` could not resolve this workspace: three
+  # members were unloadable (orphan dirs left by a dedup, a `// placeholder`
+  # Cargo.toml, a manifest-less crate). No aggregate build/test/CI was possible,
+  # and nothing mechanically contradicted claims that it was. This job is a pure
+  # filesystem + TOML scan, so it still works when cargo itself cannot load the
+  # workspace — which is exactly when you need the diagnosis.
+  workspace-integrity:
+    name: Workspace integrity (members + placeholders)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check member manifests, build targets, and new placeholder files
+        run: python3 scripts/check-workspace-integrity.py
+
+      # The root workspace resolves ~57 packages, but 28 clusters carry their OWN
+      # [workspace] and are invisible to root-level cargo. A green root badge
+      # therefore proves nothing about most of the tree — which is how a broken
+      # root workspace, a placeholder ci.yml and 8 drifting forks all survived
+      # unnoticed. This keeps that gap visible and stops it growing silently.
+      - name: Nested-workspace coverage (keeps the CI blind spot visible)
+        run: python3 scripts/check-workspace-coverage.py
+
+  # ── Gate 1b: no NEW unbound create-validator ──────────────────────────────
+  #
+  # A create-validator that discards its action leaves every self-reported DID on
+  # that entry unchecked against the signer — and coordinator checks do not cover
+  # it, because a malicious peer never calls your coordinator. The 2026-07 audit
+  # found 48 of 51 named Class-A validators in finance+governance open, 19 days
+  # after a triage doc named each one with file and line. The fix is mechanical;
+  # the failure was that nothing NOTICED. This makes that permanent.
+  #
+  # Existing hits are allowlisted WITH REASONS in
+  # scripts/author-binding-allowlist.txt, so the backlog cannot grow while it is
+  # worked down. Adding an entry to silence a failure without reading the
+  # coordinator's creation path is the one thing this gate exists to prevent.
+  author-binding:
+    name: Author binding (no new unbound create-validators)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for unbound create-validators
+        run: python3 scripts/check-author-binding.py
+
+  # ── Gate 2: cargo agrees ──────────────────────────────────────────────────
+  workspace-resolves:
+    name: cargo metadata resolves
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # NOTE: the other workflows in this directory use `dtolnay/rust-action`,
+      # which is not a real action (the canonical one is `rust-toolchain`).
+      # Those jobs cannot be setting up a toolchain successfully — worth a
+      # separate fix; not changed here to keep this commit scoped.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo metadata
+        run: cargo metadata --no-deps --format-version 1 > /dev/null
+
+  # ── Gate 3: the Phase 1 target clusters compile ───────────────────────────
+  #
+  # finance and governance are the clusters whose integrity layer Phase 1 fixes
+  # (see MYCELIX_PHASE1_EXECUTION_PLAN_2026-07-28.md). Each owns an independent
+  # [workspace], so they build regardless of the root workspace's state.
+  #
+  # VERIFIED LOCALLY 2026-07-28 before being added here:
+  #   mycelix-finance     `cargo check --workspace` GREEN (3m27s)
+  #   mycelix-governance  GREEN as of 2026-07-29. It was red on three unrelated
+  #     pre-existing breaks, all fixed: feldman-dkg written against an ml-dsa API
+  #     cargo never selected, a GuardianVeto field added without updating its one
+  #     construction site, and a HoloHash::to_vec() that does not exist.
+  #     `cargo test --workspace --lib` = 534 passed / 19 suites.
+  cluster-check:
+    name: cargo check (${{ matrix.cluster }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - mycelix-finance
+          - mycelix-governance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.cluster }}
+
+      # NOTE: `--all-targets` is deliberately NOT used. It compiles test code, and
+      # `mycelix-finance/zomes/shared`'s test module is stale against the current
+      # `mycelix-bridge-common` API (38 errors: missing `weights` module,
+      # `ConsciousnessProfile`, `civic_requirement_*`). That is pre-existing rot
+      # needing its own fix — adding it here would ship a permanently red leg.
+      # This command is verified green locally (2026-07-29).
+      - name: cargo check
+        working-directory: ${{ matrix.cluster }}
+        run: cargo check --workspace
+
+  # ── Gate 4: the hardened integrity zomes' security tests actually RUN ──────
+  #
+  # The author-binding fixes each ship a test asserting a FORGED value is
+  # REJECTED. Those tests are the durability mechanism — this campaign already
+  # lost a binding once (48a4460dcf) — but they are worthless if nothing runs
+  # them. Gate 3 only type-checks.
+  #
+  # Scoped to the crates verified green rather than `--workspace`, because
+  # `cargo test --workspace` hits the same stale `zomes/shared` test module.
+  # ADD A CRATE HERE whenever you bind a new validator.
+  integrity-tests:
+    name: Integrity zome security tests (finance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance
+
+      - name: cargo test (author-binding regressions)
+        working-directory: mycelix-finance
+        run: |
+          cargo test --lib \
+            -p payments_integrity \
+            -p credit_scoring_integrity \
+            -p lending_integrity \
+            -p treasury_integrity \
+            -p tend_integrity \
+            -p hearth_integrity \
+            -p cgc_integrity \
+            -p staking_integrity \
+            -p recognition_integrity
+
+      # governance has no stale test module, so its whole workspace can run.
+      # Verified 2026-07-29: 534 passed / 19 suites.
+      - name: cargo test (governance workspace)
+        working-directory: mycelix-governance
+        run: cargo test --workspace --lib
+
+  # ── Gate 5: the zomes build for the target they actually SHIP to ──────────
+  #
+  # Holochain zomes run as wasm32-unknown-unknown. Host-side `cargo test` does
+  # NOT prove they compile for that target — a dependency that is fine on the
+  # host can fail to build for wasm. Nothing in this repo's CI checked this
+  # before, and the 2026-07-29 session added a new shared dependency to 15
+  # integrity crates while verifying only host-side.
+  #
+  # Verified green locally 2026-07-29 for exactly these two clusters before
+  # being added here.
+  wasm-build:
+    name: wasm32 build (${{ matrix.cluster }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - mycelix-finance
+          - mycelix-governance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.cluster }}
+
+      - name: cargo build --target wasm32-unknown-unknown
+        working-directory: ${{ matrix.cluster }}
+        run: cargo build --target wasm32-unknown-unknown --release --workspace

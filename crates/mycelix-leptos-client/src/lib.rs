@@ -4,7 +4,7 @@
 
 //! Browser-compatible Holochain client for Leptos frontends.
 //!
-//! Replaces `@holochain/client` (JavaScript) for Rust WASM frontends.
+//! Experiments with a Rust WASM alternative to `@holochain/client`.
 //! Uses `web-sys::WebSocket` + `rmp-serde` (MessagePack) to communicate
 //! with a Holochain conductor over binary WebSocket frames.
 //!
@@ -35,8 +35,8 @@
 //! async fn example() {
 //!     let transport = BrowserWsTransport::new();
 //!     let client = HolochainClient::new(transport, "mycelix-unified", "governance");
-//!     // Connect with optional auth token (None = no authentication)
-//!     client.connect("ws://localhost:8888", None).await.unwrap();
+//!     // Holochain 0.6 app WebSockets require a token from the admin API.
+//!     client.connect("ws://localhost:8888", Some(app_token)).await.unwrap();
 //!
 //!     let result: ProposalHash = client.call_zome(
 //!         "agora",
@@ -46,6 +46,7 @@
 //! }
 //! ```
 
+pub mod admin_granted_signer;
 #[cfg(feature = "browser")]
 pub mod browser;
 pub mod client;
@@ -59,6 +60,7 @@ pub mod transport;
 pub mod types;
 
 // Re-exports for convenience
+pub use admin_granted_signer::{AdminGrantedSigner, SigningCredentials};
 pub use client::HolochainClient;
 pub use error::ClientError;
 pub use mock::MockTransport;
@@ -66,12 +68,12 @@ pub use mock::MockTransport;
 pub use native::NativeWsTransport;
 pub use transport::HolochainTransport;
 pub use types::{
-    decode, encode, ConnectConfig, ConnectionStatus, ReconnectConfig, ZomeCallRequest,
-    ZomeCallResponse,
+    ConnectConfig, ConnectionStatus, ReconnectConfig, SignedZomeCall, ZomeCallRequest,
+    ZomeCallResponse, ZomeCallSigner, ZomeCallToSign, decode, encode,
 };
 
 #[cfg(feature = "browser")]
-pub use browser::BrowserWsTransport;
+pub use browser::{BrowserWsTransport, HostZomeCallSigner};
 
 #[cfg(feature = "tauri")]
 pub use tauri::TauriIpcTransport;

@@ -23,6 +23,19 @@ enum SetupStep {
     HasProfile,
 }
 
+fn attempt_is_current(attempt: RwSignal<u64>, expected: u64) -> bool {
+    attempt.get_untracked() == expected
+}
+
+fn log_setup_stage(stage: &str, started_ms: f64, success: bool) {
+    let elapsed_ms = (js_sys::Date::now() - started_ms).max(0.0).round() as u64;
+    let outcome = if success { "ok" } else { "error" };
+    web_sys::console::log_1(
+        &format!("[Mail][onboarding] stage={stage} outcome={outcome} elapsed_ms={elapsed_ms}")
+            .into(),
+    );
+}
+
 #[component]
 pub fn ProfileSetup() -> impl IntoView {
     let hc = use_holochain();
@@ -32,6 +45,9 @@ pub fn ProfileSetup() -> impl IntoView {
     let bio = RwSignal::new(String::new());
     let key_status = RwSignal::new(String::new());
     let error_msg = RwSignal::new(String::new());
+    // Incrementing this generation invalidates late completions from an older
+    // onboarding attempt without pretending an in-flight DHT write was undone.
+    let setup_attempt = RwSignal::new(0u64);
 
     // On production, show connecting state after 3 seconds if still checking
     if !crate::mail_context::is_demo_mode() {
@@ -70,10 +86,15 @@ pub fn ProfileSetup() -> impl IntoView {
                         web_sys::console::log_1(&"[Mail] No profile — setup required".into());
                         step.set(SetupStep::NameEntry);
                     }
-                    Err(e) => {
-                        web_sys::console::warn_1(&format!("[Mail] get_my_profile: {e}").into());
-                        // Show setup — user needs to create profile
-                        step.set(SetupStep::NameEntry);
+                    Err(error) => {
+                        web_sys::console::warn_1(
+                            &format!("[Mail] get_my_profile failed closed: {error}").into(),
+                        );
+                        error_msg.set(format!(
+                            "Could not determine whether a profile already exists: {error}"
+                        ));
+                        // Never interpret a read failure as profile absence.
+                        step.set(SetupStep::Connecting);
                     }
                 }
             });
@@ -83,13 +104,7 @@ pub fn ProfileSetup() -> impl IntoView {
         } else if status == ConnectionStatus::Demo
             && (current_step == SetupStep::Checking || current_step == SetupStep::Connecting)
         {
-            // Production + Mock (conductor unreachable): fall through to the
-            // full UI with mock data, same as demo mode. Previously this
-            // left the user stuck on "Connecting to the Holochain
-            // network..." forever — see the live-browser console log
-            // '[Mail] Could not connect: ConnectionFailed("WebSocket closed
-            // (code 1005)"). Running in mock mode.' which correctly reached
-            // Mock but the UI never escaped the connecting modal.
+            // Explicit Demo mode does not require a DHT profile.
             step.set(SetupStep::HasProfile);
         }
     });
@@ -104,6 +119,8 @@ pub fn ProfileSetup() -> impl IntoView {
                 return;
             }
             let bio_val = bio.get_untracked();
+            setup_attempt.update(|attempt| *attempt = attempt.wrapping_add(1));
+            let attempt_id = setup_attempt.get_untracked();
             step.set(SetupStep::KeyGen);
             error_msg.set(String::new());
             key_status.set("Saving profile to DHT...".into());
@@ -117,92 +134,171 @@ pub fn ProfileSetup() -> impl IntoView {
                     "avatar_url": "",
                     "bio": bio_val.trim(),
                 });
-                // `set_profile` returns an `ActionHash` — a raw byte array on
-                // the wire. Decoding that as `serde_json::Value` fails
-                // ("invalid type: byte array, expected any valid JSON
-                // value"), since JSON has no native byte-array
-                // representation; msgpack's bin type only round-trips
-                // through `serde_json::Value` for JSON-shaped payloads. The
-                // DHT write itself succeeds regardless — only this client
-                // decode step was broken — but the resulting `Err` branch
-                // below silently reverts the whole onboarding flow back to
-                // NameEntry with no key generation ever attempted, found
-                // live via the Pulse browser proof (a one-shot "is the name
-                // input hidden yet" check was fooled by the transient
-                // hide-then-show). `Vec<u8>` decodes the same wire bytes
-                // correctly; we don't need the hash value, just success.
-                match hc
-                    .call_zome::<serde_json::Value, Vec<u8>>(
+                let started = js_sys::Date::now();
+                let profile_result = hc
+                    .call_zome::<serde_json::Value, serde_json::Value>(
                         "mail_profiles",
                         "set_profile",
                         &profile,
                     )
-                    .await
-                {
-                    Ok(_) => {
-                        key_status.set("Profile created!".into());
-                    }
-                    Err(e) => {
-                        web_sys::console::warn_1(&format!("[Mail] set_profile error: {e}").into());
-                        error_msg.set(format!("Could not save profile: {e}"));
+                    .await;
+                log_setup_stage("set_profile", started, profile_result.is_ok());
+                if !attempt_is_current(setup_attempt, attempt_id) {
+                    return;
+                }
+                match profile_result {
+                    Ok(_) => key_status.set("Profile created!".into()),
+                    Err(error) => {
+                        web_sys::console::warn_1(
+                            &format!("[Mail] set_profile error: {error}").into(),
+                        );
+                        error_msg.set(format!("Could not save profile: {error}"));
                         key_status.set(String::new());
                         step.set(SetupStep::NameEntry);
                         return;
                     }
                 }
 
-                // Create DID (decentralized identity) on the identity DNA
-                key_status.set("Creating your DSID...".into());
-                match hc
-                    .call_zome_on_role::<(), serde_json::Value>(
-                        "identity",
-                        "did_registry",
-                        "create_did",
-                        &(),
-                    )
-                    .await
-                {
-                    Ok(_) => {
-                        web_sys::console::log_1(&"[Mail] DSID created on identity DNA".into());
+                // The restricted alpha has no identity role. Do not send a
+                // call that is guaranteed to fail; keep the profile/key slice
+                // truthful and defer DSID registry onboarding to a later hApp.
+                if crate::alpha_scope::identity_role_available() {
+                    key_status.set("Creating your DSID...".into());
+                    let started = js_sys::Date::now();
+                    let did_result = hc
+                        .call_zome_on_role::<(), serde_json::Value>(
+                            "identity",
+                            "did_registry",
+                            "create_did",
+                            &(),
+                        )
+                        .await;
+                    log_setup_stage("create_did", started, did_result.is_ok());
+                    if !attempt_is_current(setup_attempt, attempt_id) {
+                        return;
                     }
-                    Err(e) => {
-                        // Non-critical — identity DNA may not have init'd yet
-                        web_sys::console::warn_1(&format!("[Mail] create_did: {e}").into());
+                    if let Err(error) = did_result {
+                        web_sys::console::warn_1(
+                            &format!("[Mail] create_did skipped: {error}").into(),
+                        );
                     }
+                } else {
+                    web_sys::console::log_1(
+                        &"[Mail] Identity role not bundled; continuing with alpha profile + V2 keys"
+                            .into(),
+                    );
                 }
 
-                key_status.set("Preparing device-local hybrid PQC keys...".into());
-                let existing = hc
+                key_status.set("Checking your published hybrid PQC identity...".into());
+                let started = js_sys::Date::now();
+                let bundle_result = hc
                     .call_zome::<(), serde_json::Value>(
                         "mail_keys",
                         "get_my_hybrid_key_bundle_v2",
                         &(),
                     )
-                    .await
-                    .ok()
-                    .filter(|value| !value.is_null());
+                    .await;
+                log_setup_stage(
+                    "get_my_hybrid_key_bundle_v2",
+                    started,
+                    bundle_result.is_ok(),
+                );
+                if !attempt_is_current(setup_attempt, attempt_id) {
+                    return;
+                }
+                let existing = match bundle_result {
+                    Ok(value) => (!value.is_null()).then_some(value),
+                    Err(error) => {
+                        error_msg.set(format!(
+                            "Could not inspect the existing V2 identity: {error}"
+                        ));
+                        key_status.set(String::new());
+                        step.set(SetupStep::NameEntry);
+                        return;
+                    }
+                };
 
                 if existing.is_some() {
                     // Never silently replace a published identity when its
                     // device-local private half is missing.
-                    if let Err(error) = crate::device_keystore::load_hybrid_identity().await {
-                        key_status.set("Existing V2 identity is unavailable on this device".into());
-                        toasts.push(
-                            format!("Cannot recover this device's encryption keys: {error}"),
-                            "error",
-                        );
+                    let started = js_sys::Date::now();
+                    let load_result = crate::device_keystore::load_hybrid_identity().await;
+                    log_setup_stage("load_device_identity", started, load_result.is_ok());
+                    if !attempt_is_current(setup_attempt, attempt_id) {
+                        return;
+                    }
+                    if let Err(error) = load_result {
+                        let message =
+                            format!("Cannot recover this device's encryption keys: {error}");
+                        error_msg.set(message.clone());
+                        key_status.set(String::new());
+                        step.set(SetupStep::NameEntry);
+                        toasts.push(message, "error");
                         return;
                     }
                 } else {
-                    let public =
-                        match crate::device_keystore::create_and_store_hybrid_identity().await {
-                            Ok(public) => public,
+                    // A previous publish may have timed out after committing.
+                    // Reuse any already-wrapped local identity instead of
+                    // silently replacing it during a retry.
+                    let started = js_sys::Date::now();
+                    let has_local_result = crate::device_keystore::has_hybrid_identity().await;
+                    log_setup_stage("has_device_identity", started, has_local_result.is_ok());
+                    if !attempt_is_current(setup_attempt, attempt_id) {
+                        return;
+                    }
+                    let has_local = match has_local_result {
+                        Ok(value) => value,
+                        Err(error) => {
+                            error_msg.set(error.clone());
+                            key_status.set(String::new());
+                            step.set(SetupStep::NameEntry);
+                            toasts.push(error, "error");
+                            return;
+                        }
+                    };
+
+                    let public = if has_local {
+                        key_status.set("Reusing your device-local hybrid PQC identity...".into());
+                        let started = js_sys::Date::now();
+                        let load_result = crate::device_keystore::load_hybrid_identity().await;
+                        log_setup_stage(
+                            "load_unpublished_device_identity",
+                            started,
+                            load_result.is_ok(),
+                        );
+                        if !attempt_is_current(setup_attempt, attempt_id) {
+                            return;
+                        }
+                        match load_result {
+                            Ok(identity) => identity.public_bundle(),
                             Err(error) => {
-                                key_status.set("Could not secure the device identity".into());
+                                error_msg.set(error.clone());
+                                key_status.set(String::new());
+                                step.set(SetupStep::NameEntry);
                                 toasts.push(error, "error");
                                 return;
                             }
-                        };
+                        }
+                    } else {
+                        key_status.set("Creating a device-local hybrid PQC identity...".into());
+                        let started = js_sys::Date::now();
+                        let create_result =
+                            crate::device_keystore::create_and_store_hybrid_identity().await;
+                        log_setup_stage("create_device_identity", started, create_result.is_ok());
+                        if !attempt_is_current(setup_attempt, attempt_id) {
+                            return;
+                        }
+                        match create_result {
+                            Ok(public) => public,
+                            Err(error) => {
+                                error_msg.set(error.clone());
+                                key_status.set(String::new());
+                                step.set(SetupStep::NameEntry);
+                                toasts.push(error, "error");
+                                return;
+                            }
+                        }
+                    };
                     let created_at_us = (js_sys::Date::now() as u64) * 1000;
                     let bundle = serde_json::json!({
                         "version": 2u16,
@@ -218,26 +314,52 @@ pub fn ProfileSetup() -> impl IntoView {
                         "expires_at": created_at_us + (30 * 24 * 3600 * 1_000_000u64),
                         "agent_signature": vec![0u8; 64],
                     });
-                    // Same ActionHash-as-raw-bytes decode mismatch as
-                    // set_profile above — Vec<u8> decodes correctly.
-                    if let Err(error) = hc
+                    key_status.set("Publishing your hybrid PQC identity...".into());
+                    let started = js_sys::Date::now();
+                    // Decoded as `Vec<u8>`, not `serde_json::Value`: this
+                    // zome returns a real `ActionHash` (needed by native
+                    // callers, e.g. the Sweettest suite's
+                    // `sender_mldsa_bundle_hash`/`recipient_bundle_hash`
+                    // pointer plumbing — its return type can't just become
+                    // `()`), whose raw-byte msgpack encoding
+                    // `serde_json::Value` cannot represent ("invalid type:
+                    // byte array, expected any valid JSON value"), even
+                    // though this caller only checks Ok/Err and never reads
+                    // the value.
+                    let publish_result = hc
                         .call_zome::<serde_json::Value, Vec<u8>>(
                             "mail_keys",
                             "publish_hybrid_key_bundle_v2",
                             &bundle,
                         )
-                        .await
-                    {
-                        key_status.set("Hybrid key publication failed".into());
-                        toasts.push(format!("Could not publish V2 keys: {error}"), "error");
+                        .await;
+                    log_setup_stage(
+                        "publish_hybrid_key_bundle_v2",
+                        started,
+                        publish_result.is_ok(),
+                    );
+                    if !attempt_is_current(setup_attempt, attempt_id) {
+                        return;
+                    }
+                    if let Err(error) = publish_result {
+                        let message = format!("Could not publish V2 keys: {error}");
+                        error_msg.set(message.clone());
+                        key_status.set(String::new());
+                        step.set(SetupStep::NameEntry);
+                        toasts.push(message, "error");
                         return;
                     }
                 }
 
+                if !attempt_is_current(setup_attempt, attempt_id) {
+                    return;
+                }
                 toasts.push("Welcome to Mycelix Pulse!", "success");
                 step.set(SetupStep::Complete);
                 gloo_timers::future::sleep(std::time::Duration::from_millis(2000)).await;
-                step.set(SetupStep::HasProfile);
+                if attempt_is_current(setup_attempt, attempt_id) {
+                    step.set(SetupStep::HasProfile);
+                }
             });
         })
     };
@@ -262,7 +384,7 @@ pub fn ProfileSetup() -> impl IntoView {
                 <div style="text-align:center;margin-bottom:20px">
                     <div style="font-size:2.5rem;margin-bottom:8px">"✉"</div>
                     <h2 style="font-size:1.4rem;font-weight:700;margin:0;color:#e2e6f0">"Welcome to Mycelix Pulse"</h2>
-                    <p style="color:#8890a8;font-size:0.85rem;margin-top:6px">"Create your Decentralized Sovereign Identity"</p>
+                    <p style="color:#8890a8;font-size:0.85rem;margin-top:6px">"Create your encrypted Pulse profile"</p>
                 </div>
 
                 // Connecting state — waiting for conductor
@@ -323,8 +445,8 @@ pub fn ProfileSetup() -> impl IntoView {
                         value="Create Profile & Generate Keys"
                     />
                     <p style="font-size:0.7rem;color:#5c6380;text-align:center;margin-top:14px;line-height:1.5">
-                        "Your DSID is anchored to the Holochain DHT."<br/>
-                        "This alpha supports same-browser recovery only. Clearing site data or losing this device makes historical messages unrecoverable."
+                        "Your profile and hybrid public keys are anchored to the Holochain DHT."<br/>
+                        "The separate DSID registry is not bundled in this alpha. Recovery is same-browser only."
                     </p>
                 </form>
 
@@ -332,13 +454,28 @@ pub fn ProfileSetup() -> impl IntoView {
                 <div style=move || if is_keygen() { "text-align:center;padding:20px 0" } else { "display:none" }>
                     <div class="loading-spinner" style="margin:0 auto 16px"></div>
                     <p style="color:#06D6C8;font-size:0.95rem;font-weight:500">{move || key_status.get()}</p>
+                    <p style="color:#5c6380;font-size:0.72rem;margin-top:8px;line-height:1.5">
+                        "Network operations are bounded and will fail rather than wait forever."
+                    </p>
+                    <button style="margin-top:14px;padding:8px 16px;background:transparent;border:1px solid #3a3f54;border-radius:8px;color:#8890a8;font-size:0.8rem;cursor:pointer"
+                        on:click=move |_| {
+                            setup_attempt.update(|attempt| *attempt = attempt.wrapping_add(1));
+                            key_status.set(String::new());
+                            error_msg.set(
+                                "Stopped waiting. A DHT write that already completed may still exist; retrying is safe."
+                                    .into(),
+                            );
+                            step.set(SetupStep::NameEntry);
+                        }>
+                        "Stop Waiting & Retry"
+                    </button>
                 </div>
 
                 // Complete
                 <div style=move || if is_complete() { "text-align:center;padding:20px 0" } else { "display:none" }>
                     <div style="font-size:3rem;margin-bottom:8px;color:#06D6C8">"✓"</div>
                     <p style="color:#06D6C8;font-weight:600;font-size:1.1rem">"You're all set!"</p>
-                    <p style="color:#8890a8;font-size:0.85rem;margin-top:4px">"Your DSID is live on the network."</p>
+                    <p style="color:#8890a8;font-size:0.85rem;margin-top:4px">"Your encrypted profile and V2 public keys are live on the network."</p>
                 </div>
             </div>
         </div>

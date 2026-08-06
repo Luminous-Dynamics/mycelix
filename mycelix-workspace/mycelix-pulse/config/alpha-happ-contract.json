@@ -1,0 +1,42 @@
+{
+  "format": "mycelix-pulse-packed-happ-contract/v1",
+  "happ": {
+    "name": "mycelix_pulse_alpha",
+    "manifest_version": "0",
+    "role": "main",
+    "provisioning_strategy": "create",
+    "deferred": false,
+    "clone_limit": 0,
+    "dna_resource": "mycelix_pulse_alpha.dna"
+  },
+  "dna": {
+    "name": "mycelix_pulse_alpha",
+    "manifest_version": "0",
+    "properties": {
+      "alpha_scope": "profile+trust+hybrid-keys+encrypted-messages+capabilities",
+      "max_key_rotations_per_day": 5,
+      "max_emails_per_hour": 100
+    },
+    "integrity_zomes": [
+      "mail_capabilities_integrity",
+      "mail_keys_integrity",
+      "mail_messages_integrity",
+      "mail_profiles_integrity",
+      "mail_trust_integrity"
+    ],
+    "coordinator_zomes": [
+      "mail_capabilities",
+      "mail_keys",
+      "mail_messages",
+      "mail_profiles",
+      "mail_trust"
+    ]
+  },
+  "limits": {
+    "maximum_happ_compressed_bytes": 67108864,
+    "maximum_happ_uncompressed_bytes": 134217728,
+    "maximum_dna_compressed_bytes": 67108864,
+    "maximum_dna_uncompressed_bytes": 134217728,
+    "maximum_wasm_bytes": 33554432
+  }
+}

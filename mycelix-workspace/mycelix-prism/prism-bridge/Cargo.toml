@@ -13,3 +13,4 @@ tokio = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 blake3 = { workspace = true }
+getrandom = { workspace = true }

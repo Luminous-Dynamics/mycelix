@@ -28,3 +28,8 @@ export type { BridgeSignalHandler } from './bridge';
 export { ConsciousnessGateError, withGateRetry } from './consciousness-gate';
 export type { ConsciousnessGateRejection } from './consciousness-gate';
 export { HearthClient } from './hearth-client';
+
+export { callHearthZome, equalBytes, equalCellId, isSignalForCell } from './cell-target';
+export type { HearthCellTarget } from './cell-target';
+export { HearthNetworkManager, HEARTH_NETWORK_SCHEMA, HEARTH_TEMPLATE_ROLE } from './network';
+export type { HearthNetworkPropertiesV1, HearthNetworkInviteV1, CreateHearthNetworkInput, CreatedHearthNetwork } from './network';

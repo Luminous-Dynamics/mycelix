@@ -28,8 +28,19 @@ pub fn get_my_profile(_: ()) -> ExternResult<Option<Profile>> {
     Ok(None)
 }
 
+/// Returns `()`, not the new profile's `ActionHash` — neither of this
+/// function's two callers (`profile_setup.rs`, `settings.rs`) uses the
+/// hash, only `Ok`/`Err`, and both decode the response as
+/// `serde_json::Value` (the generic zome-call boundary those callers use
+/// elsewhere too). `serde_json::Value` has no variant for a raw byte
+/// array, so returning a real `ActionHash` here made every call fail with
+/// "Serialization error: invalid type: byte array, expected any valid
+/// JSON value" — even though the entry had already committed successfully
+/// server-side. Same bug class as the historical `ActionHash`/`AgentPubKey`
+/// generic-JSON-boundary issue documented in ALPHA_EVIDENCE.md; this
+/// specific call site was missed by that sweep.
 #[hdk_extern]
-pub fn set_profile(profile: Profile) -> ExternResult<ActionHash> {
+pub fn set_profile(profile: Profile) -> ExternResult<()> {
     let my_agent = agent_info()?.agent_initial_pubkey;
 
     // Delete old profile links
@@ -45,7 +56,7 @@ pub fn set_profile(profile: Profile) -> ExternResult<ActionHash> {
     let hash = create_entry(EntryTypes::Profile(profile))?;
 
     // Link agent to profile
-    create_link(my_agent, hash.clone(), LinkTypes::AgentToProfile, ())?;
+    create_link(my_agent, hash, LinkTypes::AgentToProfile, ())?;
 
-    Ok(hash)
+    Ok(())
 }

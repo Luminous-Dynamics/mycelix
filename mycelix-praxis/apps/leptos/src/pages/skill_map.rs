@@ -86,7 +86,10 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
     let (artifact_url, set_artifact_url) = signal("".to_string());
 
     let node_id = node.id.clone();
-    let status = move || progress.get().get(&node_id).status;
+    let status = {
+        let node_id = node_id.clone();
+        move || progress.get().get(&node_id).status
+    };
 
     // Bioregional Morphing Logic
     let morphed_description = move || {
@@ -124,9 +127,12 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
 
             // HDC Rosetta Badge
             {move || node.hdc_anchor.as_ref().map(|h| {
+                // Owned copy -- `h` only borrows from `node` for the duration
+                // of this call, but the view needs a 'static value.
+                let hash_prefix = h.vector_hash.chars().take(16).collect::<String>();
                 view! {
                     <div class="hdc-badge" style="margin-top: 1rem; font-size: 0.6rem; font-family: monospace; background: var(--surface-high); padding: 0.3rem 0.6rem; border-radius: 4px; border: 1px solid var(--primary-low)">
-                        "HDC ANCHOR: "{&h.vector_hash[0..16]}"..."
+                        "HDC ANCHOR: "{hash_prefix}"..."
                     </div>
                 }
             })}
@@ -245,6 +251,12 @@ fn NodeDetail(node: CurriculumNode, on_close: impl Fn() + 'static) -> impl IntoV
                 let tags = node.tags.clone();
                 let mastered = status() == ProgressStatus::Mastered;
                 move || if mastered && (tags.contains(&"solar".to_string()) || tags.contains(&"mfg".to_string()) || tags.contains(&"robotics".to_string())) {
+                    // Fresh clone per call -- the view! macro's component-prop
+                    // codegen moves this into HardwareScanner's props, so the
+                    // outer captured `node_title` must never be consumed
+                    // directly (this closure needs to implement `Fn`/`FnMut`,
+                    // called on every reactive update, not just once).
+                    let node_title = node_title.clone();
                     view! {
                         <SafetyGuard>
                             <section class="hardware-grants" style="margin-top: 2rem; padding: 1.5rem; background: var(--surface-high); border: 2px solid var(--accent); border-radius: 8px">

@@ -12,12 +12,12 @@
 //! Run with: cargo run --example query_demo
 
 use mycelix_desci_core::{
+    Result,
     claims::{ClaimContent, DesciClaim, EpistemicTier},
     hash,
     query::{QueryEngine, QueryFilter, SortBy, SortOrder},
     storage::{MemoryStorage, StorageBackend},
     utils::{string, time},
-    Result,
 };
 use std::sync::Arc;
 
@@ -42,7 +42,13 @@ async fn main() -> Result<()> {
         vec!["CRISPR", "gene-editing", "DNA", "RNA", "sequencing"],
         vec!["CO2", "temperature", "ocean", "emissions", "renewable"],
         vec!["neurons", "brain", "cognition", "memory", "plasticity"],
-        vec!["oncology", "immunotherapy", "tumor", "metastasis", "chemotherapy"],
+        vec![
+            "oncology",
+            "immunotherapy",
+            "tumor",
+            "metastasis",
+            "chemotherapy",
+        ],
     ];
 
     let tiers = vec![
@@ -91,7 +97,10 @@ async fn main() -> Result<()> {
     }
 
     let creation_time = start_time.elapsed();
-    println!("   ✓ Created and indexed 50 claims in {:.2}ms", creation_time.as_secs_f64() * 1000.0);
+    println!(
+        "   ✓ Created and indexed 50 claims in {:.2}ms",
+        creation_time.as_secs_f64() * 1000.0
+    );
     println!("   ✓ Categories: {}", string::join_with_and(&categories));
     println!("   ✓ Tiers: E0-E4 distributed evenly\n");
 
@@ -112,7 +121,10 @@ async fn main() -> Result<()> {
 
     for (i, claim) in results.claims.iter().take(3).enumerate() {
         println!("\n   Result #{}:", i + 1);
-        println!("     Description: {}", string::truncate(&claim.content.description, 60));
+        println!(
+            "     Description: {}",
+            string::truncate(&claim.content.description, 60)
+        );
         println!("     Tier: {:?}", claim.epistemic_tier);
         println!("     Keywords: {}", claim.content.keywords.join(", "));
     }
@@ -161,10 +173,12 @@ async fn main() -> Result<()> {
     println!("   Query time: {:.3}ms", results.execution_time_ms);
 
     for (i, claim) in results.claims.iter().enumerate() {
-        println!("   {}. {} ({})",
+        println!(
+            "   {}. {} ({})",
             i + 1,
             string::truncate(&claim.content.description, 50),
-            claim.content.category);
+            claim.content.category
+        );
     }
 
     // ========================================================================
@@ -201,13 +215,16 @@ async fn main() -> Result<()> {
 
     for page in 0..std::cmp::min(3, total_pages) {
         let offset = page * page_size;
-        let filter = QueryFilter::new()
-            .with_limit(page_size)
-            .with_offset(offset);
+        let filter = QueryFilter::new().with_limit(page_size).with_offset(offset);
 
         let results = query_engine.query(&filter).await?;
 
-        println!("\n   Page {} (offset={}, limit={}):", page + 1, offset, page_size);
+        println!(
+            "\n   Page {} (offset={}, limit={}):",
+            page + 1,
+            offset,
+            page_size
+        );
         println!("     Claims: {}", results.claims.len());
         println!("     Query time: {:.3}ms", results.execution_time_ms);
     }
@@ -230,10 +247,12 @@ async fn main() -> Result<()> {
 
     println!("\n   Top claims by tier:");
     for (i, claim) in results.claims.iter().enumerate() {
-        println!("   {}. {:?} - {}",
+        println!(
+            "   {}. {:?} - {}",
             i + 1,
             claim.epistemic_tier,
-            string::truncate(&claim.content.description, 50));
+            string::truncate(&claim.content.description, 50)
+        );
     }
 
     // ========================================================================
@@ -254,10 +273,12 @@ async fn main() -> Result<()> {
 
     println!("\n   Recent claims:");
     for (i, claim) in results.claims.iter().enumerate() {
-        println!("   {}. {} - {}",
+        println!(
+            "   {}. {} - {}",
             i + 1,
             time::format_relative(&claim.created_at),
-            string::truncate(&claim.content.description, 50));
+            string::truncate(&claim.content.description, 50)
+        );
     }
 
     // ========================================================================
@@ -266,7 +287,10 @@ async fn main() -> Result<()> {
     println!("\n\n🔍 Query 8: Category distribution analysis");
     println!("{}", "-".repeat(70));
 
-    println!("\n   Analyzing {} claims across categories:\n", created_claims.len());
+    println!(
+        "\n   Analyzing {} claims across categories:\n",
+        created_claims.len()
+    );
 
     for category in &categories {
         let filter = QueryFilter::new().with_category(category.to_string());
@@ -275,11 +299,13 @@ async fn main() -> Result<()> {
         let percentage = (results.claims.len() as f64 / created_claims.len() as f64) * 100.0;
         let bar = "█".repeat((percentage / 5.0) as usize);
 
-        println!("   {:15} {:2} claims ({:5.1}%) {}",
+        println!(
+            "   {:15} {:2} claims ({:5.1}%) {}",
             category,
             results.claims.len(),
             percentage,
-            bar);
+            bar
+        );
     }
 
     // ========================================================================
@@ -289,19 +315,36 @@ async fn main() -> Result<()> {
     println!("{}", "=".repeat(70));
 
     let benchmark_queries = vec![
-        ("Category filter", QueryFilter::new().with_category("longevity".to_string())),
-        ("Tier filter", QueryFilter::new().with_min_tier(EpistemicTier::E3)),
-        ("Keyword search", QueryFilter::new().with_keyword("CRISPR".to_string())),
-        ("Complex multi-filter", QueryFilter::new()
-            .with_category("genomics".to_string())
-            .with_keyword("DNA".to_string())
-            .with_min_tier(EpistemicTier::E2)),
+        (
+            "Category filter",
+            QueryFilter::new().with_category("longevity".to_string()),
+        ),
+        (
+            "Tier filter",
+            QueryFilter::new().with_min_tier(EpistemicTier::E3),
+        ),
+        (
+            "Keyword search",
+            QueryFilter::new().with_keyword("CRISPR".to_string()),
+        ),
+        (
+            "Complex multi-filter",
+            QueryFilter::new()
+                .with_category("genomics".to_string())
+                .with_keyword("DNA".to_string())
+                .with_min_tier(EpistemicTier::E2),
+        ),
         ("Paginated (10)", QueryFilter::new().with_limit(10)),
-        ("Sorted by tier", QueryFilter::new()
-            .with_sort(SortBy::EpistemicTier, SortOrder::Descending)),
+        (
+            "Sorted by tier",
+            QueryFilter::new().with_sort(SortBy::EpistemicTier, SortOrder::Descending),
+        ),
     ];
 
-    println!("\n   Running {} queries multiple times for accurate timing...\n", benchmark_queries.len());
+    println!(
+        "\n   Running {} queries multiple times for accurate timing...\n",
+        benchmark_queries.len()
+    );
 
     for (name, filter) in benchmark_queries {
         let iterations = 100;
@@ -314,10 +357,12 @@ async fn main() -> Result<()> {
         let total_time = start.elapsed();
         let avg_time = total_time.as_secs_f64() * 1000.0 / iterations as f64;
 
-        println!("   {:25} {:.3}ms avg ({} iterations)",
+        println!(
+            "   {:25} {:.3}ms avg ({} iterations)",
             format!("{}:", name),
             avg_time,
-            iterations);
+            iterations
+        );
     }
 
     // ========================================================================
@@ -359,7 +404,10 @@ async fn main() -> Result<()> {
         println!("     {:?}: {}", tier, count);
     }
 
-    println!("\n   Average Query Time: {:.3}ms", all_results.execution_time_ms);
+    println!(
+        "\n   Average Query Time: {:.3}ms",
+        all_results.execution_time_ms
+    );
 
     println!("\n{}", "=".repeat(70));
     println!("✅ Query Demo Complete!\n");

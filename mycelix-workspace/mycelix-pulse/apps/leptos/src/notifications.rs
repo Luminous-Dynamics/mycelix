@@ -53,36 +53,128 @@ pub fn use_notifications() -> NotificationState {
     expect_context::<NotificationState>()
 }
 
+fn window_constructor(name: &str) -> Option<js_sys::Function> {
+    let window = web_sys::window()?;
+    js_sys::Reflect::get(window.as_ref(), &JsValue::from_str(name))
+        .ok()?
+        .dyn_into::<js_sys::Function>()
+        .ok()
+}
+
+fn call_method0(target: &JsValue, name: &str) -> Result<JsValue, JsValue> {
+    let method = js_sys::Reflect::get(target, &JsValue::from_str(name))?
+        .dyn_into::<js_sys::Function>()?;
+    method.call0(target)
+}
+
+fn call_method1(target: &JsValue, name: &str, arg: &JsValue) -> Result<JsValue, JsValue> {
+    let method = js_sys::Reflect::get(target, &JsValue::from_str(name))?
+        .dyn_into::<js_sys::Function>()?;
+    method.call1(target, arg)
+}
+
+/// Return the browser notification permission, or `None` when unsupported.
+pub fn notification_permission() -> Option<String> {
+    let constructor = window_constructor("Notification")?;
+    js_sys::Reflect::get(constructor.as_ref(), &JsValue::from_str("permission"))
+        .ok()?
+        .as_string()
+}
+
 /// Request notification permission on first user interaction.
 pub fn request_notification_permission() {
-    let _ = js_sys::eval(
-        "if('Notification' in window && Notification.permission==='default'){Notification.requestPermission()}",
-    );
+    if notification_permission().as_deref() != Some("default") {
+        return;
+    }
+    if let Some(constructor) = window_constructor("Notification") {
+        if let Ok(method) = js_sys::Reflect::get(
+            constructor.as_ref(),
+            &JsValue::from_str("requestPermission"),
+        )
+        .and_then(|value| value.dyn_into::<js_sys::Function>())
+        {
+            let _ = method.call0(constructor.as_ref());
+        }
+    }
 }
 
 /// Show a desktop notification for a new email.
 pub fn show_desktop_notification(sender: &str, subject: &str) {
-    let sender = sender.replace('\'', "\\'").replace('\\', "\\\\");
-    let subject = subject.replace('\'', "\\'").replace('\\', "\\\\");
-    let js = format!(
-        "if('Notification' in window && Notification.permission==='granted'){{new Notification('{}',{{body:'{}',icon:'/icons/icon-96.png',tag:'mycelix-pulse'}})}}",
-        sender, subject
+    if notification_permission().as_deref() != Some("granted") {
+        return;
+    }
+    let Some(constructor) = window_constructor("Notification") else {
+        return;
+    };
+
+    let options = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(
+        &options,
+        &JsValue::from_str("body"),
+        &JsValue::from_str(subject),
     );
-    let _ = js_sys::eval(&js);
+    let _ = js_sys::Reflect::set(
+        &options,
+        &JsValue::from_str("icon"),
+        &JsValue::from_str("/icons/icon-96.png"),
+    );
+    let _ = js_sys::Reflect::set(
+        &options,
+        &JsValue::from_str("tag"),
+        &JsValue::from_str("mycelix-pulse"),
+    );
+
+    let args = js_sys::Array::new();
+    args.push(&JsValue::from_str(sender));
+    args.push(&options);
+    let _ = js_sys::Reflect::construct(&constructor, &args);
 }
 
-/// Play a short notification beep using Web Audio API.
+/// Play a short notification beep using the Web Audio API.
 pub fn play_notification_sound() {
     let state = use_notifications();
-    if !state.sound_enabled.get_untracked() {
-        return;
-    }
-    if state.tab_visible.get_untracked() {
+    if !state.sound_enabled.get_untracked() || state.tab_visible.get_untracked() {
         return;
     }
 
-    // Use eval for simple Web Audio beep
-    let _ = js_sys::eval(
-        "try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.type='sine';o.frequency.value=880;g.gain.value=0.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.1)}catch(e){}",
-    );
+    let constructor = window_constructor("AudioContext")
+        .or_else(|| window_constructor("webkitAudioContext"));
+    let Some(constructor) = constructor else {
+        return;
+    };
+    let Ok(context) = js_sys::Reflect::construct(&constructor, &js_sys::Array::new()) else {
+        return;
+    };
+    let Ok(oscillator) = call_method0(&context, "createOscillator") else {
+        return;
+    };
+    let Ok(gain) = call_method0(&context, "createGain") else {
+        return;
+    };
+
+    if let Ok(frequency) = js_sys::Reflect::get(&oscillator, &JsValue::from_str("frequency")) {
+        let _ = js_sys::Reflect::set(
+            &frequency,
+            &JsValue::from_str("value"),
+            &JsValue::from_f64(880.0),
+        );
+    }
+    if let Ok(gain_param) = js_sys::Reflect::get(&gain, &JsValue::from_str("gain")) {
+        let _ = js_sys::Reflect::set(
+            &gain_param,
+            &JsValue::from_str("value"),
+            &JsValue::from_f64(0.08),
+        );
+    }
+    let _ = call_method1(&oscillator, "connect", &gain);
+    if let Ok(destination) = js_sys::Reflect::get(&context, &JsValue::from_str("destination")) {
+        let _ = call_method1(&gain, "connect", &destination);
+    }
+    let _ = call_method0(&oscillator, "start");
+    let stop_at = js_sys::Reflect::get(&context, &JsValue::from_str("currentTime"))
+        .ok()
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0)
+        + 0.1;
+    let _ = call_method1(&oscillator, "stop", &JsValue::from_f64(stop_at));
 }

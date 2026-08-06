@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 name = "treasury_integrity"
 
 [dependencies]
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }
 holochain_serialized_bytes = { workspace = true }
 hdi = { workspace = true }
 serde = { workspace = true }

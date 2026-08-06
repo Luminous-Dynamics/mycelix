@@ -38,7 +38,7 @@ mod fixed_point;
 mod scheme;
 
 pub use error::{CommitmentError, CommitmentResult};
-pub use fixed_point::{FixedPointCommitment, ScalingConfig, KVECTOR_SCALE_FACTOR};
+pub use fixed_point::{FixedPointCommitment, KVECTOR_SCALE_FACTOR, ScalingConfig};
 pub use scheme::{CommitmentScheme, CompositeCommitment, Sha3Commitment};
 
 /// Standard commitment hash type (32 bytes = 256 bits)

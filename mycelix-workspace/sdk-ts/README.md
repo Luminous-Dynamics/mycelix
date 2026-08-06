@@ -2,10 +2,17 @@
 
 > TypeScript SDK for the Mycelix Ecosystem - Decentralized Trust, Federated Learning & Byzantine-Resistant Infrastructure on Holochain
 
-[![npm version](https://badge.fury.io/js/@mycelix%2Fsdk.svg)](https://www.npmjs.com/package/@mycelix/sdk)
+[![Status: Pre-release](https://img.shields.io/badge/status-pre--release%20%2F%20alpha-orange.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/tests-1556%20passing-brightgreen.svg)]()
+
+> ⚠️ **Pre-release / alpha.** This SDK is not yet published to npm and its
+> `typecheck` step currently fails (see
+> [#28](https://github.com/Luminous-Dynamics/luminous-dynamics/issues/28)).
+> The vitest suite mostly passes, but the package isn't ready for external
+> use yet. Not recommended for production or third-party adoption until
+> this notice is removed.
 
 ## Overview
 

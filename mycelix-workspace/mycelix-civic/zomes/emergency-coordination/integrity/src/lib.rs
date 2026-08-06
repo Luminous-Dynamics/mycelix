@@ -162,14 +162,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Team(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Assignment(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::SituationReport(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Team(team) => validate_update_team(action, team),
+                // No live update_entry call for Assignment (confirmed via
+                // grep) -- previously silently accepted any field change.
+                // Made explicitly immutable.
+                EntryTypes::Assignment(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Assignments are immutable".into(),
+                )),
+                // No live update_entry call for SituationReport either.
+                EntryTypes::SituationReport(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Situation reports are immutable".into(),
+                )),
                 EntryTypes::Checkpoint(_) => Ok(ValidateCallbackResult::Invalid(
                     "Checkpoints are immutable; create a new one".into(),
                 )),
@@ -283,6 +291,34 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
     }
+}
+
+/// assign_to_zone sets assigned_zone/status when assigning a team to a
+/// zone, with no caller-identity check in the coordinator (typically
+/// called by an incident commander, not necessarily the team's original
+/// creator) -- no established authority model here to bind against.
+/// Content is restricted to assigned_zone/status; id/name/team_type/
+/// members/lead are immutable.
+fn validate_update_team(action: Update, team: Team) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Team = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original team not found".to_string()
+        )))?;
+    if team.id != original.id
+        || team.name != original.name
+        || team.team_type != original.team_type
+        || team.members != original.members
+        || team.lead != original.lead
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only assigned_zone/status can change on a team update".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_create_team(_action: Create, team: Team) -> ExternResult<ValidateCallbackResult> {

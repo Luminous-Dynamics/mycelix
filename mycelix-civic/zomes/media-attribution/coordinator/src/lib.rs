@@ -10,6 +10,16 @@ use mycelix_bridge_common::{
 use mycelix_zome_helpers::get_latest_record;
 
 use mycelix_zome_helpers as _;
+
+/// Derives the calling agent's real DID from `agent_info()` -- never trust a
+/// caller-supplied "acting agent" field. Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()` and the
+/// justice-* coordinators' own `my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
+
 /// Helper function to create an anchor entry and return its hash
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(anchor_string.to_string());
@@ -222,11 +232,17 @@ pub fn verify_attribution(input: VerifyAttributionInput) -> ExternResult<Record>
         )?))
         .include_entries(true);
 
+    // Author-binding: only the real caller's own identity can satisfy "only contributor can
+    // verify" -- input.requester_did used to be trusted caller-supplied data, letting the
+    // original attribution author (who does pass DHT-level author-binding on the resulting
+    // update) fraudulently self-verify by claiming to be the contributor. Found 2026-07-28
+    // during P0-#1 triage.
+    let caller_did = my_did()?;
     for record in query(filter)? {
         if let Some(attr) = record.entry().to_app_option::<Attribution>().ok().flatten() {
             if attr.id == input.attribution_id {
                 // Only contributor can verify
-                if attr.contributor_did != input.requester_did {
+                if attr.contributor_did != caller_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only contributor can verify attribution".into()
                     )));
@@ -253,7 +269,6 @@ pub fn verify_attribution(input: VerifyAttributionInput) -> ExternResult<Record>
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VerifyAttributionInput {
     pub attribution_id: String,
-    pub requester_did: String,
 }
 
 /// Update share percentage
@@ -883,14 +898,14 @@ mod tests {
 
     #[test]
     fn verify_attribution_input_serde_roundtrip() {
+        // requester_did removed 2026-07-28 (P0-#1): the caller's identity is now derived
+        // server-side via my_did(), never trusted as client input.
         let input = VerifyAttributionInput {
             attribution_id: "attr-1".into(),
-            requester_did: "did:mycelix:alice".into(),
         };
         let json = serde_json::to_string(&input).unwrap();
         let input2: VerifyAttributionInput = serde_json::from_str(&json).unwrap();
         assert_eq!(input2.attribution_id, "attr-1");
-        assert_eq!(input2.requester_did, "did:mycelix:alice");
     }
 
     #[test]

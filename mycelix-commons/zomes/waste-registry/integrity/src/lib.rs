@@ -312,9 +312,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                // WasteClassification was previously absent here and fell
+                // to the catch-all `_ => Valid` -- any agent could rewrite
+                // any stream's classification with no authorization check
+                // at all (P0 author-binding gap, wide-open-update class).
                 EntryTypes::WasteStream(_)
                 | EntryTypes::WasteFacility(_)
-                | EntryTypes::WasteRoute(_) => {
+                | EntryTypes::WasteRoute(_)
+                | EntryTypes::WasteClassification(_) => {
                     let original = must_get_action(original_action_hash)?;
                     Ok(check_author_match(
                         original.action().author(),
@@ -322,7 +327,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "update",
                     ))
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -565,7 +569,7 @@ fn validate_create_route(
         ("capacity_score", f.capacity_score),
         ("contamination_compatibility", f.contamination_compatibility),
     ] {
-        if !val.is_finite() || val < 0.0 || val > 1.0 {
+        if !val.is_finite() || !(0.0..=1.0).contains(&val) {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "{} must be between 0.0 and 1.0",
                 name

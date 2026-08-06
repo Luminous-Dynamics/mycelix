@@ -386,12 +386,12 @@ pub fn execute_timelock(input: ExecuteTimelockInput) -> ExternResult<Record> {
                                 .signed_content_description
                                 .contains(&current_timelock.proposal_id)
                             {
-                                return Err(wasm_error!(WasmErrorInner::Guest(
-                                    format!(
-                                        "Threshold signature '{}' content description does not reference proposal '{}' (was: '{}')",
-                                        sig.id, current_timelock.proposal_id, sig.signed_content_description
-                                    )
-                                )));
+                                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Threshold signature '{}' content description does not reference proposal '{}' (was: '{}')",
+                                    sig.id,
+                                    current_timelock.proposal_id,
+                                    sig.signed_content_description
+                                ))));
                             }
 
                             // Defense-in-depth: verify committee scope covers this proposal type.
@@ -676,10 +676,13 @@ fn execute_actions(actions_json: &str) -> ExternResult<ActionExecutionResult> {
             Ok(v) => vec![v],
             Err(e) => {
                 return Ok(ActionExecutionResult {
-                        success: false,
-                        result: None,
-                        error: Some(format!("Failed to parse actions: {}. Expected GovernanceAction with type TransferCredits, UpdateParameter, or EmitEvent", e)),
-                    });
+                    success: false,
+                    result: None,
+                    error: Some(format!(
+                        "Failed to parse actions: {}. Expected GovernanceAction with type TransferCredits, UpdateParameter, or EmitEvent",
+                        e
+                    )),
+                });
             }
         },
     };
@@ -902,6 +905,13 @@ pub fn veto_timelock(input: VetoTimelockInput) -> ExternResult<Record> {
         affected_proposal_id: input.affected_proposal_id.clone(),
         justification_hash: input.justification_hash.clone(),
         threat_category: input.threat_category.clone(),
+        // `haptic_proof` was added to the integrity struct without updating this,
+        // its only construction site — so the execution zome, and therefore the
+        // whole governance cluster, did not compile (E0063). `None` preserves
+        // prior behaviour: the field is `Option` with `#[serde(default)]`, has no
+        // corresponding input, and is read nowhere yet. Populating it from real
+        // robotic-sensor input is a feature, not part of this build fix.
+        haptic_proof: None,
     };
 
     let action_hash = create_entry(&EntryTypes::GuardianVeto(veto))?;

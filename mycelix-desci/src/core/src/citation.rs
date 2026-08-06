@@ -258,8 +258,8 @@ impl CitationAnalyzer {
                 }
 
                 // Apply damping factor
-                let new_score =
-                    (1.0 - self.config.damping_factor) / n as f64 + self.config.damping_factor * sum;
+                let new_score = (1.0 - self.config.damping_factor) / n as f64
+                    + self.config.damping_factor * sum;
 
                 let old_score = scores.get(&claim_id).copied().unwrap_or(0.0);
                 max_diff = max_diff.max((new_score - old_score).abs());

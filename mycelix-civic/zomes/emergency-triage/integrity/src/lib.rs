@@ -230,12 +230,59 @@ fn validate_create_triage(
     validate_triage_fields(&record, true)
 }
 
+/// Pure transition logic for a `TriageRecord` update, factored out of
+/// [`validate_update_triage`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+///
+/// Unlike other update validators in this cluster, an author requirement
+/// DOES apply here: the coordinator's update_triage always re-derives
+/// triaged_by from the CALLING agent's agent_info() (a re-triage is
+/// attributed to whoever performs it, which may legitimately be a
+/// different medic than the original triager -- that's why triaged_by
+/// itself, not the original author, is what's checked). Content is
+/// otherwise restricted to category/injuries/timestamp/triaged_by/
+/// transport_priority/notes -- this closes the wide-open bug that
+/// previously let disaster_hash/patient_id/patient_hash/location change
+/// unconditionally on update too (the dispatcher had already been wired
+/// to call this function, but the function itself never compared against
+/// the original entry).
+fn validate_triage_transition(
+    original: &TriageRecord,
+    record: &TriageRecord,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if record.triaged_by != *author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TriageRecord triaged_by must match the committing agent".into(),
+        ));
+    }
+    if record.disaster_hash != original.disaster_hash
+        || record.patient_id != original.patient_id
+        || record.patient_hash != original.patient_hash
+        || record.location != original.location
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "disaster_hash/patient_id/patient_hash/location cannot change on a triage update"
+                .into(),
+        ));
+    }
+    // Updates allow empty location (field may be cleared or unknown during re-triage)
+    validate_triage_fields(record, false)
+}
+
 fn validate_update_triage(
-    _action: Update,
+    action: Update,
     record: TriageRecord,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Updates allow empty location (field may be cleared or unknown during re-triage)
-    validate_triage_fields(&record, false)
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: TriageRecord = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original triage record not found".to_string()
+        )))?;
+    validate_triage_transition(&original, &record, &action.author)
 }
 
 #[cfg(test)]
@@ -250,24 +297,6 @@ mod tests {
             timestamp: fake_timestamp(),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
-            weight: Default::default(),
-        }
-    }
-
-    fn fake_update() -> Update {
-        Update {
-            author: fake_agent_pub_key(),
-            timestamp: fake_timestamp(),
-            action_seq: 1,
-            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
-            original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
-            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef {
                 entry_index: 0.into(),
                 zome_index: 0.into(),
@@ -552,7 +581,7 @@ mod tests {
     #[test]
     fn test_validate_update_triage_valid() {
         let record = valid_triage_record();
-        let result = validate_update_triage(fake_update(), record);
+        let result = validate_triage_transition(&record, &record, &record.triaged_by);
         assert!(is_valid(result));
     }
 
@@ -567,13 +596,14 @@ mod tests {
         ];
 
         for category in categories {
-            let mut record = valid_triage_record();
+            let original = valid_triage_record();
+            let mut record = original.clone();
             // Dead + Urgent is invalid, so use None for Dead
             if category == TriageCategory::Dead {
                 record.transport_priority = TransportPriority::None;
             }
             record.category = category.clone();
-            let result = validate_update_triage(fake_update(), record);
+            let result = validate_triage_transition(&original, &record, &record.triaged_by);
             assert!(
                 is_valid(result),
                 "Expected valid update for category {:?}",
@@ -584,25 +614,31 @@ mod tests {
 
     #[test]
     fn test_validate_update_triage_allows_empty_location() {
-        let mut record = valid_triage_record();
-        record.location = "".into();
-        let result = validate_update_triage(fake_update(), record);
+        // location is immutable on update, so both original and record must
+        // already share the (empty) location for this to reach the content
+        // check rather than the immutability check.
+        let mut original = valid_triage_record();
+        original.location = "".into();
+        let record = original.clone();
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
         assert!(is_valid(result));
     }
 
     #[test]
     fn test_validate_update_triage_allows_empty_injuries() {
-        let mut record = valid_triage_record();
+        let original = valid_triage_record();
+        let mut record = original.clone();
         record.injuries = "".into();
-        let result = validate_update_triage(fake_update(), record);
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
         assert!(is_valid(result));
     }
 
     #[test]
     fn test_validate_update_triage_allows_empty_notes() {
-        let mut record = valid_triage_record();
+        let original = valid_triage_record();
+        let mut record = original.clone();
         record.notes = "".into();
-        let result = validate_update_triage(fake_update(), record);
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
         assert!(is_valid(result));
     }
 
@@ -610,15 +646,45 @@ mod tests {
 
     #[test]
     fn test_validate_update_triage_empty_patient_id() {
-        let mut record = valid_triage_record();
-        record.patient_id = "".into();
-        let result = validate_update_triage(fake_update(), record);
+        // Content check applies even on update: a record that already has
+        // an empty (unchanged) patient_id is still rejected.
+        let mut original = valid_triage_record();
+        original.patient_id = "".into();
+        let record = original.clone();
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
         let msg = invalid_message(result);
         assert!(
             msg.contains("Patient ID"),
             "Error message should mention Patient ID, got: {}",
             msg
         );
+    }
+
+    #[test]
+    fn test_validate_update_triage_patient_id_change_rejected() {
+        let original = valid_triage_record();
+        let mut record = original.clone();
+        record.patient_id = "OTHER-ID".into();
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
+        assert!(is_invalid(result));
+    }
+
+    #[test]
+    fn test_validate_update_triage_disaster_hash_change_rejected() {
+        let original = valid_triage_record();
+        let mut record = original.clone();
+        record.disaster_hash = ActionHash::from_raw_36(vec![9u8; 36]);
+        let result = validate_triage_transition(&original, &record, &record.triaged_by);
+        assert!(is_invalid(result));
+    }
+
+    #[test]
+    fn test_validate_update_triage_forgery_rejected() {
+        let original = valid_triage_record();
+        let record = original.clone();
+        let other_agent = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let result = validate_triage_transition(&original, &record, &other_agent);
+        assert!(is_invalid(result));
     }
 
     // ── Edge cases: Unicode content ───────────────────────────────────
@@ -850,7 +916,7 @@ mod tests {
             "create should reject empty location"
         );
 
-        let update_result = validate_update_triage(fake_update(), record);
+        let update_result = validate_triage_transition(&record, &record, &record.triaged_by);
         assert!(
             is_valid(update_result),
             "update should allow empty location"
@@ -868,7 +934,7 @@ mod tests {
             "create should reject empty patient_id"
         );
 
-        let update_result = validate_update_triage(fake_update(), record);
+        let update_result = validate_triage_transition(&record, &record, &record.triaged_by);
         assert!(
             is_invalid(update_result),
             "update should reject empty patient_id"

@@ -8,6 +8,8 @@ use crate::persistence;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+const PROFILE_KEY: &str = "praxis_profile";
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct StudentProfile {
     pub name: String,
@@ -16,6 +18,44 @@ pub struct StudentProfile {
     pub biography: String,
     pub primary_interests: Vec<String>,
     pub is_hollow_state: bool, // Plausible Deniability for high-crime areas
+    /// Set once the home-page onboarding flow completes.
+    #[serde(default)]
+    pub onboarding_complete: bool,
+    /// Target exam date (free-form date string); empty until set.
+    #[serde(default)]
+    pub exam_date: String,
+    /// Curriculum framework chosen during onboarding, e.g. "caps",
+    /// "common_core", "ib", "self_directed".
+    #[serde(default)]
+    pub framework: String,
+}
+
+/// Provide the student profile as a context signal, following
+/// `role::provide_role_context`'s exact template. Persists to localStorage
+/// at the same `"praxis_profile"` key this module's own `ProfilePage` (and
+/// `pages::teacher::real_students`) already read directly, so context-based
+/// and direct-load reads always see the same data.
+pub fn provide_profile_context() -> (ReadSignal<StudentProfile>, WriteSignal<StudentProfile>) {
+    let initial: StudentProfile = persistence::load(PROFILE_KEY).unwrap_or_default();
+    let (profile, set_profile) = signal(initial);
+
+    Effect::new(move |_| {
+        persistence::save(PROFILE_KEY, &profile.get());
+    });
+
+    provide_context(profile);
+    provide_context(set_profile);
+    (profile, set_profile)
+}
+
+/// Read the current student profile from context (panics if not provided).
+pub fn use_profile() -> ReadSignal<StudentProfile> {
+    expect_context::<ReadSignal<StudentProfile>>()
+}
+
+/// Get the setter for the current student profile from context.
+pub fn use_set_profile() -> WriteSignal<StudentProfile> {
+    expect_context::<WriteSignal<StudentProfile>>()
 }
 
 #[component]

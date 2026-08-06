@@ -1,51 +1,44 @@
-# Multi-stage Dockerfile for Mycelix-DeSci
-# Stage 1: Builder
-FROM rust:1.75-slim as builder
+# syntax=docker/dockerfile:1.7
+# Mycelix-DeSci canonical API image.
+#
+# The repository currently depends on the sibling `mycelix-zkp-core` crate.
+# Supply it as a BuildKit named context:
+#   docker buildx build \
+#     --build-context zkp-core=../crates/mycelix-zkp-core \
+#     -t mycelix-desci-api .
 
-WORKDIR /app
+FROM rust:1.96-bookworm AS builder
 
-# Install build dependencies
-RUN apt-update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace files
-COPY Cargo.toml ./
-COPY src/core ./src/core
-COPY src/api ./src/api
+WORKDIR /workspace
+COPY . /workspace/mycelix-desci
+COPY --from=zkp-core . /workspace/crates/mycelix-zkp-core
+WORKDIR /workspace/mycelix-desci
 
-# Build release binary
-RUN cargo build --release --package mycelix-desci-api
+RUN cargo build --locked --release --package mycelix-desci-api --bin mycelix-api
 
-# Stage 2: Runtime
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS runtime
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    curl \
     libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 --shell /usr/sbin/nologin mycelix \
+    && mkdir -p /app/data/scientific-events /app/config \
+    && chown -R mycelix:mycelix /app
 
-# Create non-root user
-RUN useradd -m -u 1000 mycelix
+COPY --from=builder /workspace/mycelix-desci/target/release/mycelix-api /usr/local/bin/mycelix-api
 
 WORKDIR /app
-
-# Copy binary from builder
-COPY --from=builder /app/target/release/mycelix-api /usr/local/bin/mycelix-api
-
-# Change ownership
-RUN chown -R mycelix:mycelix /app
-
 USER mycelix
-
-# Expose API port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8080/health >/dev/null || exit 1
 
-# Run the API server
 CMD ["mycelix-api"]

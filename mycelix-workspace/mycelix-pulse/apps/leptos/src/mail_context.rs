@@ -20,13 +20,17 @@ use wasm_bindgen_futures::spawn_local;
 
 use std::collections::HashSet;
 
-/// Returns true if running on a demo domain (luminousdynamics.io) — mock data only.
-/// Returns false on production (mycelix.net) or localhost — real conductor required.
+/// Returns true only for the owned luminousdynamics.io DNS boundary.
+/// Substring matches are deliberately rejected (`luminousdynamics.io.evil.test`
+/// is not a demo origin).
+pub fn is_demo_hostname(host: &str) -> bool {
+    host == "luminousdynamics.io" || host.ends_with(".luminousdynamics.io")
+}
+
 pub fn is_demo_mode() -> bool {
     web_sys::window()
         .and_then(|w| w.location().hostname().ok())
-        .map(|h| h.contains("luminousdynamics.io"))
-        .unwrap_or(false)
+        .is_some_and(|host| is_demo_hostname(&host))
 }
 use crate::holochain::use_holochain;
 use crate::mock_data;
@@ -38,6 +42,10 @@ struct InboxEnvelopeV2Wire {
     message_id: [u8; 32],
     sender_mldsa_key_id: [u8; 32],
     recipient_hybrid_key_id: [u8; 32],
+    #[serde(default)]
+    sender_mldsa_bundle_hash: Vec<u8>,
+    #[serde(default)]
+    recipient_bundle_hash: Vec<u8>,
     x25519_ephemeral_public_key: [u8; 32],
     ml_kem_ciphertext: Vec<u8>,
     nonce: [u8; 12],
@@ -49,49 +57,10 @@ struct InboxEnvelopeV2Wire {
     ml_dsa_signature: Vec<u8>,
 }
 
-/// Minimal tolerant wire type for `get_email`'s real response,
-/// `Option<EncryptedEmail>` — see the identical fix/comment on
-/// `read.rs::EncryptedEmailPartial`, which this mirrors.
-#[derive(Clone, Debug, Deserialize)]
-struct EncryptedEmailPartialWire {
-    encrypted_subject: Vec<u8>,
-    encrypted_body: Vec<u8>,
-    ephemeral_pubkey: Vec<u8>,
-    nonce: Vec<u8>,
-}
-
-/// Matches the real `get_folders` response shape,
-/// `Vec<(ActionHash, EmailFolder)>` — `EmailFolder.owner` is an AgentPubKey
-/// (raw bytes), which decodes correctly as `Vec<u8>` but not as
-/// `serde_json::Value` (same class of bug as `InboxEmailV2Wire.sender`
-/// above; this one was masked all session because no folder was ever
-/// created in the restricted alpha DNA, so every response was `[]`).
-/// `EmailFolder` has no plaintext `name` field — only `encrypted_name` — and
-/// this codebase has no folder-name decryption path (the existing but
-/// unused `zome_adapter::WireFolder`/`adapt_folders` assumed a `name: String`
-/// field that doesn't exist server-side, and lossy-UTF8-decoded genuinely
-/// encrypted bytes, which is worse than an honest placeholder). This wire
-/// type decodes correctly; the caller shows a placeholder name rather than
-/// inventing decryption that was never implemented.
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct FolderWireV1 {
-    pub(crate) owner: Vec<u8>,
-    pub(crate) encrypted_name: Vec<u8>,
-    pub(crate) metadata: Option<Vec<u8>>,
-    pub(crate) is_system: bool,
-    pub(crate) sort_order: i32,
-}
-
 #[derive(Clone, Debug, Deserialize)]
 struct InboxEmailV2Wire {
     hash: String,
-    // `sender` (an AgentPubKey — raw bytes on the wire) used to be typed
-    // serde_json::Value here, which cannot represent msgpack's raw
-    // byte-array type ("invalid type: byte array, expected any valid JSON
-    // value") — that failure aborted decoding the WHOLE Vec<InboxEmailV2Wire>
-    // response for any non-empty inbox, found live via the Pulse browser
-    // proof. `sender_agent_raw` already carries the identical raw bytes, so
-    // the redundant/broken field is dropped rather than just retyped.
+    sender: serde_json::Value,
     sender_agent_raw: Vec<u8>,
     recipient_agent_raw: Vec<u8>,
     envelope: InboxEnvelopeV2Wire,
@@ -276,10 +245,8 @@ impl MailCtx {
             if hc.is_mock() {
                 return;
             }
-            // update_email_state returns an ActionHash (raw bytes) — Vec<u8>
-            // decodes it correctly where serde_json::Value cannot.
             let _ = hc
-                .call_zome::<serde_json::Value, Vec<u8>>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_messages",
                     "update_email_state",
                     &serde_json::json!([h, { "is_starred": true }]),
@@ -301,10 +268,8 @@ impl MailCtx {
             if hc.is_mock() {
                 return;
             }
-            // mark_as_read returns Option<ActionHash> (raw bytes) —
-            // Option<Vec<u8>> decodes it correctly.
             let _ = hc
-                .call_zome::<serde_json::Value, Option<Vec<u8>>>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_messages",
                     "mark_as_read",
                     &serde_json::json!([h, false]),
@@ -324,10 +289,8 @@ impl MailCtx {
             if hc.is_mock() {
                 return;
             }
-            // update_email_state returns an ActionHash (raw bytes) — Vec<u8>
-            // decodes it correctly where serde_json::Value cannot.
             let _ = hc
-                .call_zome::<serde_json::Value, Vec<u8>>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_messages",
                     "update_email_state",
                     &serde_json::json!([h, { "is_archived": true }]),
@@ -347,10 +310,8 @@ impl MailCtx {
             if hc.is_mock() {
                 return;
             }
-            // update_email_state returns an ActionHash (raw bytes) — Vec<u8>
-            // decodes it correctly where serde_json::Value cannot.
             let _ = hc
-                .call_zome::<serde_json::Value, Vec<u8>>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_messages",
                     "update_email_state",
                     &serde_json::json!([h, { "is_trashed": true }]),
@@ -679,14 +640,41 @@ pub fn provide_mail_context() {
         }),
         typing_indicators: RwSignal::new(HashMap::new()),
         selected_hashes: RwSignal::new(HashSet::new()),
-        labels: RwSignal::new(mock_data::mock_labels()),
-        filters: RwSignal::new(mock_data::mock_filters()),
-        signatures: RwSignal::new(mock_data::mock_signatures()),
-        vacation: RwSignal::new(mock_data::mock_vacation()),
+        labels: RwSignal::new(if demo {
+            mock_data::mock_labels()
+        } else {
+            vec![]
+        }),
+        filters: RwSignal::new(if demo {
+            mock_data::mock_filters()
+        } else {
+            vec![]
+        }),
+        signatures: RwSignal::new(if demo {
+            mock_data::mock_signatures()
+        } else {
+            vec![]
+        }),
+        vacation: RwSignal::new(if demo {
+            mock_data::mock_vacation()
+        } else {
+            VacationResponder {
+                enabled: false,
+                subject: String::new(),
+                body: String::new(),
+                start_date: None,
+                end_date: None,
+                contacts_only: false,
+            }
+        }),
         reading_pane: RwSignal::new(ReadingPanePosition::Off),
         swipe_left: RwSignal::new(SwipeAction::Archive),
         swipe_right: RwSignal::new(SwipeAction::Delete),
-        templates: RwSignal::new(mock_data::mock_templates()),
+        templates: RwSignal::new(if demo {
+            mock_data::mock_templates()
+        } else {
+            vec![]
+        }),
     };
 
     provide_context(ctx.clone());
@@ -843,39 +831,73 @@ async fn load_inbox(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
         }
     }
 
-    // get_inbox (V1) returns Vec<EmailListItem>, whose hash/sender are raw
-    // ActionHash/AgentPubKey bytes — decoding as serde_json::Value fails on
-    // those, which meant this whole call always hit the Err(e) branch below
-    // for any non-empty inbox, and the "parse as wire types" /
-    // "direct parse" fallback logic that used to live here could never
-    // actually run (the outer decode failed before either fallback ever saw
-    // a value to inspect). Decoding directly into the fixed
-    // WireEmailListItem removes the need for either fallback.
+    // Try structured response first, fall back to raw JSON logging
     match hc
-        .call_zome::<serde_json::Value, Vec<crate::zome_adapter::WireEmailListItem>>(
+        .call_zome::<serde_json::Value, serde_json::Value>(
             "mail_messages",
             "get_inbox",
             &serde_json::json!({ "limit": 50 }),
         )
         .await
     {
-        Ok(wire_emails) => {
+        Ok(response) => {
             web_sys::console::log_1(
-                &format!("[Mail] get_inbox: {} item(s)", wire_emails.len()).into(),
+                &format!(
+                    "[Mail] get_inbox raw response: {}",
+                    serde_json::to_string_pretty(&response)
+                        .unwrap_or_else(|_| format!("{response:?}"))
+                )
+                .into(),
             );
-            let contacts = ctx.contacts.get_untracked();
-            let emails = crate::zome_adapter::adapt_inbox(wire_emails, &contacts);
-            if !emails.is_empty() {
-                web_sys::console::log_1(
-                    &format!("[Mail] Loaded {} emails via adapter", emails.len()).into(),
-                );
-                ctx.inbox.update(|current| {
-                    current.extend(emails);
-                    current.sort_by_key(|email| std::cmp::Reverse(email.timestamp));
-                });
-                hydrate_inbox_previews(ctx.clone(), hc.clone());
+
+            // Try adapter wire types first, then direct parse, then raw JSON
+            let wire_data = if response.is_array() {
+                response.clone()
             } else {
-                web_sys::console::log_1(&"[Mail] Conductor returned empty inbox".into());
+                response
+                    .get("records")
+                    .or(response.get("items"))
+                    .or(response.get("data"))
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null)
+            };
+
+            // Attempt 1: Parse as wire types and adapt
+            if let Ok(wire_emails) = serde_json::from_value::<
+                Vec<crate::zome_adapter::WireEmailListItem>,
+            >(wire_data.clone())
+            {
+                let contacts = ctx.contacts.get_untracked();
+                let emails = crate::zome_adapter::adapt_inbox(wire_emails, &contacts);
+                if !emails.is_empty() {
+                    web_sys::console::log_1(
+                        &format!("[Mail] Loaded {} emails via adapter", emails.len()).into(),
+                    );
+                    ctx.inbox.update(|current| {
+                        current.extend(emails);
+                        current.sort_by_key(|email| std::cmp::Reverse(email.timestamp));
+                    });
+                    hydrate_inbox_previews(ctx.clone(), hc.clone());
+                } else {
+                    web_sys::console::log_1(&"[Mail] Conductor returned empty inbox".into());
+                }
+            }
+            // Attempt 2: Direct parse (if zome returns frontend-compatible types)
+            else if let Ok(emails) = serde_json::from_value::<Vec<EmailListItem>>(wire_data) {
+                if !emails.is_empty() {
+                    web_sys::console::log_1(
+                        &format!("[Mail] Loaded {} emails (direct)", emails.len()).into(),
+                    );
+                    ctx.inbox.update(|current| {
+                        current.extend(emails);
+                        current.sort_by_key(|email| std::cmp::Reverse(email.timestamp));
+                    });
+                    hydrate_inbox_previews(ctx.clone(), hc.clone());
+                }
+            } else {
+                web_sys::console::warn_1(
+                    &"[Mail] Could not parse inbox response. Keeping mock data.".into(),
+                );
             }
         }
         Err(e) => {
@@ -901,7 +923,7 @@ async fn load_v2_inbox(hc: &crate::holochain::HolochainCtx) -> Result<Vec<EmailL
                 "mail_keys",
                 "get_hybrid_key_bundle_by_id_v2",
                 &serde_json::json!({
-                    "agent": record.sender_agent_raw.clone(),
+                    "agent": record.sender,
                     "key_id": record.envelope.sender_mldsa_key_id,
                 }),
             )
@@ -924,6 +946,8 @@ async fn load_v2_inbox(hc: &crate::holochain::HolochainCtx) -> Result<Vec<EmailL
             recipient_agent: record.recipient_agent_raw,
             sender_mldsa_key_id: EncryptionKeyId(record.envelope.sender_mldsa_key_id),
             recipient_hybrid_key_id: EncryptionKeyId(record.envelope.recipient_hybrid_key_id),
+            sender_mldsa_bundle_hash: record.envelope.sender_mldsa_bundle_hash,
+            recipient_bundle_hash: record.envelope.recipient_bundle_hash,
             x25519_ephemeral_public_key: record.envelope.x25519_ephemeral_public_key,
             ml_kem_ciphertext: record.envelope.ml_kem_ciphertext,
             nonce: record.envelope.nonce,
@@ -963,7 +987,7 @@ async fn load_v2_inbox(hc: &crate::holochain::HolochainCtx) -> Result<Vec<EmailL
         let snippet: String = plaintext.body.chars().take(140).collect();
         emails.push(EmailListItem {
             hash: record.hash,
-            sender: crate::zome_adapter::base64_encode(&envelope.sender_agent),
+            sender: crate::zome_adapter::json_hash_to_string(&record.sender),
             sender_name: None,
             encrypted_subject: Vec::new(),
             subject: Some(plaintext.subject),
@@ -995,26 +1019,18 @@ fn hex_id(bytes: &[u8; 32]) -> String {
 }
 
 async fn load_contacts(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
-    if hc.is_mock() {
+    if hc.is_mock() || !crate::alpha_scope::zome_available("mail_contacts") {
+        ctx.contacts.set(vec![]);
+        ctx.sender_trust.set(HashMap::new());
         return;
     }
 
-    // get_all_contacts returns Vec<Contact>, whose hash/agent_pub_key are
-    // ActionHash/AgentPubKey (raw bytes) — decoding an element as
-    // serde_json::Value fails on those for any contact with a linked agent
-    // key, which fails the WHOLE Vec<serde_json::Value> decode. Decoding
-    // directly into the fixed WireContact avoids the serde_json::Value
-    // detour entirely.
     match hc
-        .call_zome::<(), Vec<crate::zome_adapter::WireContact>>(
-            "mail_contacts",
-            "get_all_contacts",
-            &(),
-        )
+        .call_zome::<(), Vec<serde_json::Value>>("mail_contacts", "get_all_contacts", &())
         .await
     {
         Ok(records) => {
-            let contacts = crate::zome_adapter::adapt_contacts(records);
+            let contacts = crate::zome_adapter::adapt_contact_values(records);
 
             // Build sender trust map from contacts
             let trust_map: HashMap<String, f64> = contacts
@@ -1043,33 +1059,38 @@ async fn load_folders(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
     web_sys::console::log_1(&"[Mail] Fetching folders from conductor...".into());
 
     match hc
-        .call_zome::<(), Vec<(Vec<u8>, FolderWireV1)>>("mail_messages", "get_folders", &())
+        .call_zome::<(), serde_json::Value>("mail_messages", "get_folders", &())
         .await
     {
-        Ok(records) => {
+        Ok(response) => {
             web_sys::console::log_1(
-                &format!("[Mail] get_folders: {} folder(s)", records.len()).into(),
+                &format!(
+                    "[Mail] get_folders raw: {}",
+                    serde_json::to_string_pretty(&response)
+                        .unwrap_or_else(|_| format!("{response:?}"))
+                )
+                .into(),
             );
-            if records.is_empty() {
-                web_sys::console::log_1(&"[Mail] Conductor returned empty folders".into());
+
+            let folders_result = if response.is_array() {
+                serde_json::from_value::<Vec<FolderView>>(response.clone())
+            } else if let Some(arr) = response.get("folders").or(response.get("data")) {
+                serde_json::from_value::<Vec<FolderView>>(arr.clone())
             } else {
-                let folders = records
-                    .into_iter()
-                    .map(|(hash, folder)| FolderView {
-                        hash: crate::zome_adapter::base64_encode(&hash),
-                        // Folder names are encrypted at rest and this
-                        // codebase has no folder-name decryption path yet —
-                        // an honest placeholder, not fabricated plaintext.
-                        name: "Folder".to_string(),
-                        is_system: folder.is_system,
-                        sort_order: folder.sort_order,
-                        unread_count: 0,
-                    })
-                    .collect::<Vec<_>>();
-                web_sys::console::log_1(
-                    &format!("[Mail] Loaded {} folders from conductor", folders.len()).into(),
-                );
-                ctx.folders.set(folders);
+                Err(serde_json::from_value::<Vec<FolderView>>(serde_json::Value::Null).unwrap_err())
+            };
+
+            match folders_result {
+                Ok(folders) if !folders.is_empty() => {
+                    web_sys::console::log_1(
+                        &format!("[Mail] Loaded {} folders from conductor", folders.len()).into(),
+                    );
+                    ctx.folders.set(folders);
+                }
+                Ok(_) => web_sys::console::log_1(&"[Mail] Conductor returned empty folders".into()),
+                Err(e) => web_sys::console::warn_1(
+                    &format!("[Mail] Could not parse folders: {e}. Keeping mock data.").into(),
+                ),
             }
         }
         Err(e) => {
@@ -1102,6 +1123,13 @@ async fn load_key_status(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
 
 /// Initialize CRDT sync state on the conductor.
 async fn init_sync(hc: &crate::holochain::HolochainCtx) {
+    if !crate::alpha_scope::zome_available("mail_sync") {
+        web_sys::console::log_1(
+            &"[Mail] CRDT sync zome is outside the restricted alpha surface".into(),
+        );
+        return;
+    }
+
     // Initialize sync state if not already done
     match hc
         .call_zome::<(), serde_json::Value>("mail_sync", "get_sync_state", &())
@@ -1144,16 +1172,6 @@ async fn init_sync(hc: &crate::holochain::HolochainCtx) {
     }
 }
 
-/// `get_trust_score`'s real response, `TrustScore`, has an `agent:
-/// AgentPubKey` field (raw bytes on the wire) — decoding as
-/// serde_json::Value fails on it even though this caller only ever needed
-/// `score`. Named-map msgpack encoding ignores fields not present on this
-/// struct, so this minimal wire type decodes correctly.
-#[derive(Clone, Debug, Deserialize)]
-struct TrustScoreWire {
-    score: f64,
-}
-
 /// Load trust scores for known agents.
 async fn load_trust_scores(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
     if hc.is_mock() {
@@ -1167,7 +1185,7 @@ async fn load_trust_scores(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
     for contact in &contacts {
         if let Some(agent_key) = &contact.agent_pub_key {
             match hc
-                .call_zome::<serde_json::Value, TrustScoreWire>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_trust",
                     "get_trust_score",
                     &serde_json::json!(agent_key),
@@ -1175,7 +1193,9 @@ async fn load_trust_scores(ctx: MailCtx, hc: &crate::holochain::HolochainCtx) {
                 .await
             {
                 Ok(score_val) => {
-                    trust_map.insert(agent_key.clone(), score_val.score);
+                    if let Some(score) = score_val.get("score").and_then(|s| s.as_f64()) {
+                        trust_map.insert(agent_key.clone(), score);
+                    }
                 }
                 Err(_) => {} // Trust score not available — that's fine
             }
@@ -1218,27 +1238,54 @@ fn hydrate_inbox_previews(ctx: MailCtx, hc: crate::holochain::HolochainCtx) {
             .collect();
 
         for hash in hashes {
-            // get_email's real response is Option<EncryptedEmail>, whose
-            // sender/recipient are AgentPubKey (raw bytes) — decoding as
-            // serde_json::Value fails on those even though only these 4
-            // fields are used here. Named-map msgpack ignores fields not on
-            // this struct, so the minimal wire type decodes correctly.
             let response = match hc
-                .call_zome::<serde_json::Value, Option<EncryptedEmailPartialWire>>(
+                .call_zome::<serde_json::Value, serde_json::Value>(
                     "mail_messages",
                     "get_email",
                     &serde_json::json!(hash.clone()),
                 )
                 .await
             {
-                Ok(Some(value)) => value,
+                Ok(value) if !value.is_null() => value,
                 _ => continue,
             };
 
-            let encrypted_subject = response.encrypted_subject;
-            let encrypted_body = response.encrypted_body;
-            let ephemeral_pubkey = response.ephemeral_pubkey;
-            let nonce = response.nonce;
+            let encrypted_subject = response
+                .get("encrypted_subject")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_u64().map(|n| n as u8))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let encrypted_body = response
+                .get("encrypted_body")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_u64().map(|n| n as u8))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let ephemeral_pubkey = response
+                .get("ephemeral_pubkey")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_u64().map(|n| n as u8))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let nonce = response
+                .get("nonce")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_u64().map(|n| n as u8))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
 
             let mut subject = crate::crypto::decode_transport_text(&encrypted_subject);
             let mut body = crate::crypto::decode_transport_text(&encrypted_body);

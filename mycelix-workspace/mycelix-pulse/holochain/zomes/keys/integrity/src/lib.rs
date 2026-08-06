@@ -4,137 +4,19 @@
 //! Keys Integrity Zome
 //!
 //! Pre-key bundles for E2E encryption key exchange.
+//!
+//! Entry/link type registration and validation live here; the plain data
+//! types themselves live in `keys_types` (re-exported below for existing
+//! callers) so other zomes can depend on the types without pulling in this
+//! crate's `#[hdk_extern]` zome surface — see that crate's doc comment for
+//! why sharing an integrity crate directly breaks WASM linking.
 
 use hdi::prelude::*;
-use sha2::{Digest, Sha256};
-
-pub const HYBRID_KEY_BUNDLE_V2: u16 = 2;
-pub const HYBRID_SUITE_V2: &str = "x25519+ml-kem-768-hkdf-sha256-aes256gcm-agent-ed25519+ml-dsa-65";
-pub const ML_KEM_768_PUBLIC_KEY_BYTES: usize = 1184;
-pub const ML_DSA_65_PUBLIC_KEY_BYTES: usize = 1952;
-const HYBRID_KEY_ID_DOMAIN: &[u8] = b"mycelix-pulse/key-bundle/v2\0";
-const HYBRID_KEY_SIGNATURE_DOMAIN: &[u8] = b"mycelix-pulse/key-bundle-signature/v2\0";
-
-/// Pre-key bundle for X3DH key exchange
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct PreKeyBundle {
-    /// Long-term identity key (public)
-    pub identity_key: Vec<u8>,
-    /// Signed pre-key (public)
-    pub signed_pre_key: Vec<u8>,
-    /// Signed pre-key ID
-    pub signed_pre_key_id: u32,
-    /// Signature of signed pre-key
-    pub signed_pre_key_signature: Vec<u8>,
-    /// One-time pre-keys (public)
-    pub one_time_pre_keys: Vec<OneTimePreKey>,
-    /// When the bundle was created
-    pub created_at: u64,
-    /// When the bundle expires
-    pub expires_at: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct OneTimePreKey {
-    pub key_id: u32,
-    pub public_key: Vec<u8>,
-    pub used: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum HybridKeyStateV2 {
-    Active,
-    Retired,
-    RevokedCompromised,
-    Lost,
-}
-
-/// Agent-bound static keys used by the Pulse V2 envelope. Secret material is
-/// device-local and never enters this record.
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct HybridKeyBundleV2 {
-    pub version: u16,
-    pub suite: String,
-    pub key_id: [u8; 32],
-    pub x25519_public_key: [u8; 32],
-    pub ml_kem_768_public_key: Vec<u8>,
-    pub ml_dsa_65_public_key: Vec<u8>,
-    pub state: HybridKeyStateV2,
-    pub created_at: u64,
-    pub expires_at: u64,
-    /// Active Holochain agent signature over `hybrid_key_signing_content`.
-    pub agent_signature: Vec<u8>,
-}
-
-fn put_bytes(out: &mut Vec<u8>, value: &[u8]) {
-    out.extend_from_slice(&(value.len() as u32).to_be_bytes());
-    out.extend_from_slice(value);
-}
-
-pub fn hybrid_key_id(bundle: &HybridKeyBundleV2) -> [u8; 32] {
-    let mut transcript = Vec::with_capacity(
-        128 + bundle.ml_kem_768_public_key.len() + bundle.ml_dsa_65_public_key.len(),
-    );
-    transcript.extend_from_slice(HYBRID_KEY_ID_DOMAIN);
-    put_bytes(&mut transcript, bundle.suite.as_bytes());
-    transcript.extend_from_slice(&bundle.x25519_public_key);
-    put_bytes(&mut transcript, &bundle.ml_kem_768_public_key);
-    put_bytes(&mut transcript, &bundle.ml_dsa_65_public_key);
-    Sha256::digest(&transcript).into()
-}
-
-pub fn hybrid_key_signing_content(bundle: &HybridKeyBundleV2) -> Vec<u8> {
-    let mut content = Vec::with_capacity(
-        192 + bundle.ml_kem_768_public_key.len() + bundle.ml_dsa_65_public_key.len(),
-    );
-    content.extend_from_slice(HYBRID_KEY_SIGNATURE_DOMAIN);
-    content.extend_from_slice(&bundle.version.to_be_bytes());
-    put_bytes(&mut content, bundle.suite.as_bytes());
-    content.extend_from_slice(&bundle.key_id);
-    content.extend_from_slice(&bundle.x25519_public_key);
-    put_bytes(&mut content, &bundle.ml_kem_768_public_key);
-    put_bytes(&mut content, &bundle.ml_dsa_65_public_key);
-    content.push(match bundle.state {
-        HybridKeyStateV2::Active => 1,
-        HybridKeyStateV2::Retired => 2,
-        HybridKeyStateV2::RevokedCompromised => 3,
-        HybridKeyStateV2::Lost => 4,
-    });
-    content.extend_from_slice(&bundle.created_at.to_be_bytes());
-    content.extend_from_slice(&bundle.expires_at.to_be_bytes());
-    content
-}
-
-/// Used pre-key record (to prevent reuse)
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct UsedPreKey {
-    pub key_id: u32,
-    pub bundle_hash: ActionHash,
-    pub used_at: u64,
-    pub used_by: AgentPubKey,
-}
-
-/// Key rotation record
-#[hdk_entry_helper]
-#[derive(Clone, PartialEq)]
-pub struct KeyRotation {
-    pub old_bundle_hash: ActionHash,
-    pub new_bundle_hash: ActionHash,
-    pub rotated_at: u64,
-    pub reason: RotationReason,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum RotationReason {
-    Scheduled,
-    Compromised,
-    PreKeysExhausted,
-    Manual,
-}
+pub use keys_types::{
+    HYBRID_KEY_BUNDLE_V2, HYBRID_SUITE_V2, HybridKeyBundleV2, HybridKeyStateV2, KeyRotation,
+    ML_DSA_65_PUBLIC_KEY_BYTES, ML_KEM_768_PUBLIC_KEY_BYTES, OneTimePreKey, PreKeyBundle,
+    RotationReason, UsedPreKey, hybrid_key_id, hybrid_key_signing_content, pre_key_signing_content,
+};
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -200,15 +82,82 @@ pub enum LinkTypes {
     KeyRotations,
 }
 
-pub fn pre_key_signing_content(bundle: &PreKeyBundle) -> Vec<u8> {
-    let mut content = Vec::with_capacity(128);
-    content.extend_from_slice(b"mycelix-pulse/pre-key/v1\0");
-    content.extend_from_slice(&bundle.identity_key);
-    content.extend_from_slice(&bundle.signed_pre_key);
-    content.extend_from_slice(&bundle.signed_pre_key_id.to_be_bytes());
-    content.extend_from_slice(&bundle.created_at.to_be_bytes());
-    content.extend_from_slice(&bundle.expires_at.to_be_bytes());
-    content
+/// Re-derives consume_pre_key's own real invariant at the DHT level: exactly one
+/// previously-unused one_time_pre_key may flip to used=true (its key_id/public_key
+/// unchanged), no pre-keys may be added/removed, no already-used key may be un-used, and
+/// every other field must stay byte-identical to the original.
+fn validate_update_pre_key_bundle(
+    bundle: PreKeyBundle,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    if bundle.identity_key.len() != 32 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Identity key must be 32 bytes".to_string(),
+        ));
+    }
+
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let Some(original): Option<PreKeyBundle> = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Invalid original PreKeyBundle entry".to_string(),
+        ));
+    };
+
+    if bundle.identity_key != original.identity_key
+        || bundle.signed_pre_key != original.signed_pre_key
+        || bundle.signed_pre_key_id != original.signed_pre_key_id
+        || bundle.signed_pre_key_signature != original.signed_pre_key_signature
+        || bundle.created_at != original.created_at
+        || bundle.expires_at != original.expires_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PreKeyBundle updates may only mark a one-time pre-key as used -- all other \
+             fields must be unchanged"
+                .to_string(),
+        ));
+    }
+
+    if bundle.one_time_pre_keys.len() != original.one_time_pre_keys.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PreKeyBundle updates cannot add or remove one-time pre-keys".to_string(),
+        ));
+    }
+
+    let mut newly_used_count = 0u32;
+    for (new_key, old_key) in bundle
+        .one_time_pre_keys
+        .iter()
+        .zip(original.one_time_pre_keys.iter())
+    {
+        if new_key.key_id != old_key.key_id || new_key.public_key != old_key.public_key {
+            return Ok(ValidateCallbackResult::Invalid(
+                "One-time pre-key id/public_key cannot change".to_string(),
+            ));
+        }
+        match (old_key.used, new_key.used) {
+            (false, false) | (true, true) => {}
+            (false, true) => newly_used_count += 1,
+            (true, false) => {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "A one-time pre-key cannot be marked unused once consumed".to_string(),
+                ));
+            }
+        }
+    }
+
+    if newly_used_count != 1 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PreKeyBundle updates must mark exactly one previously-unused one-time \
+             pre-key as used"
+                .to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate pre-key bundle
@@ -331,15 +280,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::UsedPreKey(used) => validate_create_used_pre_key(action, used),
                 EntryTypes::KeyRotation(rotation) => validate_create_key_rotation(action, rotation),
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                ..
+            } => match app_entry {
+                // PreKeyBundle updates are a genuine, deliberate cross-agent exception
+                // (X3DH protocol -- consume_pre_key's caller is the key CONSUMER, marking
+                // the bundle OWNER's one-time key used), so this is NOT an author-binding
+                // check. Instead it re-derives consume_pre_key's own real invariant: only
+                // one previously-unused one_time_pre_key may flip to used=true, its
+                // key_id/public_key must be unchanged, and every other field (including
+                // every other pre-key) must stay byte-identical. Previously any modified
+                // coordinator could rewrite the whole bundle -- add/remove keys, un-use a
+                // consumed key, or swap key material -- since only identity_key's length
+                // was checked (P0 author-binding Turn B, keys.PreKeyBundle).
                 EntryTypes::PreKeyBundle(bundle) => {
-                    // Updates are allowed (for marking keys as used)
-                    if bundle.identity_key.len() != 32 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Identity key must be 32 bytes".to_string(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+                    validate_update_pre_key_bundle(bundle, original_action_hash)
                 }
                 EntryTypes::HybridKeyBundleV2(_) => Ok(ValidateCallbackResult::Invalid(
                     "Hybrid V2 bundles are immutable; publish a successor bundle".into(),
@@ -357,51 +314,228 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Proves `validate_update_pre_key_bundle`'s real invariant: a modified coordinator can no
+/// longer rewrite the whole bundle -- only marking exactly one previously-unused
+/// one-time pre-key as used is accepted; adding/removing keys, un-using a consumed key, or
+/// swapping key material is rejected. Previously only `identity_key`'s length was checked.
+/// Mocks the HDI host's `must_get_valid_record` so this runs as a plain `cargo test`, no
+/// live conductor needed.
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn bundle() -> HybridKeyBundleV2 {
-        let mut value = HybridKeyBundleV2 {
-            version: HYBRID_KEY_BUNDLE_V2,
-            suite: HYBRID_SUITE_V2.into(),
-            key_id: [0; 32],
-            x25519_public_key: [1; 32],
-            ml_kem_768_public_key: vec![2; ML_KEM_768_PUBLIC_KEY_BYTES],
-            ml_dsa_65_public_key: vec![3; ML_DSA_65_PUBLIC_KEY_BYTES],
-            state: HybridKeyStateV2::Active,
-            created_at: 10,
-            expires_at: 20,
-            agent_signature: vec![0; 64],
-        };
-        value.key_id = hybrid_key_id(&value);
-        value
+    struct MockRecordHdi {
+        records: std::collections::HashMap<ActionHash, Record>,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            self.records
+                .get(&input.0)
+                .cloned()
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("no such record in mock".into())))
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by this fix")
+        }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<SerializedBytes>,
+        <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_bundle() -> PreKeyBundle {
+        PreKeyBundle {
+            identity_key: vec![1; 32],
+            signed_pre_key: vec![2; 32],
+            signed_pre_key_id: 1,
+            signed_pre_key_signature: vec![3; 64],
+            one_time_pre_keys: vec![
+                OneTimePreKey {
+                    key_id: 1,
+                    public_key: vec![4; 32],
+                    used: false,
+                },
+                OneTimePreKey {
+                    key_id: 2,
+                    public_key: vec![5; 32],
+                    used: false,
+                },
+            ],
+            created_at: 0,
+            expires_at: u64::MAX,
+        }
+    }
+
+    fn setup_mock(author: AgentPubKey, original: &PreKeyBundle, original_hash: ActionHash) {
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                original_hash,
+                wrap_entry_record(author, original.clone()),
+            )]),
+        });
     }
 
     #[test]
-    fn key_id_binds_both_pq_and_classical_public_keys() {
-        let original = bundle();
-        let id = original.key_id;
-        let mut changed = original.clone();
-        changed.x25519_public_key[0] ^= 1;
-        assert_ne!(id, hybrid_key_id(&changed));
-        let mut changed = original.clone();
-        changed.ml_kem_768_public_key[0] ^= 1;
-        assert_ne!(id, hybrid_key_id(&changed));
-        let mut changed = original;
-        changed.ml_dsa_65_public_key[0] ^= 1;
-        assert_ne!(id, hybrid_key_id(&changed));
+    fn marking_exactly_one_key_used_is_accepted() {
+        let original = test_bundle();
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        setup_mock(
+            AgentPubKey::from_raw_36(vec![1; 36]),
+            &original,
+            original_hash.clone(),
+        );
+
+        let mut updated = original.clone();
+        updated.one_time_pre_keys[0].used = true;
+
+        let result = validate_update_pre_key_bundle(updated, original_hash).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
-    fn signature_transcript_binds_state_and_expiry() {
-        let original = bundle();
-        let transcript = hybrid_key_signing_content(&original);
-        let mut changed = original.clone();
-        changed.state = HybridKeyStateV2::Retired;
-        assert_ne!(transcript, hybrid_key_signing_content(&changed));
-        let mut changed = original;
-        changed.expires_at += 1;
-        assert_ne!(transcript, hybrid_key_signing_content(&changed));
+    fn marking_two_keys_used_at_once_is_rejected() {
+        let original = test_bundle();
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        setup_mock(
+            AgentPubKey::from_raw_36(vec![1; 36]),
+            &original,
+            original_hash.clone(),
+        );
+
+        let mut updated = original.clone();
+        updated.one_time_pre_keys[0].used = true;
+        updated.one_time_pre_keys[1].used = true;
+
+        let result = validate_update_pre_key_bundle(updated, original_hash).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "exactly one previously-unused key may flip to used per update"
+        );
+    }
+
+    #[test]
+    fn unusing_a_consumed_key_is_rejected() {
+        let mut original = test_bundle();
+        original.one_time_pre_keys[0].used = true;
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        setup_mock(
+            AgentPubKey::from_raw_36(vec![1; 36]),
+            &original,
+            original_hash.clone(),
+        );
+
+        let mut updated = original.clone();
+        updated.one_time_pre_keys[0].used = false;
+        updated.one_time_pre_keys[1].used = true;
+
+        let result = validate_update_pre_key_bundle(updated, original_hash).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "a consumed key cannot be marked unused once used -- previously a modified \
+             coordinator could rewrite the whole bundle"
+        );
+    }
+
+    #[test]
+    fn swapping_key_material_is_rejected() {
+        let original = test_bundle();
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        setup_mock(
+            AgentPubKey::from_raw_36(vec![1; 36]),
+            &original,
+            original_hash.clone(),
+        );
+
+        let mut updated = original.clone();
+        updated.one_time_pre_keys[0].used = true;
+        updated.one_time_pre_keys[1].public_key = vec![99; 32];
+
+        let result = validate_update_pre_key_bundle(updated, original_hash).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn adding_a_new_one_time_key_is_rejected() {
+        let original = test_bundle();
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        setup_mock(
+            AgentPubKey::from_raw_36(vec![1; 36]),
+            &original,
+            original_hash.clone(),
+        );
+
+        let mut updated = original.clone();
+        updated.one_time_pre_keys[0].used = true;
+        updated.one_time_pre_keys.push(OneTimePreKey {
+            key_id: 3,
+            public_key: vec![6; 32],
+            used: false,
+        });
+
+        let result = validate_update_pre_key_bundle(updated, original_hash).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "PreKeyBundle updates cannot add or remove one-time pre-keys"
+        );
     }
 }

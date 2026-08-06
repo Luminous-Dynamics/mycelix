@@ -1,0 +1,185 @@
+{
+  "campaign": "prism-hardening-wave-15",
+  "counts": {
+    "json_files": 51,
+    "lock_packages": 838,
+    "rust_files": 137,
+    "rust_test_annotations": 418,
+    "toml_files": 29,
+    "workspace_members": 20
+  },
+  "failures": [],
+  "key_file_sha256": {
+    "Cargo.lock": "ce7ad6c0a9b6ab3b02b83a6d4feced57a59cc84c3f4659f105992fc817711769",
+    "Cargo.toml": "45e86cf3d31c13003e52cf073ea2054059f0be18ff0898eed717f8fd1fb956ce",
+    "PRISM_HARDENING_WAVE_15.md": "29daa163d66cee4c7fbc1e0ec04eaec114a6e3af927a04e4eff706d7a3133d38",
+    "PRISM_RELEASE_CEREMONY_WAVE_15.md": "becc19273405b7449eb0f78e5dddfc2a7a0962d1d07248ad74fa334af8de8db4",
+    "flake.nix": "dd107a1b42b703cfb7c95c2c68ca663f5c57451a80a0903151f90b4d4cb3f8a4",
+    "prism-attestation/Cargo.toml": "b7eeb2ee45c214e4d6d48c7ae9239133193c9bebead4f2e23da17c2781ec8e0f",
+    "prism-attestation/src/bin/admit_release_promotion.rs": "4f78930071647854875a0adf0e357e1318650aa28fb798e50990f9119b2d6151",
+    "prism-attestation/src/bin/assemble_promotion_policy_history.rs": "6929b9d93f569504ba99fb7d420f22895d7cf4c279eac4704c8a660f9d3a8ec3",
+    "prism-attestation/src/bin/assemble_promotion_policy_transition.rs": "83efffb228ba600fc1b616586e81d4ae5097be9130e2acf5372e761825b2c330",
+    "prism-attestation/src/bin/assemble_release_health.rs": "1c9730ef75fb0b2e40e0e3767a27c226e9727036f6a452776201a9c688b3c8ba",
+    "prism-attestation/src/bin/assemble_release_incident.rs": "a38acd937f9b1c1d1a2788f1f35b53a2565d28b2eed19b1e088cd5212451f5c9",
+    "prism-attestation/src/bin/audit_release_promotions.rs": "47d84554ae1924de98f8913bd95267aa33d5c8a0d638a0b9eba4830dd72bff86",
+    "prism-attestation/src/bin/prepare_promotion_policy_transition.rs": "58394d5c8a8e5a94401c9a37baf20f53c5a0869fe11da640c16f4b07f83d7e3f",
+    "prism-attestation/src/bin/prepare_release_health.rs": "1c182ada8bd031740dba9b444067b5fc293421dd68e67418e531839e525c1e10",
+    "prism-attestation/src/bin/prepare_release_incident.rs": "e3fe7fc220ceeb4e31d5cd9b909510f0ab3377c04c8f6d9a3f6491f296bce544",
+    "prism-attestation/src/bin/verify_promotion_policy_history.rs": "aec2e33b972f52a0cd9a968ae824baeea2afbf76bf0f3c02b46565ed5dbfcff8",
+    "prism-attestation/src/bin/verify_promotion_recovery.rs": "ad9a4763d54c7c131232215bc54aeae89ba5b7c182c7d36df2d6e9326b778814",
+    "prism-attestation/src/bin/verify_release_health.rs": "cb16ba1c827b6295f58670a52093afe69ac4b62147cbdabac301407938f2bf0c",
+    "prism-attestation/src/bin/verify_release_promotion.rs": "e9662281e785b3d728bc4fcd3a726e5c9fdbaca2fb54f356176b1be741f814c0",
+    "prism-attestation/src/lib.rs": "6a17ca145caada77d08db8b13c4bc22d8723a9a4239ec93d6a35e88400314b7f",
+    "prism-attestation/src/promotion.rs": "22c2477a5f259015fd45305ece07bb1645a966154ae87eb10b0f8ef9fe267684",
+    "prism-attestation/src/promotion_policy_history.rs": "88fc51e3b728b29a7417592c25e0d421082fba3196dde76a17c058ca5d17fb83",
+    "prism-attestation/src/promotion_recovery.rs": "079137082706ace5d655b78a85db154f9c1cc763cbb9e7f69a9a358c6ca5a910",
+    "prism-attestation/src/promotion_state.rs": "47026e142008b098a9b570bfc47e8482792e40821724417fdc8ff98690ab2066",
+    "prism-attestation/src/release_health.rs": "54344e4d06644915e29047598162509c6e6fafb2e5563a07e0988291355effbd",
+    "prism-ingest/src/review_agent.rs": "02ad4d15ffa674d41b8596d2c655d0707566f8f36220db4c1f0dd7d269de2429",
+    "prism-security-tests/src/lib.rs": "c68b206a3d60c9dbb2eb1eb17e457fb62fde1d130d3384afae246d88caadd7dc",
+    "scripts/capture-build-evidence.py": "ee3d5466b6b44779251452098d911e217ea6b2a1da08aa772a24b00737b70d60",
+    "scripts/prism_build_evidence.py": "8b2ef6a702239aa951245909aa6230026d6843640491f4bee58c8558b0d23aba",
+    "scripts/run-wave15-continuity-gates.py": "c3aaa4b2239c6219395972d5ddd9c3cae87079e82b86b37a6d822e88c8311bd2",
+    "scripts/run-wave15-live-gates.py": "7d941c7729172181e4c584ab97315e90ec88116c9df44486dc1360e0b639c9e5",
+    "scripts/verify-wave14-static.py": "254144aa0e0707b08cce0964412d9215bd0dcce51f58cdc63f34190e1a02ad7d",
+    "scripts/verify-wave15-static.py": "4e1cc65396ac526a1216e2363b215fb245aaf12b3d62fccf6d1b86134242cb52",
+    "security/BUILD_EVIDENCE.md": "f806a33f6a27340a57f2fa0156abd6caf2a8ff2a07fe1141b26e832243fa8e0a",
+    "security/RELEASE_CEREMONY.md": "d8ef183fc6737c728dccd515da409c79abb276cc556d09a86349330900722f05",
+    "security/wave15-continuity.example.json": "8bf2edce8f7b87f84738c8414e51029a1f85ecf96174850e63d075102635414c"
+  },
+  "limitations": [
+    "Does not compile Rust code or evaluate the Nix flake in this environment",
+    "Does not execute verifier agents, release signers, incident responders, or cross-channel promotion recovery",
+    "A generated, semantically admitted, hybrid-signed flake.lock remains required for release admission"
+  ],
+  "release_blockers": [
+    "flake.lock has not been generated, semantically reviewed, and hybrid-signed on a Nix-enabled host"
+  ],
+  "schema_version": 1,
+  "status": "pass",
+  "superseded_wave10_failures": [
+    "required Wave 10 invariant missing: Nix Wave 10 static gate",
+    "required Wave 10 invariant missing: Python evidence verifier Wave 10 command",
+    "required Wave 10 invariant missing: Python evidence verifier Wave 10 path",
+    "required Wave 10 invariant missing: Rust evidence verifier Wave 10 command",
+    "required Wave 10 invariant missing: Rust evidence verifier Wave 10 path",
+    "required Wave 10 invariant missing: documented fixed live gate",
+    "required Wave 10 invariant missing: evidence capture Wave 10 command",
+    "required Wave 10 invariant missing: evidence capture Wave 10 path",
+    "required Wave 10 invariant missing: release verifier Wave 10 evidence",
+    "required Wave 10 invariant missing: verification advances release journal after signatures"
+  ],
+  "superseded_wave11_failures": [
+    "required Wave 11 invariant missing: Nix Wave 11 static gate",
+    "required Wave 11 invariant missing: Python evidence verifier Wave 11 command",
+    "required Wave 11 invariant missing: Python evidence verifier Wave 11 path",
+    "required Wave 11 invariant missing: Rust evidence verifier Wave 11 command",
+    "required Wave 11 invariant missing: Rust evidence verifier Wave 11 path",
+    "required Wave 11 invariant missing: evidence capture Wave 11 command",
+    "required Wave 11 invariant missing: evidence capture Wave 11 path",
+    "required Wave 11 invariant missing: verifier-agent protocol v2"
+  ],
+  "superseded_wave12_failures": [
+    "required Wave 12 invariant missing: Nix Wave 12 static gate",
+    "required Wave 12 invariant missing: Python evidence verifier Wave 12 command",
+    "required Wave 12 invariant missing: Python evidence verifier Wave 12 path",
+    "required Wave 12 invariant missing: Rust evidence verifier Wave 12 command",
+    "required Wave 12 invariant missing: Rust evidence verifier Wave 12 path",
+    "required Wave 12 invariant missing: evidence capture Wave 12 command",
+    "required Wave 12 invariant missing: evidence capture Wave 12 path"
+  ],
+  "superseded_wave13_failures": [
+    "required Wave 13 invariant missing: Nix Wave 13 static gate",
+    "required Wave 13 invariant missing: Python evidence verifier Wave 13 command",
+    "required Wave 13 invariant missing: Python evidence verifier Wave 13 path",
+    "required Wave 13 invariant missing: Rust evidence verifier Wave 13 command",
+    "required Wave 13 invariant missing: Rust evidence verifier Wave 13 path",
+    "required Wave 13 invariant missing: evidence capture Wave 13 command",
+    "required Wave 13 invariant missing: evidence capture Wave 13 path"
+  ],
+  "superseded_wave14_failures": [
+    "required Wave 14 invariant missing: Nix Wave 14 static gate",
+    "required Wave 14 invariant missing: Python evidence verifier Wave 14 command",
+    "required Wave 14 invariant missing: Python evidence verifier Wave 14 path",
+    "required Wave 14 invariant missing: Rust evidence verifier Wave 14 command",
+    "required Wave 14 invariant missing: Rust evidence verifier Wave 14 path",
+    "required Wave 14 invariant missing: evidence capture Wave 14 command",
+    "required Wave 14 invariant missing: evidence capture Wave 14 path"
+  ],
+  "superseded_wave8_failures": [
+    "required Wave 8 invariant missing: Nix Wave 8 static evidence check",
+    "required Wave 8 invariant missing: Python verifier Wave 8 command",
+    "required Wave 8 invariant missing: Python verifier Wave 8 path",
+    "required Wave 8 invariant missing: canonical Wave 8 command label",
+    "required Wave 8 invariant missing: canonical Wave 8 command path",
+    "required Wave 8 invariant missing: capture Wave 8 command",
+    "required Wave 8 invariant missing: capture Wave 8 path",
+    "required Wave 8 invariant missing: clean-tree lock review preparation",
+    "required Wave 8 invariant missing: release verifier Wave 8 build evidence"
+  ],
+  "superseded_wave9_failures": [
+    "required Wave 6 invariant missing: preparer admitted evidence reads",
+    "required Wave 6 invariant missing: preparer rejects unreviewed indices",
+    "required Wave 6 invariant missing: verifier admitted artifact reads",
+    "required Wave 8 invariant missing: release schema v4",
+    "required Wave 9 invariant missing: Nix Wave 9 static gate",
+    "required Wave 9 invariant missing: Python verifier Wave 9 command label",
+    "required Wave 9 invariant missing: Python verifier Wave 9 verifier path",
+    "required Wave 9 invariant missing: Rust verifier Wave 9 command label",
+    "required Wave 9 invariant missing: Rust verifier Wave 9 verifier path",
+    "required Wave 9 invariant missing: capture lane Wave 9 command label",
+    "required Wave 9 invariant missing: capture lane Wave 9 verifier path",
+    "required Wave 9 invariant missing: release verifier Wave 9 evidence label"
+  ],
+  "supply_chain": {
+    "cargo_lock_sha256": "ce7ad6c0a9b6ab3b02b83a6d4feced57a59cc84c3f4659f105992fc817711769",
+    "failures": [],
+    "github_actions": {
+      ".github/workflows/core-security.yml:actions/checkout": "11bd71901bbe5b1630ceea73d27597364c9af683"
+    },
+    "package_counts": {
+      "local": 25,
+      "registry": 813
+    },
+    "policy_sha256": "0d3ea118555d702cf075d5476797629cdc52832773d7cb4711cad9d0f52609d7",
+    "release_blockers": [
+      "flake.lock has not been generated, committed, semantically reviewed, and hybrid-signed on a Nix-enabled host",
+      "flake.lock has not been generated and reviewed on a Nix-enabled host"
+    ],
+    "release_mode": false,
+    "schema_version": 1,
+    "status": "pass",
+    "workspace_members": [
+      "mycelix-claim-types",
+      "prism-attestation",
+      "prism-bridge",
+      "prism-common",
+      "prism-compat",
+      "prism-dom",
+      "prism-egress",
+      "prism-ingest",
+      "prism-layout",
+      "prism-net",
+      "prism-node",
+      "prism-privacy",
+      "prism-proxy",
+      "prism-reflex",
+      "prism-search",
+      "prism-security-tests",
+      "prism-serve",
+      "prism-shell",
+      "prism-strict-json",
+      "prism-zkp"
+    ]
+  },
+  "toolchain": {
+    "components": [
+      "clippy",
+      "rustfmt"
+    ],
+    "rust": "1.85.1",
+    "targets": [
+      "wasm32-unknown-unknown"
+    ]
+  }
+}

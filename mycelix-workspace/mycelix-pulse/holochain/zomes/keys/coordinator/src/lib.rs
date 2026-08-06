@@ -102,6 +102,16 @@ pub fn publish_hybrid_key_bundle_v2(mut bundle: HybridKeyBundleV2) -> ExternResu
 /// expiry for new sends rather than treating presence as capability.
 #[hdk_extern]
 pub fn get_hybrid_key_bundle_v2(agent: AgentPubKey) -> ExternResult<Option<HybridKeyBundleV2>> {
+    Ok(get_hybrid_key_bundle_v2_with_hash(agent)?.map(|(_, bundle)| bundle))
+}
+
+/// Same as [`get_hybrid_key_bundle_v2`] but also returns the bundle entry's
+/// own `ActionHash` — needed by callers (like `resolve_hybrid_send_context_v2`)
+/// that must let a DHT validator deterministically re-fetch this exact bundle
+/// later via `must_get_valid_record`.
+fn get_hybrid_key_bundle_v2_with_hash(
+    agent: AgentPubKey,
+) -> ExternResult<Option<(ActionHash, HybridKeyBundleV2)>> {
     let links = get_links(
         LinkQuery::try_new(agent, LinkTypes::AgentToBundle)?.tag_prefix(LinkTag::new("hybrid-v2")),
         GetStrategy::default(),
@@ -109,18 +119,18 @@ pub fn get_hybrid_key_bundle_v2(agent: AgentPubKey) -> ExternResult<Option<Hybri
     let mut bundles = Vec::new();
     for link in links {
         if let Some(hash) = link.target.into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
+            if let Some(record) = get(hash.clone(), GetOptions::default())? {
                 if let Some(bundle) = record
                     .entry()
                     .to_app_option::<HybridKeyBundleV2>()
                     .map_err(|e| wasm_error!(e))?
                 {
-                    bundles.push(bundle);
+                    bundles.push((hash, bundle));
                 }
             }
         }
     }
-    bundles.sort_by_key(|bundle| bundle.created_at);
+    bundles.sort_by_key(|(_, bundle)| bundle.created_at);
     Ok(bundles.pop())
 }
 
@@ -169,7 +179,21 @@ pub struct HybridSendContextV2 {
     pub sender_agent_raw: Vec<u8>,
     pub recipient_agent_raw: Vec<u8>,
     pub sender_bundle: HybridKeyBundleV2,
+    /// The sender bundle entry's own `ActionHash`, raw 39 bytes. Lets a DHT
+    /// validator deterministically re-fetch this exact bundle (via
+    /// `must_get_valid_record`) to check the message's ML-DSA-65 signature —
+    /// see `mail_messages_integrity::validate_encrypted_email_v2`. Not itself
+    /// trusted for authenticity: the validator independently re-derives the
+    /// bundle's content hash and checks it against the already-signed
+    /// `sender_mldsa_key_id`, so a wrong or forged hash here only breaks the
+    /// lookup, never verification.
+    pub sender_bundle_hash: Vec<u8>,
     pub recipient_bundle: HybridKeyBundleV2,
+    /// The recipient bundle entry's own `ActionHash`, raw 39 bytes — same
+    /// lookup-pointer contract as `sender_bundle_hash` above, but for
+    /// `mail_messages_integrity::verify_recipient_key_state` (checks the
+    /// recipient's key was still `Active` at send time).
+    pub recipient_bundle_hash: Vec<u8>,
 }
 
 /// Resolve the exact raw agent bytes and active bundle needed to construct the
@@ -180,10 +204,14 @@ pub fn resolve_hybrid_send_context_v2(
     recipient: AgentPubKey,
 ) -> ExternResult<Option<HybridSendContextV2>> {
     let sender = agent_info()?.agent_initial_pubkey;
-    let Some(sender_bundle) = get_hybrid_key_bundle_v2(sender.clone())? else {
+    let Some((sender_bundle_hash, sender_bundle)) =
+        get_hybrid_key_bundle_v2_with_hash(sender.clone())?
+    else {
         return Ok(None);
     };
-    let Some(bundle) = get_hybrid_key_bundle_v2(recipient.clone())? else {
+    let Some((recipient_bundle_hash, bundle)) =
+        get_hybrid_key_bundle_v2_with_hash(recipient.clone())?
+    else {
         return Ok(None);
     };
     if sender_bundle.state != HybridKeyStateV2::Active
@@ -197,7 +225,9 @@ pub fn resolve_hybrid_send_context_v2(
         sender_agent_raw: sender.get_raw_39().to_vec(),
         recipient_agent_raw: recipient.get_raw_39().to_vec(),
         sender_bundle,
+        sender_bundle_hash: sender_bundle_hash.get_raw_39().to_vec(),
         recipient_bundle: bundle,
+        recipient_bundle_hash: recipient_bundle_hash.get_raw_39().to_vec(),
     }))
 }
 
@@ -300,9 +330,16 @@ pub fn get_available_pre_key_count(agent: AgentPubKey) -> ExternResult<u32> {
 
 // ==================== KEY ROTATION ====================
 
-/// Rotate keys (publish new bundle)
+/// Rotate keys (publish new bundle).
+///
+/// Returns `()`, not the new bundle's `ActionHash` — the only caller
+/// (`revocable.rs`) only logs it for debugging and neither the frontend nor
+/// the Sweettest suite reads it as a real hash, so the raw-byte msgpack
+/// encoding was failing every call via the generic `serde_json::Value`
+/// decode boundary (see `mail_profiles::set_profile`'s doc comment for the
+/// full mechanism).
 #[hdk_extern]
-pub fn rotate_keys(input: RotateKeysInput) -> ExternResult<ActionHash> {
+pub fn rotate_keys(input: RotateKeysInput) -> ExternResult<()> {
     // Get old bundle hash
     let my_agent = agent_info()?.agent_initial_pubkey;
     let old_bundle_hash = get_my_bundle_hash()?;
@@ -314,7 +351,7 @@ pub fn rotate_keys(input: RotateKeysInput) -> ExternResult<ActionHash> {
     if let Some(old_hash) = old_bundle_hash {
         let rotation = KeyRotation {
             old_bundle_hash: old_hash,
-            new_bundle_hash: new_bundle_hash.clone(),
+            new_bundle_hash,
             rotated_at: sys_time()?.as_micros() as u64,
             reason: input.reason,
         };
@@ -323,7 +360,7 @@ pub fn rotate_keys(input: RotateKeysInput) -> ExternResult<ActionHash> {
         create_link(my_agent, rotation_hash, LinkTypes::KeyRotations, ())?;
     }
 
-    Ok(new_bundle_hash)
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -363,30 +400,37 @@ pub fn get_rotation_history(_: ()) -> ExternResult<Vec<KeyRotation>> {
 
 // ==================== BUNDLE REFRESH ====================
 
-/// Check if bundle needs refresh
+/// Check if the caller's key bundle needs refresh.
+///
+/// This looked at the legacy V1 `PreKeyBundle` (via [`get_pre_key_bundle`]),
+/// but every bundle this app actually publishes is a
+/// [`HybridKeyBundleV2`] created by [`publish_hybrid_key_bundle_v2`] — V1's
+/// `publish_pre_key_bundle` has no caller anywhere in this codebase. Since
+/// both bundle kinds link from the agent via the same `AgentToBundle` link
+/// type, `get_pre_key_bundle`'s untagged link query picked up the caller's
+/// real V2 entry and tried to deserialize it as `PreKeyBundle`, which
+/// unconditionally failed with a "missing field `identity_key`" error (a
+/// field V2 bundles don't have) instead of ever returning a status.
 #[hdk_extern]
 pub fn needs_refresh(_: ()) -> ExternResult<BundleStatus> {
     let my_agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?.as_micros() as u64;
 
-    if let Some(bundle) = get_pre_key_bundle(my_agent)? {
-        let available_keys = bundle.one_time_pre_keys.iter().filter(|k| !k.used).count();
+    let Some(bundle) = get_hybrid_key_bundle_v2(my_agent)? else {
+        return Ok(BundleStatus::NoBundle);
+    };
 
-        // Check expiration (warn if expires within 24 hours)
-        let one_day = 24 * 60 * 60 * 1_000_000; // microseconds
-        if bundle.expires_at < now + one_day {
-            return Ok(BundleStatus::ExpiringSoon);
-        }
-
-        // Check if running low on one-time keys
-        if available_keys < 10 {
-            return Ok(BundleStatus::LowOnKeys(available_keys as u32));
-        }
-
-        Ok(BundleStatus::Ok)
-    } else {
-        Ok(BundleStatus::NoBundle)
+    if bundle.state != HybridKeyStateV2::Active || bundle.expires_at <= now {
+        return Ok(BundleStatus::Expired);
     }
+
+    // Warn if expiring within 24 hours.
+    let one_day = 24 * 60 * 60 * 1_000_000; // microseconds
+    if bundle.expires_at < now + one_day {
+        return Ok(BundleStatus::ExpiringSoon);
+    }
+
+    Ok(BundleStatus::Ok)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

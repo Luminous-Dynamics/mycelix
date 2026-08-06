@@ -280,7 +280,7 @@ mod tests {
         index.add_claim(&claim3);
 
         let min_e2 = index.by_min_tier(EpistemicTier::E2);
-        assert_eq!(min_e2.len(), 2);  // E2 and E3
+        assert_eq!(min_e2.len(), 2); // E2 and E3
         assert!(!min_e2.contains(&claim1.id));
     }
 

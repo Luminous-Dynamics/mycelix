@@ -10,10 +10,16 @@ only from a clean checkout using freshly built artifacts.
 - [x] X25519 and ML-KEM-768 both contribute to the domain-separated HKDF key.
 - [x] AES-256-GCM authenticates the immutable routing and key transcript.
 - [x] ML-DSA-65 verification is mandatory *at the recipient client* and fails
-  on transcript mutation. It is **not** cryptographically checked by DHT
-  validators — HDI/WASM cannot link the RustCrypto ML-DSA crate, so network
-  validation checks only signature length. See the "Enforcement boundary"
-  section of ADR-002 and `PULSE_V2_CRYPTO_SPEC.md`.
+  on transcript mutation. **Updated 2026-07-18: it is now also
+  cryptographically checked by DHT validators** — `mail_messages_integrity`
+  links `ml-dsa` with `default-features = false, features = ["alloc"]`
+  (verification needs no randomness, unlike signing/keygen, which was the
+  actual reason the older "cannot link" claim held) and fetches the
+  sender's real published bundle via `must_get_valid_record` to verify
+  against. Proven with a real `cargo build --release --target
+  wasm32-unknown-unknown` (production zome build), not just `cargo check`.
+  See `verify_ml_dsa_v2` in `mail_messages_integrity`, the "Enforcement
+  boundary" section of ADR-002, and `PULSE_V2_CRYPTO_SPEC.md`.
 - [x] V2 key bundles are content-addressed and signed by the active Holochain
   agent before publication.
 - [x] The coordinator signs the exact canonical V2 envelope transcript with the
@@ -27,8 +33,17 @@ only from a clean checkout using freshly built artifacts.
 - [x] The DHT-validator structural checks (`validate_email_v2_structure`) are
   host-independent and directly unit-tested — 6 tests, no live conductor
   needed, covering short/oversized ciphertext, wrong-length ML-DSA/agent
-  signatures, unknown version/suite, and the documented fact that a
-  garbage-but-correctly-sized ML-DSA signature passes structural validation.
+  signatures, unknown version/suite, and the documented fact that
+  structural validation alone (deliberately) doesn't catch a
+  garbage-but-correctly-sized ML-DSA signature — that's `verify_ml_dsa_v2`'s
+  job, a separate, host-dependent check.
+- [x] The DHT-validator's cryptographic ML-DSA-65 check (`verify_ml_dsa_v2`)
+  is directly unit-tested against a mocked HDI host (`hdi::test_utils`,
+  no live conductor needed) — 3 tests proving it accepts a genuinely valid
+  signature (real keypair, real signature via a standalone `ml-dsa-test-signer`
+  subprocess — see that crate's Cargo.toml for why it's a separate process),
+  rejects a tampered one, and rejects a bundle authored by someone other
+  than the claimed sender.
 
 ## Required before an alpha release claim
 
@@ -193,6 +208,149 @@ only from a clean checkout using freshly built artifacts.
 
   Headless Chromium, Playwright, `trunk` release build, and a matching
   `holochain`/`hc` 0.6.1 pair are all confirmed working.
+
+  **2026-07-19: the ML-DSA validator fix has its strongest possible evidence
+  now — both `phase0_v2_hybrid_pqc_transport` and `phase0_v2_negative_paths`
+  pass against real conductors** (`cargo test --manifest-path tests/Cargo.toml
+  --test sweettest_mail_security -- --ignored --test-threads=1
+  phase0_v2_hybrid_pqc_transport phase0_v2_negative_paths`, 1389.71s, both
+  green). `phase0_v2_hybrid_pqc_transport` used a genuinely-generated ML-DSA
+  keypair (via the standalone `ml-dsa-test-signer` subprocess) and proved the
+  DHT validator really accepts a message signed with it end to end (commit,
+  gossip, field recovery). `phase0_v2_negative_paths`' case C — now inverted
+  from its original assertion — proved a garbage-but-correctly-sized ML-DSA
+  signature against a *real* published bundle is genuinely rejected by
+  `send_email_v2` itself. This closes out the "run the real Sweettest suite,
+  not just cargo check" item from the same session's next-steps list.
+
+  **2026-07-19: `phase0_v2_conductor_restart_recovery` also passes** (`cargo
+  test --manifest-path tests/Cargo.toml --test sweettest_mail_security
+  phase0_v2_conductor_restart_recovery -- --ignored --test-threads=1`,
+  777.25s, green) — the slower, separately-gated third test in this trio,
+  run on its own per the existing `test-delivery-fast`/`test-delivery-restart`
+  split. Both Alice (pre-restart) and Bob (post-restart) used genuinely
+  generated ML-DSA-65 keypairs via `real_ml_dsa_bundle`/`ml_dsa_sign`, same
+  as the other two tests, so this closes the last piece of "run the real
+  Sweettest suite" evidence for the ML-DSA fix: real signatures now survive
+  a full conductor shutdown → restart → gossip-resume cycle, not just a
+  live in-memory session.
+
+  **2026-07-19 re-run, after landing the ML-DSA validator fix**: found and
+  fixed a new environmental blocker, then found a new (real, deterministic)
+  code-path gap past it.
+  - Playwright's downloaded Chromium (`chromium_headless_shell-1228`) failed
+    to launch on this NixOS box with `error while loading shared libraries:
+    libgbm.so.1: cannot open shared object file` — a missing system library,
+    not present in the ambient NixOS environment by default. Fixed for this
+    run via `LD_LIBRARY_PATH` pointed at a 64-bit `mesa-libgbm` already in
+    the local Nix store (a 32-bit variant exists too and fails differently
+    — `wrong ELF class: ELFCLASS32` — confirm the ELF class of whichever
+    store path you pick, e.g. `od -An -tu1 -j4 -N1 <path>/lib/libgbm.so.1`
+    should print `2`). Not yet made a permanent fixture of this repo (no
+    obvious place to wire it in without hardcoding a store path that will
+    eventually get GC'd); whoever runs this next will likely need to
+    re-resolve the path.
+  - With that fixed, the proof got further than ever recorded here: both
+    Alice and Bob reached `Live`, and both completed onboarding far enough
+    for `profile_setup.rs`'s `#setup-name` field to hide (i.e. the
+    `NameEntry` step advanced to `KeyGen`) — confirmed via the existing
+    `waitForLiveStatus`/`completeOnboarding` steps passing for both agents.
+  - **New, real, deterministic finding**: past that point, Bob's onboarding
+    modal never actually reaches `SetupStep::HasProfile` — a screenshot
+    taken immediately after `completeOnboarding` returned (before the next
+    step's `page.click('Settings')` starts retrying) shows the modal still
+    displaying **"Saving profile to DHT..."**, the very first async status
+    `do_create` sets in `profile_setup.rs`, before `set_profile` has
+    resolved. The subsequent `page.click` on the Settings nav link then
+    retries against this still-visible full-screen modal overlay
+    (`position:fixed;inset:0;z-index:99990`) for the full 30s timeout and
+    fails. Reproduced twice, identically, on two independently fresh
+    conductor pairs (not a one-off nonce/timing fluke) — the underlying
+    `set_profile` zome call (or something upstream of it in the
+    `AdminGrantedSigner`/signing-credentials broker pipeline) appears to
+    genuinely hang for the *second* browser context specifically; no
+    JS-side exception or Holochain conductor-log error was observed at
+    `ERROR` level for either agent around this time. **Not caused by
+    today's ML-DSA/Settings/Contacts changes** — `profile_setup.rs`,
+    `device_keystore.rs`, and the signing-credential broker were untouched
+    this session. Whether this is new environmental drift since the
+    2026-07-17 "full two-user onboarding proven live, twice" success above,
+    or a latent bug in the two-browser-context signing-credential flow that
+    just hadn't been exercised past the `libgbm` blocker before, is
+    unknown — worth instrumenting the actual `set_profile` zome-call
+    round trip (network tab equivalent / explicit client-side timeout) as
+    the next concrete step, rather than re-running blind.
+
+  **CLOSED 2026-07-22**: not a hang. Built a new instrumented diagnostic
+  (`scripts/live-browser-proof/diag-bob-set-profile.mjs`) using Playwright's
+  `page.on('websocket')` to log the actual zome-call round trip without any
+  app code changes. It surfaced the real cause: `mail_profiles.set_profile`
+  returns a real `ActionHash`, but the browser decodes every zome response
+  as `serde_json::Value` — which has no variant for a raw byte array — so
+  the call failed client-side with `Serialization error: invalid type: byte
+  array, expected any valid JSON value`, even though the entry had already
+  committed successfully server-side (confirmed live: a fresh connection to
+  the same conductor detected `"Profile exists"` despite the client having
+  reported an error moments earlier). Exact same bug class as the
+  historical `ActionHash`/`AgentPubKey`-through-generic-JSON-boundary issue
+  this doc already documents elsewhere — this specific call site was missed
+  by that sweep. The prior report's specific symptom (a permanently-stuck
+  "Saving profile to DHT..." modal rather than a visible error) turned out
+  to be **a second, independent bug in the diagnostic itself, not the app**:
+  `#setup-name`'s visibility is tied directly to `SetupStep::NameEntry`,
+  which `do_create` leaves *synchronously* on submit — so a
+  `waitForSelector(..., {state:'hidden'})`-style check reports "complete"
+  the instant the button is clicked, regardless of whether the async call
+  underneath ultimately succeeds or fails. Once the diagnostic instead
+  polled for a real error message or a sustained hidden state, both agents'
+  actual outcomes became visible directly.
+
+  **Fixed** (`17c8f786b3`): `mail_profiles::set_profile` now returns
+  `ExternResult<()>` instead of `ExternResult<ActionHash>` — no caller
+  (`profile_setup.rs`, `settings.rs`) ever used the hash, only `Ok`/`Err`,
+  so this closes the bug at the source for both call sites at once. The
+  very next onboarding step, `mail_keys::publish_hybrid_key_bundle_v2`, had
+  the **identical** bug — but its `ActionHash` return is genuinely needed
+  elsewhere (the Sweettest suite's `sender_mldsa_bundle_hash`/
+  `recipient_bundle_hash` pointer plumbing from the PQC gap closure above),
+  so that fix is client-side only: `profile_setup.rs` now decodes that one
+  call as `Vec<u8>` instead of `serde_json::Value`. Verified live,
+  end-to-end, before/after: pre-fix, both stages failed with the exact
+  decode error for both Alice and Bob; post-fix, both stages report
+  `outcome=ok` for both agents, confirmed across multiple independently
+  fresh conductor pairs. Two small pre-existing, unrelated wasm32 compile
+  errors (`E0282`, in `pwa_prompt.rs`/`crypto.rs`) had to be fixed along the
+  way just to get the UI to build at all — unrelated to onboarding, not
+  found by this investigation's methodology, just a blocker in the path.
+
+  **Follow-up sweep (`7511a87464`, same day)**: checked every remaining
+  frontend-reachable zome call in the alpha's 5 zomes for the same bug
+  class and found 4 more, all previously silent. `mail_messages::
+  update_email_state`/`mark_as_read` (star/read/archive/trash — no caller
+  anywhere used the returned hash; fixed at the source, `ExternResult<()>`)
+  and `mail_keys::rotate_keys` (same pattern, fixed the same way).
+  **`mail_messages::send_email_v2` had it too** — the single most
+  user-facing instance found: every real email send was almost certainly
+  failing to decode its own success confirmation on the sender's client
+  (surfacing as a "Send failed" toast) even though the message committed
+  server-side, exactly like `set_profile` did. Its `ActionHash` return is
+  genuinely needed by the Sweettest suite (type-annotated directly), so
+  fixed client-side only (`Vec<u8>` decode in `compose.rs`), same as
+  `publish_hybrid_key_bundle_v2`. Verifying this sweep also surfaced a
+  real, independent compile break in `tests/sweettest_mail_security.rs` —
+  its local `EncryptedEmailV2Wire`/`SendEmailV2Input` mirror structs never
+  got the `recipient_bundle_hash` field added across 8 construction sites
+  after the recipient-key-state fix landed earlier this session, so the
+  whole Sweettest binary failed to compile; fixed by threading the
+  already-in-scope bundle-hash variables through. Verified via `cargo
+  check` on every affected crate plus the whole Sweettest binary, and a
+  full `cargo build --release --target wasm32-unknown-unknown`.
+  **Live-conductor re-verification (Sweettest run + full live-browser-proof
+  through compose→send→read) is still open** — the host was under severe
+  concurrent-session contention (load 30-39) when this was ready to test,
+  bad enough that `hc sandbox`'s own hApp installation was timing out;
+  deferred to a quieter window rather than fought through.
+
 - [ ] Prove browser restart recovery specifically (IndexedDB-wrapped key
   survives a page reload) — depends on the browser proof above.
 - [ ] Run the same published known-answer/interoperability vectors in native
@@ -354,345 +512,3 @@ onboarding → compose → send → read, using selectors read directly from the
 Leptos source (not guessed) — treat as a strong first draft, unconfirmed
 end-to-end. See that directory's README for exact steps and what it does
 and doesn't prove.
-
----
-
-## Live-browser proof: PASSED end-to-end (2026-07-18)
-
-**`scripts/live-browser-proof/run-with-retry.sh` now genuinely passes**: two
-independent throwaway `hc sandbox` conductors, two independent Playwright
-browser contexts, real onboarding (device-local hybrid-PQC key generation
-through the actual WASM crypto + IndexedDB path), a real signed
-`send_email_v2` zome call, real P2P gossip delivery, and a real
-`get_inbox_v2` read that decrypts and ML-DSA-verifies the message — with the
-decrypted subject text asserted directly out of the rendered DOM:
-
-```
-[bob] inbox shows expected subject "Live-proof 2026-07-18T10:24:39.064Z" —
-decrypted, ML-DSA-verified V2 content is genuinely rendering in a real browser
-=== LIVE-BROWSER PROOF PASSED ===
-=== [run-with-retry] PASSED on attempt 1 ===
-```
-
-Getting here took a long investigation, because there were **five
-independently real bugs stacked on top of each other**, each one masking
-the next. Every one of the first four had to be found and fixed before the
-fifth (the actual root cause) was even reachable to diagnose. Documented
-here in the order they blocked progress, not in order of "importance" —
-importance is noted per item.
-
-### 1. `AppRequest::CallZome` discarded the signer's payload (app bug, fixed earlier this session)
-`call_zome()` computed a real signature via the installed `ZomeCallSigner`
-but then discarded the signer's `.bytes()` — the exact `ZomeCallParams`
-payload the signature was computed over — and re-serialized a *different*,
-flat struct in its place. Every signed zome call failed with "Failed to
-deserialize request" regardless of signature correctness. Fixed by sending
-the signer's `SignedZomeCall` directly (see the section above this one for
-full detail — this was fixed and confirmed working before this segment of
-work began).
-
-### 2. Real P2P transport never worked in this dev environment (infrastructure, not an app bug)
-Two independent `hc sandbox` conductors pointed at the real
-`dev-test-bootstrap2.holochain.org` never completed peer discovery/gossip
-reliably in this environment — sends never reached the recipient, with no
-useful error. Root-caused via `RUST_LOG=debug` on both conductors and a
-sequence of increasingly-targeted local-network experiments:
-
-- **`kitsune2-bootstrap-srv` alone is not enough.** It bundles a real
-  bootstrap service (works fine — agent-info discovery succeeded fast, both
-  agents found each other's `AgentPubKey` within seconds) plus a **relay**
-  component that speaks the older tx5/WebRTC **SBD** signal protocol. This
-  Holochain 0.6.1 build's `network quic <RELAY_URL>` transport uses
-  **iroh's own relay wire protocol** instead — pointing iroh's relay client
-  at the SBD-speaking relay produced `400 Bad Request` on iroh's HTTPS
-  netcheck probe and every relay-connection attempt failed
-  ("Failed to connect to relay server"), so peer discovery succeeded but no
-  actual P2P connection or gossip round ever completed.
-- **Fix**: install and run a real `iroh-relay` binary (`cargo install
-  iroh-relay-holochain --version 0.95.1 --features server --bin iroh-relay
-  --locked` — version must match whatever `iroh-holochain` this Holochain
-  build actually depends on) in `--dev` mode (plain HTTP, localhost, port
-  3340 by default) alongside `kitsune2-bootstrap-srv` for bootstrap only.
-  Manually verified before trusting it in the full test:
-  `hc sandbox call --running=<port> dump-network-stats` showed a genuine
-  direct connection (`"is_direct":true`) with real send/recv byte counts,
-  and `dump-network-metrics` showed multiple `completed_rounds` with
-  matching `local_op_count` on both sides.
-- `launch-conductors.sh` now starts both local services automatically
-  (`KITSUNE2_BOOTSTRAP_SRV_PATH` / `IROH_RELAY_PATH` env overrides) and
-  points both conductors' `network -b <bootstrap> quic <relay>` at them.
-  `stop-conductors.sh` tears both down too.
-- This was necessary supporting infrastructure — genuinely broken, and the
-  fix genuinely required — but turned out **not to be the reason messages
-  never arrived**; see items 4-5 below for the actual blocker.
-
-### 3. A real Leptos-context WASM panic in the send flow (app bug — found and fixed)
-`compose.rs`'s `on_send` handler has a "5-second undo window": it clears the
-form and flips the `sending` UI flag back to `false` **synchronously**, then
-does the real work (`gloo_timers::future::sleep(5s)`, then
-`resolve_hybrid_send_context_v2` + encrypt + `send_email_v2`) inside a
-`wasm_bindgen_futures::spawn_local` task. The delayed task called
-`crate::holochain::use_holochain()` (a Leptos `expect_context` lookup)
-*after* the 5-second sleep — by which point the Compose page's reactive
-owner could already be disposed, causing a hard, silent WASM panic
-(`panicked at ...: expected context of type "...HolochainCtx" to be
-present`) that killed the entire delayed task with **zero user-visible
-error** (the button's "Sending..." state had already cleared synchronously
-above, and the surrounding Rust `Result` machinery never got a chance to
-run). This was reproduced live via a custom diagnostic
-(`diag17-send-console.mjs`) that forwards full browser console + pageerror
-output — `live-proof.mjs` itself forwarded nothing before this session,
-which is why every prior failure looked like total, unexplained silence.
-Fixed by resolving `use_holochain()` synchronously, before the delayed
-`spawn_local` block, matching the correct pattern already used elsewhere in
-the same file — the captured `HolochainCtx` handle (a plain `Clone` value,
-no reactive-context dependency) is then moved into the delayed task instead
-of re-resolving the context after the sleep.
-
-### 4. `ActionHash`/`AgentPubKey` responses decoded as `serde_json::Value` (app bug — the actual root cause)
-This is the bug that was silently blocking onboarding, sending, *and*
-reading, independently, in three different places. msgpack's raw
-byte-array type has no JSON equivalent — `serde_json::Value`'s `Deserialize`
-impl legitimately rejects it with `invalid type: byte array, expected any
-valid JSON value`. Several zome-call sites decoded a wire response
-containing a raw byte array (an `ActionHash`, or an `AgentPubKey` nested
-inside a larger struct) as `serde_json::Value` instead of a type that can
-actually represent raw bytes (`Vec<u8>`). The **DHT write or read itself
-always succeeded on the conductor side** — only the client's decode of the
-*response* failed — but each call site's error-handling treated that decode
-failure as a real failure, with three different, each individually severe,
-consequences:
-
-- **`profile_setup.rs`'s `set_profile` call** — its `Err` branch reverted
-  the onboarding UI step back to `NameEntry` (hiding, then re-showing, the
-  name-entry input) and `return`ed, **skipping key generation and
-  `publish_hybrid_key_bundle_v2` entirely**. The live-browser-proof test's
-  one-shot "did `#setup-name` become hidden" check was fooled by the
-  transient hide-then-show and treated onboarding as complete — so every
-  earlier "onboarding complete" log line in this whole investigation was a
-  false positive. The actual DHT profile entry *was* created (confirmed via
-  `get_my_profile` on a later reload correctly reporting "Profile exists"),
-  but the device never actually generated or published its hybrid-PQC key
-  bundle, so `resolve_hybrid_send_context_v2` could never succeed for
-  *either* agent — this alone fully explains the "Recipient has no active
-  hybrid-PQC V2 key bundle" toast that an earlier, incorrect theory
-  attributed to a DHT-propagation timing race (see the retry-loop safety
-  net below — that fix was real defense-in-depth, just not the actual
-  blocker).
-- **`profile_setup.rs`'s `publish_hybrid_key_bundle_v2` call** — same
-  pattern, same fix.
-- **`compose.rs`'s `send_email_v2` call** — same pattern; its `Err` branch
-  shows a "Send failed" toast instead of the real "Message sent and
-  committed to DHT" success toast, even though the message *did* commit.
-- **`mail_context.rs`'s `InboxEmailV2Wire.sender` field** (a nested
-  `serde_json::Value`, not a top-level response type) — this one is subtly
-  different: it broke deserializing the *entire* `Vec<InboxEmailV2Wire>`
-  response for any non-empty inbox (one bad field poisons the whole
-  `#[derive(Deserialize)]` struct), surfacing as `"[Mail] V2 inbox
-  unavailable: Decode error for mail_messages.get_inbox_v2: ..."` — this
-  was the very last bug found, discovered only *after* fixing the first
-  three finally let a real send succeed and reach the read path for the
-  first time.
-
-**Fix, applied at all four sites**: decode as `Vec<u8>` instead of
-`serde_json::Value` wherever the caller only checks success/failure and
-never actually inspects the hash value (`profile_setup.rs`, `compose.rs`);
-for `mail_context.rs`, the redundant/broken `sender: serde_json::Value`
-field was dropped outright in favor of the adjacent `sender_agent_raw:
-Vec<u8>` field that already carried the identical raw bytes, with its two
-call sites (an outbound key-bundle-lookup request, and a display string via
-a newly-`pub`-exported `zome_adapter::base64_encode`) rewritten accordingly.
-
-**This is very likely a systemic pattern, not fully swept.** A search found
-~15 more `call_zome::<_, serde_json::Value>` call sites across
-`mail_context.rs`, `settings.rs`, `contacts.rs`, `chat.rs`, `search.rs`,
-`read.rs`, `offline.rs`, and `revocable.rs` — most call functions that
-return already-JSON-friendly query results (folder lists, contact lists,
-etc.) and were observed working correctly throughout this session's testing
-(including with real non-empty responses in some cases), so they are very
-likely fine. But this was not exhaustively re-verified per-site, and any
-zome function whose response (at any nesting depth) contains a raw
-Holochain hash type is a candidate for the exact same bug. Treat this as a
-known residual-risk class, not a closed investigation.
-
-### 5. Test-harness robustness (not app bugs, but necessary to get a clean pass)
-- **Playwright's bundled `chromium_headless_shell` is missing
-  `libgbm.so.1`** on this NixOS box. Fixed by setting
-  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to the Nix-wrapped system Chromium
-  instead (`/home/.../.nix-profile/bin/chromium` or equivalent).
-- **`live-proof.mjs` forwarded zero browser console/error output** before
-  this session — every prior failure investigation was working blind.
-  Fixed by adding `page.on('console', ...)` / `page.on('pageerror', ...)`
-  forwarding for both agents' pages, filtered to errors and `[Mail]`-tagged
-  logs.
-- **Key-bundle-availability retry loop** (`composeAndSend` in
-  `live-proof.mjs`): retries the whole compose→send cycle up to 6 times,
-  polling `.toast-message` DOM content continuously through each attempt's
-  wait window (not a single fixed-delay snapshot — toasts auto-dismiss
-  after a few seconds, and an earlier version of this same retry logic
-  missed the real failure toast entirely by checking only once). This is
-  genuine defense-in-depth for a real DHT-propagation race that *could*
-  occur in less favorable timing even now that bug #4 above is fixed, and
-  did not need to fire at all in the passing run once #4 was actually
-  fixed.
-- **Foreground-hold on the sending page**: `composeAndSend` now calls
-  `page.bringToFront()` before clicking Send and holds that page in the
-  foreground for 9 seconds afterward, since Chromium can throttle
-  background-tab `setTimeout` timers — relevant because of the 5-second
-  undo-delay pattern in bug #3 above.
-- **Always set `HC_PATH`/`PATH` explicitly** for every `hc sandbox`
-  invocation in this environment (`/var/tmp/hc-0.6.1/bin/hc`). Omitting it
-  once mid-session caused `launch-conductors.sh` to fail silently
-  (`hc: command not found`) while its own admin-port-wait loop reported
-  false success — because a *stale, already-poisoned* conductor process
-  from an earlier attempt was still squatting on the same ports. Always do
-  a clean `sudo ss -tlnp | grep -E "4444|4445|4446|4447|9600|3340"` sweep
-  and kill any leftover `holochain`/`kitsune2-bootstrap-srv`/`iroh-relay`
-  processes before relaunching.
-- A conductor that hits a `"SQL logic error"` (typically from an earlier
-  `kill -9` mid-operation) is **permanently poisoned** — retrying the same
-  call against the same conductor fails identically forever. The only fix
-  is a genuinely fresh conductor, which is what `run-with-retry.sh` does
-  between attempts.
-
-### Known, still-open, unrelated issues (not fixed this session)
-- **Settings page "Agent Public Key" infinite loading** — the `loading`
-  signal only flips to `false` after both `get_my_profile` *and* a
-  `did_registry.get_did_document` call on the `"identity"` role complete;
-  that role doesn't exist in the restricted alpha DNA
-  (`create_did`/`get_did_document` both fail with `Unknown role:
-  identity`), and depending on exact match-arm structure this can leave
-  the page stuck. Worked around in the test harness by resolving the
-  recipient's key via a native `app_info` call instead of reading it off
-  the Settings page. Real, user-facing, not fixed.
-- `mail_sync`/`mail_contacts` zomes are absent from the restricted alpha
-  DNA — every `sync init skipped` / `get_all_contacts failed: Zome not
-  found` warning in the logs is expected and harmless for this DNA.
-- `mail_keys.needs_refresh` fails with `missing field "identity_key"` — a
-  real but non-blocking error surfaced during this session's runs, not
-  investigated further (didn't affect the pass).
-
-### Reproducing
-```bash
-cd scripts/live-browser-proof
-just build-happ && just build-ui   # or the equivalent trunk/cargo commands
-HC_PATH=/var/tmp/hc-0.6.1/bin/hc PATH=/var/tmp/hc-0.6.1/bin:$PATH \
-  KITSUNE2_BOOTSTRAP_SRV_PATH=~/.cargo/bin/kitsune2-bootstrap-srv \
-  IROH_RELAY_PATH=~/.cargo/bin/iroh-relay \
-  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/real/chromium \
-  ./run-with-retry.sh
-```
-Needs `kitsune2-bootstrap-srv` and a version-matched `iroh-relay` binary on
-`PATH` or via the env overrides above (see item 2's fix for install
-commands) — the vanilla `cargo install kitsune2-bootstrap-srv` alone is not
-sufficient.
-
----
-
-## Residual sweep: the ActionHash/AgentPubKey decode bug, everywhere else (2026-07-18)
-
-Item 4 above ("the actual root cause") was found in 4 places by following the
-golden path. Once that path passed, we swept the rest of `apps/leptos` for the
-same bug class before it could bite a *different* feature the same way. It
-did — extensively. Every site below decoded a zome-call response containing a
-raw `AgentPubKey`/`ActionHash` (msgpack's raw byte-array type) as
-`serde_json::Value`, which cannot represent it
-(`invalid type: byte array, expected any valid JSON value`). The DHT
-write/read itself always succeeded server-side; only the client's decode
-failed, silently, with each site's own downstream consequence.
-
-**Refined understanding of the bug class**: only Holochain's `holo_hash`-
-wrapped types (`AgentPubKey`, `ActionHash`, `EntryHash`, etc.) trigger this —
-they serialize as msgpack's native "bin" type. A *plain* `Vec<u8>`/`[u8; N]`
-field (not wrapped in a `holo_hash` type) serializes as an ordinary sequence
-and decodes into `serde_json::Value` just fine (as an array of numbers).
-This is why `get_my_hybrid_key_bundle_v2` and `needs_refresh` were checked
-and left alone — their response structs (`HybridKeyBundleV2`, `BundleStatus`)
-have zero `holo_hash`-typed fields.
-
-### Fixed
-
-- **`contacts.rs`** — `create_contact` (returns `ActionHash`); `get_contact_by_email`
-  (returns `Option<Contact>`, `agent_pub_key: Option<AgentPubKey>`);
-  `resolve_identity` (returns `Option<AgentPubKey>` — kept as `Option<Vec<u8>>`
-  decode, re-wrapped as a `Value` only for local storage/outbound encoding,
-  which was never the broken direction).
-- **`compose.rs`** — the contact-autocomplete DHT search's `get_contact_by_email`
-  call (same fix as above).
-- **`offline.rs`** — `update_email_state` (×3, returns `ActionHash`),
-  `mark_as_read` (returns `Option<ActionHash>`). `move_to_folder` (returns
-  `()`) needed no change.
-- **`mail_context.rs`** — `update_email_state` (×3), `mark_as_read`,
-  `get_trust_score` (returns `TrustScore { agent: AgentPubKey, .. }` — fixed
-  with a minimal `TrustScoreWire { score: f64 }`, msgpack named-map encoding
-  ignores fields not present on the target struct), `get_email` (V1 legacy
-  decrypt path used by `hydrate_inbox_previews`; fixed with a minimal
-  `EncryptedEmailPartialWire` carrying only the 4 fields this path actually
-  reads), `get_folders` (returns `Vec<(ActionHash, EmailFolder)>` —
-  `EmailFolder` has no plaintext `name` field, only `encrypted_name: Vec<u8>`,
-  and this codebase has no folder-name decryption path; the new
-  `FolderWireV1` decodes correctly and the UI shows an honest "Folder"
-  placeholder rather than inventing decryption or lossy-UTF8-decoding
-  genuinely encrypted bytes, which is what the old, unused
-  `zome_adapter::WireFolder`/`adapt_folders` would have done), `get_all_contacts`
-  (`Vec<serde_json::Value>` — one non-null `agent_pub_key` anywhere in the
-  list failed the whole `Vec` decode), and **`get_inbox`** (the V1 legacy
-  path — this one's outer decode failure meant the "parse as wire types,
-  fall back to direct parse, fall back to raw logging" dance that used to
-  live around it could *never actually run*: the initial
-  `call_zome::<_, serde_json::Value>` failed before any of those fallbacks
-  ever saw a value to inspect. Replaced with a direct decode into the fixed
-  `WireEmailListItem`, removing the dead fallback logic entirely).
-- **`settings.rs`** — a duplicate `set_profile` call (same bug/fix as the
-  onboarding one in `profile_setup.rs`), `get_folders` (×2, one diagnostic
-  count-only, one feeding the "Read Fetch" diagnostic step), `get_contact_by_email`,
-  `resolve_identity`, `get_inbox` (diagnostic), `get_email` (diagnostic —
-  only checks success/failure, fixed by decoding as
-  `Option<serde::de::IgnoredAny>`, which accepts and discards *any*
-  well-formed response regardless of shape without needing to know
-  `EncryptedEmail`'s real fields), `get_all_contacts`.
-- **`revocable.rs`** — `rotate_keys` (returns `ActionHash`).
-- **`read.rs`** — `get_email` (the V1 legacy message-decrypt path; same
-  minimal-wire-type fix as `mail_context.rs`'s copy of this call).
-- **`search.rs`** — `search`. This one had a *second*, unrelated pre-existing
-  bug on top of the byte-array issue: the old code tried to deserialize
-  `SearchResultOutput` (the real backend shape — `document_hash`, `preview`,
-  `sender`, `matched_terms`, no priority/is_read/is_starred/has_attachments)
-  directly into `EmailListItem` (the frontend display shape) — these never
-  matched at all, so search results could never have rendered even ignoring
-  the decode failure. Fixed with a real `SearchOutputWire`/`SearchResultWire`
-  matching the actual backend, mapped into `EmailListItem` with honest
-  defaults for fields `SearchResultOutput` doesn't have.
-- **`zome_adapter.rs`** — `WireEmailListItem.hash`/`.sender` and
-  `WireContact.hash`/`.agent_pub_key` were typed `serde_json::Value`,
-  making both types unable to decode a non-empty real response. Both types
-  existed but were **dead code** before this fix — `mail_context.rs`'s V1
-  inbox/contacts loading bypassed them with ad-hoc `serde_json::Value`
-  parsing that had the identical bug. Fixed the field types and wired both
-  types into their actual callers for the first time (`adapt_inbox`,
-  `adapt_contacts`), replacing the ad-hoc parsing.
-
-### Deliberately left alone
-
-- **`mail_sync` zome, `identity` role** — every call site targeting these
-  (`get_sync_state`, `init_sync_state`, `process_offline_queue`,
-  `did_registry.*`, `mfa.*`) fails with `Zome not found`/`Unknown role` before
-  any decode is even attempted, confirmed on every single run this session.
-  These are genuinely absent from the restricted alpha DNA, not reachable
-  in this environment regardless of their decode types. Left as-is rather
-  than fixed-but-unverifiable.
-- **`get_my_hybrid_key_bundle_v2`, `needs_refresh`** — checked and confirmed
-  safe; see "refined understanding" above.
-- **`chat.rs`'s `send_signal`** targets a zome name (`mail_federation`) that
-  doesn't correspond to any real zome in this DNA (the closest real zome,
-  `federation`, has no `send_signal` function) — a separate, pre-existing
-  wrong-zome-name bug, unrelated to and out of scope for this sweep.
-
-### Verification
-
-Re-ran `run-with-retry.sh` after this sweep (same rebuild-and-test cycle as
-above): passed on attempt 1, with the send needing the key-bundle-retry
-safety net on this run (a genuine timing race, handled correctly) — and the
-new `get_folders`/`get_inbox` code paths ran cleanly throughout
-(`[Mail] get_folders: 0 folder(s)`, `[Mail] get_inbox: 0 item(s)`, no
-decode errors), confirming the sweep introduced no regression.

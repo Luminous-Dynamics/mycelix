@@ -21,7 +21,7 @@
 //! Updated to use HDI 0.7 patterns
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_bridge_entry_types::{CrossClusterNotification, did_for_author, require_did_is_author};
 
 // Canonical consciousness gate constants — must match mycelix_bridge_common::consciousness_gates defaults.
 // Source of truth: crates/mycelix-bridge-common/src/consciousness_gates.rs
@@ -1733,9 +1733,24 @@ fn validate_update_execution_req(
 
 /// Validate consciousness snapshot creation
 fn validate_create_consciousness_snapshot(
-    _action: Create,
+    action: Create,
     snapshot: ConsciousnessSnapshot,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ConsciousnessSnapshot",
+        "agent_did",
+        &snapshot.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate ID is present
     if snapshot.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1804,9 +1819,24 @@ fn validate_create_consciousness_snapshot(
 
 /// Validate consciousness attestation creation
 fn validate_create_consciousness_attestation(
-    _action: Create,
+    action: Create,
     attestation: ConsciousnessAttestation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ConsciousnessAttestation",
+        "agent_did",
+        &attestation.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate agent DID format
     if !attestation.agent_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1847,9 +1877,24 @@ fn validate_create_consciousness_attestation(
 
 /// Validate consciousness gate creation
 fn validate_create_consciousness_gate(
-    _action: Create,
+    action: Create,
     gate: ConsciousnessGate,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ConsciousnessGate",
+        "agent_did",
+        &gate.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate ID is present
     if gate.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid("Gate ID required".into()));
@@ -1895,9 +1940,24 @@ fn validate_create_consciousness_gate(
 
 /// Validate consciousness history creation
 fn validate_create_consciousness_history(
-    _action: Create,
+    action: Create,
     history: ConsciousnessHistory,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ConsciousnessHistory",
+        "agent_did",
+        &history.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate agent DID format
     if !history.agent_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1952,9 +2012,25 @@ fn validate_create_consciousness_history(
 
 /// Validate value alignment assessment creation
 fn validate_create_value_alignment(
-    _action: Create,
+    action: Create,
     assessment: ValueAlignmentAssessment,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer — a value-alignment assessment attributed to another
+    // agent misrepresents their harmony scores. (governance Class-A.)
+    //
+    // No coordinator creation path exists for this entry type today, so binding
+    // cannot break a live flow and future-proofs it against one being added
+    // unbound. Verified 2026-07-29.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ValueAlignmentAssessment",
+        "agent_did",
+        &assessment.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate ID is present
     if assessment.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2016,9 +2092,21 @@ fn validate_create_value_alignment(
 
 /// Validate K-Vector creation
 fn validate_create_k_vector(
-    _action: Create,
+    action: Create,
     k_vector: KVector,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("KVector", "agent_did", &k_vector.agent_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate agent DID
     if !k_vector.agent_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2086,9 +2174,24 @@ fn validate_create_matl_score(
 
 /// Validate federated reputation creation
 fn validate_create_federated_reputation(
-    _action: Create,
+    action: Create,
     fed_rep: FederatedReputation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "FederatedReputation",
+        "agent_did",
+        &fed_rep.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate agent DID
     if !fed_rep.agent_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2127,9 +2230,24 @@ fn validate_create_federated_reputation(
 
 /// Validate consensus participant creation
 fn validate_create_consensus_participant(
-    _action: Create,
+    action: Create,
     participant: ConsensusParticipant,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer: `agent_did` is a self-reported consciousness claim,
+    // and these feed voting weight and gate decisions. Every coordinator path
+    // derives it from agent_info() (consciousness.rs:36/116, attestation.rs:41/118,
+    // consensus.rs:20/108/146), so this enforces existing behaviour at the DHT
+    // level. (governance Class-A, MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ConsensusParticipant",
+        "agent_did",
+        &participant.agent_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate agent DID
     if !participant.agent_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2163,9 +2281,25 @@ fn validate_create_consensus_participant(
 
 /// Validate weighted vote creation
 fn validate_create_weighted_vote(
-    _action: Create,
+    action: Create,
     vote: WeightedVote,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the vote to its committer. The triage doc flags this in capitals as
+    // VOTE FORGERY (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, `bridge:2166`):
+    // without it, any agent can commit a WeightedVote carrying another agent's
+    // `voter_did`, `reputation` and `weight` — and this vote is reputation-squared
+    // weighted, so a forged high-reputation voter dominates the tally.
+    //
+    // Safe to bind: `cast_weighted_vote` (bridge/coordinator/src/consensus.rs:145)
+    // derives `agent_did` from agent_info() and assigns `voter_did: agent_did`
+    // (:202). It is the only creation path for this entry type.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("WeightedVote", "voter_did", &vote.voter_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate vote ID
     if vote.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid("Vote ID required".into()));
@@ -3896,5 +4030,113 @@ mod consciousness_weighted_consensus_tests {
         // Valid custom value
         config.max_voting_weight = 2.0;
         assert!(check_consciousness_config(&config).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod weighted_vote_author_binding_tests {
+    use super::*;
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: Timestamp::from_micros(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    fn vote_from(voter_did: &str) -> WeightedVote {
+        WeightedVote {
+            id: "vote:test:001".into(),
+            proposal_id: "prop-1".into(),
+            round: 1,
+            voter_did: voter_did.into(),
+            decision: VoteDecision::Approve,
+            reputation: 0.9,
+            weight: 0.81,
+            phi: 0.8,
+            reason: None,
+            voted_at: Timestamp::from_micros(1_000_000),
+            signature: "sig".into(),
+        }
+    }
+
+    #[test]
+    fn vote_from_the_committing_agent_is_accepted() {
+        let result =
+            validate_create_weighted_vote(make_create(), vote_from(&test_author_did())).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn forged_voter_did_is_rejected() {
+        // The triage doc's VOTE FORGERY: this vote is reputation-SQUARED weighted,
+        // so impersonating a high-reputation voter dominates the tally.
+        let result = validate_create_weighted_vote(
+            make_create(),
+            vote_from("did:mycelix:uhCAkHighReputationVictim"),
+        )
+        .unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("WeightedVote")
+                    && msg.contains("voter_did")
+                    && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged voter_did must be rejected, got {other:?}"),
+        }
+    }
+
+    fn snapshot_from(agent_did: &str) -> ConsciousnessSnapshot {
+        ConsciousnessSnapshot {
+            id: "snap-1".into(),
+            agent_did: agent_did.into(),
+            consciousness_level: 0.8,
+            meta_awareness: 0.5,
+            self_model_accuracy: 0.5,
+            coherence: 0.5,
+            affective_valence: 0.0,
+            care_activation: 0.5,
+            captured_at: Timestamp::from_micros(1_000_000),
+            source: "test".into(),
+            consciousness_vector: None,
+        }
+    }
+
+    #[test]
+    fn snapshot_from_the_committing_agent_is_accepted() {
+        let r = validate_create_consciousness_snapshot(
+            make_create(),
+            snapshot_from(&test_author_did()),
+        )
+        .unwrap();
+        assert!(matches!(r, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn forged_snapshot_agent_did_is_rejected() {
+        // A forged consciousness snapshot inflates another agent's voting weight
+        // and can flip a consciousness gate.
+        let r = validate_create_consciousness_snapshot(
+            make_create(),
+            snapshot_from("did:mycelix:uhCAkVictim"),
+        )
+        .unwrap();
+        match r {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("ConsciousnessSnapshot") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged agent_did must be rejected, got {other:?}"),
+        }
     }
 }

@@ -474,18 +474,7 @@ pub fn SettingsPage() -> impl IntoView {
                                     let t = t3.clone();
                                     wasm_bindgen_futures::spawn_local(async move {
                                         if hc.is_mock() { t.push("Mock mode — no conductor", "info"); return; }
-                                        // get_folders returns Vec<(ActionHash, EmailFolder)> —
-                                        // decoding as serde_json::Value fails on the raw
-                                        // AgentPubKey/ActionHash bytes for any non-empty
-                                        // response; see mail_context.rs's FolderWireV1.
-                                        match hc
-                                            .call_zome::<(), Vec<(Vec<u8>, crate::mail_context::FolderWireV1)>>(
-                                                "mail_messages",
-                                                "get_folders",
-                                                &(),
-                                            )
-                                            .await
-                                        {
+                                        match hc.call_zome::<(), serde_json::Value>("mail_messages", "get_folders", &()).await {
                                             Ok(_) => t.push("Conductor OK — zome responded", "success"),
                                             Err(e) => t.push(format!("Failed: {e}"), "error"),
                                         }
@@ -530,20 +519,14 @@ pub fn SettingsPage() -> impl IntoView {
                                             "Connected to a live conductor.".into(),
                                         ));
 
-                                        // get_folders returns Vec<(ActionHash, EmailFolder)> —
-                                        // decoding as serde_json::Value fails on the raw
-                                        // AgentPubKey/ActionHash bytes for any non-empty
-                                        // response; see mail_context.rs's FolderWireV1.
-                                        let folders = match hc
-                                            .call_zome::<(), Vec<(Vec<u8>, crate::mail_context::FolderWireV1)>>(
-                                                "mail_messages",
-                                                "get_folders",
-                                                &(),
-                                            )
-                                            .await
-                                        {
+                                        let folders = match hc.call_zome::<(), serde_json::Value>(
+                                            "mail_messages", "get_folders", &()
+                                        ).await {
                                             Ok(value) => {
-                                                let count = value.len();
+                                                let count = value.as_array()
+                                                    .map(|arr| arr.len())
+                                                    .or_else(|| value.get("folders").and_then(|v| v.as_array()).map(|arr| arr.len()))
+                                                    .unwrap_or(0);
                                                 steps.push((
                                                     "Folders".into(),
                                                     true,
@@ -557,15 +540,11 @@ pub fn SettingsPage() -> impl IntoView {
                                             }
                                         };
 
-                                        // get_all_contacts returns Vec<Contact> whose
-                                        // hash/agent_pub_key are raw bytes — decoding
-                                        // element-wise as serde_json::Value fails for any
-                                        // contact with a linked agent key.
-                                        let contacts = match hc.call_zome::<(), Vec<crate::zome_adapter::WireContact>>(
+                                        let contacts = match hc.call_zome::<(), Vec<serde_json::Value>>(
                                             "mail_contacts", "get_all_contacts", &()
                                         ).await {
                                             Ok(values) => {
-                                                let contacts = crate::zome_adapter::adapt_contacts(values);
+                                                let contacts = crate::zome_adapter::adapt_contact_values(values);
                                                 steps.push((
                                                     "Contacts".into(),
                                                     true,
@@ -579,14 +558,15 @@ pub fn SettingsPage() -> impl IntoView {
                                             }
                                         };
 
-                                        // get_inbox returns Vec<EmailListItem> whose
-                                        // hash/sender are raw bytes — decoding as
-                                        // serde_json::Value fails for any non-empty inbox.
-                                        let inbox = match hc.call_zome::<serde_json::Value, Vec<crate::zome_adapter::WireEmailListItem>>(
+                                        let inbox = match hc.call_zome::<serde_json::Value, serde_json::Value>(
                                             "mail_messages", "get_inbox", &serde_json::json!({ "limit": 5 })
                                         ).await {
                                             Ok(value) => {
-                                                let count = value.len();
+                                                let count = value.as_array()
+                                                    .map(|arr| arr.len())
+                                                    .or_else(|| value.get("records").and_then(|v| v.as_array()).map(|arr| arr.len()))
+                                                    .or_else(|| value.get("data").and_then(|v| v.as_array()).map(|arr| arr.len()))
+                                                    .unwrap_or(0);
                                                 steps.push((
                                                     "Inbox".into(),
                                                     true,
@@ -649,17 +629,14 @@ pub fn SettingsPage() -> impl IntoView {
                                             .and_then(|value| value.get("id"))
                                             .and_then(|value| value.as_str())
                                         {
-                                            // resolve_identity returns Option<AgentPubKey>
-                                            // (raw bytes) — Option<Vec<u8>> decodes it
-                                            // correctly where serde_json::Value cannot.
-                                            match hc.call_zome::<serde_json::Value, Option<Vec<u8>>>(
+                                            match hc.call_zome::<serde_json::Value, Option<serde_json::Value>>(
                                                 "mail_bridge", "resolve_identity", &serde_json::json!(did)
                                             ).await {
                                                 Ok(Some(agent)) => {
                                                     steps.push((
                                                         "Identity Bridge".into(),
                                                         true,
-                                                        format!("Resolved DID to agent key {}.", crate::zome_adapter::base64_encode(&agent)),
+                                                        format!("Resolved DID to agent key {}.", crate::zome_adapter::json_hash_to_string(&agent)),
                                                     ));
                                                 }
                                                 Ok(None) => {
@@ -678,15 +655,11 @@ pub fn SettingsPage() -> impl IntoView {
                                         let first_contact_email = contacts.as_ref()
                                             .and_then(|items| items.iter().find_map(|contact| contact.email.clone()));
                                         if let Some(email) = first_contact_email {
-                                            // get_contact_by_email returns Option<Contact>,
-                                            // whose hash/agent_pub_key are raw bytes —
-                                            // decoding as serde_json::Value fails whenever
-                                            // the matched contact has a linked agent key.
-                                            match hc.call_zome::<serde_json::Value, Option<crate::zome_adapter::WireContact>>(
+                                            match hc.call_zome::<serde_json::Value, serde_json::Value>(
                                                 "mail_contacts", "get_contact_by_email", &serde_json::json!(email.clone())
                                             ).await {
                                                 Ok(value) => {
-                                                    if value.is_some() {
+                                                    if crate::zome_adapter::adapt_contact_value(value).is_some() {
                                                         steps.push((
                                                             "Contact Lookup".into(),
                                                             true,
@@ -712,25 +685,17 @@ pub fn SettingsPage() -> impl IntoView {
                                             ));
                                         }
 
-                                        let first_hash = inbox
-                                            .as_ref()
-                                            .and_then(|items| items.first())
-                                            .map(|item| item.hash.clone());
+                                        let first_hash = inbox.as_ref()
+                                            .and_then(|value| value.as_array().cloned()
+                                                .or_else(|| value.get("records").and_then(|v| v.as_array()).cloned())
+                                                .or_else(|| value.get("data").and_then(|v| v.as_array()).cloned()))
+                                            .and_then(|items| items.into_iter().next())
+                                            .and_then(|item| item.get("hash").cloned());
 
                                         if let Some(hash) = first_hash {
-                                            // get_email's Ok/Err is all this diagnostic
-                                            // checks — serde::de::IgnoredAny accepts and
-                                            // discards any well-formed response regardless
-                                            // of shape, so it decodes correctly without
-                                            // needing to know EncryptedEmail's real fields.
-                                            match hc
-                                                .call_zome::<serde_json::Value, Option<serde::de::IgnoredAny>>(
-                                                    "mail_messages",
-                                                    "get_email",
-                                                    &serde_json::json!(hash),
-                                                )
-                                                .await
-                                            {
+                                            match hc.call_zome::<serde_json::Value, serde_json::Value>(
+                                                "mail_messages", "get_email", &hash
+                                            ).await {
                                                 Ok(_) => steps.push((
                                                     "Read Fetch".into(),
                                                     true,
@@ -870,25 +835,35 @@ fn ProfileSection() -> impl IntoView {
                     profile_name.set(format!("Error: {e}"));
                 }
             }
-            // Also load DID from identity DNA
-            match hc
-                .call_zome_on_role::<(), serde_json::Value>(
-                    "identity",
-                    "did_registry",
-                    "get_did_document",
-                    &(),
-                )
-                .await
-            {
-                Ok(val) if !val.is_null() => {
-                    if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
-                        did_id.set(id.to_string());
-                    }
-                }
-                _ => {} // No DID yet — that's fine
-            }
 
+            // Don't gate the profile view on the DID lookup below — the
+            // restricted alpha DNA doesn't bundle an "identity" role at all,
+            // so that call fails every single time. Show the profile as soon
+            // as it's known rather than leaving this page on "Loading
+            // profile..." until an unrelated, guaranteed-to-fail call
+            // also resolves.
             loading.set(false);
+
+            // Also load DID from identity DNA, if this build actually bundles
+            // it (it doesn't yet — see `alpha_scope::identity_role_available`).
+            if crate::alpha_scope::identity_role_available() {
+                match hc
+                    .call_zome_on_role::<(), serde_json::Value>(
+                        "identity",
+                        "did_registry",
+                        "get_did_document",
+                        &(),
+                    )
+                    .await
+                {
+                    Ok(val) if !val.is_null() => {
+                        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                            did_id.set(id.to_string());
+                        }
+                    }
+                    _ => {} // No DID yet — that's fine
+                }
+            }
         });
     }
 
@@ -915,11 +890,8 @@ fn ProfileSection() -> impl IntoView {
                         "avatar_url": "",
                         "bio": bio.trim(),
                     });
-                    // set_profile returns an ActionHash (raw bytes) — Vec<u8>
-                    // decodes it correctly where serde_json::Value cannot.
-                    // Same bug/fix as profile_setup.rs's onboarding call.
                     match hc
-                        .call_zome::<serde_json::Value, Vec<u8>>(
+                        .call_zome::<serde_json::Value, serde_json::Value>(
                             "mail_profiles",
                             "set_profile",
                             &profile,
@@ -978,7 +950,16 @@ fn ProfileSection() -> impl IntoView {
                     <div style="margin-bottom:12px">
                         <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:4px">"DSID (Decentralized Sovereign Identity)"</label>
                         <p style="font-size:0.7rem;color:var(--teal);margin:0;font-family:monospace;word-break:break-all">
-                            {move || { let d = did_id.get(); if d.is_empty() { "(not created yet)".into() } else { crate::dsid::display_dsid(&d) } }}
+                            {move || {
+                                let d = did_id.get();
+                                if !d.is_empty() {
+                                    crate::dsid::display_dsid(&d)
+                                } else if crate::alpha_scope::identity_role_available() {
+                                    "(not created yet)".into()
+                                } else {
+                                    "Not available in this alpha build".into()
+                                }
+                            }}
                         </p>
                     </div>
 
@@ -1037,83 +1018,95 @@ fn SecuritySection() -> impl IntoView {
     let loading = RwSignal::new(true);
     let dsid = RwSignal::new(String::new());
 
-    // Load MFA state
+    // Load MFA state — this entire feature depends on the "identity" role
+    // (DID registry + MFA zomes), which the restricted alpha DNA doesn't
+    // bundle, so don't even attempt the guaranteed-to-fail calls; the view
+    // below shows an honest notice in that case instead of an empty/zeroed
+    // MFA UI.
     {
         let hc = hc.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            // Get DSID first
-            match hc
-                .call_zome_on_role::<(), serde_json::Value>(
-                    "identity",
-                    "did_registry",
-                    "get_did_document",
-                    &(),
-                )
-                .await
-            {
-                Ok(val) if !val.is_null() => {
-                    if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
-                        dsid.set(crate::dsid::display_dsid(id));
-                    }
-                }
-                _ => {}
-            }
-
-            // Get MFA state
-            let did_wire = crate::dsid::wire_dsid(&dsid.get_untracked());
-            if !did_wire.is_empty() {
+            if crate::alpha_scope::identity_role_available() {
+                // Get DSID first
                 match hc
-                    .call_zome_on_role::<serde_json::Value, serde_json::Value>(
+                    .call_zome_on_role::<(), serde_json::Value>(
                         "identity",
-                        "mfa",
-                        "get_mfa_state",
-                        &serde_json::json!(did_wire),
+                        "did_registry",
+                        "get_did_document",
+                        &(),
                     )
                     .await
                 {
                     Ok(val) if !val.is_null() => {
-                        // Parse assurance level
-                        if let Some(state) = val.get("state").or(Some(&val)) {
-                            if let Some(level) =
-                                state.get("assurance_level").and_then(|v| v.as_str())
-                            {
-                                let l = match level {
-                                    "ConstitutionallyCritical" => 4,
-                                    "HighlyAssured" => 3,
-                                    "Verified" => 2,
-                                    "Basic" => 1,
-                                    _ => 0,
-                                };
-                                assurance_level.set(l);
-                            }
-                            if let Some(fs) = state.get("factors").and_then(|v| v.as_array()) {
-                                factor_count.set(fs.len() as u32);
-                                let parsed: Vec<_> = fs
-                                    .iter()
-                                    .filter_map(|f| {
-                                        let ft = f
-                                            .get("factor_type")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("Unknown");
-                                        let fid = f
-                                            .get("factor_id")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("");
-                                        let status = if f.get("last_verified").is_some() {
-                                            "Active"
-                                        } else {
-                                            "Pending"
-                                        };
-                                        Some((ft.to_string(), fid.to_string(), status.to_string()))
-                                    })
-                                    .collect();
-                                factors.set(parsed);
-                            }
+                        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                            dsid.set(crate::dsid::display_dsid(id));
                         }
                     }
-                    Ok(_) => { /* No MFA state yet */ }
-                    Err(e) => {
-                        web_sys::console::warn_1(&format!("[Mail] MFA state error: {e}").into());
+                    _ => {}
+                }
+
+                // Get MFA state
+                let did_wire = crate::dsid::wire_dsid(&dsid.get_untracked());
+                if !did_wire.is_empty() {
+                    match hc
+                        .call_zome_on_role::<serde_json::Value, serde_json::Value>(
+                            "identity",
+                            "mfa",
+                            "get_mfa_state",
+                            &serde_json::json!(did_wire),
+                        )
+                        .await
+                    {
+                        Ok(val) if !val.is_null() => {
+                            // Parse assurance level
+                            if let Some(state) = val.get("state").or(Some(&val)) {
+                                if let Some(level) =
+                                    state.get("assurance_level").and_then(|v| v.as_str())
+                                {
+                                    let l = match level {
+                                        "ConstitutionallyCritical" => 4,
+                                        "HighlyAssured" => 3,
+                                        "Verified" => 2,
+                                        "Basic" => 1,
+                                        _ => 0,
+                                    };
+                                    assurance_level.set(l);
+                                }
+                                if let Some(fs) = state.get("factors").and_then(|v| v.as_array()) {
+                                    factor_count.set(fs.len() as u32);
+                                    let parsed: Vec<_> = fs
+                                        .iter()
+                                        .filter_map(|f| {
+                                            let ft = f
+                                                .get("factor_type")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("Unknown");
+                                            let fid = f
+                                                .get("factor_id")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("");
+                                            let status = if f.get("last_verified").is_some() {
+                                                "Active"
+                                            } else {
+                                                "Pending"
+                                            };
+                                            Some((
+                                                ft.to_string(),
+                                                fid.to_string(),
+                                                status.to_string(),
+                                            ))
+                                        })
+                                        .collect();
+                                    factors.set(parsed);
+                                }
+                            }
+                        }
+                        Ok(_) => { /* No MFA state yet */ }
+                        Err(e) => {
+                            web_sys::console::warn_1(
+                                &format!("[Mail] MFA state error: {e}").into(),
+                            );
+                        }
                     }
                 }
             }
@@ -1127,6 +1120,12 @@ fn SecuritySection() -> impl IntoView {
         <p style=move || if loading.get() { "color:var(--text-muted)" } else { "display:none" }>"Loading security info..."</p>
 
         <div style=move || if loading.get() { "display:none" } else { "" }>
+            <div style=move || if crate::alpha_scope::identity_role_available() { "display:none" } else { "" }>
+                {crate::alpha_scope::scope_notice(
+                    "Assurance level and MFA aren't available in this alpha build — they depend on the identity role, which isn't bundled yet. Your account is protected by your device-local hybrid PQC key pair."
+                )}
+            </div>
+            <div style=move || if crate::alpha_scope::identity_role_available() { "" } else { "display:none" }>
             // Assurance Level Card
             <div class="setting-card">
                 <div class="setting-card-label">"Assurance Level"</div>
@@ -1226,6 +1225,7 @@ fn SecuritySection() -> impl IntoView {
                     </p>
                     <MfaEnrollment dsid=dsid.clone() />
                 </div>
+            </div>
             </div>
         </div>
     }

@@ -22,6 +22,7 @@
 )]
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// How the Phi value in a governance decision was obtained.
 ///
@@ -1531,9 +1532,34 @@ fn validate_create_vote(action: Create, vote: Vote) -> ExternResult<ValidateCall
 
 /// Validate delegation creation
 fn validate_create_delegation(
-    _action: Create,
+    action: Create,
     delegation: Delegation,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the DELEGATOR (not the delegate) to the committer: you may only
+    // delegate your OWN vote. Without this any agent could commit a Delegation
+    // moving someone else's voting power to themselves — the triage doc's
+    // "steal voting power" (HIGH, `voting:1533`).
+    //
+    // `create_delegation` (voting/coordinator:1489) takes delegator_did from
+    // input with no caller check, so this is a real fix, not just enforcement.
+    //
+    // `delegate` is deliberately NOT bound — it is the recipient, like a payee.
+    //
+    // UPDATE PATH LEFT UNBOUND, deliberately: `renew_delegation` (:1617) and
+    // `revoke_delegation` (:1656) have no caller check either, but a delegate
+    // DECLINING a delegation is a plausible legitimate second-party flow. Binding
+    // updates to the delegator would foreclose that without a decision being
+    // made. Class D — needs an authority model, not a bind.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "Delegation",
+        "delegator",
+        &delegation.delegator,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate delegator is a DID
     if !delegation.delegator.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1913,9 +1939,24 @@ fn validate_update_quadratic_tally(
 /// 3. Proof bytes don't exceed size limit (DoS prevention)
 /// 4. Timestamps are reasonable
 fn validate_create_eligibility_proof(
-    _action: Create,
+    action: Create,
     proof: EligibilityProof,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. `store_eligibility_proof` (voting/coordinator:2545)
+    // takes voter_did from input with no caller check, and it is the only
+    // creation path — a voter stores their own commitment, there is no relay
+    // flow here (contrast `verified_vote`, which the triage doc classes D
+    // precisely because relay != voter). (governance Class-A, `voting:1915`.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "EligibilityProof",
+        "voter_did",
+        &proof.voter_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate voter is a DID
     if !proof.voter_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -2514,6 +2555,47 @@ mod tests {
     // Delegation tests
     // ========================================================================
 
+    fn make_create_for_binding() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: Timestamp::from_micros(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn binding_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn delegation_from_the_delegator_themselves_is_accepted() {
+        let mut d = make_delegation(0.5, DelegationDecay::None);
+        d.delegator = binding_author_did();
+        let r = validate_create_delegation(make_create_for_binding(), d).unwrap();
+        assert!(matches!(r, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn delegation_stealing_someone_elses_voting_power_is_rejected() {
+        // The triage doc's "steal voting power": commit a Delegation moving a
+        // victim's voting weight to yourself.
+        let mut d = make_delegation(0.5, DelegationDecay::None);
+        d.delegator = "did:mycelix:uhCAkVictim".into();
+        d.delegate = binding_author_did();
+        let r = validate_create_delegation(make_create_for_binding(), d).unwrap();
+        match r {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("Delegation") && msg.contains("delegator") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged delegator must be rejected, got {other:?}"),
+        }
+    }
+
     fn make_delegation(percentage: f64, decay: DelegationDecay) -> Delegation {
         Delegation {
             id: "del-1".to_string(),
@@ -2990,27 +3072,35 @@ mod tests {
     #[test]
     fn test_circuit_breaker_blocks_advancement() {
         assert!(!CircuitBreakerOutcome::Allow.blocks_advancement());
-        assert!(!CircuitBreakerOutcome::Advisory {
-            reason: String::new(),
-            severity: 5
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::Escalate {
-            reason: String::new(),
-            severity: 7
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::CoolingPeriod {
-            reason: String::new(),
-            severity: 9,
-            cooling_hours: 72
-        }
-        .blocks_advancement());
-        assert!(CircuitBreakerOutcome::MandatoryReview {
-            reason: String::new(),
-            severity: 5
-        }
-        .blocks_advancement());
+        assert!(
+            !CircuitBreakerOutcome::Advisory {
+                reason: String::new(),
+                severity: 5
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::Escalate {
+                reason: String::new(),
+                severity: 7
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::CoolingPeriod {
+                reason: String::new(),
+                severity: 9,
+                cooling_hours: 72
+            }
+            .blocks_advancement()
+        );
+        assert!(
+            CircuitBreakerOutcome::MandatoryReview {
+                reason: String::new(),
+                severity: 5
+            }
+            .blocks_advancement()
+        );
     }
 
     #[test]

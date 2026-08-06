@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "wave15_continuity_config": "/absolute/private/prism-wave15-continuity.json",
+  "source_incident_policy_history": "/absolute/private/source-incident-policy-history.json",
+  "source_incident_policy_receipt": "/absolute/private/source-incident-policy-receipt.json",
+  "source_incident_policy_history_blake3": "0000000000000000000000000000000000000000000000000000000000000000",
+  "target_incident_policy_history": "/absolute/private/target-incident-policy-history.json",
+  "target_incident_policy_receipt": "/absolute/private/target-incident-policy-receipt.json",
+  "target_incident_policy_history_blake3": "0000000000000000000000000000000000000000000000000000000000000000",
+  "promotion_recovery_receipt": "/absolute/private/promotion-recovery.json",
+  "recovery_authorization_bundle": "/absolute/private/recovery-authorization-bundle.json",
+  "recovery_authorization_receipt": "/absolute/private/recovery-authorization-receipt.json",
+  "authorized_recovery_receipt": "/absolute/private/authorized-promotion-recovery.json",
+  "promotion_receipt": "/absolute/private/promotion-receipt.json",
+  "reconstruction_directory": "/absolute/private/reconstructed-promotion"
+}

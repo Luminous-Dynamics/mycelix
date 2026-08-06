@@ -123,13 +123,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Building(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::HousingUnit(unit) => validate_update_unit(unit),
+                // No live update_entry call for Building (confirmed via
+                // grep) -- previously silently accepted any field change.
+                // Made explicitly immutable.
+                EntryTypes::Building(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Buildings are immutable".into(),
+                )),
+                EntryTypes::HousingUnit(unit) => validate_update_unit(action, unit),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -310,23 +315,54 @@ fn validate_create_unit(_action: Create, unit: Unit) -> ExternResult<ValidateCal
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_unit(unit: Unit) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `Unit` update, factored out of
+/// [`validate_update_unit`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_unit_fields(unit: &Unit) -> ValidateCallbackResult {
     if unit.unit_number.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Unit number cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Unit number cannot be empty".into());
     }
     if unit.unit_number.len() > 128 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Unit number must be at most 128 characters".into(),
-        ));
+        );
     }
     if unit.square_meters == 0 {
+        return ValidateCallbackResult::Invalid("Square meters must be greater than 0".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// update_unit_status/occupy_unit/vacate_unit only ever change
+/// status/current_occupant, with no established authority model in this
+/// zome to bind against (an admin assigns an occupant, who need not be
+/// the committer). Content is restricted to status/current_occupant --
+/// this closes the wide-open bug that previously let building_hash/
+/// unit_number/unit_type/square_meters/floor/bedrooms/bathrooms/
+/// accessibility_features change unconditionally on update too.
+fn validate_update_unit(action: Update, unit: Unit) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Unit = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original unit not found".to_string()
+        )))?;
+    if unit.building_hash != original.building_hash
+        || unit.unit_number != original.unit_number
+        || unit.unit_type != original.unit_type
+        || unit.square_meters != original.square_meters
+        || unit.floor != original.floor
+        || unit.bedrooms != original.bedrooms
+        || unit.bathrooms != original.bathrooms
+        || unit.accessibility_features != original.accessibility_features
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Square meters must be greater than 0".into(),
+            "Only status/current_occupant can change on a unit update".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_unit_fields(&unit))
 }
 
 #[cfg(test)]
@@ -724,18 +760,16 @@ mod tests {
     fn test_update_unit_number_at_max_length() {
         let mut unit = valid_unit();
         unit.unit_number = "a".repeat(128);
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+        let result = validate_unit_fields(&unit);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_update_unit_number_over_max_length() {
         let mut unit = valid_unit();
         unit.unit_number = "a".repeat(129);
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        let result = validate_unit_fields(&unit);
+        match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Unit number must be at most 128 characters");
             }
@@ -822,18 +856,16 @@ mod tests {
     #[test]
     fn test_update_unit_valid() {
         let unit = valid_unit();
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+        let result = validate_unit_fields(&unit);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_update_unit_empty_number() {
         let mut unit = valid_unit();
         unit.unit_number = "".into();
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        let result = validate_unit_fields(&unit);
+        match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Unit number cannot be empty");
             }
@@ -845,9 +877,8 @@ mod tests {
     fn test_update_unit_zero_square_meters() {
         let mut unit = valid_unit();
         unit.square_meters = 0;
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        let result = validate_unit_fields(&unit);
+        match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert_eq!(msg, "Square meters must be greater than 0");
             }
@@ -859,9 +890,8 @@ mod tests {
     fn test_update_unit_zero_bathrooms_allowed() {
         let mut unit = valid_unit();
         unit.bathrooms = 0;
-        let result = validate_update_unit(unit);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ValidateCallbackResult::Valid);
+        let result = validate_unit_fields(&unit);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     // ========== Enum Serde Roundtrip Tests ==========

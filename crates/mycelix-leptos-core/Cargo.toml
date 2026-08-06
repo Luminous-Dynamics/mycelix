@@ -29,5 +29,42 @@ web-sys = { version = "0.3", features = [
     "HtmlElement",
     "Element",
     "BatteryManager",
+    # identity_crypto.rs: passphrase-based encryption via SubtleCrypto
+    # (PBKDF2 key derivation + AES-GCM), not a hand-rolled or JS-`eval`'d
+    # cipher.
+    "SubtleCrypto",
+    "CryptoKey",
+    "Pbkdf2Params",
+    "AesDerivedKeyParams",
+    "AesGcmParams",
 ] }
 gloo-timers = { version = "0.3", features = ["futures"] }
+
+# Real local identity keypair (local_identity.rs) — Ed25519, matches the
+# pattern already proven in mycelix-pulse/apps/leptos/src/crypto.rs. Keygen
+# is seeded from the Web Crypto CSPRNG (web-sys `Crypto`, above), not rand's
+# OsRng, so no extra getrandom backend wiring is needed for this crate.
+ed25519-dalek = "2.1"
+base64 = "0.22"
+
+# Step 3 of the recoverable-identity roadmap (local_identity.rs): standards-
+# correct BIP-39 seed phrase export/import for manual/offline backup — the
+# standard English wordlist + checksum, not an ad hoc encoding. `zeroize`
+# wipes the phrase's memory on drop (defense in depth for secret material).
+bip39 = { version = "2", features = ["zeroize"] }
+
+# Step 4 (did_registry.rs): multibase-encodes the browser Ed25519 public key
+# to register it on the on-DHT DID document, using the exact same encoding
+# the did_registry zome itself validates against (TaggedPublicKey) — not a
+# hand-rolled bs58 encoding that could subtly mismatch. `wasm` feature is
+# types + encoding only (matches the zome's own dependency spec in
+# mycelix-workspace/mycelix-identity/Cargo.toml) — no PQC/native crypto libs.
+mycelix-crypto = { path = "../../mycelix-workspace/mycelix-identity/crates/mycelix-crypto", default-features = false, features = [
+    "wasm",
+] }
+
+[dev-dependencies]
+# identity_crypto.rs's WebCrypto calls only run for real in a browser, so
+# its round-trip/tamper tests need `wasm-bindgen-test` + a headless browser
+# (`wasm-pack test --headless --firefox`), not plain `cargo test`.
+wasm-bindgen-test = "0.3"

@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 name = "credit_scoring_integrity"
 
 [dependencies]
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }
 getrandom = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 hdi = { workspace = true }

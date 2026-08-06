@@ -62,7 +62,7 @@ pub fn resolve_dispute(dispute_hash: ActionHash) -> ExternResult<Option<DisputeR
         0 => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Dispute update tree has no live heads".into()
-            )))
+            )));
         }
         1 => DisputeResolutionState::Resolved,
         _ => DisputeResolutionState::Conflicted,
@@ -107,7 +107,7 @@ fn find_root(mut cursor: ActionHash) -> ExternResult<Option<ActionHash>> {
             _ => {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Dispute hash must reference a Create or Update action".into()
-                )))
+                )));
             }
         }
     }
@@ -150,7 +150,7 @@ fn collect_heads(
         Details::Entry(_) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Dispute revision lookup unexpectedly returned entry details".into()
-            )))
+            )));
         }
     };
 

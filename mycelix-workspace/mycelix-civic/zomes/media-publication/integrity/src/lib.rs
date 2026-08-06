@@ -167,7 +167,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::PublicationVersion(_) => Ok(ValidateCallbackResult::Invalid(
                     "Publication versions cannot be updated".into(),
                 )),
-                EntryTypes::VisualArtMetadata(meta) => validate_visual_art_metadata(&meta),
+                // No live update_entry call for VisualArtMetadata
+                // (confirmed via grep) -- previously silently accepted
+                // any field change. Made explicitly immutable.
+                EntryTypes::VisualArtMetadata(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Visual art metadata records are immutable".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -201,10 +206,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -318,71 +320,100 @@ fn validate_create_publication(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_publication(
-    _action: Update,
-    publication: Publication,
-) -> ExternResult<ValidateCallbackResult> {
+/// Pure content validation for a `Publication` update, factored out of
+/// [`validate_update_publication`] so it can be unit-tested without a
+/// live HDI (`must_get_valid_record` has no test mock in this codebase).
+/// Kept intentionally more thorough than the standalone reference (which
+/// only re-checks `title`) since it was already this thorough before the
+/// P0 pass -- checking a field's length here is harmless even for fields
+/// that become immutable below, since the immutability comparison
+/// guarantees they can't have changed from the (already-valid) original.
+fn validate_publication_update_fields(publication: &Publication) -> ValidateCallbackResult {
     if publication.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Title cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Title cannot be empty".into());
     }
 
     // String length limits
     if publication.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Publication ID too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Publication ID too long (max 256)".into());
     }
     if publication.title.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Publication title too long (max 512)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Publication title too long (max 512)".into());
     }
     if publication.content_hash.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Content hash too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Content hash too long (max 256)".into());
     }
     if publication.author_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Author DID too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Author DID too long (max 256)".into());
     }
     if publication.language.len() > 128 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Language too long (max 128)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Language too long (max 128)".into());
     }
 
     // Vec length limits
     if publication.co_authors.len() > 50 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Too many co-authors (max 50)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Too many co-authors (max 50)".into());
     }
     if publication.tags.len() > 100 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Too many tags (max 100)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Too many tags (max 100)".into());
     }
 
     // Validate co-author DIDs
     for co_author in &publication.co_authors {
         if co_author.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Co-author DID too long (max 256)".into(),
-            ));
+            return ValidateCallbackResult::Invalid("Co-author DID too long (max 256)".into());
         }
     }
 
     // Validate tag lengths
     for tag in &publication.tags {
         if tag.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Tag too long (max 256)".into(),
-            ));
+            return ValidateCallbackResult::Invalid("Tag too long (max 256)".into());
         }
+    }
+
+    ValidateCallbackResult::Valid
+}
+
+/// Content restricted to content_hash/tags/license/updated/version, the
+/// union of fields update_publication/add_tags/update_license ever
+/// change (confirmed via grep of the coordinator) -- closes the
+/// wide-open bug that previously let id/title/author_did/co_authors/
+/// language/encrypted/published change unconditionally on update too
+/// (a modified coordinator could otherwise silently rewrite the author
+/// or republish under someone else's identity). No author requirement:
+/// none of those three coordinator functions has real caller-identity
+/// verification either (see the module doc comment on `validate` --
+/// add_tags/update_license compare publication.author_did against a
+/// caller-supplied requester_did, both attacker-controlled).
+fn validate_update_publication(
+    action: Update,
+    publication: Publication,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(msg) = validate_publication_update_fields(&publication) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Publication = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original publication not found".to_string()
+        )))?;
+    if publication.id != original.id
+        || publication.title != original.title
+        || publication.author_did != original.author_did
+        || publication.co_authors != original.co_authors
+        || publication.language != original.language
+        || publication.encrypted != original.encrypted
+        || publication.published != original.published
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only content_hash/tags/license/updated/version can change on a publication update"
+                .into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -730,25 +761,13 @@ mod tests {
 
     // Publication update tests
     #[test]
-    fn valid_publication_update_passes() {
-        let pub_data = valid_publication();
-        let update_action = Update {
-            author: AgentPubKey::from_raw_36(vec![1; 36]),
-            timestamp: Timestamp::from_micros(1),
-            action_seq: 1,
-            prev_action: ActionHash::from_raw_36(vec![0; 36]),
-            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
-            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
-            entry_type: EntryType::App(AppEntryDef {
-                entry_index: 0.into(),
-                zome_index: 0.into(),
-                visibility: EntryVisibility::Public,
-            }),
-            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
-            weight: Default::default(),
-        };
-        let result = validate_update_publication(update_action, pub_data);
-        assert!(is_valid(result));
+    fn valid_publication_update_fields_passes() {
+        // validate_update_publication itself now needs a live HDI
+        // (must_get_valid_record has no test mock in this codebase), so
+        // this exercises the extracted pure
+        // validate_publication_update_fields helper directly.
+        let result = validate_publication_update_fields(&valid_publication());
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]

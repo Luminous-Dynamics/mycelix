@@ -4,10 +4,19 @@
 //! Fact-Check Coordinator Zome
 use hdk::prelude::*;
 use media_factcheck_integrity::*;
-use mycelix_bridge_common::{civic_requirement_proposal, GovernanceEligibility};
+use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_proposal};
 use mycelix_zome_helpers::get_latest_record;
 
 use mycelix_zome_helpers as _;
+
+/// Derives the calling agent's real DID from `agent_info()` -- never trust a
+/// caller-supplied "acting agent" field. Matches the pattern in
+/// `mycelix-health/zomes/credentials/coordinator`'s `get_my_did()` and the
+/// justice-* coordinators' own `my_did()`.
+fn my_did() -> ExternResult<String> {
+    let agent_info = agent_info()?;
+    Ok(format!("did:mycelix:{}", agent_info.agent_initial_pubkey))
+}
 
 /// Helper function to create an anchor entry and return its hash
 fn anchor_hash(anchor_string: &str) -> ExternResult<EntryHash> {
@@ -491,10 +500,15 @@ pub fn update_verdict(input: UpdateVerdictInput) -> ExternResult<Record> {
         )?))
         .include_entries(true);
 
+    // Author-binding: derive the caller's real identity instead of trusting
+    // input.requester_did -- otherwise the fact check's original author (who does pass
+    // DHT-level author-binding on the resulting update) could fraudulently self-certify by
+    // claiming to be the checker. Found 2026-07-28 during P0-#1 triage.
+    let caller_did = my_did()?;
     for record in query(filter)? {
         if let Some(check) = record.entry().to_app_option::<FactCheck>().ok().flatten() {
             if check.id == input.fact_check_id {
-                if check.checker_did != input.requester_did {
+                if check.checker_did != caller_did {
                     return Err(wasm_error!(WasmErrorInner::Guest(
                         "Only checker can update verdict".into()
                     )));
@@ -521,7 +535,6 @@ pub fn update_verdict(input: UpdateVerdictInput) -> ExternResult<Record> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateVerdictInput {
     pub fact_check_id: String,
-    pub requester_did: String,
     pub new_verdict: FactCheckVerdict,
 }
 

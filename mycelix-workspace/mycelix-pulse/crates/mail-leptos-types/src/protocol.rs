@@ -127,6 +127,26 @@ pub struct EncryptedEnvelopeV2HybridPqc {
     pub recipient_agent: Vec<u8>,
     pub sender_mldsa_key_id: EncryptionKeyId,
     pub recipient_hybrid_key_id: EncryptionKeyId,
+    /// Raw 39-byte `ActionHash` of the sender's published `HybridKeyBundleV2`
+    /// entry — a DHT-lookup pointer only, not itself authenticated. A
+    /// validator uses it to fetch a candidate bundle, then independently
+    /// checks that bundle's own content hash matches `sender_mldsa_key_id`
+    /// (which the signatures below already cover) before trusting it. Not
+    /// part of the signed transcript/AAD for exactly that reason — its
+    /// correctness is verified transitively, not by signing it directly.
+    pub sender_mldsa_bundle_hash: Vec<u8>,
+    /// Raw 39-byte `ActionHash` of the recipient's published `HybridKeyBundleV2`
+    /// entry, at the time this envelope was sealed — same lookup-pointer-only
+    /// contract as `sender_mldsa_bundle_hash` above. Lets a validator check
+    /// that the recipient's key was still `Active` (not revoked/expired) when
+    /// the sender committed to `recipient_hybrid_key_id`, closing the
+    /// asymmetry where only the sender's key state was enforced on-chain.
+    /// Not part of the signed transcript/AAD for the same reason as the
+    /// sender pointer: a wrong or forged hash here only breaks the lookup,
+    /// since the validator independently re-derives the fetched bundle's
+    /// content hash and checks it against the already-signed
+    /// `recipient_hybrid_key_id`.
+    pub recipient_bundle_hash: Vec<u8>,
     pub x25519_ephemeral_public_key: [u8; 32],
     pub ml_kem_ciphertext: Vec<u8>,
     pub nonce: [u8; 12],
@@ -432,6 +452,8 @@ mod tests {
             recipient_agent: vec![13; 39],
             sender_mldsa_key_id: EncryptionKeyId([14; 32]),
             recipient_hybrid_key_id: EncryptionKeyId([15; 32]),
+            sender_mldsa_bundle_hash: vec![20; 39],
+            recipient_bundle_hash: vec![21; 39],
             x25519_ephemeral_public_key: [16; 32],
             ml_kem_ciphertext: vec![17; ML_KEM_768_CIPHERTEXT_BYTES],
             nonce: [18; 12],

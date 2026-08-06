@@ -7,6 +7,7 @@
  */
 
 import type { AppClient } from '@holochain/client';
+import type { HearthCellTarget } from './cell-target';
 import { KinshipClient } from './kinship';
 import { DecisionsClient } from './decisions';
 import { GratitudeClient } from './gratitude';
@@ -32,18 +33,21 @@ export class HearthClient {
   readonly rhythms: RhythmsClient;
   readonly bridge: BridgeClient;
 
-  constructor(client: AppClient, roleName = 'hearth') {
-    this.bridge = new BridgeClient(client, roleName);
+  constructor(client: AppClient, target: HearthCellTarget) {
+    if (!target.cloneId) {
+      throw new Error('HearthClient requires a cloned per-hearth cell target');
+    }
+    this.bridge = new BridgeClient(client, target);
     const refreshFn = () => this.bridge.refreshCredential();
-    this.kinship = new KinshipClient(client, roleName, refreshFn);
-    this.decisions = new DecisionsClient(client, roleName, refreshFn);
-    this.gratitude = new GratitudeClient(client, roleName, refreshFn);
-    this.stories = new StoriesClient(client, roleName, refreshFn);
-    this.care = new CareClient(client, roleName, refreshFn);
-    this.autonomy = new AutonomyClient(client, roleName, refreshFn);
-    this.emergency = new EmergencyClient(client, roleName, refreshFn);
-    this.resources = new ResourcesClient(client, roleName, refreshFn);
-    this.milestones = new MilestonesClient(client, roleName, refreshFn);
-    this.rhythms = new RhythmsClient(client, roleName, refreshFn);
+    this.kinship = new KinshipClient(client, target, refreshFn);
+    this.decisions = new DecisionsClient(client, target, refreshFn);
+    this.gratitude = new GratitudeClient(client, target, refreshFn);
+    this.stories = new StoriesClient(client, target, refreshFn);
+    this.care = new CareClient(client, target, refreshFn);
+    this.autonomy = new AutonomyClient(client, target, refreshFn);
+    this.emergency = new EmergencyClient(client, target, refreshFn);
+    this.resources = new ResourcesClient(client, target, refreshFn);
+    this.milestones = new MilestonesClient(client, target, refreshFn);
+    this.rhythms = new RhythmsClient(client, target, refreshFn);
   }
 }

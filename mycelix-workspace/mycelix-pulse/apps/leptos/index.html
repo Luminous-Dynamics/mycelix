@@ -132,7 +132,11 @@
         try {
             // 1. Fetch auth token from the gate
             console.info('[pulse] fetching auth token from /api/token...');
-            const tokenResp = await fetch('/api/token');
+            const tokenResp = await fetch('/api/token', {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: { 'Cache-Control': 'no-store', 'Pragma': 'no-cache' },
+            });
             if (!tokenResp.ok) throw new Error('token_gate_failed');
             const { token } = await tokenResp.json();
             if (!token) throw new Error('no_token_received');

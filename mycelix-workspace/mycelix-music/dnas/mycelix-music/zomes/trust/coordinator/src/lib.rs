@@ -11,15 +11,12 @@
 //! Holochain 0.6 compatible (hdk 0.6)
 
 use hdk::prelude::*;
-use trust_integrity::*;
 use mycelix_bridge_common::{
-    gate_civic, civic_requirement_basic, civic_requirement_voting, GovernanceRequirement,
+    CivicRequirement, civic_requirement_basic, civic_requirement_voting, gate_civic,
 };
+use trust_integrity::*;
 
-fn require_consciousness(
-    requirement: &GovernanceRequirement,
-    action_name: &str,
-) -> ExternResult<()> {
+fn require_consciousness(requirement: &CivicRequirement, action_name: &str) -> ExternResult<()> {
     gate_civic("music_bridge", requirement, action_name).map(|_| ())
 }
 
@@ -87,6 +84,15 @@ pub struct CreateTrustClaimInput {
 /// Get trust claims about an agent
 #[hdk_extern]
 pub fn get_trust_claims(agent: AgentPubKey) -> ExternResult<Vec<TrustClaim>> {
+    Ok(get_trust_claims_with_hashes(agent)?
+        .into_iter()
+        .map(|(_, claim)| claim)
+        .collect())
+}
+
+/// Same as get_trust_claims but also returns each claim's own action hash, needed so
+/// recompute_verification can embed the exact source set in VerificationStatus.source_claims.
+fn get_trust_claims_with_hashes(agent: AgentPubKey) -> ExternResult<Vec<(ActionHash, TrustClaim)>> {
     let to_path = Path::from(format!("claims_received/{}", agent));
     let typed_path = to_path.typed(LinkTypes::AgentToClaimsReceived)?;
     let filter = LinkTypeFilter::try_from(LinkTypes::AgentToClaimsReceived)?;
@@ -98,14 +104,14 @@ pub fn get_trust_claims(agent: AgentPubKey) -> ExternResult<Vec<TrustClaim>> {
     let mut claims = Vec::new();
     for link in links {
         if let Some(action_hash) = link.target.into_action_hash() {
-            if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
                 if let Some(claim) = record
                     .entry()
                     .to_app_option::<TrustClaim>()
                     .map_err(|e| wasm_error!(e))?
                 {
                     if claim.active {
-                        claims.push(claim);
+                        claims.push((action_hash, claim));
                     }
                 }
             }
@@ -117,11 +123,11 @@ pub fn get_trust_claims(agent: AgentPubKey) -> ExternResult<Vec<TrustClaim>> {
 
 /// Compute and store verification status
 fn recompute_verification(agent: AgentPubKey) -> ExternResult<()> {
-    let claims = get_trust_claims(agent.clone())?;
+    let claims = get_trust_claims_with_hashes(agent.clone())?;
 
     // Calculate trust score
     let vouch_count = claims.len() as u32;
-    let total_confidence: u32 = claims.iter().map(|c| c.confidence_bps).sum();
+    let total_confidence: u32 = claims.iter().map(|(_, c)| c.confidence_bps).sum();
     let trust_score = if vouch_count > 0 {
         total_confidence / vouch_count
     } else {
@@ -143,6 +149,7 @@ fn recompute_verification(agent: AgentPubKey) -> ExternResult<()> {
         tier,
         vouch_count,
         computed_at: sys_time()?,
+        source_claims: claims.into_iter().map(|(hash, _)| hash).collect(),
     };
 
     let action_hash = create_entry(&EntryTypes::VerificationStatus(status))?;
@@ -150,12 +157,7 @@ fn recompute_verification(agent: AgentPubKey) -> ExternResult<()> {
     // Link to agent
     let status_path = Path::from(format!("verification/{}", agent));
     let status_hash = ensure_path(status_path, LinkTypes::AgentToVerification)?;
-    create_link(
-        status_hash,
-        action_hash,
-        LinkTypes::AgentToVerification,
-        (),
-    )?;
+    create_link(status_hash, action_hash, LinkTypes::AgentToVerification, ())?;
 
     Ok(())
 }
@@ -174,10 +176,7 @@ pub fn get_verification_status(agent: AgentPubKey) -> ExternResult<Option<Verifi
     if let Some(link) = links.last() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(action_hash, GetOptions::default())? {
-                return Ok(record
-                    .entry()
-                    .to_app_option()
-                    .map_err(|e| wasm_error!(e))?);
+                return Ok(record.entry().to_app_option().map_err(|e| wasm_error!(e))?);
             }
         }
     }
@@ -205,6 +204,7 @@ pub fn register_cdn_node(input: RegisterCdnNodeInput) -> ExternResult<ActionHash
         last_active: sys_time()?,
         stake_amount: input.stake_amount,
         slash_count: 0,
+        last_report_hash: None,
     };
 
     let action_hash = create_entry(&EntryTypes::CdnNodeReputation(reputation))?;
@@ -254,10 +254,7 @@ pub fn get_cdn_reputation(node: AgentPubKey) -> ExternResult<Option<CdnNodeReput
     if let Some(link) = links.last() {
         if let Some(action_hash) = link.target.clone().into_action_hash() {
             if let Some(record) = get(action_hash, GetOptions::default())? {
-                return Ok(record
-                    .entry()
-                    .to_app_option()
-                    .map_err(|e| wasm_error!(e))?);
+                return Ok(record.entry().to_app_option().map_err(|e| wasm_error!(e))?);
             }
         }
     }
@@ -322,7 +319,12 @@ pub fn submit_quality_report(input: SubmitQualityReportInput) -> ExternResult<Ac
     )?;
 
     // Update CDN node reputation based on report
-    update_cdn_reputation(input.node, input.success, input.latency_ms)?;
+    update_cdn_reputation(
+        input.node,
+        input.success,
+        input.latency_ms,
+        action_hash.clone(),
+    )?;
 
     Ok(action_hash)
 }
@@ -336,8 +338,16 @@ pub struct SubmitQualityReportInput {
     pub error_code: Option<String>,
 }
 
-/// Update CDN reputation based on service report
-fn update_cdn_reputation(node: AgentPubKey, success: bool, latency_ms: u32) -> ExternResult<()> {
+/// Update CDN reputation based on service report. report_hash is the just-created
+/// ServiceQualityReport's own action hash -- CdnNodeReputation now embeds it as
+/// last_report_hash so the DHT can re-derive this function's exact formula against one
+/// real, matching report on every transition (P0 author-binding Turn B).
+fn update_cdn_reputation(
+    node: AgentPubKey,
+    success: bool,
+    latency_ms: u32,
+    report_hash: ActionHash,
+) -> ExternResult<()> {
     let node_path = Path::from(format!("cdn_node/{}", node));
     let typed_path = node_path.typed(LinkTypes::NodeToReputation)?;
     let filter = LinkTypeFilter::try_from(LinkTypes::NodeToReputation)?;
@@ -368,7 +378,8 @@ fn update_cdn_reputation(node: AgentPubKey, success: bool, latency_ms: u32) -> E
 
                     // Recalculate uptime
                     let total = rep.successful_requests + rep.failed_requests;
-                    rep.uptime_bps = ((rep.successful_requests as f64 / total as f64) * 1000.0) as u32;
+                    rep.uptime_bps =
+                        ((rep.successful_requests as f64 / total as f64) * 1000.0) as u32;
 
                     // Simple PoGQ score based on uptime and latency
                     let uptime_factor = rep.uptime_bps as f64 / 1000.0;
@@ -382,10 +393,10 @@ fn update_cdn_reputation(node: AgentPubKey, success: bool, latency_ms: u32) -> E
                     rep.pogq_score = uptime_factor * latency_factor;
 
                     rep.last_active = sys_time()?;
+                    rep.last_report_hash = Some(report_hash);
 
                     // Update entry
-                    let new_hash =
-                        update_entry(action_hash, &EntryTypes::CdnNodeReputation(rep))?;
+                    let new_hash = update_entry(action_hash, &EntryTypes::CdnNodeReputation(rep))?;
 
                     // Update link
                     create_link(

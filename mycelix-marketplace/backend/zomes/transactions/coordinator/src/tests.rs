@@ -13,7 +13,6 @@ mod tests {
 
     // Helper functions for tests
 
-
     fn mock_listing_output() -> ListingOutputForPurchase {
         ListingOutputForPurchase {
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
@@ -564,5 +563,4 @@ mod tests {
         let error = validate_purchase_terms(&input, &listing, &buyer).unwrap_err();
         assert!(error.contains("own listing"));
     }
-
 }

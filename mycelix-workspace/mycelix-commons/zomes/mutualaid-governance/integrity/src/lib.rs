@@ -5,8 +5,8 @@
 //! Democratic decision-making for mutual aid circles.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]

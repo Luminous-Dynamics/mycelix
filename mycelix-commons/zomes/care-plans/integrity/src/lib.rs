@@ -136,12 +136,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CarePlan(plan) => validate_update_plan(plan),
+                EntryTypes::CarePlan(plan) => validate_update_plan(action, plan),
                 EntryTypes::CareSession(_) => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -249,7 +249,12 @@ fn validate_care_type_other(care_type: &CareType) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_create_plan(_action: Create, plan: CarePlan) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_plan(action: Create, plan: CarePlan) -> ExternResult<ValidateCallbackResult> {
+    if plan.recipient != action.author && !plan.caregivers.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Care plan must be committed by its recipient or one of its assigned caregivers".into(),
+        ));
+    }
     if plan.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Plan title cannot be empty".into(),
@@ -316,7 +321,12 @@ fn validate_create_plan(_action: Create, plan: CarePlan) -> ExternResult<Validat
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_plan(plan: CarePlan) -> ExternResult<ValidateCallbackResult> {
+fn validate_update_plan(action: Update, plan: CarePlan) -> ExternResult<ValidateCallbackResult> {
+    if plan.recipient != action.author && !plan.caregivers.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Care plan must be committed by its recipient or one of its assigned caregivers".into(),
+        ));
+    }
     if plan.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Plan title cannot be empty".into(),
@@ -359,9 +369,14 @@ fn validate_update_plan(plan: CarePlan) -> ExternResult<ValidateCallbackResult> 
 }
 
 fn validate_create_session(
-    _action: Create,
+    action: Create,
     session: CareSession,
 ) -> ExternResult<ValidateCallbackResult> {
+    if session.caregiver != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Care session caregiver must match the committing agent".into(),
+        ));
+    }
     if !session.hours.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite number".into(),
@@ -482,6 +497,24 @@ mod tests {
         }
     }
 
+    fn mock_update_action() -> Update {
+        Update {
+            author: valid_agent(),
+            timestamp: valid_timestamp_start(),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef {
+                entry_index: 0.into(),
+                zome_index: 0.into(),
+                visibility: EntryVisibility::Public,
+            }),
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
     // ============================================================================
     // CarePlan Validation Tests - Create
     // ============================================================================
@@ -491,6 +524,32 @@ mod tests {
         let plan = valid_plan();
         let result = validate_create_plan(mock_create_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_plan_created_by_assigned_caregiver_passes() {
+        // valid_plan()'s recipient is valid_agent(); mock_create_action()'s author
+        // is also valid_agent() by default, so exercise the caregiver branch instead.
+        let mut plan = valid_plan();
+        plan.recipient = valid_agent_2();
+        plan.caregivers = vec![valid_agent()];
+        let result = validate_create_plan(mock_create_action(), plan);
+        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_plan_forged_author_rejected() {
+        let mut plan = valid_plan();
+        plan.recipient = valid_agent_2();
+        plan.caregivers = vec![valid_agent_2()];
+        // mock_create_action()'s author (valid_agent()) is neither recipient nor caregiver.
+        let result = validate_create_plan(mock_create_action(), plan);
+        match result {
+            Ok(ValidateCallbackResult::Invalid(msg)) => {
+                assert!(msg.contains("recipient or one of its assigned caregivers"));
+            }
+            other => panic!("Expected Invalid result, got {other:?}"),
+        }
     }
 
     #[test]
@@ -716,15 +775,30 @@ mod tests {
     #[test]
     fn test_valid_plan_update_passes() {
         let plan = valid_plan();
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_plan_update_forged_author_rejected() {
+        let mut plan = valid_plan();
+        plan.recipient = valid_agent_2();
+        plan.caregivers = vec![valid_agent_2()];
+        // mock_update_action()'s author (valid_agent()) is neither recipient nor caregiver.
+        let result = validate_update_plan(mock_update_action(), plan);
+        match result {
+            Ok(ValidateCallbackResult::Invalid(msg)) => {
+                assert!(msg.contains("recipient or one of its assigned caregivers"));
+            }
+            other => panic!("Expected Invalid result, got {other:?}"),
+        }
     }
 
     #[test]
     fn test_plan_update_empty_title() {
         let mut plan = valid_plan();
         plan.title = "".to_string();
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -732,7 +806,7 @@ mod tests {
     fn test_plan_update_empty_caregivers() {
         let mut plan = valid_plan();
         plan.caregivers = vec![];
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -740,7 +814,7 @@ mod tests {
     fn test_plan_update_single_caregiver() {
         let mut plan = valid_plan();
         plan.caregivers = vec![valid_agent()];
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -748,7 +822,7 @@ mod tests {
     fn test_plan_update_rejects_long_description() {
         let mut plan = valid_plan();
         plan.description = "x".repeat(4097);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -756,7 +830,7 @@ mod tests {
     fn test_plan_update_description_at_limit() {
         let mut plan = valid_plan();
         plan.description = "x".repeat(4096);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -769,6 +843,20 @@ mod tests {
         let session = valid_session();
         let result = validate_create_session(mock_create_action(), session);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_session_forged_caregiver_rejected() {
+        let mut session = valid_session();
+        session.caregiver = valid_agent_2();
+        // mock_create_action()'s author (valid_agent()) doesn't match caregiver.
+        let result = validate_create_session(mock_create_action(), session);
+        match result {
+            Ok(ValidateCallbackResult::Invalid(msg)) => {
+                assert!(msg.contains("caregiver must match"));
+            }
+            other => panic!("Expected Invalid result, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1345,7 +1433,7 @@ mod tests {
     fn test_update_plan_title_at_limit() {
         let mut plan = valid_plan();
         plan.title = "t".repeat(256);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -1353,7 +1441,7 @@ mod tests {
     fn test_update_plan_title_too_long() {
         let mut plan = valid_plan();
         plan.title = "t".repeat(257);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -1361,7 +1449,7 @@ mod tests {
     fn test_update_plan_schedule_at_limit() {
         let mut plan = valid_plan();
         plan.schedule = "s".repeat(512);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -1369,7 +1457,7 @@ mod tests {
     fn test_update_plan_schedule_too_long() {
         let mut plan = valid_plan();
         plan.schedule = "s".repeat(513);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -1377,7 +1465,7 @@ mod tests {
     fn test_update_plan_special_instructions_at_limit() {
         let mut plan = valid_plan();
         plan.special_instructions = "i".repeat(4096);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -1385,7 +1473,7 @@ mod tests {
     fn test_update_plan_special_instructions_too_long() {
         let mut plan = valid_plan();
         plan.special_instructions = "i".repeat(4097);
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -1393,7 +1481,7 @@ mod tests {
     fn test_update_plan_too_many_caregivers() {
         let mut plan = valid_plan();
         plan.caregivers = (0..51).map(|_| valid_agent()).collect();
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -1401,7 +1489,7 @@ mod tests {
     fn test_update_plan_50_caregivers_at_limit() {
         let mut plan = valid_plan();
         plan.caregivers = (0..50).map(|_| valid_agent()).collect();
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
     }
 
@@ -1409,7 +1497,7 @@ mod tests {
     fn test_update_plan_custom_care_type_too_long() {
         let mut plan = valid_plan();
         plan.care_type = CareType::Other("a".repeat(129));
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
@@ -1417,7 +1505,7 @@ mod tests {
     fn test_update_plan_custom_care_type_empty() {
         let mut plan = valid_plan();
         plan.care_type = CareType::Other("".to_string());
-        let result = validate_update_plan(plan);
+        let result = validate_update_plan(mock_update_action(), plan);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 

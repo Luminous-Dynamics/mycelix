@@ -60,8 +60,13 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => validate_create_entry(app_entry),
-            OpEntry::UpdateEntry { app_entry, .. } => validate_create_entry(app_entry),
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(action, app_entry),
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                action,
+                ..
+            } => validate_update_entry_type(action, original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -105,14 +110,231 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Validate entry creation
-fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+/// Validate entry creation. SharedResource.owner/Booking.booker/
+/// Maintenance.maintainer author-binding is belt-and-suspenders --
+/// create_resource/create_booking/record_maintenance already derive these
+/// from agent_info(). Usage has no self-declared identity field at all --
+/// authorization for who may start/complete usage is instead enforced on
+/// the corresponding Booking status transition (see
+/// validate_update_booking), since start_usage/complete_usage both update
+/// the linked Booking as part of the same atomic zome call.
+fn validate_create_entry(
+    action: Create,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
     match entry {
-        EntryTypes::SharedResource(resource) => validate_shared_resource(resource),
-        EntryTypes::Booking(booking) => validate_booking(booking),
+        EntryTypes::SharedResource(resource) => {
+            if resource.owner != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Resource owner must correspond to the committing agent".into(),
+                ));
+            }
+            validate_shared_resource(resource)
+        }
+        EntryTypes::Booking(booking) => {
+            if booking.booker != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Booking booker must correspond to the committing agent".into(),
+                ));
+            }
+            validate_booking(booking)
+        }
         EntryTypes::Usage(usage) => validate_usage(usage),
-        EntryTypes::Maintenance(maintenance) => validate_maintenance(maintenance),
+        EntryTypes::Maintenance(maintenance) => {
+            if maintenance.maintainer != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Maintenance maintainer must correspond to the committing agent".into(),
+                ));
+            }
+            validate_maintenance(maintenance)
+        }
     }
+}
+
+/// SharedResource/Booking/Usage all have live coordinator update paths;
+/// Maintenance has none (record_maintenance is create-only) and is made
+/// immutable.
+fn validate_update_entry_type(
+    action: Update,
+    original_action_hash: ActionHash,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::SharedResource(resource) => {
+            validate_update_shared_resource(action, original_action_hash, resource)
+        }
+        EntryTypes::Booking(booking) => {
+            validate_update_booking(action, original_action_hash, booking)
+        }
+        EntryTypes::Usage(usage) => validate_update_usage(action, original_action_hash, usage),
+        EntryTypes::Maintenance(_) => Ok(ValidateCallbackResult::Invalid(
+            "Maintenance records are immutable".into(),
+        )),
+    }
+}
+
+/// **Real authorization fix**: set_resource_availability's own client-side
+/// check ("only the owner can update availability") is now enforced at the
+/// integrity level. Content restricted to currently_available/updated_at.
+fn validate_update_shared_resource(
+    action: Update,
+    original_action_hash: ActionHash,
+    resource: SharedResource,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: SharedResource = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original resource not found".to_string()
+        )))?;
+
+    if resource.id != original.id
+        || resource.owner != original.owner
+        || resource.name != original.name
+        || resource.description != original.description
+        || resource.resource_type != original.resource_type
+        || resource.condition != original.condition
+        || resource.photos != original.photos
+        || resource.location != original.location
+        || resource.availability != original.availability
+        || resource.sharing_model != original.sharing_model
+        || resource.usage_instructions != original.usage_instructions
+        || resource.liability_notes != original.liability_notes
+        || resource.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only currently_available/updated_at can change on a resource update".into(),
+        ));
+    }
+
+    if action.author != original.owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the owner can update resource availability".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// **Real authorization fix, closing two live gaps**: confirm_booking and
+/// cancel_booking already have client-side checks (owner-only;
+/// booker-or-owner) now enforced for real here. start_usage and
+/// complete_usage had NO caller-identity check anywhere, so ANY agent
+/// could drive any booking to Active/Completed. Both are now required to
+/// be driven by the booking's own booker (Completed also allows the
+/// resource owner). Content otherwise restricted to `status` only.
+fn validate_update_booking(
+    action: Update,
+    original_action_hash: ActionHash,
+    booking: Booking,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: Booking = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original booking not found".to_string()
+        )))?;
+
+    if booking.id != original.id
+        || booking.resource_hash != original.resource_hash
+        || booking.booker != original.booker
+        || booking.start_time != original.start_time
+        || booking.end_time != original.end_time
+        || booking.purpose != original.purpose
+        || booking.payment_method != original.payment_method
+        || booking.payment_hash != original.payment_hash
+        || booking.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change on a booking update".into(),
+        ));
+    }
+
+    let resource_record = must_get_valid_record(original.resource_hash.clone())?;
+    let resource: SharedResource = resource_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Resource not found".to_string()
+        )))?;
+
+    let is_booker = action.author == original.booker;
+    let is_owner = action.author == resource.owner;
+
+    let authorized = match booking.status {
+        BookingStatus::Confirmed => is_owner,
+        BookingStatus::Cancelled => is_booker || is_owner,
+        BookingStatus::Active => is_booker,
+        BookingStatus::Completed => is_booker || is_owner,
+        BookingStatus::Pending | BookingStatus::NoShow => is_booker || is_owner,
+    };
+
+    if !authorized {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Not authorized to make this booking status transition".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Defense in depth alongside validate_update_booking: Usage has no
+/// identity field of its own, so authorization is derived by fetching the
+/// referenced Booking (via the immutable booking_hash) and requiring the
+/// committer be that booking's booker or the resource's owner.
+fn validate_update_usage(
+    action: Update,
+    original_action_hash: ActionHash,
+    usage: Usage,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: Usage = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original usage record not found".to_string()
+        )))?;
+
+    if usage.booking_hash != original.booking_hash
+        || usage.actual_start != original.actual_start
+        || usage.condition_before != original.condition_before
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only actual_end/condition_after/issues/notes can change on a usage update".into(),
+        ));
+    }
+
+    let booking_record = must_get_valid_record(original.booking_hash.clone())?;
+    let booking: Booking = booking_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Referenced booking not found".to_string()
+        )))?;
+
+    let resource_record = must_get_valid_record(booking.resource_hash.clone())?;
+    let resource: SharedResource = resource_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Resource not found".to_string()
+        )))?;
+
+    if action.author != booking.booker && action.author != resource.owner {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the booker or resource owner can update a usage record".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate a shared resource
@@ -451,6 +673,26 @@ mod tests {
 
     fn test_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0xdb; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xdc; 36])
+    }
+
+    fn create_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
     }
 
     fn test_action_hash() -> ActionHash {
@@ -1568,4 +1810,101 @@ mod tests {
         let result = validate_maintenance(maintenance);
         assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
+
+    // =============================================================================
+    // AUTHOR-BINDING TESTS (create) and UPDATE-IMMUTABILITY TESTS
+    // =============================================================================
+
+    #[test]
+    fn create_resource_valid_when_committer_is_owner() {
+        let resource = valid_shared_resource();
+        let result = validate_create_entry(
+            create_action(test_agent()),
+            EntryTypes::SharedResource(resource),
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_resource_forgery_rejected() {
+        let resource = valid_shared_resource();
+        let result = validate_create_entry(
+            create_action(other_agent()),
+            EntryTypes::SharedResource(resource),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_booking_valid_when_committer_is_booker() {
+        let booking = valid_booking();
+        let result =
+            validate_create_entry(create_action(test_agent()), EntryTypes::Booking(booking))
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_booking_forgery_rejected() {
+        let booking = valid_booking();
+        let result =
+            validate_create_entry(create_action(other_agent()), EntryTypes::Booking(booking))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_maintenance_valid_when_committer_is_maintainer() {
+        let maintenance = valid_maintenance();
+        let result = validate_create_entry(
+            create_action(test_agent()),
+            EntryTypes::Maintenance(maintenance),
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_maintenance_forgery_rejected() {
+        let maintenance = valid_maintenance();
+        let result = validate_create_entry(
+            create_action(other_agent()),
+            EntryTypes::Maintenance(maintenance),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_maintenance_update() {
+        let maintenance = valid_maintenance();
+        let result = validate_update_entry_type(
+            Update {
+                author: test_agent(),
+                timestamp: Timestamp::from_micros(1),
+                action_seq: 1,
+                prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+                original_action_address: ActionHash::from_raw_36(vec![9u8; 36]),
+                original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
+                entry_type: EntryType::App(AppEntryDef::new(
+                    EntryDefIndex::from(0),
+                    0.into(),
+                    EntryVisibility::Public,
+                )),
+                entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+                weight: Default::default(),
+            },
+            ActionHash::from_raw_36(vec![9u8; 36]),
+            EntryTypes::Maintenance(maintenance),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // validate_update_{shared_resource,booking,usage} all call
+    // must_get_valid_record, which requires a live HDI host and can't run
+    // in a plain unit test -- matching the established pattern from
+    // circles'/needs' equivalent update validators.
 }

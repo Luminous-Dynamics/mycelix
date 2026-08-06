@@ -7,8 +7,8 @@
 //! in the Mycelix Mutual Aid hApp. Implements mutual credit with automatic clearing.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Entry types for the circles zome
 #[hdk_entry_types]
@@ -58,8 +58,8 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => validate_create_entry(app_entry),
-            OpEntry::UpdateEntry { app_entry, .. } => validate_create_entry(app_entry),
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(action, app_entry),
+            OpEntry::UpdateEntry { app_entry, .. } => validate_update_entry_type(app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -103,13 +103,75 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Validate entry creation
-fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+/// Validate entry creation. Author-binding on CreditCircle.founders/
+/// CreditLine.member/CreditTransaction.from is belt-and-suspenders --
+/// create_circle/join_circle/transfer already derive these from
+/// agent_info() -- except Clearing-type transactions, which run_clearing
+/// legitimately creates with `from`/`to` set to computed debtor/creditor
+/// pairs, not the triggering agent (a genuine third-party case; disclosed,
+/// NOT fixed: run_clearing itself has no authorization check on who may
+/// trigger a clearing round at all).
+fn validate_create_entry(
+    action: Create,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::CreditCircle(circle) => {
+            if !circle.founders.contains(&action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "The committing agent must be one of the circle's founders".into(),
+                ));
+            }
+            validate_credit_circle(circle)
+        }
+        EntryTypes::CreditLine(line) => {
+            if line.member != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credit line member must correspond to the committing agent".into(),
+                ));
+            }
+            validate_credit_line(line)
+        }
+        EntryTypes::CreditTransaction(tx) => {
+            if tx.transaction_type != TransactionType::Clearing && tx.from != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Transaction from must correspond to the committing agent (except Clearing transactions)".into(),
+                ));
+            }
+            validate_credit_transaction(tx)
+        }
+        // Balance is never actually create_entry'd anywhere in the
+        // coordinator (confirmed via grep) -- it's a purely ephemeral
+        // computed return value. Content validation kept as
+        // defense-in-depth only.
+        EntryTypes::Balance(balance) => validate_balance(balance),
+    }
+}
+
+/// Update validation. **Diverges from the standalone mycelix-mutualaid
+/// zome on purpose**: unlike standalone, this shadow's coordinator has
+/// real, live governance-gated "replace the whole entry" functions for
+/// BOTH CreditCircle (`update_circle`) and CreditLine
+/// (`update_credit_line`), each behind `require_civic(...,
+/// civic_requirement_proposal(), ...)` -- authorization here is delegated
+/// to that civic gate, not to a per-field author/immutability check in
+/// this validator. Applying standalone's field-immutability restrictions
+/// verbatim would break those two real coordinator functions. So:
+/// CreditCircle/CreditLine updates get content-validation parity with
+/// create (same checks, no immutability), while CreditTransaction/Balance
+/// -- confirmed via grep to have NO live update_entry call anywhere in
+/// this coordinator, same as standalone -- are made explicitly immutable.
+fn validate_update_entry_type(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
     match entry {
         EntryTypes::CreditCircle(circle) => validate_credit_circle(circle),
         EntryTypes::CreditLine(line) => validate_credit_line(line),
-        EntryTypes::CreditTransaction(tx) => validate_credit_transaction(tx),
-        EntryTypes::Balance(balance) => validate_balance(balance),
+        EntryTypes::CreditTransaction(_) => Ok(ValidateCallbackResult::Invalid(
+            "Credit transactions are immutable".into(),
+        )),
+        EntryTypes::Balance(_) => Ok(ValidateCallbackResult::Invalid(
+            "Balance snapshots are immutable (and never actually updated by this coordinator)"
+                .into(),
+        )),
     }
 }
 
@@ -400,6 +462,22 @@ mod tests {
 
     fn timestamp() -> Timestamp {
         Timestamp::from_micros(1_000_000)
+    }
+
+    fn create_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
     }
 
     fn valid_credit_circle() -> CreditCircle {
@@ -1340,5 +1418,93 @@ mod tests {
         tx.id = "  \t ".to_string();
         let result = validate_credit_transaction(tx).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // =============================================================================
+    // AUTHOR-BINDING TESTS (create) and UPDATE-IMMUTABILITY TESTS
+    // =============================================================================
+
+    #[test]
+    fn create_circle_valid_when_committer_is_founder() {
+        let circle = valid_credit_circle();
+        let result =
+            validate_create_entry(create_action(agent1()), EntryTypes::CreditCircle(circle))
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_circle_rejected_when_committer_not_founder() {
+        let circle = valid_credit_circle();
+        let result =
+            validate_create_entry(create_action(agent2()), EntryTypes::CreditCircle(circle))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_line_valid_when_member_matches_committer() {
+        let line = valid_credit_line();
+        let result =
+            validate_create_entry(create_action(agent1()), EntryTypes::CreditLine(line)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn create_line_forgery_rejected() {
+        let line = valid_credit_line();
+        let result =
+            validate_create_entry(create_action(agent2()), EntryTypes::CreditLine(line)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_transaction_from_forgery_rejected() {
+        let tx = valid_credit_transaction();
+        let result =
+            validate_create_entry(create_action(agent2()), EntryTypes::CreditTransaction(tx))
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_transaction_clearing_type_allows_third_party_from() {
+        let mut tx = valid_credit_transaction();
+        tx.transaction_type = mutualaid_common::TransactionType::Clearing;
+        let result =
+            validate_create_entry(create_action(agent2()), EntryTypes::CreditTransaction(tx))
+                .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn update_entry_type_rejects_credit_transaction_update() {
+        let tx = valid_credit_transaction();
+        let result = validate_update_entry_type(EntryTypes::CreditTransaction(tx)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_rejects_balance_update() {
+        let balance = valid_balance();
+        let result = validate_update_entry_type(EntryTypes::Balance(balance)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn update_entry_type_allows_valid_circle_update() {
+        // Diverges from standalone: this shadow has a real governance-gated
+        // generic update_circle coordinator function, so CreditCircle
+        // updates get content validation, not immutability.
+        let circle = valid_credit_circle();
+        let result = validate_update_entry_type(EntryTypes::CreditCircle(circle)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn update_entry_type_allows_valid_credit_line_update() {
+        let line = valid_credit_line();
+        let result = validate_update_entry_type(EntryTypes::CreditLine(line)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 }

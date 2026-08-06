@@ -94,12 +94,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CareMatch(care_match) => validate_update_match(care_match),
+                EntryTypes::CareMatch(care_match) => {
+                    validate_update_match(action, care_match, original_action_hash)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -250,18 +252,57 @@ fn validate_create_match(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_match(care_match: CareMatch) -> ExternResult<ValidateCallbackResult> {
+/// Pure logic for a `CareMatch` update, factored out of [`validate_update_match`]
+/// so it can be unit-tested without a live HDI (`must_get_valid_record` has no
+/// test mock in this codebase).
+fn validate_match_transition(
+    original: &CareMatch,
+    care_match: &CareMatch,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
     if !care_match.score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Score must be a finite number".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Score must be a finite number".into());
     }
     if care_match.score < 0.0 || care_match.score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Match score must be between 0.0 and 1.0".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Match score must be between 0.0 and 1.0".into());
     }
-    Ok(ValidateCallbackResult::Valid)
+    if *author != original.provider && *author != original.requester {
+        return ValidateCallbackResult::Invalid(
+            "Only the provider or requester can update a match".into(),
+        );
+    }
+    if care_match.offer_hash != original.offer_hash
+        || care_match.request_hash != original.request_hash
+        || care_match.provider != original.provider
+        || care_match.requester != original.requester
+        || care_match.factors != original.factors
+        || care_match.created_at != original.created_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only status/score/updated_at can change on a match update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_match(
+    action: Update,
+    care_match: CareMatch,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: CareMatch = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original CareMatch entry not found".to_string()
+        )))?;
+    Ok(validate_match_transition(
+        &original,
+        &care_match,
+        &action.author,
+    ))
 }
 
 #[cfg(test)]
@@ -285,6 +326,10 @@ mod tests {
 
     fn agent_key_2() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0xca; 36])
+    }
+
+    fn agent_key_forger() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xef; 36])
     }
 
     fn action_hash_1() -> ActionHash {
@@ -719,45 +764,55 @@ mod tests {
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
-    // Tests for validate_update_match - Valid cases
+    // Tests for validate_match_transition (pure update-authorization logic)
+    // Note: validate_update_match itself needs a live HDI (must_get_valid_record
+    // has no test mock in this codebase), so these tests exercise the pure
+    // helper directly, with `original` and `author` standing in for what the
+    // wrapper would fetch/pass through.
 
     #[test]
     fn test_validate_update_match_valid() {
-        let result = validate_update_match(valid_match()).unwrap();
+        let original = valid_match();
+        let care_match = valid_match();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_update_match_score_zero() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = 0.0;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_update_match_score_one() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = 1.0;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_update_match_score_mid() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = 0.5;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
-    // Tests for validate_update_match - Invalid score
+    // Tests for validate_match_transition - Invalid score
 
     #[test]
     fn test_validate_update_match_score_negative() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = -0.001;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(msg.contains("Match score must be between 0.0 and 1.0"));
@@ -768,9 +823,10 @@ mod tests {
 
     #[test]
     fn test_validate_update_match_score_too_high() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = 1.001;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(msg.contains("Match score must be between 0.0 and 1.0"));
@@ -781,9 +837,10 @@ mod tests {
 
     #[test]
     fn test_validate_update_match_score_far_negative() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = -1.0;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(msg.contains("Match score must be between 0.0 and 1.0"));
@@ -794,9 +851,10 @@ mod tests {
 
     #[test]
     fn test_validate_update_match_score_far_too_high() {
+        let original = valid_match();
         let mut care_match = valid_match();
         care_match.score = 2.0;
-        let result = validate_update_match(care_match).unwrap();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         match result {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(msg.contains("Match score must be between 0.0 and 1.0"));
@@ -805,21 +863,63 @@ mod tests {
         }
     }
 
-    // Tests for validate_update_match - Update doesn't validate factors or self-match
+    // Tests for validate_match_transition - authorization and immutability
 
     #[test]
-    fn test_validate_update_match_ignores_invalid_factors() {
-        let mut care_match = valid_match();
-        care_match.factors.proximity_score = -0.5; // Invalid, but not checked in update
-        let result = validate_update_match(care_match).unwrap();
+    fn test_validate_update_match_rejects_non_participant_author() {
+        let original = valid_match();
+        let care_match = valid_match();
+        let result = validate_match_transition(&original, &care_match, &agent_key_forger());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("provider or requester"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_validate_update_match_allows_requester_author() {
+        let original = valid_match();
+        let care_match = valid_match();
+        let result = validate_match_transition(&original, &care_match, &agent_key_2());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn test_validate_update_match_ignores_self_match() {
+    fn test_validate_update_match_rejects_factors_change() {
+        let original = valid_match();
         let mut care_match = valid_match();
-        care_match.requester = care_match.provider.clone(); // Invalid, but not checked in update
-        let result = validate_update_match(care_match).unwrap();
+        care_match.factors.proximity_score = -0.5;
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only status/score/updated_at"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_validate_update_match_rejects_requester_change() {
+        let original = valid_match();
+        let mut care_match = valid_match();
+        care_match.requester = care_match.provider.clone();
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only status/score/updated_at"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_validate_update_match_allows_status_change() {
+        let original = valid_match();
+        let mut care_match = valid_match();
+        care_match.status = MatchStatus::Accepted;
+        let result = validate_match_transition(&original, &care_match, &agent_key_1());
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 

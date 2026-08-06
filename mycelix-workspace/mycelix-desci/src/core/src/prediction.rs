@@ -334,7 +334,9 @@ impl PredictionMarket {
             state: self.state,
             current_probability: self.current_probability,
             total_stake: self.total_stake,
-            num_participants: self.positions.iter()
+            num_participants: self
+                .positions
+                .iter()
                 .map(|p| &p.participant_id)
                 .collect::<std::collections::HashSet<_>>()
                 .len(),
@@ -479,7 +481,8 @@ mod tests {
     #[test]
     fn test_create_market() {
         let claim_id = Uuid::new_v4();
-        let market = PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
+        let market =
+            PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
 
         assert_eq!(market.claim_id, claim_id);
         assert_eq!(market.state, MarketState::Open);
@@ -489,7 +492,8 @@ mod tests {
     #[test]
     fn test_place_prediction() {
         let claim_id = Uuid::new_v4();
-        let mut market = PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
+        let mut market =
+            PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
 
         let result = market.place_prediction("alice@test.com".to_string(), 0.8, 10.0);
         assert!(result.is_ok());
@@ -505,27 +509,40 @@ mod tests {
     #[test]
     fn test_resolve_market() {
         let claim_id = Uuid::new_v4();
-        let mut market = PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
+        let mut market =
+            PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
 
         // Place predictions
-        market.place_prediction("alice@test.com".to_string(), 0.9, 10.0).unwrap();
-        market.place_prediction("bob@test.com".to_string(), 0.3, 10.0).unwrap();
+        market
+            .place_prediction("alice@test.com".to_string(), 0.9, 10.0)
+            .unwrap();
+        market
+            .place_prediction("bob@test.com".to_string(), 0.3, 10.0)
+            .unwrap();
 
         // Lock and resolve
         market.lock().unwrap();
-        let settlements = market.resolve(
-            1.0, // Claim was verified as true
-            "oracle@test.com".to_string(),
-            ResolutionMethod::Oracle,
-            vec!["evidence.pdf".to_string()],
-        ).unwrap();
+        let settlements = market
+            .resolve(
+                1.0, // Claim was verified as true
+                "oracle@test.com".to_string(),
+                ResolutionMethod::Oracle,
+                vec!["evidence.pdf".to_string()],
+            )
+            .unwrap();
 
         assert_eq!(settlements.len(), 2);
         assert_eq!(market.state, MarketState::Resolved);
 
         // Alice (predicted 0.9) should do better than Bob (predicted 0.3)
-        let alice_settlement = settlements.iter().find(|s| s.participant_id == "alice@test.com").unwrap();
-        let bob_settlement = settlements.iter().find(|s| s.participant_id == "bob@test.com").unwrap();
+        let alice_settlement = settlements
+            .iter()
+            .find(|s| s.participant_id == "alice@test.com")
+            .unwrap();
+        let bob_settlement = settlements
+            .iter()
+            .find(|s| s.participant_id == "bob@test.com")
+            .unwrap();
 
         assert!(alice_settlement.payout > bob_settlement.payout);
     }
@@ -550,7 +567,8 @@ mod tests {
         let mut registry = PredictionMarketRegistry::new();
         let claim_id = Uuid::new_v4();
 
-        let market = PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
+        let market =
+            PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
         let market_id = registry.create_market(market);
 
         assert!(registry.get(market_id).is_some());
@@ -560,7 +578,8 @@ mod tests {
     #[test]
     fn test_stake_limits() {
         let claim_id = Uuid::new_v4();
-        let mut market = PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
+        let mut market =
+            PredictionMarket::verification_market(claim_id, "creator@test.com".to_string());
 
         // Stake too low
         let result = market.place_prediction("alice@test.com".to_string(), 0.5, 0.1);

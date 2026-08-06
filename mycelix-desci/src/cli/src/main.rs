@@ -25,12 +25,12 @@ use config::Config;
 )]
 struct Cli {
     /// API base URL
-    #[arg(
-        long,
-        env = "MYCELIX_API_URL",
-        default_value = "http://localhost:8080"
-    )]
+    #[arg(long, env = "MYCELIX_API_URL", default_value = "http://localhost:8080")]
     api_url: String,
+
+    /// JWT bearer token for mutating requests.
+    #[arg(long, env = "MYCELIX_AUTH_TOKEN")]
+    auth_token: Option<String>,
 
     /// Output format (json, table, plain)
     #[arg(long, short = 'o', default_value = "table")]
@@ -80,7 +80,8 @@ async fn main() -> Result<()> {
         config.api_url.clone().unwrap_or(cli.api_url.clone())
     };
 
-    let client = ApiClient::new(&api_url)?;
+    let auth_token = cli.auth_token.clone().or(config.auth_token.clone());
+    let client = ApiClient::new(&api_url, auth_token.clone())?;
 
     // Set output mode
     let output_mode = output::OutputMode::from_str(&cli.output)?;
@@ -103,6 +104,7 @@ async fn main() -> Result<()> {
             println!("Configuration:");
             println!("  API URL: {}", api_url);
             println!("  Config file: {}", config.config_path());
+            println!("  Auth token configured: {}", auth_token.is_some());
             if cli.verbose {
                 println!("\nFull config:\n{:#?}", config);
             }

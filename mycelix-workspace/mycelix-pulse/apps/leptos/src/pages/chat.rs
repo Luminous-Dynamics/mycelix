@@ -7,6 +7,8 @@
 //! "Consolidate to Record" commits the chat to the DHT as a permanent mail thread.
 //! This prevents DHT bloat while enabling sub-100ms chat delivery.
 
+use std::cell::RefCell;
+
 use crate::toasts::use_toasts;
 use leptos::prelude::*;
 use mail_leptos_types::*;
@@ -61,34 +63,16 @@ pub fn ChatPage() -> impl IntoView {
         messages.update(|m| m.push(msg.clone()));
         input.set(String::new());
 
-        // Send via P2P remote_signal if conductor connected
-        let hc = crate::holochain::use_holochain();
-        if !hc.is_mock() {
-            let signal_payload = serde_json::json!({
-                "type": "chat_message",
-                "data": {
-                    "channel_id": msg.channel_id,
-                    "content": msg.content,
-                    "sender": msg.sender,
-                    "timestamp": msg.timestamp,
-                }
-            });
-            wasm_bindgen_futures::spawn_local(async move {
-                match hc
-                    .call_zome::<serde_json::Value, serde_json::Value>(
-                        "mail_federation",
-                        "send_signal",
-                        &signal_payload,
-                    )
-                    .await
-                {
-                    Ok(_) => web_sys::console::log_1(&"[Chat] Message sent via P2P signal".into()),
-                    Err(e) => {
-                        web_sys::console::warn_1(&format!("[Chat] Signal failed: {e}").into())
-                    }
-                }
-            });
-        }
+        // NOTE: this page's channels/messages are mock data
+        // (`crate::mock_data`) regardless of conductor connection — there is
+        // no real chat backend wired up yet. A previous attempt to also
+        // relay chat messages via a live P2P signal targeted a
+        // `"mail_federation"` zome and `send_signal` function that don't
+        // exist in any DNA in this codebase (the closest zome, `federation`,
+        // has no `send_signal` extern, and isn't even bundled in the
+        // restricted alpha DNA) — removed rather than "fixed" to a real
+        // target, since there's no live signal-broadcast capability to send
+        // this over yet.
 
         // Scroll to bottom
         let _ = js_sys::eval(
@@ -700,48 +684,114 @@ fn PollCreator(
     }
 }
 
-/// Voice message recorder — uses MediaRecorder API.
+thread_local! {
+    static VOICE_CAPTURE: RefCell<Option<(web_sys::MediaRecorder, web_sys::MediaStream)>> =
+        RefCell::new(None);
+}
+
+async fn start_voice_capture() -> Result<(), String> {
+    let window = web_sys::window().ok_or_else(|| "window unavailable".to_string())?;
+    let devices = window
+        .navigator()
+        .media_devices()
+        .map_err(|e| format!("Microphone API unavailable: {e:?}"))?;
+    let constraints = web_sys::MediaStreamConstraints::new();
+    constraints.set_audio_bool(true);
+    constraints.set_video_bool(false);
+    let promise = devices
+        .get_user_media_with_constraints(&constraints)
+        .map_err(|e| format!("Could not request microphone access: {e:?}"))?;
+    let stream = wasm_bindgen_futures::JsFuture::from(promise)
+        .await
+        .map_err(|e| format!("Microphone request failed: {e:?}"))?
+        .dyn_into::<web_sys::MediaStream>()
+        .map_err(|e| format!("Invalid microphone stream: {e:?}"))?;
+    let recorder = web_sys::MediaRecorder::new_with_media_stream(&stream)
+        .map_err(|e| format!("MediaRecorder unavailable: {e:?}"))?;
+    if let Err(error) = recorder.start() {
+        for track in stream.get_tracks().iter() {
+            if let Ok(track) = track.dyn_into::<web_sys::MediaStreamTrack>() {
+                track.stop();
+            }
+        }
+        return Err(format!("Could not start voice recording: {error:?}"));
+    }
+    VOICE_CAPTURE.with(|slot| *slot.borrow_mut() = Some((recorder, stream)));
+    Ok(())
+}
+
+fn stop_voice_capture() {
+    VOICE_CAPTURE.with(|slot| {
+        if let Some((recorder, stream)) = slot.borrow_mut().take() {
+            let _ = recorder.stop();
+            for track in stream.get_tracks().iter() {
+                if let Ok(track) = track.dyn_into::<web_sys::MediaStreamTrack>() {
+                    track.stop();
+                }
+            }
+        }
+    });
+}
+
+/// Voice message recorder — uses the typed MediaRecorder API.
 #[component]
 fn VoiceRecorder(on_send: impl Fn(u32) + 'static + Clone + Send) -> impl IntoView {
     let recording = RwSignal::new(false);
+    let starting = RwSignal::new(false);
     let duration_ms = RwSignal::new(0u32);
+    let error = RwSignal::new(Option::<String>::None);
 
     view! {
         <div class="voice-recorder">
             <button
                 class=move || if recording.get() { "btn btn-sm voice-btn recording" } else { "btn btn-sm voice-btn" }
+                disabled=move || starting.get()
                 on:click=move |_| {
-                    if recording.get() {
-                        // Stop recording
-                        let _ = js_sys::eval("if(window.__mycelix_recorder){window.__mycelix_recorder.stop();window.__mycelix_recorder=null}");
+                    if recording.get_untracked() {
+                        stop_voice_capture();
                         recording.set(false);
-                        let d = duration_ms.get();
+                        let d = duration_ms.get_untracked();
                         on_send(d);
                         duration_ms.set(0);
-                    } else {
-                        // Start recording
-                        recording.set(true);
+                    } else if !starting.get_untracked() {
+                        starting.set(true);
+                        error.set(None);
                         let dur = duration_ms;
-                        // Increment duration every 100ms
                         wasm_bindgen_futures::spawn_local(async move {
-                            loop {
-                                gloo_timers::future::sleep(std::time::Duration::from_millis(100)).await;
-                                if !recording.get_untracked() { break; }
-                                dur.update(|d| *d += 100);
+                            match start_voice_capture().await {
+                                Ok(()) => {
+                                    recording.set(true);
+                                    starting.set(false);
+                                    loop {
+                                        gloo_timers::future::sleep(std::time::Duration::from_millis(100)).await;
+                                        if !recording.get_untracked() {
+                                            break;
+                                        }
+                                        dur.update(|d| *d += 100);
+                                    }
+                                }
+                                Err(message) => {
+                                    starting.set(false);
+                                    recording.set(false);
+                                    error.set(Some(message));
+                                }
                             }
                         });
-                        // Request mic access
-                        let _ = js_sys::eval("navigator.mediaDevices?.getUserMedia({audio:true}).then(s=>{const r=new MediaRecorder(s);window.__mycelix_recorder=r;r.start();}).catch(()=>{})");
                     }
                 }
                 title=move || if recording.get() { "Stop recording" } else { "Record voice message" }>
-                {move || if recording.get() {
+                {move || if starting.get() {
+                    "Requesting mic…".into()
+                } else if recording.get() {
                     let secs = duration_ms.get() / 1000;
                     format!("\u{1F534} {secs}s")
                 } else {
                     "\u{1F3A4}".into()
                 }}
             </button>
+            {move || error.get().map(|message| view! {
+                <span class="voice-recorder-error" role="alert">{message}</span>
+            })}
         </div>
     }
 }

@@ -276,12 +276,42 @@ fn validate_create_common_resource(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Pure logic for a `CommonResource` update, factored out of
+/// [`validate_update_common_resource`] so it can be unit-tested without a
+/// live HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_common_resource_transition(
+    original: &CommonResource,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    let committer_did = format!("did:mycelix:{}", author);
+    if !original.stewards.contains(&committer_did) {
+        return ValidateCallbackResult::Invalid(
+            "Resource update must be committed by an existing steward".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_update_common_resource(
-    _action: Update,
+    action: Update,
     _resource: CommonResource,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Governance rules and stewards can be updated
-    Ok(ValidateCallbackResult::Valid)
+    // Bind the update to an EXISTING steward -- add_steward/remove_steward/
+    // update_governance_rules all update this same entry after a
+    // coordinator-side `stewards.contains(added_by_did/...)` check, but
+    // that check trusts a caller-supplied DID unless also enforced here.
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original_resource: CommonResource = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid original resource entry".to_string()
+        )))?;
+    Ok(validate_common_resource_transition(
+        &original_resource,
+        &action.author,
+    ))
 }
 
 fn validate_create_usage_right(
@@ -328,9 +358,15 @@ fn validate_update_usage_right(
 }
 
 fn validate_create_usage_log(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     log: UsageLog,
 ) -> ExternResult<ValidateCallbackResult> {
+    let expected_user = format!("did:mycelix:{}", action.author());
+    if log.user_did != expected_user {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Usage log user must be the committing agent (forgery)".into(),
+        ));
+    }
     // --- Empty string checks (required fields) ---
     if log.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -447,11 +483,16 @@ mod tests {
         }
     }
 
+    /// The DID the default `create_entry_creation_action()` author binds to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
     fn create_usage_log() -> UsageLog {
         UsageLog {
             id: "log-001".to_string(),
             resource_id: "resource-001".to_string(),
-            user_did: "did:key:user1".to_string(),
+            user_did: test_author_did(),
             usage_type: "extraction".to_string(),
             quantity: 50.0,
             unit: "liters".to_string(),
@@ -563,30 +604,44 @@ mod tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
+    // validate_update_common_resource itself needs a live HDI
+    // (must_get_valid_record has no test mock in this codebase), so these
+    // exercise the pure validate_common_resource_transition helper directly,
+    // with `original`/`author` standing in for what the wrapper fetches.
     #[test]
-    fn test_update_common_resource_always_valid() {
-        let resource = create_common_resource();
-        let action = create_update_action();
-        let result = validate_update_common_resource(action, resource).unwrap();
+    fn test_common_resource_transition_valid_for_existing_steward() {
+        let mut original = create_common_resource();
+        original.stewards = vec![test_author_did()];
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let result = validate_common_resource_transition(&original, &author);
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn test_update_common_resource_with_empty_stewards() {
-        let mut resource = create_common_resource();
-        resource.stewards = vec![];
-        let action = create_update_action();
-        let result = validate_update_common_resource(action, resource).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+    fn test_common_resource_transition_rejects_non_steward() {
+        let original = create_common_resource(); // stewards: did:key:steward1/2
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let result = validate_common_resource_transition(&original, &author);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("existing steward"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]
-    fn test_update_common_resource_with_invalid_stewards() {
-        let mut resource = create_common_resource();
-        resource.stewards = vec!["invalid".to_string()];
-        let action = create_update_action();
-        let result = validate_update_common_resource(action, resource).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+    fn test_common_resource_transition_rejects_empty_stewards() {
+        let mut original = create_common_resource();
+        original.stewards = vec![];
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let result = validate_common_resource_transition(&original, &author);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("existing steward"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     // ========================================
@@ -685,12 +740,33 @@ mod tests {
     }
 
     #[test]
-    fn test_usage_log_user_did_web() {
+    fn test_usage_log_user_did_mismatched_format_rejected() {
+        // A `did:web:` value can never match the committing agent's
+        // mycelix-formatted DID, so this is now correctly rejected as forgery.
         let mut log = create_usage_log();
         log.user_did = "did:web:example.org".to_string();
         let action = create_entry_creation_action();
         let result = validate_create_usage_log(action, log).unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_usage_log_forged_user_did_rejected() {
+        let mut log = create_usage_log();
+        log.user_did = "did:mycelix:someone_else".to_string();
+        let action = create_entry_creation_action();
+        let result = validate_create_usage_log(action, log).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]

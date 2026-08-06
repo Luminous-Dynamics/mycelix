@@ -121,7 +121,10 @@ pub fn geohash_decode(hash: &str) -> (f64, f64) {
         }
     }
 
-    ((lat_range.0 + lat_range.1) / 2.0, (lon_range.0 + lon_range.1) / 2.0)
+    (
+        (lat_range.0 + lat_range.1) / 2.0,
+        (lon_range.0 + lon_range.1) / 2.0,
+    )
 }
 
 /// Get the 8 neighboring geohash cells of the given geohash.
@@ -137,16 +140,21 @@ pub fn geohash_neighbors(hash: &str) -> Vec<String> {
     let (lat_err, lon_err) = geohash_error(precision);
 
     let offsets: [(f64, f64); 8] = [
-        (-lat_err, -lon_err), (-lat_err, 0.0), (-lat_err, lon_err),
-        (0.0, -lon_err),                       (0.0, lon_err),
-        (lat_err, -lon_err),  (lat_err, 0.0),  (lat_err, lon_err),
+        (-lat_err, -lon_err),
+        (-lat_err, 0.0),
+        (-lat_err, lon_err),
+        (0.0, -lon_err),
+        (0.0, lon_err),
+        (lat_err, -lon_err),
+        (lat_err, 0.0),
+        (lat_err, lon_err),
     ];
 
     offsets
         .iter()
         .map(|(dlat, dlon)| {
-            let nlat = (center_lat + dlat * 2.0).clamp(-90.0, 90.0);
-            let nlon = wrap_longitude(center_lon + dlon * 2.0);
+            let nlat = (center_lat + dlat).clamp(-90.0, 90.0);
+            let nlon = wrap_longitude(center_lon + dlon);
             geohash_encode(nlat, nlon, precision)
         })
         .collect()
@@ -160,13 +168,19 @@ pub fn haversine_distance_km(a: &GeoLocation, b: &GeoLocation) -> f64 {
     let lat1 = a.latitude.to_radians();
     let lat2 = b.latitude.to_radians();
 
-    let h = (dlat / 2.0).sin().powi(2)
-        + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+    let h = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
     let c = 2.0 * h.sqrt().asin();
     R * c
 }
 
-/// Approximate error (half-cell-size) for a geohash precision.
+/// Full cell dimensions (height, width) in degrees for a geohash precision.
+///
+/// NOTE: this returns the *whole* cell size, not the ±half-cell "error" that
+/// published geohash precision tables quote. `geohash_decode` returns a cell
+/// centre, so stepping by exactly one of these lands on the adjacent cell's
+/// centre — do not scale it. A `* 2.0` here previously made
+/// `geohash_neighbors` return the ring at grid distance 2, silently skipping
+/// every genuinely adjacent cell (see `geohash_neighbors_cover_the_adjacent_ring`).
 fn geohash_error(precision: u8) -> (f64, f64) {
     // lat_bits = 5*precision/2 (rounded down), lon_bits = 5*precision - lat_bits
     let total_bits = 5 * precision as u32;
@@ -180,8 +194,12 @@ fn geohash_error(precision: u8) -> (f64, f64) {
 /// Wrap longitude to [-180, 180).
 fn wrap_longitude(lon: f64) -> f64 {
     let mut l = lon;
-    while l > 180.0 { l -= 360.0; }
-    while l < -180.0 { l += 360.0; }
+    while l > 180.0 {
+        l -= 360.0;
+    }
+    while l < -180.0 {
+        l += 360.0;
+    }
     l
 }
 
@@ -195,7 +213,11 @@ mod tests {
         let hash = geohash_encode(32.95, -96.73, 6);
         assert_eq!(hash.len(), 6);
         // Should start with "9vg" (North America)
-        assert!(hash.starts_with("9v"), "Richardson TX should start with 9v, got {}", hash);
+        assert!(
+            hash.starts_with("9v"),
+            "Richardson TX should start with 9v, got {}",
+            hash
+        );
     }
 
     #[test]
@@ -204,8 +226,18 @@ mod tests {
         let lon = 2.3522;
         let hash = geohash_encode(lat, lon, 8);
         let (dlat, dlon) = geohash_decode(&hash);
-        assert!((dlat - lat).abs() < 0.001, "Latitude drift: {} vs {}", dlat, lat);
-        assert!((dlon - lon).abs() < 0.001, "Longitude drift: {} vs {}", dlon, lon);
+        assert!(
+            (dlat - lat).abs() < 0.001,
+            "Latitude drift: {} vs {}",
+            dlat,
+            lat
+        );
+        assert!(
+            (dlon - lon).abs() < 0.001,
+            "Longitude drift: {} vs {}",
+            dlon,
+            lon
+        );
     }
 
     #[test]
@@ -227,27 +259,96 @@ mod tests {
     }
 
     #[test]
+    fn geohash_neighbors_cover_the_adjacent_ring() {
+        // Every proximity query in commons and civic depends on this property:
+        // a point just over the cell boundary must appear in the neighbor set.
+        // `geohash_neighbors_returns_eight` only checks the count and string
+        // length, so it passed while the function returned the ring at grid
+        // distance 2 — leaving the genuinely adjacent cells unsearched.
+        let (lat, lon) = (32.95_f64, -96.73_f64); // Richardson TX
+        let precision = 6;
+        let center = geohash_encode(lat, lon, precision);
+        let (center_lat, center_lon) = geohash_decode(&center);
+        let (lat_cell, lon_cell) = geohash_error(precision);
+        let neighbors = geohash_neighbors(&center);
+
+        // Step 0.6 of a cell outward: far enough to leave the center cell,
+        // not far enough to skip over the adjacent one.
+        for (dlat, dlon) in [
+            (-1.0, -1.0),
+            (-1.0, 0.0),
+            (-1.0, 1.0),
+            (0.0, -1.0),
+            (0.0, 1.0),
+            (1.0, -1.0),
+            (1.0, 0.0),
+            (1.0, 1.0),
+        ] {
+            let probe_lat = center_lat + dlat * lat_cell * 0.6;
+            let probe_lon = center_lon + dlon * lon_cell * 0.6;
+            let adjacent = geohash_encode(probe_lat, probe_lon, precision);
+            assert_ne!(
+                adjacent,
+                center,
+                "probe at offset {:?} did not leave the center cell",
+                (dlat, dlon)
+            );
+            assert!(
+                neighbors.contains(&adjacent),
+                "adjacent cell {} at offset {:?} is missing from neighbors {:?}",
+                adjacent,
+                (dlat, dlon),
+                neighbors
+            );
+        }
+    }
+
+    #[test]
     fn haversine_same_point_is_zero() {
-        let p = GeoLocation { latitude: 32.95, longitude: -96.73, altitude_m: None };
+        let p = GeoLocation {
+            latitude: 32.95,
+            longitude: -96.73,
+            altitude_m: None,
+        };
         assert!((haversine_distance_km(&p, &p)).abs() < 0.001);
     }
 
     #[test]
     fn haversine_known_distance() {
         // Richardson TX to Dallas TX (~15 km)
-        let richardson = GeoLocation { latitude: 32.95, longitude: -96.73, altitude_m: None };
-        let dallas = GeoLocation { latitude: 32.78, longitude: -96.80, altitude_m: None };
+        let richardson = GeoLocation {
+            latitude: 32.95,
+            longitude: -96.73,
+            altitude_m: None,
+        };
+        let dallas = GeoLocation {
+            latitude: 32.78,
+            longitude: -96.80,
+            altitude_m: None,
+        };
         let dist = haversine_distance_km(&richardson, &dallas);
         assert!(dist > 10.0 && dist < 25.0, "Expected ~15km, got {}", dist);
     }
 
     #[test]
     fn haversine_antipodal_is_half_circumference() {
-        let a = GeoLocation { latitude: 0.0, longitude: 0.0, altitude_m: None };
-        let b = GeoLocation { latitude: 0.0, longitude: 180.0, altitude_m: None };
+        let a = GeoLocation {
+            latitude: 0.0,
+            longitude: 0.0,
+            altitude_m: None,
+        };
+        let b = GeoLocation {
+            latitude: 0.0,
+            longitude: 180.0,
+            altitude_m: None,
+        };
         let dist = haversine_distance_km(&a, &b);
         // Should be ~20,015 km (half Earth circumference)
-        assert!(dist > 19_000.0 && dist < 21_000.0, "Expected ~20015km, got {}", dist);
+        assert!(
+            dist > 19_000.0 && dist < 21_000.0,
+            "Expected ~20015km, got {}",
+            dist
+        );
     }
 
     #[test]

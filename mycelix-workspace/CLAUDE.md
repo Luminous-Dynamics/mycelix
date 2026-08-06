@@ -145,11 +145,11 @@ hc dna pack .
 | SDK cluster integration | 49 | CommonsBridgeClient + CivicBridgeClient + typed convenience + cross-cluster + signal type guards + audit trail |
 | SDK conductor cluster | 22 | Typed convenience, rate limiting, allowlist, audit trail mock tests |
 | Sweettest cross-cluster | 12 | OtherRole dispatch, allowlist enforcement, typed helpers, bidirectional health |
-| Commons sweettest | 14/14 pass | Property, housing, care, mutualaid, water, food, transport, bridge, cross-domain. Run with `--test-threads=1` |
+| Commons sweettest | 14/14 pass — **not currently reproducible** | Property, housing, care, mutualaid, water, food, transport, bridge, cross-domain. Run with `--test-threads=1`. Caveats verified 2026-07-30: every one is `#[ignore = "requires Holochain conductor"]`, the `tests` crate is `exclude`d from the workspace (`mycelix-commons/Cargo.toml:138`) so `cargo test --workspace` never sees them, and they load `mycelix-commons/dna/mycelix_commons.dna`, which **does not exist in the tree** — rebuild the DNA before trusting this row |
 | Civic sweettest | 17/17 pass | Justice, emergency, media, bridge, cross-domain. Run with `--test-threads=1` |
 | Hearth sweettest | 48 total (39 run, 9 gated) | All 39 runnable tests pass. 9 consciousness_gating tests cfg-gated behind `identity_cluster` feature (need identity bridge). Run with `--test-threads=1` |
 | Personal sweettest | 8/8 pass | Identity vault, health vault, credential wallet, bridge dispatch, trust credentials |
-| DNA/hApp bundles | 4 | commons (24M, 35 zomes) + civic (12M, 16 zomes) + hearth (8M, 12 zomes) + personal packed and verified |
+| DNA/hApp bundles | 4 — **artifacts absent from the tree** | commons (24M, 35 zomes) + civic (12M, 16 zomes) + hearth (8M, 12 zomes) + personal packed and verified at the time of writing. As of 2026-07-30 no `mycelix_commons.dna` (or any `.dna`/`.happ` under `mycelix-commons`) exists — build artifacts, so presumably cleaned or gitignored rather than lost. Treat as "was built once", not "is available"; rebuild before any sweettest or install |
 | WASM zomes | 66 | Compile to wasm32-unknown-unknown |
 | Sweettest | 15/15 pass | `just test-sweettest` (--release required) |
 | Tryorama | 13 suites | Needs running conductor + hApp bundles |

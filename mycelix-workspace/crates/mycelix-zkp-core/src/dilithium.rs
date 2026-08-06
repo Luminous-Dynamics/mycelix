@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::error::{ZkpError, ZkpResult};
-use crate::types::AuthenticatedProof;
+use crate::types::{AUTHENTICATED_PROOF_PROTOCOL_VERSION, AuthenticatedProof};
 
 /// Dilithium5 exact sizes (empirically verified).
 pub const PUBLIC_KEY_SIZE: usize = 2_592;
@@ -98,8 +98,22 @@ impl DilithiumKeypair {
         Ok(signed.as_bytes().to_vec())
     }
 
-    /// Sign an AuthenticatedProof in place (fills the signature field).
+    /// Sign an [`AuthenticatedProof`] in place.
+    ///
+    /// Refuses to sign an envelope that names a different client identity or an
+    /// obsolete protocol version. This prevents producing signatures that can
+    /// never pass the canonical verifier.
     pub fn sign_proof(&self, proof: &mut AuthenticatedProof) -> ZkpResult<()> {
+        if proof.metadata.client_id != self.client_id {
+            return Err(ZkpError::ClientIdMismatch);
+        }
+        if proof.metadata.protocol_version != AUTHENTICATED_PROOF_PROTOCOL_VERSION {
+            return Err(ZkpError::InvalidProofFormat(format!(
+                "cannot sign authenticated-proof protocol version {}; expected {}",
+                proof.metadata.protocol_version, AUTHENTICATED_PROOF_PROTOCOL_VERSION
+            )));
+        }
+
         let message = proof.construct_signed_message();
         proof.signature = self.sign(&message)?;
         Ok(())
@@ -224,7 +238,7 @@ mod tests {
         let kp = DilithiumKeypair::generate();
         let meta = ProofMetadata {
             domain_tag: DomainTag::new("Test", "SignProof", 1),
-            protocol_version: 1,
+            protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
             client_id: *kp.client_id(),
             timestamp: 1700000000,
             nonce: [0x42; 32],
@@ -235,6 +249,7 @@ mod tests {
             signature: vec![],
             metadata: meta,
             public_inputs_hash: [0xCC; 32],
+            energy_millijoules: 0,
         };
 
         kp.sign_proof(&mut proof).unwrap();
@@ -257,7 +272,7 @@ mod tests {
         let kp = DilithiumKeypair::generate();
         let meta = ProofMetadata {
             domain_tag: DomainTag::new("Test", "Mismatch", 1),
-            protocol_version: 1,
+            protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
             client_id: [0xFF; 32], // Wrong client ID
             timestamp: 1700000000,
             nonce: [0x42; 32],
@@ -268,6 +283,7 @@ mod tests {
             signature: vec![],
             metadata: meta,
             public_inputs_hash: [0; 32],
+            energy_millijoules: 0,
         };
 
         let result = verify_authenticated_signature(&proof, kp.public_key());
@@ -290,4 +306,62 @@ mod tests {
         assert_eq!(parsed.client_id, pk.client_id);
         assert_eq!(parsed.bytes.len(), PUBLIC_KEY_SIZE);
     }
+    #[test]
+    fn test_sign_proof_rejects_identity_and_protocol_mismatch() {
+        let kp = DilithiumKeypair::generate();
+        let mut proof = AuthenticatedProof {
+            proof: vec![1],
+            signature: vec![],
+            metadata: ProofMetadata {
+                domain_tag: DomainTag::new("Test", "Refuse", 2),
+                protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
+                client_id: [0xFF; 32],
+                timestamp: 1_700_000_000,
+                nonce: [0x44; 32],
+                backend: BackendId::Miden,
+            },
+            public_inputs_hash: [0x55; 32],
+            energy_millijoules: 1,
+        };
+        assert!(matches!(
+            kp.sign_proof(&mut proof),
+            Err(ZkpError::ClientIdMismatch)
+        ));
+
+        proof.metadata.client_id = *kp.client_id();
+        proof.metadata.protocol_version = 1;
+        assert!(matches!(
+            kp.sign_proof(&mut proof),
+            Err(ZkpError::InvalidProofFormat(_))
+        ));
+    }
+
+    #[test]
+    fn test_authenticated_signature_binds_backend_and_energy() {
+        let kp = DilithiumKeypair::generate();
+        let mut proof = AuthenticatedProof {
+            proof: vec![0xAB; 32],
+            signature: vec![],
+            metadata: ProofMetadata {
+                domain_tag: DomainTag::new("Supply", "Provenance", 2),
+                protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
+                client_id: *kp.client_id(),
+                timestamp: 1_700_000_000,
+                nonce: [0x66; 32],
+                backend: BackendId::Miden,
+            },
+            public_inputs_hash: [0x77; 32],
+            energy_millijoules: 12_000,
+        };
+        kp.sign_proof(&mut proof).unwrap();
+        assert!(verify_authenticated_signature(&proof, kp.public_key()).unwrap());
+
+        proof.energy_millijoules += 1;
+        assert!(!verify_authenticated_signature(&proof, kp.public_key()).unwrap());
+        proof.energy_millijoules -= 1;
+
+        proof.metadata.backend = BackendId::Winterfell;
+        assert!(!verify_authenticated_signature(&proof, kp.public_key()).unwrap());
+    }
+
 }

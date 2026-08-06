@@ -212,8 +212,9 @@ pub fn grant_access(input: GrantAccessInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let caller = agent_info()?.agent_initial_pubkey;
 
-    // Only admins can grant capabilities
-    verify_admin(&input.space_id, &caller)?;
+    // Only admins can grant capabilities. The returned hash is the proof
+    // the validator will independently re-check via authorized_by.
+    let admin_membership_hash = verify_admin(&input.space_id, &caller)?;
 
     let cap = SpaceCapability {
         space_id: input.space_id.clone(),
@@ -222,6 +223,8 @@ pub fn grant_access(input: GrantAccessInput) -> ExternResult<Record> {
         expires_at: input.expires_at,
         revoked: false,
         granted_at: now,
+        granted_by: caller,
+        authorized_by: admin_membership_hash,
     };
 
     let cap_hash = create_entry(&EntryTypes::SpaceCapability(cap))?;
@@ -829,13 +832,20 @@ fn verify_membership(
     )))
 }
 
-/// Verify that an agent is an admin of a space
-fn verify_admin(space_id: &str, agent: &AgentPubKey) -> ExternResult<()> {
+/// Verify that an agent is an admin of a space, returning the ActionHash of
+/// their own admin Membership record -- callers that create or update
+/// entries requiring proof of admin authority (e.g. SpaceCapability's
+/// `authorized_by`) use this hash to populate that proof field. The
+/// validator independently re-verifies this proof via must_get_valid_record,
+/// so this coordinator-side check is a UX/early-error convenience, not the
+/// real enforcement (P0 threat model: a modified coordinator could skip
+/// this call entirely, which is exactly why the validator re-checks).
+fn verify_admin(space_id: &str, agent: &AgentPubKey) -> ExternResult<ActionHash> {
     let members = get_space_member_records(space_id)?;
-    for (_record, membership) in &members {
+    for (record, membership) in &members {
         if membership.member == *agent && membership.active && membership.role == MemberRole::Admin
         {
-            return Ok(());
+            return Ok(record.action_address().clone());
         }
     }
     Err(wasm_error!(WasmErrorInner::Guest(

@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-use mycelix_desci_core::{claims::DesciClaim, Result};
+use mycelix_desci_core::{Result, claims::DesciClaim};
 use std::path::PathBuf;
 use tracing::info;
 
@@ -18,13 +18,11 @@ pub async fn execute(claim_id: String, format: String) -> Result<()> {
         )));
     }
 
-    let claim_json = std::fs::read_to_string(&claim_file).map_err(|e| {
-        mycelix_desci_core::Error::Generic(format!("Failed to read claim: {}", e))
-    })?;
+    let claim_json = std::fs::read_to_string(&claim_file)
+        .map_err(|e| mycelix_desci_core::Error::Generic(format!("Failed to read claim: {}", e)))?;
 
-    let claim: DesciClaim = DesciClaim::from_json(&claim_json).map_err(|e| {
-        mycelix_desci_core::Error::Generic(format!("Failed to parse claim: {}", e))
-    })?;
+    let claim: DesciClaim = DesciClaim::from_json(&claim_json)
+        .map_err(|e| mycelix_desci_core::Error::Generic(format!("Failed to parse claim: {}", e)))?;
 
     match format.as_str() {
         "json" => {
@@ -34,7 +32,11 @@ pub async fn execute(claim_id: String, format: String) -> Result<()> {
             println!("Claim Information");
             println!("{}", "=".repeat(80));
             println!("ID: {}", claim.id);
-            println!("Epistemic Tier: {:?} ({})", claim.epistemic_tier, claim.epistemic_tier.description());
+            println!(
+                "Epistemic Tier: {:?} ({})",
+                claim.epistemic_tier,
+                claim.epistemic_tier.description()
+            );
             println!("Category: {}", claim.content.category);
             println!("Description: {}", claim.content.description);
             println!("\nDataset:");
@@ -65,12 +67,14 @@ pub async fn execute(claim_id: String, format: String) -> Result<()> {
             println!("  Updated: {}", claim.updated_at);
 
             println!("\nVerification:");
-            println!("  Verifications: {} / {} required",
+            println!(
+                "  Verifications: {} / {} required",
                 claim.verifications.len(),
                 claim.epistemic_tier.min_verifications()
             );
 
-            println!("  Status: {}",
+            println!(
+                "  Status: {}",
                 if claim.is_valid_for_tier() {
                     "✓ Valid"
                 } else {

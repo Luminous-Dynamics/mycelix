@@ -1,405 +1,319 @@
 # Mycelix-DeSci
 
-> Production-Ready Infrastructure for Decentralized Science
+> Experimental infrastructure for signed, auditable scientific evidence
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Status: MVP Complete](https://img.shields.io/badge/Status-MVP%20Complete-success.svg)]()
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-1.96-orange.svg)](rust-toolchain.toml)
+[![Status: Refoundation](https://img.shields.io/badge/Status-Architectural%20Refoundation-orange.svg)]()
 
-## 🎯 Overview
+## Status
 
-Mycelix-DeSci is a **complete, production-ready platform** for decentralized scientific claims with cryptographic verification, tiered epistemic trust, and provenance tracking. Built in Rust for maximum performance and reliability.
+Mycelix-DeSci is undergoing an architectural refoundation. The repository contains a broad set of DeSci research modules, but the authoritative path is now deliberately narrower:
 
-### ✨ What Makes Mycelix-DeSci Special?
+```text
+client-signed scientific event
+        ↓
+JWT actor/session binding
+        ↓
+append-only credential-registry revision
+        ↓
+threshold proposal → unique approvals → activation delay
+        ↓
+actor ↔ key ↔ organization ↔ role resolution
+        ↓
+scientific authorization policy
+        ↓
+externally signed, short-lived database write lease
+        ↓
+signed receipt-time authority journal
+        ↓
+append-only durable event stream
+        ↓
+deterministic evidence projection
+        ↓
+versioned, explainable assessment
+```
 
-- **🔐 Cryptographic Verification**: BLAKE3 hashing for dataset integrity
-- **📊 Epistemic Tiers** (E0-E4): Automated trust levels based on peer review
-- **🔗 Provenance Tracking**: Complete audit trail for research data
-- **🤝 Trust Networks**: Reputation system for researchers
-- **⚡ High Performance**: Handles 400K+ claims/second, 7M validations/second
-- **🌐 REST API**: Production-ready with OpenAPI documentation
-- **🛠️ CLI Tool**: User-friendly command-line interface
-- **🐳 Docker Ready**: One-command deployment
-- **📖 Comprehensive Docs**: Fully documented with real-world examples
+The older mutable `DesciClaim`, trust, query, and E0–E4 APIs remain only as a compatibility layer. They are not the canonical scientific record, and their mutation routes are disabled by default.
 
-## 🚀 Quick Start (5 Minutes!)
+## What the canonical kernel provides
 
-### Option 1: Docker (Recommended)
+- Explicit research objects, atomic claims, evidence artifacts, and attestations.
+- Ed25519 signatures over a versioned canonical binary codec.
+- An append-only credential registry for actor registration, key rotation and compromise, organization membership, roles, and revocation.
+- Threshold governance with unique-administrator approvals, delayed activation, stale-proposal rejection, emergency cancellation, and governed authority-service key rotation.
+- Actor/key validity intervals, organization membership, and role authorization resolved at an exact registry revision.
+- Per-stream hash chaining, optimistic concurrency, idempotency, event lookup, and append receipts.
+- Independently signed receipt-time authority evidence with two-phase crash recovery and key-rotation trust sets.
+- Durable file-backed reference replay plus a PostgreSQL multi-process authority backend.
+- Serializable atomic commit of scientific events, authority receipts, credentials, governance execution, and publication outbox messages.
+- Domain-separated signed delivery envelopes that remain verifiable across queue leasing, retries, and relays.
+- Unique-actor and unique-organization evidence counting rather than raw event counts.
+- Correctable and withdrawable attestations without deleting history.
+- Separate evidence dimensions and versioned assessment reasons rather than one opaque confidence score.
+- Explicit legacy import that preserves source history without treating old tiers or verification blobs as evidence.
+- Signed HTTPS checkpoint-mirror observations and time-bounded witness-compromise classification.
+- Threshold-governed PostgreSQL database epochs that bind primary identity, timeline, LSN, checkpoint anchor, and the exact authority-state heads observed under an exclusive SQL barrier.
+- Multi-person emergency-recovery ceremonies, exact PITR reconciliation, and organization-diverse acknowledgement of immutable epoch publications.
+- A pluggable authority-signer interface plus a fail-closed Unix-domain remote signer adapter for HSM, KMS, or threshold-signing agents.
+- Short-lived externally signed PostgreSQL write leases bound to deployment, primary, system identifier, timeline, generation, exact epoch, and operation scopes.
+
+## Build boundary
+
+This archive is not a standalone workspace. The root manifest depends on the sibling crate:
+
+```text
+../crates/mycelix-zkp-core
+```
+
+Use the repository in its normal parent workspace layout, or provide that crate explicitly. A missing sibling dependency is a build error; the project does not substitute a mock proof implementation.
+
+Required toolchain: Rust 1.96 with `rustfmt` and `clippy`, as pinned in `rust-toolchain.toml`.
+
+## Canonical API configuration
+
+Create a dedicated initial registry-administrator key and authority-receipt key. Secret key files must contain 32 raw bytes or 64 hexadecimal characters and use mode `0600` or stricter.
 
 ```bash
-# Clone and start
-git clone https://github.com/Luminous-Dynamics/mycelix-desci
-cd mycelix-desci
-docker-compose up -d
+mkdir -p config data
+chmod 600 config/registry-admin.seed config/authority-receipt-signing.key
 
-# Verify it's running
-curl http://localhost:8080/health
-
-# View interactive API docs
-open http://localhost:8080/docs
+cargo run --locked --release \
+  --package mycelix-desci-core \
+  --bin mycelix-desci -- \
+  credential-registry-init \
+  --registry ./data/scientific-credentials.json \
+  --actor did:key:initial-registry-admin \
+  --signing-key-file ./config/registry-admin.seed \
+  --acceptance-signing-key-file ./config/authority-receipt-signing.key \
+  --bootstrap-trust-output ./config/credential-bootstrap-trust.json
 ```
 
-**That's it!** The API is now running and ready to use. 🎉
+The command refuses to overwrite either output. The generated trust file contains only the public genesis key; the private administrator key remains offline. Before readiness can pass, use a signed credential event to register a second administrator because the default `DESCI_MIN_CREDENTIAL_REGISTRY_ADMINS` is `2`.
 
-### Option 2: From Source
+Register the second administrator with a distinct public key:
 
 ```bash
-# Clone and build
-git clone https://github.com/Luminous-Dynamics/mycelix-desci
-cd mycelix-desci
-cargo build --release
-
-# Run API server
-cargo run --release --package mycelix-desci-api
-
-# Or use the CLI
-cargo run --release --package mycelix-cli -- --help
+cargo run --locked --release \
+  --package mycelix-desci-core \
+  --bin mycelix-desci -- \
+  credential-actor-register \
+  --registry ./data/scientific-credentials.json \
+  --bootstrap-trust-file ./config/credential-bootstrap-trust.json \
+  --administrator did:key:initial-registry-admin \
+  --administrator-signing-key-file ./config/registry-admin.seed \
+  --acceptance-signing-key-file ./config/authority-receipt-signing.key \
+  --actor did:key:second-registry-admin \
+  --public-key <64-hex-character-public-key> \
+  --role registry_admin
 ```
 
-See [**Quick Start Guide**](docs/QUICKSTART.md) for detailed instructions.
+The registry rejects public-key reuse across actors for the lifetime of the log, including keys that were later revoked.
 
-## 📚 What Can You Do?
-
-### Create Scientific Claims
+Initialize threshold governance only after the second administrator exists:
 
 ```bash
-mycelix claims create claim.json
+cargo run --locked --release \
+  --package mycelix-desci-core \
+  --bin mycelix-desci -- \
+  credential-governance-init \
+  --registry ./data/scientific-credentials.json \
+  --bootstrap-trust-file ./config/credential-bootstrap-trust.json \
+  --acceptance-signing-key-file ./config/authority-receipt-signing.key \
+  --governance ./data/scientific-credential-governance.json \
+  --administrator did:key:initial-registry-admin \
+  --administrator-signing-key-file ./config/registry-admin.seed \
+  --approval-threshold 2 \
+  --activation-delay-seconds 86400 \
+  --proposal-ttl-seconds 604800
 ```
 
-```json
-{
-  "tier": "E0",
-  "content": {
-    "dataset_hash": "blake3:a1b2c3...",
-    "description": "Novel NAD+ supplementation increases cellular longevity markers by 23%",
-    "category": "longevity",
-    "keywords": ["NAD+", "aging", "clinical-trial"]
-  },
-  "creator": "dr.alice@university.edu"
-}
-```
+After initialization, direct credential mutation is disabled. Every non-genesis credential change must be proposed, approved by unique active administrators, survive the activation delay, and be executed against the same credential-registry head. Before production readiness can pass, govern a risk policy that assigns progressively stronger thresholds, organization diversity, and delays to routine, sensitive, and critical actions.
 
-### Add Peer Verifications
+Canonical writes require:
+
+- `JWT_SECRET` of at least 32 bytes;
+- exact `JWT_ISSUER` and `JWT_AUDIENCE` matches;
+- PostgreSQL-backed scientific events, authority receipts, credentials, threshold governance, and publication outbox;
+- a current externally signed authority-write lease from a trusted issuer, bound to the connected database identity and exact governed epoch;
+- a dedicated authority-delivery signing identity distinct from receipt, actor, epoch, witness, and lease-issuer keys;
+- an initialized credential registry whose genesis signer is in the bootstrap trust file;
+- initialized durable threshold credential governance with a governed risk policy and no pending crash-recovery record;
+- at least the configured minimum number of active registry administrators;
+- at least one administrator recovery key without scheduled expiry or revocation;
+- a dedicated authority-receipt signing key;
+- a reconciled authority journal with no pending receipts or unsafe receipt gaps;
+- the configured number of independent organizations witnessing and mirroring the latest published checkpoint;
+- a client-signed event whose actor equals the JWT subject;
+- at least one threshold-governed database epoch for PostgreSQL deployments;
+- exact recovery reconciliation after a disaster-recovery epoch; and
+- the configured number of independent organizations acknowledging the latest immutable epoch publication.
+
+Start from source:
 
 ```bash
-mycelix claims verify <claim-id> \
-  --verifier "peer@institution.edu" \
-  --signature <hex-signature>
+cargo run --locked --release --package mycelix-desci-api --bin mycelix-api
 ```
 
-Claims automatically upgrade tiers (E0 → E1 → E2 → E3 → E4) as they collect verifications!
-
-### Search and Query
+Readiness:
 
 ```bash
-mycelix query search --category longevity --tier E3
+curl --fail http://localhost:8080/api/v1/system/health
 ```
 
-### Track Trust Scores
+The endpoint returns HTTP 503 when PostgreSQL is unavailable, the externally signed write lease is absent, expired, untrusted, stale, or bound to another database identity or epoch, or the configured outbox backlog/age policy is exceeded; when no governed database epoch exists; when disaster recovery lacks exact reconciliation; when the latest epoch publication lacks the configured organization-diverse acknowledgements; when the registry is uninitialized, ephemeral, or below the administrator threshold; when risk-tiered governance is absent; when the latest checkpoint lacks the configured organization-diverse witnesses or currently valid mirrors; when receipt signing is absent; when receipt finalization is pending; or when authority history contains an unsafe gap.
+
+See [PostgreSQL Authority Backend](docs/POSTGRES_AUTHORITY_BACKEND.md), [Transactional SQL Credential Governance](docs/TRANSACTIONAL_SQL_CREDENTIAL_GOVERNANCE.md), [Signed Authority Delivery](docs/SIGNED_AUTHORITY_DELIVERY.md), [Governed Database Epochs](docs/AUTHORITY_DATABASE_EPOCHS.md), [Epoch Recovery Runbook](docs/POSTGRES_EPOCH_RECOVERY_RUNBOOK.md), [Delivery Acknowledgements](docs/SIGNED_AUTHORITY_DELIVERY_ACKNOWLEDGEMENTS.md), [Hardware-Backed Signing](docs/HARDWARE_BACKED_AUTHORITY_SIGNING.md), [Authority-Write Fencing](docs/AUTHORITY_WRITE_FENCING.md), [Failover/PITR Validation](docs/POSTGRES_FAILOVER_PITR_VALIDATION.md), [PostgreSQL Recovery Runbook](docs/POSTGRES_RECOVERY_RUNBOOK.md), [Checkpoint Mirrors and Compromises](docs/CHECKPOINT_MIRRORS_AND_COMPROMISES.md), [Threshold Credential Governance](docs/THRESHOLD_CREDENTIAL_GOVERNANCE.md), [Risk-Tiered Governance](docs/RISK_TIERED_CREDENTIAL_GOVERNANCE.md), [External Transparency Witnesses](docs/EXTERNAL_TRANSPARENCY_WITNESSES.md), [Transactional File Storage](docs/TRANSACTIONAL_FILE_STORAGE.md), [Scientific Credential Registry](docs/SCIENTIFIC_CREDENTIAL_REGISTRY.md), and [Canonical Event API](docs/CANONICAL_EVENT_API.md).
+
+## Docker
+
+Docker builds use the sibling proof crate as a named BuildKit context. From this repository:
 
 ```bash
-mycelix trust get dr.alice@university.edu
-mycelix trust stats
+docker buildx build \
+  --build-context zkp-core=../crates/mycelix-zkp-core \
+  -t mycelix-desci-api .
 ```
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Mycelix-DeSci Platform                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   CLI Tool   │  │   REST API   │  │  Examples    │     │
-│  │              │  │              │  │              │     │
-│  │  • Commands  │  │  • Claims    │  │  • Research  │     │
-│  │  • Config    │  │  • Query     │  │  • Data      │     │
-│  │  • Output    │  │  • Trust     │  │  • Trust     │     │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────┘     │
-│         │                  │                                │
-│         └─────────┬────────┘                                │
-│                   │                                         │
-│         ┌─────────▼─────────────────┐                      │
-│         │   Core Library (Rust)      │                      │
-│         ├────────────────────────────┤                      │
-│         │  • Claims (E0-E4 tiers)    │                      │
-│         │  • Query Engine            │                      │
-│         │  • Trust Manager (MATL)    │                      │
-│         │  • Storage Backend         │                      │
-│         │  • BLAKE3 Hashing          │                      │
-│         │  • Cryptographic Proofs    │                      │
-│         └────────────────────────────┘                      │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 🎓 Epistemic Tiers Explained
-
-Claims in Mycelix-DeSci follow a tiered verification system:
-
-| Tier | Verifications | Trust Level | Description |
-|------|--------------|-------------|-------------|
-| **E0** | 0 | Unverified | Initial claim submission |
-| **E1** | 1-2 | Low | Some peer review started |
-| **E2** | 3 | Medium | Multiple independent reviews |
-| **E3** | 4 | High | Strong scientific consensus |
-| **E4** | 5+ | Highest | Highly verified, publication-ready |
-
-**Automatic Upgrades**: When you add verifications to a claim, it automatically moves up tiers!
-
-## 📦 Project Structure
-
-```
-mycelix-desci/
-├── src/
-│   ├── core/              # Core Rust library
-│   │   ├── claims.rs      # Epistemic claims (E0-E4)
-│   │   ├── query/         # Query engine with indexing
-│   │   ├── trust.rs       # MATL trust layer
-│   │   ├── storage.rs     # Storage backends
-│   │   ├── hash.rs        # BLAKE3 hashing
-│   │   └── pogq/          # Proof of Gradient Quality
-│   ├── api/               # REST API server (Axum)
-│   │   ├── handlers/      # API endpoint handlers
-│   │   ├── models.rs      # Request/response types
-│   │   ├── routes/        # Route definitions
-│   │   └── main.rs        # Server entry point
-│   └── cli/               # Command-line tool
-│       ├── commands/      # CLI commands
-│       ├── client.rs      # API client
-│       └── main.rs        # CLI entry point
-├── examples/              # Comprehensive examples
-│   ├── research_publication_workflow.rs
-│   ├── data_integrity_pipeline.rs
-│   └── simple_api_usage.rs
-├── docs/                  # Documentation
-│   ├── QUICKSTART.md      # 5-minute getting started
-│   ├── API_REFERENCE.md   # Complete API docs
-│   ├── CLI_GUIDE.md       # CLI user guide
-│   └── DEPLOYMENT.md      # Production deployment
-├── benches/               # Performance benchmarks
-├── tests/                 # Integration tests
-├── Dockerfile             # Docker build
-└── docker-compose.yml     # One-command deployment
-```
-
-## 🚀 Features
-
-### Core Library (`src/core`)
-- ✅ **Epistemic Claims** with automatic tier upgrades (E0-E4)
-- ✅ **BLAKE3 Hashing** for data integrity
-- ✅ **Query Engine** with filtering, sorting, pagination
-- ✅ **Trust Manager** (MATL) for reputation tracking
-- ✅ **Provenance Tracking** for research lineage
-- ✅ **Storage Abstraction** (Memory, future: IPFS, Arweave)
-- ✅ **400K+ claims/second** creation performance
-- ✅ **7M+ validations/second** throughput
-
-### REST API (`src/api`)
-- ✅ **15 Production Endpoints** across 4 categories
-- ✅ **OpenAPI 3.0 Documentation** with Swagger UI
-- ✅ **Async/Await** throughout for maximum performance
-- ✅ **Middleware Stack**: CORS, compression, timeouts, tracing
-- ✅ **Structured Error Handling** with HTTP status mapping
-- ✅ **Health Checks** and system metrics
-- ✅ **Docker Deployment** ready
-
-### CLI Tool (`src/cli`)
-- ✅ **15+ Commands** for all API operations
-- ✅ **Multiple Output Formats**: table, JSON, plain text
-- ✅ **Configuration Files** and environment variables
-- ✅ **Colored Terminal Output** for better UX
-- ✅ **Progress Indicators** for long operations
-
-### DevOps & Tooling
-- ✅ **CI/CD Pipelines** (test, benchmark, security)
-- ✅ **Performance Benchmarks** with Criterion.rs
-- ✅ **Docker & Docker Compose** for deployment
-- ✅ **Development Scripts** (test, lint, setup)
-- ✅ **Code of Conduct** and contributing guidelines
-
-## 📊 Performance
-
-Real-world benchmark results (see [PERFORMANCE.md](docs/PERFORMANCE.md)):
-
-| Operation | Throughput | Latency |
-|-----------|------------|---------|
-| Claim Creation | 400K/sec | 2.5 μs |
-| Claim Validation | 7M/sec | 144 ns |
-| BLAKE3 Hash (1MB) | 6.25 GB/s | 160 μs |
-| Trust Query (1K participants) | 15M/sec | 66 μs |
-| Complex Queries | 2K-8K/sec | 128-570 μs |
-
-**Grade: A+** - Exceeds all performance targets by 4-12x! ⚡
-
-## 📖 Documentation
-
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Get running in 5 minutes
-- **[API Reference](docs/API_REFERENCE.md)** - Complete endpoint documentation
-- **[CLI Guide](docs/CLI_GUIDE.md)** - Command-line usage
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
-- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - Contributing and architecture
-- **[Examples](examples/)** - Real-world usage patterns
-
-## 💡 Examples
-
-We provide comprehensive examples showing real-world usage:
-
-### 1. Research Publication Workflow
-Complete lifecycle from raw data to peer-reviewed claim:
-```bash
-cargo run --example research_publication_workflow
-```
-
-### 2. Data Integrity Pipeline
-Verify dataset integrity using cryptographic hashes:
-```bash
-cargo run --example data_integrity_pipeline
-```
-
-### 3. Simple API Usage
-Basic operations to get started quickly:
-```bash
-cargo run --example simple_api_usage
-```
-
-See [examples/](examples/) for more!
-
-## 🛠️ Development
-
-### Prerequisites
-- Rust 1.75+ ([install rustup](https://rustup.rs/))
-- Docker & Docker Compose (for deployment)
-- Git
-
-### Building
+For Compose, bootstrap and validate the credential and governance file journals offline, create distinct mode-0600 receipt and outbox signing keys, then atomically import the journals into an empty PostgreSQL authority schema:
 
 ```bash
-# Build everything
-cargo build --release
+cargo run --locked --release \
+  --package mycelix-desci-core \
+  --bin mycelix-desci -- \
+  credential-authority-import-postgres \
+  --database-url "$DESCI_POSTGRES_URL" \
+  --registry ./data/scientific-credentials.json \
+  --governance ./data/scientific-credential-governance.json \
+  --bootstrap-trust-file ./config/credential-bootstrap-trust.json \
+  --acceptance-signing-key-file ./config/authority-receipt-signing.key \
+  --outbox-signing-key-file ./config/authority-outbox-signing.key \
+  --deployment-id "$DESCI_AUTHORITY_DEPLOYMENT_ID" \
+  --write-lease-file ./runtime/authority/current-write-lease.json \
+  --write-lease-trust-file ./config/authority-write-lease-trust.json \
+  --auto-migrate=false
 
-# Build specific component
-cargo build --release --package mycelix-desci-core
-cargo build --release --package mycelix-desci-api
-cargo build --release --package mycelix-cli
-
-# Run tests
-cargo test --all
-
-# Run benchmarks
-cargo bench
-
-# Check code
-cargo clippy --all-targets --all-features
-cargo fmt --all -- --check
+docker compose up --build
 ```
 
-### Running
+Before import or startup, apply schema v4 under a valid `schema_migration` lease and atomically replace `runtime/authority/current-write-lease.json` with a current bootstrap or epoch lease. Compose mounts the containing directory read-only so issuer-side atomic replacement remains visible.
+
+Compose uses PostgreSQL for scientific events, receipts, credential authority, threshold governance, checkpoint mirrors, and the signed publication outbox. Legacy mutations remain disabled, automatic schema migration is off by default, and authority writes remain fenced unless a current trusted lease matches the connected PostgreSQL identity.
+
+## Canonical endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/scientific/authority/events` | Pre-governance compatibility append; returns 410 after threshold initialization |
+| `GET` | `/api/v1/scientific/authority` | Return credential-registry status and revision |
+| `POST` | `/api/v1/scientific/authority/governance/events` | Open, approve, cancel, or checkpoint a signed governance event |
+| `POST` | `/api/v1/scientific/authority/governance/execute` | Atomically execute a mature proposal |
+| `GET` | `/api/v1/scientific/authority/governance` | Return governance policy, proposals, service keys, and head |
+| `GET` | `/api/v1/scientific/authority/governance/events/{id}` | Retrieve one independently accepted governance event |
+| `GET` | `/api/v1/scientific/authority/governance/proposals/{id}` | Return proposal state and effective stale/expired status |
+| `GET` | `/api/v1/scientific/authority/governance/checkpoint-candidate` | Build a transparency checkpoint candidate |
+| `POST` | `/api/v1/scientific/authority/governance/checkpoint-mirrors` | Record a signed immutable checkpoint mirror observation |
+| `GET` | `/api/v1/scientific/authority/governance/checkpoint-mirrors/{hash}` | Export mirror observations with current compromise-aware validity |
+| `GET` | `/api/v1/scientific/authority/database-epochs` | Return the verified database-epoch chain summary and readiness evidence |
+| `GET` | `/api/v1/scientific/authority/database-epochs/state-commitment` | Capture the current checkpoint-bound SQL authority-state commitment |
+| `POST` | `/api/v1/scientific/authority/database-epochs` | Commit one threshold-authorized signed primary epoch and publication |
+| `GET` | `/api/v1/scientific/authority/database-epochs/{epoch_number}` | Retrieve one epoch and its recovery reconciliations |
+| `POST` | `/api/v1/scientific/authority/recovery-reconciliations` | Record exact signed PITR/disaster-recovery reconciliation |
+| `POST` | `/api/v1/scientific/authority/delivery-acknowledgements` | Record an independent immutable-publication acknowledgement |
+| `GET` | `/api/v1/scientific/authority/deliveries/{delivery_id}/acknowledgements` | Export acknowledgements with current compromise-aware validity |
+| `GET` | `/api/v1/scientific/authority/events` | Export recorded credential events and server receipt times |
+| `GET` | `/api/v1/scientific/authority/actors/{actor}` | Resolve an actor at the current registry revision |
+| `POST` | `/api/v1/scientific/events` | Verify and append one client-signed canonical event |
+| `GET` | `/api/v1/scientific/claims/{id}` | Return the deterministic projection and assessment |
+| `GET` | `/api/v1/scientific/claims/{id}/events` | Page through the signed source stream |
+| `GET` | `/api/v1/scientific/claims/{id}/authority-receipts` | Export the ordered receipt chain and unattested-event statuses |
+| `GET` | `/api/v1/scientific/events/{id}` | Retrieve one signed event, hash, and authority status |
+| `GET` | `/api/v1/scientific/events/{id}/authority-receipt` | Retrieve the signed receipt-time authorization evidence |
+
+Public submission of `legacy_claim_imported` is forbidden. Migration is an offline operator action.
+
+## Legacy migration
+
+Legacy records are imported as visibly unassessed history. Old creator strings, tiers, verification counts, and provenance counts are retained only as historical metadata. They create no reviews, reproductions, replications, or maturity.
 
 ```bash
-# API Server
-cargo run --release --package mycelix-desci-api
-# or
-docker-compose up
+chmod 600 /secure/migration-ed25519.seed
+chmod 600 /secure/authority-receipt-ed25519.seed
 
-# CLI Tool
-cargo run --release --package mycelix-cli -- --help
-
-# Examples
-cargo run --example research_publication_workflow
+cargo run --locked --release \
+  --package mycelix-desci-core \
+  --bin mycelix-desci -- \
+  migrate-legacy .mycelix/claims \
+  --event-log ./data/scientific-events \
+  --actor did:key:migration-service \
+  --signing-key-file /secure/migration-ed25519.seed \
+  --credential-registry ./data/scientific-credentials.json \
+  --credential-bootstrap-trust-file ./config/credential-bootstrap-trust.json \
+  --authority-audit ./data/scientific-authority \
+  --receipt-signing-key-file /secure/authority-receipt-ed25519.seed \
+  --report ./data/legacy-migration-report.json
 ```
 
-## 🤝 Contributing
+The migration command is deterministic and idempotent, rejects symbolic-link key files, requires restrictive Unix key permissions, enforces distinct event-actor and receipt-service keys, supports historical receipt keys during rotation, and records non-sensitive logical source locators rather than host filesystem paths.
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [Legacy Migration](docs/LEGACY_MIGRATION.md).
 
-### Development Workflow
+## Repository map
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes and add tests
-4. Run tests (`cargo test --all`)
-5. Commit with clear messages
-6. Push and open a Pull Request
+```text
+src/core/src/scientific_events.rs       canonical event protocol and projections
+src/core/src/scientific_credentials.rs  governed actor/key/role registry
+src/core/src/scientific_credential_governance.rs
+                                        threshold proposals, approvals, execution, checkpoints
+src/core/src/scientific_governance.rs   identity and authorization boundary
+src/core/src/scientific_authority_audit.rs
+                                        signed receipt-time authority journal
+src/core/src/postgres_credential_authority.rs
+                                        atomic SQL credential/governance repository
+src/core/src/authority_delivery.rs       signed publication envelopes
+src/core/src/authority_epoch.rs          governed database epochs and recovery evidence
+src/core/src/postgres_authority_epoch.rs SQL epoch, reconciliation, and acknowledgement storage
+src/core/src/authority_signing.rs        HSM/KMS-compatible signer capability
+src/core/src/authority_fencing.rs        externally signed PostgreSQL write leases
+src/core/src/legacy_migration.rs         conservative legacy importer
+src/api/src/handlers/scientific.rs       authoritative HTTP event surface
+src/api/src/state.rs                     durable backend and authority configuration
+src/core/src/bin/commands/migrate_legacy.rs
+                                        offline migration command
+```
 
-### Community
+The remaining legacy and advanced modules are retained for migration, research, and future processor integration. Prediction markets, Bayesian inference, citation analytics, expertise, MATL, PoGQ, and semantic models should consume canonical events and publish versioned derived outputs; they should not directly mutate scientific truth.
 
-- **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: Questions and ideas
-- **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+## Current limitations
 
-## 🗺️ Roadmap
+- Bootstrap trust remains a local public-key file; dynamic DID/ORCID verification and external credential-status resolution are not yet implemented.
+- PostgreSQL schema v4 adds externally signed write fencing, but the repository does not ship the independent lease-issuer service or infrastructure automation that isolates and promotes database primaries. A real PostgreSQL integration, contention, lease-expiry, split-brain, backup/restore, failover, and PITR campaign is still required before production use.
+- A contiguous prefix written before receipt journaling remains explicitly `legacy_unattested`; the system can acknowledge that cutover but cannot reconstruct missing receipt-time authority evidence. Any missing receipt at or after the first receipt in a stream is `unsafe_unattested` and always blocks readiness.
+- Risk-tiered thresholds, external witnesses, and compromise intervals are implemented, but risk classification remains code-defined. A signed mirror observation is evidence of a witness assertion, not proof of continuing availability; external verifiers must fetch and hash the mirror document.
+- Canonical client SDKs and cross-language golden vectors still need to be published.
+- Legacy ownership adoption is not implemented; imported creator strings are not proof of current key control.
+- Canonical endpoints are documented in Markdown but are not yet fully represented in generated OpenAPI schemas.
+- The repository still depends on the external sibling `mycelix-zkp-core` crate.
+- SQLx is declared but `Cargo.lock` could not be regenerated in this environment; regenerate it with the pinned toolchain before using `--locked`.
+- A full Rust build, PostgreSQL integration test, formatting, and lint pass is required before merge.
 
-### ✅ Phase 1-4: Foundation (Complete)
-- ✅ Core library with epistemic claims
-- ✅ Query engine and trust layer
-- ✅ Performance optimization (400K+ claims/sec)
-- ✅ 100% MVP feature completion
+## Validation order
 
-### ✅ Phase 5A: Infrastructure (Complete)
-- ✅ CI/CD pipelines
-- ✅ Performance benchmarking
-- ✅ Security scanning
-- ✅ Code coverage
+Before claiming a release:
 
-### ✅ Phase 5A.2: API Server (Complete)
-- ✅ REST API with 15 endpoints
-- ✅ OpenAPI documentation
-- ✅ Docker deployment
+1. `cargo fmt --all -- --check`
+2. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+3. `cargo test --workspace --all-features`
+4. Migration idempotency and corruption-replay tests
+5. API authorization and optimistic-concurrency tests
+6. Cross-language canonical codec vectors, including `scripts/verify-authority-write-lease.py`
+7. Deterministic projection rebuild from an empty query store
+8. Lease-expiry, stale-primary, generation-fork, failover, and PITR scenarios from `docs/POSTGRES_FAILOVER_PITR_VALIDATION.md`
 
-### ✅ Phase 5B: Developer Tools (Complete)
-- ✅ CLI tool with 15+ commands
-- ✅ Configuration management
-- ✅ Multiple output formats
+## License
 
-### ✅ Phase 5C: Examples & Docs (Complete)
-- ✅ Comprehensive examples
-- ✅ Quick start guide
-- ✅ API reference
-- ✅ Deployment guide
+AGPL-3.0-or-later. See [LICENSE](LICENSE). No separate commercial license is granted by this repository distribution.
 
-### ✅ Phase 5D: NixOS & Production Ready (Complete)
-- ✅ NixOS configuration (flake.nix, nixos-module.nix)
-- ✅ Integration test suite (50+ tests)
-- ✅ Deployment documentation (1000+ lines)
-- ✅ Security hardening guide
-- ✅ Monitoring & observability setup
+**Status:** experimental architectural refoundation
 
-### ⏳ Phase 6: Advanced Features
-- Distributed storage (IPFS, Arweave)
-- P2P networking (libp2p)
-- WebAssembly support
-- Python/JavaScript SDKs
-- GraphQL API
-
-### ⏳ Phase 7: Production Enhancement
-- Security audit & penetration testing
-- Rate limiting middleware
-- Caching layer (Redis)
-- Prometheus metrics & Grafana dashboards
-- Advanced monitoring & alerting
-
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- Built on Rust's powerful async ecosystem (Tokio, Axum)
-- Inspired by the decentralized science movement
-- Thanks to all contributors and the DeSci community
-
-## 📞 Contact & Resources
-
-- **GitHub**: [github.com/Luminous-Dynamics/mycelix-desci](https://github.com/Luminous-Dynamics/mycelix-desci)
-- **Issues**: [GitHub Issues](https://github.com/Luminous-Dynamics/mycelix-desci/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Luminous-Dynamics/mycelix-desci/discussions)
-- **Documentation**: [docs/](docs/)
-- **Examples**: [examples/](examples/)
-
----
-
-**Status**: Production-Ready MVP (v0.1.0)
-**Last Updated**: November 2025
-
-**Built with ❤️ for the decentralized science community** 🔬✨
+**Updated:** August 5, 2026

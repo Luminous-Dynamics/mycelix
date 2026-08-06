@@ -4,7 +4,7 @@
 //! Claims API handlers
 
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, State},
     http::StatusCode,
 };
@@ -17,9 +17,20 @@ use uuid::Uuid;
 use crate::{
     error::{ApiError, Result},
     metrics,
+    middleware::AuthenticatedActor,
     models::*,
     state::AppState,
 };
+
+fn ensure_legacy_mutations_enabled(state: &AppState) -> Result<()> {
+    if state.legacy_mutations_enabled {
+        Ok(())
+    } else {
+        Err(ApiError::gone(
+            "legacy mutable claim writes are disabled; submit a signed canonical event to /api/v1/scientific/events",
+        ))
+    }
+}
 
 /// Create a new claim
 #[utoipa::path(
@@ -35,9 +46,12 @@ use crate::{
 #[instrument(skip(state), fields(category = %req.content.category))]
 pub async fn create_claim(
     State(state): State<Arc<AppState>>,
+    Extension(actor): Extension<AuthenticatedActor>,
     Json(req): Json<CreateClaimRequest>,
 ) -> Result<(StatusCode, Json<ClaimResponse>)> {
     info!("Creating new claim");
+
+    ensure_legacy_mutations_enabled(&state)?;
 
     // Convert request to core types
     let content = ClaimContent {
@@ -51,7 +65,11 @@ pub async fn create_claim(
     };
 
     // Create claim
-    let claim = DesciClaim::new(req.tier, content, req.creator);
+    let claim = DesciClaim::new(
+        mycelix_desci_core::claims::EpistemicTier::E0,
+        content,
+        actor.subject().to_string(),
+    );
 
     // Store claim
     state.storage.store(&claim).await?;
@@ -116,9 +134,12 @@ pub async fn get_claim(
 pub async fn add_verification(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
+    Extension(actor): Extension<AuthenticatedActor>,
     Json(req): Json<AddVerificationRequest>,
 ) -> Result<Json<ClaimResponse>> {
     info!(claim_id = %id, "Adding verification");
+
+    ensure_legacy_mutations_enabled(&state)?;
 
     // Retrieve claim
     let mut claim = state
@@ -127,14 +148,17 @@ pub async fn add_verification(
         .await
         .map_err(|_| ApiError::not_found("Claim"))?;
 
-    // Add verification
+    // Record compatibility verification material without promoting maturity.
+    // Signed, typed attestations in the scientific-event kernel replace this path.
     let verification = Verification {
-        verifier: req.verifier,
+        verifier: actor.subject().to_string(),
         signature: req.signature,
         timestamp: chrono::Utc::now(),
         notes: req.notes,
     };
-    claim.add_verification(verification);
+    claim
+        .record_unassessed_verification(verification)
+        .map_err(|error| ApiError::invalid_request(error.to_string()))?;
 
     // Update storage
     state.storage.store(&claim).await?;
@@ -165,9 +189,12 @@ pub async fn add_verification(
 pub async fn add_provenance(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
+    Extension(actor): Extension<AuthenticatedActor>,
     Json(req): Json<AddProvenanceRequest>,
 ) -> Result<Json<ClaimResponse>> {
     info!(claim_id = %id, "Adding provenance");
+
+    ensure_legacy_mutations_enabled(&state)?;
 
     // Retrieve claim
     let mut claim = state
@@ -175,6 +202,12 @@ pub async fn add_provenance(
         .retrieve(&id.to_string())
         .await
         .map_err(|_| ApiError::not_found("Claim"))?;
+
+    if claim.creator != actor.subject() {
+        return Err(ApiError::forbidden(
+            "only the authenticated claim creator may append legacy provenance",
+        ));
+    }
 
     // Add provenance
     let mut prov = Provenance::new(req.source, req.source_type);

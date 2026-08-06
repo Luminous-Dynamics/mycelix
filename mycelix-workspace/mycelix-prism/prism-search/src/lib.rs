@@ -482,44 +482,67 @@ fn hash_word(word: &str) -> u64 {
     hash
 }
 
-/// Generate HTML for search results page.
+/// Escape dynamic text before embedding it in a generated HTML document.
+///
+/// Search claims can come from imported corpora, DHT peers, or user submissions.
+/// They are data, not markup, even though the native shell renders its local
+/// results by parsing an HTML document. Keeping this helper in the search crate
+/// makes the invariant apply to every caller rather than relying on a later UI
+/// sanitizer.
+pub fn escape_html_text(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    for character in input.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+/// Generate a data-only HTML view of search results.
 pub fn render_search_results_html(query: &str, results: &[SearchResult]) -> String {
     let mut results_html = String::new();
 
     if results.is_empty() {
         results_html.push_str("<p>No results found. Try different keywords.</p>");
     } else {
-        for (i, r) in results.iter().enumerate() {
-            let e_badge = match r.empirical_level {
+        for (i, result) in results.iter().enumerate() {
+            let e_badge = match result.empirical_level {
                 EmpiricalLevel::E0 => "E0 Unverified",
                 EmpiricalLevel::E1 => "E1 Preliminary",
                 EmpiricalLevel::E2 => "E2 Tested",
                 EmpiricalLevel::E3 => "E3 Replicated",
                 EmpiricalLevel::E4 => "E4 Established",
             };
-            let score_pct = (r.rank_score() * 100.0) as u32;
-            let source = r.sources.first().map(|s| s.as_str()).unwrap_or("—");
-            let tags = r.tags.join(", ");
+            let score_pct = (result.rank_score() * 100.0) as u32;
+            let source = result.sources.first().map(String::as_str).unwrap_or("—");
+            let tags = result.tags.join(", ");
 
             results_html.push_str(&format!(
                 "<p><strong>{}. [{}] ({}%)</strong> {}</p>\n<p>Source: {} | Tags: {}</p>\n",
                 i + 1,
                 e_badge,
                 score_pct,
-                r.content,
-                source,
-                tags,
+                escape_html_text(&result.content),
+                escape_html_text(source),
+                escape_html_text(&tags),
             ));
         }
     }
 
+    let query = escape_html_text(query);
     format!(
         r#"<!DOCTYPE html>
 <html>
 <head><title>Search: {query}</title></head>
 <body>
     <h1>Prism Search</h1>
-    <h2>Results for "{query}"</h2>
+    <h2>Results for &quot;{query}&quot;</h2>
     <p>{count} results from {total} indexed claims</p>
     <hr>
     {results_html}
@@ -535,6 +558,32 @@ pub fn render_search_results_html(query: &str, results: &[SearchResult]) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn html_text_escaping_covers_markup_and_attributes() {
+        assert_eq!(
+            escape_html_text(r#"<img src=x onerror="boom"> & 'quoted'"#),
+            "&lt;img src=x onerror=&quot;boom&quot;&gt; &amp; &#39;quoted&#39;"
+        );
+    }
+
+    #[test]
+    fn generated_results_treat_claims_and_queries_as_data() {
+        let mut engine = SearchEngine::new();
+        engine.add_claim(
+            r#"<script>claim()</script>"#,
+            EmpiricalLevel::E1,
+            &[r#"<img src=x onerror=source()>"#],
+            &[r#"</p><script>tag()</script>"#],
+        );
+        let result = engine.search("claim", 1);
+        let html = render_search_results_html(r#"</h2><script>query()</script>"#, &result);
+
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("<img"));
+        assert!(html.contains("&lt;script&gt;claim()&lt;/script&gt;"));
+        assert!(html.contains("&lt;/h2&gt;&lt;script&gt;query()&lt;/script&gt;"));
+    }
 
     #[test]
     fn encode_deterministic() {

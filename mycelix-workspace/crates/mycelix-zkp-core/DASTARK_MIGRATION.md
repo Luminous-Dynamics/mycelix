@@ -1,3 +1,5 @@
+> Status note: see `CAPABILITY_MATRIX.md` for the evidence-backed current state.
+
 # DASTARK Migration: Winterfell → Miden VM
 
 ## Problem
@@ -12,9 +14,10 @@ guarantee of "prove Phi >= threshold without revealing Phi."
 
 ## Decision
 
-**Use Miden VM (Polygon, v0.22.1)** — the only production-grade ZK-STARK
-that explicitly supports secret/nondeterministic inputs via an advice provider,
-hiding private data from verifiers while proving the computation.
+**Use the pinned Miden VM 0.23.5 integration as the intended ZK path.**
+The source contains a circuit-specific implementation, but this archive does not
+contain fresh native-build or Holochain Wasmer evidence. Treat operational status
+as unverified until those lanes pass.
 
 **STARK-family only. No SNARKs** (no Groth16, no arkworks, no Halo2).
 
@@ -23,7 +26,7 @@ hiding private data from verifiers while proving the computation.
 | Library | ZK? | WASM Verifier | Proof Size | Maturity |
 |---------|-----|---------------|------------|----------|
 | Winterfell (current) | NO | yes | ~50KB | Production (non-ZK) |
-| **Miden VM** | **YES** | **yes (no_std)** | **80-136KB** | **Production** |
+| **Miden VM** | Intended ZK path | Requires local verification | Workload-dependent | Circuit-specific source present |
 | Stwo (StarkWare) | Ambiguous | yes | <1KB (claimed) | Beta |
 | RISC Zero | yes | partial | ~200KB | Production |
 | Plonky3 | yes | untested | ~45KB | Alpha |
@@ -33,7 +36,7 @@ hiding private data from verifiers while proving the computation.
 
 1. **Actually zero-knowledge**: Advice provider explicitly hides private inputs
 2. **WASM verifier**: `miden-verifier` compiles to `wasm32-unknown-unknown` in `no_std`
-3. **Production**: Used in Polygon Miden rollup (real money at stake)
+3. **Mature upstream direction**: still requires verification in Mycelix's exact runtime
 4. **Pure Rust**: No C/C++ dependencies, no FFI
 5. **Reasonable proof size**: 80-100KB for consciousness range proofs
 
@@ -77,7 +80,7 @@ end
 
 ### Phase 2: Rust Integration (1 week)
 
-1. Add `miden-vm = "0.22"` to `mycelix-zkp-core/Cargo.toml` (behind feature flag)
+1. Keep the exact `miden-vm = 0.23.5` pin in `Cargo.toml` behind `backend-miden`
 2. Create `src/miden_consciousness.rs`:
    - `prove_consciousness_tier_miden(phi: f64, threshold: f64) -> MidenProofResult`
    - `verify_consciousness_tier_miden(proof: &[u8], threshold: f64, commitment: [u8; 32]) -> bool`
@@ -95,8 +98,8 @@ end
 ### Phase 4: Governance Integration (2 days)
 
 1. Update `verify_consciousness_gate()` to accept Miden proofs
-2. Miden verifier runs in WASM (zome-side verification possible)
-3. Remove off-chain verification indirection
+2. Prove the verifier works in Holochain Wasmer before enabling zome-side trust
+3. Retain off-chain verification until conductor evidence exists
 
 ## Proof Size Budget
 
@@ -115,12 +118,11 @@ DHT storage impact: +50KB per attestation. Acceptable given 24h TTL
 
 ```toml
 [dependencies]
-miden-vm = { version = "0.22", optional = true, default-features = false }
-miden-prover = { version = "0.22", optional = true }
-miden-verifier = { version = "0.22", optional = true, default-features = false }
+miden-vm = { version = "=0.23.5", optional = true, features = ["std"] }
+miden-core = { version = "=0.23.5", optional = true }
 
 [features]
-backend-miden = ["miden-vm", "miden-prover", "miden-verifier"]
+backend-miden = ["miden-vm", "miden-core"]
 backend-winterfell = ["winterfell", "winter-math", "winter-crypto"]
 ```
 

@@ -29,7 +29,9 @@ struct HybridSendContextWireV2 {
     sender_agent_raw: Vec<u8>,
     recipient_agent_raw: Vec<u8>,
     sender_bundle: HybridBundleWireV2,
+    sender_bundle_hash: Vec<u8>,
     recipient_bundle: HybridBundleWireV2,
+    recipient_bundle_hash: Vec<u8>,
 }
 
 #[component]
@@ -228,17 +230,6 @@ pub fn ComposePage() -> impl IntoView {
         let send_subject = subject.clone();
         let send_body = body.clone();
 
-        // Resolve the Holochain context now, synchronously, while the
-        // Compose page's reactive owner is still alive — NOT after the 5s
-        // undo sleep below. `use_holochain()`/`expect_context` walks the
-        // current reactive-owner tree, which can be disposed by the time a
-        // delayed `spawn_local` task resumes (e.g. after navigating away),
-        // causing a hard WASM panic ("expected context ... to be present")
-        // that silently kills the whole send — found live via the browser
-        // proof: the send button's "Sending..." state clears synchronously
-        // above and gives no indication the delayed zome call ever panics.
-        let hc = crate::holochain::use_holochain();
-
         // Delayed send — 5s undo window, then actual zome call
         wasm_bindgen_futures::spawn_local(async move {
             gloo_timers::future::sleep(std::time::Duration::from_secs(5)).await;
@@ -246,6 +237,8 @@ pub fn ComposePage() -> impl IntoView {
                 toasts_undo.push("Send cancelled", "info");
                 return;
             }
+
+            let hc = crate::holochain::use_holochain();
             if hc.is_mock() {
                 // Demo mode: add the email to the local inbox so the demo feels alive
                 let now = (js_sys::Date::now() / 1000.0) as u64;
@@ -351,6 +344,8 @@ pub fn ComposePage() -> impl IntoView {
                         sender_agent: context.sender_agent_raw.clone(),
                         recipient_agent: context.recipient_agent_raw.clone(),
                         sender_mldsa_key_id: EncryptionKeyId(context.sender_bundle.key_id),
+                        sender_mldsa_bundle_hash: context.sender_bundle_hash.clone(),
+                        recipient_bundle_hash: context.recipient_bundle_hash.clone(),
                         recipient_hybrid_key_id: EncryptionKeyId(context.recipient_bundle.key_id),
                         x25519_ephemeral_public_key: *ephemeral,
                         ml_kem_ciphertext: kem.to_vec(),
@@ -382,6 +377,8 @@ pub fn ComposePage() -> impl IntoView {
                 sender_agent: context.sender_agent_raw,
                 recipient_agent: context.recipient_agent_raw,
                 sender_mldsa_key_id: EncryptionKeyId(context.sender_bundle.key_id),
+                sender_mldsa_bundle_hash: context.sender_bundle_hash,
+                recipient_bundle_hash: context.recipient_bundle_hash,
                 recipient_hybrid_key_id: EncryptionKeyId(context.recipient_bundle.key_id),
                 x25519_ephemeral_public_key: sealed.x25519_ephemeral_public,
                 ml_kem_ciphertext: sealed.ml_kem_ciphertext,
@@ -408,6 +405,8 @@ pub fn ComposePage() -> impl IntoView {
                 "recipient": send_to,
                 "message_id": message_id,
                 "sender_mldsa_key_id": envelope.sender_mldsa_key_id.0,
+                "sender_mldsa_bundle_hash": envelope.sender_mldsa_bundle_hash,
+                "recipient_bundle_hash": envelope.recipient_bundle_hash,
                 "recipient_hybrid_key_id": envelope.recipient_hybrid_key_id.0,
                 "x25519_ephemeral_public_key": envelope.x25519_ephemeral_public_key,
                 "ml_kem_ciphertext": envelope.ml_kem_ciphertext,
@@ -419,14 +418,14 @@ pub fn ComposePage() -> impl IntoView {
                 "ml_dsa_signature": envelope.ml_dsa_signature,
             });
 
-            // send_email_v2 returns an ActionHash (raw bytes on the wire) —
-            // decoding that as serde_json::Value fails ("invalid type: byte
-            // array, expected any valid JSON value"; msgpack's bin type has
-            // no JSON equivalent). The DHT write itself would still succeed
-            // despite the client seeing an Err here — see the identical fix
-            // and full explanation in profile_setup.rs's set_profile /
-            // publish_hybrid_key_bundle_v2 calls, found live via the Pulse
-            // browser proof.
+            // Decoded as `Vec<u8>`, not `serde_json::Value`: `send_email_v2`
+            // returns a real `ActionHash` (the Sweettest suite's
+            // `send_email_v2(pre-restart)`/`(post-restart)` type-annotates
+            // it directly, so the zome signature can't just become `()`),
+            // whose raw-byte msgpack encoding `serde_json::Value` cannot
+            // represent ("invalid type: byte array, expected any valid
+            // JSON value") — this caller only logs the value for
+            // debugging, never reads it structurally.
             match hc
                 .call_zome::<serde_json::Value, Vec<u8>>("mail_messages", "send_email_v2", &payload)
                 .await
@@ -493,23 +492,20 @@ pub fn ComposePage() -> impl IntoView {
         if results.len() < 3 && query.len() >= 3 && query != last_dht_query.get_untracked() {
             last_dht_query.set(query.clone());
             let hc = crate::holochain::use_holochain();
-            if !hc.is_mock() {
+            if !hc.is_mock() && crate::alpha_scope::zome_available("mail_contacts") {
                 let q = query.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    // get_contact_by_email returns Option<Contact>, whose
-                    // hash/agent_pub_key are raw bytes — decoding as
-                    // serde_json::Value fails whenever the matched contact
-                    // has a linked agent key.
-                    if let Ok(Some(contact)) = hc
-                        .call_zome::<serde_json::Value, Option<crate::zome_adapter::WireContact>>(
+                    if let Ok(contact) = hc
+                        .call_zome::<serde_json::Value, serde_json::Value>(
                             "mail_contacts",
                             "get_contact_by_email",
                             &serde_json::json!(q),
                         )
                         .await
                     {
-                        let contact = crate::zome_adapter::adapt_contacts(vec![contact]).remove(0);
-                        dht_suggestions.set(vec![contact]);
+                        if let Some(contact) = crate::zome_adapter::adapt_contact_value(contact) {
+                            dht_suggestions.set(vec![contact]);
+                        }
                     }
                 });
             }

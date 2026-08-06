@@ -123,7 +123,7 @@ pub enum LinkTypes {
 
 /// Validate audit entry - entries are append-only
 fn validate_create_audit_entry(
-    _action: Create,
+    action: Create,
     entry: AuditEntry,
 ) -> ExternResult<ValidateCallbackResult> {
     // Validate required fields
@@ -143,6 +143,22 @@ fn validate_create_audit_entry(
         return Ok(ValidateCallbackResult::Invalid(
             "Audit action cannot be empty".to_string(),
         ));
+    }
+
+    // create_audit_entry/create_entries take the whole AuditEntry as raw caller
+    // input -- any agent could otherwise forge an entry claiming another agent
+    // performed some action. actor.agent_pub_key is optional (audit entries about
+    // unauthenticated events -- e.g. failed logins -- legitimately have no known
+    // agent, tracked only by ip_address/user_agent instead), but when present it
+    // must be the entry's own committer: no cross-zome caller or admin/moderator
+    // role exists anywhere in this hApp that would need to log an entry on another
+    // agent's behalf.
+    if let Some(agent) = &entry.actor.agent_pub_key {
+        if agent != &action.author {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AuditEntry actor.agent_pub_key must match action author".to_string(),
+            ));
+        }
     }
 
     // Note: Time-based validation moved to coordinator zome since sys_time
@@ -174,5 +190,97 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+/// Proves `validate_create_audit_entry`'s P0 author-binding fix: an AuditEntry claiming a
+/// different agent as `actor.agent_pub_key` than the entry's real committer is rejected
+/// (previously any agent could forge an entry blaming another agent). Host-independent --
+/// no HDI mocking needed, this check only compares against `action.author`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_entry(actor_agent: Option<AgentPubKey>) -> AuditEntry {
+        AuditEntry {
+            id: "evt-1".to_string(),
+            timestamp: 0,
+            category: AuditCategory::Security,
+            action: "login_failed".to_string(),
+            severity: AuditSeverity::Warning,
+            actor: AuditActor {
+                agent_pub_key: actor_agent,
+                email: None,
+                ip_address: Some("127.0.0.1".to_string()),
+                user_agent: None,
+                session_id: None,
+            },
+            target: None,
+            details: AuditDetails {
+                message: "failed login attempt".to_string(),
+                before: None,
+                after: None,
+                error: None,
+                stack_trace: None,
+                custom: None,
+            },
+            metadata: AuditMetadata {
+                source: AuditSource::Server,
+                version: "1".to_string(),
+                correlation_id: None,
+                parent_id: None,
+                tags: None,
+                retention: None,
+            },
+            signature: None,
+        }
+    }
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn forged_actor_agent_is_rejected() {
+        let committer = AgentPubKey::from_raw_36(vec![1; 36]);
+        let framed = AgentPubKey::from_raw_36(vec![2; 36]);
+        let entry = test_entry(Some(framed));
+        let result = validate_create_audit_entry(test_action(committer), entry).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "an AuditEntry naming a different agent as actor.agent_pub_key must be rejected \
+             -- previously any agent could forge an entry blaming another agent"
+        );
+    }
+
+    #[test]
+    fn entry_with_no_named_agent_is_accepted() {
+        let committer = AgentPubKey::from_raw_36(vec![1; 36]);
+        let entry = test_entry(None);
+        let result = validate_create_audit_entry(test_action(committer), entry).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Valid),
+            "unauthenticated events (e.g. failed logins with no known agent) must remain valid"
+        );
+    }
+
+    #[test]
+    fn entry_naming_its_real_committer_is_accepted() {
+        let committer = AgentPubKey::from_raw_36(vec![1; 36]);
+        let entry = test_entry(Some(committer.clone()));
+        let result = validate_create_audit_entry(test_action(committer), entry).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 }

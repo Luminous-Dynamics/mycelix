@@ -245,11 +245,13 @@ fn validate_update_transaction(
 ) -> ExternResult<ValidateCallbackResult> {
     let original_entry = must_get_entry(action.original_entry_address.clone())?;
     let original_transaction = match original_entry.as_content() {
-        Entry::App(app_entry) => Transaction::try_from(app_entry.clone().into_sb()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Could not decode the transaction being updated: {e:?}"
-            )))
-        })?,
+        Entry::App(app_entry) => {
+            Transaction::try_from(app_entry.clone().into_sb()).map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Could not decode the transaction being updated: {e:?}"
+                )))
+            })?
+        }
         _ => {
             return Ok(ValidateCallbackResult::Invalid(
                 "Transaction updates must reference an application entry".into(),
@@ -257,11 +259,9 @@ fn validate_update_transaction(
         }
     };
 
-    if let Err(reason) = validate_transaction_update_fields(
-        &original_transaction,
-        transaction,
-        &action.author,
-    ) {
+    if let Err(reason) =
+        validate_transaction_update_fields(&original_transaction, transaction, &action.author)
+    {
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
@@ -286,7 +286,9 @@ fn validate_transaction_update_fields(
         || updated.total_price_cents != original.total_price_cents
         || updated.created_at != original.created_at
     {
-        return Err("Transaction parties, listing, quantity, price, and creation time are immutable".into());
+        return Err(
+            "Transaction parties, listing, quantity, price, and creation time are immutable".into(),
+        );
     }
 
     if updated.updated_at < original.updated_at {
@@ -362,7 +364,9 @@ fn validate_tracking_transition(
     match (&original.status, &updated.status) {
         (TransactionStatus::Confirmed, TransactionStatus::Shipped) => Ok(()),
         _ if original.tracking_info == updated.tracking_info => Ok(()),
-        _ => Err("Tracking information may only change when a transaction is marked shipped".into()),
+        _ => {
+            Err("Tracking information may only change when a transaction is marked shipped".into())
+        }
     }
 }
 
@@ -402,21 +406,31 @@ mod tests {
 
     #[test]
     fn test_validate_transaction_zero_quantity() {
-        let tx = Transaction { quantity: 0, ..valid_transaction() };
+        let tx = Transaction {
+            quantity: 0,
+            ..valid_transaction()
+        };
         let result = validate_transaction(&tx).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_transaction_zero_price() {
-        let tx = Transaction { total_price_cents: 0, ..valid_transaction() };
+        let tx = Transaction {
+            total_price_cents: 0,
+            ..valid_transaction()
+        };
         let result = validate_transaction(&tx).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_validate_transaction_same_buyer_seller() {
-        let tx = Transaction { buyer: mock_agent(1), seller: mock_agent(1), ..valid_transaction() };
+        let tx = Transaction {
+            buyer: mock_agent(1),
+            seller: mock_agent(1),
+            ..valid_transaction()
+        };
         let result = validate_transaction(&tx).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
@@ -438,9 +452,12 @@ mod tests {
     #[test]
     fn test_all_transaction_statuses() {
         let statuses = vec![
-            TransactionStatus::Pending, TransactionStatus::Confirmed,
-            TransactionStatus::Shipped, TransactionStatus::Delivered,
-            TransactionStatus::Completed, TransactionStatus::Disputed,
+            TransactionStatus::Pending,
+            TransactionStatus::Confirmed,
+            TransactionStatus::Shipped,
+            TransactionStatus::Delivered,
+            TransactionStatus::Completed,
+            TransactionStatus::Disputed,
             TransactionStatus::Cancelled,
         ];
         assert_eq!(statuses.len(), 7);
@@ -457,14 +474,22 @@ mod tests {
 
     #[test]
     fn test_validate_transaction_large_quantity() {
-        let tx = Transaction { quantity: 1_000_000, total_price_cents: 1_000_000_000, ..valid_transaction() };
+        let tx = Transaction {
+            quantity: 1_000_000,
+            total_price_cents: 1_000_000_000,
+            ..valid_transaction()
+        };
         let result = validate_transaction(&tx).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
     fn test_validate_transaction_min_valid() {
-        let tx = Transaction { quantity: 1, total_price_cents: 1, ..valid_transaction() };
+        let tx = Transaction {
+            quantity: 1,
+            total_price_cents: 1,
+            ..valid_transaction()
+        };
         let result = validate_transaction(&tx).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -495,12 +520,7 @@ mod tests {
         updated.status = TransactionStatus::Confirmed;
         updated.updated_at = Timestamp::from_micros(2_000_000);
 
-        assert!(validate_transaction_update_fields(
-            &original,
-            &updated,
-            &original.seller,
-        )
-        .is_ok());
+        assert!(validate_transaction_update_fields(&original, &updated, &original.seller,).is_ok());
     }
 
     #[test]
@@ -510,8 +530,8 @@ mod tests {
         updated.status = TransactionStatus::Confirmed;
         updated.updated_at = Timestamp::from_micros(2_000_000);
 
-        let error = validate_transaction_update_fields(&original, &updated, &original.buyer)
-            .unwrap_err();
+        let error =
+            validate_transaction_update_fields(&original, &updated, &original.buyer).unwrap_err();
         assert!(error.contains("Illegal or unauthorized"));
     }
 
@@ -542,8 +562,8 @@ mod tests {
         updated.total_price_cents += 1;
         updated.updated_at = Timestamp::from_micros(2_000_000);
 
-        let error = validate_transaction_update_fields(&original, &updated, &original.seller)
-            .unwrap_err();
+        let error =
+            validate_transaction_update_fields(&original, &updated, &original.seller).unwrap_err();
         assert!(error.contains("immutable"));
     }
 
@@ -561,7 +581,9 @@ mod tests {
         let mut resurrected = completed.clone();
         resurrected.status = TransactionStatus::Pending;
         resurrected.updated_at = Timestamp::from_micros(2_000_000);
-        assert!(validate_transaction_update_fields(&completed, &resurrected, &completed.buyer).is_err());
+        assert!(
+            validate_transaction_update_fields(&completed, &resurrected, &completed.buyer).is_err()
+        );
     }
 
     #[test]
@@ -572,7 +594,9 @@ mod tests {
         shipped.status = TransactionStatus::Shipped;
         shipped.tracking_info = Some("carrier-123".into());
         shipped.updated_at = Timestamp::from_micros(2_000_000);
-        assert!(validate_transaction_update_fields(&confirmed, &shipped, &confirmed.seller).is_ok());
+        assert!(
+            validate_transaction_update_fields(&confirmed, &shipped, &confirmed.seller).is_ok()
+        );
 
         let mut delivered = shipped.clone();
         delivered.status = TransactionStatus::Delivered;
@@ -580,5 +604,4 @@ mod tests {
         delivered.updated_at = Timestamp::from_micros(3_000_000);
         assert!(validate_transaction_update_fields(&shipped, &delivered, &shipped.buyer).is_err());
     }
-
 }

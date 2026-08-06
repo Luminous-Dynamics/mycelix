@@ -395,6 +395,43 @@ if ! $DRY_RUN; then
             sed -i 's|sovereign-profile = { path = "[^"]*"|sovereign-profile = { version = "0.1.2"|' "$toml_file"
             ok "Rewrote sovereign-profile to published crate in $(basename "$(dirname "$toml_file")")/Cargo.toml"
         fi
+        # A handful of clusters (prism-ui, mycelix-desci/apps/leptos,
+        # mycelix-music/apps/leptos) depend on individual crates from the
+        # private symthaea monorepo via escaping ../../../symthaea/...
+        # paths, which don't exist in the standalone mycelix repo at all —
+        # unlike sovereign-profile above, none of these are published to
+        # crates.io either. They ARE synced verbatim into the public
+        # symthaea standalone repo though (confirmed 2026-07-29: all three
+        # present under crates/domains/, each crate's own path deps on
+        # symthaea-core/symthaea-types/etc. resolve within that same repo),
+        # so point at them via git dependencies instead of vendoring or
+        # stubbing. Two other escaping symthaea-* references found in the
+        # same sweep (mycelix-praxis's symthaea-soma, mycelix-hyperfeel's
+        # symthaea-hlb) are already commented out — dead, not fixed here.
+        # happs/lucid/ui's `symthaea = { path = ... }` (the whole crate) is
+        # a separate, already-documented-elsewhere dead end (see root
+        # SYMTHAEA_UNIFIED_UI_PLAN_2026-07-10.md) — not touched either.
+        for spore_crate in symthaea-spore symthaea-physics-catalog symthaea-muse; do
+            if grep -q "${spore_crate} = { path = \"[^\"]*\"" "$toml_file" 2>/dev/null; then
+                sed -i "s|${spore_crate} = { path = \"[^\"]*\"|${spore_crate} = { git = \"https://github.com/Luminous-Dynamics/symthaea\", package = \"${spore_crate}\"|" "$toml_file"
+                ok "Rewrote ${spore_crate} to a git dependency in $(basename "$(dirname "$toml_file")")/Cargo.toml"
+            fi
+        done
+        if [[ "$toml_file" == "${STANDALONE_REPO}/mycelix-workspace/Cargo.toml" ]] \
+            && grep -q '^    "mycelix-supplychain/crates/\*",$' "$toml_file" 2>/dev/null; then
+            # mycelix-supplychain has its own standalone repo and is
+            # deliberately rsync-excluded from this wholesale sync (see the
+            # SOURCE_DIRS/exclude comment above) -- but this file's own
+            # [workspace] members array still lists a glob into that
+            # now-nonexistent directory, which Cargo hard-errors on (a
+            # zero-match members glob, unlike an exclude entry, is fatal).
+            # This was blocking `cargo metadata` workspace-wide, not just for
+            # supplychain -- e.g. it was masking test-prism's real fix from
+            # ever taking effect. Comment it out rather than delete, so a
+            # future un-exclusion of supplychain is a one-line revert.
+            sed -i 's|^    "mycelix-supplychain/crates/\*",$|    # "mycelix-supplychain/crates/*", # excluded from this sync -- own standalone repo, directory doesn'"'"'t exist here (see rsync excludes above)|' "$toml_file"
+            ok "Commented out the dangling mycelix-supplychain members glob in mycelix-workspace/Cargo.toml"
+        fi
         if [[ "$toml_file" == "${STANDALONE_REPO}/crates/mycelix-zome-helpers/Cargo.toml" ]] \
             && grep -q 'mycelix-bridge-common = { path = "[^"]*"' "$toml_file" 2>/dev/null; then
             sed -i 's|mycelix-bridge-common = { path = "[^"]*"|mycelix-bridge-common = { path = "../mycelix-bridge-common"|' "$toml_file"

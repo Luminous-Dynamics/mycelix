@@ -31,12 +31,12 @@ use commons_bridge_integrity::*;
 use commons_types::{CommonsEvent, CommonsQuery};
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, needs_refresh, resolve_commons_zome, routing_registry,
-    AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
+    self as bridge, AuditTrailEntry, AuditTrailQuery, AuditTrailResult, BridgeDomain, BridgeHealth,
     CareAvailabilityQuery, CareAvailabilityResult, ConsciousnessCredential, ConsciousnessProfile,
     ConsciousnessTier, CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult,
     EventTypeQuery, GateAuditInput, GovernanceAuditFilter, GovernanceAuditResult,
-    PropertyOwnershipQuery, PropertyOwnershipResult, ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
+    PropertyOwnershipQuery, PropertyOwnershipResult, RATE_LIMIT_WINDOW_SECS, ResolveQueryInput,
+    check_rate_limit_count, needs_refresh, resolve_commons_zome, routing_registry,
 };
 use mycelix_zome_helpers as _;
 
@@ -844,24 +844,23 @@ pub fn query_audit_trail(query: AuditTrailQuery) -> ExternResult<AuditTrailResul
 
     // Get events — if domain+event_type are both specified, use the type anchor;
     // if only domain, use the domain anchor; otherwise get all.
-    let records =
-        if let (Some(ref domain), Some(ref event_type)) = (&query.domain, &query.event_type) {
-            let type_anchor = anchor_hash(&format!("event_type:{}:{}", domain, event_type))?;
-            let links = get_links(
-                LinkQuery::try_new(type_anchor, LinkTypes::EventTypeToEvent)?,
-                GetStrategy::default(),
-            )?;
-            bridge::records_from_links(links)?
-        } else if let Some(ref domain) = query.domain {
-            let domain_anchor = anchor_hash(&format!("domain_events:{}", domain))?;
-            let links = get_links(
-                LinkQuery::try_new(domain_anchor, LinkTypes::DomainToEvent)?,
-                GetStrategy::default(),
-            )?;
-            bridge::records_from_links(links)?
-        } else {
-            get_all_events(())?
-        };
+    let records = if let (Some(domain), Some(event_type)) = (&query.domain, &query.event_type) {
+        let type_anchor = anchor_hash(&format!("event_type:{}:{}", domain, event_type))?;
+        let links = get_links(
+            LinkQuery::try_new(type_anchor, LinkTypes::EventTypeToEvent)?,
+            GetStrategy::default(),
+        )?;
+        bridge::records_from_links(links)?
+    } else if let Some(ref domain) = query.domain {
+        let domain_anchor = anchor_hash(&format!("domain_events:{}", domain))?;
+        let links = get_links(
+            LinkQuery::try_new(domain_anchor, LinkTypes::DomainToEvent)?,
+            GetStrategy::default(),
+        )?;
+        bridge::records_from_links(links)?
+    } else {
+        get_all_events(())?
+    };
 
     let mut entries = Vec::new();
     for record in &records {
@@ -1945,9 +1944,10 @@ pub fn get_nearby(input: commons_types::geo::NearbyQuery) -> ExternResult<Vec<Re
             return Ok(vec![]);
         }
         Some(other) => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                format!("Unknown entry_type for get_nearby: '{}'. Supported: property, housing, food, water, shelter", other)
-            )));
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Unknown entry_type for get_nearby: '{}'. Supported: property, housing, food, water, shelter",
+                other
+            ))));
         }
     };
 

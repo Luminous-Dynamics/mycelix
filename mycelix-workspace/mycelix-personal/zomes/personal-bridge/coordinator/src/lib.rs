@@ -15,16 +15,17 @@
 
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    self as bridge, check_rate_limit_count, routing_registry, BridgeHealth,
-    CrossClusterDispatchInput, CrossClusterRole, DispatchInput, DispatchResult, EventTypeQuery,
-    ResolveQueryInput, RATE_LIMIT_WINDOW_SECS,
+    self as bridge, BridgeHealth, CrossClusterDispatchInput, CrossClusterRole, DispatchInput,
+    DispatchResult, EventTypeQuery, RATE_LIMIT_WINDOW_SECS, ResolveQueryInput,
+    check_rate_limit_count, routing_registry,
 };
 use personal_bridge_integrity::*;
 
 getrandom::register_custom_getrandom!(my_custom_getrandom);
 
 pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
-    let bytes = hdk::prelude::random_bytes(buf.len() as u32).map_err(|_| getrandom::Error::UNSUPPORTED)?;
+    let bytes =
+        hdk::prelude::random_bytes(buf.len() as u32).map_err(|_| getrandom::Error::UNSUPPORTED)?;
     buf.copy_from_slice(bytes.as_ref());
     Ok(())
 }

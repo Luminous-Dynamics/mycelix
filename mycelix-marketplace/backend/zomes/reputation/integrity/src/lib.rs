@@ -551,14 +551,25 @@ fn validate_review(review: &Review, action: &Create) -> ExternResult<ValidateCal
     }
 
     // Bind the review to its committer -- submit_review already derives reviewer from
-    // agent_info() coordinator-side with zero user input (P0 author-binding gap). `seller`
-    // is a raw, caller-supplied reference with no correlation check to the actual
-    // transaction's real seller -- a heavier gap needing must_get cross-verification against
-    // the transaction, same class as ReputationEvent's own established pattern; deferred, see
-    // memory/mycelix_attribution_author_binding_jul8.md.
+    // agent_info() coordinator-side with zero user input (P0 author-binding gap).
     if review.reviewer != action.author {
         return Ok(ValidateCallbackResult::Invalid(
             "Review must be created by its reviewer (reviewer forgery)".to_string(),
+        ));
+    }
+
+    // `seller` was previously a raw, caller-supplied reference with zero correlation check
+    // to the actual transaction's real seller -- any agent could attribute a review to an
+    // arbitrary agent as "the seller" for any transaction_hash. Cross-verify against the
+    // real transaction using the same local-snapshot-decode pattern ReputationEvent already
+    // establishes in this file (TransactionSnapshot / decode_record) rather than adding a
+    // cross-crate dependency on transactions_integrity.
+    let transaction: TransactionSnapshot =
+        decode_record(&must_get_valid_record(review.transaction_hash.clone())?)?;
+    if review.reviewer != transaction.buyer || review.seller != transaction.seller {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Review reviewer/seller must match the referenced transaction's real buyer/seller"
+                .to_string(),
         ));
     }
 
@@ -612,5 +623,185 @@ mod reputation_event_tests {
             arbitration_event_key(&tx, &ReputationEventKind::ArbitrationWon, &subject),
             arbitration_event_key(&tx, &ReputationEventKind::ArbitrationWon, &subject)
         );
+    }
+}
+
+/// Proves `validate_review`'s P0 author-binding fix: a Review naming a `seller` that
+/// doesn't match the referenced transaction's real seller is rejected (previously `seller`
+/// was a raw, uncorrelated caller-supplied reference). Mocks the HDI host's
+/// `must_get_valid_record` so this runs as a plain `cargo test`, no live conductor needed.
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+
+    struct MockRecordHdi {
+        records: std::collections::HashMap<ActionHash, Record>,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            self.records
+                .get(&input.0)
+                .cloned()
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("no such record in mock".into())))
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by this fix")
+        }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<SerializedBytes>,
+        <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_review(
+        reviewer: AgentPubKey,
+        seller: AgentPubKey,
+        transaction_hash: ActionHash,
+    ) -> Review {
+        Review {
+            transaction_hash,
+            listing_hash: ActionHash::from_raw_36(vec![40; 36]),
+            rating: 5,
+            comment: "great seller".to_string(),
+            reviewer,
+            seller,
+            created_at: Timestamp::from_micros(0),
+            epistemic: EpistemicClassification {
+                empirical: EmpiricalLevel::E2PrivateVerify,
+                normative: NormativeLevel::N1Communal,
+                materiality: MaterialityLevel::M1Temporal,
+            },
+        }
+    }
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn review_naming_a_seller_not_in_the_real_transaction_is_rejected() {
+        let buyer = AgentPubKey::from_raw_36(vec![1; 36]);
+        let real_seller = AgentPubKey::from_raw_36(vec![2; 36]);
+        let framed_seller = AgentPubKey::from_raw_36(vec![3; 36]);
+        let tx_hash = ActionHash::from_raw_36(vec![10; 36]);
+
+        let snapshot = TransactionSnapshot {
+            buyer: buyer.clone(),
+            seller: real_seller,
+            total_price_cents: 1000,
+            status: TransactionStatusSnapshot::Completed,
+            updated_at: Timestamp::from_micros(0),
+        };
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                tx_hash.clone(),
+                wrap_entry_record(buyer.clone(), snapshot),
+            )]),
+        });
+
+        let review = test_review(buyer.clone(), framed_seller, tx_hash);
+        let result = validate_review(&review, &test_action(buyer)).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "a Review naming a seller who isn't the real transaction's seller must be \
+             rejected -- previously seller was a raw, uncorrelated caller-supplied reference"
+        );
+    }
+
+    #[test]
+    fn review_naming_the_real_seller_is_accepted() {
+        let buyer = AgentPubKey::from_raw_36(vec![1; 36]);
+        let real_seller = AgentPubKey::from_raw_36(vec![2; 36]);
+        let tx_hash = ActionHash::from_raw_36(vec![10; 36]);
+
+        let snapshot = TransactionSnapshot {
+            buyer: buyer.clone(),
+            seller: real_seller.clone(),
+            total_price_cents: 1000,
+            status: TransactionStatusSnapshot::Completed,
+            updated_at: Timestamp::from_micros(0),
+        };
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                tx_hash.clone(),
+                wrap_entry_record(buyer.clone(), snapshot),
+            )]),
+        });
+
+        let review = test_review(buyer.clone(), real_seller, tx_hash);
+        let result = validate_review(&review, &test_action(buyer)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 }

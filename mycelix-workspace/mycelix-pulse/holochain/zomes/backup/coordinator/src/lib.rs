@@ -180,6 +180,7 @@ pub fn create_backup(input: CreateBackupInput) -> ExternResult<CreateBackupOutpu
     for (index, chunk_data) in chunks.into_iter().enumerate() {
         let chunk = BackupChunk {
             backup_id: backup_id.clone(),
+            manifest_hash: manifest_hash.clone(),
             chunk_index: index as u32,
             total_chunks,
             data: chunk_data.clone(),

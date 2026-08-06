@@ -222,15 +222,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ServiceOffer(offer) => validate_update_offer(offer),
-                EntryTypes::ServiceRequest(request) => validate_update_request(request),
-                EntryTypes::TimeExchange(exchange) => validate_update_exchange(exchange),
-                EntryTypes::TimeCredit(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::ServiceOffer(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Service offers are immutable (re-post to change details)".into(),
+                )),
+                EntryTypes::ServiceRequest(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Service requests are immutable (re-post to change details)".into(),
+                )),
+                EntryTypes::TimeExchange(exchange) => {
+                    validate_update_exchange(action, exchange, original_action_hash)
+                }
+                EntryTypes::TimeCredit(credit) => {
+                    validate_update_credit(action, credit, original_action_hash)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -372,9 +380,14 @@ fn validate_service_category_other(category: &ServiceCategory) -> Result<(), Str
 }
 
 fn validate_create_offer(
-    _action: Create,
+    action: Create,
     offer: ServiceOffer,
 ) -> ExternResult<ValidateCallbackResult> {
+    if offer.provider != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service offer provider must match the committing agent".into(),
+        ));
+    }
     if offer.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Offer title cannot be empty".into(),
@@ -449,9 +462,14 @@ fn validate_create_offer(
 }
 
 fn validate_create_request(
-    _action: Create,
+    action: Create,
     request: ServiceRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    if request.requester != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Service request requester must match the committing agent".into(),
+        ));
+    }
     if request.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Request title cannot be empty".into(),
@@ -509,9 +527,19 @@ fn validate_create_request(
 }
 
 fn validate_create_exchange(
-    _action: Create,
+    action: Create,
     exchange: TimeExchange,
 ) -> ExternResult<ValidateCallbackResult> {
+    if exchange.provider != action.author && exchange.recipient != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exchange must be committed by the provider or recipient".into(),
+        ));
+    }
+    if exchange.rating_provider.is_some() || exchange.rating_recipient.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New exchanges cannot have ratings set".into(),
+        ));
+    }
     if !exchange.hours.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
             "Hours must be a finite number".into(),
@@ -586,141 +614,138 @@ fn validate_create_credit(
             "Total spent cannot be negative".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-fn validate_update_offer(offer: ServiceOffer) -> ExternResult<ValidateCallbackResult> {
-    if offer.title.trim().is_empty() {
+    // The coordinator's get_or_create_credit only ever creates a fresh
+    // record with a one-time 5.0-hour starter bonus and zero history.
+    if credit.total_earned != 0.0 || credit.total_spent != 0.0 || credit.balance != 5.0 {
         return Ok(ValidateCallbackResult::Invalid(
-            "Offer title cannot be empty".into(),
+            "New credit records must start at the 5.0-hour starter balance with zero history"
+                .into(),
         ));
-    }
-    if offer.title.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Offer title must be 256 characters or fewer".into(),
-        ));
-    }
-    if offer.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Offer description must be 4096 characters or fewer".into(),
-        ));
-    }
-    if offer.location.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Location must be 512 characters or fewer".into(),
-        ));
-    }
-    if offer.availability.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Availability must be 512 characters or fewer".into(),
-        ));
-    }
-    if offer.skills_required.len() > 20 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot list more than 20 skills".into(),
-        ));
-    }
-    for skill in &offer.skills_required {
-        if skill.trim().is_empty() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Skill name cannot be empty".into(),
-            ));
-        }
-        if skill.len() > 128 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Each skill must be 128 characters or fewer".into(),
-            ));
-        }
-    }
-    if !offer.hours_available.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Hours available must be a finite number".into(),
-        ));
-    }
-    if offer.hours_available < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Hours available cannot be negative".into(),
-        ));
-    }
-    if let Err(msg) = validate_service_category_other(&offer.category) {
-        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_request(request: ServiceRequest) -> ExternResult<ValidateCallbackResult> {
-    if request.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Request title cannot be empty".into(),
-        ));
+/// Pure logic for a `TimeExchange` update, factored out of
+/// [`validate_update_exchange`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase). The
+/// coordinator's `rate_exchange` lets the provider set `rating_provider` or
+/// the recipient set `rating_recipient` -- nothing else may change.
+fn validate_exchange_transition(
+    original: &TimeExchange,
+    exchange: &TimeExchange,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if let Some(rating) = exchange.rating_provider
+        && !(1..=5).contains(&rating)
+    {
+        return ValidateCallbackResult::Invalid("Provider rating must be 1-5".into());
     }
-    if request.title.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Request title must be 256 characters or fewer".into(),
-        ));
+    if let Some(rating) = exchange.rating_recipient
+        && !(1..=5).contains(&rating)
+    {
+        return ValidateCallbackResult::Invalid("Recipient rating must be 1-5".into());
     }
-    if request.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Request description must be 4096 characters or fewer".into(),
-        ));
+    if exchange.offer_id != original.offer_id
+        || exchange.request_id != original.request_id
+        || exchange.provider != original.provider
+        || exchange.recipient != original.recipient
+        || exchange.hours != original.hours
+        || exchange.category != original.category
+        || exchange.completed_at != original.completed_at
+        || exchange.notes != original.notes
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only rating_provider/rating_recipient can change on an exchange update".into(),
+        );
     }
-    if request.location.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Location must be 512 characters or fewer".into(),
-        ));
+    if *author == exchange.provider {
+        if exchange.rating_recipient != original.rating_recipient {
+            return ValidateCallbackResult::Invalid(
+                "Only the provider's own rating can be set by the provider".into(),
+            );
+        }
+    } else if *author == exchange.recipient {
+        if exchange.rating_provider != original.rating_provider {
+            return ValidateCallbackResult::Invalid(
+                "Only the recipient's own rating can be set by the recipient".into(),
+            );
+        }
+    } else {
+        return ValidateCallbackResult::Invalid(
+            "Only the provider or recipient can rate an exchange".into(),
+        );
     }
-    if request.preferred_schedule.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Preferred schedule must be 512 characters or fewer".into(),
-        ));
-    }
-    if !request.hours_needed.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Hours needed must be a finite number".into(),
-        ));
-    }
-    if request.hours_needed < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Hours needed cannot be negative".into(),
-        ));
-    }
-    if let Err(msg) = validate_service_category_other(&request.category) {
-        return Ok(ValidateCallbackResult::Invalid(msg));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
 }
 
-fn validate_update_exchange(exchange: TimeExchange) -> ExternResult<ValidateCallbackResult> {
-    if !exchange.hours.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Hours must be a finite number".into(),
-        ));
+fn validate_update_exchange(
+    action: Update,
+    exchange: TimeExchange,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: TimeExchange = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original TimeExchange entry not found".to_string()
+        )))?;
+    Ok(validate_exchange_transition(
+        &original,
+        &exchange,
+        &action.author,
+    ))
+}
+
+/// Pure logic for a `TimeCredit` update, factored out of
+/// [`validate_update_credit`] so it can be unit-tested without a live HDI.
+/// No author requirement: TimeCredit legitimately gets updated by whichever
+/// of the two exchange participants called `complete_exchange` (already
+/// restricted to the provider or recipient at `validate_create_exchange`).
+/// Content integrity is enforced instead.
+fn validate_credit_transition(
+    original: &TimeCredit,
+    credit: &TimeCredit,
+) -> ValidateCallbackResult {
+    if credit.total_earned < 0.0 || credit.total_spent < 0.0 {
+        return ValidateCallbackResult::Invalid("Total earned/spent cannot be negative".into());
     }
-    if exchange.hours <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Exchange hours must be positive".into(),
-        ));
+    if credit.agent != original.agent {
+        return ValidateCallbackResult::Invalid("Credit agent cannot be changed".into());
     }
-    if let Some(rating) = exchange.rating_provider {
-        if !(1..=5).contains(&rating) {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Provider rating must be 1-5".into(),
-            ));
-        }
+    if credit.updated_at <= original.updated_at {
+        return ValidateCallbackResult::Invalid("Credit updated_at must advance".into());
     }
-    if let Some(rating) = exchange.rating_recipient {
-        if !(1..=5).contains(&rating) {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Recipient rating must be 1-5".into(),
-            ));
-        }
+    if credit.total_earned < original.total_earned || credit.total_spent < original.total_spent {
+        return ValidateCallbackResult::Invalid(
+            "Credit total_earned/total_spent cannot decrease".into(),
+        );
     }
-    if exchange.notes.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Notes must be 4096 characters or fewer".into(),
-        ));
+    let original_offset = original.balance - original.total_earned + original.total_spent;
+    let new_offset = credit.balance - credit.total_earned + credit.total_spent;
+    if (new_offset - original_offset).abs() > f64::EPSILON {
+        return ValidateCallbackResult::Invalid(
+            "Credit balance must move in lockstep with total_earned/total_spent".into(),
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_credit(
+    _action: Update,
+    credit: TimeCredit,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: TimeCredit = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original TimeCredit entry not found".to_string()
+        )))?;
+    Ok(validate_credit_transition(&original, &credit))
 }
 
 #[cfg(test)]
@@ -731,7 +756,7 @@ mod tests {
 
     fn fake_create() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            author: agent_a(),
             timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -786,6 +811,9 @@ mod tests {
     }
 
     fn valid_exchange() -> TimeExchange {
+        // No ratings by default: this represents both the create-time shape
+        // (ratings must be unset on create) and the "original" baseline for
+        // update-transition tests (rate_exchange sets exactly one rating).
         TimeExchange {
             offer_id: ActionHash::from_raw_36(vec![10u8; 36]),
             request_id: ActionHash::from_raw_36(vec![11u8; 36]),
@@ -794,8 +822,8 @@ mod tests {
             hours: 2.0,
             category: ServiceCategory::Tutoring,
             completed_at: Timestamp::from_micros(1000),
-            rating_provider: Some(5),
-            rating_recipient: Some(4),
+            rating_provider: None,
+            rating_recipient: None,
             notes: "Great session".to_string(),
         }
     }
@@ -1350,81 +1378,24 @@ mod tests {
     }
 
     #[test]
-    fn create_exchange_provider_rating_zero() {
+    fn create_exchange_with_provider_rating_rejected() {
+        // Ratings can only be set later via rate_exchange (an update), never on create.
         let mut e = valid_exchange();
-        e.rating_provider = Some(0);
+        e.rating_provider = Some(3);
         assert_invalid(
             validate_create_exchange(fake_create(), e),
-            "Provider rating must be 1-5",
+            "New exchanges cannot have ratings set",
         );
     }
 
     #[test]
-    fn create_exchange_provider_rating_six() {
+    fn create_exchange_with_recipient_rating_rejected() {
         let mut e = valid_exchange();
-        e.rating_provider = Some(6);
+        e.rating_recipient = Some(3);
         assert_invalid(
             validate_create_exchange(fake_create(), e),
-            "Provider rating must be 1-5",
+            "New exchanges cannot have ratings set",
         );
-    }
-
-    #[test]
-    fn create_exchange_provider_rating_u8_max() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(255);
-        assert_invalid(
-            validate_create_exchange(fake_create(), e),
-            "Provider rating must be 1-5",
-        );
-    }
-
-    #[test]
-    fn create_exchange_provider_rating_boundary_1() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(1);
-        assert_valid(validate_create_exchange(fake_create(), e));
-    }
-
-    #[test]
-    fn create_exchange_provider_rating_boundary_5() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(5);
-        assert_valid(validate_create_exchange(fake_create(), e));
-    }
-
-    #[test]
-    fn create_exchange_recipient_rating_zero() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(0);
-        assert_invalid(
-            validate_create_exchange(fake_create(), e),
-            "Recipient rating must be 1-5",
-        );
-    }
-
-    #[test]
-    fn create_exchange_recipient_rating_six() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(6);
-        assert_invalid(
-            validate_create_exchange(fake_create(), e),
-            "Recipient rating must be 1-5",
-        );
-    }
-
-    #[test]
-    fn create_exchange_recipient_rating_boundary_1() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(1);
-        assert_valid(validate_create_exchange(fake_create(), e));
-    }
-
-    #[test]
-    fn create_exchange_recipient_rating_boundary_5() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(5);
-        assert_valid(validate_create_exchange(fake_create(), e));
     }
 
     #[test]
@@ -1437,12 +1408,8 @@ mod tests {
     // ── validate_create_credit tests ────────────────────────────────────
 
     #[test]
-    fn create_credit_valid() {
-        assert_valid(validate_create_credit(fake_create(), valid_credit()));
-    }
-
-    #[test]
-    fn create_credit_zero_balances() {
+    fn create_credit_zero_balances_rejected() {
+        // No longer matches the required 5.0-hour starter shape.
         let c = TimeCredit {
             agent: agent_a(),
             balance: 0.0,
@@ -1450,7 +1417,32 @@ mod tests {
             total_spent: 0.0,
             updated_at: Timestamp::from_micros(0),
         };
+        assert_invalid(
+            validate_create_credit(fake_create(), c),
+            "must start at the 5.0-hour starter balance",
+        );
+    }
+
+    #[test]
+    fn create_credit_starter_shape_valid() {
+        let c = TimeCredit {
+            agent: agent_a(),
+            balance: 5.0,
+            total_earned: 0.0,
+            total_spent: 0.0,
+            updated_at: Timestamp::from_micros(0),
+        };
         assert_valid(validate_create_credit(fake_create(), c));
+    }
+
+    #[test]
+    fn create_credit_non_starter_balance_rejected() {
+        // valid_credit() represents an already-established credit record
+        // (post-update), not the create-time starter shape.
+        assert_invalid(
+            validate_create_credit(fake_create(), valid_credit()),
+            "must start at the 5.0-hour starter balance",
+        );
     }
 
     #[test]
@@ -1473,220 +1465,171 @@ mod tests {
         );
     }
 
-    #[test]
-    fn create_credit_negative_balance_ok() {
-        // The validator does NOT reject negative balance (debt is allowed)
-        let mut c = valid_credit();
-        c.balance = -5.0;
-        assert_valid(validate_create_credit(fake_create(), c));
-    }
+    // ── validate_credit_transition (pure update logic) tests ───────────
 
     #[test]
-    fn create_credit_large_values_ok() {
-        let c = TimeCredit {
+    fn update_credit_lockstep_valid() {
+        let original = TimeCredit {
             agent: agent_a(),
-            balance: 999999.0,
-            total_earned: 999999.0,
+            balance: 5.0,
+            total_earned: 0.0,
             total_spent: 0.0,
             updated_at: Timestamp::from_micros(0),
         };
-        assert_valid(validate_create_credit(fake_create(), c));
-    }
-
-    // ── validate_update_offer tests ─────────────────────────────────────
-
-    #[test]
-    fn update_offer_valid() {
-        assert_valid(validate_update_offer(valid_offer()));
-    }
-
-    #[test]
-    fn update_offer_empty_title() {
-        let mut o = valid_offer();
-        o.title = String::new();
-        assert_invalid(validate_update_offer(o), "Offer title cannot be empty");
+        let mut credit = original.clone();
+        credit.balance = 10.0;
+        credit.total_earned = 5.0;
+        credit.updated_at = Timestamp::from_micros(1);
+        let result = validate_credit_transition(&original, &credit);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn update_offer_negative_hours() {
-        let mut o = valid_offer();
-        o.hours_available = -0.1;
+    fn update_credit_agent_change_rejected() {
+        let original = valid_credit();
+        let mut credit = original.clone();
+        credit.agent = agent_b();
+        credit.updated_at = Timestamp::from_micros(1);
+        let result = validate_credit_transition(&original, &credit);
+        assert_invalid(Ok(result), "Credit agent cannot be changed");
+    }
+
+    #[test]
+    fn update_credit_stale_timestamp_rejected() {
+        let original = valid_credit();
+        let credit = original.clone();
+        let result = validate_credit_transition(&original, &credit);
+        assert_invalid(Ok(result), "Credit updated_at must advance");
+    }
+
+    #[test]
+    fn update_credit_decrease_rejected() {
+        let original = valid_credit();
+        let mut credit = original.clone();
+        credit.total_earned -= 1.0;
+        credit.updated_at = Timestamp::from_micros(1);
+        let result = validate_credit_transition(&original, &credit);
+        assert_invalid(Ok(result), "cannot decrease");
+    }
+
+    #[test]
+    fn update_credit_offset_drift_rejected() {
+        let original = valid_credit();
+        let mut credit = original.clone();
+        credit.balance += 100.0; // total_earned/total_spent unchanged
+        credit.updated_at = Timestamp::from_micros(1);
+        let result = validate_credit_transition(&original, &credit);
+        assert_invalid(Ok(result), "must move in lockstep");
+    }
+
+    // ── validate_exchange_transition (pure update logic) tests ─────────
+
+    #[test]
+    fn update_exchange_provider_sets_own_rating_valid() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_provider = Some(5);
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn update_exchange_recipient_sets_own_rating_valid() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_recipient = Some(4);
+        let result = validate_exchange_transition(&original, &exchange, &agent_b());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn update_exchange_provider_rating_zero_rejected() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_provider = Some(0);
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
+        assert_invalid(Ok(result), "Provider rating must be 1-5");
+    }
+
+    #[test]
+    fn update_exchange_provider_rating_six_rejected() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_provider = Some(6);
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
+        assert_invalid(Ok(result), "Provider rating must be 1-5");
+    }
+
+    #[test]
+    fn update_exchange_recipient_rating_zero_rejected() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_recipient = Some(0);
+        let result = validate_exchange_transition(&original, &exchange, &agent_b());
+        assert_invalid(Ok(result), "Recipient rating must be 1-5");
+    }
+
+    #[test]
+    fn update_exchange_provider_cannot_set_recipient_rating() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_recipient = Some(3);
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
+        assert_invalid(Ok(result), "Only the provider's own rating");
+    }
+
+    #[test]
+    fn update_exchange_recipient_cannot_set_provider_rating() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_provider = Some(3);
+        let result = validate_exchange_transition(&original, &exchange, &agent_b());
+        assert_invalid(Ok(result), "Only the recipient's own rating");
+    }
+
+    #[test]
+    fn update_exchange_non_participant_rejected() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.rating_provider = Some(5);
+        let forger = AgentPubKey::from_raw_36(vec![0xef; 36]);
+        let result = validate_exchange_transition(&original, &exchange, &forger);
+        assert_invalid(Ok(result), "Only the provider or recipient");
+    }
+
+    #[test]
+    fn update_exchange_rejects_hours_change() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.hours = 99.0;
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
         assert_invalid(
-            validate_update_offer(o),
-            "Hours available cannot be negative",
+            Ok(result),
+            "Only rating_provider/rating_recipient can change",
         );
     }
 
     #[test]
-    fn update_offer_zero_hours_ok() {
-        // update allows zero (deactivation), unlike create which requires positive
-        let mut o = valid_offer();
-        o.hours_available = 0.0;
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_inactive_ok() {
-        let mut o = valid_offer();
-        o.active = false;
-        assert_valid(validate_update_offer(o));
-    }
-
-    // ── validate_update_request tests ───────────────────────────────────
-
-    #[test]
-    fn update_request_valid() {
-        assert_valid(validate_update_request(valid_request()));
-    }
-
-    #[test]
-    fn update_request_empty_title() {
-        let mut r = valid_request();
-        r.title = String::new();
-        assert_invalid(validate_update_request(r), "Request title cannot be empty");
-    }
-
-    #[test]
-    fn update_request_closed_ok() {
-        let mut r = valid_request();
-        r.open = false;
-        assert_valid(validate_update_request(r));
-    }
-
-    // ── validate_update_exchange tests ──────────────────────────────────
-
-    #[test]
-    fn update_exchange_valid() {
-        assert_valid(validate_update_exchange(valid_exchange()));
-    }
-
-    #[test]
-    fn update_exchange_no_ratings() {
-        let mut e = valid_exchange();
-        e.rating_provider = None;
-        e.rating_recipient = None;
-        assert_valid(validate_update_exchange(e));
-    }
-
-    #[test]
-    fn update_exchange_provider_rating_zero() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(0);
-        assert_invalid(validate_update_exchange(e), "Provider rating must be 1-5");
-    }
-
-    #[test]
-    fn update_exchange_provider_rating_six() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(6);
-        assert_invalid(validate_update_exchange(e), "Provider rating must be 1-5");
-    }
-
-    #[test]
-    fn update_exchange_recipient_rating_zero() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(0);
-        assert_invalid(validate_update_exchange(e), "Recipient rating must be 1-5");
-    }
-
-    #[test]
-    fn update_exchange_recipient_rating_six() {
-        let mut e = valid_exchange();
-        e.rating_recipient = Some(6);
-        assert_invalid(validate_update_exchange(e), "Recipient rating must be 1-5");
-    }
-
-    #[test]
-    fn update_exchange_both_ratings_valid_boundaries() {
-        for r in 1u8..=5 {
-            let mut e = valid_exchange();
-            e.rating_provider = Some(r);
-            e.rating_recipient = Some(r);
-            assert_valid(validate_update_exchange(e));
-        }
-    }
-
-    #[test]
-    fn update_exchange_provider_rating_valid_recipient_invalid() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(3);
-        e.rating_recipient = Some(0);
-        assert_invalid(validate_update_exchange(e), "Recipient rating must be 1-5");
-    }
-
-    #[test]
-    fn update_exchange_provider_rating_invalid_recipient_valid() {
-        let mut e = valid_exchange();
-        e.rating_provider = Some(255);
-        e.rating_recipient = Some(3);
-        // Provider check comes first
-        assert_invalid(validate_update_exchange(e), "Provider rating must be 1-5");
-    }
-
-    // ── validate_update_request numeric bounds ──────────────────────────
-
-    #[test]
-    fn update_request_negative_hours_rejected() {
-        let mut r = valid_request();
-        r.hours_needed = -1.0;
+    fn update_exchange_rejects_provider_change() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.provider = agent_b();
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
         assert_invalid(
-            validate_update_request(r),
-            "Hours needed cannot be negative",
+            Ok(result),
+            "Only rating_provider/rating_recipient can change",
         );
     }
 
     #[test]
-    fn update_request_zero_hours_ok() {
-        // update allows zero (closing a request), unlike create which requires positive
-        let mut r = valid_request();
-        r.hours_needed = 0.0;
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_positive_hours_ok() {
-        let mut r = valid_request();
-        r.hours_needed = 5.0;
-        assert_valid(validate_update_request(r));
-    }
-
-    // ── validate_update_exchange numeric bounds ─────────────────────────
-
-    #[test]
-    fn update_exchange_zero_hours_rejected() {
-        let mut e = valid_exchange();
-        e.hours = 0.0;
+    fn update_exchange_rejects_notes_change() {
+        let original = valid_exchange();
+        let mut exchange = original.clone();
+        exchange.notes = "changed".to_string();
+        let result = validate_exchange_transition(&original, &exchange, &agent_a());
         assert_invalid(
-            validate_update_exchange(e),
-            "Exchange hours must be positive",
-        );
-    }
-
-    #[test]
-    fn update_exchange_negative_hours_rejected() {
-        let mut e = valid_exchange();
-        e.hours = -2.0;
-        assert_invalid(
-            validate_update_exchange(e),
-            "Exchange hours must be positive",
-        );
-    }
-
-    #[test]
-    fn update_exchange_positive_hours_ok() {
-        let mut e = valid_exchange();
-        e.hours = 3.5;
-        assert_valid(validate_update_exchange(e));
-    }
-
-    #[test]
-    fn update_exchange_hours_checked_before_ratings() {
-        let mut e = valid_exchange();
-        e.hours = -1.0;
-        e.rating_provider = Some(0); // Also invalid
-        assert_invalid(
-            validate_update_exchange(e),
-            "Exchange hours must be positive",
+            Ok(result),
+            "Only rating_provider/rating_recipient can change",
         );
     }
 
@@ -1741,196 +1684,6 @@ mod tests {
         e.notes = "n".repeat(4097);
         assert_invalid(
             validate_create_exchange(fake_create(), e),
-            "Notes must be 4096 characters or fewer",
-        );
-    }
-
-    // ── Update offer max-length boundary tests ────────────────────────
-
-    #[test]
-    fn update_offer_title_at_max_length() {
-        let mut o = valid_offer();
-        o.title = "t".repeat(256);
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_title_over_max_length() {
-        let mut o = valid_offer();
-        o.title = "t".repeat(257);
-        assert_invalid(
-            validate_update_offer(o),
-            "Offer title must be 256 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_offer_description_at_max_length() {
-        let mut o = valid_offer();
-        o.description = "d".repeat(4096);
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_description_over_max_length() {
-        let mut o = valid_offer();
-        o.description = "d".repeat(4097);
-        assert_invalid(
-            validate_update_offer(o),
-            "Offer description must be 4096 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_offer_location_at_max_length() {
-        let mut o = valid_offer();
-        o.location = "l".repeat(512);
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_location_over_max_length() {
-        let mut o = valid_offer();
-        o.location = "l".repeat(513);
-        assert_invalid(
-            validate_update_offer(o),
-            "Location must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_offer_availability_at_max_length() {
-        let mut o = valid_offer();
-        o.availability = "a".repeat(512);
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_availability_over_max_length() {
-        let mut o = valid_offer();
-        o.availability = "a".repeat(513);
-        assert_invalid(
-            validate_update_offer(o),
-            "Availability must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_offer_skills_at_max_count() {
-        let mut o = valid_offer();
-        o.skills_required = (0..20).map(|i| format!("skill_{i}")).collect();
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_skills_over_max_count() {
-        let mut o = valid_offer();
-        o.skills_required = (0..21).map(|i| format!("skill_{i}")).collect();
-        assert_invalid(validate_update_offer(o), "Cannot list more than 20 skills");
-    }
-
-    #[test]
-    fn update_offer_skill_at_max_length() {
-        let mut o = valid_offer();
-        o.skills_required = vec!["z".repeat(128)];
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_skill_over_max_length() {
-        let mut o = valid_offer();
-        o.skills_required = vec!["z".repeat(129)];
-        assert_invalid(
-            validate_update_offer(o),
-            "Each skill must be 128 characters or fewer",
-        );
-    }
-
-    // ── Update request max-length boundary tests ──────────────────────
-
-    #[test]
-    fn update_request_title_at_max_length() {
-        let mut r = valid_request();
-        r.title = "t".repeat(256);
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_title_over_max_length() {
-        let mut r = valid_request();
-        r.title = "t".repeat(257);
-        assert_invalid(
-            validate_update_request(r),
-            "Request title must be 256 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_request_description_at_max_length() {
-        let mut r = valid_request();
-        r.description = "d".repeat(4096);
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_description_over_max_length() {
-        let mut r = valid_request();
-        r.description = "d".repeat(4097);
-        assert_invalid(
-            validate_update_request(r),
-            "Request description must be 4096 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_request_location_at_max_length() {
-        let mut r = valid_request();
-        r.location = "l".repeat(512);
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_location_over_max_length() {
-        let mut r = valid_request();
-        r.location = "l".repeat(513);
-        assert_invalid(
-            validate_update_request(r),
-            "Location must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_request_preferred_schedule_at_max_length() {
-        let mut r = valid_request();
-        r.preferred_schedule = "s".repeat(512);
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_preferred_schedule_over_max_length() {
-        let mut r = valid_request();
-        r.preferred_schedule = "s".repeat(513);
-        assert_invalid(
-            validate_update_request(r),
-            "Preferred schedule must be 512 characters or fewer",
-        );
-    }
-
-    // ── Update exchange max-length boundary tests ─────────────────────
-
-    #[test]
-    fn update_exchange_notes_at_max_length() {
-        let mut e = valid_exchange();
-        e.notes = "n".repeat(4096);
-        assert_valid(validate_update_exchange(e));
-    }
-
-    #[test]
-    fn update_exchange_notes_over_max_length() {
-        let mut e = valid_exchange();
-        e.notes = "n".repeat(4097);
-        assert_invalid(
-            validate_update_exchange(e),
             "Notes must be 4096 characters or fewer",
         );
     }
@@ -2136,73 +1889,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn update_offer_empty_skill_name() {
-        let mut o = valid_offer();
-        o.skills_required = vec!["".to_string()];
-        assert_invalid(validate_update_offer(o), "Skill name cannot be empty");
-    }
-
-    #[test]
-    fn update_offer_whitespace_skill_name() {
-        let mut o = valid_offer();
-        o.skills_required = vec!["   ".to_string()];
-        assert_invalid(validate_update_offer(o), "Skill name cannot be empty");
-    }
-
-    // ── Update category validation tests ─────────────────────────────
-
-    #[test]
-    fn update_offer_other_category_at_limit() {
-        let mut o = valid_offer();
-        o.category = ServiceCategory::Other("a".repeat(128));
-        assert_valid(validate_update_offer(o));
-    }
-
-    #[test]
-    fn update_offer_other_category_too_long() {
-        let mut o = valid_offer();
-        o.category = ServiceCategory::Other("a".repeat(129));
-        assert_invalid(
-            validate_update_offer(o),
-            "Custom service category label must be 128 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_offer_other_category_empty() {
-        let mut o = valid_offer();
-        o.category = ServiceCategory::Other("".to_string());
-        assert_invalid(
-            validate_update_offer(o),
-            "Custom service category label cannot be empty",
-        );
-    }
-
-    #[test]
-    fn update_request_other_category_at_limit() {
-        let mut r = valid_request();
-        r.category = ServiceCategory::Other("a".repeat(128));
-        assert_valid(validate_update_request(r));
-    }
-
-    #[test]
-    fn update_request_other_category_too_long() {
-        let mut r = valid_request();
-        r.category = ServiceCategory::Other("a".repeat(129));
-        assert_invalid(
-            validate_update_request(r),
-            "Custom service category label must be 128 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_request_other_category_empty() {
-        let mut r = valid_request();
-        r.category = ServiceCategory::Other("".to_string());
-        assert_invalid(
-            validate_update_request(r),
-            "Custom service category label cannot be empty",
-        );
-    }
+    // validate_update_offer/validate_update_request no longer exist: the
+    // dispatcher now rejects all ServiceOffer/ServiceRequest updates
+    // outright (immutable; re-post to change details), matching the
+    // standalone mycelix-care/zomes/timebank fix -- confirmed no live
+    // coordinator update flow exists for either entry type.
 }

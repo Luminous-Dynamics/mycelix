@@ -399,8 +399,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        // Author-binding, matching every other civic zome's generic dispatcher (found missing
+        // here 2026-07-28 during P0-#1 triage): without this, ANY agent's update/delete of an
+        // existing RoboticAsset/DispatchOrder/TelemetryReport/RoboticCredential was accepted
+        // network-wide with no author check at all -- the only zome in this cluster where that
+        // was true. `recall_asset`'s coordinator-level lack of a check was real and exploitable
+        // here specifically, unlike the other 9 zomes where this same dispatcher already closed
+        // the gap regardless of coordinator-level checks.
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 

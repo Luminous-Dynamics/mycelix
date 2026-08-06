@@ -50,7 +50,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Initial claim:");
     println!("  ID: {}", claim.id);
-    println!("  Tier: {:?} ({})", claim.epistemic_tier, claim.epistemic_tier.description());
+    println!(
+        "  Tier: {:?} ({})",
+        claim.epistemic_tier,
+        claim.epistemic_tier.description()
+    );
     println!("  Creator: {}", claim.creator);
     println!();
 
@@ -60,16 +64,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "laboratory_record".to_string(),
     )
     .with_url("https://lab.example.edu/notebook/2024-042".to_string())
-    .with_metadata(
-        "institution",
-        serde_json::json!("Example University"),
-    );
+    .with_metadata("institution", serde_json::json!("Example University"));
 
-    let prov2 = Provenance::new(
-        "PubChem ID:123456".to_string(),
-        "database".to_string(),
-    )
-    .with_url("https://pubchem.ncbi.nlm.nih.gov/compound/123456".to_string());
+    let prov2 = Provenance::new("PubChem ID:123456".to_string(), "database".to_string())
+        .with_url("https://pubchem.ncbi.nlm.nih.gov/compound/123456".to_string());
 
     claim.add_provenance(prov1);
     claim.add_provenance(prov2);
@@ -82,7 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. Validate tier requirements
     println!("Tier validation:");
-    println!("  Required verifications: {}", claim.epistemic_tier.min_verifications());
+    println!(
+        "  Required verifications: {}",
+        claim.epistemic_tier.min_verifications()
+    );
     println!("  Current verifications: {}", claim.verifications.len());
     println!("  Valid: {}", claim.is_valid_for_tier());
     println!();

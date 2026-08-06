@@ -182,8 +182,11 @@ fn OfflineBanner() -> impl IntoView {
                  }
              }>
             {move || match hc.status.get() {
-                ConnectionStatus::Unavailable => "\u{26A0} Live mode unavailable — reconnect or explicitly enter Demo mode",
-                _ => "\u{26A0} Conductor disconnected — reconnecting...",
+                ConnectionStatus::Unavailable => hc.last_error.get().map_or_else(
+                    || "\u{26A0} Live mode unavailable — reconnect or explicitly enter Demo mode".to_string(),
+                    |reason| format!("\u{26A0} Live mode unavailable — {reason}"),
+                ),
+                _ => "\u{26A0} Conductor disconnected — reconnecting...".to_string(),
             }}
         </div>
     }

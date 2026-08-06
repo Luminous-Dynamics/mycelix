@@ -45,13 +45,15 @@ Turns "never proven" into "proven on every push." No browser, no PQC needed.
      `/nix/store/g2iq49a41l7x9hma8fiwjaqc9754x2kg-hc-0.6.0/bin/hc dna pack dna/ -o dna/mycelix_mail.dna`.
    - The zome build used the session `CARGO_TARGET_DIR`, but `dna.yaml` references
      `../target/...`; **symlink** `holochain/target` → the CARGO_TARGET_DIR so the wasms resolve.
-3. ⏸ **Delivery sweettest — blocked by the cross-session cargo-gate** (2 build slots, 14
-   sessions): `cargo test -p mycelix-pulse-sweettests --test sweettest_mail_security
-   phase0_alice_sends_bob_receives -- --ignored --test-threads=1` (set `LIBCLANG_PATH` to a
-   nix-store `libclang.so` dir; the nix shell can't provide it). The sweettest crate never
-   got a build slot (killed while queued). **Run this in a low-session-count window** — the
-   compile is the full Holochain 0.6 + sweettest stack; everything it needs upstream is now
-   ready. This is the only remaining step to a green delivery proof.
+3. ✅ **Delivery sweettest — CLOSED**, later than this note originally reported (was
+   ⏸ blocked by the cross-session cargo-gate as of 2026-07-08). Per
+   `PULSE_NEXT_SESSION_PLAN_2026-07-18.md`: `phase0_two_conductor_harness_smoke` and
+   `phase0_v2_hybrid_pqc_transport`/`phase0_v2_negative_paths`/`phase0_v2_conductor_restart_recovery`
+   all now pass against real conductors (see `docs/ALPHA_EVIDENCE.md`), and a full
+   live-browser proof (`scripts/live-browser-proof/run-with-retry.sh`) passes end-to-end
+   through a real DOM read. This is a stronger result than "Alice's signed email reaches
+   Bob's inbox intact" below — it now covers the V2 hybrid-PQC envelope, not the
+   placeholder-key path this phase originally scoped.
 
 **⚠ PREREQUISITE found 2026-07-07 (blocks the wasm zome build): pulse's `holochain/`
 workspace is missing the getrandom-0.2 `custom` force that every sibling cluster has.**
@@ -106,6 +108,21 @@ conductor test shows Alice's signed email reaches Bob's inbox intact, run in CI.
 **Effort ~1 day.**
 
 ## Phase 3 — Wire hybrid PQC into the payload  *(the library payoff; gate on crypto audit)*
+
+> **Note (2026-07-25): the implementation has landed**, under the name `V2HybridPqc`/
+> `send_email_v2` rather than the exact opaque-blob field-crypto design sketched below.
+> ML-DSA-65 signature verification (both sender- and recipient-key-state) is live in
+> `mail_messages_integrity`, live-verified per `PULSE_NEXT_SESSION_PLAN_2026-07-18.md` item 3
+> and `docs/ALPHA_EVIDENCE.md`. **Resolved (was previously flagged as open): the "crypto
+> audit" gate below has NOT cleared, and per current canon it isn't even the right name for
+> the gate any more.** `happ/SECURITY.md`'s "professional security audit (Phase 3)" is
+> Phase-1-era language, superseded by ADR-002's *release-evidence gate* — an internal,
+> evidence-based standard (Sweettest proof, live-verification, documented exclusions), not
+> necessarily an external paid audit. Per `README.md` (2026-07-25 read): "The implementation
+> is still behind its complete release-evidence gate" — i.e. the code runs and is
+> live-verified, but no production-security claim is made, and none should be inferred from
+> this doc landing the phase. See `docs/adr/ADR-002-working-alpha-contracts.md` and
+> `docs/PULSE_V2_CRYPTO_SPEC.md` for the current authoritative framing.
 
 Opaque-blob envelope — **zero `EncryptedEmail` schema change**: `encrypted_subject`/`body`
 carry `field_crypto` `mxc1:`+bs58 bytes; `ephemeral_pubkey` stays a 32-byte X25519 value;
@@ -166,11 +183,23 @@ consumers. Cheapest real gate (one hook at `coordinator:248`):
 
 ## Explicitly deferred (not part of the golden path)
 
-- **External SMTP / Gmail interop** (Phase 5B: Hetzner MX, DKIM signing, port-25, real
-  `holochain_client` swap for `StubZomeBridge`). A funded multi-week effort; internal
+- **External SMTP / Gmail interop** (Phase 5B: own VPS/MX, DKIM signing, port-25, real
+  `holochain_client` swap for `StubZomeBridge`). **Decided 2026-07-19: deliberately
+  descoped for now, not just deferred.** A serverless alternative (Cloudflare Email
+  Routing + a transactional-email API, avoiding the VPS/port-25 wait entirely) was
+  considered and rejected — it would satisfy the operational ask but conflicts with
+  this project's own Phase 11 framing (`PULSE_READINESS_PLAN.md`: "using SaaS instead
+  would teach us how to be SaaS customers, not how to run the substrate"). Since the
+  fully-self-hosted path is the only one that fits that principle, and its VPS/port-25/
+  reputation-warmup cost isn't justified without real user demand for external interop
+  yet, Pulse stays Holochain-native-only until that demand exists. Internal
   mycelix↔mycelix mail needs none of it.
 - **Epoch ratchet / forward secrecy** (readiness-plan Phase 3) — separate multi-week effort.
-- **On-chain ML-DSA verification** — blocked on an HDK host function (propose upstream).
+- **On-chain ML-DSA verification** — ~~blocked on an HDK host function (propose upstream)~~
+  **CLOSED 2026-07-19**: `ml-dsa`'s verification path (not signing/keygen) needs no
+  randomness and links cleanly into HDI/WASM with `default-features = false, features =
+  ["alloc"]` — no host function needed. See `docs/ALPHA_EVIDENCE.md` and
+  `docs/adr/ADR-002-working-alpha-contracts.md`.
 - **Sybil-proof rate limiting** — needs the cap in integrity validation, not coordinator.
 
 ## Acceptance criteria for "Pulse genuinely delivers a PQC message, proven in CI"

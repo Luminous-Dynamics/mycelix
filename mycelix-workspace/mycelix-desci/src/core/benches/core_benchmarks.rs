@@ -13,7 +13,7 @@
 //! - Hash: BLAKE3, SHA-256, Merkle tree construction
 //! - Trust: score updates, queries, decay calculations
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mycelix_desci_core::{
     claims::{ClaimContent, DesciClaim, EpistemicTier, Provenance, Verification},
     hash,
@@ -180,7 +180,8 @@ fn bench_storage_write(c: &mut Criterion) {
             rt.block_on(async {
                 for i in 0..1000 {
                     let content = ClaimContent {
-                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes()).to_string(),
+                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes())
+                            .to_string(),
                         description: format!("Research finding #{}", i),
                         category: "test".to_string(),
                         keywords: vec!["test".to_string()],
@@ -257,8 +258,9 @@ fn bench_storage_concurrent(c: &mut Criterion) {
                         for i in 0..10 {
                             let content = ClaimContent {
                                 dataset_hash: hash::hash_bytes(
-                                    format!("data_{}_{}", thread_id, i).as_bytes()
-                                ).to_string(),
+                                    format!("data_{}_{}", thread_id, i).as_bytes(),
+                                )
+                                .to_string(),
                                 description: format!("Finding {} from thread {}", i, thread_id),
                                 category: "test".to_string(),
                                 keywords: vec!["test".to_string()],
@@ -298,7 +300,8 @@ fn bench_storage_bulk(c: &mut Criterion) {
                 // Store 100 claims
                 for i in 0..100 {
                     let content = ClaimContent {
-                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes()).to_string(),
+                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes())
+                            .to_string(),
                         description: format!("Research finding #{}", i),
                         category: "test".to_string(),
                         keywords: vec!["test".to_string()],
@@ -341,7 +344,8 @@ fn bench_index_build(c: &mut Criterion) {
 
                 for i in 0..1000 {
                     let content = ClaimContent {
-                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes()).to_string(),
+                        dataset_hash: hash::hash_bytes(format!("data_{}", i).as_bytes())
+                            .to_string(),
                         description: format!("Research finding #{}", i),
                         category: if i % 3 == 0 { "longevity" } else { "genomics" }.to_string(),
                         keywords: vec!["test".to_string(), format!("keyword_{}", i % 10)],
@@ -350,7 +354,11 @@ fn bench_index_build(c: &mut Criterion) {
                         license: Some("MIT".to_string()),
                     };
                     let claim = DesciClaim::new(
-                        if i % 5 == 0 { EpistemicTier::E3 } else { EpistemicTier::E0 },
+                        if i % 5 == 0 {
+                            EpistemicTier::E3
+                        } else {
+                            EpistemicTier::E0
+                        },
                         content,
                         "researcher@test.edu".to_string(),
                     );
@@ -533,9 +541,7 @@ fn bench_pagination(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 for page in 0..10 {
-                    let filter = QueryFilter::new()
-                        .with_offset(page * 10)
-                        .with_limit(10);
+                    let filter = QueryFilter::new().with_offset(page * 10).with_limit(10);
                     let results = query_engine.query(&filter).await.unwrap();
                     black_box(results);
                 }
@@ -552,9 +558,7 @@ fn bench_blake3(c: &mut Criterion) {
     let data = vec![0u8; 1024 * 1024]; // 1MB of data
 
     c.bench_function("hash_blake3_1mb", |b| {
-        b.iter(|| {
-            black_box(hash::hash_bytes(&data))
-        });
+        b.iter(|| black_box(hash::hash_bytes(&data)));
     });
 }
 
@@ -563,7 +567,7 @@ fn bench_sha256(c: &mut Criterion) {
 
     c.bench_function("hash_sha256_1mb", |b| {
         b.iter(|| {
-            use sha2::{Sha256, Digest};
+            use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(&data);
             black_box(hasher.finalize())
@@ -670,12 +674,7 @@ criterion_group!(
     bench_pagination
 );
 
-criterion_group!(
-    hash_benches,
-    bench_blake3,
-    bench_sha256,
-    bench_merkle_tree
-);
+criterion_group!(hash_benches, bench_blake3, bench_sha256, bench_merkle_tree);
 
 criterion_group!(
     trust_benches,

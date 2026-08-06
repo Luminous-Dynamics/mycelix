@@ -27,7 +27,7 @@ pub fn VoiceCommandCenter() -> impl IntoView {
                 <div style="font-size: 0.8rem">
                     <strong>"Hands-Free Ops"</strong>
                     <div style="color: var(--text-tertiary); font-size: 0.7rem">
-                        {move || if is_listening.get() { "Listening (Local-WASM)..." } else { format!("Last: {}", last_command.get()) }}
+                        {move || if is_listening.get() { "Listening (Local-WASM)...".to_string() } else { format!("Last: {}", last_command.get()) }}
                     </div>
                 </div>
                 <button

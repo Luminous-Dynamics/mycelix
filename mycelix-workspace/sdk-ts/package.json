@@ -2,6 +2,7 @@
   "name": "@mycelix/sdk",
   "version": "0.6.0",
   "description": "Mycelix SDK - TypeScript bindings for MATL, Epistemic, Bridge, and Holochain Client",
+  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

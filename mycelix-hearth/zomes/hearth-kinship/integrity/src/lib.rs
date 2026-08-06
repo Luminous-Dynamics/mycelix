@@ -49,6 +49,8 @@ pub struct HearthMembership {
     pub display_name: String,
     /// When the member joined.
     pub joined_at: Timestamp,
+    /// Cryptographic provenance for this membership.
+    pub admission: MembershipAdmission,
 }
 
 /// A kinship bond between two members of a hearth.
@@ -87,8 +89,27 @@ pub struct HearthInvitation {
     pub message: String,
     /// When the invitation expires.
     pub expires_at: Timestamp,
-    /// Current status of the invitation.
+    /// Invitations are immutable and are always created Pending. Resolution is
+    /// represented by a separate invitee-authored InvitationResponse entry.
     pub status: InvitationStatus,
+}
+
+/// Immutable invitee-authored resolution of an invitation.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct InvitationResponse {
+    /// Hearth copied from the referenced invitation.
+    pub hearth_hash: ActionHash,
+    /// Invitation being consumed.
+    pub invitation_hash: ActionHash,
+    /// Invitee who authored this response.
+    pub invitee_agent: AgentPubKey,
+    /// Accepted or declined.
+    pub decision: InvitationDecision,
+    /// Display name used only for accepted invitations.
+    pub display_name: Option<String>,
+    /// Timestamp used for expiry and membership-join binding.
+    pub responded_at: Timestamp,
 }
 
 /// Anchor entry for deterministic link bases.
@@ -107,6 +128,7 @@ pub enum EntryTypes {
     HearthMembership(HearthMembership),
     KinshipBond(KinshipBond),
     HearthInvitation(HearthInvitation),
+    InvitationResponse(InvitationResponse),
     Anchor(Anchor),
     WeeklyDigest(WeeklyDigest),
 }
@@ -129,6 +151,10 @@ pub enum LinkTypes {
     HearthToInvitations,
     /// AgentPubKey -> HearthInvitation
     AgentToInvitations,
+    /// HearthInvitation -> InvitationResponse
+    InvitationToResponses,
+    /// AgentPubKey -> InvitationResponse
+    AgentToInvitationResponses,
     /// Hearth -> WeeklyDigest (H2 epoch rollups)
     HearthToDigests,
 }
@@ -145,14 +171,28 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Hearth(hearth) => validate_hearth(&hearth),
-            EntryTypes::HearthMembership(membership) => validate_membership(&membership),
+            EntryTypes::HearthMembership(membership) => {
+                let structural = validate_membership(&membership)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
+                validate_membership_admission(&membership)
+            }
             EntryTypes::KinshipBond(bond) => validate_bond(&bond),
             EntryTypes::HearthInvitation(invitation) => validate_invitation(&invitation),
+            EntryTypes::InvitationResponse(response) => {
+                let authorship = validate_claimed_agent(
+                    &action.author,
+                    &response.invitee_agent,
+                    "InvitationResponse.invitee_agent",
+                );
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
+                validate_invitation_response(&response)
+            }
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             EntryTypes::WeeklyDigest(digest) => validate_weekly_digest(&digest),
         },
@@ -162,21 +202,32 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => match app_entry {
             EntryTypes::Hearth(hearth) => {
-                validate_hearth(&hearth)?;
+                let structural = validate_hearth(&hearth)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
                 validate_hearth_immutable_fields(&hearth, &original_action_hash)
             }
             EntryTypes::HearthMembership(membership) => {
-                validate_membership(&membership)?;
+                let structural = validate_membership(&membership)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
                 validate_membership_immutable_fields(&membership, &original_action_hash)
             }
             EntryTypes::KinshipBond(bond) => {
-                validate_bond(&bond)?;
+                let structural = validate_bond(&bond)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
                 validate_bond_immutable_fields(&bond, &original_action_hash)
             }
-            EntryTypes::HearthInvitation(invitation) => {
-                validate_invitation(&invitation)?;
-                validate_invitation_immutable_fields(&invitation, &original_action_hash)
-            }
+            EntryTypes::HearthInvitation(_) => Ok(ValidateCallbackResult::Invalid(
+                "HearthInvitation is immutable; publish an InvitationResponse instead".into(),
+            )),
+            EntryTypes::InvitationResponse(_) => Ok(ValidateCallbackResult::Invalid(
+                "InvitationResponse cannot be updated once created".into(),
+            )),
             EntryTypes::Anchor(_) => {
                 // INVARIANT: Anchor immutability — anchors are deterministic link bases
                 // and must not be modified after creation.
@@ -194,18 +245,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         },
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink {
-            link_type: _,
-            base_address: _,
-            target_address: _,
+            link_type,
+            base_address,
+            target_address,
             tag,
-            action: _,
+            action,
         } => {
             if tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            validate_create_link(link_type, base_address, target_address, &action.author)
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
@@ -245,6 +296,156 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+// ============================================================================
+// Link Validation
+// ============================================================================
+
+fn action_hash_from_link(
+    hash: AnyLinkableHash,
+    label: &str,
+) -> Result<ActionHash, ValidateCallbackResult> {
+    ActionHash::try_from(hash)
+        .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+}
+
+fn agent_key_from_link(
+    hash: AnyLinkableHash,
+    label: &str,
+) -> Result<AgentPubKey, ValidateCallbackResult> {
+    AgentPubKey::try_from(hash)
+        .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an AgentPubKey")))
+}
+
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    match link_type {
+        LinkTypes::HearthToMembers => {
+            let hearth_hash = match action_hash_from_link(base_address, "HearthToMembers base") {
+                Ok(hash) => hash,
+                Err(result) => return Ok(result),
+            };
+            let membership_hash =
+                match action_hash_from_link(target_address, "HearthToMembers target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let (membership, membership_author): (HearthMembership, AgentPubKey) =
+                load_typed_entry(membership_hash, "HearthMembership")?;
+            if membership.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToMembers target belongs to a different hearth".into(),
+                ));
+            }
+            if membership_author != *author || membership.agent != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToMembers link must be authored by the membership agent".into(),
+                ));
+            }
+        }
+        LinkTypes::HearthToInvitations => {
+            let hearth_hash = match action_hash_from_link(base_address, "HearthToInvitations base")
+            {
+                Ok(hash) => hash,
+                Err(result) => return Ok(result),
+            };
+            let invitation_hash =
+                match action_hash_from_link(target_address, "HearthToInvitations target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
+                load_typed_entry(invitation_hash, "HearthInvitation")?;
+            if invitation.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToInvitations target belongs to a different hearth".into(),
+                ));
+            }
+            if invitation_author != *author || invitation.inviter != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToInvitations link must be authored by the inviter".into(),
+                ));
+            }
+        }
+        LinkTypes::AgentToInvitations => {
+            let invitee = match agent_key_from_link(base_address, "AgentToInvitations base") {
+                Ok(agent) => agent,
+                Err(result) => return Ok(result),
+            };
+            let invitation_hash =
+                match action_hash_from_link(target_address, "AgentToInvitations target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
+                load_typed_entry(invitation_hash, "HearthInvitation")?;
+            if invitation.invitee_agent != invitee {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToInvitations base is not the invitation invitee".into(),
+                ));
+            }
+            if invitation_author != *author || invitation.inviter != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToInvitations link must be authored by the inviter".into(),
+                ));
+            }
+        }
+        LinkTypes::InvitationToResponses => {
+            let invitation_hash =
+                match action_hash_from_link(base_address, "InvitationToResponses base") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let response_hash =
+                match action_hash_from_link(target_address, "InvitationToResponses target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let (response, response_author): (InvitationResponse, AgentPubKey) =
+                load_typed_entry(response_hash, "InvitationResponse")?;
+            if response.invitation_hash != invitation_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "InvitationToResponses target references a different invitation".into(),
+                ));
+            }
+            if response_author != *author || response.invitee_agent != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "InvitationToResponses link must be authored by the invitee".into(),
+                ));
+            }
+        }
+        LinkTypes::AgentToInvitationResponses => {
+            let invitee = match agent_key_from_link(base_address, "AgentToInvitationResponses base")
+            {
+                Ok(agent) => agent,
+                Err(result) => return Ok(result),
+            };
+            let response_hash =
+                match action_hash_from_link(target_address, "AgentToInvitationResponses target") {
+                    Ok(hash) => hash,
+                    Err(result) => return Ok(result),
+                };
+            let (response, response_author): (InvitationResponse, AgentPubKey) =
+                load_typed_entry(response_hash, "InvitationResponse")?;
+            if response.invitee_agent != invitee {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToInvitationResponses base is not the response invitee".into(),
+                ));
+            }
+            if response_author != *author || invitee != *author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToInvitationResponses link must be authored by the invitee".into(),
+                ));
+            }
+        }
+        _ => {}
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 // ============================================================================
@@ -294,6 +495,178 @@ pub fn validate_membership(membership: &HearthMembership) -> ExternResult<Valida
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn load_typed_entry<T>(hash: ActionHash, label: &str) -> ExternResult<(T, AgentPubKey)>
+where
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError>,
+{
+    let record = must_get_valid_record(hash)?;
+    let author = record.action().author().clone();
+    let entry = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to deserialize {label}: {e}"
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
+            "Referenced {label} entry is missing"
+        ))))?;
+    Ok((entry, author))
+}
+
+/// Verify that a membership is backed by either hearth creation or an exact,
+/// accepted, invitee-authored response. This closes the self-enrollment hole.
+fn validate_membership_admission(
+    membership: &HearthMembership,
+) -> ExternResult<ValidateCallbackResult> {
+    match &membership.admission {
+        MembershipAdmission::Founder => {
+            let (hearth, _): (Hearth, AgentPubKey) =
+                load_typed_entry(membership.hearth_hash.clone(), "Hearth")?;
+            if hearth.created_by != membership.agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Founder admission requires the member to be the hearth creator".into(),
+                ));
+            }
+            if membership.role != MemberRole::Founder {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Founder admission requires the Founder role".into(),
+                ));
+            }
+            if membership.status != MembershipStatus::Active {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Founder admission must create an Active membership".into(),
+                ));
+            }
+        }
+        MembershipAdmission::Invitation {
+            invitation_hash,
+            response_hash,
+        } => {
+            let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
+                load_typed_entry(invitation_hash.clone(), "HearthInvitation")?;
+            let (response, response_author): (InvitationResponse, AgentPubKey) =
+                load_typed_entry(response_hash.clone(), "InvitationResponse")?;
+
+            if invitation_author != invitation.inviter {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Invitation author does not match its inviter".into(),
+                ));
+            }
+            if response_author != membership.agent || response.invitee_agent != membership.agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Invitation response must be authored by the admitted member".into(),
+                ));
+            }
+            if invitation.hearth_hash != membership.hearth_hash
+                || response.hearth_hash != membership.hearth_hash
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Admission invitation and response must reference the membership hearth".into(),
+                ));
+            }
+            if response.invitation_hash != *invitation_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Admission response does not reference the supplied invitation".into(),
+                ));
+            }
+            if invitation.invitee_agent != membership.agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Admission invitation was not addressed to the member".into(),
+                ));
+            }
+            if invitation.proposed_role != membership.role {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Membership role must equal the invitation's proposed role".into(),
+                ));
+            }
+            if invitation.status != InvitationStatus::Pending {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Admission requires an immutable Pending invitation".into(),
+                ));
+            }
+            if response.decision != InvitationDecision::Accepted {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Membership admission requires an Accepted response".into(),
+                ));
+            }
+            if response.display_name.as_deref() != Some(membership.display_name.as_str()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Membership display_name must match the accepted response".into(),
+                ));
+            }
+            if response.responded_at > invitation.expires_at {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Membership cannot consume an expired invitation".into(),
+                ));
+            }
+            if membership.joined_at != response.responded_at {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Membership joined_at must equal the accepted response timestamp".into(),
+                ));
+            }
+            if membership.status != MembershipStatus::Active {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Accepted invitation admission must create an Active membership".into(),
+                ));
+            }
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+pub fn validate_invitation_response(
+    response: &InvitationResponse,
+) -> ExternResult<ValidateCallbackResult> {
+    let (invitation, invitation_author): (HearthInvitation, AgentPubKey) =
+        load_typed_entry(response.invitation_hash.clone(), "HearthInvitation")?;
+
+    if invitation_author != invitation.inviter {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Invitation author does not match its inviter".into(),
+        ));
+    }
+    if invitation.status != InvitationStatus::Pending {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only immutable Pending invitations may be answered".into(),
+        ));
+    }
+    if invitation.hearth_hash != response.hearth_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "InvitationResponse hearth_hash must match the invitation".into(),
+        ));
+    }
+    if invitation.invitee_agent != response.invitee_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "InvitationResponse invitee_agent must match the invitation".into(),
+        ));
+    }
+    if response.responded_at > invitation.expires_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot answer an expired invitation".into(),
+        ));
+    }
+    match response.decision {
+        InvitationDecision::Accepted => match response.display_name.as_deref() {
+            Some(name) if !name.is_empty() && name.len() <= 256 => {}
+            _ => {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Accepted invitation response requires a display_name <= 256 characters".into(),
+                ));
+            }
+        },
+        InvitationDecision::Declined => {
+            if response.display_name.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Declined invitation response must not contain a display_name".into(),
+                ));
+            }
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 pub fn validate_bond(bond: &KinshipBond) -> ExternResult<ValidateCallbackResult> {
     if bond.strength_bp > 10000 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -330,6 +703,11 @@ pub fn validate_invitation(invitation: &HearthInvitation) -> ExternResult<Valida
     if invitation.message.len() > 2048 {
         return Ok(ValidateCallbackResult::Invalid(
             "Invitation message must be <= 2048 characters".into(),
+        ));
+    }
+    if invitation.status != InvitationStatus::Pending {
+        return Ok(ValidateCallbackResult::Invalid(
+            "HearthInvitation must be created Pending and resolved by InvitationResponse".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -399,6 +777,26 @@ fn validate_membership_immutable_fields(
             "Cannot change joined_at on a HearthMembership".into(),
         ));
     }
+    if new.admission != original.admission {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot change admission proof on a HearthMembership".into(),
+        ));
+    }
+    if new.role != original.role {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Membership roles cannot be changed by entry update".into(),
+        ));
+    }
+    if new.display_name != original.display_name {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Membership display_name cannot be changed by entry update".into(),
+        ));
+    }
+    if original.status != MembershipStatus::Active || new.status != MembershipStatus::Departed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "The only permitted membership update is Active to Departed by the member".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -436,45 +834,6 @@ fn validate_bond_immutable_fields(
     if new.created_at != original.created_at {
         return Ok(ValidateCallbackResult::Invalid(
             "Cannot change created_at on a KinshipBond".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-fn validate_invitation_immutable_fields(
-    new: &HearthInvitation,
-    original_action_hash: &ActionHash,
-) -> ExternResult<ValidateCallbackResult> {
-    let original_record = must_get_valid_record(original_action_hash.clone())?;
-    let original: HearthInvitation = original_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to deserialize original HearthInvitation: {e}"
-            )))
-        })?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Original HearthInvitation entry is missing".into()
-        )))?;
-    if new.hearth_hash != original.hearth_hash {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot change hearth_hash on a HearthInvitation".into(),
-        ));
-    }
-    if new.inviter != original.inviter {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot change inviter on a HearthInvitation".into(),
-        ));
-    }
-    if new.invitee_agent != original.invitee_agent {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot change invitee_agent on a HearthInvitation".into(),
-        ));
-    }
-    if new.expires_at != original.expires_at {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot change expires_at on a HearthInvitation".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -525,6 +884,7 @@ mod tests {
             status: MembershipStatus::Active,
             display_name: display_name.into(),
             joined_at: fake_timestamp(),
+            admission: MembershipAdmission::Founder,
         }
     }
 

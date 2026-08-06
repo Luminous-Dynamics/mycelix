@@ -4,7 +4,7 @@ set -uo pipefail
 
 SANDBOX_ROOT="${SANDBOX_ROOT:-/tmp/mycelix-pulse-live-proof}"
 
-for who in alice bob bootstrap relay; do
+for who in alice bob; do
   pidfile="$SANDBOX_ROOT/$who.pid"
   if [[ -f "$pidfile" ]]; then
     pid="$(cat "$pidfile")"

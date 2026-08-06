@@ -62,14 +62,7 @@ async function interceptAuthToken(context, adminUrl) {
 // production backend (matching the existing /api/token pattern) would.
 // Discovers this context's own cell_id independently rather than requiring
 // the browser to report it, so no application code needs to plumb it
-// through an extra round trip. Returns the raw agentPubKey bytes too —
-// composeAndSend needs the recipient's address, and resolving it this way
-// (already available from the broker's own app_info lookup) is far more
-// reliable than reading it back out of the Settings page UI, which has an
-// unrelated, still-open bug: settings.rs's `loading` flag only flips to
-// false after BOTH get_my_profile AND a get_did_document call to a
-// separate "identity" role/cell that this restricted alpha DNA doesn't
-// have installed — found live via the Pulse browser proof, not yet fixed.
+// through an extra round trip.
 async function interceptSigningCredentials(context, adminUrl, appUrl) {
   const { dnaHash, agentPubKey } = await discoverCellId(appUrl, adminUrl, INSTALLED_APP_ID);
   const creds = await issueSigningCredentials(adminUrl, dnaHash, agentPubKey);
@@ -84,91 +77,10 @@ async function interceptSigningCredentials(context, adminUrl, appUrl) {
       }),
     }),
   );
-  return agentPubKeyToHolochainKeyString(agentPubKey);
-}
-
-// Matches connected_agent_pub_key_b64() in browser.rs: `u` + unpadded
-// base64url of the raw 39-byte AgentPubKey — the format compose.rs's "To"
-// field parses.
-function agentPubKeyToHolochainKeyString(agentPubKeyBytes) {
-  return 'u' + Buffer.from(agentPubKeyBytes).toString('base64url');
 }
 
 function log(who, msg) {
   console.log(`[${who}] ${msg}`);
-}
-
-// Clicks the first .navbar .nav-links <a> whose text matches, via the DOM
-// API directly (element.click()) rather than a coordinate-based Playwright
-// click. Found live via the Pulse browser proof, reproduced 6/6 times: even
-// with `force: true`, a Playwright click still dispatches at the target
-// element's on-screen COORDINATES, and Chrome resolves that to whatever is
-// actually topmost at that pixel — some other overlay (a toast, the
-// "Today's Digest" panel, or a leftover notification-prompt remnant) was
-// silently swallowing the event, so the link's own click handler never
-// fired and no navigation ever happened, with no error surfaced anywhere.
-// `element.click()` from inside the page invokes the handler directly,
-// sidestepping stacking/coordinates entirely — confirmed to actually
-// navigate where the coordinate-based version silently didn't.
-async function clickNavLink(page, text) {
-  const clicked = await page.evaluate((linkText) => {
-    const links = Array.from(document.querySelectorAll('.navbar .nav-links a'));
-    const link = links.find((a) => a.textContent.trim() === linkText);
-    if (!link) return false;
-    link.click();
-    return true;
-  }, text);
-  if (!clicked) {
-    throw new Error(`clickNavLink: no ".navbar .nav-links a" with text "${text}" found`);
-  }
-}
-
-// Same rationale as clickNavLink: a leftover element from an earlier step
-// (the onboarding modal's own inputs, e.g. #setup-bio, never leaves the DOM
-// — profile_setup.rs only toggles display:none — and can still occupy
-// enough layout/stacking to swallow a coordinate-based click aimed at an
-// unrelated element elsewhere on the page) can silently eat a real click
-// even when Playwright reports the target itself as visible/stable.
-// Selecting and invoking .click()/.focus() directly from inside the page
-// sidesteps this class of bug entirely.
-async function clickByDom(page, selector) {
-  const clicked = await page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return false;
-    el.click();
-    return true;
-  }, selector);
-  if (!clicked) {
-    throw new Error(`clickByDom: no element matching "${selector}"`);
-  }
-}
-
-async function clickByDomWithText(page, selector, text) {
-  const clicked = await page.evaluate(
-    ({ sel, needle }) => {
-      const els = Array.from(document.querySelectorAll(sel));
-      const el = els.find((e) => e.textContent.includes(needle));
-      if (!el) return false;
-      el.click();
-      return true;
-    },
-    { sel: selector, needle: text },
-  );
-  if (!clicked) {
-    throw new Error(`clickByDomWithText: no element matching "${selector}" containing "${text}"`);
-  }
-}
-
-async function focusByDom(page, selector) {
-  const focused = await page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return false;
-    el.focus();
-    return true;
-  }, selector);
-  if (!focused) {
-    throw new Error(`focusByDom: no element matching "${selector}"`);
-  }
 }
 
 async function waitForLiveStatus(page, who, timeoutMs = 30000) {
@@ -209,17 +121,13 @@ async function completeOnboarding(page, who, displayName) {
   await page.waitForSelector('#setup-name', { state: 'hidden', timeout: 60000 });
   log(who, 'onboarding complete, modal dismissed');
 
-  // A "Get notified of new mail?" prompt (notif_prompt.rs) appears after
-  // onboarding — found live via the Pulse browser proof once onboarding
-  // itself started succeeding. Dismissed via a direct DOM click (see
-  // clickByDom's doc comment) — coordinate-based clicks here were
-  // originally fixed with `force: true`, which helped intermittently, but
-  // the fully robust fix is the same one needed everywhere else in this
-  // script: the leftover, never-detached onboarding modal DOM can still
-  // swallow coordinate-based clicks aimed elsewhere on the page.
+  // A "Get notified of new mail?" prompt appears after onboarding and
+  // overlays the nav bar, intercepting subsequent clicks — found live via
+  // the Pulse browser proof once onboarding itself started succeeding.
+  // Dismiss it the same way a real user declining notifications would.
   const dismissNotifPrompt = page.locator('button:has-text("Not now")');
   if (await dismissNotifPrompt.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await clickByDomWithText(page, 'button', 'Not now');
+    await dismissNotifPrompt.click();
     log(who, 'dismissed the notification-permission prompt');
   }
 }
@@ -234,7 +142,7 @@ async function readOwnAgentKey(page, who) {
   // page onboarding happened to end on. Found live via the Pulse browser
   // proof once onboarding itself started succeeding for the first time.
   // Click the real nav link instead, exactly like a user would.
-  await clickNavLink(page, 'Settings');
+  await page.click('nav a:has-text("Settings"), a:has-text("Settings")');
   // Settings page displays "Agent Public Key" as a <p> sibling of its
   // <label> (settings.rs ~line 947) — no stable id, so match by text.
   const key = await page
@@ -246,137 +154,33 @@ async function readOwnAgentKey(page, who) {
 }
 
 async function composeAndSend(page, who, recipientKeyOrDsid, subject, body) {
-  // Scoped to `.navbar .nav-links` specifically, not a bare `nav a` —
-  // bottom_nav.rs renders a SECOND, separately-labeled "Compose" link
-  // (`<nav class="bottom-nav"><a class="bottom-nav-item">...<span
-  // class="bottom-nav-label">Compose</span>`) for the mobile layout, which
-  // an unscoped selector can also match and click even when it's the wrong
-  // (CSS-hidden at this viewport) one — found live via the Pulse browser
-  // proof: the click reported success with no error, but #to never
-  // appeared because navigation never actually happened.
-  await clickNavLink(page, 'Compose');
+  await page.click('nav a:has-text("Compose"), a:has-text("Compose")');
   await page.fill('#to', recipientKeyOrDsid);
   await page.fill('#subject', subject);
   // Body is a contenteditable div, not a <textarea> — rich_editor.rs.
-  // Focused directly (see clickByDom's doc comment for why coordinate-based
-  // interaction is unreliable here) — .focus() is enough for
-  // page.keyboard.type() to work, since keyboard events target whatever
-  // element currently has focus, not a screen coordinate.
-  await focusByDom(page, '.rich-editor .editor-content');
+  await page.click('.rich-editor .editor-content');
   await page.keyboard.type(body);
-  // Keep this page frontmost through the whole send — compose.rs's on_send
-  // clears the form and flips `sending` back to false SYNCHRONOUSLY, then
-  // does the real work (5s undo delay, then resolve_hybrid_send_context_v2
-  // + encrypt + send_email_v2) inside a `spawn_local` task that only
-  // resumes once its `gloo_timers::future::sleep` (a setTimeout under the
-  // hood) actually fires. Found live: if this page isn't the frontmost one
-  // when the caller moves on to interact with the OTHER agent's page,
-  // Chromium's background-tab timer throttling can stall that setTimeout
-  // indefinitely.
-  await page.bringToFront();
-
-  // Retry the whole compose->send cycle if the recipient's hybrid-PQC V2
-  // key bundle hasn't propagated to this agent's DHT view yet.
-  // resolve_hybrid_send_context_v2 (called inside on_send's delayed block,
-  // after the 5s undo window) can legitimately return None for a few
-  // seconds right after the recipient's own onboarding publishes their key
-  // bundle — a real DHT-propagation race, not a bug in send_email_v2 or in
-  // the P2P transport. compose.rs only surfaces this as a toast with NO
-  // console output at all, which is why earlier debugging here treated it
-  // as a mysterious total-silence hang — found live via
-  // scripts/live-browser-proof/diag19-toast-check.mjs reading
-  // `.toast-message` directly.
-  const maxSendAttempts = 6;
-  for (let attempt = 1; attempt <= maxSendAttempts; attempt++) {
-    log(who, `sending "${subject}" to ${recipientKeyOrDsid.slice(0, 16)}... (attempt ${attempt}/${maxSendAttempts})`);
-    await clickByDomWithText(page, '.compose-actions .btn-primary', 'Send');
-    // "Sending..." clears almost immediately (see comment above) — it does
-    // NOT mean the real send finished, just that the synchronous part of
-    // the click handler ran. Wait for it anyway (cheap), then hold this
-    // page in the foreground past the 5s undo window plus margin for the
-    // actual zome-call round trip before checking the outcome.
-    await page.waitForSelector('.compose-actions .btn-primary:has-text("Sending...")', {
-      state: 'detached',
-      timeout: 60000,
-    });
-    // Toasts auto-dismiss after a few seconds — a single snapshot at a
-    // fixed delay can land in the gap between the error toast appearing
-    // and fading, missing it entirely and wrongly treating the attempt as
-    // successful. Poll the whole window instead.
-    let keyBundleMissing = false;
-    let allToastsSeen = [];
-    for (let i = 0; i < 9; i++) {
-      await page.waitForTimeout(1000);
-      const toasts = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('.toast-message')).map((el) => el.textContent));
-      for (const t of toasts) {
-        if (!allToastsSeen.includes(t)) allToastsSeen.push(t);
-      }
-      if (toasts.some((t) => t.includes('no active hybrid-PQC V2 key bundle'))) {
-        keyBundleMissing = true;
-        break;
-      }
-    }
-    if (!keyBundleMissing) {
-      log(who, `send completed (toasts seen: ${JSON.stringify(allToastsSeen)})`);
-      return;
-    }
-    log(who, `recipient key bundle not yet visible (attempt ${attempt}/${maxSendAttempts}), retrying...`);
-    // Re-open Compose (the failed attempt already cleared/reset the form)
-    // and wait a bit longer for gossip before trying again.
-    await page.waitForTimeout(5000);
-    await clickNavLink(page, 'Compose');
-    await page.fill('#to', recipientKeyOrDsid);
-    await page.fill('#subject', subject);
-    await focusByDom(page, '.rich-editor .editor-content');
-    await page.keyboard.type(body);
-  }
-  throw new Error(`${who}: recipient key bundle never became visible after ${maxSendAttempts} send attempts`);
+  log(who, `sending "${subject}" to ${recipientKeyOrDsid.slice(0, 16)}...`);
+  await page.click('.compose-actions .btn-primary:has-text("Send")');
+  // Send is async (V2 hybrid seal + zome call); wait for the button to
+  // leave its "Sending..." state as the simplest completion signal.
+  await page.waitForSelector('.compose-actions .btn-primary:has-text("Sending...")', {
+    state: 'detached',
+    timeout: 60000,
+  });
+  log(who, 'send completed (button left Sending... state)');
 }
 
 async function readInboxAndAssert(page, who, expectedSubject) {
-  // mail_context.rs fetches get_inbox exactly once, at startup — there is
-  // no polling/interval and no re-fetch on navigation, so simply
-  // navigating to the Inbox route can never show a message that arrived
-  // after the page first loaded. Found live via the Pulse browser proof:
-  // the send genuinely succeeded (real signed zome call), but clicking the
-  // Inbox nav link alone left the page on its original, stale in-memory
-  // inbox state forever. A real user would refresh to see new mail; do the
-  // same here with a real page reload, which re-runs mail_context's
-  // startup fetch from scratch.
-  //
-  // A single reload wasn't enough on its own, even with a 60s wait after
-  // it — Alice and Bob are on two fully independent conductors here (not
-  // sharing one in-process test harness the way SweetTest does), so the
-  // message has to be gossiped over a real network via the external
-  // dev-test bootstrap service before Bob's DHT even has it to serve.
-  // Retry the reload itself every 20s instead of doing one long wait after
-  // a single fetch — each reload is a fresh chance to catch the message
-  // once gossip has actually landed, rather than betting on a single
-  // fetch's timing.
-  const deadline = Date.now() + 4 * 60 * 1000;
-  let lastError;
-  while (Date.now() < deadline) {
-    await page.reload();
-    await page.waitForFunction(() => document.querySelector('.status-label')?.textContent !== 'Connecting', {
-      timeout: 30000,
-    });
-    await clickNavLink(page, 'Inbox');
-    try {
-      await page.waitForFunction(
-        (subject) => document.body.innerText.includes(subject),
-        expectedSubject,
-        { timeout: 20000 },
-      );
-      log(who, `inbox shows expected subject "${expectedSubject}" — decrypted, ` +
-        'ML-DSA-verified V2 content is genuinely rendering in a real browser');
-      return;
-    } catch (error) {
-      lastError = error;
-      log(who, 'message not visible yet, reloading and retrying...');
-    }
-  }
-  throw lastError;
+  // Inbox is the root route ("/"), not "/inbox" — nav.rs: <A href="/">.
+  await page.click('nav a:has-text("Inbox"), a:has-text("Inbox")');
+  await page.waitForFunction(
+    (subject) => document.body.innerText.includes(subject),
+    expectedSubject,
+    { timeout: 60000 },
+  );
+  log(who, `inbox shows expected subject "${expectedSubject}" — decrypted, ` +
+    'ML-DSA-verified V2 content is genuinely rendering in a real browser');
 }
 
 async function main() {
@@ -401,24 +205,10 @@ async function main() {
   await interceptAuthToken(alice, ALICE_ADMIN_URL);
   await interceptAuthToken(bob, BOB_ADMIN_URL);
   await interceptSigningCredentials(alice, ALICE_ADMIN_URL, ALICE_CONDUCTOR_URL);
-  const bobKey = await interceptSigningCredentials(bob, BOB_ADMIN_URL, BOB_CONDUCTOR_URL);
+  await interceptSigningCredentials(bob, BOB_ADMIN_URL, BOB_CONDUCTOR_URL);
 
   const alicePage = await alice.newPage();
   const bobPage = await bob.newPage();
-
-  // Forward browser console/page errors — without this, a WASM panic
-  // (e.g. a Leptos `expect_context` failure inside a delayed spawn_local)
-  // kills a send/read silently: the surrounding Promise never rejects
-  // Node-side, so nothing here would otherwise show it happened.
-  for (const [who, page] of [['alice', alicePage], ['bob', bobPage]]) {
-    page.on('console', (msg) => {
-      const text = msg.text();
-      if (msg.type() === 'error' || /\[Mail\]|panicked/i.test(text)) {
-        log(who, `console:${msg.type()} ${text}`);
-      }
-    });
-    page.on('pageerror', (err) => log(who, `pageerror: ${err.message}`));
-  }
 
   try {
     log('alice', `navigating to ${PULSE_UI_URL} (conductor ${ALICE_CONDUCTOR_URL})`);
@@ -431,6 +221,8 @@ async function main() {
 
     await completeOnboarding(alicePage, 'alice', 'Alice (live-proof)');
     await completeOnboarding(bobPage, 'bob', 'Bob (live-proof)');
+
+    const bobKey = await readOwnAgentKey(bobPage, 'bob');
 
     const subject = `Live-proof ${new Date().toISOString()}`;
     await composeAndSend(alicePage, 'alice', bobKey, subject, 'This round-trip proves Live mode end-to-end.');

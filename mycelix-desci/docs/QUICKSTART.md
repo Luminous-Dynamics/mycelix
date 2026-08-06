@@ -1,5 +1,9 @@
 # Quick Start Guide
 
+> [!WARNING]
+> **Historical compatibility document.** This guide predates the signed-event refoundation and may describe mutable claims, automatic E-tier promotion, mock integrations, or deployment readiness that is no longer authoritative. Use [`CANONICAL_EVENT_API.md`](CANONICAL_EVENT_API.md) and [`LEGACY_MIGRATION.md`](LEGACY_MIGRATION.md) for current behavior.
+
+
 Get up and running with Mycelix-DeSci in **5 minutes**! 🚀
 
 ## What is Mycelix-DeSci?
@@ -279,7 +283,7 @@ export MYCELIX_API_URL=http://localhost:8080
 
 Now that you're up and running:
 
-1. 📖 **Read the [API Reference](API_REFERENCE.md)** for detailed endpoint documentation
+1. 📖 **Read the [canonical event API guide](CANONICAL_EVENT_API.md)** for detailed endpoint documentation
 2. 🔍 **Explore the [examples/](../examples/)** directory for more use cases
 3. 🚀 **Check out the [Deployment Guide](DEPLOYMENT.md)** for production setup
 4. 👥 **Join the community** and contribute!

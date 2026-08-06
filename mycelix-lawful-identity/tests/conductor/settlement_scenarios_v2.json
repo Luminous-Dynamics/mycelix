@@ -1,0 +1,227 @@
+{
+  "schema": "mycelix-lawful-identity-conductor-scenarios-v2",
+  "required_agents": [
+    "verifier",
+    "prover_a",
+    "prover_b"
+  ],
+  "required_invariants": [
+    "no-positive-state-before-settlement",
+    "distinct-proof-conflict-fails-closed",
+    "duplicate-link-target-is-idempotent",
+    "late-gossip-overrides-positive-state",
+    "credential-anchor-freshness-is-bounded",
+    "policy-lease-cannot-outlive-anchor",
+    "policy-revocation-terminates-lineage",
+    "anchor-refresh-requires-tip-predecessor",
+    "anchor-refresh-fork-fails-closed",
+    "refreshed-anchor-suspends-old-policy",
+    "policy-renewal-requires-tip-predecessor",
+    "policy-renewal-fork-fails-closed",
+    "ancestor-revocation-terminates-descendants"
+  ],
+  "scenarios": [
+    {
+      "id": "pre-settlement-refusal",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "attempt-receipts-before-settlement"
+      ],
+      "expected_state": "AwaitingSettlement",
+      "assertions": [
+        "no-positive-state-before-settlement"
+      ]
+    },
+    {
+      "id": "duplicate-link-idempotence",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "repeat-link-a",
+        "settle",
+        "verify-a"
+      ],
+      "expected_state": "CredentialAnchorsPending",
+      "assertions": [
+        "duplicate-link-target-is-idempotent"
+      ]
+    },
+    {
+      "id": "partitioned-competing-proofs",
+      "partition": "verifier-sees-only-prover-a-until-after-settlement",
+      "steps": [
+        "issue",
+        "submit-a",
+        "submit-b",
+        "settle",
+        "gossip-all"
+      ],
+      "expected_state": "ChallengeConsumptionConflict",
+      "assertions": [
+        "distinct-proof-conflict-fails-closed"
+      ]
+    },
+    {
+      "id": "late-gossip-after-acceptance",
+      "partition": "prover-b-hidden-through-acceptance",
+      "steps": [
+        "issue",
+        "submit-a",
+        "submit-b-hidden",
+        "settle",
+        "accept-a",
+        "gossip-b"
+      ],
+      "expected_state": "ChallengeConsumptionConflict",
+      "assertions": [
+        "late-gossip-overrides-positive-state"
+      ]
+    },
+    {
+      "id": "credential-anchor-expiry",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-short",
+        "advance-past-anchor"
+      ],
+      "expected_state": "CredentialAnchorsExpired",
+      "assertions": [
+        "credential-anchor-freshness-is-bounded"
+      ]
+    },
+    {
+      "id": "policy-lease-expiry",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "accept-short",
+        "advance-past-lease"
+      ],
+      "expected_state": "PolicyExpired",
+      "assertions": [
+        "policy-lease-cannot-outlive-anchor"
+      ]
+    },
+    {
+      "id": "emergency-policy-revocation",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "accept-a",
+        "revoke-a"
+      ],
+      "expected_state": "PolicyLineageRevoked",
+      "assertions": [
+        "policy-revocation-terminates-lineage"
+      ]
+    },
+    {
+      "id": "anchor-refresh-renewal",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-short",
+        "accept-short",
+        "expire-policy",
+        "refresh-anchor",
+        "renew-policy"
+      ],
+      "expected_state": "PolicyAccepted",
+      "assertions": [
+        "anchor-refresh-requires-tip-predecessor",
+        "policy-renewal-requires-tip-predecessor"
+      ]
+    },
+    {
+      "id": "anchor-refresh-suspends-old-policy",
+      "partition": "connected",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "accept-a",
+        "refresh-anchor"
+      ],
+      "expected_state": "PolicyRenewalRequired",
+      "assertions": [
+        "refreshed-anchor-suspends-old-policy"
+      ]
+    },
+    {
+      "id": "partitioned-anchor-refresh-fork",
+      "partition": "two-verifier-views-refresh-the-same-tip",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "refresh-anchor-a",
+        "refresh-anchor-b-hidden",
+        "gossip-all"
+      ],
+      "expected_state": "CredentialAnchorRefreshFork",
+      "assertions": [
+        "anchor-refresh-fork-fails-closed"
+      ]
+    },
+    {
+      "id": "partitioned-policy-renewal-fork",
+      "partition": "two-verifier-views-renew-the-same-tip",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "accept-a",
+        "renew-policy-a",
+        "renew-policy-b-hidden",
+        "gossip-all"
+      ],
+      "expected_state": "PolicyRenewalFork",
+      "assertions": [
+        "policy-renewal-fork-fails-closed"
+      ]
+    },
+    {
+      "id": "ancestor-revocation-after-renewal",
+      "partition": "revocation-delayed-until-after-renewal",
+      "steps": [
+        "issue",
+        "submit-a",
+        "settle",
+        "verify-a",
+        "anchor-long",
+        "accept-a",
+        "renew-policy-a",
+        "revoke-ancestor-hidden",
+        "gossip-all"
+      ],
+      "expected_state": "PolicyLineageRevoked",
+      "assertions": [
+        "ancestor-revocation-terminates-descendants"
+      ]
+    }
+  ]
+}

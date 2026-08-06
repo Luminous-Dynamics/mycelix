@@ -158,28 +158,10 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::ConjunctionEvent(event) => validate_event(&event),
             EntryTypes::Cdm(cdm) => validate_cdm(&cdm),
-            EntryTypes::AvoidanceManeuver(maneuver) => {
-                validate_create_maneuver(EntryCreationAction::Create(action), maneuver)
-            }
-        },
-        // update_conjunction_risk and mark_maneuver_executed are legitimately
-        // role-gated (via gate_space_operation), not restricted to the
-        // original committer -- ConjunctionEvent has no identity field at
-        // all, and AvoidanceManeuver's `operator` is deliberately NOT
-        // required to match the agent marking it executed (any
-        // negotiation-tier agent may confirm execution). So the DHT-level
-        // fix here is not author-binding -- it's applying the *existing*
-        // structural validators to Update too, since previously ANY update
-        // (on ANY field, not just the coordinator's intended status/risk
-        // change) fell through to the unconditional Valid catch-all below
-        // (P0 wide-open RegisterUpdate gap).
-        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
-            EntryTypes::ConjunctionEvent(event) => validate_event(&event),
-            EntryTypes::Cdm(cdm) => validate_cdm(&cdm),
-            EntryTypes::AvoidanceManeuver(maneuver) => validate_maneuver_content(&maneuver),
+            EntryTypes::AvoidanceManeuver(maneuver) => validate_maneuver(&maneuver),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
@@ -233,11 +215,7 @@ fn validate_cdm(cdm: &CdmEntry) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Pure structural checks shared by create and update -- no author-binding here,
-/// since AvoidanceManeuver's update path (mark_maneuver_executed) is deliberately
-/// role-gated, not restricted to the original `operator` (see the `validate` dispatcher's
-/// comment for why).
-fn validate_maneuver_content(maneuver: &AvoidanceManeuver) -> ExternResult<ValidateCallbackResult> {
+fn validate_maneuver(maneuver: &AvoidanceManeuver) -> ExternResult<ValidateCallbackResult> {
     // Delta-V must be positive
     if maneuver.delta_v_ms <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -250,31 +228,6 @@ fn validate_maneuver_content(maneuver: &AvoidanceManeuver) -> ExternResult<Valid
     if (mag_sq - 1.0).abs() > 0.01 {
         return Ok(ValidateCallbackResult::Invalid(
             "Direction must be a unit vector".to_string(),
-        ));
-    }
-
-    Ok(ValidateCallbackResult::Valid)
-}
-
-fn validate_create_maneuver(
-    action: EntryCreationAction,
-    maneuver: AvoidanceManeuver,
-) -> ExternResult<ValidateCallbackResult> {
-    if let ok @ Ok(ValidateCallbackResult::Invalid(_)) = validate_maneuver_content(&maneuver) {
-        return ok;
-    }
-
-    // Bind the maneuver to its committer -- announce_maneuver already
-    // derives operator from agent_info() coordinator-side with zero user
-    // input, so this never rejects a legitimate announcement; it's the
-    // real DHT-level enforcement a modified coordinator could otherwise
-    // bypass (P0 author-binding gap). Only checked on CREATE -- the
-    // committing agent for a later mark_maneuver_executed update is
-    // deliberately not required to be the original operator.
-    if maneuver.operator != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "AvoidanceManeuver must be announced by the committing agent (operator forgery)"
-                .to_string(),
         ));
     }
 

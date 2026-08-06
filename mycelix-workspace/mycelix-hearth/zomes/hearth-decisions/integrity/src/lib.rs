@@ -7,8 +7,8 @@
 //! votes, and decision outcomes.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::check_link_author_match;
 use hearth_types::*;
+use mycelix_bridge_entry_types::check_link_author_match;
 
 // ============================================================================
 // Entry Types
@@ -163,10 +163,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             link_type, action, ..
         } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -407,7 +404,6 @@ pub fn validate_delete_link(link_type: LinkTypes) -> ExternResult<ValidateCallba
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
-
 
 // ============================================================================
 // Tests

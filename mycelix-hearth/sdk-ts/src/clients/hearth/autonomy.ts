@@ -15,9 +15,9 @@ import type {
   CheckCapabilityInput,
 } from './types';
 import { HearthError, classifyError } from './errors';
+import { callHearthZome, type HearthCellTarget } from './cell-target';
 import { withGateRetry } from './consciousness-gate';
 
-const ROLE_NAME = 'hearth';
 const ZOME_NAME = 'hearth_autonomy';
 
 export class AutonomyClient {
@@ -25,7 +25,7 @@ export class AutonomyClient {
 
   constructor(
     private readonly client: AppClient,
-    private readonly roleName = ROLE_NAME,
+    private readonly target: HearthCellTarget,
     refreshFn?: () => Promise<void>,
   ) {
     this.refreshFn = refreshFn;
@@ -37,12 +37,13 @@ export class AutonomyClient {
 
   private async callZome<T>(fnName: string, payload: unknown): Promise<T> {
     try {
-      return await this.client.callZome({
-        role_name: this.roleName,
-        zome_name: ZOME_NAME,
-        fn_name: fnName,
+      return await callHearthZome<T>(
+        this.client,
+        this.target,
+        ZOME_NAME,
+        fnName,
         payload,
-      });
+      );
     } catch (err) {
       throw new HearthError({
         code: classifyError(err),

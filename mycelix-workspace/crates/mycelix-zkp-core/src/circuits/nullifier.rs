@@ -1,8 +1,9 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Nullifier-based membership proof circuit.
+//! Nullifier utilities and a portable nullifier-proof envelope.
 //!
-//! Proves: "I am a member of group G" without revealing:
+//! This module does not itself verify zero-knowledge membership. A complete
+//! backend-specific circuit may prove the following statement without revealing:
 //! - Which specific member I am
 //! - Who else is in the group
 //! - How many members there are
@@ -61,7 +62,7 @@ pub fn compute_member_leaf(member_secret: &[u8]) -> [u8; 32] {
 }
 
 /// Validate nullifier proof structure.
-pub fn validate_nullifier_proof(proof: &NullifierProof) -> Result<(), String> {
+pub fn validate_nullifier_proof_structure(proof: &NullifierProof) -> Result<(), String> {
     if proof.proof_bytes.is_empty() {
         return Err("Empty proof bytes".to_string());
     }
@@ -75,6 +76,18 @@ pub fn validate_nullifier_proof(proof: &NullifierProof) -> Result<(), String> {
         return Err("Invalid domain tag".to_string());
     }
     Ok(())
+}
+
+/// Backward-compatible alias for structural validation only.
+///
+/// This function does **not** verify membership, nullifier derivation, or a STARK.
+/// New callers should use [`validate_nullifier_proof_structure`].
+#[deprecated(
+    since = "0.1.0",
+    note = "structural validation only; use validate_nullifier_proof_structure"
+)]
+pub fn validate_nullifier_proof(proof: &NullifierProof) -> Result<(), String> {
+    validate_nullifier_proof_structure(proof)
 }
 
 /// Check if a nullifier has been used before (simple in-memory set).
@@ -166,7 +179,7 @@ mod tests {
             proof_bytes: vec![1, 2, 3], // Placeholder
             domain_tag: "ZTML:Hearth:CircleMembership:v1".to_string(),
         };
-        assert!(validate_nullifier_proof(&proof).is_ok());
+        assert!(validate_nullifier_proof_structure(&proof).is_ok());
     }
 
     #[test]
@@ -213,12 +226,12 @@ mod tests {
             proof_bytes: vec![1],
             domain_tag: "ZTML:Test:v1".to_string(),
         };
-        assert!(validate_nullifier_proof(&valid).is_ok());
+        assert!(validate_nullifier_proof_structure(&valid).is_ok());
 
         let zero_null = NullifierProof {
             nullifier: [0; 32],
             ..valid.clone()
         };
-        assert!(validate_nullifier_proof(&zero_null).is_err());
+        assert!(validate_nullifier_proof_structure(&zero_null).is_err());
     }
 }

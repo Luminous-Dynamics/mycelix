@@ -1,0 +1,10 @@
+{
+  "format": "mycelix-pulse-release-key-transition-contract/v1",
+  "algorithm": "Ed25519",
+  "modes": ["genesis", "retained", "rotated"],
+  "payload_format": "mycelix-pulse-release-key-transition-payload/v1",
+  "document_format": "mycelix-pulse-release-key-transition/v1",
+  "rotation_requires_previous_signature": true,
+  "all_modes_require_next_signature": true,
+  "previous_acceptance_embedded_for_successors": true
+}

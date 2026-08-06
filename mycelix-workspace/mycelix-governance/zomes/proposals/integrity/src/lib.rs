@@ -7,6 +7,7 @@
 //! Updated to use HDI 0.7 patterns
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -470,9 +471,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate proposal creation
 fn validate_create_proposal(
-    _action: Create,
+    action: Create,
     proposal: Proposal,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. A forged `author` attributes a governance proposal to someone else. `create_proposal` (proposals/coordinator:58) takes the WHOLE Proposal from the client, including `author`, with only a length check and no agent_info() call anywhere — and it is the only creation path.
+    //
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("Proposal", "author", &proposal.author, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     match check_create_proposal(&proposal) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
@@ -554,6 +565,45 @@ mod tests {
         Timestamp::from_micros(micros)
     }
 
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn author_binding_accepts_the_committing_agent() {
+        let mut e = make_proposal();
+        e.author = test_author_did();
+        let result = validate_create_proposal(make_create(), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn author_binding_rejects_a_forged_author() {
+        let mut e = make_proposal();
+        e.author = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_create_proposal(make_create(), e).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("Proposal") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged author must be rejected, got {other:?}"),
+        }
+    }
+
     fn make_proposal() -> Proposal {
         Proposal {
             id: "MIP-001".into(),
@@ -562,7 +612,10 @@ mod tests {
             proposal_type: ProposalType::Standard,
             author: "did:mycelix:test123".into(),
             status: ProposalStatus::Draft,
-            actions: "{}".into(),
+            actions: "{}
+
+"
+            .into(),
             discussion_url: None,
             voting_starts: ts(1000000),
             voting_ends: ts(2000000),
@@ -602,18 +655,22 @@ mod tests {
     fn test_proposal_description_not_empty() {
         let mut p = make_proposal();
         p.description = "".into();
-        assert!(check_create_proposal(&p)
-            .unwrap_err()
-            .contains("description"));
+        assert!(
+            check_create_proposal(&p)
+                .unwrap_err()
+                .contains("description")
+        );
     }
 
     #[test]
     fn test_proposal_voting_period_end_after_start() {
         let mut p = make_proposal();
         p.voting_ends = ts(500000); // before start
-        assert!(check_create_proposal(&p)
-            .unwrap_err()
-            .contains("Voting end"));
+        assert!(
+            check_create_proposal(&p)
+                .unwrap_err()
+                .contains("Voting end")
+        );
     }
 
     #[test]
@@ -675,9 +732,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.status = ProposalStatus::Active;
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("Invalid status"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("Invalid status")
+        );
     }
 
     #[test]
@@ -686,9 +745,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.id = "MIP-999".into();
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("proposal ID"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("proposal ID")
+        );
     }
 
     #[test]
@@ -698,9 +759,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.title = "Changed Title".into();
         updated.version = orig.version + 1;
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("content"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("content")
+        );
     }
 
     #[test]
@@ -709,9 +772,11 @@ mod tests {
         let mut updated = orig.clone();
         updated.status = ProposalStatus::Active;
         updated.version = orig.version; // same version
-        assert!(check_update_proposal(&orig, &updated)
-            .unwrap_err()
-            .contains("Version"));
+        assert!(
+            check_update_proposal(&orig, &updated)
+                .unwrap_err()
+                .contains("Version")
+        );
     }
 
     // --- Amendment validation ---
@@ -800,8 +865,10 @@ mod tests {
             readiness_reasoning: "Not ready".into(),
             summary: "Test reflection".into(),
         };
-        assert!(check_create_reflection(&r)
-            .unwrap_err()
-            .contains("Harmony diversity"));
+        assert!(
+            check_create_reflection(&r)
+                .unwrap_err()
+                .contains("Harmony diversity")
+        );
     }
 }

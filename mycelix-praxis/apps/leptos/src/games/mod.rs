@@ -177,7 +177,7 @@ pub fn GameContainer(node_id: String) -> impl IntoView {
         Some("circuits") => view! { <physics::circuits::CircuitExplorer node_id=id /> }.into_any(),
         Some("equilibrium") => view! { <chemistry::equilibrium::EquilibriumExplorer node_id=id /> }.into_any(),
         Some("acids") => view! { <chemistry::acids::AcidBaseExplorer node_id=id /> }.into_any(),
-        Some("budget") => view! { <universal::budget_sim::BudgetSimGame node_id=id /> }.into_any(),
+        Some("budget") => view! { <universal::budget_sim::BudgetSimulator node_id=id /> }.into_any(),
         Some("hdc") => view! { <universal::hdc_sandbox::HdcSandbox /> }.into_any(),
         Some("moral_algebra") => view! { <universal::moral_algebra::MoralAlgebraLesson /> }.into_any(),
         Some("water_stewardship") => view! { <universal::water_stewardship::WaterStewardshipGame /> }.into_any(),

@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/AuditTrail.tsx","./src/components/GateRejections.tsx","./src/components/KnowledgeGraph.tsx","./src/components/ProductivityMap.tsx","./src/components/ProfileInspector.tsx","./src/components/TierDistribution.tsx","./src/hooks/useConsciousness.ts"],"version":"5.9.3"}

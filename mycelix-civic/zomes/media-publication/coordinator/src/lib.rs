@@ -321,13 +321,24 @@ pub fn delete_publication(input: DeletePublicationInput) -> ExternResult<()> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(pub_entry) = record.entry().to_app_option::<Publication>().ok().flatten() {
             if pub_entry.id == input.publication_id {
-                // Only author can delete
-                if pub_entry.author_did != input.requester_did {
+                // Real author binding: check the record's actual DHT author,
+                // not the self-reported `author_did` string field against a
+                // client-supplied `requester_did` -- both sides of that
+                // comparison were attacker-controlled (any agent could
+                // delete any publication by copying the visible author_did
+                // into their own request; found auditing P0-#1 2026-07-27).
+                // `author_did` itself remains an unverified display/search
+                // field set at creation time (a separate, disclosed
+                // limitation -- publish() doesn't derive it from agent_info
+                // either); this fix only ensures it's never load-bearing
+                // for authorization.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only author can delete".into()
+                        "Only the record's real author can delete".into()
                     )));
                 }
                 delete_entry(record.action_address().clone())?;
@@ -355,13 +366,16 @@ pub fn add_tags(input: AddTagsInput) -> ExternResult<Record> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(pub_entry) = record.entry().to_app_option::<Publication>().ok().flatten() {
             if pub_entry.id == input.publication_id {
-                // Only author can add tags
-                if pub_entry.author_did != input.requester_did {
+                // Real author binding -- see delete_publication's comment
+                // for why the old author_did/requester_did comparison was
+                // an authorization bypass.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only author can add tags".into()
+                        "Only the record's real author can add tags".into()
                     )));
                 }
 
@@ -413,12 +427,16 @@ pub fn update_license(input: UpdateLicenseInput) -> ExternResult<Record> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(pub_entry) = record.entry().to_app_option::<Publication>().ok().flatten() {
             if pub_entry.id == input.publication_id {
-                if pub_entry.author_did != input.requester_did {
+                // Real author binding -- see delete_publication's comment
+                // for why the old author_did/requester_did comparison was
+                // an authorization bypass.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only author can update license".into()
+                        "Only the record's real author can update the license".into()
                     )));
                 }
 

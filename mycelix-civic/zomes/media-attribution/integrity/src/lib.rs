@@ -202,146 +202,123 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Full content validation for an `Attribution`, shared by create and
+/// update. Unlike the standalone reference (`mycelix-media/zomes/
+/// attribution`), this shadow zome's coordinator has an extra
+/// governance-gated `update_attribution` extern that replaces the WHOLE
+/// entry (`update_entry(original_action_hash, updated_entry)`, gated by
+/// `civic_requirement_proposal`) in addition to the narrower
+/// `update_share_percentage`/`verify_attribution`. Freezing id/
+/// publication_id/contributor_did/role/created on update (as standalone
+/// does) would make that real, gated coordinator flow non-functional --
+/// so update reuses full create-shaped content validation instead of
+/// field-immutability. This is a deliberate divergence from standalone,
+/// not a missed port.
+fn validate_attribution_fields(attribution: &Attribution) -> ValidateCallbackResult {
+    if attribution.id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Attribution ID cannot be empty".into());
+    }
+    if attribution.id.len() > 256 {
+        return ValidateCallbackResult::Invalid("Attribution ID too long (max 256 chars)".into());
+    }
+    if attribution.publication_id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "Attribution publication_id cannot be empty".into(),
+        );
+    }
+    if attribution.publication_id.len() > 256 {
+        return ValidateCallbackResult::Invalid(
+            "Attribution publication_id too long (max 256 chars)".into(),
+        );
+    }
+    if !attribution.contributor_did.starts_with("did:") {
+        return ValidateCallbackResult::Invalid("Contributor must be a valid DID".into());
+    }
+    if attribution.contributor_did.len() > 256 {
+        return ValidateCallbackResult::Invalid("Contributor DID too long (max 256 chars)".into());
+    }
+    if !attribution.share_percentage.is_finite() {
+        return ValidateCallbackResult::Invalid("share_percentage must be a finite number".into());
+    }
+    if attribution.share_percentage < 0.0 || attribution.share_percentage > 100.0 {
+        return ValidateCallbackResult::Invalid("Share must be 0-100%".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_attribution(
     _action: EntryCreationAction,
     attribution: Attribution,
 ) -> ExternResult<ValidateCallbackResult> {
-    if attribution.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Attribution ID cannot be empty".into(),
-        ));
-    }
-    if attribution.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Attribution ID too long (max 256 chars)".into(),
-        ));
-    }
-    if attribution.publication_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Attribution publication_id cannot be empty".into(),
-        ));
-    }
-    if attribution.publication_id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Attribution publication_id too long (max 256 chars)".into(),
-        ));
-    }
-    if !attribution.contributor_did.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Contributor must be a valid DID".into(),
-        ));
-    }
-    if attribution.contributor_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Contributor DID too long (max 256 chars)".into(),
-        ));
-    }
-    if !attribution.share_percentage.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "share_percentage must be a finite number".into(),
-        ));
-    }
-    if attribution.share_percentage < 0.0 || attribution.share_percentage > 100.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Share must be 0-100%".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_attribution_fields(&attribution))
 }
 
 fn validate_update_attribution(
     _action: Update,
     attribution: Attribution,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !attribution.share_percentage.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "share_percentage must be a finite number".into(),
-        ));
+    Ok(validate_attribution_fields(&attribution))
+}
+
+/// Full content validation for a `RoyaltyRule`, shared by create and
+/// update. Same divergence rationale as `validate_attribution_fields`:
+/// this shadow zome's coordinator has a governance-gated
+/// `update_royalty_rule` extern that replaces the WHOLE entry, which
+/// standalone's `deactivate_royalty_rule`-only design doesn't have --
+/// freezing id/publication_id/rule_type/currency on update would make
+/// that real, gated flow non-functional, so update reuses full
+/// create-shaped content validation instead of field-immutability.
+fn validate_royalty_rule_fields(rule: &RoyaltyRule) -> ValidateCallbackResult {
+    if rule.id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("RoyaltyRule ID cannot be empty".into());
     }
-    if attribution.share_percentage < 0.0 || attribution.share_percentage > 100.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Share must be 0-100%".into(),
-        ));
+    if rule.id.len() > 256 {
+        return ValidateCallbackResult::Invalid("RoyaltyRule ID too long (max 256 chars)".into());
     }
-    Ok(ValidateCallbackResult::Valid)
+    if rule.publication_id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "RoyaltyRule publication_id cannot be empty".into(),
+        );
+    }
+    if rule.publication_id.len() > 256 {
+        return ValidateCallbackResult::Invalid(
+            "RoyaltyRule publication_id too long (max 256 chars)".into(),
+        );
+    }
+    if rule.currency.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Currency cannot be empty".into());
+    }
+    if rule.currency.len() > 128 {
+        return ValidateCallbackResult::Invalid("Currency too long (max 128 chars)".into());
+    }
+    if !rule.percentage.is_finite() {
+        return ValidateCallbackResult::Invalid("percentage must be a finite number".into());
+    }
+    if rule.percentage < 0.0 || rule.percentage > 100.0 {
+        return ValidateCallbackResult::Invalid("Percentage must be 0-100".into());
+    }
+    if let Some(min) = rule.minimum_amount {
+        if !min.is_finite() {
+            return ValidateCallbackResult::Invalid(
+                "minimum_amount must be a finite number".into(),
+            );
+        }
+    }
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_royalty_rule(
     _action: EntryCreationAction,
     rule: RoyaltyRule,
 ) -> ExternResult<ValidateCallbackResult> {
-    if rule.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RoyaltyRule ID cannot be empty".into(),
-        ));
-    }
-    if rule.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RoyaltyRule ID too long (max 256 chars)".into(),
-        ));
-    }
-    if rule.publication_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RoyaltyRule publication_id cannot be empty".into(),
-        ));
-    }
-    if rule.publication_id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RoyaltyRule publication_id too long (max 256 chars)".into(),
-        ));
-    }
-    if rule.currency.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Currency cannot be empty".into(),
-        ));
-    }
-    if rule.currency.len() > 128 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Currency too long (max 128 chars)".into(),
-        ));
-    }
-    if !rule.percentage.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "percentage must be a finite number".into(),
-        ));
-    }
-    if rule.percentage < 0.0 || rule.percentage > 100.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Percentage must be 0-100".into(),
-        ));
-    }
-    if let Some(min) = rule.minimum_amount {
-        if !min.is_finite() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "minimum_amount must be a finite number".into(),
-            ));
-        }
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_royalty_rule_fields(&rule))
 }
 
 fn validate_update_royalty_rule(
     _action: Update,
     rule: RoyaltyRule,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !rule.percentage.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "percentage must be a finite number".into(),
-        ));
-    }
-    if rule.percentage < 0.0 || rule.percentage > 100.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Percentage must be 0-100".into(),
-        ));
-    }
-    if let Some(min) = rule.minimum_amount {
-        if !min.is_finite() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "minimum_amount must be a finite number".into(),
-            ));
-        }
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_royalty_rule_fields(&rule))
 }
 
 fn validate_create_usage_record(
@@ -800,13 +777,21 @@ mod tests {
     }
 
     #[test]
-    fn attribution_update_does_not_revalidate_did() {
-        // Update validation only checks share_percentage, not DID
+    fn attribution_update_does_revalidate_did() {
+        // Update now runs full content validation (not just
+        // share_percentage), since this shadow zome's coordinator has a
+        // governance-gated update_attribution extern that can replace the
+        // whole entry, including contributor_did -- see the
+        // divergence-rationale doc comment on validate_attribution_fields.
         let mut attr = valid_attribution();
         attr.contributor_did = "not-a-did".into();
         attr.share_percentage = 50.0;
         let result = validate_update_attribution(fake_update(), attr);
-        assert!(is_valid(&result));
+        assert!(is_invalid(&result));
+        assert_eq!(
+            get_invalid_reason(result),
+            "Contributor must be a valid DID"
+        );
     }
 
     // ========================================================================
@@ -922,6 +907,20 @@ mod tests {
             let result = validate_update_royalty_rule(fake_update(), rule);
             assert!(is_valid(&result), "Failed for percentage: {}", pct);
         }
+    }
+
+    #[test]
+    fn royalty_rule_update_does_revalidate_empty_id() {
+        // Update now runs full content validation (not just percentage),
+        // since this shadow zome's coordinator has a governance-gated
+        // update_royalty_rule extern that can replace the whole entry --
+        // see the divergence-rationale doc comment on
+        // validate_royalty_rule_fields.
+        let mut rule = valid_royalty_rule();
+        rule.id = "".into();
+        let result = validate_update_royalty_rule(fake_update(), rule);
+        assert!(is_invalid(&result));
+        assert_eq!(get_invalid_reason(result), "RoyaltyRule ID cannot be empty");
     }
 
     // ========================================================================

@@ -235,6 +235,8 @@ pub struct ResourceProfile {
     pub min_capacity_mah: Option<u32>,
     pub thermodynamic_threshold: Option<f32>,
     pub common_scraps: Vec<String>,
+    #[serde(default)]
+    pub embodied_energy_joules: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -254,6 +256,15 @@ pub struct EconomicSignals {
 
 fn default_multiplier() -> f32 {
     1.0
+}
+
+/// Bioregional applicability metadata for a curriculum node -- which
+/// USDA-style hardiness zones this technique/content is calibrated for
+/// (see `location::BiomeContext::hardiness_zone`, also `u8`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct BiomeParameters {
+    #[serde(default)]
+    pub hardiness_zones: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

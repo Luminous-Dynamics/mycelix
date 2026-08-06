@@ -3,8 +3,8 @@
 //! eIDAS 2.0 compliant ZKP selective disclosure for EUDI Wallet.
 
 use serde::{Deserialize, Serialize};
-use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 
 /// Cryptosuite identifier for DASTARK proofs in W3C Data Integrity.
 pub const CRYPTOSUITE_DASTARK: &str = "dastark-2026";
@@ -285,9 +285,11 @@ mod tests {
         assert_eq!(credential.proof.cryptosuite, CRYPTOSUITE_DASTARK);
         assert_eq!(credential.proof.proof_type, "DataIntegrityProof");
         assert!(credential.types.contains(&"EidasCredential".to_string()));
-        assert!(credential
-            .context
-            .contains(&"https://www.w3.org/ns/credentials/v2".to_string()));
+        assert!(
+            credential
+                .context
+                .contains(&"https://www.w3.org/ns/credentials/v2".to_string())
+        );
         assert_ne!(credential.issuance_date, "2026-04-07T00:00:00Z");
         assert!(credential.issuance_date.ends_with('Z'));
         assert!(credential.proof.created.ends_with('Z'));
@@ -413,11 +415,13 @@ mod tests {
             embedded.get("proof").unwrap().get("cryptosuite").unwrap(),
             CRYPTOSUITE_DASTARK
         );
-        assert!(embedded
-            .get("proof")
-            .unwrap()
-            .get("selectiveDisclosure")
-            .is_some());
+        assert!(
+            embedded
+                .get("proof")
+                .unwrap()
+                .get("selectiveDisclosure")
+                .is_some()
+        );
     }
 
     #[test]

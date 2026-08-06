@@ -328,6 +328,56 @@ pub fn validate_create_conversation(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate conversation update -- re-derives block_conversation's own real, previously
+/// coordinator-only invariant ("must be a participant") at the DHT level, and closes a real
+/// coordinator bug where archive_conversation had no check at all (any agent could archive
+/// any conversation). Only status/last_message_hash/message_count/unread_counts/
+/// last_activity_at may change; everything else must stay byte-identical to the original.
+fn validate_update_conversation(
+    conversation: Conversation,
+    action: Update,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    if let ValidateCallbackResult::Invalid(reason) =
+        validate_create_conversation(conversation.clone())?
+    {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let Some(original): Option<Conversation> = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+    else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Invalid original Conversation entry".to_string(),
+        ));
+    };
+
+    if conversation.participants != original.participants
+        || conversation.listing_hash != original.listing_hash
+        || conversation.transaction_hash != original.transaction_hash
+        || conversation.subject != original.subject
+        || conversation.first_message_hash != original.first_message_hash
+        || conversation.started_at != original.started_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Conversation updates may only change status/last_message_hash/message_count/\
+             unread_counts/last_activity_at -- all other fields must be unchanged"
+                .to_string(),
+        ));
+    }
+
+    if !original.participants.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only a participant may update this conversation".to_string(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate read receipt creation
 pub fn validate_create_read_receipt(
     receipt: ReadReceipt,
@@ -370,14 +420,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             // previous unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed
             // dozens of times elsewhere in this pass). Conversation has a real update path
             // (archive_conversation/block_conversation/update_conversation_metadata/
-            // update_conversation_unread_count) whose real authorization invariant is
-            // genuinely ambiguous -- deliberately left untouched this turn, see
-            // memory/mycelix_attribution_author_binding_jul8.md for the disclosed scope.
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+            // update_conversation_unread_count) -- send_message now verifies the sender is
+            // a real participant before touching a conversation, establishing the invariant
+            // this bind re-derives at the DHT level (see
+            // memory/mycelix_attribution_author_binding_jul8.md).
+            OpEntry::UpdateEntry {
+                app_entry,
+                action,
+                original_action_hash,
+                original_entry_hash: _,
+            } => match app_entry {
                 EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Invalid(
                     "Message entries cannot be updated".to_string(),
                 )),
-                EntryTypes::Conversation(_conversation) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Conversation(conversation) => {
+                    validate_update_conversation(conversation, action, original_action_hash)
+                }
                 EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Invalid(
                     "ReadReceipt entries cannot be updated".to_string(),
                 )),
@@ -385,11 +443,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterUpdate(update_entry) => match update_entry {
-            OpUpdate::Entry { app_entry, .. } => match app_entry {
+            OpUpdate::Entry { app_entry, action } => match app_entry {
                 EntryTypes::Message(_message) => Ok(ValidateCallbackResult::Invalid(
                     "Message entries cannot be updated".to_string(),
                 )),
-                EntryTypes::Conversation(_conversation) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Conversation(conversation) => {
+                    let original_action_hash = action.original_action_address.clone();
+                    validate_update_conversation(conversation, action, original_action_hash)
+                }
                 EntryTypes::ReadReceipt(_receipt) => Ok(ValidateCallbackResult::Invalid(
                     "ReadReceipt entries cannot be updated".to_string(),
                 )),
@@ -420,5 +481,175 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+/// Proves `validate_update_conversation`'s P0 author-binding fix: an update from an agent
+/// who isn't a participant is rejected (previously archive_conversation had no
+/// authorization check at all -- any agent could archive any conversation). Mocks the HDI
+/// host's `must_get_valid_record` so this runs as a plain `cargo test`, no live conductor
+/// needed.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockRecordHdi {
+        records: std::collections::HashMap<ActionHash, Record>,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            self.records
+                .get(&input.0)
+                .cloned()
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("no such record in mock".into())))
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by this fix")
+        }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<SerializedBytes>,
+        <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_conversation(participants: Vec<AgentPubKey>) -> Conversation {
+        Conversation {
+            participants,
+            listing_hash: None,
+            transaction_hash: None,
+            subject: "Question about listing".to_string(),
+            first_message_hash: ActionHash::from_raw_36(vec![10; 36]),
+            last_message_hash: ActionHash::from_raw_36(vec![10; 36]),
+            message_count: 1,
+            unread_counts: vec![],
+            started_at: 0,
+            last_activity_at: 0,
+            status: ConversationStatus::Active,
+        }
+    }
+
+    fn test_update_action(author: AgentPubKey, original_hash: ActionHash) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(100),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![20; 36]),
+            original_action_address: original_hash,
+            original_entry_address: EntryHash::from_raw_36(vec![22; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![23; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn conversation_update_by_non_participant_is_rejected() {
+        let p1 = AgentPubKey::from_raw_36(vec![1; 36]);
+        let p2 = AgentPubKey::from_raw_36(vec![2; 36]);
+        let original = test_conversation(vec![p1.clone(), p2]);
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                original_hash.clone(),
+                wrap_entry_record(p1, original.clone()),
+            )]),
+        });
+
+        let mut updated = original.clone();
+        updated.status = ConversationStatus::Archived;
+
+        let outsider = AgentPubKey::from_raw_36(vec![99; 36]);
+        let action = test_update_action(outsider, original_hash.clone());
+        let result = validate_update_conversation(updated, action, original_hash).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "only a participant may update a conversation -- previously archive_conversation \
+             had no authorization check at all"
+        );
+    }
+
+    #[test]
+    fn conversation_update_by_a_participant_is_accepted() {
+        let p1 = AgentPubKey::from_raw_36(vec![1; 36]);
+        let p2 = AgentPubKey::from_raw_36(vec![2; 36]);
+        let original = test_conversation(vec![p1.clone(), p2.clone()]);
+        let original_hash = ActionHash::from_raw_36(vec![30; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                original_hash.clone(),
+                wrap_entry_record(p1, original.clone()),
+            )]),
+        });
+
+        let mut updated = original.clone();
+        updated.status = ConversationStatus::Archived;
+
+        let action = test_update_action(p2, original_hash.clone());
+        let result = validate_update_conversation(updated, action, original_hash).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 }

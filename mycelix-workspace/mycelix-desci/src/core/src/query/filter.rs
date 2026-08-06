@@ -158,8 +158,8 @@ mod tests {
 
     #[test]
     fn test_multiple_keywords() {
-        let filter = QueryFilter::new()
-            .with_keywords(vec!["NAD+".to_string(), "aging".to_string()]);
+        let filter =
+            QueryFilter::new().with_keywords(vec!["NAD+".to_string(), "aging".to_string()]);
 
         assert_eq!(filter.keywords.len(), 2);
     }

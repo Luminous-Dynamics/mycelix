@@ -7,6 +7,7 @@
 //! Updated to use HDI 0.7 patterns
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -243,11 +244,7 @@ pub fn targets_immutable_core(amendment: &Amendment) -> Option<String> {
         .as_deref()
         .unwrap_or("")
         .to_lowercase();
-    let article_lower = amendment
-        .article
-        .as_deref()
-        .unwrap_or("")
-        .to_lowercase();
+    let article_lower = amendment.article.as_deref().unwrap_or("").to_lowercase();
 
     // Check RemoveRight/ModifyRight against immutable core rights
     if matches!(
@@ -474,9 +471,19 @@ fn validate_update_charter(
 
 /// Validate amendment creation
 fn validate_create_amendment(
-    _action: Create,
+    action: Create,
     amendment: Amendment,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. A forged `proposer` attributes a constitutional amendment to someone else. `propose_amendment` (constitution/coordinator:109) takes `proposer_did` from input with only a length check.
+    //
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("Amendment", "proposer", &amendment.proposer, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     match check_create_amendment(&amendment) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
@@ -534,12 +541,54 @@ mod tests {
         Timestamp::from_micros(micros)
     }
 
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn author_binding_accepts_the_committing_agent() {
+        let mut e = valid_amendment();
+        e.proposer = test_author_did();
+        let result = validate_create_amendment(make_create(), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn author_binding_rejects_a_forged_proposer() {
+        let mut e = valid_amendment();
+        e.proposer = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_create_amendment(make_create(), e).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("Amendment") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged proposer must be rejected, got {other:?}"),
+        }
+    }
+
     fn valid_charter() -> Charter {
         Charter {
             id: "charter-1".into(),
             version: 1,
             preamble: "We the people".into(),
-            articles: r#"[{"title":"Article 1"}]"#.into(),
+            articles: r#"[{"title":"Article 1"}
+
+]"#
+            .into(),
             rights: vec!["Right to dignity".into()],
             amendment_process: "2/3 vote".into(),
             adopted: ts(1000000),

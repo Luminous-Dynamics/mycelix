@@ -389,9 +389,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_water_source(
-    _action: Create,
+    action: Create,
     source: WaterSource,
 ) -> ExternResult<ValidateCallbackResult> {
+    if source.steward != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water source steward must match the committing agent".into(),
+        ));
+    }
     if source.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Water source ID cannot be empty".into(),
@@ -431,7 +436,7 @@ fn validate_create_water_source(
 }
 
 fn validate_update_water_source(
-    _action: Update,
+    action: Update,
     source: WaterSource,
     original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -444,6 +449,11 @@ fn validate_update_water_source(
             "Original water source not found".into()
         )))?;
 
+    if original_source.steward != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the water source steward can update it".into(),
+        ));
+    }
     if source.id != original_source.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Cannot change water source ID".into(),
@@ -457,21 +467,37 @@ fn validate_update_water_source(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_water_share(
-    _action: Create,
-    share: WaterShare,
-) -> ExternResult<ValidateCallbackResult> {
+/// Pure field validation for a `WaterShare`, factored out of
+/// [`validate_create_water_share`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_water_share_fields(share: &WaterShare) -> ValidateCallbackResult {
     if share.volume_per_period_liters == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Share volume must be greater than zero".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Share volume must be greater than zero".into());
     }
     if share.period_days == 0 {
+        return ValidateCallbackResult::Invalid("Period days must be greater than zero".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_create_water_share(
+    action: Create,
+    share: WaterShare,
+) -> ExternResult<ValidateCallbackResult> {
+    let source_record = must_get_valid_record(share.source_hash.clone())?;
+    let source: WaterSource = source_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Water source referenced by share not found".to_string()
+        )))?;
+    if source.steward != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "Period days must be greater than zero".into(),
+            "Only the water source's steward can allocate a share from it".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_water_share_fields(&share))
 }
 
 fn validate_h2o_credit_fields(credit: &H2OCredit) -> ExternResult<ValidateCallbackResult> {
@@ -494,24 +520,39 @@ fn validate_h2o_credit_fields(credit: &H2OCredit) -> ExternResult<ValidateCallba
 }
 
 fn validate_create_h2o_credit(
-    _action: Create,
+    action: Create,
     credit: H2OCredit,
 ) -> ExternResult<ValidateCallbackResult> {
+    if credit.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "H2O credit holder must match the committing agent".into(),
+        ));
+    }
     validate_h2o_credit_fields(&credit)
 }
 
 fn validate_update_h2o_credit(
-    _action: Update,
+    action: Update,
     credit: H2OCredit,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    if credit.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "H2O credit holder must match the committing agent".into(),
+        ));
+    }
     validate_h2o_credit_fields(&credit)
 }
 
 fn validate_create_water_transaction(
-    _action: Create,
+    action: Create,
     tx: WaterTransaction,
 ) -> ExternResult<ValidateCallbackResult> {
+    if tx.from_agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water transaction from_agent must match the committing agent".into(),
+        ));
+    }
     if tx.liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Transaction volume must be greater than zero".into(),
@@ -526,9 +567,14 @@ fn validate_create_water_transaction(
 }
 
 fn validate_create_usage_record(
-    _action: Create,
+    action: Create,
     usage: UsageRecord,
 ) -> ExternResult<ValidateCallbackResult> {
+    if usage.agent != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Usage record agent must match the committing agent".into(),
+        ));
+    }
     if usage.liters_used == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Usage liters must be greater than zero".into(),
@@ -749,6 +795,18 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn water_source_forged_steward_rejected() {
+        let mut src = make_water_source();
+        src.steward = fake_agent_2();
+        let result = validate_create_water_source(fake_create(), src);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Water source steward must match the committing agent"
+        );
+    }
+
+    #[test]
     fn valid_water_source_passes() {
         let result = validate_create_water_source(fake_create(), make_water_source());
         assert!(is_valid(&result));
@@ -940,7 +998,7 @@ mod tests {
 
     #[test]
     fn valid_water_share_passes() {
-        let result = validate_create_water_share(fake_create(), make_water_share());
+        let result = Ok(validate_water_share_fields(&make_water_share()));
         assert!(is_valid(&result));
     }
 
@@ -948,7 +1006,7 @@ mod tests {
     fn water_share_zero_volume_rejected() {
         let mut share = make_water_share();
         share.volume_per_period_liters = 0;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_invalid(&result));
         assert_eq!(
             invalid_msg(&result),
@@ -960,7 +1018,7 @@ mod tests {
     fn water_share_one_liter_accepted() {
         let mut share = make_water_share();
         share.volume_per_period_liters = 1;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
@@ -968,7 +1026,7 @@ mod tests {
     fn water_share_u64_max_volume_accepted() {
         let mut share = make_water_share();
         share.volume_per_period_liters = u64::MAX;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
@@ -976,7 +1034,7 @@ mod tests {
     fn water_share_zero_period_rejected() {
         let mut share = make_water_share();
         share.period_days = 0;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_invalid(&result));
         assert_eq!(
             invalid_msg(&result),
@@ -988,7 +1046,7 @@ mod tests {
     fn water_share_one_day_period_accepted() {
         let mut share = make_water_share();
         share.period_days = 1;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
@@ -996,7 +1054,7 @@ mod tests {
     fn water_share_u32_max_period_accepted() {
         let mut share = make_water_share();
         share.period_days = u32::MAX;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
@@ -1010,7 +1068,7 @@ mod tests {
         ] {
             let mut share = make_water_share();
             share.allocation_type = alloc_type;
-            let result = validate_create_water_share(fake_create(), share);
+            let result = Ok(validate_water_share_fields(&share));
             assert!(is_valid(&result));
         }
     }
@@ -1028,7 +1086,7 @@ mod tests {
         ] {
             let mut share = make_water_share();
             share.usage_category = category;
-            let result = validate_create_water_share(fake_create(), share);
+            let result = Ok(validate_water_share_fields(&share));
             assert!(is_valid(&result));
         }
     }
@@ -1037,7 +1095,7 @@ mod tests {
     fn water_share_priority_zero_accepted() {
         let mut share = make_water_share();
         share.priority = 0;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
@@ -1045,13 +1103,25 @@ mod tests {
     fn water_share_priority_max_accepted() {
         let mut share = make_water_share();
         share.priority = u8::MAX;
-        let result = validate_create_water_share(fake_create(), share);
+        let result = Ok(validate_water_share_fields(&share));
         assert!(is_valid(&result));
     }
 
     // ========================================================================
     // H2O CREDIT VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn h2o_credit_forged_holder_rejected() {
+        let mut credit = make_h2o_credit();
+        credit.holder = fake_agent_2();
+        let result = validate_create_h2o_credit(fake_create(), credit);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "H2O credit holder must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_h2o_credit_passes() {
@@ -1195,6 +1265,18 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn water_transaction_forged_from_agent_rejected() {
+        let mut tx = make_water_transaction();
+        tx.from_agent = fake_agent_2();
+        let result = validate_create_water_transaction(fake_create(), tx);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Water transaction from_agent must match the committing agent"
+        );
+    }
+
+    #[test]
     fn valid_water_transaction_passes() {
         let result = validate_create_water_transaction(fake_create(), make_water_transaction());
         assert!(is_valid(&result));
@@ -1271,6 +1353,18 @@ mod tests {
     // ========================================================================
     // USAGE RECORD VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn usage_record_forged_agent_rejected() {
+        let mut usage = make_usage_record();
+        usage.agent = fake_agent_2();
+        let result = validate_create_usage_record(fake_create(), usage);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Usage record agent must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_usage_record_passes() {

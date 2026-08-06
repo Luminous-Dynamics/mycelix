@@ -128,17 +128,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MonthlyCharge(charge) => validate_update_charge(charge),
+                // No live update_entry call for MonthlyCharge (confirmed
+                // via grep) -- previously silently accepted any field
+                // change, including member/amounts. Made explicitly
+                // immutable.
+                EntryTypes::MonthlyCharge(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Monthly charges are immutable".into(),
+                )),
                 EntryTypes::Payment(_) => Ok(ValidateCallbackResult::Invalid(
                     "Payments cannot be modified after creation".into(),
                 )),
-                EntryTypes::ReserveFund(fund) => validate_update_fund(fund),
-                EntryTypes::Budget(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::ReserveFund(fund) => validate_update_fund(action, fund),
+                EntryTypes::Budget(budget) => validate_update_budget(action, budget),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -340,49 +346,78 @@ fn validate_create_budget(_action: Create, budget: Budget) -> ExternResult<Valid
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_charge(charge: MonthlyCharge) -> ExternResult<ValidateCallbackResult> {
-    if charge.period_month < 1 || charge.period_month > 12 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Month must be between 1 and 12".into(),
-        ));
-    }
-    if charge.period_year < 2020 || charge.period_year > 2100 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Year must be between 2020 and 2100".into(),
-        ));
-    }
-    let computed_total = charge.base_rent_cents
-        + charge.maintenance_fee_cents
-        + charge.utilities_cents
-        + charge.reserve_contribution_cents;
-    if charge.total_cents != computed_total {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Total ({}) must equal sum of components ({})",
-            charge.total_cents, computed_total
-        )));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
+// validate_update_charge no longer exists: MonthlyCharge updates are now
+// rejected outright at the dispatcher (immutable; confirmed no live
+// coordinator update flow exists for it).
 
-fn validate_update_fund(fund: ReserveFund) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `ReserveFund` update, factored out of
+/// [`validate_update_fund`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_fund_fields(fund: &ReserveFund) -> ValidateCallbackResult {
     if fund.name.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Fund name cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Fund name cannot be empty".into());
     }
     if fund.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Fund name too long (max 256 chars)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Fund name too long (max 256 chars)".into());
     }
     if fund.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Fund description too long (max 4096 chars)".into(),
-        ));
+        );
     }
     if fund.target_cents == 0 {
+        return ValidateCallbackResult::Invalid("Fund target must be greater than 0".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// No author requirement: deposit_to_reserve has zero caller-identity
+/// check in the coordinator (this zome has no steward/treasurer concept
+/// at all to bind against). Content is restricted to balance_cents --
+/// closes the wide-open bug that previously let name/fund_type/
+/// target_cents/description change unconditionally on update too.
+fn validate_update_fund(action: Update, fund: ReserveFund) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ReserveFund = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original fund not found".to_string()
+        )))?;
+    if fund.name != original.name
+        || fund.fund_type != original.fund_type
+        || fund.target_cents != original.target_cents
+        || fund.description != original.description
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Fund target must be greater than 0".into(),
+            "Only balance_cents can change on a reserve fund update".into(),
+        ));
+    }
+    Ok(validate_fund_fields(&fund))
+}
+
+/// No author requirement: approve_budget likewise has zero caller-identity
+/// check. Content restricted to approved/approved_at -- closes the
+/// wide-open bug that previously let fiscal_year/income_projected_cents/
+/// expenses_projected_cents/categories change unconditionally on update
+/// too.
+fn validate_update_budget(action: Update, budget: Budget) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Budget = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original budget not found".to_string()
+        )))?;
+    if budget.fiscal_year != original.fiscal_year
+        || budget.income_projected_cents != original.income_projected_cents
+        || budget.expenses_projected_cents != original.expenses_projected_cents
+        || budget.categories != original.categories
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only approved/approved_at can change on a budget update".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -1667,89 +1702,21 @@ mod tests {
         assert_eq!(cat, cloned);
     }
 
-    // ========================================================================
-    // UPDATE CHARGE VALIDATION TESTS
-    // ========================================================================
-
-    #[test]
-    fn update_charge_valid() {
-        let result = validate_update_charge(make_charge());
-        assert!(is_valid(&result));
-    }
-
-    #[test]
-    fn update_charge_month_zero_rejected() {
-        let mut charge = make_charge();
-        charge.period_month = 0;
-        let result = validate_update_charge(charge);
-        assert!(is_invalid(&result));
-    }
-
-    #[test]
-    fn update_charge_month_13_rejected() {
-        let mut charge = make_charge();
-        charge.period_month = 13;
-        let result = validate_update_charge(charge);
-        assert!(is_invalid(&result));
-    }
-
-    #[test]
-    fn update_charge_year_2019_rejected() {
-        let mut charge = make_charge();
-        charge.period_year = 2019;
-        let result = validate_update_charge(charge);
-        assert!(is_invalid(&result));
-    }
-
-    #[test]
-    fn update_charge_year_2101_rejected() {
-        let mut charge = make_charge();
-        charge.period_year = 2101;
-        let result = validate_update_charge(charge);
-        assert!(is_invalid(&result));
-    }
-
-    #[test]
-    fn update_charge_total_mismatch_rejected() {
-        let mut charge = make_charge();
-        charge.total_cents = 999_999;
-        let result = validate_update_charge(charge);
-        assert!(is_invalid(&result));
-    }
-
-    #[test]
-    fn update_charge_all_zeros_valid() {
-        let mut charge = make_charge();
-        charge.base_rent_cents = 0;
-        charge.maintenance_fee_cents = 0;
-        charge.utilities_cents = 0;
-        charge.reserve_contribution_cents = 0;
-        charge.total_cents = 0;
-        let result = validate_update_charge(charge);
-        assert!(is_valid(&result));
-    }
-
-    #[test]
-    fn update_charge_month_checked_before_total() {
-        let mut charge = make_charge();
-        charge.period_month = 0;
-        charge.total_cents = 999;
-        let result = validate_update_charge(charge);
-        match result {
-            Ok(ValidateCallbackResult::Invalid(msg)) => {
-                assert!(msg.contains("Month"));
-            }
-            other => panic!("Expected Invalid, got {:?}", other),
-        }
-    }
+    // validate_update_charge no longer exists: MonthlyCharge updates are
+    // now rejected outright at the dispatcher (immutable; confirmed no
+    // live coordinator update flow exists for it), so its content-check
+    // tests no longer apply.
 
     // ========================================================================
     // UPDATE FUND VALIDATION TESTS
     // ========================================================================
+    // validate_update_fund now needs a live HDI (must_get_valid_record has
+    // no test mock in this codebase), so these exercise the pure
+    // validate_fund_fields helper directly instead.
 
     #[test]
     fn update_fund_valid() {
-        let result = validate_update_fund(make_fund());
+        let result = Ok(validate_fund_fields(&make_fund()));
         assert!(is_valid(&result));
     }
 
@@ -1757,7 +1724,7 @@ mod tests {
     fn update_fund_empty_name_rejected() {
         let mut fund = make_fund();
         fund.name = "".into();
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_invalid(&result));
     }
 
@@ -1765,7 +1732,7 @@ mod tests {
     fn update_fund_whitespace_name_rejected() {
         let mut fund = make_fund();
         fund.name = "   ".into();
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_invalid(&result));
     }
 
@@ -1773,7 +1740,7 @@ mod tests {
     fn update_fund_zero_target_rejected() {
         let mut fund = make_fund();
         fund.target_cents = 0;
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_invalid(&result));
     }
 
@@ -1781,7 +1748,7 @@ mod tests {
     fn update_fund_one_cent_target_accepted() {
         let mut fund = make_fund();
         fund.target_cents = 1;
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_valid(&result));
     }
 
@@ -1789,7 +1756,7 @@ mod tests {
     fn update_fund_zero_balance_accepted() {
         let mut fund = make_fund();
         fund.balance_cents = 0;
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_valid(&result));
     }
 
@@ -1909,7 +1876,7 @@ mod tests {
     fn update_fund_name_at_limit_accepted() {
         let mut fund = make_fund();
         fund.name = "x".repeat(256);
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_valid(&result));
     }
 
@@ -1917,7 +1884,7 @@ mod tests {
     fn update_fund_name_over_limit_rejected() {
         let mut fund = make_fund();
         fund.name = "x".repeat(257);
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_invalid(&result));
     }
 
@@ -1925,7 +1892,7 @@ mod tests {
     fn update_fund_description_at_limit_accepted() {
         let mut fund = make_fund();
         fund.description = "x".repeat(4096);
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_valid(&result));
     }
 
@@ -1933,7 +1900,7 @@ mod tests {
     fn update_fund_description_over_limit_rejected() {
         let mut fund = make_fund();
         fund.description = "x".repeat(4097);
-        let result = validate_update_fund(fund);
+        let result = Ok(validate_fund_fields(&fund));
         assert!(is_invalid(&result));
     }
 

@@ -36,12 +36,12 @@
 //! ```
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
+    aead::{Aead, KeyInit},
 };
 use ml_kem::{
+    B32, DecapsulationKey768, EncapsulationKey768, MlKem768,
     kem::{Decapsulate, KeyExport},
-    DecapsulationKey768, EncapsulationKey768, MlKem768, B32,
 };
 use sha2::{Digest, Sha256};
 
@@ -238,9 +238,11 @@ mod tests {
         let recovered = decrypt_wrong(&result.encapsulated_key, &result.nonce, &result.ciphertext);
 
         assert!(recovered.is_err());
-        assert!(recovered
-            .unwrap_err()
-            .contains("authentication tag mismatch"));
+        assert!(
+            recovered
+                .unwrap_err()
+                .contains("authentication tag mismatch")
+        );
     }
 
     #[test]
@@ -260,9 +262,11 @@ mod tests {
         let recovered = decrypt(&result.encapsulated_key, &result.nonce, &result.ciphertext);
 
         assert!(recovered.is_err());
-        assert!(recovered
-            .unwrap_err()
-            .contains("authentication tag mismatch"));
+        assert!(
+            recovered
+                .unwrap_err()
+                .contains("authentication tag mismatch")
+        );
     }
 
     #[test]

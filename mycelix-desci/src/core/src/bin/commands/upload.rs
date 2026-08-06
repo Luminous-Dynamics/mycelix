@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use mycelix_desci_core::{
-    claims::{ClaimContent, DesciClaim, EpistemicTier, Provenance},
-    hash, storage::{MemoryStorage, StorageBackend},
     Result,
+    claims::{ClaimContent, DesciClaim, EpistemicTier, Provenance},
+    hash,
+    storage::{MemoryStorage, StorageBackend},
 };
 use std::path::PathBuf;
 use tracing::info;

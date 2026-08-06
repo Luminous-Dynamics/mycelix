@@ -309,9 +309,20 @@ fn validate_create_listing(
 }
 
 fn validate_create_order(
-    _action: Create,
+    action: Create,
     order: SecondaryMaterialOrder,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the order to its committer. Unlike some sibling zomes, this
+    // coordinator's `place_order` takes `buyer` as part of client-supplied
+    // input rather than deriving it from `agent_info()` server-side, so
+    // this validator is the only real enforcement that an order can't be
+    // placed on someone else's behalf (P0 author-binding gap).
+    if order.buyer != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Order buyer must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     if !order.quantity_kg.is_finite() || order.quantity_kg <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Order quantity must be a positive finite number".into(),
@@ -371,6 +382,38 @@ mod tests {
             status: OrderStatus::Placed,
             placed_at: 1711200000_000000,
         }
+    }
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![3u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_create_order_valid_buyer_accepted() {
+        let order = make_valid_order();
+        let result = validate_create_order(test_action(), order).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_order_buyer_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![9u8; 36]);
+        let order = make_valid_order();
+        let result = validate_create_order(forged_action, order).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]

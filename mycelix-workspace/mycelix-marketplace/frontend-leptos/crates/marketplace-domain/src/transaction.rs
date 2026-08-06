@@ -88,8 +88,12 @@ impl TransactionResolutionReason {
             Self::DisputeDominatesLifecycle => "Dispute halts ordinary lifecycle progression",
             Self::BilateralAgreement => "Buyer and seller authorized one branch",
             Self::ArbitrationAward => "Arbitration authorized one branch",
-            Self::ConvergentExplicitAuthorities => "Independent authorities selected the same branch",
-            Self::ConflictingExplicitAuthorities => "Authority records disagree on the selected branch",
+            Self::ConvergentExplicitAuthorities => {
+                "Independent authorities selected the same branch"
+            }
+            Self::ConflictingExplicitAuthorities => {
+                "Authority records disagree on the selected branch"
+            }
             Self::UnsafeConcurrentLifecycle => "Unsafe concurrent lifecycle evidence",
         }
     }
@@ -446,10 +450,8 @@ mod tests {
             "\"auto_resolved\""
         );
         assert_eq!(
-            serde_json::to_string(
-                &TransactionResolutionReason::CancellationDominatesPreShipment
-            )
-            .unwrap(),
+            serde_json::to_string(&TransactionResolutionReason::CancellationDominatesPreShipment)
+                .unwrap(),
             "\"cancellation_dominates_pre_shipment\""
         );
     }

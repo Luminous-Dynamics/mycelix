@@ -19,9 +19,9 @@
 
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    anchor_hash, follow_update_chain, pick_race_winner, rate_limit_anchor_key,
-    verify_governance_or_bootstrap_from_links, verify_participant_tier,
-    DEFAULT_RATE_LIMIT_PER_MINUTE, GOVERNANCE_AGENTS_ANCHOR,
+    DEFAULT_RATE_LIMIT_PER_MINUTE, GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain,
+    pick_race_winner, rate_limit_anchor_key, verify_governance_or_bootstrap_from_links,
+    verify_participant_tier,
 };
 use mycelix_zome_helpers as _;
 
@@ -604,19 +604,28 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
                 Err(e) => {
                     // SECURITY NOTE: Decode error falls through permissively to support
                     // bootstrap/standalone mode where hearth zome schema may differ.
-                    debug!("verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)", member_did, hearth_did, e);
+                    debug!(
+                        "verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)",
+                        member_did, hearth_did, e
+                    );
                     Ok(())
                 }
             }
         }
         Ok(other) => {
             // SECURITY NOTE: Hearth zome unreachable/unauthorized — allow in bootstrap/standalone mode.
-            debug!("verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)", other, member_did, hearth_did);
+            debug!(
+                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)",
+                other, member_did, hearth_did
+            );
             Ok(())
         }
         Err(e) => {
             // SECURITY NOTE: Hearth zome unreachable — allow in bootstrap/standalone mode.
-            debug!("verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)", member_did, hearth_did, e);
+            debug!(
+                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)",
+                member_did, hearth_did, e
+            );
             Ok(())
         }
     }
@@ -3291,7 +3300,12 @@ mod tests {
             description: "request".into(),
             category: ServiceCategory::CareWork,
             estimated_hours: Some(3.0),
-            urgency: Urgency::Normal,
+            // `Urgency::Normal` does not exist and never has — the variants are
+            // Flexible / SoonPreferred / Urgent / Emergency. This test could not
+            // compile, so `cargo test`/`cargo check --all-targets` were red for the
+            // whole finance workspace. Urgency is irrelevant to what this test
+            // asserts (activity_dao_did), so any real variant works.
+            urgency: Urgency::Flexible,
             open: true,
             created: ts(),
         });

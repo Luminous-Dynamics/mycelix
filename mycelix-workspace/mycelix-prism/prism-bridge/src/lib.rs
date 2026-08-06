@@ -12,6 +12,8 @@ use prism_common::{ContentZone, QueryId, SafetyLevel, SearchResult, TabId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod runtime;
+
 /// Maximum IPC frame size (2MB, matching existing Symthaea convention).
 pub const MAX_FRAME_SIZE: usize = 2 * 1024 * 1024;
 

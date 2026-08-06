@@ -57,7 +57,10 @@ impl JsBridgeTransport {
             .unwrap_or(false);
         let configured_roles = string_array_property(&object, "configuredRoles")?;
         let active_roles = string_array_property(&object, "activeRoles")?;
-        if !active_roles.iter().any(|role| role == crate::contract::ROLE) {
+        if !active_roles
+            .iter()
+            .any(|role| role == crate::contract::ROLE)
+        {
             return Err(ClientError::Unavailable(
                 "bridge reported no active marketplace role".into(),
             ));
@@ -96,11 +99,13 @@ impl ZomeTransport for JsBridgeTransport {
                 message: js_message(error),
             }
         })?;
-        let result = JsFuture::from(promise).await.map_err(|error| ClientError::Call {
-            zome: zome.into(),
-            function: function.into(),
-            message: js_message(error),
-        })?;
+        let result = JsFuture::from(promise)
+            .await
+            .map_err(|error| ClientError::Call {
+                zome: zome.into(),
+                function: function.into(),
+                message: js_message(error),
+            })?;
         Ok(Uint8Array::new(&result).to_vec())
     }
 }
@@ -116,7 +121,6 @@ fn js_message(error: JsValue) -> String {
         .unwrap_or_else(|| format!("{error:?}"))
 }
 
-
 fn string_array_property(object: &Object, property: &str) -> Result<Vec<String>, ClientError> {
     let value = Reflect::get(object, &property.into()).map_err(js_error)?;
     if !js_sys::Array::is_array(&value) {
@@ -128,7 +132,9 @@ fn string_array_property(object: &Object, property: &str) -> Result<Vec<String>,
     let mut output = Vec::with_capacity(array.length() as usize);
     for item in array.iter() {
         let value = item.as_string().ok_or_else(|| {
-            ClientError::Unavailable(format!("bridge property {property} contained a non-string role"))
+            ClientError::Unavailable(format!(
+                "bridge property {property} contained a non-string role"
+            ))
         })?;
         output.push(value);
     }

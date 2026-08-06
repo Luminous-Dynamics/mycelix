@@ -153,8 +153,8 @@ pub fn geohash_neighbors(hash: &str) -> Vec<String> {
     offsets
         .iter()
         .map(|(dlat, dlon)| {
-            let nlat = (center_lat + dlat * 2.0).clamp(-90.0, 90.0);
-            let nlon = wrap_longitude(center_lon + dlon * 2.0);
+            let nlat = (center_lat + dlat).clamp(-90.0, 90.0);
+            let nlon = wrap_longitude(center_lon + dlon);
             geohash_encode(nlat, nlon, precision)
         })
         .collect()
@@ -173,7 +173,14 @@ pub fn haversine_distance_km(a: &GeoLocation, b: &GeoLocation) -> f64 {
     R * c
 }
 
-/// Approximate error (half-cell-size) for a geohash precision.
+/// Full cell dimensions (height, width) in degrees for a geohash precision.
+///
+/// NOTE: this returns the *whole* cell size, not the ±half-cell "error" that
+/// published geohash precision tables quote. `geohash_decode` returns a cell
+/// centre, so stepping by exactly one of these lands on the adjacent cell's
+/// centre — do not scale it. A `* 2.0` here previously made
+/// `geohash_neighbors` return the ring at grid distance 2, silently skipping
+/// every genuinely adjacent cell (see `geohash_neighbors_cover_the_adjacent_ring`).
 fn geohash_error(precision: u8) -> (f64, f64) {
     // lat_bits = 5*precision/2 (rounded down), lon_bits = 5*precision - lat_bits
     let total_bits = 5 * precision as u32;
@@ -249,6 +256,51 @@ mod tests {
     #[test]
     fn geohash_neighbors_empty_input() {
         assert!(geohash_neighbors("").is_empty());
+    }
+
+    #[test]
+    fn geohash_neighbors_cover_the_adjacent_ring() {
+        // Every proximity query in commons and civic depends on this property:
+        // a point just over the cell boundary must appear in the neighbor set.
+        // `geohash_neighbors_returns_eight` only checks the count and string
+        // length, so it passed while the function returned the ring at grid
+        // distance 2 — leaving the genuinely adjacent cells unsearched.
+        let (lat, lon) = (32.95_f64, -96.73_f64); // Richardson TX
+        let precision = 6;
+        let center = geohash_encode(lat, lon, precision);
+        let (center_lat, center_lon) = geohash_decode(&center);
+        let (lat_cell, lon_cell) = geohash_error(precision);
+        let neighbors = geohash_neighbors(&center);
+
+        // Step 0.6 of a cell outward: far enough to leave the center cell,
+        // not far enough to skip over the adjacent one.
+        for (dlat, dlon) in [
+            (-1.0, -1.0),
+            (-1.0, 0.0),
+            (-1.0, 1.0),
+            (0.0, -1.0),
+            (0.0, 1.0),
+            (1.0, -1.0),
+            (1.0, 0.0),
+            (1.0, 1.0),
+        ] {
+            let probe_lat = center_lat + dlat * lat_cell * 0.6;
+            let probe_lon = center_lon + dlon * lon_cell * 0.6;
+            let adjacent = geohash_encode(probe_lat, probe_lon, precision);
+            assert_ne!(
+                adjacent,
+                center,
+                "probe at offset {:?} did not leave the center cell",
+                (dlat, dlon)
+            );
+            assert!(
+                neighbors.contains(&adjacent),
+                "adjacent cell {} at offset {:?} is missing from neighbors {:?}",
+                adjacent,
+                (dlat, dlon),
+                neighbors
+            );
+        }
     }
 
     #[test]

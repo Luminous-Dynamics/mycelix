@@ -140,6 +140,8 @@ pub fn StewardshipLedger() -> impl IntoView {
             <span>"Jurisdiction: ZA (SARB-Comp)"</span>
             <span style="color: var(--warning)">"-150 TEND"</span>
         </div>
+    </div>
+
     <div class="composting-ledger" style="margin-top: 1.5rem; padding: 1rem; background: var(--success-low); border-radius: 8px; border: 1px solid var(--success)">
         <h5 style="margin-top: 0; color: var(--success)">"Composting Ledger (Lineage Handoff)"</h5>
         <p style="font-size: 0.7rem; color: var(--text-secondary)">"Generational redistribution of assets back to the forest floor."</p>
@@ -260,8 +262,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             "Feast Budget: 500 TEND Unlocked"
         </div>
     </div>
-    </section>
-    </div><div class="joule-standard" style="margin-top: 2rem; padding: 1rem; background: linear-gradient(to right, var(--surface-high), var(--primary-low)); border-radius: 8px; border: 2px solid var(--primary)">
+    <div class="joule-standard" style="margin-top: 2rem; padding: 1rem; background: linear-gradient(to right, var(--surface-high), var(--primary-low)); border-radius: 8px; border: 2px solid var(--primary)">
         <h5 style="margin-top: 0; color: var(--primary)">"The Joule Standard (Energy Peg)"</h5>
         <p style="font-size: 0.7rem; color: var(--text-secondary)">"Verifiable energy harvest minting TEND credits."</p>
         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 800; margin-top: 0.5rem">
@@ -317,8 +318,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             "Surplus Sales: +850 TEND to Neighborhood"
         </div>
     </div>
-    </section>
-    </div><div class="biosphere-governance" style="margin-top: 2rem; padding: 1rem; background: var(--primary-low); border-radius: 8px; border: 1px solid var(--primary)">
+    <div class="biosphere-governance" style="margin-top: 2rem; padding: 1rem; background: var(--primary-low); border-radius: 8px; border: 1px solid var(--primary)">
         <h5 style="margin-top: 0; color: var(--primary)">"Biosphere Proxy (Interspecies DAO)"</h5>
         <p style="font-size: 0.7rem; color: var(--text-secondary)">"Real-time voting signal from environmental entities."</p>
         <div style="display: flex; justify-content: space-between; font-size: 0.75rem">
@@ -608,10 +608,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             }).collect_view()}
         </div>
     </div>
-    </section>
-    </div>
-    </section>
-    </div><div class="planetary-pulse" style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(to right, var(--success-low), var(--info-low)); border-radius: 12px; border: 2px solid var(--info)">
+    <div class="planetary-pulse" style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(to right, var(--success-low), var(--info-low)); border-radius: 12px; border: 2px solid var(--info)">
         <h4 style="margin: 0; color: var(--info); display: flex; align-items: center; gap: 0.5rem">
             "\u{1F30E} Planetary Pulse"
         </h4>
@@ -636,8 +633,7 @@ pub fn StewardshipLedger() -> impl IntoView {
             }).collect_view()}
         </div>
     </div>
-    </section>
-    </div>                    <div class="hardware-mining" style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--surface-high), var(--primary-low)); border-radius: 12px; border: 1px solid var(--primary-low)">
+    <div class="hardware-mining" style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, var(--surface-high), var(--primary-low)); border-radius: 12px; border: 1px solid var(--primary-low)">
                             <h5 style="margin-top: 0; color: var(--primary)">"Hardware Mining (Spores-for-Steel)"</h5>
                             <p style="font-size: 0.7rem; color: var(--text-secondary)">"Your community is mining the physical substrate."</p>
 

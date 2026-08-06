@@ -196,7 +196,8 @@ impl ConsensusHistory {
             .collect();
 
         let mean: f64 = recent.iter().sum::<f64>() / recent.len() as f64;
-        let variance: f64 = recent.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / recent.len() as f64;
+        let variance: f64 =
+            recent.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / recent.len() as f64;
 
         // Stability = 1 / (1 + variance * 10)
         1.0 / (1.0 + variance * 10.0)
@@ -371,8 +372,11 @@ impl ConsensusTracker {
             history.snapshots.push(snapshot);
 
             // Update current state
-            history.current_state =
-                ConsensusState::from_ratio(support_ratio, self.config.min_verifications, verification_count);
+            history.current_state = ConsensusState::from_ratio(
+                support_ratio,
+                self.config.min_verifications,
+                verification_count,
+            );
 
             // Apply trend
             history.current_trend = trend;
@@ -472,13 +476,7 @@ impl ConsensusTracker {
     }
 
     /// Detect and record a paradigm shift
-    fn detect_paradigm_shift(
-        &mut self,
-        claim_id: Uuid,
-        before: f64,
-        after: f64,
-        timestamp: i64,
-    ) {
+    fn detect_paradigm_shift(&mut self, claim_id: Uuid, before: f64, after: f64, timestamp: i64) {
         let history = match self.histories.get_mut(&claim_id) {
             Some(h) => h,
             None => return,

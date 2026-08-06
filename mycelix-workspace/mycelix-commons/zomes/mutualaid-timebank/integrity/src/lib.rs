@@ -8,8 +8,8 @@
 //! 1 hour = 1 hour, regardless of service type.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 use mutualaid_common::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Entry types for the timebank zome
 #[hdk_entry_types]
@@ -65,8 +65,15 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => validate_create_entry(app_entry),
-            OpEntry::UpdateEntry { app_entry, .. } => validate_create_entry(app_entry),
+            OpEntry::CreateEntry { app_entry, action } => {
+                validate_create_entry(action.author, app_entry)
+            }
+            OpEntry::UpdateEntry {
+                app_entry,
+                original_action_hash,
+                action,
+                ..
+            } => validate_update_entry_type(action, original_action_hash, app_entry),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -110,14 +117,187 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Validate entry creation
-fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResult> {
+/// Validate entry creation. ServiceOffer.provider/ServiceRequest.requester
+/// author-binding is belt-and-suspenders -- create_service_offer/
+/// create_service_request already derive these from agent_info().
+/// TimeExchange/TimeCredit are bound to ONE of their two real parties
+/// (provider/recipient, earner/debtor) rather than a single self-declared
+/// field -- record_exchange took both straight from caller input with
+/// zero identity check, so an uninvolved third party could otherwise
+/// fabricate an exchange (and the TimeCredit it mints) between two other
+/// agents who never interacted. This does not by itself solve one-sided
+/// fabrication between two REAL agents who never transacted -- that needs
+/// genuine two-party consent, out of scope here; it closes the more
+/// severe "uninvolved third party" hole.
+fn validate_create_entry(
+    author: AgentPubKey,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
     match entry {
-        EntryTypes::ServiceOffer(offer) => validate_service_offer(offer),
-        EntryTypes::ServiceRequest(request) => validate_service_request(request),
-        EntryTypes::TimeExchange(exchange) => validate_time_exchange(exchange),
-        EntryTypes::TimeCredit(credit) => validate_time_credit(credit),
+        EntryTypes::ServiceOffer(offer) => {
+            if offer.provider != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ServiceOffer provider must be the committing agent (offer forgery)"
+                        .to_string(),
+                ));
+            }
+            validate_service_offer(offer)
+        }
+        EntryTypes::ServiceRequest(request) => {
+            if request.requester != author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ServiceRequest requester must be the committing agent (request forgery)"
+                        .to_string(),
+                ));
+            }
+            validate_service_request(request)
+        }
+        EntryTypes::TimeExchange(exchange) => {
+            if author != exchange.provider && author != exchange.recipient {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TimeExchange must be committed by the provider or the recipient \
+                     (uninvolved third party cannot fabricate an exchange)"
+                        .to_string(),
+                ));
+            }
+            validate_time_exchange(exchange)
+        }
+        EntryTypes::TimeCredit(credit) => {
+            if author != credit.earner && author != credit.debtor {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TimeCredit must be committed by the earner or the debtor \
+                     (uninvolved third party cannot mint a credit)"
+                        .to_string(),
+                ));
+            }
+            validate_time_credit(credit)
+        }
     }
+}
+
+/// ServiceOffer and TimeExchange are the only entry types with live
+/// coordinator update paths (deactivate_offer; confirm_exchange/
+/// rate_exchange). ServiceRequest and TimeCredit have none and are made
+/// immutable.
+fn validate_update_entry_type(
+    action: Update,
+    original_action_hash: ActionHash,
+    entry: EntryTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::ServiceOffer(offer) => {
+            validate_update_service_offer(action, original_action_hash, offer)
+        }
+        EntryTypes::TimeExchange(exchange) => {
+            validate_update_time_exchange(action, original_action_hash, exchange)
+        }
+        EntryTypes::ServiceRequest(_) => Ok(ValidateCallbackResult::Invalid(
+            "Service requests are immutable".into(),
+        )),
+        EntryTypes::TimeCredit(_) => Ok(ValidateCallbackResult::Invalid(
+            "Time credits are immutable".into(),
+        )),
+    }
+}
+
+/// **Real authorization fix**: deactivate_offer's own client-side check
+/// ("only the provider can deactivate") is now enforced at the integrity
+/// level. Content restricted to active/updated_at.
+fn validate_update_service_offer(
+    action: Update,
+    original_action_hash: ActionHash,
+    offer: ServiceOffer,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: ServiceOffer = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original offer not found".to_string()
+        )))?;
+
+    if offer.id != original.id
+        || offer.provider != original.provider
+        || offer.category != original.category
+        || offer.title != original.title
+        || offer.description != original.description
+        || offer.qualifications != original.qualifications
+        || offer.availability != original.availability
+        || offer.location != original.location
+        || offer.min_duration_hours != original.min_duration_hours
+        || offer.max_duration_hours != original.max_duration_hours
+        || offer.created_at != original.created_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only active/updated_at can change on a service offer update".into(),
+        ));
+    }
+
+    if action.author != original.provider {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the provider can deactivate their offer".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// **Real authorization fix**: confirm_exchange/rate_exchange's own
+/// client-side "only participants" checks are now enforced at the
+/// integrity level, plus a check that a participant may only ever set
+/// THEIR OWN rating, never the other party's. Content restricted to
+/// confirmed/provider_rating/recipient_rating.
+fn validate_update_time_exchange(
+    action: Update,
+    original_action_hash: ActionHash,
+    exchange: TimeExchange,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original: TimeExchange = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original exchange not found".to_string()
+        )))?;
+
+    if exchange.id != original.id
+        || exchange.offer_hash != original.offer_hash
+        || exchange.request_hash != original.request_hash
+        || exchange.provider != original.provider
+        || exchange.recipient != original.recipient
+        || exchange.hours != original.hours
+        || exchange.category != original.category
+        || exchange.description != original.description
+        || exchange.completed_at != original.completed_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only confirmed/provider_rating/recipient_rating can change on an exchange update"
+                .into(),
+        ));
+    }
+
+    if action.author != original.provider && action.author != original.recipient {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only participants can update an exchange".into(),
+        ));
+    }
+
+    if exchange.provider_rating != original.provider_rating && action.author != original.provider {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the provider can set their own rating".into(),
+        ));
+    }
+
+    if exchange.recipient_rating != original.recipient_rating && action.author != original.recipient
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the recipient can set their own rating".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate a service offer
@@ -858,7 +1038,7 @@ mod tests {
     #[test]
     fn dispatcher_routes_valid_offer() {
         let entry = EntryTypes::ServiceOffer(valid_offer());
-        assert!(is_valid(&validate_create_entry(entry)));
+        assert!(is_valid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
@@ -866,13 +1046,13 @@ mod tests {
         let mut o = valid_offer();
         o.id = "".into();
         let entry = EntryTypes::ServiceOffer(o);
-        assert!(is_invalid(&validate_create_entry(entry)));
+        assert!(is_invalid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
     fn dispatcher_routes_valid_request() {
         let entry = EntryTypes::ServiceRequest(valid_request());
-        assert!(is_valid(&validate_create_entry(entry)));
+        assert!(is_valid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
@@ -880,13 +1060,13 @@ mod tests {
         let mut r = valid_request();
         r.title = "".into();
         let entry = EntryTypes::ServiceRequest(r);
-        assert!(is_invalid(&validate_create_entry(entry)));
+        assert!(is_invalid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
     fn dispatcher_routes_valid_exchange() {
         let entry = EntryTypes::TimeExchange(valid_exchange());
-        assert!(is_valid(&validate_create_entry(entry)));
+        assert!(is_valid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
@@ -894,13 +1074,13 @@ mod tests {
         let mut e = valid_exchange();
         e.hours = 0.0;
         let entry = EntryTypes::TimeExchange(e);
-        assert!(is_invalid(&validate_create_entry(entry)));
+        assert!(is_invalid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
     fn dispatcher_routes_valid_credit() {
         let entry = EntryTypes::TimeCredit(valid_credit());
-        assert!(is_valid(&validate_create_entry(entry)));
+        assert!(is_valid(&validate_create_entry(agent_a(), entry)));
     }
 
     #[test]
@@ -908,7 +1088,7 @@ mod tests {
         let mut c = valid_credit();
         c.description = "".into();
         let entry = EntryTypes::TimeCredit(c);
-        assert!(is_invalid(&validate_create_entry(entry)));
+        assert!(is_invalid(&validate_create_entry(agent_a(), entry)));
     }
 
     // =========================================================================

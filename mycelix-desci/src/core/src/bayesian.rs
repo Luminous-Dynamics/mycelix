@@ -162,7 +162,8 @@ impl BeliefNetwork {
         let id = node.id;
         let prior = node.prior;
         self.nodes.insert(id, node);
-        self.cpts.insert(id, ConditionalProbabilityTable::new_root(id, prior));
+        self.cpts
+            .insert(id, ConditionalProbabilityTable::new_root(id, prior));
         self.update_topo_order();
     }
 
@@ -317,10 +318,7 @@ impl BayesianInference {
         if total_weight > 0.0 {
             positive_weight / total_weight
         } else {
-            network
-                .get_node(query_node)
-                .map(|n| n.prior)
-                .unwrap_or(0.5)
+            network.get_node(query_node).map(|n| n.prior).unwrap_or(0.5)
         }
     }
 
@@ -614,13 +612,13 @@ mod tests {
 
         // Set CPT for B given A
         if let Some(cpt) = network.get_cpt_mut(b_id) {
-            cpt.set_probability(&[true], 0.8);  // P(B|A=T) = 0.8
+            cpt.set_probability(&[true], 0.8); // P(B|A=T) = 0.8
             cpt.set_probability(&[false], 0.2); // P(B|A=F) = 0.2
         }
 
         // Set CPT for C given B
         if let Some(cpt) = network.get_cpt_mut(c_id) {
-            cpt.set_probability(&[true], 0.9);  // P(C|B=T) = 0.9
+            cpt.set_probability(&[true], 0.9); // P(C|B=T) = 0.9
             cpt.set_probability(&[false], 0.1); // P(C|B=F) = 0.1
         }
 
@@ -681,7 +679,8 @@ mod tests {
         let given: HashSet<Uuid> = [node_ids[1]].into_iter().collect();
         let separated = inference.d_separated(&network, node_ids[0], node_ids[2], &given);
 
-        // The exact result depends on our simplified d-separation algorithm
-        assert!(separated || !separated); // Just test it runs
+        // The exact result depends on our simplified d-separation algorithm --
+        // this just exercises the call path without panicking.
+        let _ = separated;
     }
 }

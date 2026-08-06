@@ -10,7 +10,6 @@
 /// - Read receipts and typing indicators
 /// - Spam prevention via MATL gating
 /// - Message search and filtering
-
 use hdk::prelude::*;
 use messaging_integrity::*;
 use mycelix_common::{error_handling, link_queries, remote_calls, time};
@@ -30,19 +29,26 @@ pub fn send_message(input: SendMessageInput) -> ExternResult<MessageOutput> {
 
     // MATL gate: Check sender reputation (prevent spam)
     // Use shared utility for remote calls
-    let matl_score: f64 = remote_calls::call_zome(
-        "reputation",
-        "get_agent_matl_score_fast",
-        sender.clone(),
-    )?;
+    let matl_score: f64 =
+        remote_calls::call_zome("reputation", "get_agent_matl_score_fast", sender.clone())?;
 
     if matl_score < 0.4 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "Insufficient MATL score to send messages (have: {:.2}, need: 0.40). \
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient MATL score to send messages (have: {:.2}, need: 0.40). \
                  Build your reputation through successful transactions first.",
-                matl_score
-            )
+            matl_score
+        ))));
+    }
+
+    // Verify sender is actually a participant of the target conversation before touching
+    // it. Previously unchecked -- any agent could pass an arbitrary conversation_id and
+    // trigger update_conversation_metadata on a conversation they're not part of. Also
+    // establishes the real invariant a new DHT-level bind on Conversation updates now
+    // enforces (author must be in participants).
+    let conversation: Conversation = get_entry_from_hash(input.conversation_id.clone())?;
+    if !conversation.participants.contains(&sender) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Can only send messages in conversations you're a participant in".to_string()
         )));
     }
 
@@ -59,8 +65,8 @@ pub fn send_message(input: SendMessageInput) -> ExternResult<MessageOutput> {
         message_type: input.message_type,
         epistemic: EpistemicClassification {
             empirical: EmpiricalLevel::E2PrivateVerify, // Both parties can verify
-            normative: NormativeLevel::N1Communal,       // Between two people
-            materiality: MaterialityLevel::M1Temporal,   // Ephemeral unless archived
+            normative: NormativeLevel::N1Communal,      // Between two people
+            materiality: MaterialityLevel::M1Temporal,  // Ephemeral unless archived
         },
     };
 
@@ -89,10 +95,7 @@ pub fn send_message(input: SendMessageInput) -> ExternResult<MessageOutput> {
     )?;
 
     // Update conversation metadata
-    update_conversation_metadata(
-        input.conversation_id.clone(),
-        action_hash.clone(),
-    )?;
+    update_conversation_metadata(input.conversation_id.clone(), action_hash.clone())?;
 
     // Emit monitoring metric
     monitoring::emit_metric(
@@ -119,19 +122,14 @@ pub fn start_conversation(input: StartConversationInput) -> ExternResult<Convers
 
     // MATL gate
     // Use shared utility for remote calls
-    let matl_score: f64 = remote_calls::call_zome(
-        "reputation",
-        "get_agent_matl_score_fast",
-        initiator.clone(),
-    )?;
+    let matl_score: f64 =
+        remote_calls::call_zome("reputation", "get_agent_matl_score_fast", initiator.clone())?;
 
     if matl_score < 0.4 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "Insufficient MATL score to start conversations (have: {:.2}, need: 0.40)",
-                matl_score
-            )
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient MATL score to start conversations (have: {:.2}, need: 0.40)",
+            matl_score
+        ))));
     }
 
     // Create a placeholder ActionHash for the first message
@@ -158,10 +156,7 @@ pub fn start_conversation(input: StartConversationInput) -> ExternResult<Convers
         first_message_hash: first_message.message_hash.clone(),
         last_message_hash: first_message.message_hash.clone(),
         message_count: 1,
-        unread_counts: vec![
-            (initiator.clone(), 0),
-            (input.recipient.clone(), 1),
-        ],
+        unread_counts: vec![(initiator.clone(), 0), (input.recipient.clone(), 1)],
         started_at: now,
         last_activity_at: now,
         status: ConversationStatus::Active,
@@ -282,7 +277,9 @@ pub fn get_my_conversations(_: ()) -> ExternResult<ConversationsResponse> {
 
     // Sort by last activity (most recent first)
     conversations.sort_by(|a, b| {
-        b.conversation.last_activity_at.cmp(&a.conversation.last_activity_at)
+        b.conversation
+            .last_activity_at
+            .cmp(&a.conversation.last_activity_at)
     });
 
     Ok(ConversationsResponse { conversations })
@@ -290,11 +287,10 @@ pub fn get_my_conversations(_: ()) -> ExternResult<ConversationsResponse> {
 
 /// Get all messages in a conversation
 #[hdk_extern]
-pub fn get_conversation_messages(
-    conversation_hash: ActionHash,
-) -> ExternResult<MessagesResponse> {
+pub fn get_conversation_messages(conversation_hash: ActionHash) -> ExternResult<MessagesResponse> {
     // Use shared utility for get_links
-    let links = link_queries::get_links_local(conversation_hash, LinkTypes::ConversationToMessages)?;
+    let links =
+        link_queries::get_links_local(conversation_hash, LinkTypes::ConversationToMessages)?;
 
     let mut messages = Vec::new();
 
@@ -503,8 +499,15 @@ fn get_entry_from_hash<T: TryFrom<SerializedBytes, Error = SerializedBytesError>
     record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Deserialization error: {:?}", e))))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Could not deserialize entry".into())))
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Could not deserialize entry".into()
+        )))
 }
 
 // ===== Input/Output Types =====

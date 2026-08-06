@@ -12,7 +12,7 @@ pub fn WelcomeModal() -> impl IntoView {
     // On production (mycelix.net), skip welcome — ProfileSetup handles onboarding
     let is_production = web_sys::window()
         .and_then(|w| w.location().hostname().ok())
-        .map(|h| h.contains("mycelix.net") || h == "localhost" || h == "127.0.0.1")
+        .map(|h| h == "mycelix.net" || h.ends_with(".mycelix.net") || h == "localhost" || h == "127.0.0.1")
         .unwrap_or(false);
 
     // Check if user has seen the welcome before

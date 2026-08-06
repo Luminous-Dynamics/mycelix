@@ -20,6 +20,15 @@ pub fn ContactsPage() -> impl IntoView {
     let discover_loading = RwSignal::new(false);
     let discover_adding = RwSignal::new(false);
     let is_mock = move || hc.status.get() == ConnectionStatus::Demo;
+    // DSID discovery needs both the "identity" role (resolve_did) and the
+    // mail_contacts zome (create_contact) — neither is bundled in the
+    // restricted alpha DNA. Demo mode already short-circuits the submit
+    // handler, so only gate the live-conductor case.
+    let discovery_available = move || {
+        is_mock()
+            || (crate::alpha_scope::identity_role_available()
+                && crate::alpha_scope::zome_available("mail_contacts"))
+    };
 
     let filtered = move || {
         let query = search.get().to_lowercase();
@@ -102,6 +111,7 @@ pub fn ContactsPage() -> impl IntoView {
             <div class="setting-card" style="margin-bottom:16px">
                 <div class="setting-card-label">"Discover on Network"</div>
                 <div class="setting-card-body">
+                    <div style=move || if discovery_available() { "" } else { "display:none" }>
                     <form class="discover-search" on:submit={
                         let hc = hc.clone();
                         move |e: web_sys::SubmitEvent| {
@@ -119,15 +129,9 @@ pub fn ContactsPage() -> impl IntoView {
                                     "identity", "did_registry", "resolve_did", &serde_json::json!(wire_query)
                                 ).await {
                                     Ok(val) if !val.is_null() => {
-                                        // resolve_identity returns Option<AgentPubKey>
-                                        // (raw bytes) — Option<Vec<u8>> decodes it
-                                        // correctly where serde_json::Value cannot.
-                                        // Re-wrapped as a Value (a JSON array of byte
-                                        // numbers) only for local storage/outbound
-                                        // encoding below, which never had this problem.
-                                        let agent_pub_key_value = hc.call_zome::<serde_json::Value, Option<Vec<u8>>>(
+                                        let agent_pub_key_value = hc.call_zome::<serde_json::Value, Option<serde_json::Value>>(
                                             "mail_bridge", "resolve_identity", &serde_json::json!(wire_query)
-                                        ).await.ok().flatten().map(|bytes| serde_json::json!(bytes));
+                                        ).await.ok().flatten();
                                         let agent_pub_key = agent_pub_key_value
                                             .as_ref()
                                             .map(crate::zome_adapter::json_hash_to_string);
@@ -220,11 +224,7 @@ pub fn ContactsPage() -> impl IntoView {
                                                 let now = (js_sys::Date::now() as u64).saturating_mul(1000);
                                                 let payload = build_discovered_contact_payload(&result, now);
 
-                                                // create_contact returns an ActionHash (raw bytes) —
-                                                // decoding as serde_json::Value fails on msgpack's
-                                                // byte-array type; Vec<u8> decodes it correctly. See
-                                                // profile_setup.rs's set_profile fix for full detail.
-                                                match hc.call_zome::<serde_json::Value, Vec<u8>>(
+                                                match hc.call_zome::<serde_json::Value, serde_json::Value>(
                                                     "mail_contacts", "create_contact", &payload
                                                 ).await {
                                                     Ok(_) => {
@@ -260,6 +260,12 @@ pub fn ContactsPage() -> impl IntoView {
                             </p>
                         })
                     } else { None }}
+                    </div>
+                    <div style=move || if discovery_available() { "display:none" } else { "" }>
+                        {crate::alpha_scope::scope_notice(
+                            "DSID discovery isn't available in this alpha build — it depends on the identity and contacts zomes, which aren't bundled yet."
+                        )}
+                    </div>
                 </div>
             </div>
 

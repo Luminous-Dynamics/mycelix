@@ -65,7 +65,7 @@ impl Hash {
                 return Err(Error::Generic(format!(
                     "Unknown hash algorithm: {}",
                     parts[0]
-                )))
+                )));
             }
         };
 
@@ -87,10 +87,7 @@ pub fn hash_file<P: AsRef<Path>>(path: P) -> Result<Hash> {
 }
 
 /// Hash a file with a specific algorithm
-pub fn hash_file_with_algorithm<P: AsRef<Path>>(
-    path: P,
-    algorithm: HashAlgorithm,
-) -> Result<Hash> {
+pub fn hash_file_with_algorithm<P: AsRef<Path>>(path: P, algorithm: HashAlgorithm) -> Result<Hash> {
     let file = File::open(path.as_ref())
         .map_err(|e| Error::Generic(format!("Failed to open file: {}", e)))?;
 
@@ -211,7 +208,9 @@ impl MerkleNode {
 /// Build a Merkle tree from a list of hashes
 pub fn build_merkle_tree(mut hashes: Vec<Hash>) -> Result<MerkleNode> {
     if hashes.is_empty() {
-        return Err(Error::Generic("Cannot build Merkle tree from empty list".to_string()));
+        return Err(Error::Generic(
+            "Cannot build Merkle tree from empty list".to_string(),
+        ));
     }
 
     // Create leaf nodes
@@ -234,7 +233,10 @@ pub fn build_merkle_tree(mut hashes: Vec<Hash>) -> Result<MerkleNode> {
     }
 
     // Safe: we checked for empty list at start, and loop maintains at least one node
-    nodes.into_iter().next().ok_or_else(|| Error::Generic("Merkle tree construction failed unexpectedly".to_string()))
+    nodes
+        .into_iter()
+        .next()
+        .ok_or_else(|| Error::Generic("Merkle tree construction failed unexpectedly".to_string()))
 }
 
 #[cfg(test)]

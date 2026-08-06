@@ -112,14 +112,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EmergencyMessage(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::EmergencyChannel(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Broadcast(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::EmergencyMessage(msg) => validate_update_message(action, msg),
+                EntryTypes::EmergencyChannel(channel) => validate_update_channel(action, channel),
+                EntryTypes::Broadcast(broadcast) => validate_update_broadcast(action, broadcast),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -224,6 +224,42 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Pure content-level validation for an `EmergencyMessage`, shared by
+/// create and update so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_message_fields(msg: &EmergencyMessage) -> ValidateCallbackResult {
+    if msg.content.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Message content cannot be empty".into());
+    }
+    if msg.content.len() > 4096 {
+        return ValidateCallbackResult::Invalid("Message content cannot exceed 4096 bytes".into());
+    }
+    if msg.ttl_hours == 0 {
+        return ValidateCallbackResult::Invalid("TTL must be at least 1 hour".into());
+    }
+    if let Some((lat, lon)) = msg.location {
+        if !lat.is_finite() {
+            return ValidateCallbackResult::Invalid(
+                "location latitude must be a finite number".into(),
+            );
+        }
+        if !lon.is_finite() {
+            return ValidateCallbackResult::Invalid(
+                "location longitude must be a finite number".into(),
+            );
+        }
+        if !(-90.0..=90.0).contains(&lat) {
+            return ValidateCallbackResult::Invalid("Latitude must be between -90 and 90".into());
+        }
+        if !(-180.0..=180.0).contains(&lon) {
+            return ValidateCallbackResult::Invalid(
+                "Longitude must be between -180 and 180".into(),
+            );
+        }
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_message(
     action: Create,
     msg: EmergencyMessage,
@@ -235,44 +271,57 @@ fn validate_create_message(
             "EmergencyMessage sender must match the committing agent".into(),
         ));
     }
-    if msg.content.trim().is_empty() {
+    Ok(validate_message_fields(&msg))
+}
+
+/// **Design divergence from mycelix-emergency/comms, confirmed via grep of
+/// this shadow's own coordinator (2026-07):** standalone only supports a
+/// narrow `mark_synced` flow (flips `synced` false->true, everything else
+/// immutable). This shadow ALSO has a genuine, additional, governance-gated
+/// (`require_civic`/`civic_requirement_proposal`) `update_message` that
+/// replaces the whole entry -- a real live flow standalone doesn't have.
+/// Blindly porting standalone's stricter "only synced can change" rule
+/// would break that live flow. Resolution: allow all content fields to
+/// change (parity with the live full-replace coordinator function), but
+/// freeze `sender` -- there's no legitimate reason a governance-gated
+/// content update should be able to reassign who originally sent a
+/// message, and leaving it open would be an update-based impersonation
+/// vector even under civic gating.
+fn validate_update_message(
+    action: Update,
+    msg: EmergencyMessage,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: EmergencyMessage = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original message not found".to_string()
+        )))?;
+    if msg.sender != original.sender {
         return Ok(ValidateCallbackResult::Invalid(
-            "Message content cannot be empty".into(),
+            "Message sender cannot change on update".into(),
         ));
     }
-    if msg.content.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Message content cannot exceed 4096 bytes".into(),
-        ));
+    Ok(validate_message_fields(&msg))
+}
+
+/// Pure content-level validation for an `EmergencyChannel`, shared by
+/// create and update.
+fn validate_channel_fields(channel: &EmergencyChannel) -> ValidateCallbackResult {
+    if channel.name.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Channel name cannot be empty".into());
     }
-    if msg.ttl_hours == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "TTL must be at least 1 hour".into(),
-        ));
+    if channel.name.len() > 256 {
+        return ValidateCallbackResult::Invalid("Channel name too long (max 256 chars)".into());
     }
-    if let Some((lat, lon)) = msg.location {
-        if !lat.is_finite() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "location latitude must be a finite number".into(),
-            ));
-        }
-        if !lon.is_finite() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "location longitude must be a finite number".into(),
-            ));
-        }
-        if !(-90.0..=90.0).contains(&lat) {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Latitude must be between -90 and 90".into(),
-            ));
-        }
-        if !(-180.0..=180.0).contains(&lon) {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Longitude must be between -180 and 180".into(),
-            ));
-        }
+    if channel.participants.is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "Channel must have at least one participant".into(),
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_channel(
@@ -285,22 +334,76 @@ fn validate_create_channel(
             "EmergencyChannel created_by must match the committing agent".into(),
         ));
     }
-    if channel.name.trim().is_empty() {
+    Ok(validate_channel_fields(&channel))
+}
+
+/// **Design divergence, same reasoning as `validate_update_message`:** this
+/// shadow's coordinator has a genuine, governance-gated `update_channel`
+/// that replaces the whole entry (standalone makes channels immutable --
+/// no such flow exists there). Content (name/disaster_hash/channel_type/
+/// participants) may change; `created_by` is frozen to prevent
+/// update-based reassignment of who originally created the channel.
+fn validate_update_channel(
+    action: Update,
+    channel: EmergencyChannel,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: EmergencyChannel = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original channel not found".to_string()
+        )))?;
+    if channel.created_by != original.created_by {
         return Ok(ValidateCallbackResult::Invalid(
-            "Channel name cannot be empty".into(),
+            "Channel created_by cannot change on update".into(),
         ));
     }
-    if channel.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Channel name too long (max 256 chars)".into(),
-        ));
+    Ok(validate_channel_fields(&channel))
+}
+
+/// Pure content-level validation for a `Broadcast`, shared by create and
+/// update.
+fn validate_broadcast_fields(broadcast: &Broadcast) -> ValidateCallbackResult {
+    if broadcast.content.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Broadcast content cannot be empty".into());
     }
-    if channel.participants.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Channel must have at least one participant".into(),
-        ));
+    if broadcast.content.len() > 4096 {
+        return ValidateCallbackResult::Invalid(
+            "Broadcast content too long (max 4096 bytes)".into(),
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    let (lat, lon, radius) = broadcast.target_area;
+    if !lat.is_finite() {
+        return ValidateCallbackResult::Invalid(
+            "target_area latitude must be a finite number".into(),
+        );
+    }
+    if !lon.is_finite() {
+        return ValidateCallbackResult::Invalid(
+            "target_area longitude must be a finite number".into(),
+        );
+    }
+    if !radius.is_finite() {
+        return ValidateCallbackResult::Invalid(
+            "target_area radius must be a finite number".into(),
+        );
+    }
+    if !(-90.0..=90.0).contains(&lat) {
+        return ValidateCallbackResult::Invalid(
+            "Target area latitude must be between -90 and 90".into(),
+        );
+    }
+    if !(-180.0..=180.0).contains(&lon) {
+        return ValidateCallbackResult::Invalid(
+            "Target area longitude must be between -180 and 180".into(),
+        );
+    }
+    if radius <= 0.0 {
+        return ValidateCallbackResult::Invalid("Target area radius must be positive".into());
+    }
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_broadcast(
@@ -317,48 +420,33 @@ fn validate_create_broadcast(
             "Broadcast issued_by must match the committing agent".into(),
         ));
     }
-    if broadcast.content.trim().is_empty() {
+    Ok(validate_broadcast_fields(&broadcast))
+}
+
+/// **Design divergence, same reasoning as `validate_update_message`:** this
+/// shadow's coordinator has a genuine, governance-gated `update_broadcast`
+/// that replaces the whole entry (standalone makes broadcasts immutable --
+/// no such flow exists there). Content may change; `issued_by` is frozen
+/// to prevent update-based reassignment of who issued an authoritative
+/// emergency order.
+fn validate_update_broadcast(
+    action: Update,
+    broadcast: Broadcast,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Broadcast = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original broadcast not found".to_string()
+        )))?;
+    if broadcast.issued_by != original.issued_by {
         return Ok(ValidateCallbackResult::Invalid(
-            "Broadcast content cannot be empty".into(),
+            "Broadcast issued_by cannot change on update".into(),
         ));
     }
-    if broadcast.content.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Broadcast content too long (max 4096 bytes)".into(),
-        ));
-    }
-    let (lat, lon, radius) = broadcast.target_area;
-    if !lat.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "target_area latitude must be a finite number".into(),
-        ));
-    }
-    if !lon.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "target_area longitude must be a finite number".into(),
-        ));
-    }
-    if !radius.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "target_area radius must be a finite number".into(),
-        ));
-    }
-    if !(-90.0..=90.0).contains(&lat) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Target area latitude must be between -90 and 90".into(),
-        ));
-    }
-    if !(-180.0..=180.0).contains(&lon) {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Target area longitude must be between -180 and 180".into(),
-        ));
-    }
-    if radius <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Target area radius must be positive".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_broadcast_fields(&broadcast))
 }
 
 #[cfg(test)]

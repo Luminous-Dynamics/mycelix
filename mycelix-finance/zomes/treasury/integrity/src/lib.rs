@@ -5,6 +5,7 @@
 //! Treasury Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -354,7 +355,7 @@ fn validate_update_treasury(
 }
 
 fn validate_create_contribution(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     contribution: Contribution,
 ) -> ExternResult<ValidateCallbackResult> {
     // String length checks — prevent DHT bloat
@@ -373,6 +374,26 @@ fn validate_create_contribution(
         return Ok(ValidateCallbackResult::Invalid(
             "Contributor must be a valid DID".into(),
         ));
+    }
+
+    // Bind the contribution to its committer — a forged `contributor_did` is
+    // fabricated money-in against someone else's name
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A, `treasury:350`).
+    //
+    // Placed AFTER the DID-format check so malformed input still reports the
+    // precise format error rather than a confusing forgery message.
+    //
+    // Safe to bind: `contribute` (treasury/coordinator/src/lib.rs:116) already
+    // calls verify_caller_is_did(&input.contributor_did), and Contribution is
+    // create-only (its update arm returns Invalid). Verified 2026-07-28.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "Contribution",
+        "contributor_did",
+        &contribution.contributor_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     if contribution.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -600,6 +621,13 @@ mod tests {
         }
     }
 
+    /// DID of the agent `make_create()` attributes actions to. Fixtures meant to
+    /// be VALID must use this — `validate_create_contribution` binds
+    /// `contributor_did` to the committing agent.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
     fn make_update() -> Update {
         Update {
             author: AgentPubKey::from_raw_36(vec![0; 36]),
@@ -632,7 +660,7 @@ mod tests {
         Contribution {
             id: "contrib:test:001".into(),
             treasury_id: "treasury:test:001".into(),
-            contributor_did: "did:mycelix:alice".into(),
+            contributor_did: test_author_did(),
             amount: 500,
             currency: "SAP".into(),
             contribution_type: ContributionType::Deposit,
@@ -807,6 +835,26 @@ mod tests {
         let result =
             validate_create_contribution(EntryCreationAction::Create(make_create()), c).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_contribution_forged_contributor_is_rejected() {
+        // Fabricated money-in: Mallory commits a Contribution crediting Alice.
+        let mut c = valid_contribution();
+        c.contributor_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_contribution(EntryCreationAction::Create(make_create()), c).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("Contribution")
+                        && msg.contains("contributor_did")
+                        && msg.contains("forgery"),
+                    "got: {msg}"
+                )
+            }
+            other => panic!("forged contributor_did must be rejected, got {other:?}"),
+        }
     }
 
     // ---- Allocation creation ----

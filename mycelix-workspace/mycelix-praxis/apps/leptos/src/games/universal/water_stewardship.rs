@@ -26,28 +26,31 @@ pub fn WaterStewardshipGame() -> impl IntoView {
     });
 
     // Tick-based simulation
-    let _ = use_interval(1000, move || {
-        set_state.update(|s| {
-            // Natural evaporation and plant uptake
-            s.soil_moisture_pct = s.soil_moisture_pct.saturating_sub(1);
+    set_interval(
+        move || {
+            set_state.update(|s| {
+                // Natural evaporation and plant uptake
+                s.soil_moisture_pct = s.soil_moisture_pct.saturating_sub(1);
 
-            // Automatic filtration flow
-            if s.raw_greywater_liters > 0.1 && s.filter_clog_permille < 950 {
-                let flow = 0.5 * (1.0 - (s.filter_clog_permille as f32 / 1000.0));
-                s.raw_greywater_liters -= flow;
-                s.filtered_reservoir_liters += flow;
-                // Debris accumulation in filter
-                s.filter_clog_permille = (s.filter_clog_permille + 5).min(1000);
-            }
-        });
-    });
+                // Automatic filtration flow
+                if s.raw_greywater_liters > 0.1 && s.filter_clog_permille < 950 {
+                    let flow = 0.5 * (1.0 - (s.filter_clog_permille as f32 / 1000.0));
+                    s.raw_greywater_liters -= flow;
+                    s.filtered_reservoir_liters += flow;
+                    // Debris accumulation in filter
+                    s.filter_clog_permille = (s.filter_clog_permille + 5).min(1000);
+                }
+            });
+        },
+        std::time::Duration::from_millis(1000),
+    );
 
     view! {
         <div class="water-sandbox">
             <header class="sandbox-header">
                 <h3>"VOC-H2O-101: The Greywater Loop"</h3>
                 <div class="system-status">
-                    <span class=move || if state.get().soil_moisture_pct > 30 { "status-safe" } else { "status-danger" }>
+                    <span class={move || if state.get().soil_moisture_pct > 30 { "status-safe" } else { "status-danger" }}>
                         "Soil Health: " {move || state.get().soil_moisture_pct}"%"
                     </span>
                 </div>

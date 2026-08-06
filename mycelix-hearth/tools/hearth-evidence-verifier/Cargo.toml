@@ -1,0 +1,18 @@
+[package]
+name = "hearth-evidence-verifier"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Independent native verifier for Mycelix Hearth migration evidence"
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.22"
+blake2b_simd = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+ed25519-dalek = "2.1"
+rmp = "0.8"
+rmpv = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"

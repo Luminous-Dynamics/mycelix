@@ -138,12 +138,7 @@ impl ExpertiseProfile {
     }
 
     /// Update expertise after a verification
-    pub fn record_verification(
-        &mut self,
-        domain_id: Uuid,
-        was_accurate: bool,
-        timestamp: i64,
-    ) {
+    pub fn record_verification(&mut self, domain_id: Uuid, was_accurate: bool, timestamp: i64) {
         let level = self.domains.entry(domain_id).or_default();
         level.verification_count += 1;
         level.last_active = timestamp;
@@ -169,11 +164,8 @@ impl ExpertiseProfile {
         }
 
         // Versatility = normalized count of high-competency domains
-        let high_competency_count = self
-            .domains
-            .values()
-            .filter(|l| l.competency > 0.5)
-            .count() as f64;
+        let high_competency_count =
+            self.domains.values().filter(|l| l.competency > 0.5).count() as f64;
 
         self.versatility = (high_competency_count / domain_count.max(1.0)).min(1.0);
     }

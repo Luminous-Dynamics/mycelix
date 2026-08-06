@@ -7,7 +7,7 @@
 
 use crate::config::LoggingConfig;
 use tracing::Level;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 /// Initialize logging based on configuration
 pub fn init(config: &LoggingConfig) {
@@ -18,7 +18,7 @@ pub fn init(config: &LoggingConfig) {
         .add_directive(
             "mycelix_desci_core=debug"
                 .parse()
-                .expect("Static directive 'mycelix_desci_core=debug' must be valid")
+                .expect("Static directive 'mycelix_desci_core=debug' must be valid"),
         );
 
     let fmt_layer = match config.format.as_str() {
@@ -26,9 +26,7 @@ pub fn init(config: &LoggingConfig) {
         _ => fmt::layer().boxed(),
     };
 
-    let subscriber = tracing_subscriber::registry()
-        .with(filter)
-        .with(fmt_layer);
+    let subscriber = tracing_subscriber::registry().with(filter).with(fmt_layer);
 
     if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
         eprintln!("Failed to initialize logging: {}", e);

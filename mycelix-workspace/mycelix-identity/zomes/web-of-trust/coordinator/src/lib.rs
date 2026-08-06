@@ -3,7 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_voting, GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_voting,
 };
 use web_of_trust_integrity::*;
 

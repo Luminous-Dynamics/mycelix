@@ -19,8 +19,10 @@ pub mod transactions {
     pub const GET_TRANSACTION: &str = "get_transaction";
     pub const GET_TRANSACTION_RESOLUTION: &str = "get_transaction_resolution";
     pub const APPROVE_TRANSACTION_CONFLICT: &str = "approve_transaction_conflict";
-    pub const FINALIZE_BILATERAL_TRANSACTION_CONFLICT: &str = "finalize_bilateral_transaction_conflict";
-    pub const APPLY_ARBITRATION_TRANSACTION_CONFLICT: &str = "apply_arbitration_transaction_conflict";
+    pub const FINALIZE_BILATERAL_TRANSACTION_CONFLICT: &str =
+        "finalize_bilateral_transaction_conflict";
+    pub const APPLY_ARBITRATION_TRANSACTION_CONFLICT: &str =
+        "apply_arbitration_transaction_conflict";
     pub const GET_TRANSACTION_CONFLICT_APPROVALS: &str = "get_transaction_conflict_approvals";
     pub const GET_TRANSACTION_CONFLICT_RESOLUTIONS: &str = "get_transaction_conflict_resolutions";
     pub const GET_MY_TRANSACTIONS: &str = "get_my_transactions";
@@ -37,7 +39,6 @@ pub mod transactions {
     pub const GET_LISTING_TRANSACTIONS: &str = "get_listing_transactions";
 }
 
-
 pub mod arbitration {
     pub const ZOME: &str = "arbitration";
     pub const FILE_DISPUTE: &str = "file_dispute";
@@ -51,7 +52,6 @@ pub mod arbitration {
     pub const GET_ARBITRATION_VOTES: &str = "get_arbitration_votes";
     pub const GET_ARBITRATION_RESULT: &str = "get_arbitration_result";
 }
-
 
 pub mod reputation {
     pub const ZOME: &str = "reputation";

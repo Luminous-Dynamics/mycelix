@@ -45,7 +45,10 @@ impl EvolutionType {
 
     /// Does this evolution type invalidate the parent?
     pub fn invalidates_parent(&self) -> bool {
-        matches!(self, Self::Correction | Self::Retraction | Self::Supersession)
+        matches!(
+            self,
+            Self::Correction | Self::Retraction | Self::Supersession
+        )
     }
 }
 

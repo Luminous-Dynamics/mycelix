@@ -116,30 +116,20 @@ pub async fn verify_review_proof(Json(req): Json<ZkReviewRequest>) -> impl IntoR
         );
     }
 
-    // Native Winterfell STARK verification (no WASM constraints here!)
-    // Full AIR circuit verification will be wired when the review integrity
-    // circuit is implemented. For now, structural + domain tag validation.
-    //
-    // When AIR is ready:
-    // let result = winterfell::verify::<ReviewIntegrityAir>(
-    //     proof_bytes, public_inputs, proof_options
-    // );
-    let proof_valid = !req.proof_bytes.is_empty()
-        && req.expertise_commitment.len() == 32
-        && req.review_commitment.len() == 32;
-
+    // The review-integrity AIR and its public-input binding are not implemented.
+    // Structural validation is useful for rejecting malformed requests, but it is
+    // not cryptographic verification and must never be reported as such.
     (
-        if proof_valid {
-            StatusCode::OK
-        } else {
-            StatusCode::UNPROCESSABLE_ENTITY
-        },
+        StatusCode::NOT_IMPLEMENTED,
         Json(ZkReviewResponse {
-            verified: proof_valid,
+            verified: false,
             domain_tag: domain_tag.as_str().to_string(),
             paper_id: req.paper_id,
             score: req.score,
-            error: None,
+            error: Some(
+                "Review-integrity proof verification is unavailable until the AIR and public-input binding are implemented"
+                    .to_string(),
+            ),
         }),
     )
 }

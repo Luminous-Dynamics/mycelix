@@ -9,9 +9,22 @@
 use hdi::prelude::*;
 pub use mycelix_bridge_entry_types::CachedCredentialEntry;
 use mycelix_bridge_entry_types::{
-    check_author_match, check_link_author_match, validate_cached_credential, BridgeEventEntry,
-    BridgeQueryEntry, CrossClusterNotification,
+    BridgeEventEntry, BridgeQueryEntry, CrossClusterNotification, check_author_match,
+    check_link_author_match, validate_cached_credential,
 };
+
+// The "break glass" Emergency Access module is a genuinely unfinished feature, not
+// disabled by accident: it references 6 encryption-related types
+// (HearthEnvelopeCipher, HearthEncryptionKey, HearthEncryptedEnvelope,
+// EncryptedContentKind, HearthKeyWrapAlgorithm, MAX_WRAPPED_KEY_BYTES) that don't
+// exist anywhere in this workspace, has its own action-scoping bug, and a generic
+// trait-bound bug in load_entry<T> -- discovered 2026-07-29 chasing test-hearth's
+// CI failure. Gated off rather than half-fixed since designing the missing
+// encryption types is a security-sensitive task deserving its own dedicated pass,
+// not an improvisation. The module and its struct/entry-type definitions are left
+// in place in break_glass.rs for whoever picks this up next.
+// mod break_glass;
+// pub use break_glass::*;
 
 /// Anchor entry for deterministic link bases.
 #[hdk_entry_helper]
@@ -32,6 +45,9 @@ pub enum EntryTypes {
     BridgeEvent(BridgeEventEntry),
     CachedCredential(CachedCredentialEntry),
     Notification(CrossClusterNotification),
+    // EmergencyAccess* variants removed while break_glass is gated off (see the
+    // comment above `mod break_glass;`) -- their types live in break_glass.rs and
+    // don't exist while that module is disabled.
 }
 
 #[hdk_link_types]
@@ -51,6 +67,8 @@ pub enum LinkTypes {
     AllNotifications,
     /// Agent → notification subscription preferences
     NotificationSubscription,
+    // EmergencyAccess*/BreakGlass* link types removed while break_glass is gated
+    // off (see the comment above `mod break_glass;`).
 }
 
 #[hdk_extern]
@@ -107,10 +125,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -276,6 +291,7 @@ mod tests {
 
     fn make_query(domain: &str, params: &str) -> BridgeQueryEntry {
         BridgeQueryEntry {
+            schema_version: 1,
             domain: domain.into(),
             query_type: "test_query".into(),
             requester: fake_agent(),
@@ -289,6 +305,7 @@ mod tests {
 
     fn make_event(domain: &str, payload: &str) -> BridgeEventEntry {
         BridgeEventEntry {
+            schema_version: 1,
             domain: domain.into(),
             event_type: "test_event".into(),
             source_agent: fake_agent(),

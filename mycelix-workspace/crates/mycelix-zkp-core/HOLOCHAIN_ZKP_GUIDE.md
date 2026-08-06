@@ -1,3 +1,5 @@
+> This guide is an integration pattern, not a deployment certification. See `CAPABILITY_MATRIX.md`.
+
 # Adding ZKP to Any Holochain hApp
 
 ## Quick Start
@@ -30,8 +32,8 @@ Client (native)              Holochain Zome (WASM)         Off-chain Verifier
 ```
 
 **Why off-chain verification?** Winterfell CAN compile to WASM (no_std),
-but it's untested in Holochain's wasmer runtime. The off-chain pattern
-is proven in production (attribution cluster: 31 sweettests).
+but it's untested in Holochain's wasmer runtime. The off-chain pattern avoids trusting an unverified Wasmer integration. This
+archive does not include the referenced external conductor evidence.
 
 ## Step-by-Step Integration
 
@@ -41,10 +43,7 @@ is proven in production (attribution cluster: 31 sweettests).
 |---|---|---|---|
 | Value in range | `range_proof` | Winterfell | ~32 per 16-bit value |
 | Consciousness tier | `consciousness` | Winterfell | ~32 (46ms) |
-| HDC binding | `bxor` | Binius | 0 (FREE) |
-| Majority vote | `band` chain | Binius | 2×N per word |
-| Encrypted computation | Triple stack | Binius | Same as plaintext |
-| CfC temporal | `band + bxor` | Binius | 1 per neuron per step |
+| HDC/Binius examples | — | Binius | Reserved only; not implemented in this crate |
 
 ### 2. Add domain tag
 
@@ -65,9 +64,8 @@ pub struct YourProofEntry {
     pub commitment: Vec<u8>,         // 32-byte SHA-256
     pub domain_tag: String,          // "ZTML:YourCluster:..."
     pub generated_at: Timestamp,
-    pub verified: bool,              // Set true after off-chain verify
-    pub verifier_pubkey: Option<Vec<u8>>,
-    pub verifier_signature: Option<Vec<u8>>,
+    pub verification_record_hash: Option<ActionHash>,
+    // Store an append-only SupplyVerificationRecord separately; never a bare bool.
 }
 ```
 
@@ -102,11 +100,9 @@ use winterfell::Proof;
 let proof = Proof::from_bytes(&proof_bytes)?;
 verify_range(proof, min, max, commitment)?;
 
-// Sign attestation with Ed25519
-let signature = signing_key.sign(&attestation_message);
-
-// Submit attestation back to zome
-// callZome("your_bridge", "attest_proof", { hash, pubkey, signature })
+// Construct an append-only verification record containing the proof hash,
+// statement commitment, verifier identity/version, policy hash, backend,
+// explicit outcome, and timestamp. Sign its canonical digest, then submit it.
 ```
 
 ### 6. Consciousness gating (optional)
@@ -132,16 +128,18 @@ let proof = prove_consciousness_tier(&request)?;
 | Winterfell XOR | `src/circuits/winterfell_xor.rs` | 4 | 23.8s (16Kbit) |
 | Consciousness | `src/consciousness.rs` | 5 | 46ms |
 | PoGQ (FL) | `src/pogq.rs` | 8 | 382ns sim |
-| Dilithium5 | `src/dilithium.rs` | 8 | 1.2ms verify |
+| Dilithium5 | `src/dilithium.rs` | Feature-gated tests | No fresh measurement in this archive |
 
 ## Feature Flags
 
 ```toml
 [dependencies]
 mycelix-zkp-core = { path = "...", features = ["backend-winterfell"] }
-# Options: backend-winterfell, backend-risc0, backend-dual, dilithium, full
+# Options: backend-winterfell, backend-miden, backend-risc0 (structural only), dilithium, full
 ```
 
-- `backend-winterfell`: Winterfell STARK verifier (~200-400KB WASM)
-- `dilithium`: Dilithium5 PQ signatures (~2.6KB)
-- `full`: Everything (for native testing only, not for zomes)
+- `backend-winterfell`: circuit-specific Winterfell dependencies
+- `backend-miden`: circuit-specific Miden 0.23.5 dependencies
+- `backend-risc0`: structural compatibility adapter only; no verifier dependency
+- `dilithium`: Dilithium5 envelope authentication
+- `full`: Winterfell + structural RISC0 adapter + Dilithium; it does not include Miden

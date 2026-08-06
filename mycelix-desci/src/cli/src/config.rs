@@ -12,6 +12,9 @@ pub struct Config {
     /// API base URL
     pub api_url: Option<String>,
 
+    /// Bearer token used for authenticated mutating requests.
+    pub auth_token: Option<String>,
+
     /// Default output format
     pub output_format: Option<String>,
 
@@ -25,8 +28,8 @@ impl Config {
         let config_path = Self::default_config_path()?;
 
         if config_path.exists() {
-            let contents = std::fs::read_to_string(&config_path)
-                .context("Failed to read config file")?;
+            let contents =
+                std::fs::read_to_string(&config_path).context("Failed to read config file")?;
             toml::from_str(&contents).context("Failed to parse config file")
         } else {
             // Create default config directory
@@ -45,23 +48,19 @@ impl Config {
         let config_path = Self::default_config_path()?;
 
         if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        let contents = toml::to_string_pretty(self)
-            .context("Failed to serialize config")?;
+        let contents = toml::to_string_pretty(self).context("Failed to serialize config")?;
 
-        std::fs::write(&config_path, contents)
-            .context("Failed to write config file")?;
+        std::fs::write(&config_path, contents).context("Failed to write config file")?;
 
         Ok(())
     }
 
     /// Get default config path
     fn default_config_path() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .context("Failed to get config directory")?;
+        let config_dir = dirs::config_dir().context("Failed to get config directory")?;
 
         Ok(config_dir.join("mycelix").join("config.toml"))
     }

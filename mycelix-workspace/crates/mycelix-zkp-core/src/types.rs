@@ -10,6 +10,16 @@ use crate::domain::DomainTag;
 /// Raw proof bytes from any backend.
 pub type ProofBytes = Vec<u8>;
 
+/// Current canonical authenticated-proof envelope version.
+///
+/// Version 2 binds the backend identifier and canonical integer energy accounting
+/// into the signed digest. Version 1 envelopes must not be accepted as v2.
+pub const AUTHENTICATED_PROOF_PROTOCOL_VERSION: u32 = 2;
+
+/// Domain prefix for the canonical authenticated-proof signing transcript.
+pub const AUTHENTICATED_PROOF_SIGNING_DOMAIN: &[u8] =
+    b"MYCELIX:AuthenticatedProof:SignedEnvelope:v2";
+
 /// Result of proof generation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProofResult {
@@ -57,7 +67,8 @@ impl VerificationResult {
 pub enum BackendId {
     Risc0,
     Winterfell,
-    Binius, // Reserved for Sprint 4
+    Binius, // Reserved for a future backend
+    Miden,
 }
 
 impl BackendId {
@@ -66,6 +77,19 @@ impl BackendId {
             BackendId::Risc0 => "risc0",
             BackendId::Winterfell => "winterfell",
             BackendId::Binius => "binius",
+            BackendId::Miden => "miden",
+        }
+    }
+
+    /// Stable wire identifier used by signed envelopes.
+    ///
+    /// These values are protocol data and must never be reordered or reused.
+    pub const fn wire_id(self) -> u8 {
+        match self {
+            BackendId::Risc0 => 1,
+            BackendId::Winterfell => 2,
+            BackendId::Binius => 3,
+            BackendId::Miden => 4,
         }
     }
 }
@@ -93,35 +117,44 @@ pub struct ProofMetadata {
 /// Total size: ~200-220KB proof + 4.6KB signature + ~200B metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthenticatedProof {
-    /// The ZK proof bytes (RISC0 receipt or Winterfell STARK).
+    /// Backend-specific proof bytes. Cryptographic meaning is circuit-specific.
     pub proof: ProofBytes,
-    /// CRYSTALS-Dilithium5 signature over (domain_tag || metadata || proof_hash || joules).
+    /// CRYSTALS-Dilithium5 signature over the canonical v2 envelope transcript.
     /// Empty if Dilithium is not enabled.
     pub signature: Vec<u8>,
     /// Proof metadata (domain, timestamp, nonce, client_id, backend).
     pub metadata: ProofMetadata,
     /// SHA-256 of any application-specific public inputs.
     pub public_inputs_hash: [u8; 32],
-    /// Energy consumed during proof generation (Joules), verified by hardware.
-    pub joules_consumed: f64,
+    /// Energy consumed during proof generation, in integer millijoules.
+    ///
+    /// This field is an authenticated measurement claim. Verifiers must apply a
+    /// separate attestation policy before treating it as hardware-verified.
+    pub energy_millijoules: u64,
 }
 
 impl AuthenticatedProof {
-    /// Construct the message that was signed (for verification).
+    /// Construct the canonical message digest signed by the authentication key.
     ///
-    /// Message = SHA-256(domain_tag || protocol_version || client_id ||
-    ///                    timestamp || nonce || public_inputs_hash || proof_hash)
+    /// The transcript uses a fixed domain prefix, length-prefixes the variable-size
+    /// domain tag, and binds every security-relevant envelope field including the
+    /// backend and integer energy measurement.
     pub fn construct_signed_message(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
-        hasher.update(self.metadata.domain_tag.as_bytes());
+        let domain = self.metadata.domain_tag.as_bytes();
+        let domain_len = u32::try_from(domain.len()).unwrap_or(u32::MAX);
+
+        hasher.update(AUTHENTICATED_PROOF_SIGNING_DOMAIN);
+        hasher.update(domain_len.to_le_bytes());
+        hasher.update(domain);
         hasher.update(self.metadata.protocol_version.to_le_bytes());
+        hasher.update([self.metadata.backend.wire_id()]);
         hasher.update(self.metadata.client_id);
         hasher.update(self.metadata.timestamp.to_le_bytes());
         hasher.update(self.metadata.nonce);
         hasher.update(self.public_inputs_hash);
-        // Hash the proof itself (avoid signing huge proof directly)
-        let proof_hash = Sha256::digest(&self.proof);
-        hasher.update(proof_hash);
+        hasher.update(Sha256::digest(&self.proof));
+        hasher.update(self.energy_millijoules.to_le_bytes());
         hasher.finalize().to_vec()
     }
 
@@ -134,6 +167,8 @@ impl AuthenticatedProof {
             + 32 // public_inputs_hash
             + 8  // timestamp
             + 4  // protocol_version
+            + 1  // backend wire id
+            + 8  // energy_millijoules
             + self.metadata.domain_tag.as_bytes().len()
     }
 }
@@ -161,13 +196,15 @@ mod tests {
         assert_eq!(BackendId::Risc0.as_str(), "risc0");
         assert_eq!(BackendId::Winterfell.as_str(), "winterfell");
         assert_eq!(BackendId::Binius.as_str(), "binius");
+        assert_eq!(BackendId::Miden.as_str(), "miden");
+        assert_eq!(BackendId::Miden.wire_id(), 4);
     }
 
     #[test]
     fn test_authenticated_proof_signed_message_deterministic() {
         let meta = ProofMetadata {
             domain_tag: DomainTag::new("Test", "Unit", 1),
-            protocol_version: 1,
+            protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
             client_id: [0xAA; 32],
             timestamp: 1700000000,
             nonce: [0xBB; 32],
@@ -178,11 +215,38 @@ mod tests {
             signature: vec![],
             metadata: meta,
             public_inputs_hash: [0xCC; 32],
-            joules_consumed: 0.0,
+            energy_millijoules: 0,
         };
         let msg1 = proof.construct_signed_message();
         let msg2 = proof.construct_signed_message();
         assert_eq!(msg1, msg2, "signed message must be deterministic");
         assert_eq!(msg1.len(), 32, "signed message is SHA-256 = 32 bytes");
+    }
+
+    #[test]
+    fn test_signed_message_binds_backend_and_energy() {
+        let metadata = ProofMetadata {
+            domain_tag: DomainTag::new("Test", "Binding", 2),
+            protocol_version: AUTHENTICATED_PROOF_PROTOCOL_VERSION,
+            client_id: [0x11; 32],
+            timestamp: 1_700_000_000,
+            nonce: [0x22; 32],
+            backend: BackendId::Winterfell,
+        };
+        let mut proof = AuthenticatedProof {
+            proof: vec![1, 2, 3],
+            signature: vec![],
+            metadata,
+            public_inputs_hash: [0x33; 32],
+            energy_millijoules: 12_345,
+        };
+        let original = proof.construct_signed_message();
+
+        proof.metadata.backend = BackendId::Miden;
+        assert_ne!(original, proof.construct_signed_message());
+
+        proof.metadata.backend = BackendId::Winterfell;
+        proof.energy_millijoules += 1;
+        assert_ne!(original, proof.construct_signed_message());
     }
 }

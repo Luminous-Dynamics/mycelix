@@ -81,13 +81,13 @@ pub fn HdcSandbox() -> impl IntoView {
                 <div class="visualizer-panel">
                     <div class="vector-display">
                         <label>"Role Vector (e.g. Teacher)"</label>
-                        <HdcVisualizer vector=v_role />
+                        <HdcVisualizer vector=v_role.into() />
                         <button class="btn-refresh" on:click=move |_| set_v_role.set(HdcVector::random())>"\u{21BB} New Seed"</button>
                     </div>
 
                     <div class="vector-display">
                         <label>"Subject Vector (e.g. Math)"</label>
-                        <HdcVisualizer vector=v_subject />
+                        <HdcVisualizer vector=v_subject.into() />
                         <button class="btn-refresh" on:click=move |_| set_v_role_subject.set(HdcVector::random())>"\u{21BB} New Seed"</button>
                     </div>
 

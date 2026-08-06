@@ -1,10 +1,16 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! PWA install prompt — captures beforeinstallprompt and shows native install UI.
+//! PWA install prompt — captures `beforeinstallprompt` without evaluated code.
+
+use std::cell::RefCell;
 
 use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+
+thread_local! {
+    static DEFERRED_INSTALL_PROMPT: RefCell<Option<JsValue>> = RefCell::new(None);
+}
 
 #[component]
 pub fn PwaInstallPrompt() -> impl IntoView {
@@ -16,60 +22,55 @@ pub fn PwaInstallPrompt() -> impl IntoView {
             .is_some(),
     );
 
-    // Capture beforeinstallprompt event
-    Effect::new(move |_| {
-        let _ = js_sys::eval(
-            "
-            window.__pwa_deferred_prompt = null;
-            window.addEventListener('beforeinstallprompt', function(e) {
-                e.preventDefault();
-                window.__pwa_deferred_prompt = e;
-                window.__pwa_can_install = true;
+    if let Some(window) = web_sys::window() {
+        let install_available = can_install;
+        let before_install =
+            Closure::<dyn FnMut(web_sys::Event)>::new(move |event: web_sys::Event| {
+                event.prevent_default();
+                DEFERRED_INSTALL_PROMPT.with(|slot| {
+                    *slot.borrow_mut() = Some(event.into());
+                });
+                install_available.set(true);
             });
-            // Check if already installed
-            window.addEventListener('appinstalled', function() {
-                window.__pwa_can_install = false;
-                window.__pwa_deferred_prompt = null;
-            });
-        ",
+        let _ = window.add_event_listener_with_callback(
+            "beforeinstallprompt",
+            before_install.as_ref().unchecked_ref(),
         );
-    });
+        before_install.forget();
 
-    // Poll for install availability (JS events can't directly set Leptos signals)
-    let check_install = move || {
-        if dismissed.get_untracked() {
-            return;
-        }
-        let available = web_sys::window()
-            .and_then(|w| js_sys::Reflect::get(&w, &JsValue::from_str("__pwa_can_install")).ok())
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        if available != can_install.get_untracked() {
-            can_install.set(available);
-        }
-    };
-
-    // Check periodically
-    Effect::new(move |_| {
-        check_install();
-    });
+        let install_cleared = can_install;
+        let app_installed = Closure::<dyn FnMut(web_sys::Event)>::new(move |_| {
+            DEFERRED_INSTALL_PROMPT.with(|slot| {
+                slot.borrow_mut().take();
+            });
+            install_cleared.set(false);
+        });
+        let _ = window.add_event_listener_with_callback(
+            "appinstalled",
+            app_installed.as_ref().unchecked_ref(),
+        );
+        app_installed.forget();
+    }
 
     let on_install = move |_| {
-        let _ = js_sys::eval(
-            "
-            if (window.__pwa_deferred_prompt) {
-                window.__pwa_deferred_prompt.prompt();
-                window.__pwa_deferred_prompt = null;
-                window.__pwa_can_install = false;
+        DEFERRED_INSTALL_PROMPT.with(|slot| {
+            if let Some(event) = slot.borrow_mut().take() {
+                if let Ok(prompt) = js_sys::Reflect::get(&event, &JsValue::from_str("prompt"))
+                    .and_then(|value| value.dyn_into::<js_sys::Function>())
+                {
+                    let _ = prompt.call0(&event);
+                }
             }
-        ",
-        );
+        });
         can_install.set(false);
     };
 
     let on_dismiss = move |_| {
         dismissed.set(true);
         can_install.set(false);
+        DEFERRED_INSTALL_PROMPT.with(|slot| {
+            slot.borrow_mut().take();
+        });
         if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
             let _ = storage.set_item("mycelix_pwa_dismissed", "1");
         }

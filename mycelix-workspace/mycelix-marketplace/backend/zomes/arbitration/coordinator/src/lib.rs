@@ -112,12 +112,9 @@ pub fn file_dispute(input: FileDisputeInput) -> ExternResult<DisputeOutput> {
     Ok(output)
 }
 
-
 /// File or recover one arbitration case bound to an exact unsafe transaction conflict.
 #[hdk_extern]
-pub fn file_transaction_conflict_dispute(
-    input: FileDisputeInput,
-) -> ExternResult<DisputeOutput> {
+pub fn file_transaction_conflict_dispute(input: FileDisputeInput) -> ExternResult<DisputeOutput> {
     let filer = agent_info()?.agent_initial_pubkey;
     let transaction_resolution = resolve_transaction(input.transaction_hash.clone())?;
     if transaction_resolution.state != TransactionResolutionStateWire::Conflicted {
@@ -453,10 +450,8 @@ pub fn finalize_arbitration(dispute_hash: ActionHash) -> ExternResult<Arbitratio
 
     let transaction_resolution = resolve_transaction(current.dispute.transaction_hash.clone())?;
     let transaction = transaction_resolution.transaction_terms()?;
-    let compensation_cents = recommended_compensation(
-        transaction.transaction.total_price_cents,
-        buyer_vote_ratio,
-    );
+    let compensation_cents =
+        recommended_compensation(transaction.transaction.total_price_cents, buyer_vote_ratio);
     let vote_hashes = votes
         .iter()
         .map(|output| output.vote_hash.clone())
@@ -474,7 +469,11 @@ pub fn finalize_arbitration(dispute_hash: ActionHash) -> ExternResult<Arbitratio
         summary: format!(
             "Resolved in favor of {} with {} of {} equal-weight votes. Recommended compensation: {} cents.",
             if buyer_wins { "buyer" } else { "seller" },
-            if buyer_wins { buyer_votes } else { votes.len() - buyer_votes },
+            if buyer_wins {
+                buyer_votes
+            } else {
+                votes.len() - buyer_votes
+            },
             votes.len(),
             compensation_cents
         ),
@@ -505,11 +504,8 @@ pub fn finalize_arbitration(dispute_hash: ActionHash) -> ExternResult<Arbitratio
 }
 
 fn project_result_reputation(result_hash: ActionHash) -> ExternResult<()> {
-    let response: ReputationEventsResponseWire = remote_calls::call_zome(
-        "reputation",
-        "project_arbitration_reputation",
-        result_hash,
-    )?;
+    let response: ReputationEventsResponseWire =
+        remote_calls::call_zome("reputation", "project_arbitration_reputation", result_hash)?;
     if response.events.len() != 2 {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Arbitration reputation projection returned {} events; expected winner and loser",
@@ -572,17 +568,13 @@ pub fn get_dispute(dispute_hash: ActionHash) -> ExternResult<Option<DisputeOutpu
 
 /// Get the complete conflict-aware dispute update tree.
 #[hdk_extern]
-pub fn get_dispute_resolution(
-    dispute_hash: ActionHash,
-) -> ExternResult<Option<DisputeResolution>> {
+pub fn get_dispute_resolution(dispute_hash: ActionHash) -> ExternResult<Option<DisputeResolution>> {
     resolution::resolve_dispute(dispute_hash)
 }
 
 /// Get all validated votes for a dispute, failing on duplicate arbitrators.
 #[hdk_extern]
-pub fn get_arbitration_votes(
-    dispute_hash: ActionHash,
-) -> ExternResult<ArbitrationVotesResponse> {
+pub fn get_arbitration_votes(dispute_hash: ActionHash) -> ExternResult<ArbitrationVotesResponse> {
     let resolution = resolution::resolve_dispute(dispute_hash)?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Dispute not found".into())))?;
     Ok(ArbitrationVotesResponse {
@@ -635,7 +627,8 @@ fn get_single_dispute_for_transaction(
 }
 
 fn get_dispute_votes(root_dispute_hash: ActionHash) -> ExternResult<Vec<ArbitrationVoteOutput>> {
-    let links = link_queries::get_links_local(root_dispute_hash.clone(), LinkTypes::DisputeToVotes)?;
+    let links =
+        link_queries::get_links_local(root_dispute_hash.clone(), LinkTypes::DisputeToVotes)?;
     let mut votes = Vec::new();
     let mut arbitrators = Vec::new();
 
@@ -677,7 +670,8 @@ fn get_dispute_votes(root_dispute_hash: ActionHash) -> ExternResult<Vec<Arbitrat
 fn get_single_result(
     root_dispute_hash: ActionHash,
 ) -> ExternResult<Option<ArbitrationResultOutput>> {
-    let links = link_queries::get_links_local(root_dispute_hash.clone(), LinkTypes::DisputeToResult)?;
+    let links =
+        link_queries::get_links_local(root_dispute_hash.clone(), LinkTypes::DisputeToResult)?;
     let mut results = Vec::new();
 
     for link in links {
@@ -835,12 +829,12 @@ impl TransactionResolutionWire {
             ) => Err(wasm_error!(WasmErrorInner::Guest(
                 "Resolved transaction omitted its current revision".into(),
             ))),
-            (TransactionResolutionStateWire::Conflicted, _) => Err(wasm_error!(
-                WasmErrorInner::Guest(format!(
+            (TransactionResolutionStateWire::Conflicted, _) => {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
                     "Transaction has {} concurrent heads",
                     self.heads.len()
-                ))
-            )),
+                ))))
+            }
         }
     }
 

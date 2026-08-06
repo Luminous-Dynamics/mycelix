@@ -43,12 +43,13 @@ pub trait HolochainTransport: 'static {
 
     /// Establish a connection to the conductor.
     ///
-    /// Performs WebSocket open, optional authentication, and app_info
-    /// discovery to build the role→cell_id mapping.
+    /// Performs WebSocket open, transport-defined authentication, and app_info
+    /// discovery to build the role→cell_id mapping. The Holochain 0.6 browser
+    /// and native WebSocket implementations require an auth token.
     ///
     /// # Arguments
     /// * `config` — Connection configuration including URL, app ID, and
-    ///   optional auth token.
+    ///   authentication token policy defined by the transport.
     fn connect(
         &self,
         config: ConnectConfig,

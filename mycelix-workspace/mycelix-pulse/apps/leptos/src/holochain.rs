@@ -3,7 +3,7 @@
 
 //! Holochain conductor connection for Mycelix Pulse.
 //!
-//! Connects via WebSocket, falls back to mock mode.
+//! Connects via WebSocket and fails closed to Unavailable; Demo is explicit.
 //! Runtime identifiers still target the legacy `mycelix_mail` role and app id
 //! until a compatibility migration is designed and executed.
 
@@ -34,7 +34,9 @@ type TransportCell = SendWrapper<Rc<RefCell<Option<BrowserWsTransport>>>>;
 #[derive(Clone)]
 pub struct HolochainCtx {
     pub status: ReadSignal<ConnectionStatus>,
+    pub last_error: ReadSignal<Option<String>>,
     set_status: WriteSignal<ConnectionStatus>,
+    set_last_error: WriteSignal<Option<String>>,
     transport: TransportCell,
 }
 
@@ -46,6 +48,7 @@ impl HolochainCtx {
     /// Enter demo mode only after an explicit user action.
     pub fn enter_demo(&self) {
         self.transport.borrow_mut().take();
+        self.set_last_error.set(None);
         self.set_status.set(ConnectionStatus::Demo);
     }
 
@@ -74,6 +77,20 @@ impl HolochainCtx {
         fn_name: &str,
         input: &I,
     ) -> Result<O, String> {
+        if self.status.get_untracked() != ConnectionStatus::Connected {
+            return Err("Live runtime is not ready for zome calls".to_string());
+        }
+        if !crate::alpha_scope::role_available(role) {
+            return Err(format!(
+                "Role {role:?} is not available in the restricted alpha hApp"
+            ));
+        }
+        if role == "main" && !crate::alpha_scope::zome_available(zome) {
+            return Err(format!(
+                "Zome {zome:?} is not available in the restricted alpha DNA"
+            ));
+        }
+
         // Use BrowserWsTransport directly (Rust-native, like Prism)
         let transport_ref = self.transport.borrow();
         let transport = transport_ref
@@ -93,16 +110,28 @@ const LOCAL_CONDUCTOR_URL: &str = "ws://localhost:8888";
 const TUNNEL_CONDUCTOR_URL: &str = "wss://mail-conductor.luminousdynamics.io";
 
 /// Fetch auth token from the SPA server's /api/token endpoint.
-/// Uses JS eval for the fetch to avoid web-sys feature gate issues.
+/// Requests are explicitly marked no-store; credential responses must never enter browser caches.
 async fn fetch_auth_token() -> Option<Vec<u8>> {
     // Fetch auth token from SPA server using gloo-net (works reliably in WASM)
-    let resp = match gloo_net::http::Request::get("/api/token").send().await {
+    let resp = match gloo_net::http::Request::get("/api/token")
+        .header("Cache-Control", "no-store")
+        .header("Pragma", "no-cache")
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             web_sys::console::warn_1(&format!("[Mail] Token fetch error: {e}").into());
             return None;
         }
     };
+
+    if !resp.ok() {
+        web_sys::console::warn_1(
+            &format!("[Mail] Token gate returned HTTP {}", resp.status()).into(),
+        );
+        return None;
+    }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(j) => j,
@@ -142,6 +171,8 @@ fn atob_bytes(window: &web_sys::Window, b64: &str) -> Option<Vec<u8>> {
 /// unavailable rather than sending an unsigned call.
 async fn fetch_signing_credentials() -> Option<SigningCredentials> {
     let resp = match gloo_net::http::Request::get("/api/signing-credentials")
+        .header("Cache-Control", "no-store")
+        .header("Pragma", "no-cache")
         .send()
         .await
     {
@@ -153,6 +184,17 @@ async fn fetch_signing_credentials() -> Option<SigningCredentials> {
             return None;
         }
     };
+
+    if !resp.ok() {
+        web_sys::console::warn_1(
+            &format!(
+                "[Mail] Signing-credentials gate returned HTTP {}",
+                resp.status()
+            )
+            .into(),
+        );
+        return None;
+    }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(j) => j,
@@ -198,12 +240,33 @@ async fn fetch_signing_credentials() -> Option<SigningCredentials> {
     })
 }
 
+fn validated_conductor_override(candidate: &str) -> Option<String> {
+    let parsed = web_sys::Url::new(candidate).ok()?;
+    if !parsed.username().is_empty()
+        || !parsed.password().is_empty()
+        || !parsed.search().is_empty()
+        || !parsed.hash().is_empty()
+        || !matches!(parsed.pathname().as_str(), "" | "/")
+        || parsed.port().is_empty()
+    {
+        return None;
+    }
+    let host = parsed.hostname().to_ascii_lowercase();
+    let loopback = matches!(host.as_str(), "localhost" | "127.0.0.1" | "[::1]" | "::1");
+    match parsed.protocol().as_str() {
+        "ws:" if loopback => Some(candidate.to_string()),
+        "wss:" => Some(candidate.to_string()),
+        _ => None,
+    }
+}
+
 fn conductor_url() -> String {
-    // 1. Explicit override via window.__HC_CONDUCTOR_URL
+    // Explicit overrides must still obey the secure transport boundary.
     if let Some(url) = web_sys::window().and_then(|w| {
         js_sys::Reflect::get(&w, &JsValue::from_str("__HC_CONDUCTOR_URL"))
             .ok()
             .and_then(|v| v.as_string())
+            .and_then(|value| validated_conductor_override(&value))
     }) {
         return url;
     }
@@ -212,17 +275,12 @@ fn conductor_url() -> String {
         .and_then(|w| w.location().hostname().ok())
         .unwrap_or_default();
 
-    // 2. Localhost: direct connection
-    if hostname == "localhost" || hostname == "127.0.0.1" {
+    if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" {
         return LOCAL_CONDUCTOR_URL.to_string();
     }
 
-    // 3. LAN IP: connect to same host on conductor port
-    if hostname.starts_with("10.") || hostname.starts_with("192.168.") {
-        return format!("ws://{}:8888", hostname);
-    }
-
-    // 4. Remote (mail.mycelix.net): use tunnel
+    // Remote browsers use the authenticated TLS tunnel. Plaintext LAN
+    // WebSockets are intentionally unsupported for the security alpha.
     TUNNEL_CONDUCTOR_URL.to_string()
 }
 
@@ -231,18 +289,21 @@ fn conductor_url() -> String {
 pub fn HolochainProvider(children: Children) -> impl IntoView {
     let designated_demo = web_sys::window()
         .and_then(|w| w.location().hostname().ok())
-        .is_some_and(|host| host.contains("luminousdynamics.io"));
+        .is_some_and(|host| crate::mail_context::is_demo_hostname(&host));
     let initial_status = if designated_demo {
         ConnectionStatus::Demo
     } else {
         ConnectionStatus::Connecting
     };
     let (status, set_status) = signal(initial_status);
+    let (last_error, set_last_error) = signal(None::<String>);
     let transport: TransportCell = SendWrapper::new(Rc::new(RefCell::new(None)));
 
     let ctx = HolochainCtx {
         status,
+        last_error,
         set_status,
+        set_last_error,
         transport: transport.clone(),
     };
 
@@ -254,11 +315,20 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
     }
 
     spawn_local(async move {
-        // Fetch auth token (required by Holochain 0.6 app WebSocket)
+        let url = conductor_url();
         let token = fetch_auth_token().await;
         let has_token = token.is_some();
 
-        let url = conductor_url();
+        // Remote production conductors require the SPA token gate. A missing
+        // token is a failed authentication stage, not a partially-live mode.
+        if url.starts_with("wss://") && !has_token {
+            let reason = "Authentication token unavailable".to_string();
+            web_sys::console::warn_1(&format!("[Mail] {reason}").into());
+            set_last_error.set(Some(reason));
+            set_status.set(ConnectionStatus::Unavailable);
+            return;
+        }
+
         web_sys::console::log_1(
             &format!("[Mail] Connecting to {url} (token={has_token})...").into(),
         );
@@ -269,42 +339,64 @@ pub fn HolochainProvider(children: Children) -> impl IntoView {
             app_id: "mycelix_mail".to_string(),
             auth_token: token,
             reconnect: None,
-            request_timeout_ms: None,
+            request_timeout_ms: Some(30_000),
         };
 
-        match ws_transport.connect(config).await {
-            Ok(()) => {
-                web_sys::console::log_1(&"[Mail] Connected to conductor!".into());
-
-                // Zome calls require a real Ed25519 signature (Holochain 0.6
-                // verifies unconditionally) — install a broker-granted
-                // signer now that the cell is known. Best-effort: leave the
-                // connection Live even if this fails, since read-free
-                // navigation (e.g. Settings) doesn't need it, but zome calls
-                // will surface a clear SigningUnavailable error until it's
-                // retried.
-                match fetch_signing_credentials().await {
-                    Some(credentials) => {
-                        ws_transport.set_zome_call_signer(AdminGrantedSigner::new(credentials));
-                        web_sys::console::log_1(&"[Mail] Zome-call signer installed.".into());
-                    }
-                    None => {
-                        web_sys::console::warn_1(
-                            &"[Mail] No zome-call signer available — zome calls will fail until \
-                              one is installed."
-                                .into(),
-                        );
-                    }
-                }
-
-                *transport_for_connect.borrow_mut() = Some(ws_transport);
-                set_status.set(ConnectionStatus::Connected);
-            }
-            Err(e) => {
-                web_sys::console::log_1(&format!("[Mail] Live mode unavailable: {e:?}").into());
-                set_status.set(ConnectionStatus::Unavailable);
-            }
+        if let Err(error) = ws_transport.connect(config).await {
+            let reason = format!("Conductor connection failed: {error:?}");
+            web_sys::console::warn_1(&format!("[Mail] {reason}").into());
+            set_last_error.set(Some(reason));
+            set_status.set(ConnectionStatus::Unavailable);
+            return;
         }
+        web_sys::console::log_1(&"[Mail] Transport connected; acquiring signer...".into());
+
+        let Some(credentials) = fetch_signing_credentials().await else {
+            let reason = "Zome-call signer unavailable".to_string();
+            web_sys::console::warn_1(&format!("[Mail] {reason}").into());
+            set_last_error.set(Some(reason));
+            set_status.set(ConnectionStatus::Unavailable);
+            return;
+        };
+        ws_transport.set_zome_call_signer(AdminGrantedSigner::new(credentials));
+
+        // Prove the full live chain before publishing Connected: transport,
+        // app/cell resolution, signer, capability grant, zome dispatch, and
+        // response decoding. A missing profile legitimately decodes as null.
+        let health_payload = match encode(&()) {
+            Ok(payload) => payload,
+            Err(error) => {
+                let reason = format!("Health-check encoding failed: {error}");
+                set_last_error.set(Some(reason));
+                set_status.set(ConnectionStatus::Unavailable);
+                return;
+            }
+        };
+        let health_response = match ws_transport
+            .call_zome("main", "mail_profiles", "get_my_profile", health_payload)
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                let reason = format!("Signed health check failed: {error}");
+                web_sys::console::warn_1(&format!("[Mail] {reason}").into());
+                set_last_error.set(Some(reason));
+                set_status.set(ConnectionStatus::Unavailable);
+                return;
+            }
+        };
+        if let Err(error) = decode::<serde_json::Value>(&health_response) {
+            let reason = format!("Health-check response could not be decoded: {error}");
+            web_sys::console::warn_1(&format!("[Mail] {reason}").into());
+            set_last_error.set(Some(reason));
+            set_status.set(ConnectionStatus::Unavailable);
+            return;
+        }
+
+        *transport_for_connect.borrow_mut() = Some(ws_transport);
+        set_last_error.set(None);
+        set_status.set(ConnectionStatus::Connected);
+        web_sys::console::log_1(&"[Mail] Live runtime ready.".into());
     });
 
     children()

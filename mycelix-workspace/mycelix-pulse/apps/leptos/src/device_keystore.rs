@@ -99,6 +99,16 @@ export async function pulseLoadDeviceSecret(name) {
     db.close();
   }
 }
+
+export async function pulseHasDeviceSecret(name) {
+  const db = await openDatabase();
+  try {
+    const record = await getRecord(db, name);
+    return Boolean(record && record.version === 2);
+  } finally {
+    db.close();
+  }
+}
 "#)]
 extern "C" {
     #[wasm_bindgen(js_name = pulseStoreDeviceSecret)]
@@ -106,6 +116,9 @@ extern "C" {
 
     #[wasm_bindgen(js_name = pulseLoadDeviceSecret)]
     fn load_device_secret(name: &str) -> Promise;
+
+    #[wasm_bindgen(js_name = pulseHasDeviceSecret)]
+    fn has_device_secret(name: &str) -> Promise;
 }
 
 pub struct HybridDeviceIdentity {
@@ -129,6 +142,15 @@ impl HybridDeviceIdentity {
             ml_dsa_65_public_key: self.ml_dsa.public_key(),
         }
     }
+}
+
+
+pub async fn has_hybrid_identity() -> Result<bool, String> {
+    JsFuture::from(has_device_secret(DEVICE_IDENTITY_RECORD))
+        .await
+        .map_err(|e| format!("Could not inspect wrapped device identity: {e:?}"))?
+        .as_bool()
+        .ok_or_else(|| "Device identity presence check returned a non-boolean value".to_string())
 }
 
 pub async fn create_and_store_hybrid_identity() -> Result<HybridDevicePublicBundle, String> {

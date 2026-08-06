@@ -85,11 +85,20 @@ async fn get_metrics(client: ApiClient, output_mode: OutputMode) -> Result<()> {
             output::print_key_value_table(&[
                 ("Uptime", format!("{} seconds", response.uptime_seconds)),
                 ("Total Claims", response.total_claims.to_string()),
-                ("Total Participants", response.total_participants.to_string()),
+                (
+                    "Total Participants",
+                    response.total_participants.to_string(),
+                ),
                 ("Queries Executed", response.queries_executed.to_string()),
                 ("Claims Created", response.claims_created.to_string()),
-                ("Verifications Added", response.verifications_added.to_string()),
-                ("Avg Response Time", format!("{:.2} ms", response.average_response_time_ms)),
+                (
+                    "Verifications Added",
+                    response.verifications_added.to_string(),
+                ),
+                (
+                    "Avg Response Time",
+                    format!("{:.2} ms", response.average_response_time_ms),
+                ),
             ]);
         }
         OutputMode::Plain => {

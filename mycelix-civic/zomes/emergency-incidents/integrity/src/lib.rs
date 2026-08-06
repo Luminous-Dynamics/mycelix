@@ -160,12 +160,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Disaster(disaster) => validate_update_disaster(disaster),
+                EntryTypes::Disaster(disaster) => validate_update_disaster(action, disaster),
                 EntryTypes::IncidentUpdate(_) => Ok(ValidateCallbackResult::Invalid(
                     "Incident updates are immutable".into(),
                 )),
@@ -433,97 +433,121 @@ fn validate_create_disaster(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_disaster(disaster: Disaster) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `Disaster` update, factored out of
+/// [`validate_update_disaster`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_disaster_fields(disaster: &Disaster) -> ValidateCallbackResult {
     if disaster.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Disaster ID cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Disaster ID cannot be empty".into());
     }
     if disaster.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Disaster ID too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Disaster ID too long (max 256)".into());
     }
     if disaster.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Disaster title cannot be empty".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Disaster title cannot be empty".into());
     }
     if disaster.title.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Disaster title too long (max 256)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Disaster title too long (max 256)".into());
     }
     if disaster.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Disaster description too long (max 4096)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Disaster description too long (max 4096)".into());
     }
     // Vec length limits on update too
     if let Some(ref boundary) = disaster.affected_area.boundary {
         if boundary.len() > 2000 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Affected area boundary too many points (max 2000)".into(),
-            ));
+            );
         }
         for &(lat, lon) in boundary {
             if !lat.is_finite() || !lon.is_finite() {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "boundary coordinates must be a finite number".into(),
-                ));
+                );
             }
             if lat < -90.0 || lat > 90.0 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Boundary latitude must be between -90 and 90".into(),
-                ));
+                );
             }
             if lon < -180.0 || lon > 180.0 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Boundary longitude must be between -180 and 180".into(),
-                ));
+                );
             }
         }
     }
     if disaster.affected_area.zones.len() > 50 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Too many operational zones (max 50)".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Too many operational zones (max 50)".into());
     }
     for zone in &disaster.affected_area.zones {
         if zone.id.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Zone ID too long (max 256)".into(),
-            ));
+            return ValidateCallbackResult::Invalid("Zone ID too long (max 256)".into());
         }
         if zone.name.len() > 128 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Zone name too long (max 128)".into(),
-            ));
+            return ValidateCallbackResult::Invalid("Zone name too long (max 128)".into());
         }
         if zone.boundary.len() > 500 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Zone boundary too many points (max 500)".into(),
-            ));
+            );
         }
         for &(lat, lon) in &zone.boundary {
             if !lat.is_finite() || !lon.is_finite() {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Zone boundary coordinates must be finite numbers".into(),
-                ));
+                );
             }
             if lat < -90.0 || lat > 90.0 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Zone boundary latitude must be between -90 and 90".into(),
-                ));
+                );
             }
             if lon < -180.0 || lon > 180.0 {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Zone boundary longitude must be between -180 and 180".into(),
-                ));
+                );
             }
         }
     }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
+}
+
+/// update_disaster_status changes only `status`, with no caller-identity
+/// check in the coordinator (may legitimately be called by an incident
+/// commander other than the original declarer) -- no established
+/// authority model here to bind against. Content is restricted to
+/// `status` -- this closes the wide-open bug that previously let any
+/// field (including severity, affected_area, declared_by, or
+/// coordination_lead) change unconditionally on update.
+fn validate_update_disaster(
+    action: Update,
+    disaster: Disaster,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Disaster = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original disaster not found".to_string()
+        )))?;
+    if disaster.id != original.id
+        || disaster.disaster_type != original.disaster_type
+        || disaster.title != original.title
+        || disaster.description != original.description
+        || disaster.severity != original.severity
+        || disaster.declared_by != original.declared_by
+        || disaster.declared_at != original.declared_at
+        || disaster.affected_area != original.affected_area
+        || disaster.estimated_affected != original.estimated_affected
+        || disaster.coordination_lead != original.coordination_lead
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change on a disaster update".into(),
+        ));
+    }
+    Ok(validate_disaster_fields(&disaster))
 }
 
 fn validate_create_update(
@@ -1218,7 +1242,7 @@ mod tests {
     #[test]
     fn test_validate_update_disaster_valid() {
         let disaster = valid_disaster();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1226,7 +1250,7 @@ mod tests {
     fn test_validate_update_disaster_empty_id() {
         let mut disaster = valid_disaster();
         disaster.id = "".into();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1234,7 +1258,7 @@ mod tests {
     fn test_validate_update_disaster_empty_title() {
         let mut disaster = valid_disaster();
         disaster.title = "".into();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1242,7 +1266,7 @@ mod tests {
     fn test_validate_update_disaster_allows_empty_description() {
         let mut disaster = valid_disaster();
         disaster.description = "".into();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1251,7 +1275,7 @@ mod tests {
         let mut disaster = valid_disaster();
         disaster.affected_area.center_lat = 100.0;
         disaster.affected_area.center_lon = 200.0;
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1259,7 +1283,7 @@ mod tests {
     fn test_validate_update_disaster_allows_zero_radius() {
         let mut disaster = valid_disaster();
         disaster.affected_area.radius_km = 0.0;
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1269,7 +1293,7 @@ mod tests {
     fn test_update_disaster_id_too_long_rejected() {
         let mut disaster = valid_disaster();
         disaster.id = "x".repeat(257);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1277,7 +1301,7 @@ mod tests {
     fn test_update_disaster_id_at_limit_accepted() {
         let mut disaster = valid_disaster();
         disaster.id = "x".repeat(256);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1285,7 +1309,7 @@ mod tests {
     fn test_update_disaster_title_too_long_rejected() {
         let mut disaster = valid_disaster();
         disaster.title = "x".repeat(257);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1293,7 +1317,7 @@ mod tests {
     fn test_update_disaster_title_at_limit_accepted() {
         let mut disaster = valid_disaster();
         disaster.title = "x".repeat(256);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1301,7 +1325,7 @@ mod tests {
     fn test_update_disaster_description_too_long_rejected() {
         let mut disaster = valid_disaster();
         disaster.description = "x".repeat(4097);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1309,7 +1333,7 @@ mod tests {
     fn test_update_disaster_description_at_limit_accepted() {
         let mut disaster = valid_disaster();
         disaster.description = "x".repeat(4096);
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1323,7 +1347,7 @@ mod tests {
                 .map(|i| (35.0 + i as f64 * 0.001, -80.0))
                 .collect(),
         );
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1335,7 +1359,7 @@ mod tests {
                 .map(|i| (35.0 + i as f64 * 0.001, -80.0))
                 .collect(),
         );
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1351,7 +1375,7 @@ mod tests {
                 status: ZoneStatus::Unassessed,
             })
             .collect();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1367,7 +1391,7 @@ mod tests {
                 status: ZoneStatus::Unassessed,
             })
             .collect();
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1381,7 +1405,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1395,7 +1419,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1409,7 +1433,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1423,7 +1447,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 
@@ -1437,7 +1461,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_invalid(result));
     }
 
@@ -1451,7 +1475,7 @@ mod tests {
             priority: ZonePriority::Medium,
             status: ZoneStatus::Unassessed,
         }];
-        let result = validate_update_disaster(disaster);
+        let result = Ok(validate_disaster_fields(&disaster));
         assert!(is_valid(result));
     }
 

@@ -1,4 +1,4 @@
-use super::{authority, Transaction, TransactionOutput};
+use super::{Transaction, TransactionOutput, authority};
 use hdk::prelude::*;
 use mycelix_common::error_handling;
 use transactions_integrity::TransactionStatus;
@@ -68,14 +68,14 @@ impl TransactionResolution {
         match (self.state, self.canonical) {
             (
                 TransactionResolutionState::Resolved
-                    | TransactionResolutionState::AutoResolved
-                    | TransactionResolutionState::AuthorizedResolved,
+                | TransactionResolutionState::AutoResolved
+                | TransactionResolutionState::AuthorizedResolved,
                 Some(output),
             ) => Ok(output),
             (
                 TransactionResolutionState::Resolved
-                    | TransactionResolutionState::AutoResolved
-                    | TransactionResolutionState::AuthorizedResolved,
+                | TransactionResolutionState::AutoResolved
+                | TransactionResolutionState::AuthorizedResolved,
                 None,
             ) => Err("Resolved transaction omitted its canonical revision".into()),
             (TransactionResolutionState::Conflicted, _) => Err(format!(
@@ -103,12 +103,7 @@ pub fn resolve_transaction(
 
     let mut visited = Vec::new();
     let mut heads = Vec::new();
-    collect_heads(
-        root_transaction_hash.clone(),
-        0,
-        &mut visited,
-        &mut heads,
-    )?;
+    collect_heads(root_transaction_hash.clone(), 0, &mut visited, &mut heads)?;
 
     heads.sort_by(|left, right| {
         left.transaction_hash
@@ -116,9 +111,11 @@ pub fn resolve_transaction(
             .cmp(&right.transaction_hash.to_string())
     });
 
-    let projection = match authority::project_authorized_resolution(&root_transaction_hash, &heads)? {
-        authority::AuthorityProjection::None => reduce_heads(&heads)
-            .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?,
+    let projection = match authority::project_authorized_resolution(&root_transaction_hash, &heads)?
+    {
+        authority::AuthorityProjection::None => {
+            reduce_heads(&heads).map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?
+        }
         authority::AuthorityProjection::Resolved {
             canonical_index,
             applied,
@@ -266,7 +263,6 @@ fn auto_resolved_projection(
         applied_conflict_resolutions: Vec::new(),
     }
 }
-
 
 fn authorized_projection(
     heads: &[TransactionOutput],

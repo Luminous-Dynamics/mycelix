@@ -21,8 +21,8 @@ import type {
   GateAuditInput,
 } from './types';
 import { HearthError, classifyError } from './errors';
+import { callHearthZome, isSignalForCell, type HearthCellTarget } from './cell-target';
 
-const ROLE_NAME = 'hearth';
 const ZOME_NAME = 'hearth_bridge';
 
 const BRIDGE_SIGNAL_TYPES: ReadonlySet<string> = new Set(['CrossZomeCallFailed']);
@@ -33,7 +33,7 @@ export class BridgeClient {
   private signalHandlers: Map<string, Set<BridgeSignalHandler>> = new Map();
   private listening = false;
 
-  constructor(private readonly client: AppClient, private readonly roleName = ROLE_NAME) {}
+  constructor(private readonly client: AppClient, private readonly target: HearthCellTarget) {}
 
   // ============================================================================
   // Private Helpers
@@ -41,12 +41,13 @@ export class BridgeClient {
 
   private async callZome<T>(fnName: string, payload: unknown): Promise<T> {
     try {
-      return await this.client.callZome({
-        role_name: this.roleName,
-        zome_name: ZOME_NAME,
-        fn_name: fnName,
+      return await callHearthZome<T>(
+        this.client,
+        this.target,
+        ZOME_NAME,
+        fnName,
         payload,
-      });
+      );
     } catch (err) {
       throw new HearthError({
         code: classifyError(err),
@@ -248,6 +249,7 @@ export class BridgeClient {
     this.client.on('signal', (signal) => {
       try {
         if (signal.type !== 'app') return;
+        if (!isSignalForCell(signal, this.target.cellId)) return;
         const parsed = signal.value.payload as Record<string, unknown>;
         if (!parsed || typeof parsed !== 'object') return;
 

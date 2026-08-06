@@ -351,6 +351,16 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // By-ID index, so `get_credential` can resolve over the DHT rather than
+    // only within the caller's own source chain.
+    let id_hash = string_to_entry_hash(&vc.id);
+    create_link(
+        id_hash,
+        action_hash.clone(),
+        LinkTypes::CredentialIdToCredential,
+        (),
+    )?;
+
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created credential".into()
     )))
@@ -478,24 +488,43 @@ pub struct VerificationResult {
     pub verified_at: Timestamp,
 }
 
-/// Get a credential by ID
+/// Get a credential by ID.
+///
+/// Resolves over the DHT via the `CredentialIdToCredential` index. This
+/// previously used `query(ChainQueryFilter)`, which reads only the *caller's
+/// own source chain* — so verifying anybody else's credential silently
+/// returned `None` rather than erroring. Sibling lookups
+/// (`get_credentials_issued_by`, `get_credentials_for_subject`) were always
+/// link-based and unaffected.
 #[hdk_extern]
 pub fn get_credential(credential_id: String) -> ExternResult<Option<Record>> {
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::VerifiableCredential,
-        )?))
-        .include_entries(true);
+    if credential_id.is_empty() || credential_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential ID must be 1-256 characters".into()
+        )));
+    }
 
-    for record in query(filter)? {
-        if let Some(vc) = record
-            .entry()
-            .to_app_option::<VerifiableCredential>()
-            .ok()
-            .flatten()
-        {
-            if vc.id == credential_id {
-                return Ok(Some(record));
+    let id_hash = string_to_entry_hash(&credential_id);
+    let links = get_links(
+        LinkQuery::try_new(id_hash, LinkTypes::CredentialIdToCredential)?,
+        GetStrategy::default(),
+    )?;
+
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            // The link base is a hash of the ID string, so confirm the entry
+            // really carries the requested ID before returning it.
+            if let Some(vc) = record
+                .entry()
+                .to_app_option::<VerifiableCredential>()
+                .ok()
+                .flatten()
+            {
+                if vc.id == credential_id {
+                    return Ok(Some(record));
+                }
             }
         }
     }
@@ -1551,7 +1580,7 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
         _ => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Request not found".into()
-            )))
+            )));
         }
     };
 
@@ -1681,7 +1710,9 @@ pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> Exte
             );
         }
         SchemaValidationStatus::SchemaZomeUnavailable => {
-            warn!("Pre-signed credential schema validation skipped: credential_schema zome unavailable");
+            warn!(
+                "Pre-signed credential schema validation skipped: credential_schema zome unavailable"
+            );
         }
         SchemaValidationStatus::SchemaNotFound => {
             debug!("Pre-signed credential schema validation skipped: schema not found");
@@ -1717,6 +1748,16 @@ pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> Exte
             (),
         )?;
     }
+
+    // By-ID index, so `get_credential` can resolve over the DHT rather than
+    // only within the caller's own source chain.
+    let id_hash = string_to_entry_hash(&vc.id);
+    create_link(
+        id_hash,
+        action_hash.clone(),
+        LinkTypes::CredentialIdToCredential,
+        (),
+    )?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find created credential".into()

@@ -167,7 +167,9 @@ fn validate_bilateral_authority(
     seller_approval_hash: &ActionHash,
 ) -> ExternResult<Result<(), String>> {
     if buyer_approval_hash == seller_approval_hash {
-        return Ok(Err("Bilateral resolution requires two distinct approvals".into()));
+        return Ok(Err(
+            "Bilateral resolution requires two distinct approvals".into()
+        ));
     }
     if action.author != transaction.buyer && action.author != transaction.seller {
         return Ok(Err(
@@ -191,8 +193,7 @@ fn validate_bilateral_authority(
         || !approval_matches_resolution(&seller_approval, resolution)
     {
         return Ok(Err(
-            "Buyer and seller approvals must bind the exact same conflict and selected head"
-                .into(),
+            "Buyer and seller approvals must bind the exact same conflict and selected head".into(),
         ));
     }
 
@@ -212,7 +213,7 @@ fn validate_arbitration_authority(
         || find_action_root(result.dispute_revision_hash.clone())? != *dispute_hash
     {
         return Ok(Err(
-            "Arbitration result belongs to a different dispute".into(),
+            "Arbitration result belongs to a different dispute".into()
         ));
     }
     let dispute: ConflictDisputeSnapshot = decode_record(&must_get_valid_record(
@@ -243,7 +244,7 @@ fn validate_arbitration_authority(
         || (result.loser != transaction.buyer && result.loser != transaction.seller)
     {
         return Ok(Err(
-            "Arbitration loser must be the other transaction party".into(),
+            "Arbitration loser must be the other transaction party".into()
         ));
     }
     if !dispute.arbitrators.contains(&action.author) {
@@ -320,8 +321,7 @@ fn validate_conflict_binding(
                 "Every conflict head must belong to the declared transaction root".into(),
             ));
         }
-        let transaction: Transaction =
-            decode_record(&must_get_valid_record(head_hash.clone())?)?;
+        let transaction: Transaction = decode_record(&must_get_valid_record(head_hash.clone())?)?;
         if !same_immutable_identity(&root_transaction, &transaction) {
             return Ok(Err(
                 "Every conflict head must share the immutable transaction identity".into(),
@@ -343,7 +343,9 @@ fn same_immutable_identity(left: &Transaction, right: &Transaction) -> bool {
 }
 
 fn is_sorted_unique(hashes: &[ActionHash]) -> bool {
-    hashes.windows(2).all(|pair| pair[0].to_string() < pair[1].to_string())
+    hashes
+        .windows(2)
+        .all(|pair| pair[0].to_string() < pair[1].to_string())
 }
 
 fn decode_record<T>(record: &Record) -> ExternResult<T>
@@ -373,7 +375,7 @@ fn find_action_root(mut cursor: ActionHash) -> ExternResult<ActionHash> {
             _ => {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Conflict head must reference a Create or Update action".into(),
-                )))
+                )));
             }
         }
     }

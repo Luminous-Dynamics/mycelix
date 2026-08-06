@@ -81,12 +81,8 @@ async fn execute_action(
     action: &OfflineAction,
 ) -> Result<(), String> {
     match action {
-        // update_email_state/mark_as_read return an ActionHash (raw bytes) —
-        // decoding as serde_json::Value fails on msgpack's byte-array type;
-        // Vec<u8>/Option<Vec<u8>> decode it correctly. See profile_setup.rs's
-        // set_profile fix for full detail.
         OfflineAction::ToggleStar { hash } => hc
-            .call_zome::<serde_json::Value, Vec<u8>>(
+            .call_zome::<serde_json::Value, serde_json::Value>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_starred": true }]),
@@ -94,7 +90,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::ToggleRead { hash } => hc
-            .call_zome::<serde_json::Value, Option<Vec<u8>>>(
+            .call_zome::<serde_json::Value, serde_json::Value>(
                 "mail_messages",
                 "mark_as_read",
                 &serde_json::json!([hash, false]),
@@ -102,7 +98,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::Archive { hash } => hc
-            .call_zome::<serde_json::Value, Vec<u8>>(
+            .call_zome::<serde_json::Value, serde_json::Value>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_archived": true }]),
@@ -110,7 +106,7 @@ async fn execute_action(
             .await
             .map(|_| ()),
         OfflineAction::Delete { hash } => hc
-            .call_zome::<serde_json::Value, Vec<u8>>(
+            .call_zome::<serde_json::Value, serde_json::Value>(
                 "mail_messages",
                 "update_email_state",
                 &serde_json::json!([hash, { "is_trashed": true }]),

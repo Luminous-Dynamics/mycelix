@@ -1,0 +1,21 @@
+{
+  "lease_id": "00000000-0000-0000-0000-000000000001",
+  "deployment_id": "mycelix-desci-production",
+  "primary_id": "postgres-primary-a",
+  "database_system_identifier": "replace-with-pg-control-system-identifier",
+  "postgres_timeline": 1,
+  "generation": 1,
+  "phase": "bootstrap",
+  "epoch_number": null,
+  "epoch_hash": null,
+  "allowed_scopes": [
+    "credential_registry",
+    "credential_governance",
+    "database_epoch_promotion",
+    "schema_migration"
+  ],
+  "issued_at": "2026-08-05T11:00:00Z",
+  "not_before": "2026-08-05T11:00:00Z",
+  "expires_at": "2026-08-05T11:10:00Z",
+  "reason": "example only; regenerate timestamps and identity before signing"
+}

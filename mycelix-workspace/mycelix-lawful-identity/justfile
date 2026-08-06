@@ -32,3 +32,27 @@ fmt:
 
 deny:
     cargo deny check
+
+conformance:
+    python3 conformance/verify_scoped_verifier_run_v1.py
+
+model-adversarial:
+    python3 tests/protocol_model/settlement_conflict_model.py
+
+validate-conductor-scenarios:
+    python3 tests/conductor/validate_scenarios.py
+
+conductor-contract-model:
+    python3 tests/conductor/run_scenarios.py --adapter tests/conductor/model_adapter.py
+
+evidence-tests:
+    python3 -m unittest tests/conductor/test_evidence_manifest.py tests/conductor/test_real_conductor_adapter.py tests/conductor/test_release_evidence_index.py
+
+conductor-contract-real adapter evidence_root:
+    MYCELIX_CONDUCTOR_EVIDENCE_ROOT={{evidence_root}} python3 tests/conductor/run_scenarios.py --adapter {{adapter}} --require-real --evidence-root {{evidence_root}}
+
+release-evidence adapter evidence_root:
+    MYCELIX_REAL_CONDUCTOR_ADAPTER={{adapter}} MYCELIX_REAL_CONDUCTOR_EVIDENCE_ROOT={{evidence_root}} scripts/verify_release_evidence.sh
+
+model-evidence:
+    scripts/verify_model_evidence.sh

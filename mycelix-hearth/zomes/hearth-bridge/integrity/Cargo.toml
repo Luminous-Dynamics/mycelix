@@ -16,3 +16,7 @@ holochain_serialized_bytes = { workspace = true }
 thiserror = { workspace = true }
 hearth-types = { workspace = true }
 mycelix-bridge-entry-types = { workspace = true }
+hearth_kinship_integrity = { path = "../../hearth-kinship/integrity" }
+hearth_emergency_integrity = { path = "../../hearth-emergency/integrity" }
+mycelix-zkp-core = { workspace = true }
+

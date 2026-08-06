@@ -4,6 +4,35 @@
 
 use leptos::prelude::*;
 
+/// Newtype wrapper (not a bare `bool`) so this doesn't collide with any
+/// other `ReadSignal<bool>`/`WriteSignal<bool>` some other provider might
+/// put in context -- Leptos's context system keys by type, and every other
+/// provider in this app (role, theme, profile, tracker) already wraps its
+/// value in a named type for exactly this reason.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TutorOpen(pub bool);
+
+/// Shared visibility state for the floating `ResonantWhisper` widget,
+/// following `study_tracker::provide_study_tracker`'s side-effect-only
+/// template (no return value, no consumers yet beyond the widget itself --
+/// deliberately minimal, not persisted, since widget-open/closed is
+/// ephemeral per-session UI state, not data worth surviving a reload).
+pub fn provide_tutor_context() {
+    let (open, set_open) = signal(TutorOpen(false));
+    provide_context(open);
+    provide_context(set_open);
+}
+
+/// Whether the Resonant Whisper widget is currently expanded.
+pub fn use_tutor_open() -> ReadSignal<TutorOpen> {
+    expect_context::<ReadSignal<TutorOpen>>()
+}
+
+/// Setter for the Resonant Whisper widget's open/closed state.
+pub fn use_set_tutor_open() -> WriteSignal<TutorOpen> {
+    expect_context::<WriteSignal<TutorOpen>>()
+}
+
 #[component]
 pub fn ResonantWhisper() -> impl IntoView {
     let (input, set_input) = signal("".to_string());

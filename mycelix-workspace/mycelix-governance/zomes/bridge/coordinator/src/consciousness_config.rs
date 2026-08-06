@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use super::*;
-use hdk::prelude::{hdk_extern, wasm_error, WasmErrorInner};
+use hdk::prelude::{WasmErrorInner, hdk_extern, wasm_error};
 use serde::{Deserialize, Serialize};
 
 // =============================================================================

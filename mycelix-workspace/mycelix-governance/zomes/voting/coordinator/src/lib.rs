@@ -307,13 +307,17 @@ fn verify_record_author(record: &Record) -> ExternResult<AgentPubKey> {
 /// could vote on expired proposals.
 fn verify_voting_period(proposal_id: &str) -> ExternResult<ProposalTypeMirror> {
     // Use call_local (not best_effort) so errors propagate with diagnostics
-    let extern_io =
-        governance_utils::call_local("proposals", "get_proposal", proposal_id.to_string())
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-        "Cannot verify voting period: cross-zome call to proposals::get_proposal failed: {}", e
-    )))
-            })?;
+    let extern_io = governance_utils::call_local(
+        "proposals",
+        "get_proposal",
+        proposal_id.to_string(),
+    )
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Cannot verify voting period: cross-zome call to proposals::get_proposal failed: {}",
+            e
+        )))
+    })?;
 
     let record: Option<Record> = extern_io.decode().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(

@@ -1,5 +1,6 @@
 [package]
 name = "mycelix-desci-core"
+workspace = "../.."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,16 +24,19 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+sqlx = { workspace = true }
 clap = { workspace = true }
 mycelix-zkp-core = { workspace = true }
+mycelix-desci-types = { path = "../types" }
 
-# Holochain DHT client, gated behind the `holochain` feature (see below) so
-# crates that only need the core claim/PoGQ/trust logic (e.g. the CLI)
-# don't pull in the conductor-client dependency tree.
-holochain_client = { workspace = true, optional = true }
-holochain_types = { workspace = true, optional = true }
-holochain_zome_types = { workspace = true, optional = true }
-holochain_serialized_bytes = { workspace = true, optional = true }
+# Holochain DHT client support (KnowledgeDhtStorage) moved out to the
+# sibling mycelix-desci-holochain-bridge crate/workspace 2026-08-05: its
+# rusqlite dependency (via holochain_types) declares `links = "sqlite3"`
+# and is unconditionally incompatible -- regardless of feature gating, in
+# one Cargo.lock -- with sqlx's optional sqlx-sqlite dependency, needed
+# here for the Postgres authority backend (sqlx-sqlite needs
+# libsqlite3-sys ^0.28, rusqlite 0.37 needs ^0.35). See that crate's
+# module doc comment for the full explanation.
 
 # Additional dependencies
 reqwest = { version = "0.13", features = ["json"] }
@@ -52,7 +56,3 @@ criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
 [[bench]]
 name = "core_benchmarks"
 harness = false
-
-[features]
-default = []
-holochain = ["dep:holochain_client", "dep:holochain_types", "dep:holochain_zome_types", "dep:holochain_serialized_bytes"]

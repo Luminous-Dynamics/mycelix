@@ -1,9 +1,9 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Merkle tree membership proof circuit.
+//! Merkle tree utilities and a portable membership-proof envelope.
 //!
-//! Proves: "I know a leaf that exists in the Merkle tree with root R"
-//! without revealing which leaf or its index.
+//! This module does not itself implement a zero-knowledge membership verifier.
+//! Cryptographic validity requires a backend-specific circuit verifier.
 //!
 //! Used for:
 //! - Property ownership: prove "I own a property" without revealing which one
@@ -39,7 +39,9 @@ pub struct MerkleMembershipProof {
 ///
 /// Full STARK verification happens in the Binius/Winterfell circuit.
 /// This function validates the proof format.
-pub fn validate_membership_proof(proof: &MerkleMembershipProof) -> Result<(), String> {
+pub fn validate_membership_proof_structure(
+    proof: &MerkleMembershipProof,
+) -> Result<(), String> {
     if proof.proof_bytes.is_empty() {
         return Err("Empty proof bytes".to_string());
     }
@@ -53,6 +55,18 @@ pub fn validate_membership_proof(proof: &MerkleMembershipProof) -> Result<(), St
         return Err("Invalid domain tag".to_string());
     }
     Ok(())
+}
+
+/// Backward-compatible alias for structural validation only.
+///
+/// This function does **not** verify a STARK, Merkle witness, or knowledge of a
+/// member leaf. New callers should use [`validate_membership_proof_structure`].
+#[deprecated(
+    since = "0.1.0",
+    note = "structural validation only; use validate_membership_proof_structure"
+)]
+pub fn validate_membership_proof(proof: &MerkleMembershipProof) -> Result<(), String> {
+    validate_membership_proof_structure(proof)
 }
 
 /// Compute a simple Merkle root from leaves (for testing).
@@ -226,19 +240,19 @@ mod tests {
             domain_tag: "ZTML:Commons:PropertyOwnership:v1".to_string(),
             depth: 8,
         };
-        assert!(validate_membership_proof(&valid).is_ok());
+        assert!(validate_membership_proof_structure(&valid).is_ok());
 
         let empty_proof = MerkleMembershipProof {
             proof_bytes: vec![],
             ..valid.clone()
         };
-        assert!(validate_membership_proof(&empty_proof).is_err());
+        assert!(validate_membership_proof_structure(&empty_proof).is_err());
 
         let zero_root = MerkleMembershipProof {
             root: [0; 32],
             ..valid.clone()
         };
-        assert!(validate_membership_proof(&zero_root).is_err());
+        assert!(validate_membership_proof_structure(&zero_root).is_err());
     }
 
     #[test]

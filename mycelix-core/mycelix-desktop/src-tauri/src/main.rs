@@ -4,10 +4,13 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::State;
+use tauri::{Manager, State};
+use holochain_client::{AdminWebsocket, AllowedOrigins, IssueAppAuthenticationTokenPayload};
 use std::sync::Mutex;
 use std::process::{Child, Command, Stdio};
-use std::path::PathBuf;
+use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use futures_util::{StreamExt, SinkExt};
@@ -65,69 +68,245 @@ fn set_status(state: State<AppState>, new_status: String) -> Result<String, Stri
     Ok(format!("Status updated to: {}", new_status))
 }
 
-// Start Holochain conductor
-#[tauri::command]
-async fn start_holochain(state: State<'_, AppState>) -> Result<String, String> {
-    // Check if conductor is already running
-    {
-        let process_guard = state.holochain_process.lock().expect("holochain_process mutex poisoned");
-        if process_guard.is_some() {
-            return Ok("Holochain conductor already running".to_string());
+/// Write a conductor config into the app data directory if one is not there.
+///
+/// The schema below is the CANONICAL Holochain 0.6.1 shape, taken verbatim from
+/// `holochain --create-config` run against the bundled 0.6.1 binary -- not
+/// hand-authored, and not carried over from an older release.
+///
+/// This matters: the config previously checked in at the repo root is a 0.5.6
+/// document and Holochain 0.6.1 REFUSES TO PARSE IT --
+///     unknown field `device_seed_lair_tag`, expected one of `tracing_override`,
+///     `data_root_path`, `keystore`, `admin_interfaces`, `network`,
+///     `db_sync_strategy`, `db_max_readers`,
+///     `incoming_request_concurrency_limit`, `tuning_params`, `tracing_scope`
+/// -- because 0.6 dropped the whole `dpki` block and the device-seed fields, and
+/// added `db_max_readers`, `incoming_request_concurrency_limit`, and several
+/// network fields.
+///
+/// Note there is deliberately no `app_interfaces` section. The 0.6 default does
+/// not have one; the app interface is attached at runtime over the admin API
+/// (see `connect_to_network`), which is also what lets the port be chosen
+/// rather than baked in.
+///
+/// `holochain --create-config` is NOT used directly at runtime, despite existing:
+/// it ignores the `-c` path, invents a random sandbox directory, and drops a
+/// `.hc` file in the process CWD. Those are developer-sandbox behaviours, not
+/// what an installed application should do to a user's filesystem.
+fn ensure_conductor_config(data_dir: &Path) -> Result<PathBuf, String> {
+    let config_path = data_dir.join("conductor-config.yaml");
+    if config_path.exists() {
+        return Ok(config_path);
+    }
+
+    let holochain_root = data_dir.join("holochain");
+    let keystore_root = holochain_root.join("ks");
+
+    // lair-keystore binds a Unix domain socket at <lair_root>/socket, and those
+    // are limited to SUN_LEN (108 bytes incl. NUL on Linux, 104 on macOS). Over
+    // that, the conductor dies with a bare panic:
+    //     Failed to spawn Lair keystore in process
+    //     err={"error":"InvalidInput","message":"path must be shorter than SUN_LEN"}
+    // which says nothing about paths being too long. Reproduced against the real
+    // 0.6.1 binary. Fail with something actionable instead.
+    //
+    // A typical install is well under the limit (~/.local/share/<id>/holochain/ks
+    // is ~50 bytes), so this is a guard, not an expected path. The robust fix is
+    // Kangaroo's: symlink the keystore from a short directory. Not done here --
+    // it is Unix-only and Windows uses named pipes, so it needs its own design.
+    let socket_path = keystore_root.join("socket");
+    const SUN_LEN_LIMIT: usize = 104;
+    if socket_path.as_os_str().len() >= SUN_LEN_LIMIT {
+        return Err(format!(
+            "Keystore socket path is too long for a Unix domain socket \
+             ({} bytes, limit {SUN_LEN_LIMIT}): {}. \
+             Set a shorter app data directory.",
+            socket_path.as_os_str().len(),
+            socket_path.display()
+        ));
+    }
+    fs::create_dir_all(&keystore_root)
+        .map_err(|e| format!("Failed to create {}: {e}", keystore_root.display()))?;
+
+    let yaml = format!(
+        "tracing_override: null\n\
+         data_root_path: {data}\n\
+         keystore:\n\
+         \x20 type: lair_server_in_proc\n\
+         \x20 lair_root: {ks}\n\
+         admin_interfaces:\n\
+         - driver:\n\
+         \x20   type: websocket\n\
+         \x20   port: 0\n\
+         \x20   danger_bind_addr: null\n\
+         \x20   allowed_origins: '*'\n\
+         network:\n\
+         \x20 base64_auth_material_bootstrap: null\n\
+         \x20 base64_auth_material_relay: null\n\
+         \x20 bootstrap_url: https://dev-test-bootstrap2.holochain.org/\n\
+         \x20 signal_url: wss://dev-test-bootstrap2.holochain.org/\n\
+         \x20 relay_url: https://use1-1.relay.n0.iroh-canary.iroh.link./\n\
+         \x20 request_timeout_s: 60\n\
+         \x20 webrtc_config: null\n\
+         \x20 target_arc_factor: 1\n\
+         \x20 report: none\n\
+         \x20 advanced: null\n\
+         db_sync_strategy: Resilient\n\
+         db_max_readers: 24\n\
+         incoming_request_concurrency_limit: 21\n\
+         tuning_params: null\n\
+         tracing_scope: null\n",
+        data = holochain_root.display(),
+        ks = keystore_root.display(),
+    );
+
+    fs::write(&config_path, yaml)
+        .map_err(|e| format!("Failed to write {}: {e}", config_path.display()))?;
+    log::info!("Generated conductor config at {}", config_path.display());
+    Ok(config_path)
+}
+
+/// Resolve a binary that ships with the app as a Tauri `externalBin` sidecar.
+///
+/// A packaged app must NOT search `PATH` for a conductor -- it cannot assume the
+/// user has Holochain installed, and picking up a stray system binary of the
+/// wrong generation is worse than failing. Tauri installs sidecars alongside the
+/// main executable (verified: the built .deb places `usr/bin/holochain` next to
+/// `usr/bin/mycelix-desktop`), so resolve relative to `current_exe()`.
+///
+/// Falls back to the bare name for `nix develop`, where the binary is on PATH and
+/// no bundle exists. That fallback is a DEV convenience, not the shipping path.
+fn resolve_sidecar(name: &str) -> PathBuf {
+    let file_name = if cfg!(target_os = "windows") {
+        format!("{name}.exe")
+    } else {
+        name.to_string()
+    };
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let bundled = dir.join(&file_name);
+            if bundled.is_file() {
+                return bundled;
+            }
         }
     }
 
-    // Get the config file path (relative to app directory)
-    let config_path = PathBuf::from("conductor-config.yaml");
+    PathBuf::from(file_name)
+}
 
-    if !config_path.exists() {
-        return Err("Conductor config file not found. Please create conductor-config.yaml".to_string());
-    }
+/// Spawn the bundled conductor and return the child plus the admin port it
+/// announced.
+///
+/// Deliberately free of Tauri types. Everything interesting about first run --
+/// config generation, sidecar resolution, passphrase piping, port discovery --
+/// used to live inside a `#[tauri::command]`, and Tauri commands are invoked
+/// *from the frontend*. That made this logic unreachable without a working
+/// webview, and the webview cannot start in a headless/CI environment
+/// (WebKitGTK aborts with EGL_BAD_PARAMETER). So none of it could be tested at
+/// all. Keeping it here, as a plain function, is what makes `--self-test` and
+/// therefore CI possible.
+fn spawn_conductor(data_dir: &Path) -> Result<(Child, u16), String> {
+    fs::create_dir_all(data_dir)
+        .map_err(|e| format!("Failed to create {}: {e}", data_dir.display()))?;
 
-    // Try to find holochain binary
-    // In development, it should be available via nix develop
-    let holochain_cmd = if cfg!(target_os = "windows") {
-        "holochain.exe"
-    } else {
-        "holochain"
-    };
+    let config_path = ensure_conductor_config(data_dir)?;
 
-    // Start the conductor process
-    // Use --piped mode to avoid interactive passphrase prompt
-    match Command::new(holochain_cmd)
+    // Bundled sidecar (scripts/fetch-sidecars.sh + tauri.conf.json externalBin),
+    // NOT a PATH lookup.
+    let holochain_cmd = resolve_sidecar("holochain");
+
+    let mut child = Command::new(&holochain_cmd)
         .arg("--piped")
         .arg("-c")
         .arg(&config_path)
-        .stdin(Stdio::piped())   // Pipe empty passphrase
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-    {
-        Ok(mut child) => {
-            // Write empty passphrase to stdin for --piped mode
-            if let Some(mut stdin) = child.stdin.take() {
-                use std::io::Write;
-                let _ = stdin.write_all(b"\n");
+        .map_err(|e| {
+            format!(
+                "Failed to start conductor at {}: {e}",
+                holochain_cmd.display()
+            )
+        })?;
+
+    // --piped reads the keystore passphrase from stdin.
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(b"\n");
+    }
+
+    // The config requests port 0, so the OS assigns and the conductor announces
+    // the result as `###ADMIN_PORT:<n>###`. Read it rather than assuming: 8888 is
+    // both Holochain's dev default and, on the build host, the live
+    // mail-conductor's app interface.
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "conductor stdout unavailable".to_string())?;
+
+    let mut discovered: Option<u16> = None;
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    for _ in 0..200 {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break, // EOF: conductor exited
+            Ok(_) => {
+                if let Some(rest) = line.split("###ADMIN_PORT:").nth(1) {
+                    if let Some(num) = rest.split("###").next() {
+                        if let Ok(port) = num.trim().parse::<u16>() {
+                            discovered = Some(port);
+                            break;
+                        }
+                    }
+                }
             }
-
-            // Store the process handle
-            let mut process_guard = state.holochain_process.lock().expect("holochain_process mutex poisoned");
-            *process_guard = Some(child);
-
-            Ok(format!(
-                "Holochain conductor started successfully with config: {}",
-                config_path.display()
-            ))
+            Err(e) => return Err(format!("Failed reading conductor output: {e}")),
         }
-        Err(e) => {
-            Err(format!(
-                "Failed to start Holochain conductor: {}. Make sure Holochain is installed (run 'nix develop' first)",
-                e
-            ))
+    }
+
+    match discovered {
+        Some(port) => Ok((child, port)),
+        None => {
+            let _ = child.kill();
+            Err("Conductor did not announce an admin port (###ADMIN_PORT:n###) -- \
+                 it failed to start. Check the keystore path length and config validity."
+                .to_string())
         }
     }
 }
 
-// Stop Holochain conductor
+// Start Holochain conductor
+#[tauri::command]
+async fn start_holochain(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+    {
+        let guard = state
+            .holochain_process
+            .lock()
+            .expect("holochain_process mutex poisoned");
+        if guard.is_some() {
+            return Ok("Holochain conductor already running".to_string());
+        }
+    }
+
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Could not resolve app data directory: {e}"))?;
+
+    let (child, port) = spawn_conductor(&data_dir)?;
+
+    *state.admin_port.lock().expect("admin_port mutex poisoned") = port;
+    *state
+        .holochain_process
+        .lock()
+        .expect("holochain_process mutex poisoned") = Some(child);
+
+    Ok(format!("Holochain conductor started on admin port {port}"))
+}
+
 #[tauri::command]
 async fn stop_holochain(state: State<'_, AppState>) -> Result<String, String> {
     let mut process_guard = state.holochain_process.lock().expect("holochain_process mutex poisoned");
@@ -175,144 +354,83 @@ pub struct NetworkInfo {
     pub network_seed: Option<String>,
 }
 
+/// Connect to the conductor's admin interface.
+///
+/// Uses holochain_client's typed `AdminWebsocket`. The previous implementation
+/// hand-rolled JSON-RPC 2.0 text frames (`{"jsonrpc":"2.0","method":...}`), a
+/// protocol the Holochain admin API has never spoken -- it is MessagePack over
+/// a websocket. That code could not ever have worked; this replaces it rather
+/// than re-implementing the wire format by hand.
+async fn admin_ws(port: u16) -> Result<AdminWebsocket, String> {
+    AdminWebsocket::connect(format!("127.0.0.1:{port}"), None)
+        .await
+        .map_err(|e| format!("Failed to connect to admin interface on port {port}: {e:?}"))
+}
+
 // Connect to P2P network via Holochain conductor
 #[tauri::command]
 async fn connect_to_network(state: State<'_, AppState>) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
+    let admin = admin_ws(port).await?;
 
-    // Step 1: Check if conductor is running by listing apps
-    let apps_result = send_admin_request(port, "list_apps", serde_json::json!({})).await;
-    if let Err(e) = apps_result {
-        return Err(format!("Holochain conductor not running or not reachable: {}", e));
+    // Step 1: is the conductor actually reachable?
+    let apps = admin
+        .list_apps(None)
+        .await
+        .map_err(|e| format!("Holochain conductor not running or not reachable: {e:?}"))?;
+
+    // Step 2: attach an app interface for the webview. Already-attached is not
+    // fatal, so this warns rather than failing the whole connect.
+    // Port 0 => the conductor picks a free one and returns it. attach_app_interface
+    // returning u16 is the whole point; an already-attached interface is not fatal.
+    match admin
+        .attach_app_interface(0, None, AllowedOrigins::Any, None)
+        .await
+    {
+        Ok(app_port) => log::info!("App interface attached on port {app_port}"),
+        Err(e) => log::warn!("Could not attach app interface: {e:?}"),
     }
 
-    // Step 2: Get agent info to verify network connectivity
-    let agent_info_result = send_admin_request(
-        port,
-        "agent_info",
-        serde_json::json!({ "cell_id": null })
-    ).await;
+    // Step 3: agent infos across all DNAs (None = no DNA filter).
+    let agent_infos = admin.agent_info(None).await.map_err(|e| {
+        format!(
+            "Holochain conductor running but P2P network not initialized. \
+             Ensure a hApp is installed and enabled. Error: {e:?}"
+        )
+    })?;
 
-    match agent_info_result {
-        Ok(agent_info) => {
-            // Step 3: Attach app interface if not already attached
-            let attach_result = send_admin_request(
-                port,
-                "attach_app_interface",
-                serde_json::json!({ "port": 8889, "allowed_origins": "*" })
-            ).await;
-
-            // Ignore error if interface already attached
-            if let Err(e) = &attach_result {
-                if !e.contains("already") {
-                    log::warn!("Could not attach app interface: {}", e);
-                }
-            }
-
-            // Step 4: Request network stats
-            let network_stats = send_admin_request(
-                port,
-                "dump_network_stats",
-                serde_json::json!({})
-            ).await;
-
-            let peer_count = match network_stats {
-                Ok(stats) => {
-                    // Extract peer count from network stats
-                    stats.get("peers")
-                        .and_then(|p| p.as_array())
-                        .map(|arr| arr.len())
-                        .unwrap_or(0)
-                }
-                Err(_) => 0
-            };
-
-            let network_info = NetworkInfo {
-                connected_peers: agent_info.get("agent_infos")
-                    .and_then(|a| a.as_array())
-                    .map(|arr| arr.iter()
-                        .filter_map(|v| v.get("agent").and_then(|a| a.as_str()).map(String::from))
-                        .collect())
-                    .unwrap_or_default(),
-                agent_pub_key: agent_info.get("agent_pub_key")
-                    .and_then(|k| k.as_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
-                network_seed: agent_info.get("network_seed")
-                    .and_then(|s| s.as_str())
-                    .map(String::from),
-            };
-
-            Ok(format!(
-                "Connected to P2P network. Agent: {}..., Peers discovered: {}, Network active: true",
-                &network_info.agent_pub_key[..std::cmp::min(16, network_info.agent_pub_key.len())],
-                peer_count
-            ))
-        }
+    // Step 4: transport stats. Read generically via serde rather than binding to
+    // kitsune2's struct shape, which is not part of this crate's contract.
+    let peer_count = match admin.dump_network_stats().await {
+        Ok(stats) => serde_json::to_value(&stats)
+            .ok()
+            .and_then(|v| {
+                v.get("connections")
+                    .and_then(|c| c.as_array())
+                    .map(|a| a.len())
+            })
+            .unwrap_or(0),
         Err(e) => {
-            // Conductor running but no agent info - may need to install/enable app first
-            Err(format!(
-                "Holochain conductor running but P2P network not initialized. \
-                 Please ensure a hApp is installed and enabled. Error: {}", e
-            ))
+            log::warn!("dump_network_stats failed: {e:?}");
+            0
         }
-    }
-}
+    };
 
-// Helper function to send admin API request via WebSocket
-async fn send_admin_request(
-    port: u16,
-    method: &str,
-    params: serde_json::Value,
-) -> Result<serde_json::Value, String> {
-    let url = format!("ws://localhost:{}", port);
+    let network_info = NetworkInfo {
+        connected_peers: agent_infos.clone(),
+        agent_pub_key: agent_infos
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string()),
+        network_seed: None,
+    };
 
-    // Connect to WebSocket
-    let (ws_stream, _) = connect_async(&url)
-        .await
-        .map_err(|e| format!("Failed to connect to admin interface: {}", e))?;
-
-    let (mut write, mut read) = ws_stream.split();
-
-    // Create JSON-RPC request
-    let request = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": "request-1",
-        "method": method,
-        "params": params
-    });
-
-    // Send request
-    write
-        .send(Message::Text(request.to_string()))
-        .await
-        .map_err(|e| format!("Failed to send request: {}", e))?;
-
-    // Read response
-    if let Some(msg) = read.next().await {
-        let response = msg.map_err(|e| format!("Failed to read response: {}", e))?;
-
-        if let Message::Text(text) = response {
-            let json: serde_json::Value = serde_json::from_str(&text)
-                .map_err(|e| format!("Failed to parse JSON response: {}", e))?;
-
-            // Check for error
-            if let Some(error) = json.get("error") {
-                return Err(format!("Admin API error: {}", error));
-            }
-
-            // Return result
-            if let Some(result) = json.get("result") {
-                return Ok(result.clone());
-            }
-
-            Err("No result in response".to_string())
-        } else {
-            Err("Unexpected message type".to_string())
-        }
-    } else {
-        Err("No response received".to_string())
-    }
+    Ok(format!(
+        "Connected to P2P network. Apps installed: {}, agent infos: {}, peers: {}",
+        apps.len(),
+        network_info.connected_peers.len(),
+        peer_count
+    ))
 }
 
 // Get list of installed apps
@@ -320,10 +438,13 @@ async fn send_admin_request(
 async fn get_installed_apps(state: State<'_, AppState>) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
 
-    let result = send_admin_request(port, "list_apps", serde_json::json!({})).await?;
+    let apps = admin_ws(port)
+        .await?
+        .list_apps(None)
+        .await
+        .map_err(|e| format!("list_apps failed: {e:?}"))?;
 
-    Ok(serde_json::to_string_pretty(&result)
-        .unwrap_or_else(|_| "Failed to format response".to_string()))
+    serde_json::to_string_pretty(&apps).map_err(|e| format!("Failed to format response: {e}"))
 }
 
 // Get list of cells
@@ -331,10 +452,13 @@ async fn get_installed_apps(state: State<'_, AppState>) -> Result<String, String
 async fn get_cells(state: State<'_, AppState>) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
 
-    let result = send_admin_request(port, "list_cell_ids", serde_json::json!({})).await?;
+    let cell_ids = admin_ws(port)
+        .await?
+        .list_cell_ids()
+        .await
+        .map_err(|e| format!("list_cell_ids failed: {e:?}"))?;
 
-    Ok(serde_json::to_string_pretty(&result)
-        .unwrap_or_else(|_| "Failed to format response".to_string()))
+    serde_json::to_string_pretty(&cell_ids).map_err(|e| format!("Failed to format response: {e}"))
 }
 
 // Enable an app
@@ -342,13 +466,13 @@ async fn get_cells(state: State<'_, AppState>) -> Result<String, String> {
 async fn enable_app(state: State<'_, AppState>, app_id: String) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
 
-    let params = serde_json::json!({
-        "installed_app_id": app_id
-    });
+    admin_ws(port)
+        .await?
+        .enable_app(app_id.clone())
+        .await
+        .map_err(|e| format!("enable_app failed: {e:?}"))?;
 
-    send_admin_request(port, "enable_app", params).await?;
-
-    Ok(format!("App '{}' enabled successfully", app_id))
+    Ok(format!("App '{app_id}' enabled successfully"))
 }
 
 // Disable an app
@@ -356,13 +480,13 @@ async fn enable_app(state: State<'_, AppState>, app_id: String) -> Result<String
 async fn disable_app(state: State<'_, AppState>, app_id: String) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
 
-    let params = serde_json::json!({
-        "installed_app_id": app_id
-    });
+    admin_ws(port)
+        .await?
+        .disable_app(app_id.clone())
+        .await
+        .map_err(|e| format!("disable_app failed: {e:?}"))?;
 
-    send_admin_request(port, "disable_app", params).await?;
-
-    Ok(format!("App '{}' disabled successfully", app_id))
+    Ok(format!("App '{app_id}' disabled successfully"))
 }
 
 // Get app info with details
@@ -370,14 +494,20 @@ async fn disable_app(state: State<'_, AppState>, app_id: String) -> Result<Strin
 async fn get_app_info(state: State<'_, AppState>, app_id: String) -> Result<String, String> {
     let port = *state.admin_port.lock().expect("admin_port mutex poisoned");
 
-    let params = serde_json::json!({
-        "installed_app_id": app_id
-    });
+    // The admin API has no get_app_info (that lives on the *app* interface), so
+    // resolve it by filtering list_apps.
+    let apps = admin_ws(port)
+        .await?
+        .list_apps(None)
+        .await
+        .map_err(|e| format!("list_apps failed: {e:?}"))?;
 
-    let result = send_admin_request(port, "get_app_info", params).await?;
+    let app = apps
+        .into_iter()
+        .find(|info| info.installed_app_id == app_id)
+        .ok_or_else(|| format!("App '{app_id}' is not installed"))?;
 
-    Ok(serde_json::to_string_pretty(&result)
-        .unwrap_or_else(|_| "Failed to format response".to_string()))
+    serde_json::to_string_pretty(&app).map_err(|e| format!("Failed to format response: {e}"))
 }
 
 // App API helper function for zome calls
@@ -482,7 +612,147 @@ async fn get_messages(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Headless end-to-end check of first-run conductor bring-up.
+///
+/// Exists because every path it exercises is otherwise reachable only through a
+/// `#[tauri::command]`, i.e. only from a frontend, i.e. never in CI or on a
+/// headless host -- WebKitGTK aborts with EGL_BAD_PARAMETER before any JS runs.
+/// Without this, "the app launched" is the strongest claim available, and it is
+/// worth nothing: the process can start, create its WebKit storage, and exit
+/// cleanly having executed none of the logic below.
+///
+/// Uses a throwaway data directory so it never touches real user state. Exit 0
+/// = the whole chain worked against a REAL bundled conductor.
+fn run_self_test() -> i32 {
+    let dir = std::env::temp_dir().join(format!("mycelix-selftest-{}", std::process::id()));
+    println!("[self-test] data dir: {}", dir.display());
+
+    let (mut child, port) = match spawn_conductor(&dir) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("[self-test] FAIL spawn_conductor: {e}");
+            let _ = fs::remove_dir_all(&dir);
+            return 1;
+        }
+    };
+    println!("[self-test] ok   conductor up, admin port {port}");
+
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("[self-test] FAIL tokio runtime: {e}");
+            let _ = child.kill();
+            return 1;
+        }
+    };
+
+    let code = rt.block_on(async {
+        let admin = match admin_ws(port).await {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("[self-test] FAIL admin connect: {e}");
+                return 1;
+            }
+        };
+        println!("[self-test] ok   admin websocket connected (MessagePack)");
+
+        match admin.list_apps(None).await {
+            Ok(apps) => println!("[self-test] ok   list_apps -> {} app(s)", apps.len()),
+            Err(e) => {
+                eprintln!("[self-test] FAIL list_apps: {e:?}");
+                return 1;
+            }
+        }
+
+        match admin.attach_app_interface(0, None, AllowedOrigins::Any, None).await {
+            Ok(app_port) => println!("[self-test] ok   app interface attached on {app_port}"),
+            Err(e) => {
+                eprintln!("[self-test] FAIL attach_app_interface: {e:?}");
+                return 1;
+            }
+        }
+
+        // Optional stage: install a real hApp. Skipped unless a bundle is named,
+        // so the default self-test stays fast and dependency-free -- but when a
+        // bundle IS given this covers install_app -> enable_app -> auth token,
+        // which are the prerequisites for any zome call. Without them the app
+        // path (send_app_request) cannot be tested at all, only compiled.
+        //   MYCELIX_SELFTEST_HAPP=/path/to/x.happ ./scripts/self-test.sh --no-build
+        match std::env::var("MYCELIX_SELFTEST_HAPP") {
+            Err(_) => println!("[self-test] skip app install (set MYCELIX_SELFTEST_HAPP to cover it)"),
+            Ok(happ) => {
+                let path = PathBuf::from(&happ);
+                if !path.is_file() {
+                    eprintln!("[self-test] FAIL MYCELIX_SELFTEST_HAPP is not a file: {happ}");
+                    return 1;
+                }
+                let app_id = "mycelix-selftest".to_string();
+
+                match admin
+                    .install_app(holochain_types::app::InstallAppPayload {
+                        source: holochain_types::app::AppBundleSource::Path(path),
+                        agent_key: None,
+                        installed_app_id: Some(app_id.clone()),
+                        network_seed: None,
+                        roles_settings: None,
+                        ignore_genesis_failure: false,
+                    })
+                    .await
+                {
+                    Ok(info) => println!(
+                        "[self-test] ok   install_app -> {} ({} cell role(s))",
+                        info.installed_app_id,
+                        info.cell_info.len()
+                    ),
+                    Err(e) => {
+                        eprintln!("[self-test] FAIL install_app: {e:?}");
+                        return 1;
+                    }
+                }
+
+                if let Err(e) = admin.enable_app(app_id.clone()).await {
+                    eprintln!("[self-test] FAIL enable_app: {e:?}");
+                    return 1;
+                }
+                println!("[self-test] ok   enable_app");
+
+                match admin
+                    .issue_app_auth_token(IssueAppAuthenticationTokenPayload {
+                        installed_app_id: app_id.clone(),
+                        expiry_seconds: 60,
+                        single_use: false,
+                    })
+                    .await
+                {
+                    Ok(t) => println!(
+                        "[self-test] ok   issue_app_auth_token ({} bytes)",
+                        t.token.len()
+                    ),
+                    Err(e) => {
+                        eprintln!("[self-test] FAIL issue_app_auth_token: {e:?}");
+                        return 1;
+                    }
+                }
+            }
+        }
+        0
+    });
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = fs::remove_dir_all(&dir);
+    println!(
+        "[self-test] {}",
+        if code == 0 { "PASS" } else { "FAIL" }
+    );
+    code
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "--self-test") {
+        std::process::exit(run_self_test());
+    }
+
     tauri::Builder::default()
         .manage(AppState {
             status: Mutex::new("Initializing...".to_string()),

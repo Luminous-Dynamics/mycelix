@@ -187,23 +187,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllRequests
-                | LinkTypes::AllRuns
-                | LinkTypes::AgentToRequests
-                | LinkTypes::FacilityToRuns
-                | LinkTypes::RunToRequests
-                | LinkTypes::StatusToRequests => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllRequests
+            | LinkTypes::AllRuns
+            | LinkTypes::AgentToRequests
+            | LinkTypes::FacilityToRuns
+            | LinkTypes::RunToRequests
+            | LinkTypes::StatusToRequests => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -240,9 +239,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_request(
-    _action: Create,
+    action: Create,
     req: CollectionRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the request to its committer. request_collection takes the
+    // whole CollectionRequest as client-supplied input rather than deriving
+    // requester from agent_info() server-side, so this validator is the
+    // only real enforcement that a request can't be filed on someone
+    // else's behalf (P0 author-binding gap).
+    if req.requester != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request requester must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Quantity must be positive and finite
     if !req.quantity_kg.is_finite() || req.quantity_kg <= 0.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -277,10 +287,18 @@ fn validate_create_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_run(
-    _action: Create,
-    run: CollectionRun,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_run(action: Create, run: CollectionRun) -> ExternResult<ValidateCallbackResult> {
+    // Bind the run to its committer. create_collection_run takes the whole
+    // CollectionRun as client-supplied input rather than deriving driver
+    // from agent_info() server-side, so this validator is the only real
+    // enforcement that a run can't be committed under another driver's
+    // name (P0 author-binding gap).
+    if run.driver != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Run driver must be the committing agent (forgery)".to_string(),
+        ));
+    }
+
     // Must have at least one stop
     if run.stops.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -298,9 +316,10 @@ fn validate_create_run(
     // Stops must be in sequence order
     for (i, stop) in run.stops.iter().enumerate() {
         if stop.sequence != i as u32 {
-            return Ok(ValidateCallbackResult::Invalid(
-                format!("Stop {} has sequence {}, expected {}", i, stop.sequence, i),
-            ));
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Stop {} has sequence {}, expected {}",
+                i, stop.sequence, i
+            )));
         }
     }
 
@@ -358,6 +377,52 @@ mod tests {
             completed_at: None,
             total_kg_collected: 0.0,
         }
+    }
+
+    fn test_action(author: AgentPubKey) -> Create {
+        Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_create_request_valid_requester_accepted() {
+        let req = make_valid_request();
+        let result = validate_create_request(test_action(req.requester.clone()), req).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_request_requester_forgery_rejected() {
+        let req = make_valid_request();
+        let forged = test_action(AgentPubKey::from_raw_36(vec![9u8; 36]));
+        let result = validate_create_request(forged, req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_run_valid_driver_accepted() {
+        let run = make_valid_run();
+        let result = validate_create_run(test_action(run.driver.clone()), run).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_run_driver_forgery_rejected() {
+        let run = make_valid_run();
+        let forged = test_action(AgentPubKey::from_raw_36(vec![9u8; 36]));
+        let result = validate_create_run(forged, run).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]

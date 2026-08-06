@@ -1,0 +1,8 @@
+[package]
+name = "prism-security-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Prism security regression tests (scaffold — src is currently placeholder-only)"
+
+[dependencies]

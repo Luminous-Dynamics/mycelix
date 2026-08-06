@@ -59,8 +59,23 @@ pub async fn execute(
     output_mode: OutputMode,
 ) -> Result<()> {
     match command {
-        QueryCommand::Search { category, tier, keywords, page, page_size } => {
-            search_claims(client, category, tier, keywords, page, page_size, output_mode).await
+        QueryCommand::Search {
+            category,
+            tier,
+            keywords,
+            page,
+            page_size,
+        } => {
+            search_claims(
+                client,
+                category,
+                tier,
+                keywords,
+                page,
+                page_size,
+                output_mode,
+            )
+            .await
         }
         QueryCommand::Categories => list_categories(client, output_mode).await,
         QueryCommand::Stats => get_stats(client, output_mode).await,
@@ -108,7 +123,13 @@ async fn search_claims(
                     claim.id.to_string(),
                     claim.tier.clone(),
                     claim.content.category.clone(),
-                    claim.content.description.chars().take(50).collect::<String>() + "...",
+                    claim
+                        .content
+                        .description
+                        .chars()
+                        .take(50)
+                        .collect::<String>()
+                        + "...",
                 ]);
             }
             println!("{}", table);

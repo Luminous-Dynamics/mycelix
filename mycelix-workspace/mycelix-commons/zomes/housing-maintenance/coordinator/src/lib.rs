@@ -712,11 +712,13 @@ mod tests {
         let decoded: CommunityResourcesResult = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.resources_found, 0);
         assert!(!decoded.has_resources);
-        assert!(decoded
-            .error
-            .as_ref()
-            .unwrap()
-            .contains("connection refused"));
+        assert!(
+            decoded
+                .error
+                .as_ref()
+                .unwrap()
+                .contains("connection refused")
+        );
     }
 
     // ── Integrity enum serde roundtrips ────────────────────────────────

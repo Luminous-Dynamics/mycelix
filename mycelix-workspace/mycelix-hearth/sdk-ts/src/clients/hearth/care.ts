@@ -17,9 +17,9 @@ import type {
   CareTaskCompletedSignal,
 } from './types';
 import { HearthError, classifyError } from './errors';
+import { callHearthZome, isSignalForCell, type HearthCellTarget } from './cell-target';
 import { withGateRetry } from './consciousness-gate';
 
-const ROLE_NAME = 'hearth';
 const ZOME_NAME = 'hearth_care';
 
 const CARE_SIGNAL_TYPES: ReadonlySet<string> = new Set([
@@ -35,7 +35,7 @@ export class CareClient {
 
   constructor(
     private readonly client: AppClient,
-    private readonly roleName = ROLE_NAME,
+    private readonly target: HearthCellTarget,
     refreshFn?: () => Promise<void>,
   ) {
     this.refreshFn = refreshFn;
@@ -47,12 +47,13 @@ export class CareClient {
 
   private async callZome<T>(fnName: string, payload: unknown): Promise<T> {
     try {
-      return await this.client.callZome({
-        role_name: this.roleName,
-        zome_name: ZOME_NAME,
-        fn_name: fnName,
+      return await callHearthZome<T>(
+        this.client,
+        this.target,
+        ZOME_NAME,
+        fnName,
         payload,
-      });
+      );
     } catch (err) {
       throw new HearthError({
         code: classifyError(err),
@@ -175,6 +176,7 @@ export class CareClient {
     this.client.on('signal', (signal) => {
       try {
         if (signal.type !== 'app') return;
+        if (!isSignalForCell(signal, this.target.cellId)) return;
         const parsed = signal.value.payload as Record<string, unknown>;
         if (!parsed || typeof parsed !== 'object') return;
 

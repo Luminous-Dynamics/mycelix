@@ -27,6 +27,7 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = [
     "console",
     "Window",
+    "WebSocket",
     "Document",
     "Navigator",
     "Response",
@@ -71,7 +72,10 @@ web-sys = { version = "0.3", features = [
     "RtcDataChannel",
     "RtcDataChannelEvent",
     "MediaStream",
+    "MediaStreamTrack",
+    "MediaRecorder",
     "MediaStreamConstraints",
+    "DisplayMediaStreamConstraints",
     "MediaDevices",
     "RtcSdpType",
 ] }
@@ -91,8 +95,8 @@ base64 = "0.22"
 mail-leptos-types = { path = "../../crates/mail-leptos-types" }
 
 # Mycelix shared Leptos infrastructure
-mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
+mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
 mycelix-crypto = { path = "../../../mycelix-identity/crates/mycelix-crypto", features = ["hybrid-rc"] }
 zeroize = "1"
 

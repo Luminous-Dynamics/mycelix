@@ -9,6 +9,7 @@
 //! The Mirror shows the fractal health of the whole.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -744,9 +745,22 @@ fn validate_update_council(
 
 /// Validate membership creation
 fn validate_create_membership(
-    _action: Create,
+    action: Create,
     membership: CouncilMembership,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. A forged `member_did` seats an impersonated member on a council. `join_council` (councils/coordinator:582) takes `member_did` from input with only a length check; joining is self-service (the sole create site is inside that fn, and no approve-flow creates membership for a third party).
+    //
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "CouncilMembership",
+        "member_did",
+        &membership.member_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     match check_create_membership(&membership) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
@@ -790,6 +804,45 @@ mod tests {
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
+    }
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn author_binding_accepts_the_committing_agent() {
+        let mut e = make_membership();
+        e.member_did = test_author_did();
+        let result = validate_create_membership(make_create(), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn author_binding_rejects_a_forged_member_did() {
+        let mut e = make_membership();
+        e.member_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_create_membership(make_create(), e).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("CouncilMembership") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged member_did must be rejected, got {other:?}"),
+        }
     }
 
     fn make_council() -> Council {
@@ -1021,14 +1074,18 @@ mod tests {
     fn test_emergency_session_number_range() {
         let mut es = make_emergency_session();
         es.session_number = 0;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("Session number must be 1-3"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("Session number must be 1-3")
+        );
 
         es.session_number = 4;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("Session number must be 1-3"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("Session number must be 1-3")
+        );
     }
 
     #[test]
@@ -1037,9 +1094,11 @@ mod tests {
         let mut es = make_emergency_session();
         es.session_number = 2;
         es.preceding_session_id = None;
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("must reference the preceding"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("must reference the preceding")
+        );
 
         // Session 2 with preceding is OK
         es.preceding_session_id = Some("es-1".into());
@@ -1049,9 +1108,11 @@ mod tests {
         let mut es1 = make_emergency_session();
         es1.session_number = 1;
         es1.preceding_session_id = Some("bogus".into());
-        assert!(check_create_emergency_session(&es1)
-            .unwrap_err()
-            .contains("must not have a preceding"));
+        assert!(
+            check_create_emergency_session(&es1)
+                .unwrap_err()
+                .contains("must not have a preceding")
+        );
     }
 
     #[test]
@@ -1059,9 +1120,11 @@ mod tests {
         let mut es = make_emergency_session();
         // 15 days exceeds 14-day max
         es.expires_at = ts(es.started_at.as_micros() as i64 + 15 * 24 * 3600 * 1_000_000);
-        assert!(check_create_emergency_session(&es)
-            .unwrap_err()
-            .contains("exceeds maximum"));
+        assert!(
+            check_create_emergency_session(&es)
+                .unwrap_err()
+                .contains("exceeds maximum")
+        );
     }
 
     #[test]
@@ -1079,17 +1142,16 @@ mod tests {
         // Too short cooldown rejected
         let mut short = cooldown.clone();
         short.cooldown_ends = ts(1_000_000 + 29 * 24 * 3600 * 1_000_000); // 29 days < 30
-        assert!(check_create_emergency_cooldown(&short)
-            .unwrap_err()
-            .contains("at least 30 days"));
+        assert!(
+            check_create_emergency_cooldown(&short)
+                .unwrap_err()
+                .contains("at least 30 days")
+        );
     }
 
     #[test]
     fn test_membership_term_is_365_days() {
-        assert_eq!(
-            DEFAULT_MEMBERSHIP_TERM_US,
-            365 * 24 * 3600 * 1_000_000_i64
-        );
+        assert_eq!(DEFAULT_MEMBERSHIP_TERM_US, 365 * 24 * 3600 * 1_000_000_i64);
     }
 
     #[test]

@@ -171,8 +171,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::FeaturedContent(featured) => {
                     validate_update_featured_content(action, featured)
                 }
-                EntryTypes::Gallery(gallery) => validate_gallery(&gallery),
-                EntryTypes::Exhibition(exhibition) => validate_exhibition(&exhibition),
+                EntryTypes::Gallery(gallery) => validate_update_gallery(action, gallery),
+                // No live update_entry call for Exhibition (confirmed via
+                // grep) -- previously silently accepted any field change.
+                // Made explicitly immutable.
+                EntryTypes::Exhibition(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Exhibitions are immutable".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -205,10 +210,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -345,155 +347,230 @@ fn validate_create_collection(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Content restricted to name/description/visibility/publication_ids/
+/// updated, the only fields any of this zome's Collection-updating
+/// coordinator functions (add_to_collection/remove_from_collection/
+/// update_collection) ever change. No author requirement: none of those
+/// three has any real caller-identity verification either (see the
+/// module doc comment on `validate` -- update_collection compares
+/// collection.curator_did against a caller-supplied requester_did, both
+/// attacker-controlled).
+fn validate_collection_update_fields(collection: &Collection) -> ValidateCallbackResult {
+    if collection.name.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Collection name required".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_update_collection(
-    _action: Update,
+    action: Update,
     collection: Collection,
 ) -> ExternResult<ValidateCallbackResult> {
-    if collection.name.trim().is_empty() {
+    if let ValidateCallbackResult::Invalid(msg) = validate_collection_update_fields(&collection) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Collection = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original collection not found".to_string()
+        )))?;
+    if collection.id != original.id
+        || collection.curator_did != original.curator_did
+        || collection.created != original.created
+    {
         return Ok(ValidateCallbackResult::Invalid(
-            "Collection name required".into(),
+            "Only name/description/visibility/publication_ids/updated can change on a collection update".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_quality_score_fields(score: &QualityScore) -> ValidateCallbackResult {
+    if score.publication_id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "QualityScore publication_id cannot be empty".into(),
+        );
+    }
+    if !score.score.is_finite() {
+        return ValidateCallbackResult::Invalid("score must be a finite number".into());
+    }
+    if score.score < 0.0 || score.score > 1.0 {
+        return ValidateCallbackResult::Invalid("Score must be 0-1".into());
+    }
+    if !score.fact_check_score.is_finite() {
+        return ValidateCallbackResult::Invalid("fact_check_score must be a finite number".into());
+    }
+    if score.fact_check_score < 0.0 || score.fact_check_score > 1.0 {
+        return ValidateCallbackResult::Invalid("Fact check score must be 0-1".into());
+    }
+    if !score.author_reputation.is_finite() {
+        return ValidateCallbackResult::Invalid("author_reputation must be a finite number".into());
+    }
+    if score.author_reputation < 0.0 || score.author_reputation > 1.0 {
+        return ValidateCallbackResult::Invalid("Author reputation must be 0-1".into());
+    }
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_quality_score(
     _action: EntryCreationAction,
     score: QualityScore,
 ) -> ExternResult<ValidateCallbackResult> {
-    if score.publication_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "QualityScore publication_id cannot be empty".into(),
-        ));
-    }
-    if !score.score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "score must be a finite number".into(),
-        ));
-    }
-    if score.score < 0.0 || score.score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid("Score must be 0-1".into()));
-    }
-    if !score.fact_check_score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "fact_check_score must be a finite number".into(),
-        ));
-    }
-    if score.fact_check_score < 0.0 || score.fact_check_score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Fact check score must be 0-1".into(),
-        ));
-    }
-    if !score.author_reputation.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "author_reputation must be a finite number".into(),
-        ));
-    }
-    if score.author_reputation < 0.0 || score.author_reputation > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Author reputation must be 0-1".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_quality_score_fields(&score))
 }
 
+/// Unlike the standalone reference (`mycelix-media/zomes/curation`, which
+/// confirmed no live update_entry call exists for QualityScore and made
+/// it immutable), this shadow zome's coordinator has a real, if entirely
+/// ungated, `update_quality_score` extern that replaces the WHOLE entry
+/// (`update_entry(original_action_hash, updated_entry)`, no
+/// `require_civic` call at all). Freezing content on update would make
+/// that real coordinator flow non-functional -- so update reuses full
+/// create-shaped content validation instead of immutability. This is a
+/// deliberate divergence from standalone, not a missed port; the
+/// coordinator's own lack of an authorization check on this extern is a
+/// separate, pre-existing gap, not fixable at the integrity layer without
+/// inventing an authority model.
 fn validate_update_quality_score(
     _action: Update,
     score: QualityScore,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !score.score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "score must be a finite number".into(),
-        ));
+    Ok(validate_quality_score_fields(&score))
+}
+
+fn validate_featured_content_fields(featured: &FeaturedContent) -> ValidateCallbackResult {
+    if featured.id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("FeaturedContent ID cannot be empty".into());
     }
-    if score.score < 0.0 || score.score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid("Score must be 0-1".into()));
+    if featured.id.len() > 256 {
+        return ValidateCallbackResult::Invalid(
+            "FeaturedContent ID too long (max 256 chars)".into(),
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    if featured.publication_id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "FeaturedContent publication_id cannot be empty".into(),
+        );
+    }
+    if featured.publication_id.len() > 256 {
+        return ValidateCallbackResult::Invalid(
+            "FeaturedContent publication_id too long (max 256 chars)".into(),
+        );
+    }
+    if !featured.featured_by.starts_with("did:") {
+        return ValidateCallbackResult::Invalid("Featured by must be a valid DID".into());
+    }
+    if featured.featured_by.len() > 256 {
+        return ValidateCallbackResult::Invalid("Featured by DID too long (max 256 chars)".into());
+    }
+    if featured.reason.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Featured reason cannot be empty".into());
+    }
+    if featured.reason.len() > 4096 {
+        return ValidateCallbackResult::Invalid("Featured reason too long (max 4096 chars)".into());
+    }
+    ValidateCallbackResult::Valid
 }
 
 fn validate_create_featured_content(
     _action: EntryCreationAction,
     featured: FeaturedContent,
 ) -> ExternResult<ValidateCallbackResult> {
-    if featured.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "FeaturedContent ID cannot be empty".into(),
-        ));
-    }
-    if featured.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "FeaturedContent ID too long (max 256 chars)".into(),
-        ));
-    }
-    if featured.publication_id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "FeaturedContent publication_id cannot be empty".into(),
-        ));
-    }
-    if featured.publication_id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "FeaturedContent publication_id too long (max 256 chars)".into(),
-        ));
-    }
-    if !featured.featured_by.starts_with("did:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Featured by must be a valid DID".into(),
-        ));
-    }
-    if featured.featured_by.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Featured by DID too long (max 256 chars)".into(),
-        ));
-    }
-    if featured.reason.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Featured reason cannot be empty".into(),
-        ));
-    }
-    if featured.reason.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Featured reason too long (max 4096 chars)".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_featured_content_fields(&featured))
 }
 
+/// Unlike the standalone reference (which confirmed FeaturedContent is
+/// only ever deleted, never updated, and made it immutable), this shadow
+/// zome's coordinator has a real, entirely ungated `update_featured_content`
+/// extern that replaces the WHOLE entry. Freezing content on update would
+/// make that real flow non-functional -- so update reuses full
+/// create-shaped content validation instead of immutability. Deliberate
+/// divergence from standalone, not a missed port; the coordinator's own
+/// lack of an authorization check on this extern is a separate,
+/// pre-existing gap.
 fn validate_update_featured_content(
     _action: Update,
-    _featured: FeaturedContent,
+    featured: FeaturedContent,
 ) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_featured_content_fields(&featured))
 }
 
 fn validate_gallery(gallery: &Gallery) -> ExternResult<ValidateCallbackResult> {
     if gallery.name.is_empty() || gallery.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery name must be 1-256 chars".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery name must be 1-256 chars".to_string(),
+        ));
     }
     if gallery.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery description must be <= 4KB".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery description must be <= 4KB".to_string(),
+        ));
     }
     if !gallery.curator_did.starts_with("did:") || gallery.curator_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "curator_did must be a valid DID".to_string(),
+        ));
     }
     if gallery.publication_ids.len() > 500 {
-        return Ok(ValidateCallbackResult::Invalid("Gallery may contain at most 500 publications".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Gallery may contain at most 500 publications".to_string(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Content restricted to publication_ids/updated, the only fields
+/// add_to_gallery (the sole coordinator function that calls update_entry
+/// on Gallery) ever changes.
+fn validate_update_gallery(
+    action: Update,
+    gallery: Gallery,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Gallery = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original gallery not found".to_string()
+        )))?;
+    if gallery.id != original.id
+        || gallery.name != original.name
+        || gallery.description != original.description
+        || gallery.curator_did != original.curator_did
+        || gallery.theme != original.theme
+        || gallery.created != original.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only publication_ids/updated can change on a gallery update".into(),
+        ));
+    }
+    validate_gallery(&gallery)
+}
+
 fn validate_exhibition(exhibition: &Exhibition) -> ExternResult<ValidateCallbackResult> {
     if exhibition.name.is_empty() || exhibition.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition name must be 1-256 chars".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition name must be 1-256 chars".to_string(),
+        ));
     }
     if exhibition.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition description must be <= 4KB".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition description must be <= 4KB".to_string(),
+        ));
     }
     if !exhibition.curator_did.starts_with("did:") || exhibition.curator_did.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid("curator_did must be a valid DID".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "curator_did must be a valid DID".to_string(),
+        ));
     }
     if exhibition.featured_publication_ids.len() > 100 {
-        return Ok(ValidateCallbackResult::Invalid("Exhibition may feature at most 100 publications".to_string()));
+        return Ok(ValidateCallbackResult::Invalid(
+            "Exhibition may feature at most 100 publications".to_string(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -864,44 +941,54 @@ mod tests {
     // COLLECTION UPDATE VALIDATION TESTS
     // ========================================================================
 
+    // validate_update_collection now needs a live HDI (must_get_valid_record
+    // has no test mock in this codebase), so these exercise the extracted
+    // pure validate_collection_update_fields helper directly.
+
     #[test]
-    fn update_collection_valid_passes() {
-        let result = validate_update_collection(fake_update(), make_collection());
-        assert!(is_valid(&result));
+    fn update_collection_fields_valid_passes() {
+        let result = validate_collection_update_fields(&make_collection());
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn update_collection_name_empty_rejected() {
+    fn update_collection_fields_name_empty_rejected() {
         let mut c = make_collection();
         c.name = "".into();
-        let result = validate_update_collection(fake_update(), c);
-        assert!(is_invalid(&result));
-        assert_eq!(invalid_msg(&result), "Collection name required");
+        let result = validate_collection_update_fields(&c);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert_eq!(msg, "Collection name required");
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]
-    fn update_collection_name_whitespace_rejected() {
+    fn update_collection_fields_name_whitespace_rejected() {
         let mut c = make_collection();
         c.name = "   ".into();
-        let result = validate_update_collection(fake_update(), c);
-        assert!(is_invalid(&result));
+        let result = validate_collection_update_fields(&c);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
-    fn update_collection_bad_did_passes() {
-        // Update validation does NOT check curator_did
+    fn update_collection_fields_does_not_check_curator_did() {
+        // validate_collection_update_fields only checks name; curator_did
+        // immutability is enforced separately by validate_update_collection
+        // (via must_get_valid_record, not unit-testable here).
         let mut c = make_collection();
         c.curator_did = "not-a-did".into();
-        let result = validate_update_collection(fake_update(), c);
-        assert!(is_valid(&result));
+        let result = validate_collection_update_fields(&c);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     #[test]
-    fn update_collection_empty_description_passes() {
+    fn update_collection_fields_empty_description_passes() {
         let mut c = make_collection();
         c.description = "".into();
-        let result = validate_update_collection(fake_update(), c);
-        assert!(is_valid(&result));
+        let result = validate_collection_update_fields(&c);
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     // ========================================================================
@@ -1519,26 +1606,32 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn update_featured_content_always_passes() {
+    fn update_featured_content_valid_passes() {
         let result = validate_update_featured_content(fake_update(), make_featured_content());
         assert!(is_valid(&result));
     }
 
     #[test]
-    fn update_featured_content_bad_did_passes() {
-        // Update validation has no checks; it always returns Valid
+    fn update_featured_content_bad_did_rejected() {
+        // Update now runs full content validation (not "always Valid"),
+        // since this shadow zome's coordinator has an ungated
+        // update_featured_content extern that can replace the whole
+        // entry -- see the divergence-rationale doc comment on
+        // validate_update_featured_content.
         let mut f = make_featured_content();
         f.featured_by = "not-a-did".into();
         let result = validate_update_featured_content(fake_update(), f);
-        assert!(is_valid(&result));
+        assert!(is_invalid(&result));
+        assert_eq!(invalid_msg(&result), "Featured by must be a valid DID");
     }
 
     #[test]
-    fn update_featured_content_empty_reason_passes() {
+    fn update_featured_content_empty_reason_rejected() {
         let mut f = make_featured_content();
         f.reason = "".into();
         let result = validate_update_featured_content(fake_update(), f);
-        assert!(is_valid(&result));
+        assert!(is_invalid(&result));
+        assert_eq!(invalid_msg(&result), "Featured reason cannot be empty");
     }
 
     // ========================================================================

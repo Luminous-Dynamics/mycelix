@@ -5,17 +5,18 @@
 
 use anyhow::{Context, Result};
 use reqwest::{Client, Response};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// API client for Mycelix-DeSci
 pub struct ApiClient {
     client: Client,
     base_url: String,
+    auth_token: Option<String>,
 }
 
 impl ApiClient {
     /// Create a new API client
-    pub fn new(base_url: &str) -> Result<Self> {
+    pub fn new(base_url: &str, auth_token: Option<String>) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
@@ -24,6 +25,7 @@ impl ApiClient {
         Ok(Self {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
+            auth_token,
         })
     }
 
@@ -41,16 +43,13 @@ impl ApiClient {
     }
 
     /// Make a POST request
-    pub async fn post<B: Serialize, T: DeserializeOwned>(
-        &self,
-        path: &str,
-        body: &B,
-    ) -> Result<T> {
+    pub async fn post<B: Serialize, T: DeserializeOwned>(&self, path: &str, body: &B) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        let response = self
-            .client
-            .post(&url)
-            .json(body)
+        let mut request = self.client.post(&url).json(body);
+        if let Some(token) = &self.auth_token {
+            request = request.bearer_auth(token);
+        }
+        let response = request
             .send()
             .await
             .context(format!("Failed to POST {}", url))?;
@@ -59,16 +58,13 @@ impl ApiClient {
     }
 
     /// Make a PUT request
-    pub async fn put<B: Serialize, T: DeserializeOwned>(
-        &self,
-        path: &str,
-        body: &B,
-    ) -> Result<T> {
+    pub async fn put<B: Serialize, T: DeserializeOwned>(&self, path: &str, body: &B) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        let response = self
-            .client
-            .put(&url)
-            .json(body)
+        let mut request = self.client.put(&url).json(body);
+        if let Some(token) = &self.auth_token {
+            request = request.bearer_auth(token);
+        }
+        let response = request
             .send()
             .await
             .context(format!("Failed to PUT {}", url))?;

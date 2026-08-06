@@ -84,7 +84,7 @@ All 10 scaffolded hApps (health, energy, climate, mutualaid, property, media, co
 |------|-------|-------|-------|
 | **Marketplace** | 8 | Partial | Multiple build scripts need consolidation. Arbitration zome incomplete. |
 | **Supply Chain** | 8 | Partial | Provenance tracking. Submodule. |
-| **Observatory** | N/A (SvelteKit) | None | Live at [observatory.mycelix.net](https://luminous-dynamics.github.io/mycelix-observatory/). Demo mode + conductor fallback. DNS CNAME pending. |
+| **Observatory** | N/A (SvelteKit) | None | **RETIRED 2026-07-30.** GitHub Pages site deleted, `observatory.mycelix.net` DNS record removed (NXDOMAIN), repo re-archived. Superseded by **Sensorium** (Leptos, live at sensorium.mycelix.net). |
 | **Epistemic Markets** | Native workspace | Compiles | Heavy documentation (manifesto, rituals, personas), light implementation. Core zome logic exists. |
 | **Fabrication** | 6 (bridge, designs, materials, printers, prints, verification) | Compiles | Native workspace hApp. |
 | **Praxis** | 10 | Restored | Restored from archive. Needs verification. |
@@ -227,7 +227,8 @@ All 37 integration modules have real implementations (types + classes + methods)
 |-----------|--------|-------|
 | **Justfile** | Exists | Comprehensive task runner at `mycelix-workspace/justfile` |
 | **CI** | Exists | `.github/workflows/mycelix-ci.yml` + `mycelix-release.yml` + `finance-ci.yml` + `health-ci.yml` |
-| **Observatory** | Live + Demo | `mycelix-workspace/observatory/` - SvelteKit, 3-tier fallback (live→sim→static) |
+| **Observatory** | **RETIRED** | `mycelix-workspace/observatory/` - SvelteKit. Taken down 2026-07-30; see Sensorium (`mycelix-sensorium/`, Leptos) |
+| **Sensorium** | **LIVE** | `mycelix-sensorium/` (monorepo ROOT, not under mycelix-workspace/) - Leptos CSR on :8124, serves sensorium.mycelix.net + portal.mycelix.net alias |
 | **SMS Gateway** | Exists | `mycelix-workspace/services/sms-gateway/` |
 | **Civic hApp** | Exists | `mycelix-workspace/services/civic-happ/` |
 | **Website** | Live | https://mycelix.net (GitHub Pages) |

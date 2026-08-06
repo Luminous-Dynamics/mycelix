@@ -13,6 +13,7 @@ members = [
     # Trust and key management
     "zomes/trust/integrity",
     "zomes/trust/coordinator",
+    "zomes/keys/types",
     "zomes/keys/integrity",
     "zomes/keys/coordinator",
 

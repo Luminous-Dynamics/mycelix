@@ -8,7 +8,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 #[component]
 pub fn GardenCanvas(node_count: usize) -> impl IntoView {
-    let canvas_ref = NodeRef::<html::Canvas>::new();
+    let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
 
     // Initialize WebGL context and render nodes as gl_Points
     Effect::new(move |_| {

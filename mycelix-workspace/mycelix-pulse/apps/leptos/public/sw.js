@@ -1,7 +1,7 @@
-// Mycelix Pulse — Service Worker v2
-// Offline-first caching + background sync for PWA
+// Mycelix Pulse — Service Worker v3
+// Static-shell caching only. Security-sensitive/API responses are never intercepted.
 
-const CACHE_NAME = 'mycelix-pulse-v2';
+const CACHE_NAME = 'mycelix-pulse-v3-security';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,41 +9,55 @@ const STATIC_ASSETS = [
   '/style/main.css',
 ];
 
-// Install: cache static shell + prompt update
+function isCacheableStaticResponse(response) {
+  if (!response || !response.ok || response.type !== 'basic') return false;
+  const policy = response.headers.get('Cache-Control') || '';
+  return !/(?:no-store|private)/i.test(policy);
+}
+
+async function cacheStatic(request, response) {
+  if (!isCacheableStaticResponse(response)) return;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+}
+
+// Install: cache only the public application shell.
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
   self.skipWaiting();
 });
 
-// Activate: clean old caches + claim clients immediately
+// Activate: purge every prior Pulse cache. Older workers could cache API responses,
+// so keeping any prior cache would preserve credential material after an upgrade.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch: cache-first for assets, network-first for navigation
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const request = event.request;
+  const url = new URL(request.url);
 
-  // WebSocket — pass through
-  if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
+  // Never let the service worker observe, cache, replay, or provide an offline
+  // fallback for authentication, signing, or any future API endpoint.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 
-  // WASM/JS/CSS — cache-first (immutable hashed names)
-  if (url.pathname.endsWith('.wasm') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
+  // Cache Storage is only used for idempotent same-origin public assets.
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+
+  const isHashedAsset = /\.(?:wasm|js|css)$/.test(url.pathname);
+  const isMediaAsset = /\.(?:png|jpg|jpeg|svg|gif|woff2?|ttf|ico)$/.test(url.pathname);
+
+  if (isHashedAsset || isMediaAsset) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
+      caches.match(request).then((cached) => {
         if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
+        return fetch(request).then((response) => {
+          event.waitUntil(cacheStatic(request, response));
           return response;
         });
       })
@@ -51,52 +65,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Images/fonts — cache-first with network fallback
-  if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|woff2?|ttf|ico)$/)) {
+  // Navigation is network-first with a static shell fallback. Do not cache
+  // arbitrary navigation responses, which may vary by session or headers.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        });
-      })
+      fetch(request, { cache: 'no-store' }).catch(() => caches.match('/index.html'))
     );
-    return;
   }
-
-  // HTML navigation — network-first, fall back to cached index.html (SPA)
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match('/index.html'))
-    );
-    return;
-  }
-
-  // Everything else — network-first with cache fallback
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
 });
 
-// Background sync — process queued offline actions
+// Background sync — ask the page to flush its IndexedDB/local queue. The
+// service worker itself deliberately stores no mail or credential payloads.
 self.addEventListener('sync', (event) => {
   if (event.tag === 'mycelix-offline-sync') {
     event.waitUntil(processOfflineQueue());
@@ -104,14 +83,12 @@ self.addEventListener('sync', (event) => {
 });
 
 async function processOfflineQueue() {
-  // Read queued actions from IndexedDB or notify clients to flush localStorage queue
   const clients = await self.clients.matchAll();
   for (const client of clients) {
     client.postMessage({ type: 'flush-offline-queue' });
   }
 }
 
-// Push notifications
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : { title: 'Mycelix Pulse', body: 'New activity' };
   event.waitUntil(
@@ -125,7 +102,6 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Notification click — focus or open the app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
@@ -141,7 +117,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Periodic background sync (if supported)
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'mycelix-check-mail') {
     event.waitUntil(checkForNewMail());
@@ -149,8 +124,6 @@ self.addEventListener('periodicsync', (event) => {
 });
 
 async function checkForNewMail() {
-  // In production: ping conductor for new messages
-  // For now, just notify clients to refresh
   const clients = await self.clients.matchAll();
   for (const client of clients) {
     client.postMessage({ type: 'check-new-mail' });

@@ -5,8 +5,8 @@
 //!
 //! Functions for time formatting, parsing, and relative time calculations
 
-use chrono::{DateTime, Duration, Utc};
 use crate::error::{Error, Result};
+use chrono::{DateTime, Duration, Utc};
 
 /// Format a timestamp as ISO 8601 / RFC 3339
 pub fn format_iso8601(dt: &DateTime<Utc>) -> String {
@@ -79,13 +79,25 @@ pub fn format_duration(duration: Duration) -> String {
         parts.push(format!("{} day{}", days, if days == 1 { "" } else { "s" }));
     }
     if hours > 0 {
-        parts.push(format!("{} hour{}", hours, if hours == 1 { "" } else { "s" }));
+        parts.push(format!(
+            "{} hour{}",
+            hours,
+            if hours == 1 { "" } else { "s" }
+        ));
     }
     if minutes > 0 {
-        parts.push(format!("{} minute{}", minutes, if minutes == 1 { "" } else { "s" }));
+        parts.push(format!(
+            "{} minute{}",
+            minutes,
+            if minutes == 1 { "" } else { "s" }
+        ));
     }
     if seconds > 0 || parts.is_empty() {
-        parts.push(format!("{} second{}", seconds, if seconds == 1 { "" } else { "s" }));
+        parts.push(format!(
+            "{} second{}",
+            seconds,
+            if seconds == 1 { "" } else { "s" }
+        ));
     }
 
     parts.join(", ")
@@ -152,11 +164,7 @@ pub fn is_future(dt: &DateTime<Utc>) -> bool {
 }
 
 /// Check if a timestamp is within a given range
-pub fn is_within_range(
-    dt: &DateTime<Utc>,
-    start: &DateTime<Utc>,
-    end: &DateTime<Utc>,
-) -> bool {
+pub fn is_within_range(dt: &DateTime<Utc>, start: &DateTime<Utc>, end: &DateTime<Utc>) -> bool {
     dt >= start && dt <= end
 }
 
@@ -288,7 +296,8 @@ mod tests {
 
     #[test]
     fn test_format_duration_singular() {
-        let duration = Duration::days(1) + Duration::hours(1) + Duration::minutes(1) + Duration::seconds(1);
+        let duration =
+            Duration::days(1) + Duration::hours(1) + Duration::minutes(1) + Duration::seconds(1);
         let formatted = format_duration(duration);
         assert!(formatted.contains("1 day,"));
         assert!(formatted.contains("1 hour,"));

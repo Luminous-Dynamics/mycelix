@@ -9,6 +9,7 @@ presence does not imply product support.
 | `holochain` | Canonical | DNA, integrity rules, coordinator behavior, client fixtures |
 | `crates/mail-leptos-types` | Canonical | Browser-safe views and versioned protocol contracts |
 | `tests/sweettest_mail_security.rs` | Canonical | Deterministic multi-agent lifecycle evidence |
+| `services/pulse-credential-broker` | Canonical | Authenticated, no-store token and signer boundary |
 | workspace `crates/mycelix-leptos-*` | Canonical dependency | Shared transport and UI primitives |
 | `desktop` | Experimental | Optional shell; no alpha support claim |
 | `crates/pulse-smtp-gateway` | Experimental | Independently tested; excluded from alpha claims |

@@ -105,3 +105,9 @@ data/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Canonical scientific authority and signing material
+config/scientific-authorities.json
+*.seed
+
+config/authority-receipt-trust.json

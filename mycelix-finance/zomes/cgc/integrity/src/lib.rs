@@ -14,6 +14,7 @@
 //! Constitutional Reference: Commons Charter v1.0, Article I
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 // =============================================================================
 // CONSTANTS (Per Commons Charter Article I)
@@ -358,9 +359,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_gift(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     gift: CgcGift,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committing agent. The coordinator already derives this field
+    // from `agent_info()`, so this enforces at the DHT level what the coordinator
+    // already does — closing the path where a peer bypasses the coordinator
+    // entirely (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A).
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("CgcGift", "giver_did", &gift.giver_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // Validate DIDs
     if !gift.giver_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -598,4 +610,40 @@ fn is_valid_cycle_id(cycle_id: &str) -> bool {
     }
 
     true
+}
+
+#[cfg(test)]
+mod author_binding_tests {
+    use super::*;
+
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn matching_author_is_valid() {
+        let a = test_author_did();
+        assert!(matches!(
+            require_did_is_author("E", "f", &a, &a),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn forged_did_is_rejected() {
+        let result =
+            require_did_is_author("E", "f", "did:mycelix:uhCAkSomeoneElse", &test_author_did());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(msg.contains("forgery"), "got: {msg}"),
+            other => panic!("forged did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_author_is_rejected() {
+        assert!(matches!(
+            require_did_is_author("E", "f", "did:mycelix:uhCAkalice", ""),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
 }

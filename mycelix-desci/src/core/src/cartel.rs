@@ -465,9 +465,7 @@ impl CartelDetector {
         }
 
         // Check for severe patterns
-        let has_severe = patterns
-            .iter()
-            .any(|(p, c)| p.severity() > 0.7 && *c > 0.8);
+        let has_severe = patterns.iter().any(|(p, c)| p.severity() > 0.7 && *c > 0.8);
 
         if has_severe || score > 0.8 {
             return CartelRecommendation::Quarantine;
@@ -539,10 +537,12 @@ mod tests {
         let result = detector.analyze_agents(&["alice".to_string(), "bob".to_string()]);
 
         // Should detect mutual pattern
-        assert!(result
-            .patterns
-            .iter()
-            .any(|(p, _)| *p == CartelPattern::MutualVerification));
+        assert!(
+            result
+                .patterns
+                .iter()
+                .any(|(p, _)| *p == CartelPattern::MutualVerification)
+        );
     }
 
     #[test]
@@ -575,10 +575,12 @@ mod tests {
             "target".to_string(),
         ]);
 
-        assert!(result
-            .patterns
-            .iter()
-            .any(|(p, _)| *p == CartelPattern::SynchronizedTiming));
+        assert!(
+            result
+                .patterns
+                .iter()
+                .any(|(p, _)| *p == CartelPattern::SynchronizedTiming)
+        );
     }
 
     #[test]
@@ -601,10 +603,12 @@ mod tests {
 
         let result = detector.analyze_agents(&["alice".to_string()]);
 
-        assert!(result
-            .patterns
-            .iter()
-            .any(|(p, _)| *p == CartelPattern::VelocityAnomaly));
+        assert!(
+            result
+                .patterns
+                .iter()
+                .any(|(p, _)| *p == CartelPattern::VelocityAnomaly)
+        );
         assert!(result.involved_agents.contains("alice"));
     }
 
@@ -616,7 +620,12 @@ mod tests {
         let agents = vec!["alice", "bob", "charlie", "dave", "eve"];
         for (i, verifier) in agents.iter().enumerate() {
             let author = agents[(i + 1) % agents.len()];
-            detector.record_event(create_event(verifier, author, Uuid::new_v4(), (i * 60) as i64));
+            detector.record_event(create_event(
+                verifier,
+                author,
+                Uuid::new_v4(),
+                (i * 60) as i64,
+            ));
         }
 
         // Add more spread events
@@ -624,11 +633,14 @@ mod tests {
             detector.record_event(create_event("frank", "george", Uuid::new_v4(), i * 120));
         }
 
-        let result = detector.analyze_agents(&agents.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        let result =
+            detector.analyze_agents(&agents.iter().map(|s| s.to_string()).collect::<Vec<_>>());
 
         assert!(result.suspicion_score < 0.5);
-        assert!(result.recommendation == CartelRecommendation::NoAction
-            || result.recommendation == CartelRecommendation::IncreaseMonitoring);
+        assert!(
+            result.recommendation == CartelRecommendation::NoAction
+                || result.recommendation == CartelRecommendation::IncreaseMonitoring
+        );
     }
 
     #[test]

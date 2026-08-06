@@ -2,8 +2,8 @@ use super::{TransactionOutput, resolution::TRANSACTION_CONFLICT_POLICY_VERSION};
 use hdk::prelude::*;
 use mycelix_common::{error_handling, link_queries, time};
 use transactions_integrity::{
-    EntryTypes, LinkTypes, TransactionConflictApproval, TransactionConflictAuthority,
-    TransactionConflictResolutionEntry, TRANSACTION_CONFLICT_PROTOCOL_VERSION,
+    EntryTypes, LinkTypes, TRANSACTION_CONFLICT_PROTOCOL_VERSION, TransactionConflictApproval,
+    TransactionConflictAuthority, TransactionConflictResolutionEntry,
 };
 
 const MAX_ANCESTRY_DEPTH: usize = 32;
@@ -110,7 +110,10 @@ fn projection_from_applicable(
         .iter()
         .map(|(_, evidence)| evidence.clone())
         .collect::<Vec<_>>();
-    if applicable.iter().all(|(index, _)| *index == canonical_index) {
+    if applicable
+        .iter()
+        .all(|(index, _)| *index == canonical_index)
+    {
         Ok(AuthorityProjection::Resolved {
             canonical_index,
             applied,
@@ -193,9 +196,7 @@ pub fn create_conflict_approval(
     let approver = agent_info()?.agent_initial_pubkey;
     let existing = get_conflict_approvals(root_transaction_hash.clone())?;
     for output in existing {
-        if output.approval.approver == approver
-            && output.approval.head_hashes == head_hashes
-        {
+        if output.approval.approver == approver && output.approval.head_hashes == head_hashes {
             if output.approval.selected_head_hash == selected_head_hash {
                 return Ok(output);
             }
@@ -274,7 +275,6 @@ pub fn create_conflict_resolution(
     })
 }
 
-
 pub fn get_conflict_approval(
     approval_hash: ActionHash,
 ) -> ExternResult<Option<TransactionConflictApprovalOutput>> {
@@ -297,10 +297,11 @@ pub fn get_conflict_resolution(
     let Some(record) = get(resolution_hash.clone(), GetOptions::default())? else {
         return Ok(None);
     };
-    let resolution = match error_handling::deserialize_entry::<TransactionConflictResolutionEntry>(&record) {
-        Ok(resolution) => resolution,
-        Err(_) => return Ok(None),
-    };
+    let resolution =
+        match error_handling::deserialize_entry::<TransactionConflictResolutionEntry>(&record) {
+            Ok(resolution) => resolution,
+            Err(_) => return Ok(None),
+        };
     Ok(Some(TransactionConflictResolutionOutput {
         resolution_hash,
         resolution,
@@ -322,7 +323,8 @@ pub fn get_conflict_approvals(
         let Some(record) = get(hash.clone(), GetOptions::default())? else {
             continue;
         };
-        let Ok(approval) = error_handling::deserialize_entry::<TransactionConflictApproval>(&record)
+        let Ok(approval) =
+            error_handling::deserialize_entry::<TransactionConflictApproval>(&record)
         else {
             continue;
         };

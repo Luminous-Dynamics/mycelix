@@ -7,6 +7,7 @@
 //! Updated to use HDI 0.7 patterns
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -579,9 +580,19 @@ fn validate_update_timelock(
 
 /// Validate execution creation
 fn validate_create_execution(
-    _action: Create,
+    action: Create,
     execution: Execution,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. `execute_timelock` (execution/coordinator:297-300)
+    // already compares input.executor_did against an agent_info()-derived DID,
+    // so this enforces that at the DHT level. (governance Class-A, `execution:581`.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("Execution", "executor", &execution.executor, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     match check_create_execution(&execution) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
@@ -590,9 +601,24 @@ fn validate_create_execution(
 
 /// Validate guardian veto creation
 fn validate_create_veto(
-    _action: Create,
+    action: Create,
     veto: GuardianVeto,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the veto to its committer. A forged `guardian` lets any agent freeze
+    // any timelock under a real guardian's name — the highest-severity item on
+    // the governance Class-A list (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md,
+    // `execution:592`).
+    //
+    // Safe to bind: `veto_timelock` (execution/coordinator:747-749) already
+    // derives the expected DID from agent_info() and rejects a mismatch, so this
+    // enforces at the DHT level what the coordinator already does — and closes
+    // the path where a peer bypasses the coordinator entirely.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("GuardianVeto", "guardian", &veto.guardian, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     match check_create_veto(&veto) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
@@ -601,9 +627,23 @@ fn validate_create_veto(
 
 /// Validate veto override vote creation
 fn validate_create_override_vote(
-    _action: Create,
+    action: Create,
     vote: VetoOverrideVote,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the override vote to its committer — a forged `voter_did` swings the
+    // 67% veto-override threshold (governance Class-A, `execution:603`).
+    //
+    // Safe to bind: `cast_override_vote` (execution/coordinator:1084-1086)
+    // already compares input.voter_did against an agent_info()-derived DID.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "VetoOverrideVote",
+        "voter_did",
+        &vote.voter_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     match check_create_override_vote(&vote) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
@@ -673,6 +713,24 @@ mod tests {
         }
     }
 
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to. Fixtures meant to
+    /// be VALID must use this — veto/override-vote bind their DID to the committer.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
     fn make_execution() -> Execution {
         Execution {
             id: "ex-1".into(),
@@ -690,7 +748,7 @@ mod tests {
         GuardianVeto {
             id: "v-1".into(),
             timelock_id: "tl-1".into(),
-            guardian: "did:key:z6Guardian".into(),
+            guardian: test_author_did(),
             reason: "Emergency safety concern".into(),
             vetoed_at: ts(1_500_000),
             affected_proposal_id: Some("prop-1".into()),
@@ -698,6 +756,7 @@ mod tests {
                 "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".into(),
             ),
             threat_category: Some("safety".into()),
+            haptic_proof: None,
         }
     }
 
@@ -844,7 +903,7 @@ mod tests {
         let vote = VetoOverrideVote {
             id: "ov-1".into(),
             veto_id: "v-1".into(),
-            voter_did: "did:key:z6Override".into(),
+            voter_did: test_author_did(),
             supports_override: true,
             phi_score: 0.7,
             voted_at: ts(2_000_000),
@@ -1140,5 +1199,49 @@ mod tests {
         let mut updated = released.clone();
         updated.status = AllocationStatus::Refunded;
         assert!(check_update_fund_allocation(&released, &updated).is_err());
+    }
+
+    #[test]
+    fn test_veto_forged_guardian_is_rejected() {
+        // A forged guardian freezes any timelock under a real guardian's name.
+        let mut v = make_veto();
+        v.guardian = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_create_veto(make_create(), v).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("GuardianVeto") && msg.contains("forgery"),
+                    "got: {msg}"
+                )
+            }
+            other => panic!("forged guardian must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_veto_from_the_committing_guardian_is_accepted() {
+        let result = validate_create_veto(make_create(), make_veto()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_override_vote_forged_voter_is_rejected() {
+        // A forged voter_did swings the 67% veto-override threshold.
+        let vote = VetoOverrideVote {
+            id: "ov-1".into(),
+            veto_id: "v-1".into(),
+            voter_did: "did:mycelix:uhCAkSomeoneElse".into(),
+            supports_override: true,
+            phi_score: 0.7,
+            voted_at: ts(2_000_000),
+        };
+        let result = validate_create_override_vote(make_create(), vote).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("VetoOverrideVote") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged voter_did must be rejected, got {other:?}"),
+        }
     }
 }

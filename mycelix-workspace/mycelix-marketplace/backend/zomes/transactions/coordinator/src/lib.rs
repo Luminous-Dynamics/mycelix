@@ -13,8 +13,8 @@ pub use authority::{
     TransactionConflictResolutionOutput,
 };
 pub use resolution::{
-    TransactionResolution, TransactionResolutionReason, TransactionResolutionState,
-    TRANSACTION_CONFLICT_POLICY_VERSION,
+    TRANSACTION_CONFLICT_POLICY_VERSION, TransactionResolution, TransactionResolutionReason,
+    TransactionResolutionState,
 };
 
 /// Create a new transaction (buyer initiates purchase)
@@ -122,15 +122,13 @@ pub fn get_transaction_resolution(
     resolution::resolve_transaction(transaction_hash)
 }
 
-
 /// Approve one existing branch of an unsafe transaction conflict.
 #[hdk_extern]
 pub fn approve_transaction_conflict(
     input: ApproveTransactionConflictInput,
 ) -> ExternResult<TransactionConflictApprovalOutput> {
-    let resolution = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let resolution = resolution::resolve_transaction(input.transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     authority::ensure_resolution_policy_version(resolution.policy_version)?;
     if resolution.state != TransactionResolutionState::Conflicted {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -163,9 +161,8 @@ pub fn approve_transaction_conflict(
 pub fn finalize_bilateral_transaction_conflict(
     input: FinalizeBilateralTransactionConflictInput,
 ) -> ExternResult<TransactionResolution> {
-    let current = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let current = resolution::resolve_transaction(input.transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     authority::ensure_resolution_policy_version(current.policy_version)?;
     if current.state != TransactionResolutionState::Conflicted {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -174,18 +171,13 @@ pub fn finalize_bilateral_transaction_conflict(
     }
 
     let buyer_approval = authority::get_conflict_approval(input.buyer_approval_hash.clone())?
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest("Buyer approval not found".into()))
-        })?;
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Buyer approval not found".into())))?;
     let seller_approval = authority::get_conflict_approval(input.seller_approval_hash.clone())?
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest("Seller approval not found".into()))
-        })?;
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Seller approval not found".into())))?;
     let expected_heads = authority::current_head_hashes(&current.heads);
     if buyer_approval.approval.head_hashes != expected_heads
         || seller_approval.approval.head_hashes != expected_heads
-        || buyer_approval.approval.selected_head_hash
-            != seller_approval.approval.selected_head_hash
+        || buyer_approval.approval.selected_head_hash != seller_approval.approval.selected_head_hash
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Buyer and seller approvals do not bind the same current conflict and selected head"
@@ -208,15 +200,13 @@ pub fn finalize_bilateral_transaction_conflict(
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction disappeared".into())))
 }
 
-
 /// Publish an arbitration-authorized projection for an exact unsafe conflict.
 #[hdk_extern]
 pub fn apply_arbitration_transaction_conflict(
     input: ApplyArbitrationTransactionConflictInput,
 ) -> ExternResult<TransactionResolution> {
-    let current = resolution::resolve_transaction(input.transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let current = resolution::resolve_transaction(input.transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     authority::ensure_resolution_policy_version(current.policy_version)?;
     if current.state != TransactionResolutionState::Conflicted {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -230,9 +220,8 @@ pub fn apply_arbitration_transaction_conflict(
         "get_dispute_resolution",
         input.dispute_hash.clone(),
     )?;
-    let dispute_resolution = dispute_resolution.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Conflict dispute not found".into()))
-    })?;
+    let dispute_resolution = dispute_resolution
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Conflict dispute not found".into())))?;
     let dispute = dispute_resolution.current()?;
     if dispute_resolution.root_dispute_hash != input.dispute_hash
         || dispute.dispute.transaction_hash != current.root_transaction_hash
@@ -263,12 +252,9 @@ pub fn apply_arbitration_transaction_conflict(
         "get_arbitration_result",
         input.dispute_hash.clone(),
     )?;
-    let result = result.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Arbitration result not found".into()))
-    })?;
-    if result.result_hash != input.result_hash
-        || result.result.dispute_hash != input.dispute_hash
-    {
+    let result = result
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Arbitration result not found".into())))?;
+    if result.result_hash != input.result_hash || result.result.dispute_hash != input.dispute_hash {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Supplied result does not match the dispute's unique result".into(),
         )));
@@ -276,11 +262,12 @@ pub fn apply_arbitration_transaction_conflict(
 
     let mut winner_heads = Vec::new();
     for head in &current.heads {
-        let record = get(head.transaction_hash.clone(), GetOptions::default())?.ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "A transaction conflict head became unavailable".into(),
-            ))
-        })?;
+        let record =
+            get(head.transaction_hash.clone(), GetOptions::default())?.ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "A transaction conflict head became unavailable".into(),
+                ))
+            })?;
         if record.action().author() == &result.result.winner {
             winner_heads.push(head.transaction_hash.clone());
         }
@@ -312,9 +299,8 @@ pub fn apply_arbitration_transaction_conflict(
 pub fn get_transaction_conflict_approvals(
     transaction_hash: ActionHash,
 ) -> ExternResult<Vec<TransactionConflictApprovalOutput>> {
-    let current = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let current = resolution::resolve_transaction(transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     authority::get_conflict_approvals(current.root_transaction_hash)
 }
 
@@ -322,9 +308,8 @@ pub fn get_transaction_conflict_approvals(
 pub fn get_transaction_conflict_resolutions(
     transaction_hash: ActionHash,
 ) -> ExternResult<Vec<TransactionConflictResolutionOutput>> {
-    let current = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let current = resolution::resolve_transaction(transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     authority::get_conflict_resolutions(current.root_transaction_hash)
 }
 
@@ -378,7 +363,10 @@ pub fn get_my_transaction_resolutions(_: ()) -> ExternResult<TransactionResoluti
     let agent = agent_info()?.agent_initial_pubkey;
     let mut roots = Vec::new();
 
-    for link_type in [LinkTypes::BuyerToTransactions, LinkTypes::SellerToTransactions] {
+    for link_type in [
+        LinkTypes::BuyerToTransactions,
+        LinkTypes::SellerToTransactions,
+    ] {
         for link in link_queries::get_links_local(agent.clone(), link_type)? {
             let Some(action_hash) = link.target.into_action_hash() else {
                 continue;
@@ -683,7 +671,6 @@ pub fn get_listing_transactions(listing_hash: ActionHash) -> ExternResult<Transa
     Ok(TransactionsResponse { transactions })
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ListingOutputForPurchase {
     listing_hash: ActionHash,
@@ -702,14 +689,13 @@ fn get_listing_for_purchase(listing_hash: ActionHash) -> ExternResult<ListingOut
 
     match response {
         ZomeCallResponse::Ok(extern_io) => {
-            let listing: Option<ListingOutputForPurchase> = extern_io.decode().map_err(|error| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode listings.get_listing response: {error:?}"
-                )))
-            })?;
-            listing.ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest("Listing not found".into()))
-            })
+            let listing: Option<ListingOutputForPurchase> =
+                extern_io.decode().map_err(|error| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to decode listings.get_listing response: {error:?}"
+                    )))
+                })?;
+            listing.ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Listing not found".into())))
         }
         other => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "listings.get_listing failed: {other:?}"
@@ -762,9 +748,8 @@ fn validate_purchase_terms(
 fn require_resolved_transaction(
     transaction_hash: ActionHash,
 ) -> ExternResult<(ActionHash, TransactionOutput)> {
-    let resolution = resolution::resolve_transaction(transaction_hash)?.ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest("Transaction not found".into()))
-    })?;
+    let resolution = resolution::resolve_transaction(transaction_hash)?
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Transaction not found".into())))?;
     let root = resolution.root_transaction_hash.clone();
     let current = resolution
         .into_resolved()
@@ -795,10 +780,7 @@ impl DisputeResolutionAuthorityWire {
                 WasmErrorInner::Guest("Resolved dispute omitted its current revision".into())
             )),
             (DisputeResolutionStateAuthorityWire::Conflicted, _) => Err(wasm_error!(
-                WasmErrorInner::Guest(format!(
-                    "Dispute has {} concurrent heads",
-                    self.heads.len()
-                ))
+                WasmErrorInner::Guest(format!("Dispute has {} concurrent heads", self.heads.len()))
             )),
         }
     }
@@ -1119,8 +1101,16 @@ fn process_transaction_settlement(
 ) -> ExternResult<TransactionSettlementResult> {
     let expected = settlement_terms(&root_transaction_hash, &current.transaction);
     match call_finance_record("process_payment_remote", expected) {
-        Ok(record) => Ok(project_finance_record(root_transaction_hash, current, record)),
-        Err(error) => Ok(unavailable_settlement(root_transaction_hash, current, error)),
+        Ok(record) => Ok(project_finance_record(
+            root_transaction_hash,
+            current,
+            record,
+        )),
+        Err(error) => Ok(unavailable_settlement(
+            root_transaction_hash,
+            current,
+            error,
+        )),
     }
 }
 
@@ -1134,7 +1124,11 @@ fn query_transaction_settlement(
         reference: reference.clone(),
     };
     match call_finance_optional_record("verify_payment_status_remote", lookup) {
-        Ok(Some(record)) => Ok(project_finance_record(root_transaction_hash, current, record)),
+        Ok(Some(record)) => Ok(project_finance_record(
+            root_transaction_hash,
+            current,
+            record,
+        )),
         Ok(None) => Ok(TransactionSettlementResult {
             root_transaction_hash,
             transaction_revision_hash: current.transaction_hash,
@@ -1145,7 +1139,11 @@ fn query_transaction_settlement(
             finance_action_hash: None,
             error: None,
         }),
-        Err(error) => Ok(unavailable_settlement(root_transaction_hash, current, error)),
+        Err(error) => Ok(unavailable_settlement(
+            root_transaction_hash,
+            current,
+            error,
+        )),
     }
 }
 

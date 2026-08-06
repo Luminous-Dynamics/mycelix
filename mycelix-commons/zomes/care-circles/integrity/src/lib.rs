@@ -165,13 +165,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::CareCircle(circle) => validate_update_circle(circle),
-                EntryTypes::CircleMembership(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::CircleMembership(membership) => {
+                    validate_update_membership(action, membership, original_action_hash)
+                }
                 EntryTypes::CircleTendExchange(_) => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -320,9 +322,14 @@ fn validate_circle_type_custom(circle_type: &CircleType) -> Result<(), String> {
 }
 
 fn validate_create_circle(
-    _action: Create,
+    action: Create,
     circle: CareCircle,
 ) -> ExternResult<ValidateCallbackResult> {
+    if circle.created_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Circle created_by must match the committing agent".into(),
+        ));
+    }
     if circle.name.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Circle name cannot be empty".into(),
@@ -407,12 +414,62 @@ fn validate_update_circle(circle: CareCircle) -> ExternResult<ValidateCallbackRe
 }
 
 fn validate_create_membership(
-    _action: Create,
-    _membership: CircleMembership,
+    action: Create,
+    membership: CircleMembership,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Membership validation is primarily handled at the coordinator level
+    if membership.member != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Membership member must match the committing agent".into(),
+        ));
+    }
+    // Remaining validation is handled at the coordinator level
     // (checking circle exists, member count, etc.)
     Ok(ValidateCallbackResult::Valid)
+}
+
+/// Pure logic for a `CircleMembership` update, factored out of
+/// [`validate_update_membership`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_membership_transition(
+    original_membership: &CircleMembership,
+    membership: &CircleMembership,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if original_membership.member != *author {
+        return ValidateCallbackResult::Invalid(
+            "Only the member themselves may update their own membership".into(),
+        );
+    }
+    if original_membership.circle_hash != membership.circle_hash
+        || original_membership.member != membership.member
+        || original_membership.role != membership.role
+        || original_membership.joined_at != membership.joined_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only the active status of a membership may be updated".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_membership(
+    action: Update,
+    membership: CircleMembership,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_membership: CircleMembership = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original CircleMembership entry not found".to_string()
+        )))?;
+    Ok(validate_membership_transition(
+        &original_membership,
+        &membership,
+        &action.author,
+    ))
 }
 
 #[cfg(test)]
@@ -423,6 +480,10 @@ mod tests {
 
     fn valid_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0xdb; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xef; 36])
     }
 
     fn valid_action_hash() -> ActionHash {
@@ -947,6 +1008,20 @@ mod tests {
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
+    #[test]
+    fn test_create_circle_forged_created_by_rejected() {
+        let mut circle = valid_circle();
+        circle.created_by = other_agent();
+        let action = valid_create_action(); // author is valid_agent()
+        let result = validate_create_circle(action, circle).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("created_by must match"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
     // validate_create_membership tests
 
     #[test]
@@ -981,6 +1056,85 @@ mod tests {
         let action = valid_create_action();
         let result = validate_create_membership(action, membership).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_membership_forged_member_rejected() {
+        let mut membership = valid_membership();
+        membership.member = other_agent();
+        let action = valid_create_action(); // author is valid_agent()
+        let result = validate_create_membership(action, membership).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("member must match"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    // validate_membership_transition (pure update-authorization logic) tests
+
+    #[test]
+    fn test_membership_transition_valid_deactivation_by_member() {
+        let original = valid_membership();
+        let mut updated = original.clone();
+        updated.active = false;
+        let result = validate_membership_transition(&original, &updated, &valid_agent());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_membership_transition_rejects_non_member_author() {
+        let original = valid_membership();
+        let mut updated = original.clone();
+        updated.active = false;
+        let result = validate_membership_transition(&original, &updated, &other_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only the member themselves"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_membership_transition_rejects_role_escalation() {
+        let original = valid_membership(); // MemberRole::Member
+        let mut updated = original.clone();
+        updated.role = MemberRole::Organizer;
+        let result = validate_membership_transition(&original, &updated, &valid_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only the active status"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_membership_transition_rejects_circle_hash_change() {
+        let original = valid_membership();
+        let mut updated = original.clone();
+        updated.circle_hash = ActionHash::from_raw_36(vec![0x99; 36]);
+        let result = validate_membership_transition(&original, &updated, &valid_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only the active status"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn test_membership_transition_rejects_member_change() {
+        let original = valid_membership();
+        let mut updated = original.clone();
+        updated.member = other_agent();
+        let result = validate_membership_transition(&original, &updated, &valid_agent());
+        match result {
+            ValidateCallbackResult::Invalid(_) => {}
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]

@@ -49,7 +49,7 @@ members = [
     "zomes/hearth-bridge/integrity",
     "zomes/hearth-bridge/coordinator",
 ]
-exclude = ["tests"]
+exclude = ["tests", "tools/hearth-evidence-verifier"]
 
 [workspace.package]
 version = "0.1.0"

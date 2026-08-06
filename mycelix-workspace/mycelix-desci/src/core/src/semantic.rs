@@ -549,7 +549,10 @@ mod tests {
         let similar = engine.find_similar(&new_claim);
 
         // Should find the ML/healthcare claims as more similar
-        assert!(!similar.is_empty(), "Should find at least one similar claim");
+        assert!(
+            !similar.is_empty(),
+            "Should find at least one similar claim"
+        );
         // The most similar should be the ML/healthcare ones, not cooking
         assert!(similar[0].similarity > 0.1);
     }

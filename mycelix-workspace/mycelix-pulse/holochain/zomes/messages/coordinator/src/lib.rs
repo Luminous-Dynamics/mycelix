@@ -188,6 +188,21 @@ pub struct SendEmailV2Input {
     pub message_id: [u8; 32],
     pub sender_mldsa_key_id: [u8; 32],
     pub recipient_hybrid_key_id: [u8; 32],
+    /// Raw 39-byte `ActionHash` of the sender's published `HybridKeyBundleV2`
+    /// entry — lets a DHT validator fetch it and verify `ml_dsa_signature`
+    /// against the bundle's advertised key. See the field doc on
+    /// `EncryptedEnvelopeV2HybridPqc::sender_mldsa_bundle_hash`. Kept as raw
+    /// bytes here (not `ActionHash`) because this input crosses the
+    /// generic `serde_json::Value` zome-call boundary the browser client
+    /// uses, which can't preserve `ActionHash`'s own stricter wire
+    /// representation — every other raw-hash-shaped field on this struct
+    /// follows the same convention.
+    pub sender_mldsa_bundle_hash: Vec<u8>,
+    /// Raw 39-byte `ActionHash` of the recipient's published `HybridKeyBundleV2`
+    /// entry — lets a DHT validator confirm the recipient's key was still
+    /// `Active` at send time. Same raw-bytes convention as
+    /// `sender_mldsa_bundle_hash` above, for the same JSON-boundary reason.
+    pub recipient_bundle_hash: Vec<u8>,
     pub x25519_ephemeral_public_key: [u8; 32],
     pub ml_kem_ciphertext: Vec<u8>,
     pub nonce: [u8; 12],
@@ -212,6 +227,19 @@ pub fn send_email_v2(input: SendEmailV2Input) -> ExternResult<ActionHash> {
         recipient: input.recipient.clone(),
         sender_mldsa_key_id: input.sender_mldsa_key_id,
         recipient_hybrid_key_id: input.recipient_hybrid_key_id,
+        sender_mldsa_bundle_hash: ActionHash::try_from_raw_39(input.sender_mldsa_bundle_hash)
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "sender_mldsa_bundle_hash is not a valid ActionHash: {error:?}"
+                )))
+            })?,
+        recipient_bundle_hash: ActionHash::try_from_raw_39(input.recipient_bundle_hash).map_err(
+            |error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "recipient_bundle_hash is not a valid ActionHash: {error:?}"
+                )))
+            },
+        )?,
         x25519_ephemeral_public_key: input.x25519_ephemeral_public_key,
         ml_kem_ciphertext: input.ml_kem_ciphertext,
         nonce: input.nonce,
@@ -707,9 +735,16 @@ fn get_email_state_internal(
     Ok(None)
 }
 
-/// Update email state (read, starred, etc.)
+/// Update email state (read, starred, etc.).
+///
+/// Returns `()`, not the new `EmailState` entry's `ActionHash` — every
+/// caller (the frontend's optimistic star/read/archive/trash actions,
+/// `mark_as_read` below) discards it via `let _ =`/`?` and decodes zome
+/// responses generically as `serde_json::Value`, which has no variant for
+/// a raw byte array — see `mail_profiles::set_profile`'s doc comment for
+/// the full mechanism and history of this bug class.
 #[hdk_extern]
-pub fn update_email_state(input: (ActionHash, EmailStateUpdate)) -> ExternResult<ActionHash> {
+pub fn update_email_state(input: (ActionHash, EmailStateUpdate)) -> ExternResult<()> {
     let (email_hash, update) = input;
     let my_agent = agent_info()?.agent_initial_pubkey;
 
@@ -759,7 +794,7 @@ pub fn update_email_state(input: (ActionHash, EmailStateUpdate)) -> ExternResult
     // Link email to state
     create_link(
         email_hash.clone(),
-        state_hash.clone(),
+        state_hash,
         LinkTypes::EmailToState,
         LinkTag::new(my_agent.to_string()),
     )?;
@@ -770,12 +805,15 @@ pub fn update_email_state(input: (ActionHash, EmailStateUpdate)) -> ExternResult
         state: update,
     })?;
 
-    Ok(state_hash)
+    Ok(())
 }
 
-/// Mark email as read and optionally send read receipt
+/// Mark email as read and optionally send read receipt.
+///
+/// Returns `()` for the same reason as `update_email_state` above — no
+/// caller (frontend, TS client) ever used the read-receipt `ActionHash`.
 #[hdk_extern]
-pub fn mark_as_read(input: (ActionHash, bool)) -> ExternResult<Option<ActionHash>> {
+pub fn mark_as_read(input: (ActionHash, bool)) -> ExternResult<()> {
     let (email_hash, send_receipt) = input;
     let my_agent = agent_info()?.agent_initial_pubkey;
 
@@ -809,7 +847,7 @@ pub fn mark_as_read(input: (ActionHash, bool)) -> ExternResult<Option<ActionHash
                 // Link to email
                 create_link(
                     email_hash,
-                    receipt_hash.clone(),
+                    receipt_hash,
                     LinkTypes::EmailToReadReceipts,
                     LinkTag::new("receipt"),
                 )?;
@@ -824,12 +862,12 @@ pub fn mark_as_read(input: (ActionHash, bool)) -> ExternResult<Option<ActionHash
                     .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
                 let _ = send_remote_signal(encoded, vec![email.sender]);
 
-                return Ok(Some(receipt_hash));
+                return Ok(());
             }
         }
     }
 
-    Ok(None)
+    Ok(())
 }
 
 // ==================== DELIVERY RECEIPTS (Phase 1.1) ====================

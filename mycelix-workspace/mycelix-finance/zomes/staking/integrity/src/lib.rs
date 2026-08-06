@@ -11,6 +11,7 @@
 //! - Reward distributions
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 // =============================================================================
 // STRING LENGTH LIMITS — Prevent DHT bloat attacks
@@ -423,19 +424,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Validate stake creation
-/// Enforce that a stake's `staker_did` is the committing agent's DID. Pure so
-/// it can be unit-tested without a full Create action.
-fn require_staker_is_author(staker_did: &str, author_did: &str) -> ValidateCallbackResult {
-    if staker_did != author_did {
-        return ValidateCallbackResult::Invalid(format!(
-            "Staker DID must be the committing agent (stake forgery / Sybil). \
-             Expected '{author_did}', got '{staker_did}'"
-        ));
-    }
-    ValidateCallbackResult::Valid
-}
-
 fn validate_create_stake(
     action: Create,
     stake: CollateralStake,
@@ -445,9 +433,9 @@ fn validate_create_stake(
     // a modified coordinator can't forge stakes for another DID or spin up Sybil
     // stakes on victims' identities. (You always stake your OWN collateral, so
     // this never rejects a legitimate stake.)
-    let author_did = format!("did:mycelix:{}", action.author);
+    let author_did = did_for_author(&action.author);
     if let ValidateCallbackResult::Invalid(msg) =
-        require_staker_is_author(&stake.staker_did, &author_did)
+        require_did_is_author("Stake", "staker_did", &stake.staker_did, &author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
@@ -804,11 +792,11 @@ mod tests {
     fn staker_must_be_committing_agent() {
         let me = "did:mycelix:uhCAkSELF";
         assert!(matches!(
-            require_staker_is_author(me, me),
+            require_did_is_author("Stake", "staker_did", me, me),
             ValidateCallbackResult::Valid
         ));
         // Forging a stake as another DID (or a Sybil identity) is rejected.
-        match require_staker_is_author("did:mycelix:uhCAkVICTIM", me) {
+        match require_did_is_author("Stake", "staker_did", "did:mycelix:uhCAkVICTIM", me) {
             ValidateCallbackResult::Invalid(msg) => {
                 assert!(
                     msg.contains("forgery") || msg.contains("Sybil"),
@@ -826,7 +814,11 @@ mod tests {
     fn valid_stake() -> CollateralStake {
         CollateralStake {
             id: "stake:test:001".into(),
-            staker_did: "did:mycelix:alice".into(),
+            // Must equal make_create()'s author — validate_create_stake binds
+            // staker_did to the committing agent. The bind landed without this
+            // fixture being updated, so this test was permanently red (invisible
+            // because CI ran `cargo check`, never `cargo test`). Fixed 2026-07-29.
+            staker_did: test_author_did(),
             sap_amount: 1000,
             mycel_score: 0.5,
             stake_weight: 1.5,
@@ -836,6 +828,11 @@ mod tests {
             pending_rewards: 0,
             last_reward_claim: ts(1_000_000),
         }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
     }
 
     fn make_create() -> Create {

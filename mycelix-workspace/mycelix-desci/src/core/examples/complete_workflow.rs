@@ -13,13 +13,13 @@
 //! Run with: cargo run --example complete_workflow
 
 use mycelix_desci_core::{
+    Result,
     claims::{ClaimContent, DesciClaim, EpistemicTier, Provenance, Verification},
     hash,
     query::{QueryEngine, QueryFilter, SortBy, SortOrder},
     storage::{MemoryStorage, StorageBackend},
     trust::TrustManager,
     utils::{string, time, validation},
-    Result,
 };
 use std::sync::Arc;
 
@@ -61,7 +61,10 @@ async fn main() -> Result<()> {
     let dataset_hash_str = dataset_hash.to_string();
 
     println!("   Dataset: NAD+ Longevity Study");
-    println!("   Hash (BLAKE3): {}", string::truncate(&dataset_hash_str, 20));
+    println!(
+        "   Hash (BLAKE3): {}",
+        string::truncate(&dataset_hash_str, 20)
+    );
     println!("   Size: {} bytes", dataset_description.len());
 
     // ========================================================================
@@ -71,7 +74,8 @@ async fn main() -> Result<()> {
 
     let content = ClaimContent {
         dataset_hash: dataset_hash_str.clone(),
-        description: "NAD+ supplementation extends lifespan and healthspan in aged mice by 15-20%".to_string(),
+        description: "NAD+ supplementation extends lifespan and healthspan in aged mice by 15-20%"
+            .to_string(),
         category: "longevity".to_string(),
         keywords: vec![
             "NAD+".to_string(),
@@ -99,7 +103,11 @@ async fn main() -> Result<()> {
 
     println!("   ✓ Claim created");
     println!("   ID: {}", claim.id);
-    println!("   Tier: {:?} ({})", claim.epistemic_tier, claim.epistemic_tier.description());
+    println!(
+        "   Tier: {:?} ({})",
+        claim.epistemic_tier,
+        claim.epistemic_tier.description()
+    );
     println!("   Creator: {}", claim.creator);
     println!("   Created: {}", time::format_relative(&claim.created_at));
 
@@ -191,8 +199,12 @@ async fn main() -> Result<()> {
         claim.add_verification(verification);
         trust_manager.update_score(verifier, true, 0.85)?;
 
-        println!("   ✓ Verification {}: {} ({})",
-            claim.verifications.len(), verifier, verification_type);
+        println!(
+            "   ✓ Verification {}: {} ({})",
+            claim.verifications.len(),
+            verifier,
+            verification_type
+        );
         println!("     Current tier: {:?}", claim.epistemic_tier);
     }
 
@@ -200,9 +212,11 @@ async fn main() -> Result<()> {
     storage.store(&claim).await?;
     query_engine.add_claim(&claim).await;
 
-    println!("\n   🎉 Final tier: {:?} - {}",
+    println!(
+        "\n   🎉 Final tier: {:?} - {}",
         claim.epistemic_tier,
-        claim.epistemic_tier.description());
+        claim.epistemic_tier.description()
+    );
 
     // ========================================================================
     // STEP 8: Query and Discovery
@@ -211,28 +225,27 @@ async fn main() -> Result<()> {
 
     // Query 1: Find all longevity claims
     println!("\n   Query 1: All longevity research");
-    let filter = QueryFilter::new()
-        .with_category("longevity".to_string());
+    let filter = QueryFilter::new().with_category("longevity".to_string());
     let results = query_engine.query(&filter).await?;
     println!("   Found: {} claim(s)", results.claims.len());
     println!("   Query time: {:.2}ms", results.execution_time_ms);
 
     // Query 2: High-quality claims (E3+)
     println!("\n   Query 2: High-quality verified claims (E3+)");
-    let filter = QueryFilter::new()
-        .with_min_tier(EpistemicTier::E3);
+    let filter = QueryFilter::new().with_min_tier(EpistemicTier::E3);
     let results = query_engine.query(&filter).await?;
     println!("   Found: {} claim(s)", results.claims.len());
     for claim in &results.claims {
-        println!("     - {} ({})",
+        println!(
+            "     - {} ({})",
             string::truncate(&claim.content.description, 50),
-            claim.epistemic_tier.description());
+            claim.epistemic_tier.description()
+        );
     }
 
     // Query 3: Keyword search
     println!("\n   Query 3: NAD+ related research");
-    let filter = QueryFilter::new()
-        .with_keyword("NAD+".to_string());
+    let filter = QueryFilter::new().with_keyword("NAD+".to_string());
     let results = query_engine.query(&filter).await?;
     println!("   Found: {} claim(s)", results.claims.len());
 
@@ -263,12 +276,14 @@ async fn main() -> Result<()> {
     for peer in all_peers {
         let score = trust_manager.get_score(peer);
         let trusted = trust_manager.is_trusted(peer);
-        println!("   {} {}: {:.3} (confidence: {:.3}) {}",
+        println!(
+            "   {} {}: {:.3} (confidence: {:.3}) {}",
             if trusted { "✓" } else { "✗" },
             peer,
             score.score,
             score.confidence,
-            if trusted { "[TRUSTED]" } else { "" });
+            if trusted { "[TRUSTED]" } else { "" }
+        );
     }
 
     // ========================================================================
@@ -333,13 +348,21 @@ async fn main() -> Result<()> {
     }
 
     println!("\n   Claims by Tier:");
-    for tier in [EpistemicTier::E0, EpistemicTier::E1, EpistemicTier::E2,
-                 EpistemicTier::E3, EpistemicTier::E4] {
+    for tier in [
+        EpistemicTier::E0,
+        EpistemicTier::E1,
+        EpistemicTier::E2,
+        EpistemicTier::E3,
+        EpistemicTier::E4,
+    ] {
         let count = tier_counts.get(&tier).unwrap_or(&0);
         println!("     {:?}: {} ({})", tier, count, tier.description());
     }
 
-    println!("\n   Average Query Time: {:.2}ms", all_results.execution_time_ms);
+    println!(
+        "\n   Average Query Time: {:.2}ms",
+        all_results.execution_time_ms
+    );
 
     // ========================================================================
     // Summary

@@ -400,7 +400,10 @@ impl MetaSynthesizer {
     }
 
     /// Perform fixed-effects meta-analysis
-    pub fn fixed_effects_analysis(&self, assessments: &[SourceQualityAssessment]) -> SynthesisResult {
+    pub fn fixed_effects_analysis(
+        &self,
+        assessments: &[SourceQualityAssessment],
+    ) -> SynthesisResult {
         if assessments.is_empty() {
             return SynthesisResult::default();
         }

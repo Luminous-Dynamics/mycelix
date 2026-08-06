@@ -139,14 +139,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MaintenanceRequest(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::WorkOrder(order) => validate_update_work_order(order),
-                EntryTypes::Inspection(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::MaintenanceRequest(req) => validate_update_request(action, req),
+                EntryTypes::WorkOrder(order) => validate_update_work_order(action, order),
+                EntryTypes::Inspection(inspection) => {
+                    validate_update_inspection(action, inspection)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -241,10 +243,52 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_create_request(
-    _action: Create,
+/// No author requirement on update: acknowledge_request has zero
+/// caller-identity check in the coordinator (no assignee/steward role
+/// concept exists here to bind against). Content restricted to `status`
+/// only -- closes the wide-open bug that previously let
+/// reported_by/title/description/category/priority change unconditionally
+/// on update too.
+fn validate_update_request(
+    action: Update,
     req: MaintenanceRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: MaintenanceRequest = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original request not found".to_string()
+        )))?;
+    if req.unit_hash != original.unit_hash
+        || req.building_hash != original.building_hash
+        || req.reported_by != original.reported_by
+        || req.title != original.title
+        || req.description != original.description
+        || req.category != original.category
+        || req.priority != original.priority
+        || req.reported_at != original.reported_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change on a maintenance request update".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_request(
+    action: Create,
+    req: MaintenanceRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: submit_request previously took the FULL struct
+    // straight from caller input with ZERO derivation from agent_info() --
+    // any agent could forge a victim agent as reporter.
+    if req.reported_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request reported_by must correspond to the committing agent".into(),
+        ));
+    }
     if req.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Request title cannot be empty".into(),
@@ -310,32 +354,107 @@ fn validate_create_work_order(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_work_order(order: WorkOrder) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `WorkOrder` update, factored out of
+/// [`validate_update_work_order`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_work_order_fields(order: &WorkOrder) -> ValidateCallbackResult {
     if order.assigned_to.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Work order must be assigned to someone".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Work order must be assigned to someone".into());
     }
     if order.assigned_to.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Work order assigned_to must be at most 256 characters".into(),
-        ));
+        );
     }
     if order.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Work order description must be at most 4096 characters".into(),
-        ));
+        );
     }
     if order.notes.len() > 8192 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Work order notes must be at most 8192 characters".into(),
-        ));
+        );
     }
     if let (Some(actual), Some(estimated)) = (order.actual_cost_cents, order.estimated_cost_cents) {
         // Allow up to 200% of estimate without special approval
         if actual > estimated * 2 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Actual cost exceeds 200% of estimate; requires special approval".into(),
+            );
+        }
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// No author requirement on update: complete_work_order has zero
+/// caller-identity check in the coordinator. Content restricted to
+/// completed_date/actual_cost_cents/notes -- closes the wide-open bug that
+/// previously let assigned_to/request_hash/description/estimated_cost_cents/
+/// scheduled_date change unconditionally on update too.
+fn validate_update_work_order(
+    action: Update,
+    order: WorkOrder,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: WorkOrder = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original work order not found".to_string()
+        )))?;
+    if order.request_hash != original.request_hash
+        || order.assigned_to != original.assigned_to
+        || order.description != original.description
+        || order.estimated_cost_cents != original.estimated_cost_cents
+        || order.scheduled_date != original.scheduled_date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only completed_date/actual_cost_cents/notes can change on a work order update".into(),
+        ));
+    }
+    Ok(validate_work_order_fields(&order))
+}
+
+/// No author requirement on update: record_inspection has zero
+/// caller-identity check either. Content restricted to
+/// findings/passed/next_due.
+fn validate_update_inspection(
+    action: Update,
+    inspection: Inspection,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Inspection = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original inspection not found".to_string()
+        )))?;
+    if inspection.building_hash != original.building_hash
+        || inspection.inspector != original.inspector
+        || inspection.inspection_type != original.inspection_type
+        || inspection.date != original.date
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only findings/passed/next_due can change on an inspection update".into(),
+        ));
+    }
+    if inspection.findings.len() > 100 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Maximum 100 findings per inspection".into(),
+        ));
+    }
+    for finding in &inspection.findings {
+        if finding.trim().is_empty() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Inspection findings cannot be empty strings".into(),
+            ));
+        }
+        if finding.len() > 4096 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Each inspection finding must be at most 4096 characters".into(),
             ));
         }
     }
@@ -343,9 +462,17 @@ fn validate_update_work_order(order: WorkOrder) -> ExternResult<ValidateCallback
 }
 
 fn validate_create_inspection(
-    _action: Create,
+    action: Create,
     inspection: Inspection,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: schedule_inspection previously took the FULL struct
+    // straight from caller input with ZERO derivation from agent_info() --
+    // any agent could forge a victim agent as inspector.
+    if inspection.inspector != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Inspection inspector must correspond to the committing agent".into(),
+        ));
+    }
     if inspection.findings.len() > 100 {
         return Ok(ValidateCallbackResult::Invalid(
             "Maximum 100 findings per inspection".into(),
@@ -447,6 +574,10 @@ mod tests {
         }
     }
 
+    fn other_agent_key() -> AgentPubKey {
+        AgentPubKey::from_raw_32(vec![9u8; 32])
+    }
+
     // ==================== MaintenanceRequest Tests ====================
 
     #[test]
@@ -454,6 +585,14 @@ mod tests {
         let req = valid_request();
         let result = validate_create_request(test_create_action(), req);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_request_forged_reported_by_rejected() {
+        let mut req = valid_request();
+        req.reported_by = other_agent_key();
+        let result = validate_create_request(test_create_action(), req);
+        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
     #[test]
@@ -638,16 +777,16 @@ mod tests {
     #[test]
     fn test_valid_work_order_update() {
         let order = valid_work_order();
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
     fn test_work_order_update_empty_assigned_to_rejected() {
         let mut order = valid_work_order();
         order.assigned_to = "".to_string();
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -655,8 +794,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = Some(9500);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -664,8 +803,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = Some(10000);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -673,8 +812,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = Some(20000);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -682,8 +821,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = Some(20001);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -691,8 +830,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = Some(30000);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -700,8 +839,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = None;
         order.actual_cost_cents = Some(50000);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -709,8 +848,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(10000);
         order.actual_cost_cents = None;
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -718,8 +857,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(0);
         order.actual_cost_cents = Some(0);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -727,16 +866,16 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(0);
         order.actual_cost_cents = Some(1);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_work_order_update_with_completed_date_valid() {
         let mut order = valid_work_order();
         order.completed_date = Some(test_timestamp_2());
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     // ==================== Inspection Tests ====================
@@ -746,6 +885,14 @@ mod tests {
         let inspection = valid_inspection();
         let result = validate_create_inspection(test_create_action(), inspection);
         assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+    }
+
+    #[test]
+    fn test_inspection_forged_inspector_rejected() {
+        let mut inspection = valid_inspection();
+        inspection.inspector = other_agent_key();
+        let result = validate_create_inspection(test_create_action(), inspection);
+        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
     }
 
     #[test]
@@ -958,8 +1105,8 @@ mod tests {
         // Use large but not overflow-inducing values (1 billion cents = $10M)
         order.estimated_cost_cents = Some(1_000_000_000);
         order.actual_cost_cents = Some(1_500_000_000);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -977,8 +1124,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(100000);
         order.actual_cost_cents = Some(199999);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Valid)));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
@@ -986,8 +1133,8 @@ mod tests {
         let mut order = valid_work_order();
         order.estimated_cost_cents = Some(100);
         order.actual_cost_cents = Some(201);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     // ==================== Length Limit Tests ====================
@@ -1044,24 +1191,24 @@ mod tests {
     fn test_work_order_update_assigned_to_over_max_length_rejected() {
         let mut order = valid_work_order();
         order.assigned_to = "a".repeat(257);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_work_order_update_description_over_max_length_rejected() {
         let mut order = valid_work_order();
         order.description = "a".repeat(4097);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
     fn test_work_order_update_notes_over_max_length_rejected() {
         let mut order = valid_work_order();
         order.notes = "a".repeat(8193);
-        let result = validate_update_work_order(order);
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(_))));
+        let result = validate_work_order_fields(&order);
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]

@@ -11,25 +11,7 @@ use crate::toasts::use_toasts;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use mail_leptos_types::*;
-use serde::Deserialize;
 use wasm_bindgen_futures::spawn_local;
-
-/// `get_email`'s real response is `Option<EncryptedEmail>`, whose `sender`
-/// and `recipient` fields are `AgentPubKey` (raw bytes on the wire) —
-/// decoding the whole response as `serde_json::Value` fails on those fields
-/// ("invalid type: byte array, expected any valid JSON value") even though
-/// this page never needed `sender`/`recipient` from it (those come from the
-/// already-decoded inbox list via `email_data`). Named-map msgpack encoding
-/// ignores fields not present on this struct, so a minimal, tolerant wire
-/// type — just the 4 fields this V1 decrypt path actually uses — decodes
-/// correctly without needing the full `EncryptedEmail` shape.
-#[derive(Deserialize)]
-struct EncryptedEmailPartial {
-    encrypted_subject: Vec<u8>,
-    encrypted_body: Vec<u8>,
-    ephemeral_pubkey: Vec<u8>,
-    nonce: Vec<u8>,
-}
 
 #[component]
 pub fn ReadPage() -> impl IntoView {
@@ -92,21 +74,53 @@ pub fn ReadPage() -> impl IntoView {
 
             spawn_local(async move {
                 let response = match hc_fetch
-                    .call_zome::<serde_json::Value, Option<EncryptedEmailPartial>>(
+                    .call_zome::<serde_json::Value, serde_json::Value>(
                         "mail_messages",
                         "get_email",
                         &serde_json::json!(id),
                     )
                     .await
                 {
-                    Ok(Some(value)) => value,
+                    Ok(value) if !value.is_null() => value,
                     _ => return,
                 };
 
-                let encrypted_subject = response.encrypted_subject;
-                let encrypted_body = response.encrypted_body;
-                let ephemeral_pubkey = response.ephemeral_pubkey;
-                let nonce = response.nonce;
+                let encrypted_subject = response
+                    .get("encrypted_subject")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_u64().map(|n| n as u8))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let encrypted_body = response
+                    .get("encrypted_body")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_u64().map(|n| n as u8))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let ephemeral_pubkey = response
+                    .get("ephemeral_pubkey")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_u64().map(|n| n as u8))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let nonce = response
+                    .get("nonce")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_u64().map(|n| n as u8))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
 
                 if let Some(subject) = crate::crypto::decode_transport_text(&encrypted_subject) {
                     decrypted_subject.set(Some(subject));

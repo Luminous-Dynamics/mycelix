@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-desci-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core epistemic claim types, error types, and the StorageBackend trait for Mycelix-DeSci -- deliberately dependency-light (no sqlx, no Holochain) so it can be shared by both mycelix-desci-core (needs sqlx for the Postgres authority backend) and mycelix-desci-holochain-bridge (needs holochain_types, whose rusqlite dependency's `links = \"sqlite3\"` is unconditionally incompatible with sqlx-sqlite in one Cargo.lock). Extracted 2026-08-05 out of mycelix-desci-core's claims.rs/storage.rs/error.rs verbatim."
+
+[dependencies]
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+mycelix-zkp-core = { workspace = true }

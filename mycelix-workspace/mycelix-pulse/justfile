@@ -68,6 +68,28 @@ build-dna:
 build-happ: build-dna
     cd holochain && hc app pack . -o mycelix_pulse_alpha.happ
 
+# The broader (non-alpha) DNA, packed from holochain/dna/dna.yaml. Needed
+# because the federation zome (mail_federation/mail_federation_integrity) is
+# NOT part of the restricted alpha scope's `alpha_scope` property
+# ("profile+trust+hybrid-keys+encrypted-messages+capabilities") -- it's
+# genuinely absent from dna-alpha, not just untested. Any sweettest that
+# calls into "mail_federation" must point MAIL_DNA_PATH at this bundle
+# (see test-federation below), or every such call fails with
+# ZomeNotFound("Zome 'mail_federation' not found") regardless of the
+# test's own logic. Found 2026-07-27, see
+# MYCELIX_PULSE_MOSS_WEAVE_PLAN_2026-07-27.md.
+build-federation-dna:
+    hc --version | rg -x 'holochain_cli 0\.6\.1'
+    cd holochain && cargo build --release --target wasm32-unknown-unknown
+    mkdir -p holochain/target/wasm32-unknown-unknown/release
+    cp -f "${CARGO_TARGET_DIR:-holochain/target}"/wasm32-unknown-unknown/release/*.wasm holochain/target/wasm32-unknown-unknown/release/
+    cd holochain && hc dna pack dna -o dna/mycelix_mail_dna.dna
+
+# Federation-specific sweettests, pointed at the broader (non-alpha) DNA.
+# DNA must have been freshly packed first (just build-federation-dna).
+test-federation:
+    MAIL_DNA_PATH="$(pwd)/holochain/dna/mycelix_mail_dna.dna" cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security federation -- --include-ignored --test-threads=1
+
 # Experimental SMTP gateway; not part of the working-alpha support claim.
 test-smtp-experimental:
     cargo test --manifest-path crates/pulse-smtp-gateway/Cargo.toml
@@ -105,3 +127,12 @@ test-v1-transport-compat:
 # Compile the conductor evidence harness without requiring a packed DNA.
 check-delivery-harness:
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-/var/tmp/mycelix-pulse-sweettest-target} cargo test --manifest-path tests/Cargo.toml --test sweettest_mail_security --no-run
+
+# Ensure every canonical path dependency is explicitly declared. This mode is
+# valid for review snapshots even when sibling workspace repositories are absent.
+check-source-closure:
+    python3 scripts/verify-source-closure.py
+
+# Release/build mode: every declared local sibling must actually be present.
+check-source-closure-present:
+    python3 scripts/verify-source-closure.py --require-present

@@ -1,0 +1,11 @@
+[package]
+name = "prism-attestation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Prism release-promotion attestation and incident-policy history (scaffold — only assemble_incident_policy_history.rs has real content; ceremony/incident_policy modules and the prism_strict_json dependency it references are not yet implemented)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+blake3 = { workspace = true }

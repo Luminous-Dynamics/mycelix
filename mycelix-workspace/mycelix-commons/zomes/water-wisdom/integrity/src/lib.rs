@@ -281,9 +281,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_practice(
-    _action: Create,
+    action: Create,
     practice: TraditionalPractice,
 ) -> ExternResult<ValidateCallbackResult> {
+    if practice.recorded_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Practice recorded_by must match the committing agent".into(),
+        ));
+    }
     if practice.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Practice ID cannot be empty".into(),
@@ -394,9 +399,14 @@ fn validate_create_conservation_method(
 }
 
 fn validate_create_climate_pattern(
-    _action: Create,
+    action: Create,
     pattern: ClimateWaterPattern,
 ) -> ExternResult<ValidateCallbackResult> {
+    if pattern.observed_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Climate pattern observed_by must match the committing agent".into(),
+        ));
+    }
     if pattern.region.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Region cannot be empty".into(),
@@ -456,6 +466,10 @@ mod tests {
 
     fn fake_agent() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xef; 36])
     }
 
     fn fake_action_hash() -> ActionHash {
@@ -665,6 +679,18 @@ mod tests {
     // ========================================================================
     // TRADITIONAL PRACTICE VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn practice_forged_recorded_by_rejected() {
+        let mut p = make_practice();
+        p.recorded_by = other_agent();
+        let result = validate_create_practice(fake_create(), p);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Practice recorded_by must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_practice_passes() {
@@ -1055,6 +1081,18 @@ mod tests {
     // ========================================================================
     // CLIMATE WATER PATTERN VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn climate_pattern_forged_observed_by_rejected() {
+        let mut cp = make_climate_pattern();
+        cp.observed_by = other_agent();
+        let result = validate_create_climate_pattern(fake_create(), cp);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Climate pattern observed_by must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_climate_pattern_passes() {

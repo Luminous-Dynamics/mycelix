@@ -1,5 +1,9 @@
 # Getting Started with Mycelix-DeSci
 
+> [!WARNING]
+> **Historical compatibility document.** This guide predates the signed-event refoundation and may describe mutable claims, automatic E-tier promotion, mock integrations, or deployment readiness that is no longer authoritative. Use [`CANONICAL_EVENT_API.md`](../CANONICAL_EVENT_API.md) and [`LEGACY_MIGRATION.md`](../LEGACY_MIGRATION.md) for current behavior.
+
+
 Welcome to Mycelix-DeSci! This guide will help you get up and running quickly.
 
 ## Overview
@@ -142,10 +146,10 @@ Higher tiers = more trustworthy data for research.
 
 ## Next Steps
 
-- **Read the [Architecture Guide](architecture.md)** to understand system design
-- **Explore [Federated Learning Guide](federated-learning.md)** for collaborative ML
-- **Check [Integration Guide](integrations.md)** to connect with DeSci platforms
-- **Review [API Documentation](../api/)** for detailed references
+- **Read the [Architecture Guide](../ARCHITECTURE.md)** to understand system design
+- **Explore [current documentation map](../README.md)** for collaborative ML
+- **Check [current architecture guide](../ARCHITECTURE.md)** to connect with DeSci platforms
+- **Review [Canonical Event API](../CANONICAL_EVENT_API.md)** for detailed references
 
 ## Common Tasks
 

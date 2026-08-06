@@ -16,8 +16,19 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.0", features = [] }
 tauri-plugin-shell = "2.0"
+log = "0.4"          # used by src/main.rs; was missing -- first `cargo tauri build` on this host failed on E0432 unresolved import `log`
 tokio = { version = "1.35", features = ["full"] }
 tokio-tungstenite = "0.21"
+
+# Typed Holochain admin/app API. Replaces the hand-rolled JSON-RPC admin layer
+# in main.rs (see send_admin_request), which speaks the wrong protocol entirely.
+# =0.8.1 is the client for Holochain 0.6.1 -- the version series runs at a fixed
+# +2 minor offset and is released in lockstep from the same commit. See
+# mycelix-workspace/Cargo.toml [workspace.dependencies].
+holochain_client = "=0.8.1"
+# For InstallAppPayload/AppBundleSource, which holochain_client does not re-export.
+# Same generation as the client and the workspace pin (Holochain 0.6.1).
+holochain_types = "=0.6.1"
 futures-util = "0.3"
 
 [features]

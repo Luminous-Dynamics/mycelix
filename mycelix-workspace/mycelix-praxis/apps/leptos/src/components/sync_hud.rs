@@ -9,10 +9,15 @@ use leptos::prelude::*;
 pub fn SyncStatusHud() -> impl IntoView {
     let queue = use_mutation_queue();
 
-    let (state_label, color, icon, is_pulsing) = move || {
+    let hud_state = Memo::new(move |_| {
         let q = queue.get();
         match q.state {
-            SyncState::Synchronized => ("Mesh Synchronized", "var(--success)", "\u{1F7E2}", false),
+            SyncState::Synchronized => (
+                "Mesh Synchronized".to_string(),
+                "var(--success)",
+                "\u{1F7E2}",
+                false,
+            ),
             SyncState::LocalOrbit => {
                 let count = q.pending_actions.len();
                 (
@@ -22,9 +27,18 @@ pub fn SyncStatusHud() -> impl IntoView {
                     false,
                 )
             }
-            SyncState::GossipSyncing => ("Gossip Syncing...", "var(--info)", "\u{1F7E6}", true),
+            SyncState::GossipSyncing => (
+                "Gossip Syncing...".to_string(),
+                "var(--info)",
+                "\u{1F7E6}",
+                true,
+            ),
         }
-    };
+    });
+    let state_label = move || hud_state.get().0;
+    let color = move || hud_state.get().1;
+    let icon = move || hud_state.get().2;
+    let is_pulsing = move || hud_state.get().3;
 
     view! {
         <div class="sync-hud" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; background: var(--surface-high); border-radius: 20px; border: 1px solid var(--border)">

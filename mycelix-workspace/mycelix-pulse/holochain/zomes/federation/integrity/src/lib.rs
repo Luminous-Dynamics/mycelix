@@ -37,6 +37,13 @@ pub struct FederatedNetwork {
     pub capabilities: NetworkCapabilities,
     /// Trust requirements for joining
     pub trust_requirements: TrustRequirements,
+    /// The agent who registered this network. Previously ownership was only
+    /// established via an AgentToOwnedNetworks *link* (not a field), so a
+    /// validator had no way to check it -- registering agents own whichever
+    /// network_id they claim first (permissionless, matching this codebase's
+    /// existing self-registration precedents), but that claim wasn't
+    /// DHT-provable until now.
+    pub owner: AgentPubKey,
 }
 
 /// Type of federated network
@@ -133,6 +140,11 @@ pub struct FederationRoute {
     pub success_count: u64,
     /// Failure count
     pub failure_count: u64,
+    /// The FederatedNetwork this route belongs to. Lets a validator confirm the
+    /// route's committer actually owns source_network -- create_route already had a
+    /// real coordinator-side is_network_owner() check, but it was unenforced at the
+    /// DHT level (bypassable by a modified coordinator).
+    pub network_registration_hash: ActionHash,
 }
 
 /// Type of federation route
@@ -185,6 +197,14 @@ pub struct FederatedEnvelope {
     pub priority: EnvelopePriority,
     /// Delivery status
     pub status: DeliveryStatus,
+    /// Required only when source_agent is a genuinely foreign (non-Holochain) identity
+    /// with no signature this validator can check -- the committer's own BridgeAgent
+    /// registration, proving they're a registered bridge and not an arbitrary agent
+    /// injecting foreign-network traffic. Must be None when source_agent is a real
+    /// AgentPubKey (the committer's own, or a different agent's for a relayed
+    /// Holochain-native envelope) -- those cases are self-certifying via the embedded
+    /// signature instead. See validate_envelope for the full three-way trust story.
+    pub relay_bridge_registration_hash: Option<ActionHash>,
 }
 
 /// Encryption metadata for envelope
@@ -506,10 +526,6 @@ fn validate_create_entry(
     match entry {
         EntryTypes::FederatedNetwork(network) => validate_network(&network, &action),
         EntryTypes::FederationRoute(route) => validate_route(&route, &action),
-        // FederatedEnvelope.source_agent/dest_agent are String-typed cross-network
-        // identifiers (relay/bridge agents commit envelopes on behalf of external
-        // senders), not AgentPubKey -- ambiguous external-identity case, deferred (see
-        // memory/mycelix_attribution_author_binding_jul8.md).
         EntryTypes::FederatedEnvelope(envelope) => validate_envelope(&envelope, &action),
         EntryTypes::DomainRegistration(domain) => validate_domain(&domain, &action),
         EntryTypes::BridgeAgent(bridge) => validate_bridge_agent(&bridge, &action),
@@ -535,8 +551,17 @@ fn validate_federation_audit_log(
 
 fn validate_network(
     network: &FederatedNetwork,
-    _action: &Create,
+    action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
+    // register_network already derives owner from agent_info() coordinator-side with
+    // zero user input -- bind it at the DHT level too (P0 author-binding gap: ownership
+    // was previously only a link, not a provable entry field).
+    if network.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "FederatedNetwork owner must match action author".to_string(),
+        ));
+    }
+
     // Network ID must not be empty
     if network.network_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -577,8 +602,30 @@ fn validate_network(
 
 fn validate_route(
     route: &FederationRoute,
-    _action: &Create,
+    action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Only the source network's real owner may create routes for it. create_route
+    // already has a real coordinator-side is_network_owner() check -- this re-derives
+    // it at the DHT level so a modified coordinator can't bypass it.
+    let network_record = must_get_valid_record(route.network_registration_hash.clone())?;
+    let network: FederatedNetwork = network_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "network_registration_hash must reference a valid FederatedNetwork entry".to_string()
+        )))?;
+    if network.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the source network's owner may create a route for it".to_string(),
+        ));
+    }
+    if network.network_id != route.source_network {
+        return Ok(ValidateCallbackResult::Invalid(
+            "network_registration_hash must reference the route's own source_network".to_string(),
+        ));
+    }
+
     // Route ID must not be empty
     if route.route_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -617,8 +664,76 @@ fn validate_route(
 
 fn validate_envelope(
     envelope: &FederatedEnvelope,
-    _action: &Create,
+    action: &Create,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Three genuinely different trust stories, none of which can share one check -- see
+    // memory/mycelix_attribution_author_binding_jul8.md for the full reasoning:
+    //
+    // 1. source_agent == committer (matches send_federated): self-authenticated, verify
+    //    the embedded signature against the committer's own key.
+    // 2. source_agent parses as a *different* real AgentPubKey (matches a Holochain-native
+    //    envelope forwarded via recv_remote_signal/relay_envelope, e.g. RouteType::
+    //    DirectHolochain peer-to-peer delivery with no bridge involved at all): the
+    //    envelope is self-certifying -- verify the embedded signature against the
+    //    *claimed* source_agent's key, not the relaying committer's. Anyone may relay it;
+    //    the signature alone proves authenticity, so no BridgeAgent trust is needed here.
+    // 3. source_agent does not parse as any real AgentPubKey (a genuinely foreign,
+    //    non-Holochain identity from an SMTP/Matrix/ActivityPub/XMPP/custom bridge): there
+    //    is no Holochain signature to verify against. Require the committer be a
+    //    genuinely registered BridgeAgent instead -- trusts that bridge to have already
+    //    checked the foreign protocol's own PKI before relaying into Mycelix. This does
+    //    NOT prove the foreign network's source_agent claim is honest -- that requires a
+    //    per-protocol external PKI design, a separate engineering program not attempted
+    //    here.
+    if envelope.relay_bridge_registration_hash.is_none() {
+        // Cases 1/2: a real Holochain identity, self-certifying via signature.
+        let claimed_sender: AgentPubKey = if envelope.source_agent == action.author.to_string() {
+            action.author.clone()
+        } else {
+            AgentPubKey::try_from(envelope.source_agent.clone()).map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "An envelope with no relay_bridge_registration_hash must have a \
+                     source_agent that is either the committer or a real AgentPubKey"
+                        .to_string()
+                ))
+            })?
+        };
+        if envelope.signature.len() != 64 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Envelope signature must be 64 bytes (Ed25519)".to_string(),
+            ));
+        }
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes.copy_from_slice(&envelope.signature);
+        // Mirrors sign_envelope's exact construction: envelope_id bytes ++ payload bytes.
+        let mut signed_data = envelope.envelope_id.as_bytes().to_vec();
+        signed_data.extend_from_slice(&envelope.encrypted_payload);
+        if !verify_signature_raw(claimed_sender, Signature(sig_bytes), signed_data)? {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Envelope signature verification failed".to_string(),
+            ));
+        }
+    } else {
+        // Case 3: a genuinely foreign identity -- require a registered bridge.
+        let bridge_hash = envelope.relay_bridge_registration_hash.clone().unwrap();
+        let bridge_record = must_get_valid_record(bridge_hash)?;
+        let bridge: BridgeAgent = bridge_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(e))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "relay_bridge_registration_hash must reference a valid BridgeAgent entry"
+                    .to_string()
+            )))?;
+        if bridge.agent != action.author {
+            return Ok(ValidateCallbackResult::Invalid(
+                "relay_bridge_registration_hash must reference the committer's own \
+                 BridgeAgent registration"
+                    .to_string(),
+            ));
+        }
+    }
+
     // Envelope ID must not be empty
     if envelope.envelope_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(

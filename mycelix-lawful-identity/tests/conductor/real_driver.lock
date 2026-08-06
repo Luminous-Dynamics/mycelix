@@ -1,0 +1,6 @@
+# mycelix-holochain-real-driver dependency lock v1
+python-runtime=cpython>=3.11,<3.14
+python-packages=none
+control-protocol=mycelix-holochain-control-v1
+driver-protocol=mycelix-real-conductor-driver-v1
+scenario-contract=mycelix-lawful-identity-conductor-scenarios-v2

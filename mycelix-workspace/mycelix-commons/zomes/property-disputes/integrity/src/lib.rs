@@ -198,9 +198,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_property_dispute(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     dispute: PropertyDispute,
 ) -> ExternResult<ValidateCallbackResult> {
+    let expected_claimant = format!("did:mycelix:{}", action.author());
+    if dispute.claimant_did != expected_claimant {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Dispute claimant must be the committing agent (forgery)".into(),
+        ));
+    }
     // --- Empty string checks (required fields) ---
     if dispute.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -270,9 +276,15 @@ fn validate_update_property_dispute(
 }
 
 fn validate_create_ownership_claim(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     claim: OwnershipClaim,
 ) -> ExternResult<ValidateCallbackResult> {
+    let expected_claimant = format!("did:mycelix:{}", action.author());
+    if claim.claimant_did != expected_claimant {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Ownership claim claimant must be the committing agent (forgery)".into(),
+        ));
+    }
     if !claim.claimant_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Claimant must be a valid DID".into(),
@@ -299,6 +311,11 @@ mod tests {
 
     fn mock_agent_pub_key() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    /// The DID the default `mock_create_action()` author binds to.
+    fn mock_claimant_did() -> String {
+        format!("did:mycelix:{}", mock_agent_pub_key())
     }
 
     fn mock_action_hash() -> ActionHash {
@@ -377,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_valid() {
-        let dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
@@ -409,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_respondent_empty() {
-        let dispute = factory_property_dispute("did:key:abc123", "");
+        let dispute = factory_property_dispute(&mock_claimant_did(), "");
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
@@ -417,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_respondent_no_prefix() {
-        let dispute = factory_property_dispute("did:key:abc123", "key:def456");
+        let dispute = factory_property_dispute(&mock_claimant_did(), "key:def456");
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
@@ -425,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_respondent_invalid_format() {
-        let dispute = factory_property_dispute("did:key:abc123", "not-a-did");
+        let dispute = factory_property_dispute(&mock_claimant_did(), "not-a-did");
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
@@ -441,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_with_justice_case_id() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.justice_case_id = Some("justice_case_789".to_string());
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -450,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_create_property_dispute_with_resolved_timestamp() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.resolved = Some(mock_timestamp());
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -463,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_update_property_dispute_always_valid() {
-        let dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         let action = mock_update_action();
         let result = validate_update_property_dispute(action, dispute).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
@@ -480,7 +497,7 @@ mod tests {
 
     #[test]
     fn test_update_property_dispute_status_change() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.status = DisputeStatus::Resolved;
         dispute.resolved = Some(mock_timestamp());
         let action = mock_update_action();
@@ -494,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_create_ownership_claim_valid() {
-        let claim = factory_ownership_claim("did:key:abc123");
+        let claim = factory_ownership_claim(&mock_claimant_did());
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_ownership_claim(action, claim).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
@@ -525,25 +542,39 @@ mod tests {
     }
 
     #[test]
-    fn test_create_ownership_claim_different_did_methods() {
-        let valid_dids = vec![
+    fn test_create_ownership_claim_other_did_methods_rejected_as_forgery() {
+        // None of these can equal the committing agent's own mycelix DID, so
+        // the author-binding fix now correctly rejects all of them.
+        let other_dids = vec![
             "did:key:z6Mk...",
             "did:web:example.com",
             "did:pkh:eth:0x...",
             "did:ion:EiD...",
         ];
 
-        for did in valid_dids {
+        for did in other_dids {
             let claim = factory_ownership_claim(did);
             let action = EntryCreationAction::Create(mock_create_action());
             let result = validate_create_ownership_claim(action, claim).unwrap();
-            assert_eq!(
-                result,
-                ValidateCallbackResult::Valid,
-                "Failed for DID: {}",
-                did
-            );
+            match result {
+                ValidateCallbackResult::Invalid(msg) => {
+                    assert!(
+                        msg.contains("forgery"),
+                        "Unexpected message for DID: {}",
+                        did
+                    );
+                }
+                _ => panic!("Expected Invalid for DID: {}", did),
+            }
         }
+    }
+
+    #[test]
+    fn test_create_ownership_claim_matching_author_did_accepted() {
+        let claim = factory_ownership_claim(&mock_claimant_did());
+        let action = EntryCreationAction::Create(mock_create_action());
+        let result = validate_create_ownership_claim(action, claim).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     // ============================================================================
@@ -552,7 +583,7 @@ mod tests {
 
     #[test]
     fn test_update_ownership_claim_always_valid() {
-        let claim = factory_ownership_claim("did:key:abc123");
+        let claim = factory_ownership_claim(&mock_claimant_did());
         let action = mock_update_action();
         let result = validate_update_ownership_claim(action, claim).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
@@ -569,7 +600,7 @@ mod tests {
 
     #[test]
     fn test_update_ownership_claim_status_change() {
-        let mut claim = factory_ownership_claim("did:key:abc123");
+        let mut claim = factory_ownership_claim(&mock_claimant_did());
         claim.status = ClaimStatus::Validated;
         let action = mock_update_action();
         let result = validate_update_ownership_claim(action, claim).unwrap();
@@ -807,7 +838,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_clone() {
-        let dispute1 = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let dispute1 = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         let dispute2 = dispute1.clone();
         assert_eq!(dispute1, dispute2);
     }
@@ -838,7 +869,7 @@ mod tests {
 
     #[test]
     fn test_ownership_claim_clone() {
-        let claim1 = factory_ownership_claim("did:key:abc123");
+        let claim1 = factory_ownership_claim(&mock_claimant_did());
         let claim2 = claim1.clone();
         assert_eq!(claim1, claim2);
     }
@@ -868,7 +899,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_empty_id() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.id = "".to_string();
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -877,7 +908,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_whitespace_id() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.id = "   ".to_string();
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -886,7 +917,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_id_too_long() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.id = "x".repeat(257);
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -895,7 +926,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_id_at_limit() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.id = "x".repeat(64);
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -904,7 +935,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_empty_property_id() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.property_id = "".to_string();
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -913,7 +944,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_property_id_too_long() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.property_id = "x".repeat(257);
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -922,7 +953,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_empty_description() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.description = "".to_string();
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -931,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_description_too_long() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.description = "x".repeat(4097);
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -940,7 +971,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_description_at_limit() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.description = "x".repeat(4096);
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -949,7 +980,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_evidence_id_too_long() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.evidence_ids = vec!["x".repeat(257)];
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -958,7 +989,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_evidence_id_at_limit() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.evidence_ids = vec!["x".repeat(64)];
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -967,7 +998,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_justice_case_id_too_long() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.justice_case_id = Some("x".repeat(257));
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();
@@ -976,7 +1007,7 @@ mod tests {
 
     #[test]
     fn test_property_dispute_justice_case_id_at_limit() {
-        let mut dispute = factory_property_dispute("did:key:abc123", "did:key:def456");
+        let mut dispute = factory_property_dispute(&mock_claimant_did(), "did:key:def456");
         dispute.justice_case_id = Some("x".repeat(64));
         let action = EntryCreationAction::Create(mock_create_action());
         let result = validate_create_property_dispute(action, dispute).unwrap();

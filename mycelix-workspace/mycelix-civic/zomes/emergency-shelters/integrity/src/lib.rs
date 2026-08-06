@@ -108,13 +108,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Shelter(shelter) => validate_update_shelter(shelter),
-                EntryTypes::ShelterRegistration(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::Shelter(shelter) => validate_update_shelter(action, shelter),
+                EntryTypes::ShelterRegistration(reg) => validate_update_registration(action, reg),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -180,10 +180,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -222,100 +219,84 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Pure content-level validation for a `Shelter`, shared by create and
+/// update (see the divergence note on [`validate_update_shelter`] for why
+/// update reuses the full create-side check set rather than a narrower
+/// field-immutability restriction).
+fn validate_shelter_fields(shelter: &Shelter) -> ValidateCallbackResult {
+    if shelter.id.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Shelter ID cannot be empty".into());
+    }
+    if shelter.id.len() > 256 {
+        return ValidateCallbackResult::Invalid("Shelter ID too long (max 256 chars)".into());
+    }
+    if shelter.name.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Shelter name cannot be empty".into());
+    }
+    if shelter.name.len() > 256 {
+        return ValidateCallbackResult::Invalid("Shelter name too long (max 256 chars)".into());
+    }
+    if shelter.address.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Shelter address cannot be empty".into());
+    }
+    if shelter.address.len() > 256 {
+        return ValidateCallbackResult::Invalid("Shelter address too long (max 256 chars)".into());
+    }
+    if shelter.capacity == 0 {
+        return ValidateCallbackResult::Invalid("Shelter capacity must be greater than 0".into());
+    }
+    if shelter.current_occupancy > shelter.capacity {
+        return ValidateCallbackResult::Invalid("Occupancy cannot exceed capacity".into());
+    }
+    if !shelter.location_lat.is_finite() {
+        return ValidateCallbackResult::Invalid("location_lat must be a finite number".into());
+    }
+    if shelter.location_lat < -90.0 || shelter.location_lat > 90.0 {
+        return ValidateCallbackResult::Invalid("Latitude must be between -90 and 90".into());
+    }
+    if !shelter.location_lon.is_finite() {
+        return ValidateCallbackResult::Invalid("location_lon must be a finite number".into());
+    }
+    if shelter.location_lon < -180.0 || shelter.location_lon > 180.0 {
+        return ValidateCallbackResult::Invalid("Longitude must be between -180 and 180".into());
+    }
+    if shelter.contact.trim().is_empty() {
+        return ValidateCallbackResult::Invalid("Contact information cannot be empty".into());
+    }
+    if shelter.contact.len() > 256 {
+        return ValidateCallbackResult::Invalid("Contact too long (max 256 chars)".into());
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_create_shelter(
     _action: Create,
     shelter: Shelter,
 ) -> ExternResult<ValidateCallbackResult> {
-    if shelter.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter ID cannot be empty".into(),
-        ));
-    }
-    if shelter.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter ID too long (max 256 chars)".into(),
-        ));
-    }
-    if shelter.name.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter name cannot be empty".into(),
-        ));
-    }
-    if shelter.name.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter name too long (max 256 chars)".into(),
-        ));
-    }
-    if shelter.address.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter address cannot be empty".into(),
-        ));
-    }
-    if shelter.address.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter address too long (max 256 chars)".into(),
-        ));
-    }
-    if shelter.capacity == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter capacity must be greater than 0".into(),
-        ));
-    }
-    if shelter.current_occupancy > shelter.capacity {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Occupancy cannot exceed capacity".into(),
-        ));
-    }
-    if !shelter.location_lat.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "location_lat must be a finite number".into(),
-        ));
-    }
-    if shelter.location_lat < -90.0 || shelter.location_lat > 90.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Latitude must be between -90 and 90".into(),
-        ));
-    }
-    if !shelter.location_lon.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "location_lon must be a finite number".into(),
-        ));
-    }
-    if shelter.location_lon < -180.0 || shelter.location_lon > 180.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Longitude must be between -180 and 180".into(),
-        ));
-    }
-    if shelter.contact.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Contact information cannot be empty".into(),
-        ));
-    }
-    if shelter.contact.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Contact too long (max 256 chars)".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_shelter_fields(&shelter))
 }
 
-fn validate_update_shelter(shelter: Shelter) -> ExternResult<ValidateCallbackResult> {
-    if shelter.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter ID cannot be empty".into(),
-        ));
-    }
-    if shelter.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Shelter ID too long (max 256 chars)".into(),
-        ));
-    }
-    if shelter.current_occupancy > shelter.capacity {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Occupancy cannot exceed capacity".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+/// **Design divergence from mycelix-emergency/shelters, confirmed via grep
+/// of this shadow's own coordinator (2026-07):** standalone only supports
+/// `update_shelter_status` (status only) and occupancy-tracking flows
+/// (current_occupancy/status together) -- Shelter has no self-declared
+/// owner/staff field at all (see the case-(a) reasoning on
+/// [`validate_create_shelter`]), so standalone restricts update content to
+/// just those two fields. This shadow ALSO has a genuine, additional,
+/// governance-gated (`require_civic`/`civic_requirement_proposal`)
+/// `update_shelter` that replaces the whole entry -- a real live flow
+/// standalone doesn't have. Since there's no identity field to freeze
+/// (unlike comms' sender/created_by/issued_by), field-level immutability
+/// isn't a meaningful defense here; instead this reuses the FULL
+/// create-side content validation on every update, so a governance-gated
+/// full-replace can't reintroduce invalid data (empty name/address/
+/// contact, out-of-range coordinates, occupancy over capacity) even
+/// though it may legitimately change any field.
+fn validate_update_shelter(
+    _action: Update,
+    shelter: Shelter,
+) -> ExternResult<ValidateCallbackResult> {
+    Ok(validate_shelter_fields(&shelter))
 }
 
 fn validate_create_registration(
@@ -359,6 +340,37 @@ fn validate_create_registration(
     if reg.checked_out_at.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
             "Cannot create registration already checked out".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// check_out_person has no caller-identity check in the coordinator
+/// (ShelterRegistration has no self-declared registrant/staff field --
+/// person_name/person_id name the guest, not the committing agent).
+/// Content is restricted to checked_out_at -- this closes the wide-open
+/// bug that previously accepted any change unconditionally.
+fn validate_update_registration(
+    action: Update,
+    reg: ShelterRegistration,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: ShelterRegistration = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original registration not found".to_string()
+        )))?;
+    if reg.shelter_hash != original.shelter_hash
+        || reg.person_name != original.person_name
+        || reg.person_id != original.person_id
+        || reg.party_size != original.party_size
+        || reg.special_needs != original.special_needs
+        || reg.registered_at != original.registered_at
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only checked_out_at can change on a registration update".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -655,7 +667,7 @@ mod tests {
 
     #[test]
     fn update_shelter_valid_passes() {
-        let result = validate_update_shelter(make_shelter());
+        let result = Ok(validate_shelter_fields(&make_shelter()));
         assert!(is_valid(&result));
     }
 
@@ -663,7 +675,7 @@ mod tests {
     fn update_shelter_empty_id_rejected() {
         let mut s = make_shelter();
         s.id = "".into();
-        let result = validate_update_shelter(s);
+        let result = Ok(validate_shelter_fields(&s));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Shelter ID cannot be empty");
     }
@@ -673,7 +685,7 @@ mod tests {
         let mut s = make_shelter();
         s.capacity = 100;
         s.current_occupancy = 101;
-        let result = validate_update_shelter(s);
+        let result = Ok(validate_shelter_fields(&s));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Occupancy cannot exceed capacity");
     }
@@ -683,18 +695,25 @@ mod tests {
         let mut s = make_shelter();
         s.capacity = 200;
         s.current_occupancy = 200;
-        let result = validate_update_shelter(s);
+        let result = Ok(validate_shelter_fields(&s));
         assert!(is_valid(&result));
     }
 
     #[test]
-    fn update_shelter_zero_capacity_with_zero_occupancy_passes() {
-        // validate_update_shelter does NOT check capacity > 0
+    fn update_shelter_zero_capacity_rejected() {
+        // validate_update_shelter now reuses the full create-side content
+        // check (see the divergence note on validate_update_shelter), which
+        // does enforce capacity > 0 -- unlike the old narrower update-only
+        // check this test used to exercise.
         let mut s = make_shelter();
         s.capacity = 0;
         s.current_occupancy = 0;
-        let result = validate_update_shelter(s);
-        assert!(is_valid(&result));
+        let result = Ok(validate_shelter_fields(&s));
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Shelter capacity must be greater than 0"
+        );
     }
 
     // ========================================================================
@@ -925,7 +944,7 @@ mod tests {
     fn update_shelter_id_over_limit_rejected() {
         let mut s = make_shelter();
         s.id = "i".repeat(257);
-        let result = validate_update_shelter(s);
+        let result = Ok(validate_shelter_fields(&s));
         assert!(is_invalid(&result));
         assert_eq!(invalid_msg(&result), "Shelter ID too long (max 256 chars)");
     }

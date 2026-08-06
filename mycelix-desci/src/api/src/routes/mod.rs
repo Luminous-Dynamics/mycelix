@@ -31,6 +31,83 @@ pub fn api_routes() -> Router<Arc<AppState>> {
 fn public_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/claims/{id}", get(handlers::get_claim))
+        // Canonical append-only scientific state
+        .route(
+            "/scientific/claims/{id}",
+            get(handlers::get_scientific_claim),
+        )
+        .route(
+            "/scientific/claims/{id}/events",
+            get(handlers::get_scientific_claim_events),
+        )
+        .route(
+            "/scientific/claims/{id}/authority-receipts",
+            get(handlers::get_scientific_claim_authority_receipts),
+        )
+        .route(
+            "/scientific/events/{id}",
+            get(handlers::get_scientific_event),
+        )
+        .route(
+            "/scientific/events/{id}/authority-receipt",
+            get(handlers::get_scientific_event_authority_receipt),
+        )
+        .route(
+            "/scientific/authority",
+            get(handlers::get_scientific_credential_registry),
+        )
+        .route(
+            "/scientific/authority/events",
+            get(handlers::get_scientific_credential_events),
+        )
+        .route(
+            "/scientific/authority/events/{id}",
+            get(handlers::get_scientific_credential_event),
+        )
+        .route(
+            "/scientific/authority/actors/{actor}",
+            get(handlers::get_scientific_actor_credentials),
+        )
+        .route(
+            "/scientific/authority/governance",
+            get(handlers::get_credential_governance),
+        )
+        .route(
+            "/scientific/authority/governance/events",
+            get(handlers::get_credential_governance_events),
+        )
+        .route(
+            "/scientific/authority/governance/events/{id}",
+            get(handlers::get_credential_governance_event),
+        )
+        .route(
+            "/scientific/authority/governance/proposals/{id}",
+            get(handlers::get_credential_governance_proposal),
+        )
+        .route(
+            "/scientific/authority/governance/checkpoint-candidate",
+            get(handlers::get_credential_transparency_checkpoint_candidate),
+        )
+        .route(
+            "/scientific/authority/governance/checkpoint-mirrors/{hash}",
+            get(handlers::get_checkpoint_mirror_observations),
+        )
+        .route(
+            "/scientific/authority/database-epochs",
+            get(handlers::get_authority_database_epoch_summary),
+        )
+        .route(
+            "/scientific/authority/database-epochs/state-commitment",
+            get(handlers::get_authority_database_state_commitment),
+        )
+        .route(
+            "/scientific/authority/database-epochs/{epoch_number}",
+            get(handlers::get_authority_database_epoch),
+        )
+        .route(
+            "/scientific/authority/deliveries/{delivery_id}/acknowledgements",
+            get(handlers::get_authority_delivery_acknowledgements),
+        )
         // Query endpoints (POST but read-only: no mutation of stored data)
         .route("/query", post(handlers::execute_query))
         .route("/query/categories", get(handlers::get_categories))
@@ -48,7 +125,40 @@ fn public_routes() -> Router<Arc<AppState>> {
 /// Gated by [`require_auth`] — callers must present a valid bearer JWT.
 fn protected_routes() -> Router<Arc<AppState>> {
     Router::new()
-        // Claims endpoints
+        // Canonical scientific event endpoint
+        .route(
+            "/scientific/authority/events",
+            post(handlers::append_scientific_credential_event),
+        )
+        .route(
+            "/scientific/authority/governance/events",
+            post(handlers::append_credential_governance_event),
+        )
+        .route(
+            "/scientific/authority/governance/execute",
+            post(handlers::execute_credential_governance_proposal),
+        )
+        .route(
+            "/scientific/authority/governance/checkpoint-mirrors",
+            post(handlers::record_checkpoint_mirror_observation),
+        )
+        .route(
+            "/scientific/authority/database-epochs",
+            post(handlers::record_authority_database_epoch),
+        )
+        .route(
+            "/scientific/authority/recovery-reconciliations",
+            post(handlers::record_authority_recovery_reconciliation),
+        )
+        .route(
+            "/scientific/authority/delivery-acknowledgements",
+            post(handlers::record_authority_delivery_acknowledgement),
+        )
+        .route(
+            "/scientific/events",
+            post(handlers::append_scientific_event),
+        )
+        // Legacy compatibility claims endpoints
         .route("/claims", post(handlers::create_claim))
         .route("/claims/{id}/verify", put(handlers::add_verification))
         .route("/claims/{id}/provenance", put(handlers::add_provenance))
@@ -118,8 +228,8 @@ fn protected_routes() -> Router<Arc<AppState>> {
             url = "https://github.com/Luminous-Dynamics/mycelix-desci"
         ),
         license(
-            name = "MIT",
-            url = "https://opensource.org/licenses/MIT"
+            name = "AGPL-3.0-or-later",
+            url = "https://www.gnu.org/licenses/agpl-3.0.html"
         )
     )
 )]

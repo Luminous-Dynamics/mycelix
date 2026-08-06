@@ -12,10 +12,7 @@
 //!
 //! Run with: cargo run --example trust_demo
 
-use mycelix_desci_core::{
-    trust::TrustManager,
-    Result,
-};
+use mycelix_desci_core::{Result, trust::TrustManager};
 
 fn main() -> Result<()> {
     println!("⭐ Mycelix-DeSci Trust & Reputation Demo\n");
@@ -50,8 +47,10 @@ fn main() -> Result<()> {
     for (i, (email, affiliation)) in participants.iter().enumerate() {
         let score = trust_manager.get_score(email);
         println!("   {}. {} - {}", i + 1, email, affiliation);
-        println!("      Initial score: {:.3} (confidence: {:.3})",
-            score.score, score.confidence);
+        println!(
+            "      Initial score: {:.3} (confidence: {:.3})",
+            score.score, score.confidence
+        );
     }
 
     // ========================================================================
@@ -65,21 +64,33 @@ fn main() -> Result<()> {
     trust_manager.update_score("alice@stanford.edu", true, 0.9)?;
     println!("   Alice verifies dataset quality (positive, weight 0.9)");
     let score = trust_manager.get_score("alice@stanford.edu");
-    println!("     New score: {:.3} (confidence: {:.3})", score.score, score.confidence);
+    println!(
+        "     New score: {:.3} (confidence: {:.3})",
+        score.score, score.confidence
+    );
 
     // Bob consistently provides good reviews
     for i in 0..3 {
         trust_manager.update_score("bob@mit.edu", true, 0.85)?;
-        println!("\n   Bob provides peer review #{} (positive, weight 0.85)", i + 1);
+        println!(
+            "\n   Bob provides peer review #{} (positive, weight 0.85)",
+            i + 1
+        );
         let score = trust_manager.get_score("bob@mit.edu");
-        println!("     Current score: {:.3} (confidence: {:.3})", score.score, score.confidence);
+        println!(
+            "     Current score: {:.3} (confidence: {:.3})",
+            score.score, score.confidence
+        );
     }
 
     // Charlie does reproducibility studies
     trust_manager.update_score("charlie@harvard.edu", true, 0.88)?;
     println!("\n   Charlie confirms reproducibility (positive, weight 0.88)");
     let score = trust_manager.get_score("charlie@harvard.edu");
-    println!("     New score: {:.3} (confidence: {:.3})", score.score, score.confidence);
+    println!(
+        "     New score: {:.3} (confidence: {:.3})",
+        score.score, score.confidence
+    );
 
     // ========================================================================
     // STEP 4: Negative Interactions
@@ -92,13 +103,19 @@ fn main() -> Result<()> {
     trust_manager.update_score("diana@caltech.edu", false, 0.7)?;
     println!("   Diana submits unverified data (negative, weight 0.7)");
     let score = trust_manager.get_score("diana@caltech.edu");
-    println!("     New score: {:.3} (confidence: {:.3})", score.score, score.confidence);
+    println!(
+        "     New score: {:.3} (confidence: {:.3})",
+        score.score, score.confidence
+    );
 
     // Diana's second issue
     trust_manager.update_score("diana@caltech.edu", false, 0.75)?;
     println!("\n   Diana's data fails reproducibility check (negative, weight 0.75)");
     let score = trust_manager.get_score("diana@caltech.edu");
-    println!("     New score: {:.3} (confidence: {:.3})", score.score, score.confidence);
+    println!(
+        "     New score: {:.3} (confidence: {:.3})",
+        score.score, score.confidence
+    );
 
     // ========================================================================
     // STEP 5: Trust Threshold Evaluation
@@ -114,14 +131,16 @@ fn main() -> Result<()> {
         let is_trusted = trust_manager.is_trusted(email);
 
         let status_icon = if is_trusted { "✓" } else { "✗" };
-        let status_text = if is_trusted { "[TRUSTED]" } else { "[NOT TRUSTED]" };
+        let status_text = if is_trusted {
+            "[TRUSTED]"
+        } else {
+            "[NOT TRUSTED]"
+        };
 
-        println!("   {} {} - {}: {:.3} {}",
-            status_icon,
-            email,
-            affiliation,
-            score.score,
-            status_text);
+        println!(
+            "   {} {} - {}: {:.3} {}",
+            status_icon, email, affiliation, score.score, status_text
+        );
     }
 
     // ========================================================================
@@ -137,10 +156,12 @@ fn main() -> Result<()> {
         let score = trust_manager.get_score("diana@caltech.edu");
         let is_trusted = trust_manager.is_trusted("diana@caltech.edu");
 
-        println!("   Contribution #{}: score = {:.3} {}",
+        println!(
+            "   Contribution #{}: score = {:.3} {}",
             i + 1,
             score.score,
-            if is_trusted { "[TRUSTED RESTORED]" } else { "" });
+            if is_trusted { "[TRUSTED RESTORED]" } else { "" }
+        );
     }
 
     // ========================================================================
@@ -151,22 +172,26 @@ fn main() -> Result<()> {
     println!("   Scenario: Eve builds reputation from neutral start\n");
 
     let initial_score = trust_manager.get_score("eve@oxford.edu");
-    println!("   Initial: score = {:.3}, confidence = {:.3}",
-        initial_score.score, initial_score.confidence);
+    println!(
+        "   Initial: score = {:.3}, confidence = {:.3}",
+        initial_score.score, initial_score.confidence
+    );
 
     // Simulate 10 interactions with varying weights (all positive)
-    let interactions = vec![
-        0.7, 0.75, 0.8, 0.85, 0.82,
-        0.88, 0.9, 0.87, 0.89, 0.91,
-    ];
+    let interactions = vec![0.7, 0.75, 0.8, 0.85, 0.82, 0.88, 0.9, 0.87, 0.89, 0.91];
 
     println!("\n   Interaction History:");
     for (i, weight) in interactions.iter().enumerate() {
         trust_manager.update_score("eve@oxford.edu", true, *weight)?;
         let score = trust_manager.get_score("eve@oxford.edu");
 
-        println!("   #{:2}: positive (weight {:.2}) → score: {:.3}, confidence: {:.3}",
-            i + 1, weight, score.score, score.confidence);
+        println!(
+            "   #{:2}: positive (weight {:.2}) → score: {:.3}, confidence: {:.3}",
+            i + 1,
+            weight,
+            score.score,
+            score.confidence
+        );
     }
 
     // ========================================================================
@@ -174,7 +199,8 @@ fn main() -> Result<()> {
     // ========================================================================
     println!("\n\n🌐 Step 8: Trust network analysis...\n");
 
-    let mut scores: Vec<_> = participants.iter()
+    let mut scores: Vec<_> = participants
+        .iter()
         .map(|(email, _)| {
             let score = trust_manager.get_score(email);
             (*email, score)
@@ -194,13 +220,15 @@ fn main() -> Result<()> {
             _ => "  ",
         };
 
-        println!("   {} #{} {} - Score: {:.3} (Conf: {:.3}) {}",
+        println!(
+            "   {} #{} {} - Score: {:.3} (Conf: {:.3}) {}",
             medal,
             rank + 1,
             email,
             score.score,
             score.confidence,
-            if is_trusted { "✓" } else { "" });
+            if is_trusted { "✓" } else { "" }
+        );
     }
 
     // ========================================================================
@@ -219,7 +247,8 @@ fn main() -> Result<()> {
     println!("   Distribution across trust ranges:\n");
 
     for (min, max, label) in &ranges {
-        let count = participants.iter()
+        let count = participants
+            .iter()
             .filter(|(email, _)| {
                 let score = trust_manager.get_score(email);
                 score.score >= *min && score.score < *max
@@ -227,8 +256,10 @@ fn main() -> Result<()> {
             .count();
 
         let bar = "█".repeat(count * 4);
-        println!("   {:<15} [{:.1}-{:.1}): {} {}",
-            label, min, max, count, bar);
+        println!(
+            "   {:<15} [{:.1}-{:.1}): {} {}",
+            label, min, max, count, bar
+        );
     }
 
     // ========================================================================
@@ -239,11 +270,11 @@ fn main() -> Result<()> {
     println!("   Scenario: Multiple participants vote on a claim\n");
 
     let votes = vec![
-        ("alice@stanford.edu", true),   // High trust, approve
-        ("bob@mit.edu", true),          // High trust, approve
-        ("charlie@harvard.edu", true),  // Medium trust, approve
-        ("diana@caltech.edu", false),   // Medium trust, reject
-        ("eve@oxford.edu", true),       // High trust, approve
+        ("alice@stanford.edu", true),  // High trust, approve
+        ("bob@mit.edu", true),         // High trust, approve
+        ("charlie@harvard.edu", true), // Medium trust, approve
+        ("diana@caltech.edu", false),  // Medium trust, reject
+        ("eve@oxford.edu", true),      // High trust, approve
     ];
 
     println!("   Votes:");
@@ -260,12 +291,14 @@ fn main() -> Result<()> {
             weighted_no += weight;
         }
 
-        println!("   {} votes {}: weight = {:.3} (score: {:.3}, conf: {:.3})",
+        println!(
+            "   {} votes {}: weight = {:.3} (score: {:.3}, conf: {:.3})",
             email,
             if *vote { "✓ YES" } else { "✗ NO" },
             weight,
             score.score,
-            score.confidence);
+            score.confidence
+        );
     }
 
     let total_weight = weighted_yes + weighted_no;
@@ -275,8 +308,14 @@ fn main() -> Result<()> {
     println!("     Weighted YES: {:.3}", weighted_yes);
     println!("     Weighted NO:  {:.3}", weighted_no);
     println!("     Consensus:    {:.1}% approval", consensus * 100.0);
-    println!("\n     Decision: {}",
-        if consensus > 0.66 { "✓ APPROVED (>66% consensus)" } else { "✗ REJECTED" });
+    println!(
+        "\n     Decision: {}",
+        if consensus > 0.66 {
+            "✓ APPROVED (>66% consensus)"
+        } else {
+            "✗ REJECTED"
+        }
+    );
 
     // ========================================================================
     // Summary Statistics
@@ -284,21 +323,26 @@ fn main() -> Result<()> {
     println!("\n\n📊 Summary Statistics");
     println!("{}", "=".repeat(70));
 
-    let all_scores: Vec<_> = participants.iter()
+    let all_scores: Vec<_> = participants
+        .iter()
         .map(|(email, _)| trust_manager.get_score(email).score)
         .collect();
 
     let avg_score: f64 = all_scores.iter().sum::<f64>() / all_scores.len() as f64;
-    let max_score = all_scores.iter().cloned().fold(0./0., f64::max);
-    let min_score = all_scores.iter().cloned().fold(1./0., f64::min);
+    let max_score = all_scores.iter().cloned().fold(f64::NAN, f64::max);
+    let min_score = all_scores.iter().cloned().fold(1. / 0., f64::min);
 
-    let trusted_count = participants.iter()
+    let trusted_count = participants
+        .iter()
         .filter(|(email, _)| trust_manager.is_trusted(email))
         .count();
 
     println!("\n   Total Participants: {}", participants.len());
     println!("   Trusted (≥{:.1}):    {}", threshold, trusted_count);
-    println!("   Not Trusted:       {}", participants.len() - trusted_count);
+    println!(
+        "   Not Trusted:       {}",
+        participants.len() - trusted_count
+    );
     println!("\n   Score Statistics:");
     println!("     Average: {:.3}", avg_score);
     println!("     Highest: {:.3}", max_score);

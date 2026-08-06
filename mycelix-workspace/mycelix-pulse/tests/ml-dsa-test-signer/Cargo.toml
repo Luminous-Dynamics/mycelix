@@ -1,0 +1,23 @@
+[package]
+name = "ml-dsa-test-signer"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Standalone on purpose: `ml-dsa`'s full signing feature set (getrandom 0.4)
+# conflicts with the pre-release RustCrypto crates pulled in by `holochain`'s
+# own dependency tree (see sweettest_mail_security.rs's doc comment on
+# phase0_v2_hybrid_pqc_transport for the full root cause). This binary has
+# its own Cargo.lock and never shares a dependency resolution with the
+# Sweettest crate, so it can use ml-dsa's real signing API. The Sweettest
+# tests invoke it as a subprocess (`std::process::Command`) once each
+# transcript's runtime-only fields (agent keys, bundle hash, timestamp) are
+# known, to get a real ML-DSA-65 keypair and signature — sidesteps the
+# Cargo-level conflict entirely rather than trying to work around it in one
+# process.
+[workspace]
+
+[dependencies]
+ml-dsa = { version = "=0.1.1" }
+signature = "3"
+hex = "0.4"

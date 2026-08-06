@@ -259,13 +259,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::Watershed(ws) => validate_update_watershed(ws, original_action_hash),
-                EntryTypes::WaterRight(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::WaterRight(right) => {
+                    validate_update_water_right(action, right, original_action_hash)
+                }
                 EntryTypes::WaterDispute(_) => Ok(ValidateCallbackResult::Valid),
                 _ => Ok(ValidateCallbackResult::Valid),
             },
@@ -461,9 +463,14 @@ fn validate_update_watershed(
 }
 
 fn validate_create_water_right(
-    _action: Create,
+    action: Create,
     right: WaterRight,
 ) -> ExternResult<ValidateCallbackResult> {
+    if right.holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water right holder must match the committing agent".into(),
+        ));
+    }
     if right.volume_authorized_liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Authorized volume must be greater than zero".into(),
@@ -484,10 +491,52 @@ fn validate_create_water_right(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Pure logic for a `WaterRight` update, factored out of
+/// [`validate_update_water_right`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase). The
+/// coordinator's `transfer_right` already checks `right.holder == caller`,
+/// but this is the real DHT-level enforcement a modified coordinator can't
+/// bypass.
+fn validate_water_right_transition(
+    original: &WaterRight,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if *author != original.holder {
+        return ValidateCallbackResult::Invalid(
+            "Water right update must be committed by its holder".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_water_right(
+    action: Update,
+    _right: WaterRight,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(original_action_hash)?;
+    let original_right: WaterRight = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original water right not found".to_string()
+        )))?;
+    Ok(validate_water_right_transition(
+        &original_right,
+        &action.author,
+    ))
+}
+
 fn validate_create_right_transfer(
-    _action: Create,
+    action: Create,
     transfer: RightTransfer,
 ) -> ExternResult<ValidateCallbackResult> {
+    if transfer.from_holder != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Right transfer from_holder must match the committing agent".into(),
+        ));
+    }
     if transfer.volume_liters == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Transfer volume must be greater than zero".into(),
@@ -502,9 +551,14 @@ fn validate_create_right_transfer(
 }
 
 fn validate_create_water_dispute(
-    _action: Create,
+    action: Create,
     dispute: WaterDispute,
 ) -> ExternResult<ValidateCallbackResult> {
+    if dispute.complainant != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Water dispute complainant must match the committing agent".into(),
+        ));
+    }
     if dispute.description.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Dispute description cannot be empty".into(),
@@ -1152,6 +1206,37 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn water_right_forged_holder_rejected() {
+        let mut right = make_water_right();
+        right.holder = fake_agent_2();
+        let result = validate_create_water_right(fake_create(), right);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Water right holder must match the committing agent"
+        );
+    }
+
+    #[test]
+    fn water_right_transition_valid_for_holder() {
+        let right = make_water_right(); // holder: fake_agent()
+        let result = validate_water_right_transition(&right, &fake_agent());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn water_right_transition_rejects_non_holder() {
+        let right = make_water_right(); // holder: fake_agent()
+        let result = validate_water_right_transition(&right, &fake_agent_2());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("must be committed by its holder"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
     fn valid_water_right_passes() {
         let result = validate_create_water_right(fake_create(), make_water_right());
         assert!(is_valid(&result));
@@ -1355,6 +1440,19 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn right_transfer_forged_from_holder_rejected() {
+        let mut transfer = make_right_transfer();
+        transfer.from_holder = fake_agent_2();
+        transfer.to_holder = fake_agent();
+        let result = validate_create_right_transfer(fake_create(), transfer);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Right transfer from_holder must match the committing agent"
+        );
+    }
+
+    #[test]
     fn valid_right_transfer_passes() {
         let result = validate_create_right_transfer(fake_create(), make_right_transfer());
         assert!(is_valid(&result));
@@ -1449,6 +1547,19 @@ mod tests {
     // ========================================================================
     // WATER DISPUTE VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn water_dispute_forged_complainant_rejected() {
+        let mut dispute = make_dispute();
+        dispute.complainant = fake_agent_2();
+        dispute.respondent = fake_agent();
+        let result = validate_create_water_dispute(fake_create(), dispute);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Water dispute complainant must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_water_dispute_passes() {

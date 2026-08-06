@@ -129,12 +129,16 @@ pub fn validate_tier_requirements(claim: &DesciClaim) -> Result<()> {
 pub fn validate_provenance(prov: &Provenance) -> Result<()> {
     // Validate source (non-empty)
     if prov.source.trim().is_empty() {
-        return Err(Error::Validation("Provenance source cannot be empty".to_string()));
+        return Err(Error::Validation(
+            "Provenance source cannot be empty".to_string(),
+        ));
     }
 
     // Validate source_type (non-empty)
     if prov.source_type.trim().is_empty() {
-        return Err(Error::Validation("Provenance source_type cannot be empty".to_string()));
+        return Err(Error::Validation(
+            "Provenance source_type cannot be empty".to_string(),
+        ));
     }
 
     // Validate URL if present
@@ -221,8 +225,7 @@ pub fn validate_keywords(keywords: &[String]) -> Result<()> {
 /// Validate hash format (hexadecimal string)
 pub fn validate_hash_format(hash: &str) -> Result<()> {
     let regex = HASH_REGEX.get_or_init(|| {
-        Regex::new(r"^[a-fA-F0-9]+$")
-            .expect("Static regex pattern '^[a-fA-F0-9]+$' must be valid")
+        Regex::new(r"^[a-fA-F0-9]+$").expect("Static regex pattern '^[a-fA-F0-9]+$' must be valid")
     });
 
     if hash.is_empty() {
@@ -311,9 +314,19 @@ pub fn is_valid_spdx_license(license: &str) -> bool {
 
     // Common SPDX licenses (subset for validation)
     let common_licenses = [
-        "MIT", "Apache-2.0", "GPL-3.0", "GPL-2.0", "LGPL-3.0", "BSD-3-Clause",
-        "BSD-2-Clause", "MPL-2.0", "AGPL-3.0", "CC0-1.0", "CC-BY-4.0",
-        "CC-BY-SA-4.0", "Unlicense",
+        "MIT",
+        "Apache-2.0",
+        "GPL-3.0",
+        "GPL-2.0",
+        "LGPL-3.0",
+        "BSD-3-Clause",
+        "BSD-2-Clause",
+        "MPL-2.0",
+        "AGPL-3.0",
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "Unlicense",
     ];
 
     regex.is_match(license) && common_licenses.contains(&license)
@@ -582,14 +595,16 @@ mod tests {
 
     #[test]
     fn test_validate_provenance_empty_source() {
-        let mut prov = Provenance::new("DOI:10.1234/example".to_string(), "publication".to_string());
+        let mut prov =
+            Provenance::new("DOI:10.1234/example".to_string(), "publication".to_string());
         prov.source = "".to_string();
         assert!(validate_provenance(&prov).is_err());
     }
 
     #[test]
     fn test_validate_provenance_empty_source_type() {
-        let mut prov = Provenance::new("DOI:10.1234/example".to_string(), "publication".to_string());
+        let mut prov =
+            Provenance::new("DOI:10.1234/example".to_string(), "publication".to_string());
         prov.source_type = "".to_string();
         assert!(validate_provenance(&prov).is_err());
     }

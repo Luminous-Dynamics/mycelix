@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use mycelix_bridge_common::{civic_requirement_basic, GovernanceEligibility};
+use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_basic};
 use resonance_feed_integrity::*;
 
 use mycelix_zome_helpers as _;

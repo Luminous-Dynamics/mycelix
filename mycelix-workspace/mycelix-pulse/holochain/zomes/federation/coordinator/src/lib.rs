@@ -164,6 +164,7 @@ pub fn register_network(input: RegisterNetworkInput) -> ExternResult<ActionHash>
         is_active: true,
         capabilities: input.capabilities,
         trust_requirements: input.trust_requirements,
+        owner: agent.clone(),
     };
 
     let hash = create_entry(EntryTypes::FederatedNetwork(network.clone()))?;
@@ -233,7 +234,8 @@ pub fn deactivate_network(network_id: String) -> ExternResult<()> {
 // ==================== ROUTING ====================
 
 /// Check if the calling agent owns a given network
-fn is_network_owner(network_id: &str) -> ExternResult<bool> {
+/// Returns the registration ActionHash of `network_id` if the calling agent owns it.
+fn find_owned_network(network_id: &str) -> ExternResult<Option<ActionHash>> {
     let agent = agent_info()?.agent_initial_pubkey;
     let links = get_links(
         LinkQuery::try_new(agent.clone(), LinkTypes::AgentToOwnedNetworks)?,
@@ -241,31 +243,30 @@ fn is_network_owner(network_id: &str) -> ExternResult<bool> {
     )?;
     for link in links {
         if let Some(hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
+            if let Some(record) = get(hash.clone(), GetOptions::default())? {
                 if let Some(network) = record
                     .entry()
                     .to_app_option::<FederatedNetwork>()
                     .map_err(|e| wasm_error!(e))?
                 {
                     if network.network_id == network_id {
-                        return Ok(true);
+                        return Ok(Some(hash));
                     }
                 }
             }
         }
     }
-    Ok(false)
+    Ok(None)
 }
 
 /// Create a federation route
 #[hdk_extern]
 pub fn create_route(input: CreateRouteInput) -> ExternResult<ActionHash> {
     // Verify caller owns the source network
-    if !is_network_owner(&input.source_network)? {
-        return Err(wasm_error!(WasmErrorInner::Guest(
+    let network_registration_hash =
+        find_owned_network(&input.source_network)?.ok_or(wasm_error!(WasmErrorInner::Guest(
             "Only the network owner can create routes for a network".to_string()
-        )));
-    }
+        )))?;
 
     let now = sys_time()?;
 
@@ -287,6 +288,7 @@ pub fn create_route(input: CreateRouteInput) -> ExternResult<ActionHash> {
         last_used: None,
         success_count: 0,
         failure_count: 0,
+        network_registration_hash,
     };
 
     let hash = create_entry(EntryTypes::FederationRoute(route.clone()))?;
@@ -413,6 +415,7 @@ pub fn send_federated(input: SendFederatedInput) -> ExternResult<SendFederatedOu
         previous_hops: vec![],
         priority: input.priority,
         status: DeliveryStatus::Queued,
+        relay_bridge_registration_hash: None,
     };
 
     let _hash = create_entry(EntryTypes::FederatedEnvelope(envelope.clone()))?;
@@ -552,10 +555,24 @@ fn get_our_network_id() -> ExternResult<String> {
 
 // ==================== MESSAGE RECEIVING ====================
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ReceiveFederatedEnvelopeInput {
+    pub envelope: FederatedEnvelope,
+    /// The receiving/relaying agent's own BridgeAgent registration hash (from
+    /// register_bridge) -- required only when the envelope's source_agent is a genuinely
+    /// foreign (non-Holochain) identity with no signature this validator can check.
+    /// A Holochain-native envelope (source_agent parses as a real AgentPubKey, e.g. a
+    /// direct peer-to-peer RouteType::DirectHolochain delivery) is self-certifying via
+    /// its own embedded signature and needs no bridge registration at all -- pass None.
+    pub relay_bridge_registration_hash: Option<ActionHash>,
+}
+
 /// Handle incoming federated envelope
 #[hdk_extern]
-pub fn receive_federated_envelope(envelope: FederatedEnvelope) -> ExternResult<bool> {
+pub fn receive_federated_envelope(input: ReceiveFederatedEnvelopeInput) -> ExternResult<bool> {
     let our_network = get_our_network_id()?;
+    let mut envelope = input.envelope;
+    envelope.relay_bridge_registration_hash = input.relay_bridge_registration_hash;
 
     // Check if this is for us or needs relay
     if envelope.dest_network == our_network {
@@ -916,7 +933,12 @@ pub fn get_federation_audit_logs(network_id: String) -> ExternResult<Vec<Federat
 pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
     // Try to decode as federated envelope
     if let Ok(envelope) = signal.decode::<FederatedEnvelope>() {
-        receive_federated_envelope(envelope)?;
+        // Direct peer-to-peer delivery (RouteType::DirectHolochain) -- the envelope is
+        // self-certifying via its own embedded signature, no bridge registration needed.
+        receive_federated_envelope(ReceiveFederatedEnvelopeInput {
+            envelope,
+            relay_bridge_registration_hash: None,
+        })?;
     }
 
     Ok(())

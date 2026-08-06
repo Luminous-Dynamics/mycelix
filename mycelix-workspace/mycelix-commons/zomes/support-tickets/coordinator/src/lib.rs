@@ -10,7 +10,7 @@ use mycelix_bridge_common::{civic_requirement_basic, civic_requirement_proposal}
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::records_from_links;
 use support_tickets_integrity::*;
-use support_types::{sharded_anchor, TicketStatus};
+use support_types::{TicketStatus, sharded_anchor};
 
 #[cfg(test)]
 use support_tickets_integrity::{EscalationLevel, SatisfactionSurvey};

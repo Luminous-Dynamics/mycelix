@@ -104,9 +104,7 @@ pub struct StatsResponse {
 /// Create claim request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateClaimRequest {
-    pub tier: EpistemicTier,
     pub content: ClaimContent,
-    pub creator: String,
 }
 
 /// Discovery result from physics catalog search.

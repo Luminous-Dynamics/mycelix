@@ -128,13 +128,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::LandTrust(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::GroundLease(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::LandTrust(trust) => validate_update_trust(action, trust),
+                EntryTypes::GroundLease(lease) => validate_update_lease(action, lease),
                 EntryTypes::ResaleCalculation(_) => Ok(ValidateCallbackResult::Invalid(
                     "Resale calculations are immutable records".into(),
                 )),
@@ -236,10 +236,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_create_trust(
-    _action: Create,
-    trust: LandTrust,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_trust(action: Create, trust: LandTrust) -> ExternResult<ValidateCallbackResult> {
+    if !trust.stewardship_board.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "The committing agent must be a member of the founding stewardship board".into(),
+        ));
+    }
     if trust.id.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Trust ID cannot be empty".into(),
@@ -310,24 +312,18 @@ fn validate_create_trust(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_lease(
-    _action: Create,
-    lease: GroundLease,
-) -> ExternResult<ValidateCallbackResult> {
+/// Pure field validation for a `GroundLease`, factored out of
+/// [`validate_create_lease`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+fn validate_lease_fields(lease: &GroundLease) -> ValidateCallbackResult {
     if lease.lease_term_years == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Lease term must be at least 1 year".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Lease term must be at least 1 year".into());
     }
     if lease.lease_term_years > 199 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Lease term cannot exceed 199 years".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Lease term cannot exceed 199 years".into());
     }
     if lease.expires_at <= lease.started_at {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Lease expiration must be after start date".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Lease expiration must be after start date".into());
     }
     // Validate resale formula consistency
     match lease.resale_formula.formula_type {
@@ -337,16 +333,16 @@ fn validate_create_lease(
                 .max_appreciation_percent_annual
                 .is_none()
             {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "AppreciationCap formula requires max_appreciation_percent_annual".into(),
-                ));
+                );
             }
         }
         FormulaType::AreaMedianIncome => {
             if lease.resale_formula.ami_cap_percent.is_none() {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "AreaMedianIncome formula requires ami_cap_percent".into(),
-                ));
+                );
             }
         }
         FormulaType::ConsumerPriceIndex => {}
@@ -357,13 +353,33 @@ fn validate_create_lease(
                 .is_none()
                 && lease.resale_formula.ami_cap_percent.is_none()
             {
-                return Ok(ValidateCallbackResult::Invalid(
+                return ValidateCallbackResult::Invalid(
                     "Hybrid formula requires at least one cap parameter".into(),
-                ));
+                );
             }
         }
     }
-    Ok(ValidateCallbackResult::Valid)
+    ValidateCallbackResult::Valid
+}
+
+fn validate_create_lease(
+    action: Create,
+    lease: GroundLease,
+) -> ExternResult<ValidateCallbackResult> {
+    let trust_record = must_get_valid_record(lease.trust_hash.clone())?;
+    let trust: LandTrust = trust_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Trust for lease not found".to_string()
+        )))?;
+    if !trust.stewardship_board.contains(&action.author) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only a trust steward can issue a ground lease".into(),
+        ));
+    }
+    Ok(validate_lease_fields(&lease))
 }
 
 fn validate_resale_calc(
@@ -415,15 +431,137 @@ fn validate_affordability_report(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Pure logic for a `LandTrust` update, factored out of
+/// [`validate_update_trust`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+///
+/// Real privilege-escalation fix: the coordinator's update_trust_board had
+/// zero caller-identity check -- any agent could replace any trust's
+/// entire stewardship_board. Requires the committer be a member of the
+/// ORIGINAL (pre-update) board; content otherwise restricted to
+/// stewardship_board only.
+fn validate_trust_transition(
+    original: &LandTrust,
+    trust: &LandTrust,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if !original.stewardship_board.contains(author) {
+        return ValidateCallbackResult::Invalid(
+            "Only an existing stewardship board member can update the trust".into(),
+        );
+    }
+    if trust.id != original.id
+        || trust.name != original.name
+        || trust.mission != original.mission
+        || trust.boundary != original.boundary
+        || trust.charter_hash != original.charter_hash
+        || trust.affordability_target_ami_percent != original.affordability_target_ami_percent
+        || trust.created_at != original.created_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only stewardship_board can change on a trust update".into(),
+        );
+    }
+    if trust.stewardship_board.is_empty() {
+        return ValidateCallbackResult::Invalid(
+            "Trust must have at least one stewardship board member".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_trust(action: Update, trust: LandTrust) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: LandTrust = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original trust not found".to_string()
+        )))?;
+    Ok(validate_trust_transition(&original, &trust, &action.author))
+}
+
+/// Pure logic for a `GroundLease` update, factored out of
+/// [`validate_update_lease`] so it can be unit-tested without a live HDI.
+///
+/// Real privilege-escalation fix: the coordinator's transfer_lease had zero
+/// caller-identity check -- any agent could transfer any ground lease to a
+/// new leaseholder. Requires the committer be either the current
+/// leaseholder (voluntary transfer) or a trust steward (involuntary
+/// reassignment, e.g. eviction) -- the steward check needs a separate
+/// must_get on the trust and is done by the caller. Content otherwise
+/// restricted to leaseholder only.
+fn validate_lease_transition(
+    original: &GroundLease,
+    lease: &GroundLease,
+    author_is_leaseholder_or_steward: bool,
+) -> ValidateCallbackResult {
+    if !author_is_leaseholder_or_steward {
+        return ValidateCallbackResult::Invalid(
+            "Only the current leaseholder or a trust steward can transfer a lease".into(),
+        );
+    }
+    if lease.trust_hash != original.trust_hash
+        || lease.unit_hash != original.unit_hash
+        || lease.lease_term_years != original.lease_term_years
+        || lease.ground_rent_monthly_cents != original.ground_rent_monthly_cents
+        || lease.resale_formula != original.resale_formula
+        || lease.started_at != original.started_at
+        || lease.expires_at != original.expires_at
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only leaseholder can change on a lease update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_lease(
+    action: Update,
+    lease: GroundLease,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: GroundLease = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original lease not found".to_string()
+        )))?;
+    let author_is_leaseholder_or_steward = if action.author == original.leaseholder {
+        true
+    } else {
+        let trust_record = must_get_valid_record(original.trust_hash.clone())?;
+        let trust: LandTrust = trust_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(e))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Trust for lease not found".to_string()
+            )))?;
+        trust.stewardship_board.contains(&action.author)
+    };
+    Ok(validate_lease_transition(
+        &original,
+        &lease,
+        author_is_leaseholder_or_steward,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
+    fn fake_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
     fn fake_create() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            author: fake_agent(),
             timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -465,7 +603,7 @@ mod tests {
                 (45.0, -122.1),
             ],
             charter_hash: Some(action_hash_a()),
-            stewardship_board: vec![agent_a(), agent_b()],
+            stewardship_board: vec![fake_agent(), agent_a(), agent_b()],
             affordability_target_ami_percent: 80,
             created_at: Timestamp::from_micros(1000),
         }
@@ -785,19 +923,31 @@ mod tests {
 
     #[test]
     fn create_trust_empty_stewardship_board() {
+        // An empty board can never contain the committing agent, so this
+        // is now caught by the founding-board-membership bind first.
         let mut t = valid_land_trust();
         t.stewardship_board = vec![];
         assert_invalid(
             validate_create_trust(fake_create(), t),
-            "Trust must have at least one stewardship board member",
+            "must be a member of the founding stewardship board",
         );
     }
 
     #[test]
     fn create_trust_single_board_member() {
         let mut t = valid_land_trust();
-        t.stewardship_board = vec![agent_a()];
+        t.stewardship_board = vec![fake_agent()];
         assert_valid(validate_create_trust(fake_create(), t));
+    }
+
+    #[test]
+    fn create_trust_forged_author_not_on_board_rejected() {
+        let mut t = valid_land_trust();
+        t.stewardship_board = vec![agent_a(), agent_b()]; // fake_agent() not included
+        assert_invalid(
+            validate_create_trust(fake_create(), t),
+            "must be a member of the founding stewardship board",
+        );
     }
 
     #[test]
@@ -841,11 +991,101 @@ mod tests {
         assert_valid(validate_create_trust(fake_create(), t));
     }
 
+    // ── validate_trust_transition (pure update logic) tests ──────────────
+
+    #[test]
+    fn trust_transition_valid_for_existing_board_member() {
+        let original = valid_land_trust();
+        let mut trust = original.clone();
+        trust.stewardship_board = vec![fake_agent(), agent_a()]; // dropping agent_b()
+        let result = validate_trust_transition(&original, &trust, &fake_agent());
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn trust_transition_rejects_non_board_member() {
+        let original = valid_land_trust();
+        let trust = original.clone();
+        let forger = AgentPubKey::from_raw_36(vec![0xef; 36]);
+        let result = validate_trust_transition(&original, &trust, &forger);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("existing stewardship board member"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn trust_transition_rejects_name_change() {
+        let original = valid_land_trust();
+        let mut trust = original.clone();
+        trust.name = "Renamed".to_string();
+        let result = validate_trust_transition(&original, &trust, &fake_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only stewardship_board can change"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn trust_transition_rejects_emptied_board() {
+        let original = valid_land_trust();
+        let mut trust = original.clone();
+        trust.stewardship_board = vec![];
+        let result = validate_trust_transition(&original, &trust, &fake_agent());
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("at least one stewardship board member"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    // ── validate_lease_transition (pure update logic) tests ──────────────
+
+    #[test]
+    fn lease_transition_valid_when_authorized() {
+        let original = valid_ground_lease();
+        let lease = original.clone();
+        let result = validate_lease_transition(&original, &lease, true);
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn lease_transition_rejects_unauthorized() {
+        let original = valid_ground_lease();
+        let lease = original.clone();
+        let result = validate_lease_transition(&original, &lease, false);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("current leaseholder or a trust steward"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn lease_transition_rejects_term_change() {
+        let original = valid_ground_lease();
+        let mut lease = original.clone();
+        lease.lease_term_years = 50;
+        let result = validate_lease_transition(&original, &lease, true);
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only leaseholder can change"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
     // ── validate_create_lease tests ─────────────────────────────────────
 
     #[test]
     fn create_lease_valid() {
-        assert_valid(validate_create_lease(fake_create(), valid_ground_lease()));
+        assert_valid(Ok(validate_lease_fields(&valid_ground_lease())));
     }
 
     #[test]
@@ -853,7 +1093,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.lease_term_years = 0;
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term must be at least 1 year",
         );
     }
@@ -862,7 +1102,7 @@ mod tests {
     fn create_lease_term_at_min() {
         let mut l = valid_ground_lease();
         l.lease_term_years = 1;
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -870,7 +1110,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.lease_term_years = 200;
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term cannot exceed 199 years",
         );
     }
@@ -879,7 +1119,7 @@ mod tests {
     fn create_lease_term_at_max() {
         let mut l = valid_ground_lease();
         l.lease_term_years = 199;
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -887,7 +1127,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.expires_at = Timestamp::from_micros(500);
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease expiration must be after start date",
         );
     }
@@ -897,7 +1137,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.expires_at = l.started_at;
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease expiration must be after start date",
         );
     }
@@ -911,7 +1151,7 @@ mod tests {
             ami_cap_percent: None,
             improvement_credit_percent: None,
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -924,7 +1164,7 @@ mod tests {
             improvement_credit_percent: None,
         };
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "AppreciationCap formula requires max_appreciation_percent_annual",
         );
     }
@@ -938,7 +1178,7 @@ mod tests {
             ami_cap_percent: Some(80),
             improvement_credit_percent: None,
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -951,7 +1191,7 @@ mod tests {
             improvement_credit_percent: None,
         };
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "AreaMedianIncome formula requires ami_cap_percent",
         );
     }
@@ -965,7 +1205,7 @@ mod tests {
             ami_cap_percent: None,
             improvement_credit_percent: None,
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -977,7 +1217,7 @@ mod tests {
             ami_cap_percent: Some(100),
             improvement_credit_percent: Some(50),
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -989,7 +1229,7 @@ mod tests {
             ami_cap_percent: None,
             improvement_credit_percent: None,
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1001,7 +1241,7 @@ mod tests {
             ami_cap_percent: Some(120),
             improvement_credit_percent: None,
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1013,7 +1253,7 @@ mod tests {
             ami_cap_percent: Some(100),
             improvement_credit_percent: Some(75),
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1026,7 +1266,7 @@ mod tests {
             improvement_credit_percent: None,
         };
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Hybrid formula requires at least one cap parameter",
         );
     }
@@ -1035,7 +1275,7 @@ mod tests {
     fn create_lease_zero_ground_rent_ok() {
         let mut l = valid_ground_lease();
         l.ground_rent_monthly_cents = 0;
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     // ── validate_resale_calc tests ──────────────────────────────────────
@@ -1467,7 +1707,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.lease_term_years = 200;
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term cannot exceed 199 years",
         );
     }
@@ -1477,7 +1717,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.lease_term_years = u32::MAX;
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term cannot exceed 199 years",
         );
     }
@@ -1486,7 +1726,7 @@ mod tests {
     fn create_lease_max_ground_rent_ok() {
         let mut l = valid_ground_lease();
         l.ground_rent_monthly_cents = u64::MAX;
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1498,7 +1738,7 @@ mod tests {
             ami_cap_percent: Some(100), // extra field, still valid
             improvement_credit_percent: Some(50),
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1510,7 +1750,7 @@ mod tests {
             ami_cap_percent: Some(80),
             improvement_credit_percent: Some(50),
         };
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     #[test]
@@ -1524,7 +1764,7 @@ mod tests {
             improvement_credit_percent: Some(100),
         };
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Hybrid formula requires at least one cap parameter",
         );
     }
@@ -1534,7 +1774,7 @@ mod tests {
         let mut l = valid_ground_lease();
         l.started_at = Timestamp::from_micros(1000);
         l.expires_at = Timestamp::from_micros(1001);
-        assert_valid(validate_create_lease(fake_create(), l));
+        assert_valid(Ok(validate_lease_fields(&l)));
     }
 
     // ── Additional validate_resale_calc edge-case tests ──────────────────
@@ -1853,7 +2093,7 @@ mod tests {
         l.lease_term_years = 0;
         l.expires_at = l.started_at; // Also invalid, but term is checked first
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term must be at least 1 year",
         );
     }
@@ -1864,7 +2104,7 @@ mod tests {
         l.lease_term_years = 200;
         l.expires_at = l.started_at; // Also invalid, but term > 199 is checked first
         assert_invalid(
-            validate_create_lease(fake_create(), l),
+            Ok(validate_lease_fields(&l)),
             "Lease term cannot exceed 199 years",
         );
     }

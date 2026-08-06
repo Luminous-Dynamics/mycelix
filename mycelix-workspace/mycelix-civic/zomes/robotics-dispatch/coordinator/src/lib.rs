@@ -22,7 +22,7 @@
 
 use hdk::prelude::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, SovereignProfile,
+    SovereignProfile, civic_requirement_basic, civic_requirement_proposal,
 };
 use mycelix_zome_helpers as _;
 

@@ -29,7 +29,7 @@ console_error_panic_hook = "0.1"
 gloo-timers = "0.3"
 
 # Shared Mycelix Leptos infrastructure
-mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
 
 # Cluster types
 commons-leptos-types = { path = "../../crates/commons-leptos-types" }

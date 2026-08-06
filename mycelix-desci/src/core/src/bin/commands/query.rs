@@ -1,7 +1,7 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-use mycelix_desci_core::{claims::DesciClaim, Result};
+use mycelix_desci_core::{Result, claims::DesciClaim};
 use std::path::PathBuf;
 use tracing::info;
 
@@ -46,7 +46,12 @@ pub async fn execute(
 
     // Apply filters
     if let Some(cat) = &category {
-        claims.retain(|c| c.content.category.to_lowercase().contains(&cat.to_lowercase()));
+        claims.retain(|c| {
+            c.content
+                .category
+                .to_lowercase()
+                .contains(&cat.to_lowercase())
+        });
     }
 
     if let Some(tier_str) = &min_tier {
@@ -58,8 +63,14 @@ pub async fn execute(
     if let Some(kw) = &keywords {
         let keywords_lower = kw.to_lowercase();
         claims.retain(|c| {
-            c.content.keywords.iter().any(|k| k.to_lowercase().contains(&keywords_lower))
-                || c.content.description.to_lowercase().contains(&keywords_lower)
+            c.content
+                .keywords
+                .iter()
+                .any(|k| k.to_lowercase().contains(&keywords_lower))
+                || c.content
+                    .description
+                    .to_lowercase()
+                    .contains(&keywords_lower)
         });
     }
 
@@ -76,7 +87,10 @@ pub async fn execute(
         }
         "table" => {
             println!("\nFound {} claims:\n", claims.len());
-            println!("{:<38} {:<6} {:<15} {}", "ID", "Tier", "Category", "Description");
+            println!(
+                "{:<38} {:<6} {:<15} {}",
+                "ID", "Tier", "Category", "Description"
+            );
             println!("{}", "-".repeat(100));
 
             for claim in claims {

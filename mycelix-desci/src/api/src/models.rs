@@ -15,11 +15,9 @@ use uuid::Uuid;
 // =============================================================================
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateClaimRequest {
-    #[schema(value_type = String)]
-    pub tier: EpistemicTier,
     pub content: ClaimContentRequest,
-    pub creator: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -49,8 +47,8 @@ pub struct ClaimResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AddVerificationRequest {
-    pub verifier: String,
     pub signature: Vec<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
@@ -202,4 +200,90 @@ impl From<&mycelix_desci_core::claims::DesciClaim> for ClaimResponse {
             provenance_count: claim.provenance.len(),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn content() -> serde_json::Value {
+        serde_json::json!({
+            "dataset_hash": "blake3:abc",
+            "description": "A scoped claim",
+            "category": "biology",
+            "keywords": ["replication"]
+        })
+    }
+
+    #[test]
+    fn create_claim_rejects_submitter_asserted_identity_and_tier() {
+        let request = serde_json::json!({
+            "tier": "E4",
+            "creator": "did:key:mallory",
+            "content": content()
+        });
+        assert!(serde_json::from_value::<CreateClaimRequest>(request).is_err());
+    }
+
+    #[test]
+    fn verification_rejects_submitter_asserted_actor() {
+        let request = serde_json::json!({
+            "verifier": "did:key:mallory",
+            "signature": [1, 2, 3]
+        });
+        assert!(serde_json::from_value::<AddVerificationRequest>(request).is_err());
+    }
+}
+
+// =============================================================================
+// Canonical Scientific Event API Models
+// =============================================================================
+
+/// Client-signed canonical event plus the optimistic stream sequence expected
+/// by the caller. The JWT subject must exactly match `event.envelope.actor`.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppendScientificEventRequest {
+    pub expected_sequence: u64,
+    pub event: mycelix_desci_core::SignedScientificEvent,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ScientificEventPageQuery {
+    pub from_sequence: Option<u64>,
+    pub limit: Option<usize>,
+}
+
+// =============================================================================
+// Scientific Credential Registry API Models
+// =============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppendScientificCredentialEventRequest {
+    pub expected_sequence: u64,
+    pub event: mycelix_desci_core::SignedScientificCredentialEvent,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ScientificCredentialPageQuery {
+    pub from_sequence: Option<u64>,
+    pub limit: Option<usize>,
+}
+
+// =============================================================================
+// Threshold Credential Governance API Models
+// =============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppendCredentialGovernanceEventRequest {
+    pub expected_sequence: u64,
+    pub event: mycelix_desci_core::SignedCredentialGovernanceEvent,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CredentialGovernancePageQuery {
+    pub from_sequence: Option<u64>,
+    pub limit: Option<usize>,
 }

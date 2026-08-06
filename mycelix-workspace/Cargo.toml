@@ -295,7 +295,7 @@ exclude = [
     "mycelix-core/libs/bootstrap/examples",
     "mycelix-core/libs/differential-privacy/benches",
     "mycelix-core/libs/differential-privacy",
-    "mycelix-core/libs/feldman-dkg",
+    "crates/feldman-dkg",
     "mycelix-core/libs/fl-aggregator.archived-v0.1",
     "mycelix-core/libs/fl-aggregator.archived-v0.1/integration_tests",
     "mycelix-core/libs/homomorphic-encryption/benches",
@@ -315,9 +315,9 @@ exclude = [
     "mycelix-core/libs/luminous-nix/tests",
     "mycelix-core/libs/matl-bridge",
     "mycelix-core/libs/matl-bridge/tests",
-    "mycelix-core/libs/mycelix-core-types/examples",
-    "mycelix-core/libs/mycelix-core-types",
-    "mycelix-core/libs/mycelix-core-types/src/wisdom_engine",
+    "crates/mycelix-core-types/examples",
+    "crates/mycelix-core-types",
+    "crates/mycelix-core-types/src/wisdom_engine",
     "mycelix-core/libs/mycelix-fl/benches",
     "mycelix-core/libs/mycelix-fl/docs",
     "mycelix-core/libs/mycelix-fl/proto",
@@ -531,6 +531,8 @@ exclude = [
     "mycelix-praxis/crates/praxis-standards-ingest",
     "mycelix-praxis/crates/praxis-standards-ingest/src/sources",
     "mycelix-prism/nix",
+    "mycelix-prism/scripts",
+    "mycelix-prism/security",
     "mycelix-prism/prism-dom/fuzz/fuzz_targets",
     "mycelix-prism/prism-ingest/claims",
     "mycelix-prism/prism-ingest/src/bin",
@@ -810,6 +812,12 @@ p256 = "0.13"
 hdk = "=0.6.1"
 hdi = "=0.7.1"
 holochain = "=0.6.1"
+# holochain_client tracks Holochain at a fixed +2 minor offset and, from 0.8.0 on,
+# is released in lockstep from the same repo commit -- so the patch numbers match
+# exactly: client 0.8.1 <-> Holochain 0.6.1. Do NOT "upgrade" to crates.io's
+# max_stable 0.8.3; that one requires holochain_types ^0.6.3, which =0.6.1 cannot
+# satisfy. Verified 2026-07-30 from each version's own published manifest.
+holochain_client = "=0.8.1"
 holochain_types = "=0.6.1"
 holochain_zome_types = "=0.6.1"
 holochain_serialized_bytes = "=0.0.57"
@@ -933,7 +941,7 @@ mutualaid-common = { path = "mycelix-commons/crates/mutualaid-common" }
 mutualaid_common = { path = "mycelix-mutualaid/crates/mutualaid_common" }
 
 support-types = { path = "mycelix-commons/crates/support-types" }
-mycelix-core-types = { path = "mycelix-core/libs/mycelix-core-types" }
+mycelix-core-types = { path = "crates/mycelix-core-types" }
 governance-utils = { path = "mycelix-governance/crates/governance-utils" }
 hearth-types = { path = "mycelix-hearth/crates/hearth-types" }
 hearth-coordinator-common = { path = "mycelix-hearth/crates/hearth-coordinator-common" }

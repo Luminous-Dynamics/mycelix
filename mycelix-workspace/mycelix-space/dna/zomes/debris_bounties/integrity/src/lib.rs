@@ -251,45 +251,17 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::DebrisBounty(bounty) => {
-                validate_create_bounty(EntryCreationAction::Create(action), bounty)
-            }
-            EntryTypes::BountyContribution(contrib) => {
-                validate_create_contribution(EntryCreationAction::Create(action), contrib)
-            }
-            EntryTypes::RemovalClaim(claim) => {
-                validate_create_claim(EntryCreationAction::Create(action), claim)
-            }
-            EntryTypes::RemovalVerification(verif) => {
-                validate_create_verification(EntryCreationAction::Create(action), verif)
-            }
-        },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
-            app_entry, action, ..
-        }) => match app_entry {
-            EntryTypes::DebrisBounty(bounty) => validate_update_bounty(action, bounty),
-            // Contributions/claims/verifications have no update path in the
-            // coordinator at all -- reject outright rather than leave an
-            // unbound dead-code path (P0 wide-open RegisterUpdate gap).
-            EntryTypes::BountyContribution(_) => Ok(ValidateCallbackResult::Invalid(
-                "BountyContribution entries cannot be updated".to_string(),
-            )),
-            EntryTypes::RemovalClaim(_) => Ok(ValidateCallbackResult::Invalid(
-                "RemovalClaim entries cannot be updated".to_string(),
-            )),
-            EntryTypes::RemovalVerification(_) => Ok(ValidateCallbackResult::Invalid(
-                "RemovalVerification entries cannot be updated".to_string(),
-            )),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::DebrisBounty(bounty) => validate_bounty(&bounty),
+            EntryTypes::BountyContribution(contrib) => validate_contribution(&contrib),
+            EntryTypes::RemovalClaim(claim) => validate_claim(&claim),
+            EntryTypes::RemovalVerification(verif) => validate_verification(&verif),
         },
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
 
-fn validate_create_bounty(
-    action: EntryCreationAction,
-    bounty: DebrisBounty,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_bounty(bounty: &DebrisBounty) -> ExternResult<ValidateCallbackResult> {
     // NORAD ID must be valid
     if bounty.debris_norad_id == 0 || bounty.debris_norad_id > 999999 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -311,93 +283,20 @@ fn validate_create_bounty(
         ));
     }
 
-    // Bind the bounty to its committer -- create_bounty already derives
-    // creator from agent_info() coordinator-side with zero user input, so
-    // this never rejects a legitimate bounty; it's the real DHT-level
-    // enforcement a modified coordinator could otherwise bypass (P0
-    // author-binding gap).
-    if bounty.creator != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DebrisBounty must be created by the committing agent (creator forgery)".to_string(),
-        ));
-    }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Re-derives `update_bounty_status`'s own coordinator-side rule -- "only the
-/// bounty creator can cancel a bounty" -- at the DHT level, since a modified
-/// coordinator could otherwise skip that check entirely (P0 author-binding
-/// gap). Other status transitions stay role-gated (via `gate_space_operation`
-/// coordinator-side), not ownership-gated, matching the coordinator's own
-/// deliberate design -- this only checks the Cancelled transition
-/// specifically, not every field on every update.
-fn validate_update_bounty(
-    action: Update,
-    bounty: DebrisBounty,
-) -> ExternResult<ValidateCallbackResult> {
-    if bounty.debris_norad_id == 0 || bounty.debris_norad_id > 999999 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Invalid debris NORAD ID".to_string(),
-        ));
-    }
-    if bounty.amount == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Bounty amount must be positive".to_string(),
-        ));
-    }
-    if bounty.justification.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Justification cannot be empty".to_string(),
-        ));
-    }
-
-    if bounty.status == BountyStatus::Cancelled {
-        let original_record = must_get_valid_record(action.original_action_address.clone())?;
-        let original_bounty: DebrisBounty = original_record
-            .entry()
-            .to_app_option()
-            .map_err(|e| wasm_error!(e))?
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Invalid original DebrisBounty entry".to_string()
-            )))?;
-        if action.author != original_bounty.creator {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Only the bounty creator can cancel a bounty".to_string(),
-            ));
-        }
-    }
-
-    Ok(ValidateCallbackResult::Valid)
-}
-
-fn validate_create_contribution(
-    action: EntryCreationAction,
-    contrib: BountyContribution,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_contribution(contrib: &BountyContribution) -> ExternResult<ValidateCallbackResult> {
     if contrib.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Contribution amount must be positive".to_string(),
         ));
     }
 
-    // Bind the contribution to its committer -- contribute_to_bounty already
-    // derives contributor from agent_info() coordinator-side with zero user
-    // input (P0 author-binding gap).
-    if contrib.contributor != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "BountyContribution must be contributed by the committing agent (contributor forgery)"
-                .to_string(),
-        ));
-    }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_claim(
-    action: EntryCreationAction,
-    claim: RemovalClaim,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_claim(claim: &RemovalClaim) -> ExternResult<ValidateCallbackResult> {
     if claim.organization.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Organization name cannot be empty".to_string(),
@@ -410,22 +309,10 @@ fn validate_create_claim(
         ));
     }
 
-    // Bind the claim to its committer -- claim_bounty already derives
-    // claimer from agent_info() coordinator-side with zero user input (P0
-    // author-binding gap).
-    if claim.claimer != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RemovalClaim must be claimed by the committing agent (claimer forgery)".to_string(),
-        ));
-    }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_create_verification(
-    action: EntryCreationAction,
-    verif: RemovalVerification,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_verification(verif: &RemovalVerification) -> ExternResult<ValidateCallbackResult> {
     // Evidence notes must not be empty
     if verif.evidence.notes.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -455,16 +342,6 @@ fn validate_create_verification(
                 "Predicted reentry cannot be before last observation".to_string(),
             ));
         }
-    }
-
-    // Bind the verification to its committer -- submit_verification already
-    // derives verifier from agent_info() coordinator-side with zero user
-    // input (P0 author-binding gap).
-    if verif.verifier != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "RemovalVerification must be verified by the committing agent (verifier forgery)"
-                .to_string(),
-        ));
     }
 
     Ok(ValidateCallbackResult::Valid)

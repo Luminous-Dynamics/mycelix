@@ -96,32 +96,73 @@ fn entry_from_record<T: TryFrom<SerializedBytes, Error = SerializedBytesError>>(
         })
 }
 
-/// Verify the caller has a guardian-level role (Founder, Elder, or Adult)
-/// within the specified hearth. Returns the caller's membership record.
-fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembership> {
-    let agent = agent_info()?.agent_initial_pubkey;
+/// Resolve only membership records whose embedded hearth hash matches the link
+/// base. This is defense in depth against malformed or legacy links.
+fn membership_records_for_hearth(
+    hearth_hash: &ActionHash,
+) -> ExternResult<Vec<(Record, HearthMembership)>> {
     let links = get_links(
         LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
         GetStrategy::default(),
     )?;
-
+    let mut records = Vec::new();
     for link in links {
         let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid membership link".into())))?;
         if let Some(record) = get_latest_record(target)? {
             let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.agent == agent
-                && membership.status == MembershipStatus::Active
-                && membership.role.is_guardian()
-            {
-                return Ok(membership);
+            if membership.hearth_hash == *hearth_hash {
+                records.push((record, membership));
             }
+        }
+    }
+    Ok(records)
+}
+
+/// Verify the caller has a guardian-level role (Founder, Elder, or Adult)
+/// within the specified hearth. Returns the caller's membership record.
+fn require_guardian_role(hearth_hash: &ActionHash) -> ExternResult<HearthMembership> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    for (_, membership) in membership_records_for_hearth(hearth_hash)? {
+        if membership.agent == agent
+            && membership.status == MembershipStatus::Active
+            && membership.role.is_guardian()
+        {
+            return Ok(membership);
         }
     }
 
     Err(wasm_error!(WasmErrorInner::Guest(
         "Caller does not have guardian-level role (Founder, Elder, or Adult) in this hearth".into()
     )))
+}
+
+fn get_invitation_response_records(invitation_hash: &ActionHash) -> ExternResult<Vec<Record>> {
+    let links = get_links(
+        LinkQuery::try_new(invitation_hash.clone(), LinkTypes::InvitationToResponses)?,
+        GetStrategy::default(),
+    )?;
+    let mut responses = Vec::new();
+    for link in links {
+        let target = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid response link".into())))?;
+        if let Some(record) = get(target, GetOptions::default())? {
+            let response: InvitationResponse = entry_from_record(&record, "InvitationResponse")?;
+            if response.invitation_hash == *invitation_hash {
+                responses.push(record);
+            }
+        }
+    }
+    Ok(responses)
+}
+
+fn require_unanswered_invitation(invitation_hash: &ActionHash) -> ExternResult<()> {
+    if !get_invitation_response_records(invitation_hash)?.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invitation already has a response".into()
+        )));
+    }
+    Ok(())
 }
 
 // ============================================================================
@@ -161,6 +202,7 @@ pub fn create_hearth(input: CreateHearthInput) -> ExternResult<Record> {
         status: MembershipStatus::Active,
         display_name: "Founder".into(),
         joined_at: now,
+        admission: MembershipAdmission::Founder,
     };
     let membership_hash = create_entry(&EntryTypes::HearthMembership(membership))?;
 
@@ -257,7 +299,8 @@ pub fn invite_member(input: InviteMemberInput) -> ExternResult<Record> {
     )))
 }
 
-/// Accept an invitation. Creates a membership and updates invitation status.
+/// Accept an invitation by publishing an immutable invitee-authored response,
+/// then create a membership whose admission proof references that response.
 #[hdk_extern]
 pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
@@ -268,85 +311,113 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    // Retrieve the invitation
     let invitation_record = get(input.invitation_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
-    // Validate status
     if invitation.status != InvitationStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invitation is not Pending, current status: {:?}",
-            invitation.status
-        ))));
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invitation entry is not an immutable Pending invitation".into()
+        )));
     }
-
-    // Check invitation hasn't expired
     if invitation.expires_at < now {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invitation has expired".into()
         )));
     }
-
-    // Validate the caller is the invitee
     if invitation.invitee_agent != agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the invitee can accept this invitation".into()
         )));
     }
+    if input.display_name.is_empty() || input.display_name.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "display_name must contain 1 to 256 characters".into()
+        )));
+    }
+    require_unanswered_invitation(&input.invitation_hash)?;
 
-    // Capture values before invitation is moved by struct update syntax
-    let hearth_hash = invitation.hearth_hash.clone();
-    let proposed_role = invitation.proposed_role.clone();
+    // Best-effort coordinator guard. Integrity validation independently binds
+    // the resulting membership to this exact invitation and response.
+    let hearth_record = get(invitation.hearth_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Hearth not found".into())),
+    )?;
+    let hearth: Hearth = entry_from_record(&hearth_record, "Hearth")?;
+    let mut active_count = 0u32;
+    for (_, member) in membership_records_for_hearth(&invitation.hearth_hash)? {
+        if member.status == MembershipStatus::Active {
+            active_count += 1;
+            if member.agent == agent {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Invitee is already an active member of this hearth".into()
+                )));
+            }
+        }
+    }
+    if active_count >= hearth.max_members {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth has reached its maximum active membership".into()
+        )));
+    }
 
-    // Create membership
-    let membership = HearthMembership {
-        hearth_hash: hearth_hash.clone(),
-        agent: agent.clone(),
-        role: proposed_role.clone(),
-        status: MembershipStatus::Active,
-        display_name: input.display_name,
-        joined_at: now,
+    let response = InvitationResponse {
+        hearth_hash: invitation.hearth_hash.clone(),
+        invitation_hash: input.invitation_hash.clone(),
+        invitee_agent: agent.clone(),
+        decision: InvitationDecision::Accepted,
+        display_name: Some(input.display_name.clone()),
+        responded_at: now,
     };
-    let membership_hash = create_entry(&EntryTypes::HearthMembership(membership))?;
-
-    // Link: Agent -> Hearth
+    let response_hash = create_entry(&EntryTypes::InvitationResponse(response))?;
+    create_link(
+        input.invitation_hash.clone(),
+        response_hash.clone(),
+        LinkTypes::InvitationToResponses,
+        (),
+    )?;
     create_link(
         agent.clone(),
-        hearth_hash.clone(),
-        LinkTypes::AgentToHearths,
+        response_hash.clone(),
+        LinkTypes::AgentToInvitationResponses,
         (),
     )?;
 
-    // Link: Hearth -> Membership
+    let membership = HearthMembership {
+        hearth_hash: invitation.hearth_hash.clone(),
+        agent: agent.clone(),
+        role: invitation.proposed_role.clone(),
+        status: MembershipStatus::Active,
+        display_name: input.display_name,
+        joined_at: now,
+        admission: MembershipAdmission::Invitation {
+            invitation_hash: input.invitation_hash,
+            response_hash,
+        },
+    };
+    let membership_hash = create_entry(&EntryTypes::HearthMembership(membership))?;
+
     create_link(
-        hearth_hash.clone(),
+        agent.clone(),
+        invitation.hearth_hash.clone(),
+        LinkTypes::AgentToHearths,
+        (),
+    )?;
+    create_link(
+        invitation.hearth_hash.clone(),
         membership_hash.clone(),
         LinkTypes::HearthToMembers,
         (),
     )?;
 
-    // Update invitation status to Accepted
-    let updated_invitation = HearthInvitation {
-        status: InvitationStatus::Accepted,
-        ..invitation
-    };
-    update_entry(
-        input.invitation_hash,
-        &EntryTypes::HearthInvitation(updated_invitation),
-    )?;
-
-    // Emit signal
     emit_signal(&HearthSignal::MemberJoined {
-        hearth_hash: hearth_hash.clone(),
-        agent: agent.clone(),
-        role: proposed_role.clone(),
+        hearth_hash: invitation.hearth_hash.clone(),
+        agent,
+        role: invitation.proposed_role.clone(),
     })?;
 
-    // H4: Re-evaluate auto social recovery if the new member is a guardian
-    if proposed_role.is_guardian() {
-        let _ = propose_auto_recovery(&hearth_hash);
+    if invitation.proposed_role.is_guardian() {
+        let _ = propose_auto_recovery(&invitation.hearth_hash);
     }
 
     get(membership_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -354,7 +425,7 @@ pub fn accept_invitation(input: AcceptInvitationInput) -> ExternResult<Record> {
     )))
 }
 
-/// Decline an invitation. Updates the invitation status to Declined.
+/// Decline an invitation by publishing an immutable invitee-authored response.
 #[hdk_extern]
 pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
     let _eligibility = mycelix_zome_helpers::require_civic(
@@ -363,38 +434,69 @@ pub fn decline_invitation(invitation_hash: ActionHash) -> ExternResult<Record> {
         "decline_invitation",
     )?;
     let agent = agent_info()?.agent_initial_pubkey;
+    let now = sys_time()?;
 
     let invitation_record = get(invitation_hash.clone(), GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Invitation not found".into())),
     )?;
     let invitation: HearthInvitation = entry_from_record(&invitation_record, "HearthInvitation")?;
 
-    // Validate the caller is the invitee
+    if invitation.status != InvitationStatus::Pending {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invitation entry is not an immutable Pending invitation".into()
+        )));
+    }
+    if invitation.expires_at < now {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invitation has expired".into()
+        )));
+    }
     if invitation.invitee_agent != agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the invitee can decline this invitation".into()
         )));
     }
+    require_unanswered_invitation(&invitation_hash)?;
 
-    if invitation.status != InvitationStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invitation is not Pending, current status: {:?}",
-            invitation.status
-        ))));
-    }
-
-    let updated_invitation = HearthInvitation {
-        status: InvitationStatus::Declined,
-        ..invitation
+    let response = InvitationResponse {
+        hearth_hash: invitation.hearth_hash,
+        invitation_hash: invitation_hash.clone(),
+        invitee_agent: agent.clone(),
+        decision: InvitationDecision::Declined,
+        display_name: None,
+        responded_at: now,
     };
-    let new_hash = update_entry(
+    let response_hash = create_entry(&EntryTypes::InvitationResponse(response))?;
+    create_link(
         invitation_hash,
-        &EntryTypes::HearthInvitation(updated_invitation),
+        response_hash.clone(),
+        LinkTypes::InvitationToResponses,
+        (),
+    )?;
+    create_link(
+        agent,
+        response_hash.clone(),
+        LinkTypes::AgentToInvitationResponses,
+        (),
     )?;
 
-    get(new_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not retrieve updated invitation".into()
+    get(response_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not retrieve invitation response".into()
     )))
+}
+
+/// Return the known immutable response for an invitation.
+/// Multiple responses indicate a concurrent or malicious fork and fail closed.
+#[hdk_extern]
+pub fn get_invitation_resolution(invitation_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let responses = get_invitation_response_records(&invitation_hash)?;
+    match responses.len() {
+        0 => Ok(None),
+        1 => Ok(responses.into_iter().next()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Invitation has conflicting response records".into()
+        ))),
+    }
 }
 
 // ============================================================================
@@ -432,21 +534,12 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
 
     // If the departing member is a Founder, check that they are not the last one
     if membership.role == MemberRole::Founder {
-        let links = get_links(
-            LinkQuery::try_new(membership.hearth_hash.clone(), LinkTypes::HearthToMembers)?,
-            GetStrategy::default(),
-        )?;
-        let mut founder_count = 0u32;
-        for link in links {
-            let target = ActionHash::try_from(link.target)
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-            if let Some(member_record) = get(target, GetOptions::default())? {
-                let m: HearthMembership = entry_from_record(&member_record, "HearthMembership")?;
-                if m.role == MemberRole::Founder && m.status == MembershipStatus::Active {
-                    founder_count += 1;
-                }
-            }
-        }
+        let founder_count = membership_records_for_hearth(&membership.hearth_hash)?
+            .into_iter()
+            .filter(|(_, member)| {
+                member.role == MemberRole::Founder && member.status == MembershipStatus::Active
+            })
+            .count() as u32;
         if founder_count <= 1 {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Cannot leave: you are the last Founder. Transfer Founder role first.".into()
@@ -471,39 +564,14 @@ pub fn leave_hearth(membership_hash: ActionHash) -> ExternResult<Record> {
     )))
 }
 
-/// Update a member's role. Caller must be Founder or Elder.
+/// Role mutation is intentionally unavailable until Hearth has an immutable,
+/// integrity-verifiable governance transition model. Updating a member-authored
+/// membership entry would either fail author validation for guardians or permit
+/// self-promotion by the member.
 #[hdk_extern]
-pub fn update_member_role(input: UpdateMemberRoleInput) -> ExternResult<Record> {
-    let _eligibility = mycelix_zome_helpers::require_civic(
-        "hearth_bridge",
-        &civic_requirement_voting(),
-        "update_member_role",
-    )?;
-    let record = get(input.membership_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Membership not found".into())
-    ))?;
-    let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-
-    // Validate caller has Founder or Elder role
-    let caller_membership = require_guardian_role(&membership.hearth_hash)?;
-    if caller_membership.role != MemberRole::Founder && caller_membership.role != MemberRole::Elder
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only Founders and Elders can update member roles".into()
-        )));
-    }
-
-    let updated = HearthMembership {
-        role: input.new_role,
-        ..membership
-    };
-    let new_hash = update_entry(
-        input.membership_hash,
-        &EntryTypes::HearthMembership(updated),
-    )?;
-
-    get(new_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not retrieve updated membership".into()
+pub fn update_member_role(_input: UpdateMemberRoleInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Role changes are disabled until governance-authorized membership revisions are implemented".into()
     )))
 }
 
@@ -525,24 +593,15 @@ pub fn create_kinship_bond(input: CreateBondInput) -> ExternResult<Record> {
     let initial_strength = input.initial_strength_bp.unwrap_or(BOND_BASE_FAMILY);
 
     // Verify both caller and member_b are active members of this hearth
-    let member_links = get_links(
-        LinkQuery::try_new(input.hearth_hash.clone(), LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
     let mut caller_is_member = false;
     let mut member_b_is_member = false;
-    for link in member_links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.status == MembershipStatus::Active {
-                if membership.agent == agent {
-                    caller_is_member = true;
-                }
-                if membership.agent == input.member_b {
-                    member_b_is_member = true;
-                }
+    for (_, membership) in membership_records_for_hearth(&input.hearth_hash)? {
+        if membership.status == MembershipStatus::Active {
+            if membership.agent == agent {
+                caller_is_member = true;
+            }
+            if membership.agent == input.member_b {
+                member_b_is_member = true;
             }
         }
         if caller_is_member && member_b_is_member {
@@ -746,22 +805,11 @@ pub fn is_guardian(hearth_hash: ActionHash) -> ExternResult<bool> {
 #[hdk_extern]
 pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
     let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash, LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-
-    for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.agent == agent && membership.status == MembershipStatus::Active {
-                return Ok(membership.role.default_vote_weight_bp());
-            }
+    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
+        if membership.agent == agent && membership.status == MembershipStatus::Active {
+            return Ok(membership.role.default_vote_weight_bp());
         }
     }
-
     Ok(0)
 }
 
@@ -771,22 +819,11 @@ pub fn get_caller_vote_weight(hearth_hash: ActionHash) -> ExternResult<u32> {
 #[hdk_extern]
 pub fn get_caller_role(hearth_hash: ActionHash) -> ExternResult<Option<MemberRole>> {
     let agent = agent_info()?.agent_initial_pubkey;
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash, LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-
-    for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.agent == agent && membership.status == MembershipStatus::Active {
-                return Ok(Some(membership.role));
-            }
+    for (_, membership) in membership_records_for_hearth(&hearth_hash)? {
+        if membership.agent == agent && membership.status == MembershipStatus::Active {
+            return Ok(Some(membership.role));
         }
     }
-
     Ok(None)
 }
 
@@ -794,24 +831,10 @@ pub fn get_caller_role(hearth_hash: ActionHash) -> ExternResult<Option<MemberRol
 /// Used by decisions zome for participation rate calculation.
 #[hdk_extern]
 pub fn get_active_member_count(hearth_hash: ActionHash) -> ExternResult<u32> {
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash, LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-
-    let mut count: u32 = 0;
-    for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.status == MembershipStatus::Active {
-                count += 1;
-            }
-        }
-    }
-
-    Ok(count)
+    Ok(membership_records_for_hearth(&hearth_hash)?
+        .into_iter()
+        .filter(|(_, membership)| membership.status == MembershipStatus::Active)
+        .count() as u32)
 }
 
 /// Compute the recovery threshold: 60% of adult_count, rounded up.
@@ -822,20 +845,10 @@ fn recovery_threshold(adult_count: usize) -> usize {
 /// H4: Propose auto social recovery if the hearth has >= 3 adult-level members.
 /// Cross-cluster call to identity cluster is best-effort (don't block on failure).
 fn propose_auto_recovery(hearth_hash: &ActionHash) -> ExternResult<()> {
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash.clone(), LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-
     let mut adult_agents: Vec<AgentPubKey> = Vec::new();
-    for link in links {
-        let target = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get_latest_record(target)? {
-            let membership: HearthMembership = entry_from_record(&record, "HearthMembership")?;
-            if membership.status == MembershipStatus::Active && membership.role.is_guardian() {
-                adult_agents.push(membership.agent);
-            }
+    for (_, membership) in membership_records_for_hearth(hearth_hash)? {
+        if membership.status == MembershipStatus::Active && membership.role.is_guardian() {
+            adult_agents.push(membership.agent);
         }
     }
 
@@ -896,11 +909,10 @@ fn propose_auto_recovery(hearth_hash: &ActionHash) -> ExternResult<()> {
 /// Get all members of a hearth.
 #[hdk_extern]
 pub fn get_hearth_members(hearth_hash: ActionHash) -> ExternResult<Vec<Record>> {
-    let links = get_links(
-        LinkQuery::try_new(hearth_hash, LinkTypes::HearthToMembers)?,
-        GetStrategy::default(),
-    )?;
-    records_from_links(links)
+    Ok(membership_records_for_hearth(&hearth_hash)?
+        .into_iter()
+        .map(|(record, _)| record)
+        .collect())
 }
 
 /// Get all hearths the calling agent belongs to.
@@ -1339,6 +1351,7 @@ mod tests {
             status,
             display_name: "test".into(),
             joined_at: Timestamp::from_micros(0),
+            admission: MembershipAdmission::Founder,
         }
     }
 

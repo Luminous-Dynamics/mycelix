@@ -9,6 +9,7 @@
 //! The Mirror shows the fractal health of the whole.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -744,9 +745,22 @@ fn validate_update_council(
 
 /// Validate membership creation
 fn validate_create_membership(
-    _action: Create,
+    action: Create,
     membership: CouncilMembership,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committer. A forged `member_did` seats an impersonated member on a council. `join_council` (councils/coordinator:582) takes `member_did` from input with only a length check; joining is self-service (the sole create site is inside that fn, and no approve-flow creates membership for a third party).
+    //
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, governance Class-A.)
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "CouncilMembership",
+        "member_did",
+        &membership.member_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     match check_create_membership(&membership) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
         Err(msg) => Ok(ValidateCallbackResult::Invalid(msg)),
@@ -790,6 +804,45 @@ mod tests {
 
     fn ts(micros: i64) -> Timestamp {
         Timestamp::from_micros(micros)
+    }
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()` attributes actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    #[test]
+    fn author_binding_accepts_the_committing_agent() {
+        let mut e = make_membership();
+        e.member_did = test_author_did();
+        let result = validate_create_membership(make_create(), e).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn author_binding_rejects_a_forged_member_did() {
+        let mut e = make_membership();
+        e.member_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_create_membership(make_create(), e).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => assert!(
+                msg.contains("CouncilMembership") && msg.contains("forgery"),
+                "got: {msg}"
+            ),
+            other => panic!("forged member_did must be rejected, got {other:?}"),
+        }
     }
 
     fn make_council() -> Council {

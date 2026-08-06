@@ -290,9 +290,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_reading(
-    _action: Create,
+    action: Create,
     reading: QualityReading,
 ) -> ExternResult<ValidateCallbackResult> {
+    if reading.sampler != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Quality reading sampler must match the committing agent".into(),
+        ));
+    }
     // Potability score must be finite and in [0, 1]
     if !reading.potability_score.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -336,9 +341,14 @@ fn validate_create_reading(
 }
 
 fn validate_create_alert(
-    _action: Create,
+    action: Create,
     alert: ContaminationAlert,
 ) -> ExternResult<ValidateCallbackResult> {
+    if alert.reported_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Contamination alert reported_by must match the committing agent".into(),
+        ));
+    }
     if alert.contaminant.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Contaminant name cannot be empty".into(),
@@ -414,10 +424,17 @@ fn validate_create_remediation(
 }
 
 fn validate_update_remediation(
-    _action: Update,
+    action: Update,
     remediation: Remediation,
     _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    if let Some(verifier) = &remediation.verified_by
+        && *verifier != action.author
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the named verifier can set verified_by on a remediation".into(),
+        ));
+    }
     if remediation.method.len() > 4096 {
         return Ok(ValidateCallbackResult::Invalid(
             "Remediation method must be 4096 characters or fewer".into(),
@@ -574,6 +591,18 @@ mod tests {
     // ========================================================================
     // QUALITY READING VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn quality_reading_forged_sampler_rejected() {
+        let mut reading = make_quality_reading();
+        reading.sampler = fake_agent_2();
+        let result = validate_create_reading(fake_create(), reading);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Quality reading sampler must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_quality_reading_passes() {
@@ -814,6 +843,18 @@ mod tests {
     // ========================================================================
     // CONTAMINATION ALERT VALIDATION TESTS
     // ========================================================================
+
+    #[test]
+    fn contamination_alert_forged_reported_by_rejected() {
+        let mut alert = make_contamination_alert();
+        alert.reported_by = fake_agent_2();
+        let result = validate_create_alert(fake_create(), alert);
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Contamination alert reported_by must match the committing agent"
+        );
+    }
 
     #[test]
     fn valid_contamination_alert_passes() {
@@ -1070,29 +1111,56 @@ mod tests {
         assert!(is_valid(&result));
     }
 
+    fn fake_update(author: AgentPubKey) -> Update {
+        Update {
+            author,
+            timestamp: Timestamp::from_micros(1000),
+            action_seq: 1,
+            prev_action: fake_action_hash(),
+            original_action_address: fake_action_hash(),
+            original_entry_address: fake_entry_hash(),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: fake_entry_hash(),
+            weight: EntryRateWeight::default(),
+        }
+    }
+
     #[test]
-    fn update_remediation_always_valid() {
-        let remediation = make_remediation();
+    fn update_remediation_without_verifier_valid() {
+        let remediation = make_remediation(); // verified_by: None
+        let result =
+            validate_update_remediation(fake_update(fake_agent()), remediation, fake_action_hash());
+        assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn update_remediation_by_named_verifier_valid() {
+        let mut remediation = make_remediation();
+        remediation.verified_by = Some(fake_agent_2());
         let result = validate_update_remediation(
-            Update {
-                author: fake_agent(),
-                timestamp: Timestamp::from_micros(1000),
-                action_seq: 1,
-                prev_action: fake_action_hash(),
-                original_action_address: fake_action_hash(),
-                original_entry_address: fake_entry_hash(),
-                entry_type: EntryType::App(AppEntryDef::new(
-                    EntryDefIndex(0),
-                    ZomeIndex(0),
-                    EntryVisibility::Public,
-                )),
-                entry_hash: fake_entry_hash(),
-                weight: EntryRateWeight::default(),
-            },
+            fake_update(fake_agent_2()),
             remediation,
             fake_action_hash(),
         );
         assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn update_remediation_forged_verifier_rejected() {
+        let mut remediation = make_remediation();
+        remediation.verified_by = Some(fake_agent_2());
+        // Committing agent (fake_agent()) isn't the named verifier (fake_agent_2()).
+        let result =
+            validate_update_remediation(fake_update(fake_agent()), remediation, fake_action_hash());
+        assert!(is_invalid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Only the named verifier can set verified_by on a remediation"
+        );
     }
 
     // ========================================================================

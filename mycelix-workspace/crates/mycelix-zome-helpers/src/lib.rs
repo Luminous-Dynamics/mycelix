@@ -54,9 +54,8 @@ pub fn my_custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 
 #[allow(deprecated)] // require_consciousness kept for backward compat
 use mycelix_bridge_common::{
-    gate_consciousness,
-    sovereign_gate::{gate_civic, CivicRequirement},
-    GovernanceEligibility, GovernanceRequirement,
+    GovernanceEligibility, GovernanceRequirement, gate_consciousness,
+    sovereign_gate::{CivicRequirement, gate_civic},
 };
 
 // ============================================================================

@@ -14,13 +14,14 @@ pub fn SubmitPage() -> impl IntoView {
     let (keywords, set_keywords) = signal(String::new());
     let (dataset_hash, set_dataset_hash) = signal(String::new());
     let (license, set_license) = signal("CC-BY-4.0".to_string());
-    let (creator, set_creator) = signal(String::new());
     let (submitted, set_submitted) = signal(false);
 
     // Auto-LEM classification preview using WASM catalog search
     let lem_preview = move || {
         let desc = description.get();
-        if desc.len() < 10 { return ("—".to_string(), "—".to_string(), "—".to_string(), None); }
+        if desc.len() < 10 {
+            return ("—".to_string(), "—".to_string(), "—".to_string(), None);
+        }
 
         // Run WASM structural search
         let catalog = symthaea_physics_catalog::catalog::PhysicsCatalog::new();
@@ -32,22 +33,37 @@ pub fn SubmitPage() -> impl IntoView {
 
         // E-axis from keywords (simulation confidence proxy)
         let desc_lower = desc.to_lowercase();
-        let e = if desc_lower.contains("replicated") || desc_lower.contains("reproduced") { "E3" }
-                else if desc_lower.contains("verified") || desc_lower.contains("confirmed") { "E2" }
-                else if desc_lower.contains("observed") || desc_lower.contains("measured") { "E1" }
-                else { "E0" };
+        let e = if desc_lower.contains("replicated") || desc_lower.contains("reproduced") {
+            "E3"
+        } else if desc_lower.contains("verified") || desc_lower.contains("confirmed") {
+            "E2"
+        } else if desc_lower.contains("observed") || desc_lower.contains("measured") {
+            "E1"
+        } else {
+            "E0"
+        };
 
         // N-axis from catalog similarity
-        let n = if similarity > 0.9 { "N3" }
-                else if similarity > 0.6 { "N2" }
-                else if similarity > 0.3 { "N1" }
-                else { "N0" };
+        let n = if similarity > 0.9 {
+            "N3"
+        } else if similarity > 0.6 {
+            "N2"
+        } else if similarity > 0.3 {
+            "N1"
+        } else {
+            "N0"
+        };
 
         // M-axis from domain keywords
-        let m = if desc_lower.contains("relativity") || desc_lower.contains("quantum") { "M3" }
-                else if desc_lower.contains("nuclear") || desc_lower.contains("electromagnetic") { "M2" }
-                else if desc_lower.contains("fluid") || desc_lower.contains("thermal") { "M1" }
-                else { "M0" };
+        let m = if desc_lower.contains("relativity") || desc_lower.contains("quantum") {
+            "M3"
+        } else if desc_lower.contains("nuclear") || desc_lower.contains("electromagnetic") {
+            "M2"
+        } else if desc_lower.contains("fluid") || desc_lower.contains("thermal") {
+            "M1"
+        } else {
+            "M0"
+        };
 
         (e.to_string(), n.to_string(), m.to_string(), nearest)
     };
@@ -60,7 +76,6 @@ pub fn SubmitPage() -> impl IntoView {
         let cat = category.get();
         leptos::task::spawn_local(async move {
             let req = crate::types::CreateClaimRequest {
-                tier: crate::types::EpistemicTier::E0,
                 content: crate::types::ClaimContent {
                     dataset_hash: String::new(),
                     description: desc,
@@ -70,7 +85,6 @@ pub fn SubmitPage() -> impl IntoView {
                     reproducibility_score: None,
                     license: None,
                 },
-                creator: "anonymous".to_string(),
             };
             let _ = crate::api::create_claim(&req).await;
         });
@@ -136,12 +150,10 @@ pub fn SubmitPage() -> impl IntoView {
                                     on:input=move |ev| { use wasm_bindgen::JsCast; let t: web_sys::HtmlInputElement = ev.target().unwrap().unchecked_into(); set_keywords.set(t.value()); }
                                 />
                             </div>
-                            <div>
-                                <label style="font-size: 0.875rem; color: var(--text-secondary); display: block; margin-bottom: 0.375rem;">"Creator / Author"</label>
-                                <input type="text" placeholder="Your name or institution"
-                                    style="width: 100%; padding: 0.5rem; background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 0.375rem; color: var(--text-primary); font-size: 0.875rem;"
-                                    on:input=move |ev| { use wasm_bindgen::JsCast; let t: web_sys::HtmlInputElement = ev.target().unwrap().unchecked_into(); set_creator.set(t.value()); }
-                                />
+                            <div style="display: flex; align-items: end;">
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                                    "The authenticated account is recorded as the creator; author identity is never accepted from this form."
+                                </p>
                             </div>
                         </div>
 

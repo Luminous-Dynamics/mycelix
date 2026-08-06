@@ -46,6 +46,7 @@ pub fn initialize_sap_balance(member_did: String) -> ExternResult<Record> {
         balance: 0,
         last_demurrage_at: now,
         exemption: None,
+        justified_by: None,
     };
 
     let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
@@ -164,6 +165,7 @@ pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
     let (record, bal) = get_sap_balance_inner(&member_did)?;
     let updated = SapBalance {
         exemption: None,
+        justified_by: None,
         ..bal
     };
     let action_hash = update_entry(
@@ -459,6 +461,7 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
             balance: input.amount,
             last_demurrage_at: now,
             exemption: None,
+            justified_by: None,
         };
         let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
         create_link(

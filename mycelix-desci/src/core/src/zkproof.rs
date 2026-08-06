@@ -52,10 +52,7 @@ impl ZKStatement {
             proof_type: ZKProofType::VerificationThreshold,
             claim_id,
             public_params: params,
-            description: format!(
-                "Claim has at least {} verifications",
-                min_count
-            ),
+            description: format!("Claim has at least {} verifications", min_count),
         }
     }
 
@@ -347,9 +344,7 @@ impl ZKProver {
         proof.challenge = challenge;
         proof.response = response;
         proof.is_valid = true;
-        proof
-            .proof_data
-            .insert("has_experts".into(), "true".into());
+        proof.proof_data.insert("has_experts".into(), "true".into());
 
         Ok(proof)
     }
@@ -365,7 +360,8 @@ impl ZKProver {
             .get("creator")
             .ok_or(ZKProofError::InvalidStatement)?;
 
-        let creator_id = Uuid::parse_str(creator_str).map_err(|_| ZKProofError::InvalidStatement)?;
+        let creator_id =
+            Uuid::parse_str(creator_str).map_err(|_| ZKProofError::InvalidStatement)?;
 
         // Check for conflicts with creator
         let has_conflict = witness
@@ -388,9 +384,7 @@ impl ZKProver {
         proof.challenge = challenge;
         proof.response = response;
         proof.is_valid = true;
-        proof
-            .proof_data
-            .insert("no_conflict".into(), "true".into());
+        proof.proof_data.insert("no_conflict".into(), "true".into());
 
         Ok(proof)
     }
@@ -436,8 +430,10 @@ impl ZKVerifier {
         }
 
         // Recompute challenge
-        let expected_challenge =
-            simple_hash(&format!("{}:{:?}", proof.commitment, proof.statement.claim_id));
+        let expected_challenge = simple_hash(&format!(
+            "{}:{:?}",
+            proof.commitment, proof.statement.claim_id
+        ));
 
         if proof.challenge != expected_challenge {
             return false;

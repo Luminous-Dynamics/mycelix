@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.92"
 license = "AGPL-3.0-or-later"
 authors = ["Tristan Stoltz <tristan.stoltz@evolvingresonantcocreationism.com>"]
-description = "Shared dual-backend ZKP verification library for Mycelix — RISC0 + Winterfell + Dilithium5"
+description = "Shared authenticated proof envelopes and circuit-specific ZKP primitives for Mycelix"
 keywords = ["zkp", "stark", "dilithium", "holochain", "dastark"]
 categories = ["cryptography", "wasm"]
 repository = "https://github.com/luminous-dynamics/mycelix"
@@ -15,13 +15,13 @@ default = []
 
 # Backend selection — each zome enables only what it needs
 # This keeps WASM size within Holochain's ~5MB practical limit
-backend-risc0 = []          # RISC0 zkVM verifier (~300-500KB WASM)
+backend-risc0 = []          # Structural adapter only; no RISC Zero dependency is linked
 backend-winterfell = [       # Winterfell STARK verifier (~200-400KB WASM)
     "dep:winterfell",
     "dep:winter-math",
     "dep:winter-crypto",
 ]
-backend-dual = ["backend-risc0", "backend-winterfell"]
+backend-dual = ["backend-risc0", "backend-winterfell"] # Compatibility feature; RISC0 remains structural-only
 backend-miden = [                # Miden VM ZK-STARK (actual zero-knowledge)
     "dep:miden-vm",
     "dep:miden-core",

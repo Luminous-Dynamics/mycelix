@@ -3,8 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Mycelix-DeSci REST API Server
 //!
-//! Production-grade REST API for the Mycelix-DeSci platform.
-//! Provides HTTP interface for claims, queries, trust management, and more.
+//! Experimental REST API for the Mycelix-DeSci refoundation.
+//! Canonical scientific writes use governed signed events; mutable claim routes remain compatibility-only.
 
 use axum::{
     Router,
@@ -58,6 +58,7 @@ async fn main() -> Result<()> {
 
     // Start background workers
     background::start_quantum_anchor(Arc::clone(&state));
+    background::start_authority_outbox_publisher(Arc::clone(&state));
 
     // Build application
     let app = create_app(Arc::clone(&state), &config.cors_allowed_origins);

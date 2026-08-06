@@ -3,18 +3,19 @@
 
 //! The Founding Ceremony — creating a Hearth is a threshold crossing.
 //!
-//! Four passages:
-//! 1. The Naming — give your hearth a name (ember-glow letter reveal)
-//! 2. The Intention — what kind of family is this?
-//! 3. The First Light — candle-lighting animation when created on-chain
-//! 4. The Invitation — who will you bring to this fire?
-//!
-//! Campfire flames flicker in the background throughout.
+//! Demo mode previews the ceremony locally. Live mode creates a private clone,
+//! writes the founder-authored Hearth record to that exact cell, decodes the
+//! returned record, and only then reveals the First Light passage.
 
+use hearth_leptos_types::HearthType;
 use leptos::prelude::*;
-use crate::components::{HearthFlame, FlameMode};
+use leptos::task::spawn_local;
+use mycelix_leptos_core::holochain_provider::use_holochain;
 
-/// Which stage of the founding ceremony we're in.
+use crate::components::{FlameMode, HearthFlame};
+use crate::hearth_context::{request_live_refresh, use_hearth};
+use crate::hearth_founding::found_private_hearth;
+
 #[derive(Clone, Copy, PartialEq)]
 enum CeremonyStage {
     Naming,
@@ -23,7 +24,6 @@ enum CeremonyStage {
     Invitation,
 }
 
-/// Hearth type — displayed as visual cards during The Intention.
 #[derive(Clone, Copy, PartialEq)]
 enum HearthKind {
     Chosen,
@@ -43,6 +43,7 @@ impl HearthKind {
             Self::CoPod => "Co-Living Pod",
         }
     }
+
     fn description(self) -> &'static str {
         match self {
             Self::Chosen => "The people you chose. Bonds of intention, not just blood.",
@@ -52,6 +53,7 @@ impl HearthKind {
             Self::CoPod => "Housemates, co-workers, creative collaborators.",
         }
     }
+
     fn icon(self) -> &'static str {
         match self {
             Self::Chosen => "\u{1F91D}",
@@ -61,13 +63,14 @@ impl HearthKind {
             Self::CoPod => "\u{2728}",
         }
     }
-    fn zome_value(self) -> &'static str {
+
+    fn hearth_type(self) -> HearthType {
         match self {
-            Self::Chosen => "Chosen",
-            Self::Nuclear => "Nuclear",
-            Self::Extended => "Extended",
-            Self::Intentional => "Intentional",
-            Self::CoPod => "CoPod",
+            Self::Chosen => HearthType::Chosen,
+            Self::Nuclear => HearthType::Nuclear,
+            Self::Extended => HearthType::Extended,
+            Self::Intentional => HearthType::Intentional,
+            Self::CoPod => HearthType::CoPod,
         }
     }
 }
@@ -82,22 +85,31 @@ const ALL_KINDS: [HearthKind; 5] = [
 
 #[component]
 pub fn FoundingCeremony() -> impl IntoView {
+    let hc = use_holochain();
+    let hearth = use_hearth();
+    let is_demo = hc.is_mock();
+
     let (stage, set_stage) = signal(CeremonyStage::Naming);
     let (hearth_name, set_hearth_name) = signal(String::new());
     let (hearth_kind, set_hearth_kind) = signal(None::<HearthKind>);
-    let (invite_did, set_invite_did) = signal(String::new());
-    let (created, set_created) = signal(false);
+    let (founding, set_founding) = signal(false);
+    let (founding_error, set_founding_error) = signal(None::<String>);
+    let (created_clone_id, set_created_clone_id) = signal(None::<String>);
+
+    let hc_for_readiness = hc.clone();
+    let live_ready = Memo::new(move |_| is_demo || hc_for_readiness.zome_calls_ready());
+    let hc_for_submit = hc.clone();
+    let hearth_for_submit = hearth.clone();
 
     view! {
         <div class="founding-ceremony">
-            // ── Campfire Flames Background ──
             <HearthFlame mode=FlameMode::Full />
 
-            // ── Stage Content ──
             <div class="ceremony-content">
-                // Stage 1: The Naming
                 {move || {
-                    if stage.get() != CeremonyStage::Naming { return view! { <div /> }.into_any(); }
+                    if stage.get() != CeremonyStage::Naming {
+                        return view! { <div /> }.into_any();
+                    }
                     view! {
                         <div class="ceremony-stage naming-stage">
                             <h1 class="ceremony-title">"The Naming"</h1>
@@ -113,35 +125,27 @@ pub fn FoundingCeremony() -> impl IntoView {
                                     placeholder="..."
                                     maxlength="64"
                                     autofocus=true
-                                    on:input=move |ev| {
-                                        set_hearth_name.set(event_target_value(&ev));
-                                    }
+                                    on:input=move |ev| set_hearth_name.set(event_target_value(&ev))
                                     prop:value=hearth_name
                                 />
                                 <div class="naming-underline" />
                             </div>
-                            {move || {
-                                let name = hearth_name.get();
-                                if name.len() >= 2 {
-                                    view! {
-                                        <button
-                                            class="ceremony-btn"
-                                            on:click=move |_| set_stage.set(CeremonyStage::Intention)
-                                        >
-                                            "continue"
-                                        </button>
-                                    }.into_any()
-                                } else {
-                                    view! { <div /> }.into_any()
-                                }
-                            }}
+                            {move || (hearth_name.get().trim().chars().count() >= 2).then(|| view! {
+                                <button
+                                    class="ceremony-btn"
+                                    on:click=move |_| set_stage.set(CeremonyStage::Intention)
+                                >
+                                    "continue"
+                                </button>
+                            })}
                         </div>
                     }.into_any()
                 }}
 
-                // Stage 2: The Intention
                 {move || {
-                    if stage.get() != CeremonyStage::Intention { return view! { <div /> }.into_any(); }
+                    if stage.get() != CeremonyStage::Intention {
+                        return view! { <div /> }.into_any();
+                    }
                     view! {
                         <div class="ceremony-stage intention-stage">
                             <h1 class="ceremony-title">"The Intention"</h1>
@@ -152,45 +156,94 @@ pub fn FoundingCeremony() -> impl IntoView {
                             </p>
                             <div class="intention-grid">
                                 {ALL_KINDS.iter().map(|kind| {
-                                    let k = *kind;
-                                    let selected = move || hearth_kind.get() == Some(k);
+                                    let kind = *kind;
                                     view! {
                                         <button
-                                            class=move || if selected() { "intention-card selected" } else { "intention-card" }
-                                            on:click=move |_| set_hearth_kind.set(Some(k))
+                                            class=move || if hearth_kind.get() == Some(kind) {
+                                                "intention-card selected"
+                                            } else {
+                                                "intention-card"
+                                            }
+                                            disabled=founding
+                                            on:click=move |_| set_hearth_kind.set(Some(kind))
                                         >
-                                            <span class="intention-icon">{k.icon()}</span>
-                                            <span class="intention-label">{k.label()}</span>
-                                            <span class="intention-desc">{k.description()}</span>
+                                            <span class="intention-icon">{kind.icon()}</span>
+                                            <span class="intention-label">{kind.label()}</span>
+                                            <span class="intention-desc">{kind.description()}</span>
                                         </button>
                                     }
                                 }).collect::<Vec<_>>()}
                             </div>
-                            {move || {
-                                if hearth_kind.get().is_some() {
-                                    view! {
-                                        <button
-                                            class="ceremony-btn"
-                                            on:click=move |_| {
-                                                set_created.set(true);
-                                                set_stage.set(CeremonyStage::FirstLight);
-                                                // TODO: zome call to create_hearth
+
+                            <Show when=move || founding_error.get().is_some()>
+                                <p class="ceremony-error" role="alert">
+                                    {move || founding_error.get().unwrap_or_default()}
+                                </p>
+                            </Show>
+
+                            {move || hearth_kind.get().map(|kind| {
+                                let hc = hc_for_submit.clone();
+                                let hearth = hearth_for_submit.clone();
+                                view! {
+                                    <button
+                                        class="ceremony-btn"
+                                        disabled=move || {
+                                            founding.get() || !live_ready.get()
+                                        }
+                                        on:click=move |_| {
+                                            if founding.get_untracked() {
+                                                return;
                                             }
-                                        >
-                                            "light the fire"
-                                        </button>
-                                    }.into_any()
-                                } else {
-                                    view! { <div /> }.into_any()
+                                            set_founding_error.set(None);
+                                            if is_demo {
+                                                set_stage.set(CeremonyStage::FirstLight);
+                                                return;
+                                            }
+
+                                            set_founding.set(true);
+                                            let hc = hc.clone();
+                                            let hearth = hearth.clone();
+                                            let name = hearth_name.get_untracked();
+                                            spawn_local(async move {
+                                                match found_private_hearth(&hc, name, kind.hearth_type()).await {
+                                                    Ok(founded) => {
+                                                        hearth.current_hearth.set(Some(founded.hearth));
+                                                        set_created_clone_id.set(Some(
+                                                            founded.clone_cell.clone_id,
+                                                        ));
+                                                        request_live_refresh(hearth, hc);
+                                                        set_stage.set(CeremonyStage::FirstLight);
+                                                    }
+                                                    Err(error) => set_founding_error.set(Some(error)),
+                                                }
+                                                set_founding.set(false);
+                                            });
+                                        }
+                                    >
+                                        {move || if founding.get() {
+                                            "lighting the private fire…"
+                                        } else if is_demo {
+                                            "preview the first light"
+                                        } else {
+                                            "light the private fire"
+                                        }}
+                                    </button>
                                 }
-                            }}
+                            })}
+
+                            <Show when=move || !live_ready.get()>
+                                <p class="ceremony-status" role="status">
+                                    "Live founding waits for an authenticated conductor and authorized signer."
+                                </p>
+                            </Show>
                         </div>
                     }.into_any()
                 }}
 
-                // Stage 3: The First Light
                 {move || {
-                    if stage.get() != CeremonyStage::FirstLight { return view! { <div /> }.into_any(); }
+                    if stage.get() != CeremonyStage::FirstLight {
+                        return view! { <div /> }.into_any();
+                    }
                     view! {
                         <div class="ceremony-stage firstlight-stage">
                             <div class="candle-animation">
@@ -198,57 +251,54 @@ pub fn FoundingCeremony() -> impl IntoView {
                                 <div class="candle-flame-inner" />
                                 <div class="candle-glow-expand" />
                             </div>
-                            <h1 class="ceremony-title firstlight-title">
-                                {hearth_name}
-                            </h1>
+                            <h1 class="ceremony-title firstlight-title">{hearth_name}</h1>
                             <p class="ceremony-prompt firstlight-subtitle">
-                                "has been lit"
+                                {if is_demo {
+                                    "is glowing in this local preview"
+                                } else {
+                                    "has been lit in its private network"
+                                }}
                             </p>
                             <button
                                 class="ceremony-btn"
                                 on:click=move |_| set_stage.set(CeremonyStage::Invitation)
                             >
-                                "enter"
+                                "continue"
                             </button>
                         </div>
                     }.into_any()
                 }}
 
-                // Stage 4: The Invitation
                 {move || {
-                    if stage.get() != CeremonyStage::Invitation { return view! { <div /> }.into_any(); }
+                    if stage.get() != CeremonyStage::Invitation {
+                        return view! { <div /> }.into_any();
+                    }
+                    let href = if is_demo {
+                        "/?mode=demo".to_string()
+                    } else {
+                        created_clone_id
+                            .get()
+                            .map(|clone_id| crate::hearth_clone::live_clone_url(&clone_id))
+                            .unwrap_or_else(|| "/?mode=live".into())
+                    };
                     view! {
                         <div class="ceremony-stage invitation-stage">
                             <h1 class="ceremony-title">"The Invitation"</h1>
-                            <p class="ceremony-prompt">
-                                "Who will you bring to this fire?"
-                            </p>
-                            <div class="naming-input-wrap">
-                                <input
-                                    type="text"
-                                    class="naming-input"
-                                    placeholder="their name or DID..."
-                                    on:input=move |ev| {
-                                        set_invite_did.set(event_target_value(&ev));
-                                    }
-                                    prop:value=invite_did
-                                />
-                                <div class="naming-underline" />
+                            <p class="ceremony-prompt">"Who will you bring to this fire?"</p>
+                            <div class="ceremony-truth-note" role="note">
+                                {if is_demo {
+                                    "Invitation is not sent in Demo mode."
+                                } else {
+                                    "A DID alone cannot join this private network. Share an encrypted clone handoff first, then invite the agent after they have joined."
+                                }}
                             </div>
                             <div class="invitation-actions">
-                                {move || {
-                                    if invite_did.get().len() >= 2 {
-                                        view! {
-                                            <button class="ceremony-btn">
-                                                "send invitation"
-                                            </button>
-                                        }.into_any()
+                                <a href=href class="ceremony-btn">
+                                    {if is_demo {
+                                        "enter the demo hearth"
                                     } else {
-                                        view! { <div /> }.into_any()
-                                    }
-                                }}
-                                <a href="/" class="ceremony-skip">
-                                    "enter alone for now"
+                                        "enter the private hearth"
+                                    }}
                                 </a>
                             </div>
                         </div>

@@ -158,15 +158,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Member(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::MemberApplication(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::WaitListEntry(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::RentToOwnAgreement(agreement) => validate_update_agreement(agreement),
+                // No live update_entry call for Member (confirmed via grep
+                // of the coordinator) -- previously silently accepted any
+                // field change. Made explicitly immutable.
+                EntryTypes::Member(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Member records are immutable".into(),
+                )),
+                EntryTypes::MemberApplication(app) => validate_update_application(action, app),
+                // No live update_entry call for WaitListEntry either.
+                EntryTypes::WaitListEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Waitlist entries are immutable".into(),
+                )),
+                EntryTypes::RentToOwnAgreement(agreement) => {
+                    validate_update_agreement(action, agreement)
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -289,10 +299,53 @@ fn validate_create_member(_action: Create, member: Member) -> ExternResult<Valid
     }
 }
 
-fn validate_create_application(
-    _action: Create,
+/// No author requirement on update: review_application/approve_member both
+/// change only `status`, with zero caller-identity check in the
+/// coordinator (no board/admin role concept exists here to bind against).
+/// Content is restricted to status only -- this closes the wide-open bug
+/// that previously let applicant/requested_unit/membership_type_requested/
+/// household_size/references change unconditionally on update too.
+fn validate_update_application(
+    action: Update,
     app: MemberApplication,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: MemberApplication = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original application not found".to_string()
+        )))?;
+    if app.applicant != original.applicant
+        || app.requested_unit != original.requested_unit
+        || app.membership_type_requested != original.membership_type_requested
+        || app.applied_at != original.applied_at
+        || app.household_size != original.household_size
+        || app.income_verified != original.income_verified
+        || app.references != original.references
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status can change on an application update".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_application(
+    action: Create,
+    app: MemberApplication,
+) -> ExternResult<ValidateCallbackResult> {
+    // Author-binding: submit_application previously took the FULL struct
+    // straight from caller input with ZERO derivation from agent_info() --
+    // any agent could forge a victim agent as applicant. This binding is
+    // also what makes approve_member's downstream Member.agent := applicant
+    // derivation safe.
+    if app.applicant != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Application applicant must correspond to the committing agent".into(),
+        ));
+    }
     if app.household_size == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Household size must be at least 1".into(),
@@ -357,20 +410,54 @@ fn validate_create_agreement(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_agreement(
-    agreement: RentToOwnAgreement,
-) -> ExternResult<ValidateCallbackResult> {
+/// Pure field-level validation for a `RentToOwnAgreement` update, factored
+/// out of [`validate_update_agreement`] so it can be unit-tested without a
+/// live HDI (`must_get_valid_record` has no test mock in this codebase).
+fn validate_agreement_fields(agreement: &RentToOwnAgreement) -> ValidateCallbackResult {
     if agreement.equity_portion_percent > 100 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Equity portion percent cannot exceed 100".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Equity portion percent cannot exceed 100".into());
     }
     if agreement.accumulated_equity_cents > agreement.total_purchase_price_cents {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Accumulated equity cannot exceed purchase price".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// No author requirement on update: record_rent_payment has zero
+/// caller-identity check either. Content restricted to
+/// accumulated_equity_cents/status -- closes the wide-open bug that
+/// previously let member/unit_hash/total_purchase_price_cents/
+/// monthly_rent_cents/equity_portion_percent change unconditionally on
+/// update too (the applicant's own binding above would otherwise have
+/// been pointless if the update path could silently reassign an agreement
+/// to a different member).
+fn validate_update_agreement(
+    action: Update,
+    agreement: RentToOwnAgreement,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: RentToOwnAgreement = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original agreement not found".to_string()
+        )))?;
+    if agreement.member != original.member
+        || agreement.unit_hash != original.unit_hash
+        || agreement.total_purchase_price_cents != original.total_purchase_price_cents
+        || agreement.monthly_rent_cents != original.monthly_rent_cents
+        || agreement.equity_portion_percent != original.equity_portion_percent
+        || agreement.started_at != original.started_at
+        || agreement.target_completion != original.target_completion
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only accumulated_equity_cents/status can change on an agreement update".into(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(validate_agreement_fields(&agreement))
 }
 
 /// Helper trait for member validation
@@ -394,7 +481,7 @@ mod tests {
 
     fn fake_create() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            author: agent_a(),
             timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -410,6 +497,10 @@ mod tests {
 
     fn agent_a() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn agent_b() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![2u8; 36])
     }
 
     fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
@@ -884,6 +975,16 @@ mod tests {
     }
 
     #[test]
+    fn create_application_forged_applicant_rejected() {
+        let mut app = valid_application();
+        app.applicant = agent_b();
+        assert_invalid(
+            validate_create_application(fake_create(), app),
+            "Application applicant must correspond to the committing agent",
+        );
+    }
+
+    #[test]
     fn create_application_household_size_zero_invalid() {
         let mut app = valid_application();
         app.household_size = 0;
@@ -1175,7 +1276,7 @@ mod tests {
     fn update_agreement_valid() {
         let mut a = valid_agreement();
         a.accumulated_equity_cents = 10000;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     #[test]
@@ -1183,7 +1284,7 @@ mod tests {
         let mut a = valid_agreement();
         a.equity_portion_percent = 101;
         assert_invalid(
-            validate_update_agreement(a),
+            Ok(validate_agreement_fields(&a)),
             "Equity portion percent cannot exceed 100",
         );
     }
@@ -1192,7 +1293,7 @@ mod tests {
     fn update_agreement_equity_percent_100_valid() {
         let mut a = valid_agreement();
         a.equity_portion_percent = 100;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     #[test]
@@ -1201,7 +1302,7 @@ mod tests {
         a.total_purchase_price_cents = 100_000;
         a.accumulated_equity_cents = 100_001;
         assert_invalid(
-            validate_update_agreement(a),
+            Ok(validate_agreement_fields(&a)),
             "Accumulated equity cannot exceed purchase price",
         );
     }
@@ -1211,14 +1312,14 @@ mod tests {
         let mut a = valid_agreement();
         a.total_purchase_price_cents = 100_000;
         a.accumulated_equity_cents = 100_000;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     #[test]
     fn update_agreement_accumulated_zero_valid() {
         let mut a = valid_agreement();
         a.accumulated_equity_cents = 0;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     #[test]
@@ -1231,7 +1332,7 @@ mod tests {
         ] {
             let mut a = valid_agreement();
             a.status = status;
-            assert_valid(validate_update_agreement(a));
+            assert_valid(Ok(validate_agreement_fields(&a)));
         }
     }
 
@@ -1242,7 +1343,7 @@ mod tests {
         a.total_purchase_price_cents = 250_000_00;
         a.accumulated_equity_cents = 250_000_00;
         a.equity_portion_percent = 100;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     #[test]
@@ -1253,7 +1354,7 @@ mod tests {
         a.total_purchase_price_cents = 100;
         a.accumulated_equity_cents = 200;
         assert_invalid(
-            validate_update_agreement(a),
+            Ok(validate_agreement_fields(&a)),
             "Equity portion percent cannot exceed 100",
         );
     }
@@ -1265,7 +1366,7 @@ mod tests {
         a.accumulated_equity_cents = u64::MAX;
         a.monthly_rent_cents = u64::MAX;
         a.equity_portion_percent = 100;
-        assert_valid(validate_update_agreement(a));
+        assert_valid(Ok(validate_agreement_fields(&a)));
     }
 
     // ── equity_portion_percent_valid unit tests ─────────────────────────

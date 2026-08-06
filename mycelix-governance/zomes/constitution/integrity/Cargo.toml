@@ -9,6 +9,7 @@ description = "Governance constitution integrity zome"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+mycelix-bridge-entry-types = { path = "../../../../crates/mycelix-bridge-entry-types" }
 hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 serde = { workspace = true }

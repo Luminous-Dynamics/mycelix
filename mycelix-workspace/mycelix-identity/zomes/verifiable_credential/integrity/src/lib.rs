@@ -307,6 +307,13 @@ pub enum LinkTypes {
     IssuerToRequest,
     /// Requester to their requests
     RequesterToRequest,
+    /// Credential ID string to the credential, so `get_credential` can resolve
+    /// a credential by ID over the DHT. Without this index a by-ID lookup can
+    /// only see the caller's own source chain, which silently returns None for
+    /// any credential issued to or by somebody else.
+    ///
+    /// Appended last on purpose: existing variants keep their ordinals.
+    CredentialIdToCredential,
 }
 
 #[hdk_extern]
@@ -362,6 +369,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::SchemaToCredential => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::IssuerToRequest => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::RequesterToRequest => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::CredentialIdToCredential => Ok(ValidateCallbackResult::Valid),
             }
         }
         FlatOp::RegisterDeleteLink {

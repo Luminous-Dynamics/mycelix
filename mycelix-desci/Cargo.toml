@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "src/types",
     "src/core",
     "src/api",
     "src/cli",
@@ -31,17 +32,33 @@ ed25519-dalek = "2.2"
 rand = "0.8"
 hex = "0.4"
 
-# Holochain DHT (for P2P data sharing) -- native client. Verified via
-# `cargo info` + the holochain_client crate's own published manifest that
-# the "stable" numbered lines (0.5.x, 0.6.x, 0.7.x non-dev) are internally
-# inconsistent on crates.io today (holochain_client and holochain_types
-# each pin a DIFFERENT exact holochain_serialized_bytes -> incompatible
-# exact serde versions -- confirmed no committed Cargo.lock anywhere in
-# this monorepo has ever actually resolved holochain_client, so those
-# pins were untested). The dev-prerelease track is the one that's
-# actually self-consistent right now; this is the exact matched set
-# holochain_client 0.9.0-dev.32's own Cargo.toml requires internally
-# (holochain_types ^0.7.0-dev.31, holochain_zome_types ^0.7.0-dev.20).
+# Holochain DHT (for P2P data sharing) -- native client, on the 0.7-dev
+# prerelease generation.
+#
+# CORRECTION 2026-07-30: the note that used to sit here justified this pin
+# with two claims that are both FALSE, and it should not be cited again:
+#   1. "the stable numbered lines are internally inconsistent on crates.io
+#      today (client and types each pin a DIFFERENT exact
+#      holochain_serialized_bytes -> incompatible exact serde)". Not true of
+#      the stable line that matters: holochain_client 0.8.1 has NO
+#      holochain_serialized_bytes dependency at all and requires only
+#      serde ^1.0. The exact-serde pin comes from holochain_serialized_bytes
+#      itself (0.0.55 -> =1.0.203, 0.0.57 -> =1.0.228), which Holochain 0.6.1
+#      already pins to =0.0.57 -- so serde is ALREADY locked at 1.0.228
+#      workspace-wide and the client adds no new constraint.
+#   2. "confirmed no committed Cargo.lock anywhere in this monorepo has ever
+#      actually resolved holochain_client". Four do, including THIS crate's
+#      own Cargo.lock (0.9.0-dev.32), symthaea/isolated/
+#      symthaea-mycelix-holochain (0.6.0, a stable line),
+#      kosmic-lab/holochain/tests, and pulse-smtp-gateway.
+#
+# A real `cargo generate-lockfile` proof of client =0.8.1 + holochain =0.6.1
+# + types =0.6.1 + lair =0.6.3 succeeds (776 packages). So staying on the
+# 0.7-dev line here is a CHOICE, not a forced move. The set below is the
+# matched one holochain_client 0.9.0-dev.32 requires internally
+# (holochain_types ^0.7.0-dev.31, holochain_zome_types ^0.7.0-dev.20);
+# to move to the stable conductor generation, use client =0.8.1 with
+# types/zome_types =0.6.1.
 # Matches the generation pulse-smtp-gateway already uses (see that
 # crate's Cargo.toml comment) -- turns out not to be an unusual
 # exception but the only currently-buildable native-client generation.
@@ -65,6 +82,7 @@ tracing-subscriber = "0.3"
 # UUID and time
 uuid = { version = "1.23", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
 
 # CLI
 clap = { version = "4.6", features = ["derive"] }

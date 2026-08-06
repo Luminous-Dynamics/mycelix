@@ -145,12 +145,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 app_entry, action, ..
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::FactCheck(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Fact checks cannot be updated".into(),
+                EntryTypes::FactCheck(check) => validate_update_fact_check(action, check),
+                // No live update_entry call for SourceCredibility (confirmed
+                // via grep of the coordinator -- it always create_entry's a
+                // fresh record). Made explicitly immutable, matching the
+                // standalone mycelix-media reference.
+                EntryTypes::SourceCredibility(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Source credibility records are immutable".into(),
                 )),
-                EntryTypes::SourceCredibility(source) => {
-                    validate_update_source_credibility(action, source)
-                }
                 EntryTypes::FactCheckDispute(dispute) => {
                     validate_update_fact_check_dispute(action, dispute)
                 }
@@ -181,10 +183,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { tag, action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(
-                original_action.action().author(),
-                &action.author,
-            );
+            let result = check_link_author_match(original_action.action().author(), &action.author);
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -334,22 +333,9 @@ fn validate_create_source_credibility(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_source_credibility(
-    _action: Update,
-    source: SourceCredibility,
-) -> ExternResult<ValidateCallbackResult> {
-    if !source.credibility_score.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "credibility_score must be a finite number".into(),
-        ));
-    }
-    if source.credibility_score < 0.0 || source.credibility_score > 1.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Credibility must be 0-1".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
+// validate_update_source_credibility no longer exists: SourceCredibility
+// updates are now rejected outright at the dispatcher (immutable;
+// confirmed no live coordinator update flow exists for it).
 
 fn validate_create_fact_check_dispute(
     _action: EntryCreationAction,
@@ -398,10 +384,99 @@ fn validate_create_fact_check_dispute(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_fact_check_dispute(
-    _action: Update,
-    _dispute: FactCheckDispute,
+/// Pure content validation for the fields `validate_update_fact_check`
+/// allows to change (evidence/verdict), factored out for unit-testability
+/// without a live HDI (`must_get_valid_record` has no test mock in this
+/// codebase). Mirrors the evidence checks in `validate_create_fact_check`.
+fn validate_fact_check_update_fields(check: &FactCheck) -> ValidateCallbackResult {
+    for item in &check.evidence {
+        if item.description.len() > 4096 {
+            return ValidateCallbackResult::Invalid(
+                "Evidence description too long (max 4096 chars)".into(),
+            );
+        }
+        if let Some(ref url) = item.source_url {
+            if url.len() > 2048 {
+                return ValidateCallbackResult::Invalid(
+                    "Evidence source URL too long (max 2048 chars)".into(),
+                );
+            }
+        }
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// Fixes a real pre-existing functional bug, not just a security gap: this
+/// validator previously rejected ALL FactCheck updates outright ("Fact
+/// checks cannot be updated"), but the coordinator's `add_evidence`/
+/// `update_verdict` both call `update_entry` on FactCheck (confirmed via
+/// grep) -- meaning those two coordinator functions were completely
+/// non-functional, always failing DHT validation. Fixed by allowing
+/// exactly the fields those two flows change (evidence, verdict),
+/// content-restricted via must_get.
+///
+/// `checker_did`/`disputer_did` are free-form Strings with no local
+/// DID-to-agent verification convention -- disclosed, not fixed:
+/// `add_evidence`/`update_verdict` compare `check.checker_did` against a
+/// caller-supplied `requester_did`, both attacker-controlled,
+/// authenticating nothing. Not fixable at the integrity layer without
+/// inventing an unverified convention or a larger authority-model
+/// feature.
+fn validate_update_fact_check(
+    action: Update,
+    check: FactCheck,
 ) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: FactCheck = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original fact check not found".to_string()
+        )))?;
+    if check.id != original.id
+        || check.publication_id != original.publication_id
+        || check.claim_text != original.claim_text
+        || check.claim_location != original.claim_location
+        || check.epistemic_position != original.epistemic_position
+        || check.checker_did != original.checker_did
+        || check.checked != original.checked
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only evidence/verdict can change on a fact check update".into(),
+        ));
+    }
+    Ok(validate_fact_check_update_fields(&check))
+}
+
+/// resolve_dispute has NO authorization check of any kind at the
+/// coordinator level (no authority model exists to bind against; anyone
+/// can resolve anyone's dispute -- a real but separate gap, not fixed
+/// here). Content restricted to status/resolved, the only two fields
+/// resolve_dispute ever changes.
+fn validate_update_fact_check_dispute(
+    action: Update,
+    dispute: FactCheckDispute,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: FactCheckDispute = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original dispute not found".to_string()
+        )))?;
+    if dispute.id != original.id
+        || dispute.fact_check_id != original.fact_check_id
+        || dispute.disputer_did != original.disputer_did
+        || dispute.reason != original.reason
+        || dispute.counter_evidence != original.counter_evidence
+        || dispute.created != original.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only status/resolved can change on a dispute update".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -450,24 +525,6 @@ mod tests {
 
     fn fake_entry_creation_action() -> EntryCreationAction {
         EntryCreationAction::Create(fake_create())
-    }
-
-    fn fake_update() -> Update {
-        Update {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 1,
-            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
-            original_action_address: ActionHash::from_raw_36(vec![0u8; 36]),
-            original_entry_address: EntryHash::from_raw_36(vec![0u8; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
-            weight: EntryRateWeight::default(),
-        }
     }
 
     fn ts() -> Timestamp {
@@ -777,48 +834,65 @@ mod tests {
         assert!(is_valid(&result));
     }
 
+    // validate_update_source_credibility no longer exists: SourceCredibility
+    // updates are now rejected outright at the dispatcher (immutable), so
+    // its content-check tests no longer apply.
+
     // ========================================================================
-    // SOURCE CREDIBILITY UPDATE VALIDATION TESTS
+    // FACT CHECK UPDATE FIELD-CONTENT TESTS
+    // (validate_update_fact_check itself needs a live HDI, so these
+    // exercise the extracted pure validate_fact_check_update_fields
+    // helper directly)
     // ========================================================================
 
     #[test]
-    fn update_source_credibility_valid_passes() {
-        let result = validate_update_source_credibility(fake_update(), make_source_credibility());
+    fn fact_check_update_fields_valid_passes() {
+        let result = Ok(validate_fact_check_update_fields(&make_fact_check()));
         assert!(is_valid(&result));
     }
 
     #[test]
-    fn update_source_credibility_below_zero_rejected() {
-        let mut sc = make_source_credibility();
-        sc.credibility_score = -0.01;
-        let result = validate_update_source_credibility(fake_update(), sc);
+    fn fact_check_update_fields_empty_evidence_passes() {
+        let mut fc = make_fact_check();
+        fc.evidence = vec![];
+        let result = Ok(validate_fact_check_update_fields(&fc));
+        assert!(is_valid(&result));
+    }
+
+    #[test]
+    fn fact_check_update_fields_evidence_description_over_limit_rejected() {
+        let mut fc = make_fact_check();
+        fc.evidence = vec![EvidenceItem {
+            source_type: SourceType::PrimarySource,
+            source_url: None,
+            source_did: None,
+            description: "d".repeat(4097),
+            supports_claim: true,
+        }];
+        let result = Ok(validate_fact_check_update_fields(&fc));
         assert!(is_invalid(&result));
-        assert_eq!(invalid_msg(&result), "Credibility must be 0-1");
+        assert_eq!(
+            invalid_msg(&result),
+            "Evidence description too long (max 4096 chars)"
+        );
     }
 
     #[test]
-    fn update_source_credibility_above_one_rejected() {
-        let mut sc = make_source_credibility();
-        sc.credibility_score = 1.01;
-        let result = validate_update_source_credibility(fake_update(), sc);
+    fn fact_check_update_fields_evidence_source_url_over_limit_rejected() {
+        let mut fc = make_fact_check();
+        fc.evidence = vec![EvidenceItem {
+            source_type: SourceType::PrimarySource,
+            source_url: Some("u".repeat(2049)),
+            source_did: None,
+            description: "ok".into(),
+            supports_claim: true,
+        }];
+        let result = Ok(validate_fact_check_update_fields(&fc));
         assert!(is_invalid(&result));
-        assert_eq!(invalid_msg(&result), "Credibility must be 0-1");
-    }
-
-    #[test]
-    fn update_source_credibility_boundary_zero_passes() {
-        let mut sc = make_source_credibility();
-        sc.credibility_score = 0.0;
-        let result = validate_update_source_credibility(fake_update(), sc);
-        assert!(is_valid(&result));
-    }
-
-    #[test]
-    fn update_source_credibility_boundary_one_passes() {
-        let mut sc = make_source_credibility();
-        sc.credibility_score = 1.0;
-        let result = validate_update_source_credibility(fake_update(), sc);
-        assert!(is_valid(&result));
+        assert_eq!(
+            invalid_msg(&result),
+            "Evidence source URL too long (max 2048 chars)"
+        );
     }
 
     // ========================================================================
@@ -920,33 +994,15 @@ mod tests {
         assert!(is_valid(&result));
     }
 
-    // ========================================================================
-    // FACT CHECK DISPUTE UPDATE VALIDATION TESTS
-    // ========================================================================
+    // validate_update_fact_check_dispute now needs a live HDI
+    // (must_get_valid_record has no test mock in this codebase, matching
+    // standalone's own testing posture -- it has no unit tests for this
+    // function either), so the old "update validation has no checks"
+    // tests no longer apply and aren't replaced with a mocked equivalent.
 
-    #[test]
-    fn update_dispute_always_passes() {
-        let result = validate_update_fact_check_dispute(fake_update(), make_dispute());
-        assert!(is_valid(&result));
-    }
-
-    #[test]
-    fn update_dispute_with_empty_reason_passes() {
-        // Update validation has no checks; it always returns Valid
-        let mut dispute = make_dispute();
-        dispute.reason = "".into();
-        let result = validate_update_fact_check_dispute(fake_update(), dispute);
-        assert!(is_valid(&result));
-    }
-
-    #[test]
-    fn update_dispute_with_bad_did_passes() {
-        // Update validation has no checks
-        let mut dispute = make_dispute();
-        dispute.disputer_did = "not-a-did".into();
-        let result = validate_update_fact_check_dispute(fake_update(), dispute);
-        assert!(is_valid(&result));
-    }
+    // validate_update_fact_check likewise needs a live HDI; see the
+    // "FACT CHECK UPDATE FIELD-CONTENT TESTS" section below for the
+    // extracted-pure-helper coverage that IS testable.
 
     // ========================================================================
     // NEW FIELD-LEVEL VALIDATION TESTS (Fix #6)

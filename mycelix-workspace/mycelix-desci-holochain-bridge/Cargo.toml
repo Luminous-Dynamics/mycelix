@@ -1,0 +1,33 @@
+[workspace]
+# Own workspace root, deliberately: this directory sits under
+# mycelix-workspace/, whose Cargo.toml would otherwise auto-absorb it into
+# the giant top-level workspace (matching the established pattern used by
+# mycelix-desci and every other crate in that file's own comments marked
+# "own [workspace] - cannot be a member of another workspace"). Staying out
+# is the entire point -- see the package description below.
+
+[package]
+name = "mycelix-desci-holochain-bridge"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+authors = ["Mycelix Contributors"]
+repository = "https://github.com/luminousdynamics/mycelix-desci"
+description = "Optional Holochain DHT storage backend for Mycelix-DeSci, kept in its own Cargo workspace so its rusqlite (via holochain_types) dependency never has to resolve alongside mycelix-desci-core's sqlx-postgres dependency in one Cargo.lock -- both declare `links = \"sqlite3\"` under incompatible version requirements (sqlx-sqlite needs libsqlite3-sys ^0.28, rusqlite 0.37 needs ^0.35), which Cargo enforces as a single-version-per-links-value constraint across a whole workspace lockfile regardless of which features are actually activated. Depends on the dependency-light mycelix-desci-types crate (claim types, error types, StorageBackend trait) rather than mycelix-desci-core itself -- depending on core would pull sqlx back in and recreate the exact same conflict inside this crate's own Cargo.lock. Not currently wired to any binary -- extracted 2026-08-05 so the code isn't lost, not to add a new deployment path."
+
+[dependencies]
+mycelix-desci-types = { path = "../mycelix-desci/src/types" }
+mycelix-zkp-core = { path = "../crates/mycelix-zkp-core", features = ["backend-winterfell"] }
+
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+holochain_client = "=0.9.0-dev.32"
+holochain_types = "=0.7.0-dev.31"
+holochain_zome_types = "=0.7.0-dev.20"
+holochain_serialized_bytes = "=0.0.57"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

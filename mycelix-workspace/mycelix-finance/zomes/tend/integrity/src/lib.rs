@@ -17,8 +17,9 @@
 //! MIP Template Reference: MIP-C-042
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::{
-    Currency, TendLimitTier, HEARTH_MAX_MEMBERS, HEARTH_TEND_CREDIT_LIMIT,
+    Currency, HEARTH_MAX_MEMBERS, HEARTH_TEND_CREDIT_LIMIT, TendLimitTier,
 };
 
 // =============================================================================
@@ -958,9 +959,27 @@ fn validate_update_balance(
 }
 
 fn validate_create_listing(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     listing: ServiceListing,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committing agent. `create_listing`/`create_request`
+    // (tend/coordinator:2171/:2303) already derive this field from
+    // `agent_info()`, so this enforces at the DHT level what the coordinator
+    // already does (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A).
+    //
+    // Create-only: `validate_update_servicelisting` exists but no coordinator path
+    // updates one today, so it is deliberately left unbound rather than guessing at
+    // a future edit flow's authority model.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ServiceListing",
+        "provider_did",
+        &listing.provider_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if listing.provider_did.len() > MAX_DID_LEN || listing.dao_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1011,9 +1030,27 @@ fn validate_update_listing(
 }
 
 fn validate_create_request(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     request: ServiceRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind to the committing agent. `create_listing`/`create_request`
+    // (tend/coordinator:2171/:2303) already derive this field from
+    // `agent_info()`, so this enforces at the DHT level what the coordinator
+    // already does (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A).
+    //
+    // Create-only: `validate_update_servicerequest` exists but no coordinator path
+    // updates one today, so it is deliberately left unbound rather than guessing at
+    // a future edit flow's authority model.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "ServiceRequest",
+        "requester_did",
+        &request.requester_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if request.requester_did.len() > MAX_DID_LEN || request.dao_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1057,9 +1094,20 @@ fn validate_update_request(
 }
 
 fn validate_create_quality_rating(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     rating: QualityRating,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the rating to its committer. `rate_exchange` (tend/coordinator:1305)
+    // never checks the caller, so before this any agent could submit ratings as
+    // anyone — inflating their own reputation or smearing a provider under a
+    // third party's name (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance
+    // Class-A, `tend:1059`). Ratings are immutable, so create is the only path.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("QualityRating", "rater_did", &rating.rater_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     // String length checks — prevent DHT bloat
     if rating.rater_did.len() > MAX_DID_LEN || rating.provider_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1120,9 +1168,27 @@ fn validate_create_quality_rating(
 }
 
 fn validate_create_dispute_case(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     dispute: DisputeCase,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the dispute to its committer. `open_dispute` (tend/coordinator:1440)
+    // never checks the caller, so before this any agent could open a dispute in
+    // someone else's name (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance
+    // Class-A, `tend:1122`).
+    //
+    // Create only. `validate_update_dispute_case` is deliberately left unbound:
+    // no coordinator path updates a DisputeCase today, and a future resolution
+    // flow would be driven by a mediator — i.e. a third party — which makes it a
+    // Class-D authority question, not an author bind.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) = require_did_is_author(
+        "DisputeCase",
+        "complainant_did",
+        &dispute.complainant_did,
+        &author_did,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
     // String length checks — prevent DHT bloat
     if dispute.complainant_did.len() > MAX_DID_LEN || dispute.respondent_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1489,6 +1555,13 @@ mod tests {
         }
     }
 
+    /// DID of the agent `make_create()`/`make_update()` attribute actions to.
+    /// Fixtures meant to be VALID must use this — quality ratings and dispute
+    /// cases bind their reporter DID to the committing agent.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
     fn make_update() -> Update {
         Update {
             author: AgentPubKey::from_raw_36(vec![0; 36]),
@@ -1500,6 +1573,36 @@ mod tests {
             entry_type: EntryType::CapClaim,
             entry_hash: EntryHash::from_raw_36(vec![0; 36]),
             weight: Default::default(),
+        }
+    }
+
+    fn valid_listing() -> ServiceListing {
+        ServiceListing {
+            id: "listing:test:001".into(),
+            provider_did: test_author_did(),
+            dao_did: "did:mycelix:dao".into(),
+            title: "Garden help".into(),
+            description: "Weeding and planting".into(),
+            category: ServiceCategory::HomeServices,
+            estimated_hours: Some(2.0),
+            availability: Some("weekends".into()),
+            active: true,
+            created: ts(1_000_000),
+        }
+    }
+
+    fn valid_request() -> ServiceRequest {
+        ServiceRequest {
+            id: "request:test:001".into(),
+            requester_did: test_author_did(),
+            dao_did: "did:mycelix:dao".into(),
+            title: "Need a ride".into(),
+            description: "Airport pickup".into(),
+            category: ServiceCategory::Transportation,
+            estimated_hours: Some(1.5),
+            urgency: Urgency::Flexible,
+            open: true,
+            created: ts(1_000_000),
         }
     }
 
@@ -1534,7 +1637,7 @@ mod tests {
     fn valid_rating() -> QualityRating {
         QualityRating {
             exchange_id: "exch:001".into(),
-            rater_did: "did:mycelix:bob".into(),
+            rater_did: test_author_did(),
             provider_did: "did:mycelix:alice".into(),
             rating: 4,
             comment: None,
@@ -1546,7 +1649,7 @@ mod tests {
         DisputeCase {
             id: "dispute:001".into(),
             exchange_id: "exch:001".into(),
-            complainant_did: "did:mycelix:bob".into(),
+            complainant_did: test_author_did(),
             respondent_did: "did:mycelix:alice".into(),
             stage: DisputeStage::DirectNegotiation,
             description: "Service not as described".into(),
@@ -2069,5 +2172,61 @@ mod tests {
         a.dao_did = "nope".into();
         let result = validate_create_currency_alias(a).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_quality_rating_forged_rater_is_rejected() {
+        let mut r = valid_rating();
+        r.rater_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_quality_rating(EntryCreationAction::Create(make_create()), r).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"), "got: {msg}")
+            }
+            other => panic!("forged rater_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_dispute_forged_complainant_is_rejected() {
+        let mut d = valid_dispute();
+        d.complainant_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_dispute_case(EntryCreationAction::Create(make_create()), d).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"), "got: {msg}")
+            }
+            other => panic!("forged complainant_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_listing_forged_provider_is_rejected() {
+        let mut l = valid_listing();
+        l.provider_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_listing(EntryCreationAction::Create(make_create()), l).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"), "got: {msg}")
+            }
+            other => panic!("forged provider_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_request_forged_requester_is_rejected() {
+        let mut r = valid_request();
+        r.requester_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_request(EntryCreationAction::Create(make_create()), r).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("forgery"), "got: {msg}")
+            }
+            other => panic!("forged requester_did must be rejected, got {other:?}"),
+        }
     }
 }

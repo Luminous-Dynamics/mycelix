@@ -6,11 +6,11 @@ use super::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::KVector;
     use crate::epistemic::{
         EmpiricalLevel, EpistemicClassification, EpistemicContext, MaterialityLevel,
         NormativeLevel, TestimonialQuality,
     };
-    use crate::KVector;
 
     #[test]
     fn test_harmonic_weights_sum_to_one() {
@@ -1827,10 +1827,12 @@ mod tests {
         // Verify hierarchy was created
         let eng_id = bridge.domain_registry.find_by_name("engineering").unwrap();
         assert!(bridge.domain_registry.children_of(eng_id).contains(&web_id));
-        assert!(bridge
-            .domain_registry
-            .children_of(eng_id)
-            .contains(&backend_id));
+        assert!(
+            bridge
+                .domain_registry
+                .children_of(eng_id)
+                .contains(&backend_id)
+        );
     }
 
     #[test]
@@ -1998,10 +2000,12 @@ mod tests {
         let bridge = SymthaeaCausalBridge::new();
 
         // Bridge should have domain registry initialized
-        assert!(bridge
-            .domain_registry
-            .get(bridge.domain_registry.root_id)
-            .is_some());
+        assert!(
+            bridge
+                .domain_registry
+                .get(bridge.domain_registry.root_id)
+                .is_some()
+        );
 
         // Cross-domain threshold should have reasonable default
         assert!(bridge.cross_domain_threshold > 0.0);
@@ -5886,9 +5890,9 @@ mod tests {
 
     #[test]
     fn test_pattern_signals_creation() {
-        use super::recommendations::PatternSignals;
         use super::PatternLifecycleState;
         use super::TrustLevel;
+        use super::recommendations::PatternSignals;
 
         let signals = PatternSignals {
             success_rate: 0.85,
@@ -7250,8 +7254,8 @@ mod tests {
     #[test]
     fn test_scenario_pattern_succession() {
         use super::{
-            succession::{SuccessionReason, SuccessionStatus},
             OracleVerificationLevel, SymthaeaCausalBridge, SymthaeaPattern,
+            succession::{SuccessionReason, SuccessionStatus},
         };
 
         let mut bridge = SymthaeaCausalBridge::new();
@@ -7337,7 +7341,7 @@ mod tests {
     /// Scenario: Cross-domain pattern discovery
     #[test]
     fn test_scenario_cross_domain_discovery() {
-        use super::{domain::DomainCriticality, SymthaeaCausalBridge, SymthaeaPattern};
+        use super::{SymthaeaCausalBridge, SymthaeaPattern, domain::DomainCriticality};
 
         let mut bridge = SymthaeaCausalBridge::new();
         let timestamp = 1000u64;
@@ -7537,9 +7541,9 @@ mod tests {
     #[test]
     fn test_scenario_complete_knowledge_lifecycle() {
         use super::{
+            OracleVerificationLevel, SymthaeaCausalBridge, SymthaeaPattern,
             lifecycle::{LifecycleTransitionReason, PatternLifecycleState},
             succession::SuccessionReason,
-            OracleVerificationLevel, SymthaeaCausalBridge, SymthaeaPattern,
         };
 
         let mut bridge = SymthaeaCausalBridge::new();

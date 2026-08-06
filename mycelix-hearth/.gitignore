@@ -1,0 +1,11 @@
+# Generated Rust artifacts
+/target/
+**/target/
+
+# Generated TypeScript artifacts
+/sdk-ts/node_modules/
+/sdk-ts/dist/
+
+# Local evidence exports and temporary fixtures
+/migration-evidence-*.json
+/sdk-ts/evidence-fixtures/

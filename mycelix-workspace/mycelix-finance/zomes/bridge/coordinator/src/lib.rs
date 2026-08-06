@@ -106,18 +106,13 @@ pub fn verify_payment_status_remote(
 }
 
 #[hdk_extern]
-pub fn verify_payment_status(
-    input: VerifyPaymentStatusInput,
-) -> ExternResult<Option<Record>> {
+pub fn verify_payment_status(input: VerifyPaymentStatusInput) -> ExternResult<Option<Record>> {
     validate_payment_lookup_key(&input.source_happ, &input.reference)?;
     let Some(record) = find_payment_by_reference(&input.source_happ, &input.reference)? else {
         return Ok(None);
     };
     let payment = decode_cross_happ_payment(&record)?;
-    let caller_did = format!(
-        "did:mycelix:{}",
-        agent_info()?.agent_initial_pubkey
-    );
+    let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     if caller_did != payment.from_did && caller_did != payment.to_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the payment sender or recipient may query its status".into()
@@ -160,16 +155,10 @@ fn decode_cross_happ_payment(record: &Record) -> ExternResult<CrossHappPayment> 
         })
 }
 
-fn find_payment_by_reference(
-    source_happ: &str,
-    reference: &str,
-) -> ExternResult<Option<Record>> {
+fn find_payment_by_reference(source_happ: &str, reference: &str) -> ExternResult<Option<Record>> {
     let key = payment_reference_key(source_happ, reference);
     let links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(&key)?,
-            LinkTypes::PaymentReferenceToPayment,
-        )?,
+        LinkQuery::try_new(anchor_hash(&key)?, LinkTypes::PaymentReferenceToPayment)?,
         GetStrategy::default(),
     )?;
 
@@ -333,12 +322,8 @@ pub fn process_payment(input: ProcessPaymentInput) -> ExternResult<Record> {
     };
 
     let pending = decode_cross_happ_payment(&pending_record)?;
-    let processing_record = update_payment_status(
-        &pending_record,
-        pending,
-        PaymentStatus::Processing,
-        None,
-    )?;
+    let processing_record =
+        update_payment_status(&pending_record, pending, PaymentStatus::Processing, None)?;
     let processing = decode_cross_happ_payment(&processing_record)?;
 
     #[derive(Serialize, Debug)]

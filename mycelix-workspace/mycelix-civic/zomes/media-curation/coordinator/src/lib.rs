@@ -5,8 +5,8 @@
 use hdk::prelude::*;
 use media_curation_integrity::*;
 use mycelix_bridge_common::{
-    civic_requirement_basic, civic_requirement_proposal, civic_requirement_voting,
-    GovernanceEligibility,
+    GovernanceEligibility, civic_requirement_basic, civic_requirement_proposal,
+    civic_requirement_voting,
 };
 use mycelix_zome_helpers::get_latest_record;
 
@@ -299,13 +299,18 @@ pub fn add_to_collection(input: AddToCollectionInput) -> ExternResult<Record> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(collection) = record.entry().to_app_option::<Collection>().ok().flatten() {
             if collection.id == input.collection_id {
-                // Only curator can add to collection
-                if collection.curator_did != input.requester_did {
+                // Real author binding, not the self-reported curator_did vs
+                // client-supplied requester_did (both attacker-controlled --
+                // found auditing P0-#1 2026-07-27, same class as
+                // media-publication's delete_publication/add_tags/
+                // update_license).
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only curator can modify collection".into()
+                        "Only the collection's real curator can modify it".into()
                     )));
                 }
 
@@ -360,12 +365,14 @@ pub fn remove_from_collection(input: RemoveFromCollectionInput) -> ExternResult<
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(collection) = record.entry().to_app_option::<Collection>().ok().flatten() {
             if collection.id == input.collection_id {
-                if collection.curator_did != input.requester_did {
+                // Real author binding -- see add_to_collection's comment.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only curator can modify collection".into()
+                        "Only the collection's real curator can modify it".into()
                     )));
                 }
 
@@ -417,12 +424,14 @@ pub fn update_collection(input: UpdateCollectionInput) -> ExternResult<Record> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(collection) = record.entry().to_app_option::<Collection>().ok().flatten() {
             if collection.id == input.collection_id {
-                if collection.curator_did != input.requester_did {
+                // Real author binding -- see add_to_collection's comment.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only curator can update collection".into()
+                        "Only the collection's real curator can update it".into()
                     )));
                 }
 
@@ -503,13 +512,16 @@ pub fn remove_endorsement(input: RemoveEndorsementInput) -> ExternResult<()> {
         )?))
         .include_entries(true);
 
+    let caller = agent_info()?.agent_initial_pubkey;
     for record in query(filter)? {
         if let Some(endorsement) = record.entry().to_app_option::<Endorsement>().ok().flatten() {
             if endorsement.id == input.endorsement_id {
-                // Only endorser can remove
-                if endorsement.endorser_did != input.requester_did {
+                // Real author binding, not the self-reported endorser_did
+                // vs client-supplied requester_did (both attacker-
+                // controlled) -- see add_to_collection's comment.
+                if record.action().author() != &caller {
                     return Err(wasm_error!(WasmErrorInner::Guest(
-                        "Only endorser can remove endorsement".into()
+                        "Only the real endorser can remove their endorsement".into()
                     )));
                 }
                 delete_entry(record.action_address().clone())?;

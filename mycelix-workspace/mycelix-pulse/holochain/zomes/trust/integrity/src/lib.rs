@@ -476,6 +476,67 @@ fn validate_score(score: &TrustScore, _action: &Create) -> ExternResult<Validate
         ));
     }
 
+    // direct_attestation_count is claimed to equal the number of cited attestation
+    // hashes. This is the one part of the MATL score that is bounded and
+    // deterministically checkable at the DHT layer.
+    if score.attestation_hashes.len() as u32 != score.direct_attestation_count {
+        return Ok(ValidateCallbackResult::Invalid(
+            "direct_attestation_count must equal the number of cited attestation_hashes"
+                .to_string(),
+        ));
+    }
+
+    // No duplicate citations (a coordinator could otherwise double-count the same
+    // attestation to inflate direct_attestation_count / confidence).
+    let mut seen: Vec<&ActionHash> = Vec::new();
+    for hash in &score.attestation_hashes {
+        if seen.contains(&hash) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "attestation_hashes contains a duplicate reference".to_string(),
+            ));
+        }
+        seen.push(hash);
+    }
+
+    // Every cited hash must be a real, non-revoked TrustAttestation whose trustee
+    // is the subject this score is about.
+    for hash in &score.attestation_hashes {
+        let record = must_get_valid_record(hash.clone())?;
+        let attestation: TrustAttestation = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "attestation_hashes entry must decode as TrustAttestation".to_string()
+            )))?;
+
+        if attestation.trustee != score.agent {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Cited attestation is not about this score's subject".to_string(),
+            ));
+        }
+        if attestation.revoked {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Cited attestation is revoked".to_string(),
+            ));
+        }
+    }
+
+    // NOTE: `score`/`confidence`/`transitive_path_count`/`byzantine_flags` are NOT
+    // re-derived here. MATL's transitive-trust component (`calculate_transitive_trust`
+    // in the coordinator) performs an open-ended BFS over `get_links`, walking other
+    // agents' attestation graphs from the querying agent's own perspective. That is
+    // not deterministically replayable in a validation callback using only
+    // `must_get_*` against explicit hashes (get_links results are eventually
+    // consistent and peer-dependent, and the entry does not record which edges the
+    // BFS actually traversed). This check therefore proves the cited direct
+    // attestations are real, non-revoked, and about the right subject -- it does NOT
+    // prove `score` itself was honestly computed from them plus a genuine transitive
+    // walk. Closing that gap would require either embedding a full serialized BFS
+    // trace (attestation hashes visited, depth, accumulated weight) so a validator
+    // could replay a bounded computation, or accepting social/economic security
+    // (TrustAttestation's existing staking/penalty mechanism) as the backstop for the
+    // transitive and Byzantine-detection components instead of a DHT-level proof.
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -532,4 +593,205 @@ fn validate_introduction(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+/// Proves `validate_score`'s P0 author-binding fix: a TrustScore citing an attestation
+/// hash that either isn't about the score's own subject, or has been revoked, is rejected
+/// (previously TrustScore had zero verification beyond range checks). Mocks the HDI
+/// host's `must_get_valid_record` so this runs as a plain `cargo test`, no live conductor
+/// needed.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockRecordHdi {
+        records: std::collections::HashMap<ActionHash, Record>,
+    }
+
+    impl hdi::hdi::HdiT for MockRecordHdi {
+        fn must_get_valid_record(&self, input: MustGetValidRecordInput) -> ExternResult<Record> {
+            self.records
+                .get(&input.0)
+                .cloned()
+                .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("no such record in mock".into())))
+        }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_action(&self, _: MustGetActionInput) -> ExternResult<SignedActionHashed> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<RegisterAgentActivity>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!("not exercised by this fix")
+        }
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!("not exercised by this fix")
+        }
+    }
+
+    fn wrap_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<SerializedBytes>,
+        <T as TryInto<SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let entry = Entry::App(AppEntryBytes::try_from(value.try_into().unwrap()).unwrap());
+        let action = Action::Create(Create {
+            author,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn test_attestation(trustee: AgentPubKey, revoked: bool) -> TrustAttestation {
+        TrustAttestation {
+            truster: AgentPubKey::from_raw_36(vec![50; 36]),
+            trustee,
+            trust_level: 0.8,
+            category: TrustCategory::Identity,
+            evidence: vec![],
+            reason: None,
+            created_at: Timestamp::from_micros(0),
+            expires_at: None,
+            signature: vec![],
+            revoked,
+            stake: None,
+        }
+    }
+
+    fn test_score(agent: AgentPubKey, attestation_hashes: Vec<ActionHash>) -> TrustScore {
+        let count = attestation_hashes.len() as u32;
+        TrustScore {
+            agent,
+            score: 0.8,
+            confidence: 0.5,
+            direct_attestation_count: count,
+            transitive_path_count: 0,
+            category_scores: vec![],
+            computed_at: Timestamp::from_micros(0),
+            attestation_hashes,
+            byzantine_flags: vec![],
+        }
+    }
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![99; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    #[test]
+    fn score_citing_attestation_about_a_different_agent_is_rejected() {
+        let subject = AgentPubKey::from_raw_36(vec![1; 36]);
+        let someone_else = AgentPubKey::from_raw_36(vec![2; 36]);
+        let hash = ActionHash::from_raw_36(vec![10; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                hash.clone(),
+                wrap_entry_record(
+                    AgentPubKey::from_raw_36(vec![50; 36]),
+                    test_attestation(someone_else, false),
+                ),
+            )]),
+        });
+
+        let score = test_score(subject, vec![hash]);
+        let result = validate_score(&score, &test_action()).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "a cited attestation whose trustee isn't this score's subject must be rejected \
+             -- previously TrustScore had zero verification beyond range checks"
+        );
+    }
+
+    #[test]
+    fn score_citing_a_revoked_attestation_is_rejected() {
+        let subject = AgentPubKey::from_raw_36(vec![1; 36]);
+        let hash = ActionHash::from_raw_36(vec![10; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                hash.clone(),
+                wrap_entry_record(
+                    AgentPubKey::from_raw_36(vec![50; 36]),
+                    test_attestation(subject.clone(), true),
+                ),
+            )]),
+        });
+
+        let score = test_score(subject, vec![hash]);
+        let result = validate_score(&score, &test_action()).unwrap();
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(_)),
+            "a cited attestation that has been revoked must be rejected"
+        );
+    }
+
+    #[test]
+    fn score_citing_a_real_matching_attestation_is_accepted() {
+        let subject = AgentPubKey::from_raw_36(vec![1; 36]);
+        let hash = ActionHash::from_raw_36(vec![10; 36]);
+        hdi::hdi::set_hdi(MockRecordHdi {
+            records: std::collections::HashMap::from([(
+                hash.clone(),
+                wrap_entry_record(
+                    AgentPubKey::from_raw_36(vec![50; 36]),
+                    test_attestation(subject.clone(), false),
+                ),
+            )]),
+        });
+
+        let score = test_score(subject, vec![hash]);
+        let result = validate_score(&score, &test_action()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
 }

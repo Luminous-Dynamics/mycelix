@@ -53,8 +53,8 @@ getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1", features = ["js"] }
 
 # Shared Mycelix Leptos infrastructure
-mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client" }
+mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client" }
 
 [profile.release]
 opt-level = "z"

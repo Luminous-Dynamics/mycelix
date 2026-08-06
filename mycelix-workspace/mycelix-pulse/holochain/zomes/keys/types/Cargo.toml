@@ -1,0 +1,13 @@
+[package]
+name = "keys_types"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+sha2 = { version = "0.10", default-features = false }

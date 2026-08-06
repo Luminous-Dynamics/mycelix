@@ -162,10 +162,7 @@ impl DecayCalculator {
     }
 
     /// Calculate effective verification count with decay
-    pub fn effective_verification_count(
-        &self,
-        verifications: &[(f64, DateTime<Utc>)],
-    ) -> f64 {
+    pub fn effective_verification_count(&self, verifications: &[(f64, DateTime<Utc>)]) -> f64 {
         verifications
             .iter()
             .map(|(weight, timestamp)| self.decay_verification(*weight, *timestamp))
@@ -186,7 +183,10 @@ impl DecayCalculator {
             };
         }
 
-        let weights: Vec<f64> = timestamps.iter().map(|t| self.calculate_weight(*t)).collect();
+        let weights: Vec<f64> = timestamps
+            .iter()
+            .map(|t| self.calculate_weight(*t))
+            .collect();
         let raw_weight = timestamps.len() as f64;
         let decayed_weight: f64 = weights.iter().sum();
 
@@ -513,11 +513,7 @@ mod tests {
         let calc = DecayCalculator::new();
         let now = Utc::now();
 
-        let timestamps = vec![
-            now,
-            now - Duration::days(100),
-            now - Duration::days(200),
-        ];
+        let timestamps = vec![now, now - Duration::days(100), now - Duration::days(200)];
 
         let stats = calc.decay_stats(&timestamps);
 

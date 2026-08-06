@@ -1,0 +1,11 @@
+# Maximum number of CANONICAL nested workspaces that CI does not build or test.
+#
+# The check FAILS if the real count exceeds this. Lower it when a cluster reaches
+# CI, or when one is honestly reclassified experimental/archived/retire.
+#
+# DO NOT RAISE THIS TO MAKE A BUILD PASS. That converts a shrinking backlog into
+# a permanent excuse — the exact failure mode that let 225 allowlisted validators
+# and 68 placeholder files become normal here.
+#
+# 2026-07-29: seeded at the measured value. 2 of 29 nested workspaces are in CI.
+27

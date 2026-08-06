@@ -10,11 +10,10 @@
 /// - TTL (Time-To-Live): 5 minutes for most queries
 /// - Invalidation: On MATL score updates
 /// - Size: LRU eviction when > 10,000 entries
-
 use hdk::prelude::*;
-use std::collections::HashMap;
-use reputation_integrity::*;
 use mycelix_common::{error_handling, link_queries, time};
+use reputation_integrity::*;
+use std::collections::HashMap;
 
 /// Cache entry with timestamp
 #[derive(Clone, Debug)]
@@ -200,9 +199,7 @@ where
 ///
 /// This is the main entry point for getting MATL scores with caching.
 /// Provides 10x-100x speedup over always querying DHT.
-pub fn get_agent_matl_score_cached(
-    agent: AgentPubKey,
-) -> ExternResult<MatlScore> {
+pub fn get_agent_matl_score_cached(agent: AgentPubKey) -> ExternResult<MatlScore> {
     with_cache(|cache| {
         cache.get_or_compute(agent.clone(), || {
             // This closure fetches from DHT if cache miss
@@ -388,8 +385,8 @@ mod tests {
         let cache_hit_time_ms = 1; // <1ms for cache hit
         let dht_queries = 1;
         let cache_queries = 99;
-        let total_time_with_cache = (dht_queries * time_per_query_ms)
-            + (cache_queries * cache_hit_time_ms);
+        let total_time_with_cache =
+            (dht_queries * time_per_query_ms) + (cache_queries * cache_hit_time_ms);
         // = 150 + 99 = 249ms
 
         let speedup = total_time_without_cache / total_time_with_cache;

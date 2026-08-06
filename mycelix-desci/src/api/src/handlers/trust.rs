@@ -54,7 +54,7 @@ pub async fn get_trust_score(
     path = "/api/v1/trust/{participant}",
     request_body = UpdateTrustScoreRequest,
     responses(
-        (status = 200, description = "Trust score updated", body = TrustScoreResponse),
+        (status = 501, description = "Direct trust mutation is disabled", body = ApiError),
         (status = 400, description = "Invalid request", body = ApiError),
     ),
     params(
@@ -63,41 +63,13 @@ pub async fn get_trust_score(
     tag = "trust"
 )]
 pub async fn update_trust_score(
-    State(state): State<Arc<AppState>>,
-    Path(participant): Path<String>,
-    Json(req): Json<UpdateTrustScoreRequest>,
+    State(_state): State<Arc<AppState>>,
+    Path(_participant): Path<String>,
+    Json(_req): Json<UpdateTrustScoreRequest>,
 ) -> Result<Json<TrustScoreResponse>> {
-    info!(
-        participant = %participant,
-        delta = req.delta,
-        "Updating trust score"
-    );
-
-    // Validate delta is reasonable
-    if req.delta.abs() > 1.0 {
-        return Err(ApiError::invalid_request(
-            "Trust score delta must be between -1.0 and 1.0",
-        ));
-    }
-
-    let mut trust_manager = state.trust_manager.write().await;
-    let positive = req.delta > 0.0;
-    let weight = req.delta.abs();
-    let updated_score = trust_manager.update_score(&participant, positive, weight)?;
-
-    info!(
-        participant = %participant,
-        new_score = updated_score.score,
-        "Trust score updated"
-    );
-
-    let response = TrustScoreResponse {
-        participant: participant.clone(),
-        score: updated_score.score,
-        last_updated: chrono::Utc::now(),
-    };
-
-    Ok(Json(response))
+    Err(ApiError::not_implemented(
+        "direct trust-score mutation is disabled; trust must be derived from signed domain events and a versioned policy",
+    ))
 }
 
 /// Get trust network statistics

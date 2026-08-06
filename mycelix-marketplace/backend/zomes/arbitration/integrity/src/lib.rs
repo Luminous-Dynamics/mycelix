@@ -251,11 +251,13 @@ fn validate_create_dispute(
         let transaction_root = find_action_root(dispute.transaction_revision_hash.clone())?;
         if transaction_root != dispute.transaction_hash {
             return Ok(ValidateCallbackResult::Invalid(
-                "Dispute transaction revision does not belong to the declared transaction root".into(),
+                "Dispute transaction revision does not belong to the declared transaction root"
+                    .into(),
             ));
         }
-        let transaction: TransactionSnapshot =
-            decode_record(&must_get_valid_record(dispute.transaction_revision_hash.clone())?)?;
+        let transaction: TransactionSnapshot = decode_record(&must_get_valid_record(
+            dispute.transaction_revision_hash.clone(),
+        )?)?;
         if transaction.status != TransactionStatusSnapshot::Disputed {
             return Ok(ValidateCallbackResult::Invalid(
                 "A dispute may only be filed against a Disputed transaction revision".into(),
@@ -281,8 +283,9 @@ fn validate_update_dispute(
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
-    let original: Dispute =
-        decode_record(&must_get_valid_record(action.original_action_address.clone())?)?;
+    let original: Dispute = decode_record(&must_get_valid_record(
+        action.original_action_address.clone(),
+    )?)?;
 
     if updated.transaction_hash != original.transaction_hash
         || updated.transaction_revision_hash != original.transaction_revision_hash
@@ -295,7 +298,8 @@ fn validate_update_dispute(
         || updated.created_at != original.created_at
     {
         return Ok(ValidateCallbackResult::Invalid(
-            "Dispute transaction binding, parties, evidence, and creation time are immutable".into(),
+            "Dispute transaction binding, parties, evidence, and creation time are immutable"
+                .into(),
         ));
     }
     if updated.updated_at < original.updated_at {
@@ -373,7 +377,9 @@ fn validate_dispute_transition(
                 return Err("Only an assigned arbitrator may close voting".into());
             }
             if updated.arbitrators != original.arbitrators || updated.result_hash.is_some() {
-                return Err("Voting transition cannot change arbitrators or attach a result".into());
+                return Err(
+                    "Voting transition cannot change arbitrators or attach a result".into(),
+                );
             }
         }
         (UnderReview, Withdrawn) => {
@@ -386,7 +392,9 @@ fn validate_dispute_transition(
         }
         (Voting, ResolvedBuyer | ResolvedSeller) => {
             if !original.arbitrators.contains(author) {
-                return Err("Only an assigned arbitrator may publish the deterministic result".into());
+                return Err(
+                    "Only an assigned arbitrator may publish the deterministic result".into(),
+                );
             }
             if updated.arbitrators != original.arbitrators {
                 return Err("Resolved disputes cannot change the arbitrator set".into());
@@ -395,10 +403,12 @@ fn validate_dispute_transition(
                 return Err("Resolved disputes must bind an arbitration result".into());
             }
         }
-        _ => return Err(format!(
-            "Illegal dispute transition: {:?} -> {:?}",
-            original.status, updated.status
-        )),
+        _ => {
+            return Err(format!(
+                "Illegal dispute transition: {:?} -> {:?}",
+                original.status, updated.status
+            ));
+        }
     }
 
     Ok(())
@@ -464,8 +474,9 @@ fn validate_create_result(
             "Result dispute revision does not belong to the declared dispute root".into(),
         ));
     }
-    let dispute: Dispute =
-        decode_record(&must_get_valid_record(result.dispute_revision_hash.clone())?)?;
+    let dispute: Dispute = decode_record(&must_get_valid_record(
+        result.dispute_revision_hash.clone(),
+    )?)?;
     if dispute.status != DisputeStatus::Voting {
         return Ok(ValidateCallbackResult::Invalid(
             "Results require a Voting dispute revision".into(),
@@ -529,10 +540,8 @@ fn validate_create_result(
 
     let transaction: TransactionSnapshot =
         decode_record(&must_get_valid_record(dispute.transaction_hash.clone())?)?;
-    let expected_compensation = recommended_compensation(
-        transaction.total_price_cents,
-        expected_ratio,
-    );
+    let expected_compensation =
+        recommended_compensation(transaction.total_price_cents, expected_ratio);
     if result.compensation_cents != Some(expected_compensation) {
         return Ok(ValidateCallbackResult::Invalid(
             "Result compensation does not match the deterministic recommendation".into(),
@@ -572,15 +581,15 @@ fn validate_dispute_data(dispute: &Dispute) -> Result<(), String> {
     Ok(())
 }
 
-
 fn validate_conflict_dispute_binding(dispute: &Dispute) -> ExternResult<Result<(), String>> {
     if dispute.conflict_heads.len() < 2 {
-        return Ok(Err("Conflict dispute must bind at least two transaction heads".into()));
+        return Ok(Err(
+            "Conflict dispute must bind at least two transaction heads".into(),
+        ));
     }
     if dispute.transaction_revision_hash != dispute.transaction_hash {
         return Ok(Err(
-            "Conflict disputes use the stable transaction root as transaction_revision_hash"
-                .into(),
+            "Conflict disputes use the stable transaction root as transaction_revision_hash".into(),
         ));
     }
 
@@ -600,12 +609,10 @@ fn validate_conflict_dispute_binding(dispute: &Dispute) -> ExternResult<Result<(
     for head_hash in &dispute.conflict_heads {
         if find_action_root(head_hash.clone())? != dispute.transaction_hash {
             return Ok(Err(
-                "Every conflict-dispute head must belong to the declared transaction root"
-                    .into(),
+                "Every conflict-dispute head must belong to the declared transaction root".into(),
             ));
         }
-        let head: TransactionSnapshot =
-            decode_record(&must_get_valid_record(head_hash.clone())?)?;
+        let head: TransactionSnapshot = decode_record(&must_get_valid_record(head_hash.clone())?)?;
         if head.buyer != root.buyer
             || head.seller != root.seller
             || head.total_price_cents != root.total_price_cents
@@ -735,7 +742,7 @@ fn find_action_root(mut cursor: ActionHash) -> ExternResult<ActionHash> {
             _ => {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Bound hash must reference a Create or Update action".into()
-                )))
+                )));
             }
         }
     }
@@ -808,11 +815,13 @@ mod tests {
             voted_at: Timestamp::from_micros(2_000_000),
         };
         assert!(validate_vote_data(&vote).is_ok());
-        assert!(validate_vote_data(&ArbitrationVote {
-            arbitrator_matl_score: 0.9,
-            ..vote
-        })
-        .is_err());
+        assert!(
+            validate_vote_data(&ArbitrationVote {
+                arbitrator_matl_score: 0.9,
+                ..vote
+            })
+            .is_err()
+        );
     }
 
     #[test]

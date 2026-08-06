@@ -117,9 +117,14 @@ pqcrypto-traits = "0.3"
 # the Phase 11/12 federated-gateway-mesh track from PULSE_READINESS_PLAN.md.
 # A repo-wide Holochain-version reconciliation pass (2026-07-03) verified
 # every other Holochain-dependent Cargo.lock in the workspace against the
-# stable 0.6.1/0.7.1 baseline and deliberately left this one alone -- no
-# stable holochain_client release compatible with 0.6.1 was confirmed to
-# exist, so forcing this crate onto the stable line was out of scope.
+# stable 0.6.1/0.7.1 baseline and deliberately left this one alone.
+# CORRECTION 2026-07-30: that pass concluded "no stable holochain_client
+# release compatible with 0.6.1 was confirmed to exist". That is FALSE --
+# holochain_client =0.8.1 is exactly that release, cut from the same commit
+# as Holochain 0.6.1. The pin below is therefore now a CHOICE (tracking the
+# 0.7-dev generation for Phase 11/12, consistent with this crate's own
+# 0.7.0-dev holochain_types pins), not a necessity. If Phase 11/12 is ever
+# descoped, move this crate to =0.8.1 with types/zome_types at =0.6.1.
 holochain_client = { version = "0.9.0-dev.10", optional = true }
 holo_hash = { version = "0.6", optional = true }
 

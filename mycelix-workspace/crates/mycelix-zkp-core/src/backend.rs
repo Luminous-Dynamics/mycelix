@@ -1,6 +1,6 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! ZKBackend trait — unified interface for RISC0, Winterfell, and (future) Binius.
+//! Proof backend interfaces and explicit capability reporting.
 //!
 //! Ported from the Python `ZKBackend` ABC in
 //! `mycelix-core/0TML/tests/integration/zkbackend_abstraction.py` (895 lines).
@@ -56,7 +56,7 @@ pub trait ProofBackend: Send + Sync {
     /// Which backend this is.
     fn id(&self) -> BackendId;
 
-    /// Check if this backend is available (binary exists, deps met).
+    /// Check if this adapter can perform its advertised operation in this build.
     fn is_available(&self) -> bool;
 
     /// Generate a proof for the given public inputs and witness.
@@ -188,7 +188,7 @@ pub mod risc0_backend {
         }
 
         fn is_available(&self) -> bool {
-            true // Available when feature is enabled
+            false // Structural adapter only: no RISC Zero dependency is linked.
         }
 
         fn prove(&self, _public_inputs: &PublicInputs, _witness: &[f32]) -> ZkpResult<ProofResult> {
@@ -212,33 +212,53 @@ pub mod risc0_backend {
     }
 }
 
-/// Select the best available backend for a given circuit complexity.
+/// Operational status of a backend in this shared crate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BackendCapability {
+    /// The crate contains dependencies and circuit-specific implementations may use them.
+    CircuitSpecific,
+    /// The public adapter exists, but this crate cannot prove or verify with it.
+    StructuralOnly,
+    /// Identifier reserved for future protocol compatibility.
+    Reserved,
+}
+
+/// Report capability without conflating a declared identifier with an implementation.
+pub const fn backend_capability(backend: BackendId) -> BackendCapability {
+    match backend {
+        BackendId::Winterfell | BackendId::Miden => BackendCapability::CircuitSpecific,
+        BackendId::Risc0 => BackendCapability::StructuralOnly,
+        BackendId::Binius => BackendCapability::Reserved,
+    }
+}
+
+/// Select an operational backend compiled into this crate.
 ///
-/// Simple circuits (range, membership) → Winterfell (faster).
-/// Complex circuits (multi-step logic) → RISC0 (more flexible).
-pub fn select_backend(complexity: CircuitComplexity) -> BackendId {
+/// Returns `None` rather than inventing an unavailable default. RISC Zero is not
+/// selected because its current feature is structural-only and links no verifier.
+pub fn select_backend(complexity: CircuitComplexity) -> Option<BackendId> {
     match complexity {
         CircuitComplexity::Simple => {
             #[cfg(feature = "backend-winterfell")]
-            return BackendId::Winterfell;
-            #[cfg(not(feature = "backend-winterfell"))]
-            {
-                #[cfg(feature = "backend-risc0")]
-                return BackendId::Risc0;
-                #[cfg(not(feature = "backend-risc0"))]
-                return BackendId::Winterfell; // Default even if unavailable
-            }
+            return Some(BackendId::Winterfell);
+            #[cfg(all(not(feature = "backend-winterfell"), feature = "backend-miden"))]
+            return Some(BackendId::Miden);
+            #[cfg(all(
+                not(feature = "backend-winterfell"),
+                not(feature = "backend-miden")
+            ))]
+            return None;
         }
         CircuitComplexity::Complex => {
-            #[cfg(feature = "backend-risc0")]
-            return BackendId::Risc0;
-            #[cfg(not(feature = "backend-risc0"))]
-            {
-                #[cfg(feature = "backend-winterfell")]
-                return BackendId::Winterfell;
-                #[cfg(not(feature = "backend-winterfell"))]
-                return BackendId::Risc0; // Default even if unavailable
-            }
+            #[cfg(feature = "backend-miden")]
+            return Some(BackendId::Miden);
+            #[cfg(all(not(feature = "backend-miden"), feature = "backend-winterfell"))]
+            return Some(BackendId::Winterfell);
+            #[cfg(all(
+                not(feature = "backend-miden"),
+                not(feature = "backend-winterfell")
+            ))]
+            return None;
         }
     }
 }
@@ -273,19 +293,44 @@ mod tests {
     #[test]
     fn test_select_backend_simple() {
         let backend = select_backend(CircuitComplexity::Simple);
-        // Without features, defaults are returned
-        assert!(
-            backend == BackendId::Winterfell || backend == BackendId::Risc0,
-            "must select a valid backend"
-        );
+        #[cfg(feature = "backend-winterfell")]
+        assert_eq!(backend, Some(BackendId::Winterfell));
+        #[cfg(all(not(feature = "backend-winterfell"), feature = "backend-miden"))]
+        assert_eq!(backend, Some(BackendId::Miden));
+        #[cfg(all(
+            not(feature = "backend-winterfell"),
+            not(feature = "backend-miden")
+        ))]
+        assert_eq!(backend, None);
     }
 
     #[test]
     fn test_select_backend_complex() {
         let backend = select_backend(CircuitComplexity::Complex);
-        assert!(
-            backend == BackendId::Risc0 || backend == BackendId::Winterfell,
-            "must select a valid backend"
+        #[cfg(feature = "backend-miden")]
+        assert_eq!(backend, Some(BackendId::Miden));
+        #[cfg(all(not(feature = "backend-miden"), feature = "backend-winterfell"))]
+        assert_eq!(backend, Some(BackendId::Winterfell));
+        #[cfg(all(
+            not(feature = "backend-miden"),
+            not(feature = "backend-winterfell")
+        ))]
+        assert_eq!(backend, None);
+    }
+
+    #[test]
+    fn test_backend_capabilities_are_truthful() {
+        assert_eq!(
+            backend_capability(BackendId::Risc0),
+            BackendCapability::StructuralOnly
+        );
+        assert_eq!(
+            backend_capability(BackendId::Miden),
+            BackendCapability::CircuitSpecific
+        );
+        assert_eq!(
+            backend_capability(BackendId::Binius),
+            BackendCapability::Reserved
         );
     }
 
@@ -302,8 +347,9 @@ mod tests {
     #[test]
     fn test_risc0_backend_available() {
         let b = risc0_backend::Risc0Backend::new();
-        assert!(b.is_available());
+        assert!(!b.is_available());
         assert_eq!(b.id(), BackendId::Risc0);
+        assert_eq!(backend_capability(b.id()), BackendCapability::StructuralOnly);
         assert_eq!(b.name(), "RISC Zero zkVM");
     }
 }

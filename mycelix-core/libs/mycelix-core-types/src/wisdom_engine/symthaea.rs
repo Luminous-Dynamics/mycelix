@@ -86,8 +86,8 @@ use super::{
 use super::core::{
     CausalGraph, HarmonicWeights, Oracle, OracleObservation, OracleVerificationLevel,
 };
-use crate::epistemic::EpistemicContext;
 use crate::KVector;
+use crate::epistemic::EpistemicContext;
 
 // ==============================================================================
 // COMPONENT 8: SYMTHAEA CAUSAL BRIDGE - Scientific Method for AI

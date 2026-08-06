@@ -3,6 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root//! Lending Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -232,9 +233,24 @@ fn validate_update_loan(_action: Update, loan: Loan) -> ExternResult<ValidateCal
 }
 
 fn validate_create_loan_offer(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     offer: LoanOffer,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the offer to its committer. `create_loan_offer`
+    // (lending/coordinator/src/lib.rs:105) takes `input.lender_did` from the client
+    // and never checks the caller, so before this any agent could publish a loan
+    // offer in someone else's name (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md,
+    // finance Class-A, `lending:234`).
+    //
+    // Safe to bind: exactly one coordinator creation path, no on-behalf-of flow
+    // (verified 2026-07-28).
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     if !offer.lender_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Lender must be a valid DID".into(),
@@ -254,9 +270,23 @@ fn validate_create_loan_offer(
 }
 
 fn validate_update_loan_offer(
-    _action: Update,
+    action: Update,
     offer: LoanOffer,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind updates too, so a bound create cannot simply be overwritten by another
+    // agent. Safe: the only coordinator update path (`deactivate_offer`:415)
+    // locates the offer with `query()`, which reads the CALLER'S OWN source chain
+    // only — it can already only touch offers the caller authored.
+    //
+    // NOTE: `Update.author` is a field; `EntryCreationAction::author()` is a
+    // method. Hence the asymmetry with the create validator above.
+    let author_did = did_for_author(&action.author);
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("LoanOffer", "lender_did", &offer.lender_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     if offer.min_amount > offer.max_amount {
         return Ok(ValidateCallbackResult::Invalid(
             "Min amount cannot exceed max amount".into(),
@@ -275,4 +305,101 @@ fn validate_create_payment_schedule(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ts(micros: i64) -> Timestamp {
+        Timestamp::from_micros(micros)
+    }
+
+    fn make_create() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn make_update() -> Update {
+        Update {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(1_000_000),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    /// DID of the agent `make_create()`/`make_update()` attribute actions to.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
+    fn valid_offer() -> LoanOffer {
+        LoanOffer {
+            id: "offer:test:001".into(),
+            lender_did: test_author_did(),
+            max_amount: 1000.0,
+            min_amount: 100.0,
+            currency: "SAP".into(),
+            base_interest_rate: 0.05,
+            min_credit_score: 500.0,
+            max_term_days: 90,
+            collateral_required: false,
+            active: true,
+            created: ts(1_000_000),
+        }
+    }
+
+    #[test]
+    fn test_offer_from_the_committing_agent_is_accepted() {
+        let result =
+            validate_create_loan_offer(EntryCreationAction::Create(make_create()), valid_offer())
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_offer_forged_for_another_lender_is_rejected() {
+        let mut forged = valid_offer();
+        forged.lender_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_loan_offer(EntryCreationAction::Create(make_create()), forged).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("LoanOffer")
+                        && msg.contains("lender_did")
+                        && msg.contains("forgery"),
+                    "got: {msg}"
+                )
+            }
+            other => panic!("forged lender_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_update_own_offer_is_accepted() {
+        let result = validate_update_loan_offer(make_update(), valid_offer()).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_update_another_lenders_offer_is_rejected() {
+        let mut forged = valid_offer();
+        forged.lender_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result = validate_update_loan_offer(make_update(), forged).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
 }

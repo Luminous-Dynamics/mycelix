@@ -5,6 +5,7 @@
 //! Payments Integrity Zome
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 pub use mycelix_finance_types::{
     AMBER_MAX_CAP_MICRO_SAP, AmberExemption, SapMintCapCounter, SapMintSource, SuccessionPreference,
 };
@@ -123,6 +124,23 @@ pub struct SapBalance {
     /// `#[serde(default)]` keeps pre-Amber balances deserializable.
     #[serde(default)]
     pub exemption: Option<AmberExemption>,
+    /// ActionHash of the entry that justifies this balance's delta from its
+    /// predecessor — a `SapMintRecord` for issuance, or the counterpart payment
+    /// for a transfer.
+    ///
+    /// STEP 1 OF THE CONSERVATION MODEL (WU-1', see
+    /// MYCELIX_PHASE1_EXECUTION_PLAN_2026-07-28.md). The field is threaded
+    /// through now but NOT yet enforced: integrity does not check it, and every
+    /// producer currently writes `None`. Adding it separately keeps the cluster
+    /// green while the mint/transfer paths are migrated to populate it, after
+    /// which integrity can require it for any *increase*.
+    ///
+    /// `Option` for a SEMANTIC reason, not backward compatibility: the genesis
+    /// balance created by `initialize_sap_balance` is zero and has nothing
+    /// justifying it. (There is no deployed DHT to migrate — Mycelix is a
+    /// prototype, pre-testnet, with no users as of 2026-07-29.)
+    #[serde(default)]
+    pub justified_by: Option<ActionHash>,
 }
 
 /// Record of a member exit, coordinating across all currencies
@@ -435,9 +453,32 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 }
 
 fn validate_create_payment(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     payment: Payment,
 ) -> ExternResult<ValidateCallbackResult> {
+    // Bind the payment to its committer. Without this, `from_did` is a
+    // self-reported string that no peer ever checks against the agent who signed
+    // the entry — so any agent could commit a Payment spending anyone's balance
+    // (debit forgery; MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance
+    // Class-A, `payments:430`).
+    //
+    // Safe to bind unconditionally: `send_payment` (the only coordinator path
+    // that creates a Payment) already calls `verify_caller_is_did(&from_did)`,
+    // so every legitimate Payment is committed by `from_did`'s own agent.
+    // Verified 2026-07-28 against payments/coordinator/src/lib.rs:1170.
+    //
+    // NOTE the contrast with `SapBalance` in this same zome, which is NOT
+    // author-bindable: `transfer_sap` credits the payee from the *sender's*
+    // agent context, so balances are shared mutable state written by many
+    // agents. That needs the integrity-conservation model instead — see
+    // MYCELIX_ECONOMY_IMPROVEMENT_PLAN_2026-07-10.md.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("Payment", "from_did", &payment.from_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
     // String length checks — prevent DHT bloat
     if payment.from_did.len() > MAX_DID_LEN || payment.to_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
@@ -730,7 +771,7 @@ fn validate_create_sap_mint_record(mint: &SapMintRecord) -> ExternResult<Validat
 }
 
 fn validate_create_exit_record(
-    _action: EntryCreationAction,
+    action: EntryCreationAction,
     exit: ExitRecord,
 ) -> ExternResult<ValidateCallbackResult> {
     // String length checks — prevent DHT bloat
@@ -744,6 +785,20 @@ fn validate_create_exit_record(
         return Ok(ValidateCallbackResult::Invalid(
             "Member must be a valid DID".into(),
         ));
+    }
+
+    // Bind the exit to its committer. A forged `member_did` fabricates someone
+    // else's exit — which forgives their TEND balances and dissolves their MYCEL
+    // (MYCELIX_AUTHOR_BINDING_TRIAGE_2026-07-09.md, finance Class-A, `payments:696`).
+    //
+    // Safe to bind: `initiate_exit` (payments/coordinator/src/lib.rs:1823) already
+    // calls verify_caller_is_did(&input.member_did), and ExitRecord is create-only
+    // (its update arm returns Invalid). Verified 2026-07-28.
+    let author_did = did_for_author(action.author());
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("ExitRecord", "member_did", &exit.member_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
     }
     if let SuccessionPreference::Designee(ref designee) = exit.succession_preference {
         if !designee.starts_with("did:") {
@@ -810,10 +865,18 @@ mod tests {
         }
     }
 
+    /// The DID of the agent that `make_create()` attributes actions to.
+    ///
+    /// `validate_create_payment` binds `from_did` to the committing agent, so any
+    /// fixture meant to be VALID must use this rather than a human-readable name.
+    fn test_author_did() -> String {
+        format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
+    }
+
     fn valid_payment() -> Payment {
         Payment {
             id: "pay:test:001".into(),
-            from_did: "did:mycelix:alice".into(),
+            from_did: test_author_did(),
             to_did: "did:mycelix:bob".into(),
             amount: 1_000_000, // 1 SAP
             fee: 100,          // 0.01% of 1_000_000 = 100
@@ -856,6 +919,7 @@ mod tests {
 
     fn valid_sap_balance() -> SapBalance {
         SapBalance {
+            justified_by: None,
             member_did: "did:mycelix:alice".into(),
             balance: 5_000_000,
             last_demurrage_at: ts(1_000_000),
@@ -877,7 +941,7 @@ mod tests {
 
     fn valid_exit_record() -> ExitRecord {
         ExitRecord {
-            member_did: "did:mycelix:alice".into(),
+            member_did: test_author_did(),
             succession_preference: SuccessionPreference::Commons,
             sap_balance: 5_000_000,
             tend_balances_forgiven: vec![],
@@ -1213,7 +1277,11 @@ mod tests {
     #[test]
     fn test_exit_record_designee_cannot_be_self() {
         let mut exit = valid_exit_record();
-        exit.succession_preference = SuccessionPreference::Designee("did:mycelix:alice".into());
+        // Must equal `member_did` for "designee == self" to be what is under test.
+        // Previously both were the literal "did:mycelix:alice"; since
+        // `valid_exit_record()` now derives member_did from the committing agent
+        // (author binding, 2026-07-28), the designee has to derive from it too.
+        exit.succession_preference = SuccessionPreference::Designee(test_author_did());
         let result =
             validate_create_exit_record(EntryCreationAction::Create(make_create()), exit).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
@@ -1260,5 +1328,96 @@ mod tests {
         let entry: SapMintCapCounterEntry = counter.clone().into();
         let back: SapMintCapCounter = entry.into();
         assert_eq!(counter, back);
+    }
+
+    // ---- 28. Payment author binding (debit-forgery regression) ----
+    //
+    // These are the durability half of the fix: the campaign's history shows an
+    // author-binding fix landing and later being lost (commit 48a4460dcf), so
+    // each binding gets a test that asserts a FORGED value is REJECTED — not
+    // merely that a legitimate one is accepted.
+
+    #[test]
+    fn test_payment_from_did_matching_author_is_valid() {
+        let author = "did:mycelix:uhCAkalice";
+        let result = require_did_is_author("Payment", "from_did", author, author);
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_payment_from_did_forged_is_rejected() {
+        // Mallory commits a Payment claiming to spend Alice's balance.
+        let result = require_did_is_author(
+            "Payment",
+            "from_did",
+            "did:mycelix:uhCAkalice",
+            "did:mycelix:uhCAkmallory",
+        );
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("Payment") && msg.contains("from_did") && msg.contains("forgery"),
+                    "rejection should name the failure mode, got: {msg}"
+                );
+            }
+            other => panic!("forged from_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_payment_from_did_empty_author_still_rejected() {
+        // Degenerate input must not accidentally pass the equality check.
+        let result = require_did_is_author("Payment", "from_did", "did:mycelix:uhCAkalice", "");
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_payment_with_forged_from_did_is_rejected_end_to_end() {
+        // The real attack, through the real validator: Mallory commits a Payment
+        // whose `from_did` names a victim. Before the 2026-07-28 fix this
+        // returned Valid, and every honest peer accepted it — debit forgery.
+        let mut forged = valid_payment();
+        forged.from_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_payment(EntryCreationAction::Create(make_create()), forged).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("Payment") && msg.contains("from_did") && msg.contains("forgery"),
+                    "got: {msg}"
+                )
+            }
+            other => panic!("forged from_did must be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_create_payment_from_the_committing_agent_is_accepted() {
+        // The legitimate path must still pass: `send_payment` verifies
+        // caller == from_did, so a real Payment is always committed by that agent.
+        let result =
+            validate_create_payment(EntryCreationAction::Create(make_create()), valid_payment())
+                .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_exit_record_forged_member_is_rejected() {
+        // Forging someone's exit forgives their TEND debts and dissolves MYCEL.
+        let mut e = valid_exit_record();
+        e.member_did = "did:mycelix:uhCAkSomeoneElse".into();
+        let result =
+            validate_create_exit_record(EntryCreationAction::Create(make_create()), e).unwrap();
+        match result {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(
+                    msg.contains("ExitRecord")
+                        && msg.contains("member_did")
+                        && msg.contains("forgery"),
+                    "got: {msg}"
+                )
+            }
+            other => panic!("forged member_did must be rejected, got {other:?}"),
+        }
     }
 }

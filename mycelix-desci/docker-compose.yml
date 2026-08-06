@@ -1,32 +1,76 @@
-# Docker Compose configuration for Mycelix-DeSci
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mycelix-desci-postgres
+    environment:
+      POSTGRES_DB: mycelix_desci
+      POSTGRES_USER: mycelix
+      POSTGRES_PASSWORD: ${DESCI_POSTGRES_PASSWORD:?set DESCI_POSTGRES_PASSWORD in .env}
+    volumes:
+      - desci-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mycelix -d mycelix_desci"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mycelix-api
+      additional_contexts:
+        zkp-core: ../crates/mycelix-zkp-core
+    container_name: mycelix-desci-api
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      DESCI_SCIENTIFIC_EVENT_BACKEND: postgres
+      DESCI_POSTGRES_URL: postgres://mycelix:${DESCI_POSTGRES_PASSWORD:?set DESCI_POSTGRES_PASSWORD in .env}@postgres:5432/mycelix_desci
+      DESCI_POSTGRES_AUTO_MIGRATE: "false"
+      DESCI_REQUIRE_AUTHORITY_WRITE_FENCING: "true"
+      DESCI_AUTHORITY_DEPLOYMENT_ID: ${DESCI_AUTHORITY_DEPLOYMENT_ID:?set DESCI_AUTHORITY_DEPLOYMENT_ID in .env}
+      DESCI_AUTHORITY_WRITE_LEASE_FILE: /run/authority/current-write-lease.json
+      DESCI_AUTHORITY_WRITE_LEASE_TRUST_FILE: /app/config/authority-write-lease-trust.json
+      DESCI_AUTHORITY_WRITE_LEASE_CLOCK_SKEW_SECONDS: "30"
+      DESCI_CREDENTIAL_REGISTRY_BACKEND: postgres
+      DESCI_CREDENTIAL_REGISTRY_PATH: /app/data/scientific-credentials.json
+      DESCI_CREDENTIAL_BOOTSTRAP_TRUST_FILE: /app/config/credential-bootstrap-trust.json
+      DESCI_MIN_CREDENTIAL_REGISTRY_ADMINS: "2"
+      DESCI_CREDENTIAL_GOVERNANCE_BACKEND: postgres
+      DESCI_CREDENTIAL_GOVERNANCE_PATH: /app/data/scientific-credential-governance.json
+      DESCI_MIN_CHECKPOINT_WITNESS_ORGANIZATIONS: "2"
+      DESCI_MIN_CHECKPOINT_MIRROR_ORGANIZATIONS: "2"
+      DESCI_AUTHORITY_RECEIPT_SIGNING_KEY_FILE: /run/secrets/authority-receipt-signing.key
+      DESCI_AUTHORITY_OUTBOX_SIGNING_KEY_FILE: /run/secrets/authority-outbox-signing.key
+      DESCI_MAX_PENDING_AUTHORITY_OUTBOX: "1000"
+      DESCI_MAX_AUTHORITY_OUTBOX_AGE_SECONDS: "3600"
+      DESCI_REQUIRE_AUTHORITY_DATABASE_EPOCH: "true"
+      DESCI_MIN_DATABASE_EPOCH_ACK_ORGANIZATIONS: "2"
+      DESCI_ALLOW_UNATTESTED_AUTHORITY_HISTORY: "false"
+      DESCI_ENABLE_LEGACY_MUTATIONS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
-    environment:
-      - PORT=8080
-      - RUST_LOG=mycelix_api=info,tower_http=debug
-      - CORS_ORIGINS=*
+    volumes:
+      - ./data:/app/data
+      - ./config/credential-bootstrap-trust.json:/app/config/credential-bootstrap-trust.json:ro
+      - ./config/authority-write-lease-trust.json:/app/config/authority-write-lease-trust.json:ro
+      # Mount a directory, not an individual lease file, so atomic file replacement
+      # by the external lease issuer is visible inside the container.
+      - ./runtime/authority:/run/authority:ro
+      - ./config/authority-receipt-signing.key:/run/secrets/authority-receipt-signing.key:ro
+      - ./config/authority-outbox-signing.key:/run/secrets/authority-outbox-signing.key:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/api/v1/system/health"]
       interval: 30s
       timeout: 3s
       retries: 3
-      start_period: 5s
-    networks:
-      - mycelix-network
-
-networks:
-  mycelix-network:
-    driver: bridge
+      start_period: 15s
 
 volumes:
-  mycelix-data:
-    driver: local
+  desci-postgres:

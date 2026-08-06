@@ -286,10 +286,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // VALIDATION HELPERS — DiagnosticResult
 // ============================================================================
 
-fn validate_create_diagnostic(
-    _action: Create,
-    r: DiagnosticResult,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_diagnostic_fields(r: &DiagnosticResult) -> ExternResult<ValidateCallbackResult> {
     for rec in &r.recommendations {
         if rec.len() > 256 {
             return Ok(ValidateCallbackResult::Invalid(
@@ -312,39 +309,42 @@ fn validate_create_diagnostic(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_diagnostic(
-    _action: Update,
+fn validate_create_diagnostic(
+    action: Create,
     r: DiagnosticResult,
-    _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    for rec in &r.recommendations {
-        if rec.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Recommendation too long (max 256 chars per item)".into(),
-            ));
-        }
-    }
-    // Same validation as create
-    if serde_json::from_str::<serde_json::Value>(&r.findings).is_err() {
+    // Bind the diagnostic to its committer -- it feeds the cross-agent
+    // cognitive-learning system downstream, so spoofing misattributes
+    // provenance to a specific other real agent (P0 author-binding gap).
+    if r.agent != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "DiagnosticResult findings must be valid JSON".into(),
+            "DiagnosticResult agent must be the committing agent (forgery)".to_string(),
         ));
     }
-    if r.findings.len() > 32768 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DiagnosticResult findings must be 32768 bytes or fewer".into(),
-        ));
+    validate_diagnostic_fields(&r)
+}
+
+fn validate_update_diagnostic(
+    action: Update,
+    r: DiagnosticResult,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    // Previously unchecked -- any agent could rewrite anyone else's
+    // diagnostic result (P0 author-binding gap, wide-open-update class).
+    let original = must_get_action(original_action_hash)?;
+    let author_check = check_author_match(original.action().author(), &action.author, "update");
+    if !matches!(author_check, ValidateCallbackResult::Valid) {
+        return Ok(author_check);
     }
-    Ok(ValidateCallbackResult::Valid)
+    validate_diagnostic_fields(&r)
 }
 
 // ============================================================================
 // VALIDATION HELPERS — PrivacyPreference
 // ============================================================================
 
-fn validate_create_privacy_preference(
-    _action: Create,
-    p: PrivacyPreference,
+fn validate_privacy_preference_fields(
+    p: &PrivacyPreference,
 ) -> ExternResult<ValidateCallbackResult> {
     if p.allowed_categories.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -354,27 +354,44 @@ fn validate_create_privacy_preference(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_privacy_preference(
-    _action: Update,
+fn validate_create_privacy_preference(
+    action: Create,
     p: PrivacyPreference,
-    _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if p.allowed_categories.is_empty() {
+    // Bind the preference to its committer. This is a consent-bypass fix,
+    // not just an attribution spoof: without this check, any agent could
+    // create a PrivacyPreference entry *for a different victim agent*,
+    // setting sharing_tier: Full and enabling sharing of that victim's
+    // cognitive updates/system info they never consented to -- this entry
+    // type's entire purpose is consent control (P0 author-binding gap).
+    if p.agent != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "PrivacyPreference allowed_categories must not be empty".into(),
+            "PrivacyPreference agent must be the committing agent (forgery)".to_string(),
         ));
     }
-    Ok(ValidateCallbackResult::Valid)
+    validate_privacy_preference_fields(&p)
+}
+
+fn validate_update_privacy_preference(
+    action: Update,
+    p: PrivacyPreference,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    // Same consent-bypass concern as create -- previously unchecked (P0
+    // author-binding gap, wide-open-update class).
+    let original = must_get_action(original_action_hash)?;
+    let author_check = check_author_match(original.action().author(), &action.author, "update");
+    if !matches!(author_check, ValidateCallbackResult::Valid) {
+        return Ok(author_check);
+    }
+    validate_privacy_preference_fields(&p)
 }
 
 // ============================================================================
 // VALIDATION HELPERS — CognitiveUpdate
 // ============================================================================
 
-fn validate_create_cognitive_update(
-    _action: Create,
-    u: CognitiveUpdate,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_cognitive_update_fields(u: &CognitiveUpdate) -> ExternResult<ValidateCallbackResult> {
     if u.resolution_pattern.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "CognitiveUpdate resolution_pattern cannot be empty".into(),
@@ -399,43 +416,39 @@ fn validate_create_cognitive_update(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_cognitive_update(
-    _action: Update,
+fn validate_create_cognitive_update(
+    action: Create,
     u: CognitiveUpdate,
-    _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if u.resolution_pattern.trim().is_empty() {
+    // Bind the update to its committer -- same downstream
+    // learning-poisoning concern as DiagnosticResult (P0 author-binding gap).
+    if u.source_agent != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "CognitiveUpdate resolution_pattern cannot be empty".into(),
+            "CognitiveUpdate source_agent must be the committing agent (forgery)".to_string(),
         ));
     }
-    if u.resolution_pattern.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "CognitiveUpdate resolution_pattern too long (max 4096 chars)".into(),
-        ));
+    validate_cognitive_update_fields(&u)
+}
+
+fn validate_update_cognitive_update(
+    action: Update,
+    u: CognitiveUpdate,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    // Previously unchecked (P0 author-binding gap, wide-open-update class).
+    let original = must_get_action(original_action_hash)?;
+    let author_check = check_author_match(original.action().author(), &action.author, "update");
+    if !matches!(author_check, ValidateCallbackResult::Valid) {
+        return Ok(author_check);
     }
-    if u.encoding.len() != 2048 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "CognitiveUpdate encoding must be exactly 2048 bytes, got {}",
-            u.encoding.len()
-        )));
-    }
-    if !u.phi.is_finite() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "CognitiveUpdate phi must be finite".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    validate_cognitive_update_fields(&u)
 }
 
 // ============================================================================
 // VALIDATION HELPERS — HelperProfile
 // ============================================================================
 
-fn validate_helper_profile(
-    _action: Create,
-    h: HelperProfile,
-) -> ExternResult<ValidateCallbackResult> {
+fn validate_helper_profile_fields(h: &HelperProfile) -> ExternResult<ValidateCallbackResult> {
     if h.expertise_categories.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "HelperProfile must have at least one expertise category".into(),
@@ -449,22 +462,34 @@ fn validate_helper_profile(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_helper_profile(
-    _action: Update,
+fn validate_helper_profile(
+    action: Create,
     h: HelperProfile,
-    _original_action_hash: ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
-    if h.expertise_categories.is_empty() {
+    // Bind the profile to its committer -- impersonation-as-helper could
+    // redirect ticket assignments to an attacker posing as a specific
+    // trusted helper (P0 author-binding gap; found alongside the originally
+    // audited validate_update_helper_profile, same unbound `agent` field).
+    if h.agent != action.author {
         return Ok(ValidateCallbackResult::Invalid(
-            "HelperProfile must have at least one expertise category".into(),
+            "HelperProfile agent must be the committing agent (forgery)".to_string(),
         ));
     }
-    if h.max_concurrent == 0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "HelperProfile max_concurrent must be at least 1".into(),
-        ));
+    validate_helper_profile_fields(&h)
+}
+
+fn validate_update_helper_profile(
+    action: Update,
+    h: HelperProfile,
+    original_action_hash: ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    // Previously unchecked (P0 author-binding gap, wide-open-update class).
+    let original = must_get_action(original_action_hash)?;
+    let author_check = check_author_match(original.action().author(), &action.author, "update");
+    if !matches!(author_check, ValidateCallbackResult::Valid) {
+        return Ok(author_check);
     }
-    Ok(ValidateCallbackResult::Valid)
+    validate_helper_profile_fields(&h)
 }
 
 // ============================================================================
@@ -501,24 +526,6 @@ mod tests {
             timestamp: fake_timestamp(),
             action_seq: 0,
             prev_action: fake_action_hash(),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex(0),
-                ZomeIndex(0),
-                EntryVisibility::Public,
-            )),
-            entry_hash: fake_entry_hash(),
-            weight: EntryRateWeight::default(),
-        }
-    }
-
-    fn fake_update() -> Update {
-        Update {
-            author: fake_agent(),
-            timestamp: fake_timestamp(),
-            action_seq: 1,
-            prev_action: fake_action_hash(),
-            original_action_address: fake_action_hash(),
-            original_entry_address: fake_entry_hash(),
             entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
@@ -818,8 +825,7 @@ mod tests {
 
     #[test]
     fn diagnostic_result_update_valid() {
-        let result =
-            validate_update_diagnostic(fake_update(), make_diagnostic_result(), fake_action_hash());
+        let result = validate_diagnostic_fields(&make_diagnostic_result());
         assert_valid(&result);
     }
 
@@ -827,7 +833,7 @@ mod tests {
     fn diagnostic_result_update_invalid_json_rejected() {
         let mut diag = make_diagnostic_result();
         diag.findings = "bad json".to_string();
-        let result = validate_update_diagnostic(fake_update(), diag, fake_action_hash());
+        let result = validate_diagnostic_fields(&diag);
         assert_invalid(&result);
     }
 
@@ -879,11 +885,7 @@ mod tests {
 
     #[test]
     fn privacy_preference_update_valid() {
-        let result = validate_update_privacy_preference(
-            fake_update(),
-            make_privacy_preference(),
-            fake_action_hash(),
-        );
+        let result = validate_privacy_preference_fields(&make_privacy_preference());
         assert_valid(&result);
     }
 
@@ -891,7 +893,7 @@ mod tests {
     fn privacy_preference_update_empty_categories_rejected() {
         let mut pref = make_privacy_preference();
         pref.allowed_categories = vec![];
-        let result = validate_update_privacy_preference(fake_update(), pref, fake_action_hash());
+        let result = validate_privacy_preference_fields(&pref);
         assert_invalid(&result);
     }
 
@@ -986,11 +988,7 @@ mod tests {
 
     #[test]
     fn cognitive_update_update_valid() {
-        let result = validate_update_cognitive_update(
-            fake_update(),
-            make_cognitive_update(),
-            fake_action_hash(),
-        );
+        let result = validate_cognitive_update_fields(&make_cognitive_update());
         assert_valid(&result);
     }
 
@@ -998,7 +996,7 @@ mod tests {
     fn cognitive_update_update_wrong_encoding_rejected() {
         let mut cu = make_cognitive_update();
         cu.encoding = vec![0u8; 1024];
-        let result = validate_update_cognitive_update(fake_update(), cu, fake_action_hash());
+        let result = validate_cognitive_update_fields(&cu);
         assert_invalid(&result);
     }
 
@@ -1006,7 +1004,7 @@ mod tests {
     fn cognitive_update_update_nan_phi_rejected() {
         let mut cu = make_cognitive_update();
         cu.phi = f64::NAN;
-        let result = validate_update_cognitive_update(fake_update(), cu, fake_action_hash());
+        let result = validate_cognitive_update_fields(&cu);
         assert_invalid(&result);
     }
 
@@ -1106,11 +1104,7 @@ mod tests {
 
     #[test]
     fn helper_update_valid() {
-        let result = validate_update_helper_profile(
-            fake_update(),
-            make_helper_profile(),
-            fake_action_hash(),
-        );
+        let result = validate_helper_profile_fields(&make_helper_profile());
         assert_valid(&result);
     }
 
@@ -1118,7 +1112,7 @@ mod tests {
     fn helper_update_empty_categories_rejected() {
         let mut hp = make_helper_profile();
         hp.expertise_categories = vec![];
-        let result = validate_update_helper_profile(fake_update(), hp, fake_action_hash());
+        let result = validate_helper_profile_fields(&hp);
         assert_invalid(&result);
     }
 
@@ -1238,7 +1232,7 @@ mod tests {
     fn diagnostic_update_recommendation_over_limit_rejected() {
         let mut diag = make_diagnostic_result();
         diag.recommendations = vec!["x".repeat(257)];
-        let result = validate_update_diagnostic(fake_update(), diag, fake_action_hash());
+        let result = validate_diagnostic_fields(&diag);
         assert_invalid(&result);
         assert_eq!(
             invalid_msg(&result),
@@ -1294,7 +1288,7 @@ mod tests {
     fn cognitive_update_update_resolution_pattern_empty_rejected() {
         let mut cu = make_cognitive_update();
         cu.resolution_pattern = String::new();
-        let result = validate_update_cognitive_update(fake_update(), cu, fake_action_hash());
+        let result = validate_cognitive_update_fields(&cu);
         assert_invalid(&result);
     }
 
@@ -1302,7 +1296,45 @@ mod tests {
     fn cognitive_update_update_resolution_pattern_over_limit_rejected() {
         let mut cu = make_cognitive_update();
         cu.resolution_pattern = "x".repeat(4097);
-        let result = validate_update_cognitive_update(fake_update(), cu, fake_action_hash());
+        let result = validate_cognitive_update_fields(&cu);
+        assert_invalid(&result);
+    }
+
+    // ========================================================================
+    // AUTHOR-BINDING TESTS (P0)
+    // ========================================================================
+
+    fn other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0xef; 36])
+    }
+
+    fn forged_create() -> Create {
+        let mut c = fake_create();
+        c.author = other_agent();
+        c
+    }
+
+    #[test]
+    fn diagnostic_agent_forgery_rejected() {
+        let result = validate_create_diagnostic(forged_create(), make_diagnostic_result());
+        assert_invalid(&result);
+    }
+
+    #[test]
+    fn privacy_preference_agent_forgery_rejected() {
+        let result = validate_create_privacy_preference(forged_create(), make_privacy_preference());
+        assert_invalid(&result);
+    }
+
+    #[test]
+    fn cognitive_update_source_agent_forgery_rejected() {
+        let result = validate_create_cognitive_update(forged_create(), make_cognitive_update());
+        assert_invalid(&result);
+    }
+
+    #[test]
+    fn helper_profile_agent_forgery_rejected() {
+        let result = validate_helper_profile(forged_create(), make_helper_profile());
         assert_invalid(&result);
     }
 }

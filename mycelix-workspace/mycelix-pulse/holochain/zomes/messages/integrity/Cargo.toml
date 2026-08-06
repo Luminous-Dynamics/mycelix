@@ -11,3 +11,33 @@ hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
 serde = { workspace = true }
 mail-leptos-types = { path = "../../../../crates/mail-leptos-types" }
+# Plain-data crate only (no #[hdk_extern] surface) — depending on the full
+# keys_integrity zome crate directly causes duplicate-symbol WASM link
+# errors (entry_defs/validate/__num_entry_types), since two zome crates'
+# macro-generated exports collide when linked into the same cdylib.
+keys_types = { path = "../../keys/types" }
+# Verify-only: no "getrandom"/"rand_core"/"pkcs8" features. ML-DSA-65
+# signature verification needs no randomness (only signing/keygen do), so
+# this avoids the getrandom-0.4/wasm_js requirement entirely — proven to
+# compile clean for wasm32-unknown-unknown alongside hdi (see the PQC gap
+# investigation in ADR-002).
+ml-dsa = { version = "=0.1.1", default-features = false, features = ["alloc"] }
+signature = { version = "3", default-features = false, features = ["alloc"] }
+
+# Native-only (cargo test, not wasm32): this crate has no `holochain`
+# conductor dependency, so ml-dsa's full default features (signing +
+# getrandom's native OS RNG backend) link fine here — unlike the Sweettest
+# harness, whose huge `holochain`/iroh dependency tree pulls in pre-release
+# RustCrypto crates that conflict with ml-dsa's stable crypto-common
+# requirement. Cargo unifies this per-target: the wasm32 lib build still
+# only gets the verify-only feature set above; `cargo test`'s dev target
+# additionally gets signing+getrandom, used only to generate a real
+# keypair/signature to prove verify_ml_dsa_v2 against (via a mocked HDI
+# host, hdi::test_utils).
+[dev-dependencies]
+ml-dsa = { version = "=0.1.1" }
+# hdi's mock-host machinery (hdi::hdi::{HdiT, set_hdi}) is real but its
+# test_utils module is cfg-gated behind this feature (or cfg(test) on hdi's
+# OWN build, which never applies to a downstream crate depending on it
+# normally). Dev-only: doesn't affect the wasm32 production lib build.
+hdi = { workspace = true, features = ["test_utils"] }

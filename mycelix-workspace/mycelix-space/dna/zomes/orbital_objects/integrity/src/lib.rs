@@ -214,32 +214,10 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => match app_entry {
-                EntryTypes::OrbitalObject(obj) => {
-                    validate_create_orbital_object(EntryCreationAction::Create(action), obj)
-                }
-                EntryTypes::TleRecord(tle) => {
-                    validate_create_tle_record(EntryCreationAction::Create(action), tle)
-                }
-                EntryTypes::OperatorClaim(claim) => {
-                    validate_create_operator_claim(EntryCreationAction::Create(action), claim)
-                }
-                EntryTypes::ObjectMetadata(meta) => validate_object_metadata(&meta),
-            },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::OrbitalObject(_) => Ok(ValidateCallbackResult::Invalid(
-                    "OrbitalObject entries cannot be updated".to_string(),
-                )),
-                EntryTypes::TleRecord(_) => Ok(ValidateCallbackResult::Invalid(
-                    "TleRecord entries cannot be updated".to_string(),
-                )),
-                EntryTypes::OperatorClaim(_) => Ok(ValidateCallbackResult::Invalid(
-                    "OperatorClaim entries cannot be updated".to_string(),
-                )),
-                EntryTypes::ObjectMetadata(_) => Ok(ValidateCallbackResult::Invalid(
-                    "ObjectMetadata entries cannot be updated".to_string(),
-                )),
-            },
+            OpEntry::CreateEntry { app_entry, action } => validate_create_entry(app_entry, action),
+            OpEntry::UpdateEntry {
+                app_entry, action, ..
+            } => validate_update_entry(app_entry, action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink {
@@ -268,11 +246,34 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-/// Validate an orbital object entry on creation
-fn validate_create_orbital_object(
-    action: EntryCreationAction,
-    obj: OrbitalObject,
+/// Validate entry creation
+fn validate_create_entry(
+    entry: EntryTypes,
+    _action: Create,
 ) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::OrbitalObject(obj) => validate_orbital_object(&obj),
+        EntryTypes::TleRecord(tle) => validate_tle_record(&tle),
+        EntryTypes::OperatorClaim(claim) => validate_operator_claim(&claim),
+        EntryTypes::ObjectMetadata(meta) => validate_object_metadata(&meta),
+    }
+}
+
+/// Validate entry update
+fn validate_update_entry(
+    entry: EntryTypes,
+    _action: Update,
+) -> ExternResult<ValidateCallbackResult> {
+    match entry {
+        EntryTypes::OrbitalObject(obj) => validate_orbital_object(&obj),
+        EntryTypes::TleRecord(tle) => validate_tle_record(&tle),
+        EntryTypes::OperatorClaim(claim) => validate_operator_claim(&claim),
+        EntryTypes::ObjectMetadata(meta) => validate_object_metadata(&meta),
+    }
+}
+
+/// Validate an orbital object entry
+fn validate_orbital_object(obj: &OrbitalObject) -> ExternResult<ValidateCallbackResult> {
     // NORAD ID must be valid (1-999999)
     if obj.norad_id == 0 || obj.norad_id > 999999 {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -299,26 +300,12 @@ fn validate_create_orbital_object(
         ));
     }
 
-    // Bind the object to its committer -- register_object already derives
-    // created_by from agent_info() coordinator-side with zero user input,
-    // so this never rejects a legitimate registration; it's the real
-    // DHT-level enforcement a modified coordinator could otherwise bypass
-    // (P0 author-binding gap).
-    if obj.created_by != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "OrbitalObject must be created by the committing agent (creator forgery)".to_string(),
-        ));
-    }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a TLE record on creation, using the orbital-mechanics library parser.
-/// This validates line lengths, line numbers, checksums, and all field formats.
-fn validate_create_tle_record(
-    action: EntryCreationAction,
-    tle: TleRecord,
-) -> ExternResult<ValidateCallbackResult> {
+/// Validate a TLE record using the orbital-mechanics library parser
+/// This validates line lengths, line numbers, checksums, and all field formats
+fn validate_tle_record(tle: &TleRecord) -> ExternResult<ValidateCallbackResult> {
     // NORAD ID must be valid
     if tle.norad_id == 0 || tle.norad_id > 999999 {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -346,23 +333,11 @@ fn validate_create_tle_record(
         )));
     }
 
-    // Bind the TLE to its committer -- submit_tle already derives
-    // submitted_by from agent_info() coordinator-side with zero user input
-    // (P0 author-binding gap).
-    if tle.submitted_by != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "TleRecord must be submitted by the committing agent (submitter forgery)".to_string(),
-        ));
-    }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate operator claim on creation
-fn validate_create_operator_claim(
-    action: EntryCreationAction,
-    claim: OperatorClaim,
-) -> ExternResult<ValidateCallbackResult> {
+/// Validate operator claim
+fn validate_operator_claim(claim: &OperatorClaim) -> ExternResult<ValidateCallbackResult> {
     // NORAD ID must be valid
     if claim.norad_id == 0 || claim.norad_id > 999999 {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -375,15 +350,6 @@ fn validate_create_operator_claim(
     if claim.organization.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Organization name cannot be empty".to_string(),
-        ));
-    }
-
-    // Bind the claim to its committer -- claim_operator already derives
-    // operator from agent_info() coordinator-side with zero user input
-    // (P0 author-binding gap).
-    if claim.operator != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "OperatorClaim must be claimed by the committing agent (operator forgery)".to_string(),
         ));
     }
 

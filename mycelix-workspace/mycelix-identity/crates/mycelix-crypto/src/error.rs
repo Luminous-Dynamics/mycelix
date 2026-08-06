@@ -73,8 +73,7 @@ impl fmt::Display for CryptoError {
                 write!(
                     f,
                     "Multicodec prefix mismatch: expected [{:#04x}, {:#04x}], got [{:#04x}, {:#04x}]",
-                    expected_prefix[0], expected_prefix[1],
-                    actual_prefix[0], actual_prefix[1],
+                    expected_prefix[0], expected_prefix[1], actual_prefix[0], actual_prefix[1],
                 )
             }
             CryptoError::Base58Decode(msg) => {

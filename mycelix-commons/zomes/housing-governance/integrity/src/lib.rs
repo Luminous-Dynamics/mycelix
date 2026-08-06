@@ -170,15 +170,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
+                action,
                 original_action_hash: _,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::BoardMeeting(meeting) => validate_update_meeting(meeting),
-                EntryTypes::Resolution(resolution) => validate_update_resolution(resolution),
-                EntryTypes::ByLaw(bylaw) => validate_update_bylaw(bylaw),
-                EntryTypes::Election(election) => validate_update_election(election),
+                EntryTypes::BoardMeeting(meeting) => validate_update_meeting(action, meeting),
+                EntryTypes::Resolution(resolution) => {
+                    validate_update_resolution(action, resolution)
+                }
+                // amend_bylaw creates a NEW ByLaw entry with `supersedes` set
+                // rather than calling update_entry (confirmed via grep) --
+                // dead update path, made explicitly immutable.
+                EntryTypes::ByLaw(_) => Ok(ValidateCallbackResult::Invalid(
+                    "ByLaws are immutable; amendments create a new superseding entry".into(),
+                )),
+                EntryTypes::Election(election) => validate_update_election(action, election),
                 EntryTypes::Ballot(_) => Ok(ValidateCallbackResult::Invalid(
                     "Ballots cannot be modified after casting".into(),
                 )),
@@ -425,53 +432,87 @@ fn validate_create_meeting(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_meeting(meeting: BoardMeeting) -> ExternResult<ValidateCallbackResult> {
-    if meeting.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Meeting title cannot be empty".into(),
-        ));
-    }
+/// Pure logic for a `BoardMeeting` update, factored out of
+/// [`validate_update_meeting`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+///
+/// No author requirement: record_minutes has zero caller-identity check
+/// (no secretary/board-officer role concept exists in this zome to bind
+/// against). Content is restricted to minutes/attendees instead -- this
+/// closes the wide-open bug that previously let title/agenda/scheduled_at/
+/// location/meeting_type change unconditionally on update too.
+fn validate_meeting_transition(
+    original: &BoardMeeting,
+    meeting: &BoardMeeting,
+) -> ValidateCallbackResult {
     if meeting.title.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Meeting title must be at most 512 characters".into(),
-        ));
+        );
     }
     if meeting.agenda.len() > 50 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 50 agenda items".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Cannot have more than 50 agenda items".into());
     }
     for item in &meeting.agenda {
         if item.len() > 512 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Each agenda item must be 512 characters or fewer".into(),
-            ));
+            );
         }
     }
     if meeting.location.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Meeting location must be 256 characters or fewer".into(),
-        ));
+        );
     }
     if meeting.attendees.len() > 100 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 100 attendees".into(),
-        ));
+        return ValidateCallbackResult::Invalid("Cannot have more than 100 attendees".into());
     }
     if let Some(ref minutes) = meeting.minutes {
         if minutes.len() > 4096 {
-            return Ok(ValidateCallbackResult::Invalid(
+            return ValidateCallbackResult::Invalid(
                 "Meeting minutes must be 4096 characters or fewer".into(),
-            ));
+            );
         }
     }
-    Ok(ValidateCallbackResult::Valid)
+    if meeting.cooperative_hash != original.cooperative_hash
+        || meeting.title != original.title
+        || meeting.agenda != original.agenda
+        || meeting.scheduled_at != original.scheduled_at
+        || meeting.location != original.location
+        || meeting.meeting_type != original.meeting_type
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only minutes/attendees can change on a meeting update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_meeting(
+    action: Update,
+    meeting: BoardMeeting,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: BoardMeeting = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original meeting not found".to_string()
+        )))?;
+    Ok(validate_meeting_transition(&original, &meeting))
 }
 
 fn validate_create_resolution(
-    _action: Create,
+    action: Create,
     resolution: Resolution,
 ) -> ExternResult<ValidateCallbackResult> {
+    if resolution.proposed_by != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution proposed_by must correspond to the committing agent".into(),
+        ));
+    }
     if resolution.title.trim().is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Resolution title cannot be empty".into(),
@@ -495,23 +536,59 @@ fn validate_create_resolution(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_resolution(resolution: Resolution) -> ExternResult<ValidateCallbackResult> {
-    if resolution.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Resolution title cannot be empty".into(),
-        ));
-    }
+/// Pure logic for a `Resolution` update, factored out of
+/// [`validate_update_resolution`] so it can be unit-tested without a live
+/// HDI (`must_get_valid_record` has no test mock in this codebase).
+///
+/// **Disclosed, NOT-fixed vote-integrity gap**: unlike Election/Ballot,
+/// Resolution voting has no underlying per-voter record at all --
+/// vote_on_resolution accepts caller-asserted vote tallies directly. This
+/// only restricts content (votes_for/votes_against/votes_abstain/
+/// quorum_met/passed/effective_date only; title/description/proposed_by/
+/// category/meeting_hash immutable) -- it does not and cannot verify the
+/// vote tallies themselves. A real fix needs a per-voter ballot/tally
+/// system for resolutions mirroring Election's, a larger feature.
+fn validate_resolution_transition(
+    original: &Resolution,
+    resolution: &Resolution,
+) -> ValidateCallbackResult {
     if resolution.title.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Resolution title must be 512 characters or fewer".into(),
-        ));
+        );
     }
     if resolution.description.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
+        return ValidateCallbackResult::Invalid(
             "Resolution description must be 4096 characters or fewer".into(),
-        ));
+        );
     }
-    Ok(ValidateCallbackResult::Valid)
+    if resolution.meeting_hash != original.meeting_hash
+        || resolution.title != original.title
+        || resolution.description != original.description
+        || resolution.proposed_by != original.proposed_by
+        || resolution.category != original.category
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only vote/quorum/passed/effective_date fields can change on a resolution update"
+                .into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+fn validate_update_resolution(
+    action: Update,
+    resolution: Resolution,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Resolution = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original resolution not found".to_string()
+        )))?;
+    Ok(validate_resolution_transition(&original, &resolution))
 }
 
 fn validate_create_bylaw(_action: Create, bylaw: ByLaw) -> ExternResult<ValidateCallbackResult> {
@@ -553,29 +630,9 @@ fn validate_create_bylaw(_action: Create, bylaw: ByLaw) -> ExternResult<Validate
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_bylaw(bylaw: ByLaw) -> ExternResult<ValidateCallbackResult> {
-    if bylaw.id.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ByLaw ID cannot be empty".into(),
-        ));
-    }
-    if bylaw.id.len() > 256 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ByLaw ID must be 256 characters or fewer".into(),
-        ));
-    }
-    if bylaw.title.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ByLaw title must be 512 characters or fewer".into(),
-        ));
-    }
-    if bylaw.content.len() > 4096 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ByLaw content must be 4096 characters or fewer".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
+// validate_update_bylaw no longer exists: the dispatcher now rejects all
+// ByLaw updates outright (immutable; amend_bylaw creates a new superseding
+// entry) -- confirmed no live coordinator update flow exists for it.
 
 fn validate_create_election(
     _action: Create,
@@ -657,52 +714,57 @@ fn validate_create_election(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_update_election(election: Election) -> ExternResult<ValidateCallbackResult> {
-    if election.title.trim().is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Election title cannot be empty".into(),
-        ));
-    }
-    if election.title.len() > 512 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Election title must be 512 characters or fewer".into(),
-        ));
-    }
-    if election.positions.len() > 20 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 20 positions".into(),
-        ));
-    }
-    for pos in &election.positions {
-        if pos.len() > 256 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Each position name must be 256 characters or fewer".into(),
-            ));
-        }
-    }
-    if election.candidates.len() > 50 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Cannot have more than 50 candidates".into(),
-        ));
-    }
-    for candidate in &election.candidates {
-        if candidate.statement.len() > 2048 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Candidate statement must be 2048 characters or fewer".into(),
-            ));
-        }
-    }
+/// Pure logic for an `Election` update, factored out of
+/// [`validate_update_election`] so it can be unit-tested without a live HDI
+/// (`must_get_valid_record` has no test mock in this codebase).
+///
+/// No author requirement: tally_election has zero caller-identity check
+/// (no election-official role concept exists). Its own business logic
+/// (voting must be closed, can't re-tally) is the real safeguard for this
+/// operation. Content restricted to results only.
+fn validate_election_transition(
+    original: &Election,
+    election: &Election,
+) -> ValidateCallbackResult {
     if let Some(ref results) = election.results {
         if results.len() > 20 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Cannot have more than 20 results".into(),
-            ));
+            return ValidateCallbackResult::Invalid("Cannot have more than 20 results".into());
         }
     }
-    Ok(ValidateCallbackResult::Valid)
+    if election.title != original.title
+        || election.positions != original.positions
+        || election.candidates != original.candidates
+        || election.voting_opens != original.voting_opens
+        || election.voting_closes != original.voting_closes
+    {
+        return ValidateCallbackResult::Invalid(
+            "Only results can change on an election update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
 }
 
-fn validate_create_ballot(_action: Create, ballot: Ballot) -> ExternResult<ValidateCallbackResult> {
+fn validate_update_election(
+    action: Update,
+    election: Election,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: Election = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original election not found".to_string()
+        )))?;
+    Ok(validate_election_transition(&original, &election))
+}
+
+fn validate_create_ballot(action: Create, ballot: Ballot) -> ExternResult<ValidateCallbackResult> {
+    if ballot.voter != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Ballot voter must correspond to the committing agent".into(),
+        ));
+    }
     if ballot.votes.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Ballot must contain at least one vote".into(),
@@ -742,9 +804,13 @@ mod tests {
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
+    fn fake_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
     fn fake_create() -> Create {
         Create {
-            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            author: fake_agent(),
             timestamp: Timestamp::from_micros(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
@@ -791,7 +857,7 @@ mod tests {
             meeting_hash: Some(ActionHash::from_raw_36(vec![10u8; 36])),
             title: "Approve new landscaping budget".to_string(),
             description: "Allocate $5000 for spring landscaping improvements".to_string(),
-            proposed_by: agent_a(),
+            proposed_by: fake_agent(),
             category: ResolutionCategory::Budget,
             votes_for: 5,
             votes_against: 1,
@@ -839,7 +905,7 @@ mod tests {
     fn valid_ballot() -> Ballot {
         Ballot {
             election_hash: ActionHash::from_raw_36(vec![20u8; 36]),
-            voter: agent_c(),
+            voter: fake_agent(),
             votes: vec![
                 BallotVote {
                     position: "President".to_string(),
@@ -1094,6 +1160,16 @@ mod tests {
             fake_create(),
             valid_resolution(),
         ));
+    }
+
+    #[test]
+    fn create_resolution_forged_proposed_by_rejected() {
+        let mut r = valid_resolution();
+        r.proposed_by = agent_a(); // doesn't match fake_create()'s author
+        assert_invalid(
+            validate_create_resolution(fake_create(), r),
+            "proposed_by must correspond to the committing agent",
+        );
     }
 
     #[test]
@@ -1386,6 +1462,16 @@ mod tests {
     #[test]
     fn create_ballot_valid() {
         assert_valid(validate_create_ballot(fake_create(), valid_ballot()));
+    }
+
+    #[test]
+    fn create_ballot_forged_voter_rejected() {
+        let mut b = valid_ballot();
+        b.voter = agent_a(); // doesn't match fake_create()'s author
+        assert_invalid(
+            validate_create_ballot(fake_create(), b),
+            "voter must correspond to the committing agent",
+        );
     }
 
     #[test]
@@ -2040,176 +2126,154 @@ mod tests {
     }
 
     // ── Update validator tests ────────────────────────────────────────
+    // validate_update_meeting/resolution/election all need a live HDI
+    // (must_get_valid_record has no test mock in this codebase), so these
+    // exercise the pure validate_*_transition helpers directly, with
+    // `original` standing in for what the wrapper fetches. Content is now
+    // restricted (immutable except a small allow-list per entry type), so
+    // these also cover the new immutability rejections.
+    //
+    // validate_update_bylaw no longer exists: the dispatcher now rejects
+    // all ByLaw updates outright (see the dispatcher comment).
 
     #[test]
-    fn update_meeting_valid() {
-        assert_valid(validate_update_meeting(valid_meeting()));
-    }
-
-    #[test]
-    fn update_meeting_title_too_long() {
-        let mut m = valid_meeting();
-        m.title = "x".repeat(513);
-        assert_invalid(
-            validate_update_meeting(m),
-            "Meeting title must be at most 512 characters",
+    fn update_meeting_valid_minutes_change() {
+        let original = valid_meeting();
+        let mut meeting = original.clone();
+        meeting.minutes = Some("Approved unanimously".to_string());
+        assert_eq!(
+            validate_meeting_transition(&original, &meeting),
+            ValidateCallbackResult::Valid
         );
     }
 
     #[test]
-    fn update_meeting_agenda_over_max() {
-        let mut m = valid_meeting();
-        m.agenda = (0..51).map(|i| format!("Item {i}")).collect();
-        assert_invalid(
-            validate_update_meeting(m),
-            "Cannot have more than 50 agenda items",
+    fn update_meeting_minutes_too_long_rejected() {
+        let original = valid_meeting();
+        let mut meeting = original.clone();
+        meeting.minutes = Some("x".repeat(4097));
+        match validate_meeting_transition(&original, &meeting) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Meeting minutes must be 4096 characters or fewer"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn update_meeting_rejects_title_change() {
+        let original = valid_meeting();
+        let mut meeting = original.clone();
+        meeting.title = "Renamed".to_string();
+        match validate_meeting_transition(&original, &meeting) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only minutes/attendees can change"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn update_resolution_valid_vote_change() {
+        let original = valid_resolution();
+        let mut resolution = original.clone();
+        resolution.votes_for += 1;
+        assert_eq!(
+            validate_resolution_transition(&original, &resolution),
+            ValidateCallbackResult::Valid
         );
     }
 
     #[test]
-    fn update_meeting_attendees_over_max() {
-        let mut m = valid_meeting();
-        m.attendees = (0..101).map(|_| agent_a()).collect();
-        assert_invalid(
-            validate_update_meeting(m),
-            "Cannot have more than 100 attendees",
+    fn update_resolution_rejects_title_change() {
+        let original = valid_resolution();
+        let mut resolution = original.clone();
+        resolution.title = "Renamed".to_string();
+        match validate_resolution_transition(&original, &resolution) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only vote/quorum/passed/effective_date"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn update_resolution_rejects_proposed_by_change() {
+        let original = valid_resolution();
+        let mut resolution = original.clone();
+        resolution.proposed_by = agent_b();
+        match validate_resolution_transition(&original, &resolution) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only vote/quorum/passed/effective_date"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
+    }
+
+    #[test]
+    fn update_election_valid_results_change() {
+        let original = valid_election();
+        let mut election = original.clone();
+        election.results = Some(vec![ElectionResult {
+            position: "President".to_string(),
+            winner: agent_a(),
+            votes_received: 42,
+        }]);
+        assert_eq!(
+            validate_election_transition(&original, &election),
+            ValidateCallbackResult::Valid
         );
     }
 
     #[test]
-    fn update_meeting_location_too_long() {
-        let mut m = valid_meeting();
-        m.location = "x".repeat(257);
-        assert_invalid(
-            validate_update_meeting(m),
-            "Meeting location must be 256 characters or fewer",
+    fn update_election_too_many_results_rejected() {
+        let original = valid_election();
+        let mut election = original.clone();
+        election.results = Some(
+            (0..21)
+                .map(|i| ElectionResult {
+                    position: format!("Pos {i}"),
+                    winner: agent_a(),
+                    votes_received: 1,
+                })
+                .collect(),
         );
+        match validate_election_transition(&original, &election) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Cannot have more than 20 results"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]
-    fn update_meeting_minutes_too_long() {
-        let mut m = valid_meeting();
-        m.minutes = Some("x".repeat(4097));
-        assert_invalid(
-            validate_update_meeting(m),
-            "Meeting minutes must be 4096 characters or fewer",
-        );
+    fn update_election_rejects_title_change() {
+        let original = valid_election();
+        let mut election = original.clone();
+        election.title = "Renamed".to_string();
+        match validate_election_transition(&original, &election) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only results can change"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     #[test]
-    fn update_resolution_valid() {
-        assert_valid(validate_update_resolution(valid_resolution()));
-    }
-
-    #[test]
-    fn update_resolution_title_too_long() {
-        let mut r = valid_resolution();
-        r.title = "x".repeat(513);
-        assert_invalid(
-            validate_update_resolution(r),
-            "Resolution title must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_resolution_description_too_long() {
-        let mut r = valid_resolution();
-        r.description = "x".repeat(4097);
-        assert_invalid(
-            validate_update_resolution(r),
-            "Resolution description must be 4096 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_bylaw_valid() {
-        assert_valid(validate_update_bylaw(valid_bylaw()));
-    }
-
-    #[test]
-    fn update_bylaw_id_too_long() {
-        let mut b = valid_bylaw();
-        b.id = "x".repeat(257);
-        assert_invalid(
-            validate_update_bylaw(b),
-            "ByLaw ID must be 256 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_bylaw_title_too_long() {
-        let mut b = valid_bylaw();
-        b.title = "x".repeat(513);
-        assert_invalid(
-            validate_update_bylaw(b),
-            "ByLaw title must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_bylaw_content_too_long() {
-        let mut b = valid_bylaw();
-        b.content = "x".repeat(4097);
-        assert_invalid(
-            validate_update_bylaw(b),
-            "ByLaw content must be 4096 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_election_valid() {
-        assert_valid(validate_update_election(valid_election()));
-    }
-
-    #[test]
-    fn update_election_title_too_long() {
-        let mut e = valid_election();
-        e.title = "x".repeat(513);
-        assert_invalid(
-            validate_update_election(e),
-            "Election title must be 512 characters or fewer",
-        );
-    }
-
-    #[test]
-    fn update_election_positions_over_max() {
-        let mut e = valid_election();
-        e.positions = (0..21).map(|i| format!("Pos {i}")).collect();
-        e.candidates = vec![];
-        assert_invalid(
-            validate_update_election(e),
-            "Cannot have more than 20 positions",
-        );
-    }
-
-    #[test]
-    fn update_election_candidates_over_max() {
-        let mut e = valid_election();
-        e.candidates = (0..51)
-            .map(|_| CandidateEntry {
-                agent: agent_a(),
-                position: "President".to_string(),
-                statement: "Serve.".to_string(),
-            })
-            .collect();
-        assert_invalid(
-            validate_update_election(e),
-            "Cannot have more than 50 candidates",
-        );
-    }
-
-    #[test]
-    fn update_election_candidate_statement_too_long() {
-        let mut e = valid_election();
-        e.candidates = vec![CandidateEntry {
+    fn update_election_rejects_candidates_change() {
+        let original = valid_election();
+        let mut election = original.clone();
+        election.candidates.push(CandidateEntry {
             agent: agent_a(),
             position: "President".to_string(),
-            statement: "x".repeat(2049),
-        }];
-        assert_invalid(
-            validate_update_election(e),
-            "Candidate statement must be 2048 characters or fewer",
-        );
+            statement: "Extra candidate".to_string(),
+        });
+        match validate_election_transition(&original, &election) {
+            ValidateCallbackResult::Invalid(msg) => {
+                assert!(msg.contains("Only results can change"));
+            }
+            _ => panic!("Expected Invalid result"),
+        }
     }
 
     // ── Link tag validation tests ───────────────────────────────────────

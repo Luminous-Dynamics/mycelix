@@ -14,7 +14,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "conformance:typecheck": "tsc -p tsconfig.conformance.json",
+    "conformance:conductor": "node --experimental-strip-types conformance/conductor-lifecycle.ts"
   },
   "author": "Luminous Dynamics <dev@luminousdynamics.org>",
   "license": "AGPL-3.0-or-later",
@@ -22,7 +24,8 @@
     "@holochain/client": "^0.20.0"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@types/node": "^22.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

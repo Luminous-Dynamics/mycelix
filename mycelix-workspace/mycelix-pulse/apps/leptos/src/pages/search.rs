@@ -8,32 +8,9 @@ use crate::holochain::{ConnectionStatus, use_holochain};
 use crate::mail_context::use_mail;
 use crate::semantic;
 use leptos::prelude::*;
-use mail_leptos_types::{CryptoSuiteView, EmailListItem, EmailPriority};
-use serde::Deserialize;
+use mail_leptos_types::EmailListItem;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-
-/// Matches the real `search` zome's response shape, `SearchOutput { results:
-/// Vec<SearchResultOutput>, .. }` — `SearchResultOutput.document_hash`/
-/// `.sender` are ActionHash/AgentPubKey (raw bytes on the wire), which
-/// serde_json::Value cannot decode. This struct's field SHAPE also never
-/// matched EmailListItem's (document_hash/preview vs hash/snippet, no
-/// priority/is_read/is_starred/has_attachments at all) — a separate,
-/// pre-existing bug from the byte-array one, so the prior direct-deserialize
-/// attempt could never have worked even ignoring the decode failure.
-#[derive(Deserialize)]
-struct SearchOutputWire {
-    results: Vec<SearchResultWire>,
-}
-
-#[derive(Deserialize)]
-struct SearchResultWire {
-    document_hash: Vec<u8>,
-    subject: String,
-    preview: String,
-    sender: Vec<u8>,
-    timestamp: serde_json::Value,
-}
 
 #[component]
 pub fn SearchPage() -> impl IntoView {
@@ -220,7 +197,10 @@ pub fn SearchPage() -> impl IntoView {
 
         // Zome search when connected (#8)
         let hc_inner = use_holochain();
-        if val.len() >= 2 && !hc_inner.is_mock() {
+        if val.len() >= 2
+            && !hc_inner.is_mock()
+            && crate::alpha_scope::zome_available("mail_search")
+        {
             searching.set(true);
             let hc2 = hc_inner.clone();
             let attach = has_attachments.get_untracked();
@@ -230,18 +210,8 @@ pub fn SearchPage() -> impl IntoView {
                     "query": val, "filters": { "has_attachments": attach, "is_starred": star },
                     "limit": 50, "fuzzy": true, "sort_by": "Relevance",
                 });
-                // search's real response is SearchOutput { results:
-                // Vec<SearchResultOutput>, .. }, whose document_hash/sender
-                // are ActionHash/AgentPubKey (raw bytes) — decoding as
-                // serde_json::Value fails on those for any non-empty result
-                // set. SearchResultOutput's field shape also never matched
-                // EmailListItem's (document_hash/preview vs hash/snippet,
-                // no priority/is_read/is_starred/has_attachments at all) —
-                // a separate, pre-existing bug beyond the byte-array issue,
-                // so the old direct-deserialize-as-EmailListItem attempt
-                // could never have worked even setting that aside.
                 match hc2
-                    .call_zome::<serde_json::Value, SearchOutputWire>(
+                    .call_zome::<serde_json::Value, serde_json::Value>(
                         "mail_search",
                         "search",
                         &input,
@@ -249,36 +219,13 @@ pub fn SearchPage() -> impl IntoView {
                     .await
                 {
                     Ok(response) => {
-                        let emails = response
-                            .results
-                            .into_iter()
-                            .map(|r| EmailListItem {
-                                hash: crate::zome_adapter::base64_encode(&r.document_hash),
-                                sender: crate::zome_adapter::base64_encode(&r.sender),
-                                sender_name: None,
-                                encrypted_subject: vec![],
-                                subject: Some(r.subject),
-                                snippet: Some(r.preview),
-                                timestamp: crate::zome_adapter::wire_timestamp_to_u64(&r.timestamp),
-                                priority: EmailPriority::Normal,
-                                is_read: true,
-                                is_starred: false,
-                                star_type: None,
-                                is_pinned: false,
-                                is_muted: false,
-                                is_snoozed: false,
-                                snooze_until: None,
-                                has_attachments: false,
-                                labels: vec![],
-                                thread_id: None,
-                                crypto_suite: CryptoSuiteView {
-                                    key_exchange: "unknown".into(),
-                                    symmetric: "unknown".into(),
-                                    signature: "unknown".into(),
-                                },
-                            })
-                            .collect();
-                        zome_results.set(Some(emails));
+                        if let Some(results) = response.get("results") {
+                            if let Ok(emails) =
+                                serde_json::from_value::<Vec<EmailListItem>>(results.clone())
+                            {
+                                zome_results.set(Some(emails));
+                            }
+                        }
                     }
                     Err(_) => {
                         zome_results.set(None);

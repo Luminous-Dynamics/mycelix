@@ -2,16 +2,15 @@ use crate::{ClientError, ZomeTransport, contract};
 use async_trait::async_trait;
 use marketplace_domain::{
     ActionHash, AgentPubKey, ArbitrationResult, ArbitrationResultOutput, ArbitrationVote,
-    ArbitrationVoteOutput, ArbitrationVotesResponse, CreateTransactionInput, Dispute,
-    DisputeOutput, DisputeResolution, DisputeResolutionState, DisputeStatus, DisputesResponse,
-    EmpiricalLevel, EpistemicClassification, Listing, ListingCategory, ListingOutput,
-    ListingStatus, ListingsResponse, MarkShippedInput, MaterialityLevel, NormativeLevel,
-    OpenDisputeInput, OpenDisputeOutput, ReputationEvent, ReputationEventKind,
-    ReputationEventOutput, ReputationEventsResponse, DerivedReputation,
-    SubmitArbitrationVoteInput, TimestampMicros, Transaction, TransactionOutput,
-    TransactionResolution, TransactionResolutionReason, TransactionResolutionState, TransactionResolutionsResponse,
-    TransactionSettlementResult, TransactionSettlementState, TransactionStatus,
-    TransactionsResponse,
+    ArbitrationVoteOutput, ArbitrationVotesResponse, CreateTransactionInput, DerivedReputation,
+    Dispute, DisputeOutput, DisputeResolution, DisputeResolutionState, DisputeStatus,
+    DisputesResponse, EmpiricalLevel, EpistemicClassification, Listing, ListingCategory,
+    ListingOutput, ListingStatus, ListingsResponse, MarkShippedInput, MaterialityLevel,
+    NormativeLevel, OpenDisputeInput, OpenDisputeOutput, ReputationEvent, ReputationEventKind,
+    ReputationEventOutput, ReputationEventsResponse, SubmitArbitrationVoteInput, TimestampMicros,
+    Transaction, TransactionOutput, TransactionResolution, TransactionResolutionReason,
+    TransactionResolutionState, TransactionResolutionsResponse, TransactionSettlementResult,
+    TransactionSettlementState, TransactionStatus, TransactionsResponse,
 };
 use serde::Serialize;
 use std::{cell::RefCell, rc::Rc};
@@ -235,13 +234,23 @@ impl FixtureTransport {
         let listing = fixture_listings()
             .into_iter()
             .find(|candidate| candidate.listing_hash == input.listing_hash)
-            .ok_or_else(|| fixture_error(contract::transactions::CREATE_TRANSACTION, "fixture listing not found"))?;
+            .ok_or_else(|| {
+                fixture_error(
+                    contract::transactions::CREATE_TRANSACTION,
+                    "fixture listing not found",
+                )
+            })?;
 
         let expected_total = listing
             .listing
             .price_cents
             .checked_mul(u64::from(input.quantity))
-            .ok_or_else(|| fixture_error(contract::transactions::CREATE_TRANSACTION, "fixture total overflow"))?;
+            .ok_or_else(|| {
+                fixture_error(
+                    contract::transactions::CREATE_TRANSACTION,
+                    "fixture total overflow",
+                )
+            })?;
 
         if input.quantity == 0 || input.quantity > listing.listing.quantity_available {
             return Err(fixture_error(
@@ -340,8 +349,15 @@ impl FixtureTransport {
             .transactions
             .iter()
             .position(|revision| revision.contains(&input.transaction_hash))
-            .ok_or_else(|| fixture_error(contract::transactions::OPEN_DISPUTE, "fixture transaction not found"))?;
-        let transaction_root = state.transactions[transaction_index].root_transaction_hash.clone();
+            .ok_or_else(|| {
+                fixture_error(
+                    contract::transactions::OPEN_DISPUTE,
+                    "fixture transaction not found",
+                )
+            })?;
+        let transaction_root = state.transactions[transaction_index]
+            .root_transaction_hash
+            .clone();
         let current = state.transactions[transaction_index].current.clone();
         if self.acting_agent != current.transaction.buyer
             && self.acting_agent != current.transaction.seller
@@ -367,7 +383,8 @@ impl FixtureTransport {
             let action_hash = Self::next_action_hash(&mut state);
             let mut transaction = current.transaction;
             transaction.status = TransactionStatus::Disputed;
-            transaction.updated_at = TimestampMicros(transaction.updated_at.0.saturating_add(1_000_000));
+            transaction.updated_at =
+                TimestampMicros(transaction.updated_at.0.saturating_add(1_000_000));
             let output = TransactionOutput {
                 transaction_hash: action_hash.clone(),
                 transaction,
@@ -443,7 +460,11 @@ impl FixtureTransport {
             .iter()
             .filter(|revision| {
                 revision.current.dispute.status == DisputeStatus::UnderReview
-                    && revision.current.dispute.arbitrators.contains(&self.acting_agent)
+                    && revision
+                        .current
+                        .dispute
+                        .arbitrators
+                        .contains(&self.acting_agent)
                     && !revision
                         .votes
                         .iter()
@@ -463,10 +484,17 @@ impl FixtureTransport {
             .disputes
             .iter()
             .position(|revision| revision.contains(&input.dispute_hash))
-            .ok_or_else(|| arbitration_fixture_error(contract::arbitration::SUBMIT_ARBITRATION_VOTE, "fixture dispute not found"))?;
+            .ok_or_else(|| {
+                arbitration_fixture_error(
+                    contract::arbitration::SUBMIT_ARBITRATION_VOTE,
+                    "fixture dispute not found",
+                )
+            })?;
         let current = state.disputes[dispute_index].current.clone();
-        if !matches!(current.dispute.status, DisputeStatus::UnderReview | DisputeStatus::Voting)
-            || !current.dispute.arbitrators.contains(&self.acting_agent)
+        if !matches!(
+            current.dispute.status,
+            DisputeStatus::UnderReview | DisputeStatus::Voting
+        ) || !current.dispute.arbitrators.contains(&self.acting_agent)
         {
             return Err(arbitration_fixture_error(
                 contract::arbitration::SUBMIT_ARBITRATION_VOTE,
@@ -500,8 +528,14 @@ impl FixtureTransport {
         state.disputes[dispute_index].votes.push(vote.clone());
 
         let all_voted = state.disputes[dispute_index].votes.len()
-            == state.disputes[dispute_index].current.dispute.arbitrators.len();
-        if all_voted && state.disputes[dispute_index].current.dispute.status == DisputeStatus::UnderReview {
+            == state.disputes[dispute_index]
+                .current
+                .dispute
+                .arbitrators
+                .len();
+        if all_voted
+            && state.disputes[dispute_index].current.dispute.status == DisputeStatus::UnderReview
+        {
             let update_hash = Self::next_action_hash(&mut state);
             let revision = &mut state.disputes[dispute_index];
             let mut voting = revision.current.dispute.clone();
@@ -525,7 +559,12 @@ impl FixtureTransport {
             .disputes
             .iter()
             .position(|revision| revision.contains(&requested))
-            .ok_or_else(|| arbitration_fixture_error(contract::arbitration::FINALIZE_ARBITRATION, "fixture dispute not found"))?;
+            .ok_or_else(|| {
+                arbitration_fixture_error(
+                    contract::arbitration::FINALIZE_ARBITRATION,
+                    "fixture dispute not found",
+                )
+            })?;
         if let Some(result) = state.disputes[dispute_index].result.clone() {
             return Ok(result);
         }
@@ -568,7 +607,13 @@ impl FixtureTransport {
             .map(|revision| revision.current.transaction.total_price_cents)
             .unwrap_or_default();
         let strength = if buyer_wins { ratio } else { 1.0 - ratio };
-        let basis_points = if strength >= 0.85 { 10_000 } else if strength >= 0.75 { 7_500 } else { 5_000 };
+        let basis_points = if strength >= 0.85 {
+            10_000
+        } else if strength >= 0.75 {
+            7_500
+        } else {
+            5_000
+        };
         let compensation = transaction_value.saturating_mul(basis_points) / 10_000;
         let result_hash = Self::next_action_hash(&mut state);
         let result = ArbitrationResultOutput {
@@ -583,7 +628,9 @@ impl FixtureTransport {
                 total_votes: votes.len() as u32,
                 compensation_cents: Some(compensation),
                 summary: "Deterministic equal-weight fixture result".into(),
-                finalized_at: TimestampMicros(current.dispute.updated_at.0.saturating_add(1_000_000)),
+                finalized_at: TimestampMicros(
+                    current.dispute.updated_at.0.saturating_add(1_000_000),
+                ),
             },
         };
         let update_hash = Self::next_action_hash(&mut state);
@@ -640,7 +687,10 @@ impl FixtureTransport {
                     "fixture settlement requires Delivered status",
                 ));
             }
-            if !state.settled_transactions.contains(&revision.root_transaction_hash) {
+            if !state
+                .settled_transactions
+                .contains(&revision.root_transaction_hash)
+            {
                 state
                     .settled_transactions
                     .push(revision.root_transaction_hash.clone());
@@ -675,7 +725,13 @@ impl FixtureTransport {
             .iter()
             .find(|revision| revision.contains(&requested))
             .cloned()
-            .ok_or_else(|| fixture_error_for("reputation", "record_fulfillment_reputation", "fixture transaction not found"))?;
+            .ok_or_else(|| {
+                fixture_error_for(
+                    "reputation",
+                    "record_fulfillment_reputation",
+                    "fixture transaction not found",
+                )
+            })?;
         let current = revision.current;
         if current.transaction.status != TransactionStatus::Delivered
             || self.acting_agent != current.transaction.buyer
@@ -730,12 +786,19 @@ impl FixtureTransport {
                     .is_some_and(|output| output.result_hash == result_hash)
             })
             .cloned()
-            .ok_or_else(|| fixture_error_for(
-                contract::reputation::ZOME,
-                contract::reputation::PROJECT_ARBITRATION_REPUTATION,
-                "fixture arbitration result not found",
-            ))?;
-        if !revision.current.dispute.arbitrators.contains(&self.acting_agent) {
+            .ok_or_else(|| {
+                fixture_error_for(
+                    contract::reputation::ZOME,
+                    contract::reputation::PROJECT_ARBITRATION_REPUTATION,
+                    "fixture arbitration result not found",
+                )
+            })?;
+        if !revision
+            .current
+            .dispute
+            .arbitrators
+            .contains(&self.acting_agent)
+        {
             return Err(fixture_error_for(
                 contract::reputation::ZOME,
                 contract::reputation::PROJECT_ARBITRATION_REPUTATION,
@@ -750,11 +813,13 @@ impl FixtureTransport {
                 transaction.root_transaction_hash == revision.current.dispute.transaction_hash
             })
             .map(|transaction| transaction.current.transaction.clone())
-            .ok_or_else(|| fixture_error_for(
-                contract::reputation::ZOME,
-                contract::reputation::PROJECT_ARBITRATION_REPUTATION,
-                "fixture arbitration transaction not found",
-            ))?;
+            .ok_or_else(|| {
+                fixture_error_for(
+                    contract::reputation::ZOME,
+                    contract::reputation::PROJECT_ARBITRATION_REPUTATION,
+                    "fixture arbitration transaction not found",
+                )
+            })?;
 
         let specifications = [
             (
@@ -872,9 +937,10 @@ impl FixtureTransport {
             (TransactionStatus::Pending, TransactionStatus::Confirmed) => is_seller,
             (TransactionStatus::Confirmed, TransactionStatus::Shipped) => is_seller,
             (TransactionStatus::Shipped, TransactionStatus::Delivered) => is_buyer,
-            (TransactionStatus::Pending | TransactionStatus::Confirmed, TransactionStatus::Cancelled) => {
-                is_buyer || is_seller
-            }
+            (
+                TransactionStatus::Pending | TransactionStatus::Confirmed,
+                TransactionStatus::Cancelled,
+            ) => is_buyer || is_seller,
             _ => false,
         };
         if !allowed {
@@ -907,7 +973,8 @@ impl FixtureTransport {
         let revision = &mut state.transactions[index];
         let mut transaction = current.transaction;
         transaction.status = next_status;
-        transaction.updated_at = TimestampMicros(transaction.updated_at.0.saturating_add(1_000_000));
+        transaction.updated_at =
+            TimestampMicros(transaction.updated_at.0.saturating_add(1_000_000));
         if tracking_info.is_some() {
             transaction.tracking_info = tracking_info;
         }
@@ -973,11 +1040,12 @@ impl ZomeTransport for FixtureTransport {
                         .collect(),
                 })
             }
-            (contract::transactions::ZOME, contract::transactions::GET_MY_TRANSACTION_RESOLUTIONS) => {
-                encode_fixture(&TransactionResolutionsResponse {
-                    resolutions: self.my_resolutions(),
-                })
-            }
+            (
+                contract::transactions::ZOME,
+                contract::transactions::GET_MY_TRANSACTION_RESOLUTIONS,
+            ) => encode_fixture(&TransactionResolutionsResponse {
+                resolutions: self.my_resolutions(),
+            }),
             (contract::transactions::ZOME, contract::transactions::CONFIRM_TRANSACTION) => {
                 let requested: ActionHash = rmp_serde::from_slice(&payload)
                     .map_err(|error| ClientError::Decode(error.to_string()))?;
@@ -1014,12 +1082,7 @@ impl ZomeTransport for FixtureTransport {
                     }
                     existing
                 } else {
-                    self.update_status(
-                        function,
-                        requested,
-                        TransactionStatus::Delivered,
-                        None,
-                    )?
+                    self.update_status(function, requested, TransactionStatus::Delivered, None)?
                 };
                 self.record_fulfillment_event(delivered.transaction_hash.clone())?;
                 encode_fixture(&delivered)
@@ -1029,7 +1092,10 @@ impl ZomeTransport for FixtureTransport {
                     .map_err(|error| ClientError::Decode(error.to_string()))?;
                 encode_fixture(&self.settlement_result(requested, true)?)
             }
-            (contract::transactions::ZOME, contract::transactions::GET_TRANSACTION_SETTLEMENT_STATUS) => {
+            (
+                contract::transactions::ZOME,
+                contract::transactions::GET_TRANSACTION_SETTLEMENT_STATUS,
+            ) => {
                 let requested: ActionHash = rmp_serde::from_slice(&payload)
                     .map_err(|error| ClientError::Decode(error.to_string()))?;
                 encode_fixture(&self.settlement_result(requested, false)?)
@@ -1084,7 +1150,9 @@ impl ZomeTransport for FixtureTransport {
                     .iter()
                     .find(|revision| revision.contains(&requested))
                     .map(|revision| revision.votes.clone())
-                    .ok_or_else(|| arbitration_fixture_error(function, "fixture dispute not found"))?;
+                    .ok_or_else(|| {
+                        arbitration_fixture_error(function, "fixture dispute not found")
+                    })?;
                 encode_fixture(&ArbitrationVotesResponse { votes })
             }
             (contract::arbitration::ZOME, contract::arbitration::FINALIZE_ARBITRATION) => {
@@ -1212,11 +1280,12 @@ mod tests {
                 evidence_cids: Vec::new(),
             })
             .unwrap();
-        let assigned = buyer
-            .find_dispute_resolution(&opened.dispute_hash)
-            .unwrap();
+        let assigned = buyer.find_dispute_resolution(&opened.dispute_hash).unwrap();
         assert_eq!(assigned.root_dispute_hash, opened.dispute_hash);
-        assert_eq!(assigned.current().unwrap().dispute.arbitrators, vec![arbitrator_agent]);
+        assert_eq!(
+            assigned.current().unwrap().dispute.arbitrators,
+            vec![arbitrator_agent]
+        );
 
         let vote = arbitrator
             .submit_vote(SubmitArbitrationVoteInput {
@@ -1239,7 +1308,6 @@ mod tests {
         assert_eq!(winner.positive_events, 1);
         assert_eq!(loser.negative_events, 1);
     }
-
 
     #[test]
     fn fixture_settlement_is_idempotent_and_external_to_lifecycle() {

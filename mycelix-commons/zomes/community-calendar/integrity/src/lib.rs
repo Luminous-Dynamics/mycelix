@@ -5,6 +5,7 @@
 //! Defines entry types and validation for calendar events, RSVPs, and anchors.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{check_author_match, check_link_author_match};
 
 /// Anchor entry for deterministic link bases
 #[hdk_entry_helper]
@@ -158,15 +159,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::CalendarEvent(event) => validate_create_event(action, event),
                 EntryTypes::Rsvp(rsvp) => validate_create_rsvp(action, rsvp),
             },
+            // Previously every arm here returned an unconditional Valid, and
+            // there were no RegisterUpdate/RegisterDelete/RegisterDeleteLink
+            // arms below either (everything fell to the trailing catch-all)
+            // -- any agent could rewrite or delete anyone else's calendar
+            // events and RSVPs with zero authorization check at all (P0
+            // author-binding gap, the wide-open-update/delete class,
+            // confirmed 48+ times project-wide per
+            // memory/mycelix_attribution_author_binding_jul8.md).
             OpEntry::UpdateEntry {
                 app_entry,
-                action: _,
-                original_action_hash: _,
+                action,
+                original_action_hash,
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CalendarEvent(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::Rsvp(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::CalendarEvent(_) | EntryTypes::Rsvp(_) => {
+                    let original = must_get_action(original_action_hash)?;
+                    Ok(check_author_match(
+                        original.action().author(),
+                        &action.author,
+                        "update",
+                    ))
+                }
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -190,6 +205,116 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        _ => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterDeleteLink { action, .. } => {
+            let original_action = must_get_action(action.link_add_address.clone())?;
+            Ok(check_link_author_match(
+                original_action.action().author(),
+                &action.author,
+            ))
+        }
+        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original_action = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original_action.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
+    }
+}
+
+// ============================================================================
+// UNIT TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn make_valid_event() -> CalendarEvent {
+        CalendarEvent {
+            title: "Community Potluck".to_string(),
+            description: "Bring a dish to share".to_string(),
+            location: None,
+            start_time: Timestamp::from_micros(1_711_100_000_000_000),
+            end_time: Timestamp::from_micros(1_711_110_000_000_000),
+            recurrence: Recurrence::None,
+            organizer_did: "did:example:organizer".to_string(),
+            category: "celebration".to_string(),
+            max_attendees: 0,
+            rsvp_required: false,
+        }
+    }
+
+    fn make_valid_rsvp() -> Rsvp {
+        Rsvp {
+            event_id: ActionHash::from_raw_36(vec![1u8; 36]),
+            attendee_did: "did:example:attendee".to_string(),
+            status: RsvpStatus::Going,
+            responded_at: Timestamp::from_micros(1_711_050_000_000_000),
+        }
+    }
+
+    #[test]
+    fn test_create_event_valid() {
+        let event = make_valid_event();
+        let result = validate_create_event(test_action(), event).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_event_end_before_start_rejected() {
+        let mut event = make_valid_event();
+        event.end_time = event.start_time;
+        let result = validate_create_event(test_action(), event).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_create_rsvp_valid() {
+        let rsvp = make_valid_rsvp();
+        let result = validate_create_rsvp(test_action(), rsvp).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_rsvp_empty_attendee_did_rejected() {
+        let mut rsvp = make_valid_rsvp();
+        rsvp.attendee_did = String::new();
+        let result = validate_create_rsvp(test_action(), rsvp).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }

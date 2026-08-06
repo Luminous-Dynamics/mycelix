@@ -1,0 +1,64 @@
+{
+  "schema": "mycelix-lawful-identity-conductor-scenarios-v1",
+  "required_agents": ["verifier", "prover_a", "prover_b"],
+  "required_invariants": [
+    "no-positive-state-before-settlement",
+    "distinct-proof-conflict-fails-closed",
+    "duplicate-link-target-is-idempotent",
+    "late-gossip-overrides-positive-state",
+    "credential-anchor-freshness-is-bounded",
+    "policy-lease-cannot-outlive-anchor",
+    "policy-revocation-terminates-authorization"
+  ],
+  "scenarios": [
+    {
+      "id": "pre-settlement-refusal",
+      "partition": "connected",
+      "steps": ["issue", "submit-a", "attempt-receipts-before-settlement"],
+      "expected_state": "AwaitingSettlement",
+      "assertions": ["no-positive-state-before-settlement"]
+    },
+    {
+      "id": "duplicate-link-idempotence",
+      "partition": "connected",
+      "steps": ["issue", "submit-a", "repeat-link-a", "settle", "verify-a"],
+      "expected_state": "PolicyAccepted",
+      "assertions": ["duplicate-link-target-is-idempotent"]
+    },
+    {
+      "id": "partitioned-competing-proofs",
+      "partition": "verifier-sees-only-prover-a-until-after-settlement",
+      "steps": ["issue", "submit-a", "submit-b", "settle", "gossip-all"],
+      "expected_state": "ChallengeConsumptionConflict",
+      "assertions": ["distinct-proof-conflict-fails-closed"]
+    },
+    {
+      "id": "late-gossip-after-acceptance",
+      "partition": "prover-b-hidden-through-acceptance",
+      "steps": ["issue", "submit-a", "submit-b-hidden", "settle", "accept-a", "gossip-b"],
+      "expected_state": "ChallengeConsumptionConflict",
+      "assertions": ["late-gossip-overrides-positive-state"]
+    },
+    {
+      "id": "credential-anchor-expiry",
+      "partition": "connected",
+      "steps": ["issue", "submit-a", "settle", "verify-a", "anchor-short", "advance-past-anchor"],
+      "expected_state": "CredentialAnchorsExpired",
+      "assertions": ["credential-anchor-freshness-is-bounded"]
+    },
+    {
+      "id": "policy-lease-expiry",
+      "partition": "connected",
+      "steps": ["issue", "submit-a", "settle", "verify-a", "anchor-long", "accept-short", "advance-past-lease"],
+      "expected_state": "PolicyExpired",
+      "assertions": ["policy-lease-cannot-outlive-anchor"]
+    },
+    {
+      "id": "emergency-policy-revocation",
+      "partition": "connected",
+      "steps": ["issue", "submit-a", "settle", "verify-a", "anchor-long", "accept-a", "revoke-a"],
+      "expected_state": "PolicyRevoked",
+      "assertions": ["policy-revocation-terminates-authorization"]
+    }
+  ]
+}

@@ -151,8 +151,8 @@ pub fn MeetPage() -> impl IntoView {
                         </div>
 
                         <div class="meet-info">
-                            <p class="meet-encryption">"\u{1F512} End-to-end encrypted via PQC (Kyber1024)"</p>
-                            <p class="meet-p2p">"\u{1F310} Direct P2P WebRTC — no server relay"</p>
+                            <p class="meet-encryption">"\u{1F9EA} Experimental WebRTC media — not part of the secure-mail alpha"</p>
+                            <p class="meet-p2p">"\u{1F310} Network path and relay behavior depend on deployment"</p>
                         </div>
                     </div>
                 }.into_any()
@@ -161,7 +161,7 @@ pub fn MeetPage() -> impl IntoView {
                 view! {
                     <div class="meet-start">
                         <h1>"Meet"</h1>
-                        <p class="meet-desc">"Start a P2P encrypted call. Video and audio are transmitted directly between participants via WebRTC — no server sees your data."</p>
+                        <p class="meet-desc">"Experimental browser media. Session authentication, relay policy, and deployment privacy require separate evidence before release."</p>
 
                         <div class="meet-options">
                             <button class="meet-option-card" on:click=move |_| on_start_call(CallType::Video)>

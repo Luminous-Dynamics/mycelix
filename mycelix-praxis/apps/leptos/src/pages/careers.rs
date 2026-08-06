@@ -314,13 +314,14 @@ pub fn CareerPathPage() -> impl IntoView {
                     <div class="fruit-nodes">
                         {move || certifications.get().into_iter().map(|(node, coverage, status, missing, industry_code)| {
                             let title = node.title.clone();
+                            let category = node.domain.clone();
                             view! {
                                 <FruitCard
                                     title=title
                                     node=node
                                     coverage=coverage
                                     status=status
-                                    category=node.domain.clone()
+                                    category=category
                                     missing=missing
                                     industry_code=industry_code
                                 />
@@ -364,18 +365,24 @@ fn FruitCard(
             <h4>{title}</h4>
 
             {move || node.economic_signals.as_ref().map(|s| {
+                // Copy out owned values before building the view -- `s` only
+                // borrows from `node` for the duration of this closure call,
+                // but the nested `move ||` below needs 'static captures.
+                let average_starting_salary = s.average_starting_salary;
+                let market_demand = s.market_demand.clone();
+                let local_demand_multiplier = s.local_demand_multiplier;
                 view! {
                     <div class="economic-signals" style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem">
                         <span class="signal-badge" style="font-size: 0.65rem; background: var(--surface-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--primary); color: var(--primary); font-weight: 700">
-                            {format!("Illustrative salary: ${}k+", s.average_starting_salary / 1000)}
+                            {format!("Illustrative salary: ${}k+", average_starting_salary / 1000)}
                         </span>
                         <span class="signal-badge" style="font-size: 0.65rem; background: var(--surface-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--success); color: var(--success); font-weight: 700">
-                            {format!("Illustrative demand: {}", s.market_demand)}
+                            {format!("Illustrative demand: {}", market_demand)}
                         </span>
-                        {move || if s.local_demand_multiplier > 1.0 {
+                        {move || if local_demand_multiplier > 1.0 {
                             view! {
                                 <span class="signal-badge" style="font-size: 0.65rem; background: var(--warning-low); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--warning); color: var(--warning); font-weight: 800">
-                                    {format!("Illustrative local multiplier: {}x", s.local_demand_multiplier)}
+                                    {format!("Illustrative local multiplier: {}x", local_demand_multiplier)}
                                 </span>
                             }.into_any()
                         } else {

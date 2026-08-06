@@ -245,7 +245,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_entry_hash: _,
             } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::CompostBatch(_) | EntryTypes::CompostAction(_) => {
+                // CompostReading was previously absent here and fell to the
+                // catch-all `_ => Valid` below -- any agent could rewrite
+                // any batch's sensor readings with no authorization check
+                // at all (P0 author-binding gap, wide-open-update class).
+                EntryTypes::CompostBatch(_)
+                | EntryTypes::CompostAction(_)
+                | EntryTypes::CompostReading(_) => {
                     let original = must_get_action(original_action_hash)?;
                     Ok(check_author_match(
                         original.action().author(),
@@ -253,26 +259,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "update",
                     ))
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
-            match link_type {
-                LinkTypes::AllBatches
-                | LinkTypes::FacilityToBatches
-                | LinkTypes::BatchToReadings
-                | LinkTypes::BatchToActions
-                | LinkTypes::StatusToBatches => {
-                    if tag.0.len() > 512 {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            format!("{:?} link tag too long (max 512 bytes)", link_type),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
+        FlatOp::RegisterCreateLink { link_type, tag, .. } => match link_type {
+            LinkTypes::AllBatches
+            | LinkTypes::FacilityToBatches
+            | LinkTypes::BatchToReadings
+            | LinkTypes::BatchToActions
+            | LinkTypes::StatusToBatches => {
+                if tag.0.len() > 512 {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "{:?} link tag too long (max 512 bytes)",
+                        link_type
+                    )));
                 }
+                Ok(ValidateCallbackResult::Valid)
             }
-        }
+        },
         FlatOp::RegisterDeleteLink { action, .. } => {
             let original_action = must_get_action(action.link_add_address.clone())?;
             Ok(check_link_author_match(
@@ -376,10 +380,7 @@ fn validate_create_reading(
             "Moisture must be between 0 and 100 percent".into(),
         ));
     }
-    if !reading.oxygen_pct.is_finite()
-        || reading.oxygen_pct < 0.0
-        || reading.oxygen_pct > 100.0
-    {
+    if !reading.oxygen_pct.is_finite() || reading.oxygen_pct < 0.0 || reading.oxygen_pct > 100.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Oxygen must be between 0 and 100 percent".into(),
         ));
@@ -398,9 +399,21 @@ fn validate_create_reading(
 }
 
 fn validate_create_action(
-    _action: Create,
+    action: Create,
     compost_action: CompostAction,
 ) -> ExternResult<ValidateCallbackResult> {
+    // `executed_by` is client-supplied input, not derived from agent_info()
+    // server-side. When set, it must name the committing agent -- otherwise
+    // any agent could commit an action record crediting (or blaming) a
+    // specific other real agent for executing it (P0 author-binding gap).
+    // `None` (not yet executed) needs no check.
+    if let Some(executed_by) = &compost_action.executed_by
+        && *executed_by != action.author
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Action executed_by must be the committing agent (forgery)".to_string(),
+        ));
+    }
     if compost_action.notes.len() > 2048 {
         return Ok(ValidateCallbackResult::Invalid(
             "Action notes too long (max 2048 chars)".into(),
@@ -417,6 +430,56 @@ fn validate_create_action(
 mod tests {
     use super::*;
 
+    fn test_action() -> Create {
+        Create {
+            author: AgentPubKey::from_raw_36(vec![3u8; 36]),
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 0,
+            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
+            entry_type: EntryType::App(AppEntryDef::new(
+                EntryDefIndex::from(0),
+                0.into(),
+                EntryVisibility::Public,
+            )),
+            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
+            weight: Default::default(),
+        }
+    }
+
+    fn make_action(executed_by: Option<AgentPubKey>) -> CompostAction {
+        CompostAction {
+            batch_hash: ActionHash::from_raw_36(vec![1u8; 36]),
+            action_type: CompostActionType::Turn,
+            recommended_by: ActionRecommender::Sensor,
+            executed_by,
+            executed_at: None,
+            notes: "routine turn".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_create_action_unexecuted_accepted() {
+        let action = make_action(None);
+        let result = validate_create_action(test_action(), action).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_action_executor_matches_author_accepted() {
+        let action = make_action(Some(test_action().author));
+        let result = validate_create_action(test_action(), action).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn test_create_action_executed_by_forgery_rejected() {
+        let mut forged_action = test_action();
+        forged_action.author = AgentPubKey::from_raw_36(vec![9u8; 36]);
+        let action = make_action(Some(test_action().author));
+        let result = validate_create_action(forged_action, action).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
     #[test]
     fn test_threshold_constants_valid() {
         assert!(THERMOPHILIC_MIN_C < THERMOPHILIC_MAX_C);
@@ -432,7 +495,10 @@ mod tests {
     #[test]
     fn test_thermophilic_range() {
         assert!(THERMOPHILIC_MIN_C >= 55.0, "EPA 40 CFR 503 requires >= 55C");
-        assert!(THERMOPHILIC_MAX_C <= 70.0, "Above ~65-70C kills beneficial microbes");
+        assert!(
+            THERMOPHILIC_MAX_C <= 70.0,
+            "Above ~65-70C kills beneficial microbes"
+        );
     }
 
     #[test]

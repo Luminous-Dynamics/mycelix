@@ -28,7 +28,7 @@ tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 
 # Holochain client
-holochain_client = "0.7"
+holochain_client = "=0.8.1" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client
 holochain_types = "0.5"
 holochain_zome_types = "0.5"
 holochain_keystore = "0.5"  # For lair keystore integration

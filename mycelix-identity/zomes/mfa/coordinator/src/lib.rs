@@ -924,14 +924,7 @@ fn verify_primary_key_pair(
     let expected_key_hash = {
         let mut hasher = Sha256::new();
         hasher.update(agent_pub_key.get_raw_39());
-        format!(
-            "sha256:{}",
-            hasher
-                .finalize()
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<String>()
-        )
+        format!("sha256:{}", hex_encode(&hasher.finalize()))
     };
 
     // Verify factor_id matches the agent's key (constant-time comparison)
@@ -1661,11 +1654,7 @@ fn verify_security_questions(
         // Domain separation prefix prevents cross-protocol attacks
         hasher.update(b"mycelix-security-question-v1:");
         hasher.update(answer_hash.as_bytes());
-        hasher
-            .finalize()
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>()
+        hex_encode(&hasher.finalize())
     };
 
     // Constant-time comparison to prevent timing side-channel attacks
@@ -1705,11 +1694,7 @@ fn verify_recovery_phrase(
                 let mut hasher = Sha256::new();
                 hasher.update(b"mycelix-recovery-phrase-v1:");
                 hasher.update(answer_hash.as_bytes());
-                hasher
-                    .finalize()
-                    .iter()
-                    .map(|b| format!("{:02x}", b))
-                    .collect::<String>()
+                hex_encode(&hasher.finalize())
             };
 
             // Constant-time comparison

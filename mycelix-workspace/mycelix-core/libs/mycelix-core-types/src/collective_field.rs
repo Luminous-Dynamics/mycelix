@@ -2697,9 +2697,11 @@ mod tests {
 
         // Should detect missing harmony
         let absent = &mirror.reflection.shadow.absent_harmonies;
-        assert!(absent
-            .iter()
-            .any(|a| a.harmony == Harmony::PanSentientFlourishing));
+        assert!(
+            absent
+                .iter()
+                .any(|a| a.harmony == Harmony::PanSentientFlourishing)
+        );
     }
 
     #[test]
@@ -2855,9 +2857,11 @@ mod tests {
         let interventions = mirror.suggest_interventions();
 
         // Should suggest verification intervention
-        assert!(interventions
-            .iter()
-            .any(|i| i.trigger == InterventionTrigger::EchoChamber));
+        assert!(
+            interventions
+                .iter()
+                .any(|i| i.trigger == InterventionTrigger::EchoChamber)
+        );
     }
 
     #[test]
@@ -2879,9 +2883,11 @@ mod tests {
         let interventions = mirror.suggest_interventions();
 
         // Should suggest decentralization intervention
-        assert!(interventions
-            .iter()
-            .any(|i| i.trigger == InterventionTrigger::HighCentralization));
+        assert!(
+            interventions
+                .iter()
+                .any(|i| i.trigger == InterventionTrigger::HighCentralization)
+        );
     }
 
     // =========================================================================

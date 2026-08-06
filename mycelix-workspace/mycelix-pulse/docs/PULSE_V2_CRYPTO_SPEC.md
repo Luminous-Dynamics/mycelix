@@ -113,17 +113,29 @@ The conductor signature asserts that the agent authorized publication of the
 ciphertext transcript. Because encryption occurs in the client, it does not
 independently prove which plaintext the UI displayed.
 
-**Two distinct enforcement layers, not one.** DHT validators (every node,
-`mail_messages_integrity`) check structure and the Holochain agent's Ed25519
-signature over the transcript. They do **not** cryptographically verify the
-ML-DSA-65 signature or the sender/recipient key bundle's lifecycle state —
-HDI/WASM zomes cannot currently link the RustCrypto ML-DSA crate. A message
-with a garbage-but-correctly-sized ML-DSA signature, or one referencing a
-revoked/lost key ID, is valid at the network layer and gossips normally. The
-**recipient client** is where ML-DSA verification and key-state checks
-actually happen, before decrypted content is trusted or displayed. See
-ADR-002 for the full enforcement-boundary statement and the Sweettest that
-exercises it (`phase0_v2_negative_paths`).
+**Two enforcement layers, now both real (updated 2026-07-18).** DHT
+validators (every node, `mail_messages_integrity`) check structure, the
+Holochain agent's Ed25519 signature over the transcript, **and now the
+ML-DSA-65 signature's cryptographic validity against the sender's real
+published key bundle** (fetched via `must_get_valid_record` using a
+`sender_mldsa_bundle_hash` pointer field, independently re-verified against
+the already-signed `sender_mldsa_key_id` before being trusted — see
+`verify_ml_dsa_v2` in `mail_messages_integrity`). Contrary to this doc's
+earlier claim, HDI/WASM *can* link real ML-DSA verification — that was only
+blocked by `ml-dsa`'s default (signing-capable) feature set, not by
+verification itself, which needs no randomness. A message with a
+garbage-but-correctly-sized ML-DSA signature is now rejected by
+`send_email_v2` itself, before the entry ever reaches the DHT. **Updated
+2026-07-19**: the recipient's key-state is now also DHT-validator-enforced,
+not just client-checked — a new `recipient_bundle_hash` pointer field (same
+independently-re-verified-before-trust contract as the sender's) lets
+`verify_recipient_key_state` reject a message addressed to a recipient
+whose bundle isn't `Active` at send time. The **recipient client**
+independently re-verifies ML-DSA and both parties' key states before
+trusting decrypted content, deliberately redundant with the DHT-level
+check, not a stand-in for it. See ADR-002 for
+the full enforcement-boundary statement and the Sweettest that exercises it
+(`phase0_v2_negative_paths`, case C now proves rejection, not acceptance).
 
 ## Fixed sizes and rejection rules
 
