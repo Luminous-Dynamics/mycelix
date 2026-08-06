@@ -44,9 +44,19 @@
         # Holochain packages from holonix
         holochainPackages = holonix.packages.${system};
 
-        # Import shared Holochain base configuration (repo-root nix/modules; the
-        # extra ../ is because mycelix-finance now lives under mycelix-workspace/).
-        holochainBase = import ../../nix/modules/holochain-base.nix {
+        # Import shared Holochain base configuration (repo-root nix/modules).
+        # Two candidate depths on purpose: in the private monorepo,
+        # mycelix-finance lives under mycelix-workspace/ (repo root is two
+        # levels up); on the public standalone (github.com/Luminous-Dynamics/
+        # mycelix), sync-to-standalone.sh flattens mycelix-finance to the repo
+        # root directly (one level up). One hardcoded depth cannot be correct
+        # in both, so try the monorepo depth first and fall back to the
+        # standalone depth.
+        holochainBaseModule =
+          if builtins.pathExists ../../nix/modules/holochain-base.nix
+          then ../../nix/modules/holochain-base.nix
+          else ../nix/modules/holochain-base.nix;
+        holochainBase = import holochainBaseModule {
           inherit pkgs system;
           holochainPackages = holochainPackages;
         };
