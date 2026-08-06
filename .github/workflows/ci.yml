@@ -198,7 +198,19 @@ jobs:
           name: holochain-ci
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: mycelix-finance/tests
+          workspaces: |
+            mycelix-finance
+            mycelix-finance/tests
+      - name: Build finance zomes (wasm32)
+        # hc dna pack reads dna.yaml's zome paths, which point at
+        # ../target/wasm32-unknown-unknown/release/*.wasm relative to dna/ —
+        # nothing builds those files on its own. Skipping this step is what
+        # made "Pack finance DNA" fail with "Failed to canonicalize resource
+        # path: .../recognition.wasm: No such file or directory" after a
+        # real ~25-minute nix toolchain build that otherwise succeeded.
+        run: |
+          cd mycelix-finance && nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
       - name: Pack finance DNA
         # --impure: the flake's .#ci shell imports ../../nix/modules/
         # holochain-base.nix, a relative path outside mycelix-finance's own
