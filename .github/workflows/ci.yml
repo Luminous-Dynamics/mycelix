@@ -166,6 +166,47 @@ jobs:
       - name: Test finance
         run: cd mycelix-finance && cargo test --workspace
 
+  # Separate from test-finance on purpose: this needs nix (for `hc`) and a much
+  # longer timeout (a cold `holochain` crate compile alone takes ~1h without a
+  # warm rust-cache), so it shouldn't share test-finance's fast 20-minute budget.
+  # `tests/` is excluded from the finance Cargo workspace and every sweettest is
+  # #[ignore]-gated, so `cargo test --workspace` in test-finance never runs them —
+  # this job is what actually packs the DNA and exercises the SweetConductor
+  # fail-closed-gate checks end to end.
+  #
+  # NOT yet in ci-pass's required job list: the finance zomes/types/tests this
+  # job needs (e.g. tests/sweettest_sap_finality_adversarial.rs) haven't been
+  # synced from the monorepo to this repo yet, so it is EXPECTED to fail until
+  # that sync lands. It still runs and reports for visibility — once the
+  # finance sync lands, add `test-finance-integration` to ci-pass's `needs`
+  # and failure-check loop below to make it a real merge gate.
+  test-finance-integration:
+    name: Finance Integration (SweetConductor)
+    needs: changes
+    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-finance/tests
+      - name: Pack finance DNA
+        run: cd mycelix-finance && nix develop .#ci --command hc dna pack dna/
+      - name: Run SweetConductor integration tests
+        run: |
+          cd mycelix-finance && nix develop .#ci --command bash -c "
+            cd tests && cargo test -- --include-ignored --test-threads=1
+          "
+
   test-governance:
     needs: changes
     if: needs.changes.outputs.governance == 'true' || github.event_name == 'push'
@@ -344,6 +385,7 @@ jobs:
       - test-civic
       - test-hearth
       - test-finance
+      - test-finance-integration
       - test-governance
       - test-identity
       - test-personal
@@ -360,6 +402,9 @@ jobs:
           echo "Civic: ${{ needs.test-civic.result }}"
           echo "Hearth: ${{ needs.test-hearth.result }}"
           echo "Finance: ${{ needs.test-finance.result }}"
+          # Reported but not gated below — expected red until the finance
+          # zomes/tests are synced from the monorepo. See the job's own comment.
+          echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
           echo "Governance: ${{ needs.test-governance.result }}"
           echo "Identity: ${{ needs.test-identity.result }}"
           echo "Personal: ${{ needs.test-personal.result }}"
