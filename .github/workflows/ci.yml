@@ -200,10 +200,17 @@ jobs:
         with:
           workspaces: mycelix-finance/tests
       - name: Pack finance DNA
-        run: cd mycelix-finance && nix develop .#ci --command hc dna pack dna/
+        # --impure: the flake's .#ci shell imports ../../nix/modules/
+        # holochain-base.nix, a relative path outside mycelix-finance's own
+        # flake root — flakes evaluate purely by default, so without this
+        # flag `nix develop` fails immediately with "access to absolute
+        # path '/nix/store/nix' is forbidden in pure evaluation mode",
+        # before ever reaching `hc`. Confirmed locally: the same command
+        # fails identically without --impure and proceeds to build with it.
+        run: cd mycelix-finance && nix develop .#ci --impure --command hc dna pack dna/
       - name: Run SweetConductor integration tests
         run: |
-          cd mycelix-finance && nix develop .#ci --command bash -c "
+          cd mycelix-finance && nix develop .#ci --impure --command bash -c "
             cd tests && cargo test -- --include-ignored --test-threads=1
           "
 
