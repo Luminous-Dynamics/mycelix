@@ -7,13 +7,16 @@
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
+//! - Persistent delegated authority primitives
 //! - Bridge types for cross-domain communication
 
+pub mod authority;
 pub mod bridge_types;
 pub mod evidence;
 pub mod roles;
 pub mod status;
 
+pub use authority::*;
 pub use bridge_types::*;
 pub use evidence::*;
 pub use roles::*;
