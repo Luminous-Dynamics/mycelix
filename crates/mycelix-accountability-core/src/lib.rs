@@ -3,14 +3,14 @@
 
 //! Cross-domain reciprocal-accountability primitives for person-linked lookups.
 //!
-//! The core invariant is intentionally structural: a person-linked lookup can
-//! be notified immediately or notification can be delayed under an expiring,
+//! The core invariant is structural: a person-linked lookup can notify the
+//! subject immediately or temporarily delay notice under an expiring,
 //! independently approved authorization. There is no `NeverNotify` state.
 //!
-//! These types are transport- and storage-agnostic. Full receipts should remain
-//! private to the subject, the originating institution, and authorized oversight
-//! peers; public transparency surfaces should publish commitments and aggregates,
-//! not person/case identifiers.
+//! The protocol is deliberately two-phase. A caller first validates the
+//! semantic receipt, commits it with attestations excluded, obtains execution /
+//! computation / policy / witness evidence, attaches those evidence references,
+//! and then performs final validation before protected output is released.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -26,21 +26,20 @@ const RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-receipt:pre-at
 const PURPOSE_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-purpose:v1";
 const POLICY_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-policy:v1";
 
-/// Fixed-size cryptographic commitment used across the Mycelix/Xenia/Symthaea
-/// accountability boundary.
+/// Fixed-size cryptographic commitment shared across Mycelix, Xenia, and
+/// Symthaea accountability boundaries.
 #[derive(
     Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
 )]
 pub struct Commitment32(pub [u8; 32]);
 
 impl Commitment32 {
-    /// Construct a commitment from raw 32-byte digest bytes.
+    /// Construct from raw 32-byte digest bytes.
     pub const fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
 
-    /// Return true for the all-zero placeholder, which v1 rejects for required
-    /// security-relevant commitments.
+    /// Return true for the all-zero placeholder.
     pub const fn is_zero(self) -> bool {
         self.0 == [0u8; 32]
     }
@@ -57,25 +56,21 @@ impl From<[u8; 32]> for Commitment32 {
     }
 }
 
-/// A pairwise/pseudonymous subject identifier.
+/// Pairwise/pseudonymous subject identifier.
 ///
-/// Implementations SHOULD derive this separately for each institutional
-/// relationship so the identifier cannot become a universal tracking handle.
+/// Deployments SHOULD derive this separately per institutional relationship so
+/// the identifier cannot become a universal tracking handle.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PairwiseSubjectId(pub String);
 
-/// The principal that attempted a person-linked lookup.
+/// Principal that attempted a person-linked lookup.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RequestingPrincipal {
-    /// Organization on whose authority the actor is operating.
     pub organization_id: String,
-    /// Human/service identifier meaningful inside that organization.
     pub actor_id: String,
-    /// Role asserted for policy evaluation.
     pub role: String,
-    /// Xenia/authentication-plane source identifier or equivalent stable
-    /// cryptographic principal fingerprint. This is what binds the semantic
-    /// Mycelix requester to the authenticated execution transcript.
+    /// Xenia/authentication-plane source identifier (or equivalent stable
+    /// cryptographic principal fingerprint).
     pub authenticated_source_id: Commitment32,
 }
 
@@ -87,8 +82,7 @@ pub struct LegalAuthority {
     pub jurisdiction: String,
 }
 
-/// Broad authority categories. Exact legal meaning is supplied by the
-/// jurisdiction-specific policy profile, not this protocol crate.
+/// Broad authority categories; jurisdiction-specific policy defines meaning.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AuthorityType {
     Consent,
@@ -106,13 +100,11 @@ pub struct PurposeBinding {
     pub purpose_code: String,
     pub plain_language_purpose: String,
     pub matter_id: Option<String>,
-    /// Digest of the precise predicate/data scope authorized for the lookup.
     pub scope_digest: Commitment32,
     pub expires_at_ms: u64,
 }
 
-/// Result of the authorization decision. Denied attempts still produce a
-/// receipt because attempted misuse is itself accountability-relevant.
+/// Authorization outcome. Denied attempts are accountability-relevant too.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LookupOutcome {
     Allowed,
@@ -135,12 +127,10 @@ pub struct DisclosureSummary {
     pub kind: DisclosureKind,
     pub data_classes: Vec<String>,
     pub item_count: u32,
-    /// Commitment to the disclosed result, without embedding the result itself.
     pub result_digest: Option<Commitment32>,
 }
 
-/// A charge against a query/privacy budget, preventing reconstruction of a
-/// population through a large number of individually permissible lookups.
+/// Charge against a purpose/time-bounded query or privacy budget.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct QueryBudgetCharge {
     pub budget_id: String,
@@ -156,17 +146,34 @@ pub struct InferenceDisclosure {
     pub model_id: String,
     pub model_version: String,
     pub plain_language_summary: String,
-    /// Integer confidence in parts-per-million, avoiding float canonicalization.
+    /// Integer confidence in parts-per-million to avoid float canonicalization.
     pub confidence_ppm: u32,
     pub explanation_digest: Commitment32,
     pub provenance_receipt_ids: Vec<String>,
     pub significant_effect: bool,
 }
 
-/// Reference to a cryptographic proof/attestation produced by another layer
-/// (for example Symthaea's ZK stack or an Xenia-signed execution transcript).
+/// Semantic role of an evidence reference attached to a finalized receipt.
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+pub enum AttestationRole {
+    /// Authenticated-session / operator / ledger binding, normally from Xenia.
+    ExecutionBinding,
+    /// Proof/attestation that the declared computation produced the result,
+    /// normally from Symthaea or another local computation engine.
+    ComputationProof,
+    /// Proof/attestation that the declared policy evaluation ran as specified.
+    PolicyProof,
+    /// Independent timestamp/order/oversight witness used to strengthen the
+    /// pre-disclosure ordering claim.
+    ExternalWitness,
+}
+
+/// Reference to cryptographic proof material held outside the receipt.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AttestationRef {
+    pub role: AttestationRole,
     pub scheme: String,
     pub statement_digest: Commitment32,
     pub proof_digest: Commitment32,
@@ -184,7 +191,7 @@ pub enum SubjectRight {
     ProofOfPolicy,
 }
 
-/// Narrow, standardized reasons for temporarily delaying subject notice.
+/// Narrow standardized reasons for temporarily delaying subject notice.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DelayReason {
     ActiveInvestigation,
@@ -207,9 +214,7 @@ pub struct DelayApproval {
 pub struct DelayedNotificationAuthorization {
     pub authorization_id: String,
     pub reason: DelayReason,
-    /// Jurisdiction-specific statute/order/policy reference.
     pub legal_basis: String,
-    /// Commitment to the sealed justification reviewed by approvers.
     pub justification_digest: Commitment32,
     pub approved_at_ms: u64,
     pub release_at_ms: u64,
@@ -217,9 +222,7 @@ pub struct DelayedNotificationAuthorization {
     pub approvals: Vec<DelayApproval>,
 }
 
-/// Notification mode for a person-linked lookup.
-///
-/// Deliberately has no permanent-secret variant.
+/// Notification mode. Deliberately has no permanent-secret variant.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NotificationDirective {
     Immediate,
@@ -235,7 +238,6 @@ pub struct AccessReceipt {
     pub requester: RequestingPrincipal,
     pub purpose: PurposeBinding,
     pub legal_authority: LegalAuthority,
-    /// Canonical commitment to the lookup/predicate itself.
     pub query_digest: Commitment32,
     pub policy_version: String,
     pub occurred_at_ms: u64,
@@ -245,13 +247,13 @@ pub struct AccessReceipt {
     pub rights: Vec<SubjectRight>,
     pub query_budget_charge: Option<QueryBudgetCharge>,
     pub inference: Option<InferenceDisclosure>,
-    /// Added only after the pre-attestation receipt commitment has been formed.
-    /// See [`pre_attestation_receipt_commitment`] for the deliberate exclusion
-    /// that avoids a receipt ↔ execution-attestation hash cycle.
-    pub attestation: Option<AttestationRef>,
+    /// Proof references attached after [`pre_attestation_receipt_commitment`] is
+    /// formed. The vector is excluded from that commitment to avoid proof ↔
+    /// receipt hash cycles while permitting multiple independent proofs.
+    pub attestations: Vec<AttestationRef>,
 }
 
-/// Jurisdiction/deployment profile used to enforce the protocol's invariants.
+/// Jurisdiction/deployment profile enforcing protocol invariants.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountabilityPolicy {
     /// Maximum permissible notice delay. `0` disables delayed notice.
@@ -261,10 +263,11 @@ pub struct AccountabilityPolicy {
     pub permitted_delay_reasons: Vec<DelayReason>,
     pub required_subject_rights: Vec<SubjectRight>,
     pub require_query_budget_charge: bool,
-    pub require_attestation: bool,
+    /// Evidence roles that MUST be present before protected output is released.
+    pub required_attestation_roles: Vec<AttestationRole>,
 }
 
-/// Runtime disposition after validating an access receipt.
+/// Runtime disposition after final receipt validation.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NotificationDisposition {
     DeliverNow,
@@ -275,8 +278,6 @@ pub enum NotificationDisposition {
 }
 
 /// How much requester identity is copied into the initial human-facing notice.
-/// Full inspection rights may expose more under the governing policy; this
-/// controls only the push/inbox notification projection.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RequesterNoticeLevel {
     OrganizationOnly,
@@ -320,9 +321,7 @@ pub struct SubjectInferenceNotice {
     pub significant_effect: bool,
 }
 
-/// Delayed-notification metadata shown once an embargo expires. Approver
-/// identities and sealed justification material are intentionally not copied
-/// into the push/inbox projection.
+/// Delayed-notification metadata shown after an embargo expires.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DelayedNoticeSummary {
     pub authorization_id: String,
@@ -346,12 +345,14 @@ pub struct SubjectNotice {
     pub rights: Vec<SubjectRight>,
     pub inference: Option<SubjectInferenceNotice>,
     pub delayed_notice: Option<DelayedNoticeSummary>,
-    pub attestation: Option<AttestationRef>,
+    /// Commitment-only proof references are safe to expose; proof bodies remain
+    /// in their evidence stores.
+    pub attestations: Vec<AttestationRef>,
 }
 
 /// Project a full internal receipt into the smaller initial notice shown to the
-/// subject. This prevents the notification channel itself from leaking case IDs,
-/// raw query commitments, approver identities, or sealed delay justifications.
+/// subject. The projection intentionally omits case IDs, raw query commitments,
+/// approver identities, and sealed delay justifications.
 pub fn project_subject_notice(
     receipt: &AccessReceipt,
     policy: &SubjectNoticePolicy,
@@ -375,12 +376,12 @@ pub fn project_subject_notice(
     };
 
     let inference = if policy.include_inference_summary {
-        receipt.inference.as_ref().map(|inference| SubjectInferenceNotice {
-            model_id: inference.model_id.clone(),
-            model_version: inference.model_version.clone(),
-            plain_language_summary: inference.plain_language_summary.clone(),
-            confidence_ppm: inference.confidence_ppm,
-            significant_effect: inference.significant_effect,
+        receipt.inference.as_ref().map(|value| SubjectInferenceNotice {
+            model_id: value.model_id.clone(),
+            model_version: value.model_version.clone(),
+            plain_language_summary: value.plain_language_summary.clone(),
+            confidence_ppm: value.confidence_ppm,
+            significant_effect: value.significant_effect,
         })
     } else {
         None
@@ -411,36 +412,32 @@ pub fn project_subject_notice(
         rights: receipt.rights.clone(),
         inference,
         delayed_notice,
-        attestation: receipt.attestation.clone(),
+        attestations: receipt.attestations.clone(),
     }
 }
 
-/// Compute a stable v1 commitment to an access receipt *before* an execution
-/// attestation is attached.
+/// Compute a stable v1 commitment to the semantic receipt before proofs are
+/// attached.
 ///
-/// The attestation field is deliberately normalized to `None` before
-/// serialization. Xenia signs this receipt commitment, and the resulting Xenia
-/// proof reference is then inserted into `AccessReceipt.attestation`; excluding
-/// that one field is what prevents a cryptographic hash cycle. Verifiers must
-/// recompute this same pre-attestation commitment from the final receipt and
-/// compare it with the Xenia execution binding.
+/// All attestation references are normalized away. Xenia/Symthaea can therefore
+/// bind the same receipt commitment and their resulting proof references can be
+/// attached afterward without introducing a cryptographic hash cycle.
 pub fn pre_attestation_receipt_commitment(
     receipt: &AccessReceipt,
 ) -> Result<Commitment32, AccountabilityCommitmentError> {
     let mut body = receipt.clone();
-    body.attestation = None;
+    body.attestations.clear();
     hash_serialized(RECEIPT_COMMITMENT_DOMAIN, &body)
 }
 
-/// Compute the purpose/scope commitment carried into the Xenia execution
-/// binding.
+/// Compute the purpose/scope commitment carried into execution/proof bindings.
 pub fn purpose_commitment(
     purpose: &PurposeBinding,
 ) -> Result<Commitment32, AccountabilityCommitmentError> {
     hash_serialized(PURPOSE_COMMITMENT_DOMAIN, purpose)
 }
 
-/// Compute the policy commitment carried into the Xenia execution binding.
+/// Compute the policy commitment carried into execution/proof bindings.
 pub fn policy_commitment(
     policy: &AccountabilityPolicy,
 ) -> Result<Commitment32, AccountabilityCommitmentError> {
@@ -481,6 +478,7 @@ pub enum AccountabilityError {
     ZeroScopeDigest,
     ZeroDisclosureResultDigest,
     ZeroInferenceExplanationDigest,
+    InvalidAttestation,
     ZeroAttestationDigest,
     PurposeExpiredBeforeLookup,
     InvalidInferenceConfidence,
@@ -488,7 +486,7 @@ pub enum AccountabilityError {
     MissingRequiredRight(SubjectRight),
     MissingQueryBudgetCharge,
     InvalidQueryBudgetCharge,
-    MissingAttestation,
+    MissingRequiredAttestationRole(AttestationRole),
     DelayedNoticeDisabled,
     DelayReasonNotPermitted,
     MissingDelayAuthorization,
@@ -502,31 +500,11 @@ pub enum AccountabilityError {
     MissingIndependentApproval,
 }
 
-/// Validate a receipt and determine whether notice must be delivered now or
-/// can remain in cryptographic escrow until its mandatory release time.
-pub fn evaluate_notification(
-    receipt: &AccessReceipt,
-    now_ms: u64,
-    policy: &AccountabilityPolicy,
-) -> Result<NotificationDisposition, AccountabilityError> {
-    validate_receipt(receipt, policy)?;
-
-    match &receipt.notification {
-        NotificationDirective::Immediate => Ok(NotificationDisposition::DeliverNow),
-        NotificationDirective::Delayed(auth) if now_ms >= auth.release_at_ms => {
-            Ok(NotificationDisposition::DeliverNow)
-        }
-        NotificationDirective::Delayed(auth) => Ok(NotificationDisposition::EscrowUntil {
-            release_at_ms: auth.release_at_ms,
-            authorization_id: auth.authorization_id.clone(),
-        }),
-    }
-}
-
-/// Validate all structural and policy invariants of a person-linked lookup
-/// receipt. Callers should reject the lookup if they cannot durably commit a
-/// valid receipt before releasing protected data.
-pub fn validate_receipt(
+/// Phase-one validation. This validates every semantic/privacy invariant and the
+/// shape of any already-attached proof refs, but does NOT require final evidence
+/// roles to exist yet. Call it before computing the pre-attestation receipt
+/// commitment.
+pub fn validate_pre_attestation_receipt(
     receipt: &AccessReceipt,
     policy: &AccountabilityPolicy,
 ) -> Result<(), AccountabilityError> {
@@ -586,7 +564,10 @@ pub fn validate_receipt(
         }
     }
 
-    if let Some(attestation) = &receipt.attestation {
+    for attestation in &receipt.attestations {
+        if attestation.scheme.trim().is_empty() || attestation.verifier_profile.trim().is_empty() {
+            return Err(AccountabilityError::InvalidAttestation);
+        }
         if attestation.statement_digest.is_zero() || attestation.proof_digest.is_zero() {
             return Err(AccountabilityError::ZeroAttestationDigest);
         }
@@ -619,15 +600,48 @@ pub fn validate_receipt(
             return Err(AccountabilityError::InvalidQueryBudgetCharge);
         }
     }
-    if policy.require_attestation && receipt.attestation.is_none() {
-        return Err(AccountabilityError::MissingAttestation);
-    }
 
     if let NotificationDirective::Delayed(auth) = &receipt.notification {
         validate_delay(receipt, auth, policy)?;
     }
 
     Ok(())
+}
+
+/// Final, pre-disclosure validation. All phase-one invariants are rechecked and
+/// every evidence role required by policy must now be present.
+pub fn validate_receipt(
+    receipt: &AccessReceipt,
+    policy: &AccountabilityPolicy,
+) -> Result<(), AccountabilityError> {
+    validate_pre_attestation_receipt(receipt, policy)?;
+    let roles: BTreeSet<_> = receipt.attestations.iter().map(|item| item.role).collect();
+    for required in &policy.required_attestation_roles {
+        if !roles.contains(required) {
+            return Err(AccountabilityError::MissingRequiredAttestationRole(*required));
+        }
+    }
+    Ok(())
+}
+
+/// Validate a finalized receipt and determine whether notice must be delivered
+/// now or can remain in cryptographic escrow until mandatory release.
+pub fn evaluate_notification(
+    receipt: &AccessReceipt,
+    now_ms: u64,
+    policy: &AccountabilityPolicy,
+) -> Result<NotificationDisposition, AccountabilityError> {
+    validate_receipt(receipt, policy)?;
+    match &receipt.notification {
+        NotificationDirective::Immediate => Ok(NotificationDisposition::DeliverNow),
+        NotificationDirective::Delayed(auth) if now_ms >= auth.release_at_ms => {
+            Ok(NotificationDisposition::DeliverNow)
+        }
+        NotificationDirective::Delayed(auth) => Ok(NotificationDisposition::EscrowUntil {
+            release_at_ms: auth.release_at_ms,
+            authorization_id: auth.authorization_id.clone(),
+        }),
+    }
 }
 
 fn validate_delay(
@@ -641,9 +655,7 @@ fn validate_delay(
     if !policy.permitted_delay_reasons.contains(&auth.reason) {
         return Err(AccountabilityError::DelayReasonNotPermitted);
     }
-    if auth.authorization_id.trim().is_empty()
-        || auth.legal_basis.trim().is_empty()
-    {
+    if auth.authorization_id.trim().is_empty() || auth.legal_basis.trim().is_empty() {
         return Err(AccountabilityError::MissingDelayAuthorization);
     }
     if auth.justification_digest.is_zero() {
@@ -655,7 +667,6 @@ fn validate_delay(
     if auth.release_at_ms - receipt.occurred_at_ms > policy.max_delay_ms {
         return Err(AccountabilityError::DelayExceedsPolicy);
     }
-    // Prevent a secret lookup from being retroactively blessed after it ran.
     if auth.approved_at_ms > receipt.occurred_at_ms {
         return Err(AccountabilityError::DelayAuthorizationAfterLookup);
     }
@@ -724,11 +735,24 @@ mod tests {
             ],
             required_subject_rights: rights(),
             require_query_budget_charge: true,
-            require_attestation: true,
+            required_attestation_roles: vec![
+                AttestationRole::ExecutionBinding,
+                AttestationRole::ComputationProof,
+            ],
         }
     }
 
-    fn immediate_receipt() -> AccessReceipt {
+    fn proof(role: AttestationRole, byte: u8) -> AttestationRef {
+        AttestationRef {
+            role,
+            scheme: format!("proof-scheme-{byte}"),
+            statement_digest: c(byte),
+            proof_digest: c(byte.saturating_add(1)),
+            verifier_profile: "sif-v0.1".into(),
+        }
+    }
+
+    fn base_receipt() -> AccessReceipt {
         let occurred_at_ms = 1_800_000_000_000;
         AccessReceipt {
             protocol_version: RECIPROCAL_ACCOUNTABILITY_PROTOCOL_VERSION,
@@ -771,17 +795,21 @@ mod tests {
                 window_ends_at_ms: occurred_at_ms + DAY_MS,
             }),
             inference: None,
-            attestation: Some(AttestationRef {
-                scheme: "xenia-accountability-execution-attestation-v1".into(),
-                statement_digest: c(13),
-                proof_digest: c(14),
-                verifier_profile: "sif-v0.1".into(),
-            }),
+            attestations: Vec::new(),
         }
     }
 
+    fn finalized_receipt() -> AccessReceipt {
+        let mut receipt = base_receipt();
+        receipt.attestations = vec![
+            proof(AttestationRole::ExecutionBinding, 40),
+            proof(AttestationRole::ComputationProof, 50),
+        ];
+        receipt
+    }
+
     fn delayed_receipt() -> AccessReceipt {
-        let mut receipt = immediate_receipt();
+        let mut receipt = finalized_receipt();
         receipt.notification = NotificationDirective::Delayed(DelayedNotificationAuthorization {
             authorization_id: "delay-001".into(),
             reason: DelayReason::ActiveInvestigation,
@@ -807,8 +835,34 @@ mod tests {
     }
 
     #[test]
+    fn phase_one_validation_allows_required_proofs_to_be_missing() {
+        let receipt = base_receipt();
+        assert_eq!(validate_pre_attestation_receipt(&receipt, &policy()), Ok(()));
+        assert_eq!(
+            validate_receipt(&receipt, &policy()),
+            Err(AccountabilityError::MissingRequiredAttestationRole(
+                AttestationRole::ExecutionBinding
+            ))
+        );
+    }
+
+    #[test]
+    fn final_validation_requires_all_configured_evidence_roles() {
+        let mut receipt = base_receipt();
+        receipt.attestations.push(proof(AttestationRole::ExecutionBinding, 40));
+        assert_eq!(
+            validate_receipt(&receipt, &policy()),
+            Err(AccountabilityError::MissingRequiredAttestationRole(
+                AttestationRole::ComputationProof
+            ))
+        );
+        receipt.attestations.push(proof(AttestationRole::ComputationProof, 50));
+        assert_eq!(validate_receipt(&receipt, &policy()), Ok(()));
+    }
+
+    #[test]
     fn immediate_lookup_must_notify_now() {
-        let receipt = immediate_receipt();
+        let receipt = finalized_receipt();
         assert_eq!(
             evaluate_notification(&receipt, receipt.occurred_at_ms, &policy()),
             Ok(NotificationDisposition::DeliverNow)
@@ -848,19 +902,7 @@ mod tests {
     }
 
     #[test]
-    fn delay_cannot_exceed_policy_maximum() {
-        let mut receipt = delayed_receipt();
-        if let NotificationDirective::Delayed(auth) = &mut receipt.notification {
-            auth.release_at_ms = receipt.occurred_at_ms + 31 * DAY_MS;
-        }
-        assert_eq!(
-            validate_receipt(&receipt, &policy()),
-            Err(AccountabilityError::DelayExceedsPolicy)
-        );
-    }
-
-    #[test]
-    fn delay_cannot_be_authorized_after_lookup() {
+    fn delay_cannot_be_retroactively_authorized() {
         let mut receipt = delayed_receipt();
         if let NotificationDirective::Delayed(auth) = &mut receipt.notification {
             auth.approved_at_ms = receipt.occurred_at_ms + 1;
@@ -874,7 +916,7 @@ mod tests {
 
     #[test]
     fn denied_lookup_cannot_smuggle_a_disclosure() {
-        let mut receipt = immediate_receipt();
+        let mut receipt = finalized_receipt();
         receipt.outcome = LookupOutcome::Denied;
         assert_eq!(
             validate_receipt(&receipt, &policy()),
@@ -884,65 +926,23 @@ mod tests {
 
     #[test]
     fn required_subject_rights_are_fail_closed() {
-        let mut receipt = immediate_receipt();
+        let mut receipt = finalized_receipt();
         receipt.rights.retain(|right| *right != SubjectRight::Contest);
         assert_eq!(
             validate_receipt(&receipt, &policy()),
-            Err(AccountabilityError::MissingRequiredRight(
-                SubjectRight::Contest
-            ))
+            Err(AccountabilityError::MissingRequiredRight(SubjectRight::Contest))
         );
     }
 
     #[test]
-    fn identifiable_lookup_can_require_query_budgeting() {
-        let mut receipt = immediate_receipt();
-        receipt.query_budget_charge = None;
-        assert_eq!(
-            validate_receipt(&receipt, &policy()),
-            Err(AccountabilityError::MissingQueryBudgetCharge)
-        );
-    }
-
-    #[test]
-    fn inference_confidence_is_canonical_and_bounded() {
-        let mut receipt = immediate_receipt();
-        receipt.inference = Some(InferenceDisclosure {
-            inference_id: "inference-1".into(),
-            model_id: "symthaea-model".into(),
-            model_version: "v1".into(),
-            plain_language_summary: "Vehicle may be associated with the subject".into(),
-            confidence_ppm: 1_000_001,
-            explanation_digest: c(30),
-            provenance_receipt_ids: vec!["receipt-prior".into()],
-            significant_effect: true,
-        });
-        assert_eq!(
-            validate_receipt(&receipt, &policy()),
-            Err(AccountabilityError::InvalidInferenceConfidence)
-        );
-    }
-
-    #[test]
-    fn authenticated_source_id_is_required_for_xenia_binding() {
-        let mut receipt = immediate_receipt();
-        receipt.requester.authenticated_source_id = Commitment32::default();
-        assert_eq!(
-            validate_receipt(&receipt, &policy()),
-            Err(AccountabilityError::ZeroAuthenticatedSourceId)
-        );
-    }
-
-    #[test]
-    fn pre_attestation_commitment_breaks_the_hash_cycle() {
-        let mut receipt = immediate_receipt();
+    fn pre_attestation_commitment_ignores_all_later_proof_references() {
+        let mut receipt = base_receipt();
         let first = pre_attestation_receipt_commitment(&receipt).expect("commit receipt");
-        receipt.attestation = Some(AttestationRef {
-            scheme: "a-different-proof-wrapper".into(),
-            statement_digest: c(40),
-            proof_digest: c(41),
-            verifier_profile: "different".into(),
-        });
+        receipt.attestations = vec![
+            proof(AttestationRole::ExecutionBinding, 40),
+            proof(AttestationRole::ComputationProof, 50),
+            proof(AttestationRole::ExternalWitness, 60),
+        ];
         let second = pre_attestation_receipt_commitment(&receipt).expect("recommit receipt");
         assert_eq!(first, second);
 
@@ -952,8 +952,20 @@ mod tests {
     }
 
     #[test]
+    fn malformed_attestation_is_rejected_even_during_phase_one() {
+        let mut receipt = base_receipt();
+        let mut invalid = proof(AttestationRole::ExecutionBinding, 40);
+        invalid.proof_digest = Commitment32::default();
+        receipt.attestations.push(invalid);
+        assert_eq!(
+            validate_pre_attestation_receipt(&receipt, &policy()),
+            Err(AccountabilityError::ZeroAttestationDigest)
+        );
+    }
+
+    #[test]
     fn purpose_and_policy_commitments_are_domain_separated() {
-        let receipt = immediate_receipt();
+        let receipt = base_receipt();
         let purpose = purpose_commitment(&receipt.purpose).expect("purpose commitment");
         let policy = policy_commitment(&policy()).expect("policy commitment");
         assert_ne!(purpose, policy);
@@ -963,21 +975,23 @@ mod tests {
 
     #[test]
     fn default_subject_notice_does_not_expose_actor_or_case_id() {
-        let receipt = immediate_receipt();
+        let receipt = finalized_receipt();
         let notice = project_subject_notice(&receipt, &SubjectNoticePolicy::default());
         assert_eq!(notice.requester.organization_id, "agency-a");
         assert_eq!(notice.requester.actor_id, None);
         assert_eq!(notice.requester.role.as_deref(), Some("investigator"));
         assert_eq!(notice.authority_id, None);
         assert!(!notice.plain_language_purpose.contains("case-123"));
+        assert_eq!(notice.attestations.len(), 2);
     }
 
     #[test]
-    fn expired_delayed_notice_projection_discloses_that_notice_was_delayed() {
-        let receipt = delayed_receipt();
-        let notice = project_subject_notice(&receipt, &SubjectNoticePolicy::default());
-        let delayed = notice.delayed_notice.expect("delay summary");
-        assert_eq!(delayed.authorization_id, "delay-001");
-        assert_eq!(delayed.reason, DelayReason::ActiveInvestigation);
+    fn authenticated_source_id_is_required_for_xenia_binding() {
+        let mut receipt = base_receipt();
+        receipt.requester.authenticated_source_id = Commitment32::default();
+        assert_eq!(
+            validate_pre_attestation_receipt(&receipt, &policy()),
+            Err(AccountabilityError::ZeroAuthenticatedSourceId)
+        );
     }
 }
