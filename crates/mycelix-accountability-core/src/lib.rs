@@ -1,22 +1,61 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 
-//! Reciprocal accountability primitives for person-linked lookups.
+//! Cross-domain reciprocal-accountability primitives for person-linked lookups.
 //!
 //! The core invariant is intentionally structural: a person-linked lookup can
 //! be notified immediately or notification can be delayed under an expiring,
 //! independently approved authorization. There is no `NeverNotify` state.
 //!
-//! These types are transport- and storage-agnostic. A Holochain zome can keep
-//! the full receipt private to the subject and authorized oversight peers while
-//! publishing only commitments/aggregate transparency statistics.
+//! These types are transport- and storage-agnostic. Full receipts should remain
+//! private to the subject, the originating institution, and authorized oversight
+//! peers; public transparency surfaces should publish commitments and aggregates,
+//! not person/case identifiers.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use thiserror::Error;
 
-/// Version of the reciprocal-accountability schema in this module.
+/// Version of the reciprocal-accountability schema in this crate.
 pub const RECIPROCAL_ACCOUNTABILITY_PROTOCOL_VERSION: u16 = 1;
+
+/// Hash algorithm used by v1 canonical commitments.
+pub const ACCOUNTABILITY_COMMITMENT_ALGORITHM: &str = "blake3-256";
+
+const RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-receipt:pre-attestation:v1";
+const PURPOSE_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-purpose:v1";
+const POLICY_COMMITMENT_DOMAIN: &[u8] = b"mycelix:accountability-policy:v1";
+
+/// Fixed-size cryptographic commitment used across the Mycelix/Xenia/Symthaea
+/// accountability boundary.
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Default,
+)]
+pub struct Commitment32(pub [u8; 32]);
+
+impl Commitment32 {
+    /// Construct a commitment from raw 32-byte digest bytes.
+    pub const fn new(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// Return true for the all-zero placeholder, which v1 rejects for required
+    /// security-relevant commitments.
+    pub const fn is_zero(self) -> bool {
+        self.0 == [0u8; 32]
+    }
+
+    /// Borrow the raw digest bytes.
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl From<[u8; 32]> for Commitment32 {
+    fn from(value: [u8; 32]) -> Self {
+        Self(value)
+    }
+}
 
 /// A pairwise/pseudonymous subject identifier.
 ///
@@ -28,9 +67,16 @@ pub struct PairwiseSubjectId(pub String);
 /// The principal that attempted a person-linked lookup.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RequestingPrincipal {
+    /// Organization on whose authority the actor is operating.
     pub organization_id: String,
+    /// Human/service identifier meaningful inside that organization.
     pub actor_id: String,
+    /// Role asserted for policy evaluation.
     pub role: String,
+    /// Xenia/authentication-plane source identifier or equivalent stable
+    /// cryptographic principal fingerprint. This is what binds the semantic
+    /// Mycelix requester to the authenticated execution transcript.
+    pub authenticated_source_id: Commitment32,
 }
 
 /// Legal or consensual authority asserted for a lookup.
@@ -43,7 +89,7 @@ pub struct LegalAuthority {
 
 /// Broad authority categories. Exact legal meaning is supplied by the
 /// jurisdiction-specific policy profile, not this protocol crate.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AuthorityType {
     Consent,
     Statute,
@@ -61,13 +107,13 @@ pub struct PurposeBinding {
     pub plain_language_purpose: String,
     pub matter_id: Option<String>,
     /// Digest of the precise predicate/data scope authorized for the lookup.
-    pub scope_digest: String,
+    pub scope_digest: Commitment32,
     pub expires_at_ms: u64,
 }
 
 /// Result of the authorization decision. Denied attempts still produce a
 /// receipt because attempted misuse is itself accountability-relevant.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LookupOutcome {
     Allowed,
     PartiallyAllowed,
@@ -75,7 +121,7 @@ pub enum LookupOutcome {
 }
 
 /// Minimum-disclosure shape returned by a successful lookup.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DisclosureKind {
     None,
     PredicateOnly,
@@ -90,7 +136,7 @@ pub struct DisclosureSummary {
     pub data_classes: Vec<String>,
     pub item_count: u32,
     /// Commitment to the disclosed result, without embedding the result itself.
-    pub result_digest: Option<String>,
+    pub result_digest: Option<Commitment32>,
 }
 
 /// A charge against a query/privacy budget, preventing reconstruction of a
@@ -112,7 +158,7 @@ pub struct InferenceDisclosure {
     pub plain_language_summary: String,
     /// Integer confidence in parts-per-million, avoiding float canonicalization.
     pub confidence_ppm: u32,
-    pub explanation_digest: String,
+    pub explanation_digest: Commitment32,
     pub provenance_receipt_ids: Vec<String>,
     pub significant_effect: bool,
 }
@@ -122,13 +168,13 @@ pub struct InferenceDisclosure {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AttestationRef {
     pub scheme: String,
-    pub statement_digest: String,
-    pub proof_digest: String,
+    pub statement_digest: Commitment32,
+    pub proof_digest: Commitment32,
     pub verifier_profile: String,
 }
 
 /// Rights advertised by the receipt to its subject.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SubjectRight {
     Know,
     Inspect,
@@ -153,7 +199,7 @@ pub enum DelayReason {
 pub struct DelayApproval {
     pub organization_id: String,
     pub approver_id: String,
-    pub approval_digest: String,
+    pub approval_digest: Commitment32,
 }
 
 /// Expiring authorization to withhold a notification temporarily.
@@ -164,7 +210,7 @@ pub struct DelayedNotificationAuthorization {
     /// Jurisdiction-specific statute/order/policy reference.
     pub legal_basis: String,
     /// Commitment to the sealed justification reviewed by approvers.
-    pub justification_digest: String,
+    pub justification_digest: Commitment32,
     pub approved_at_ms: u64,
     pub release_at_ms: u64,
     pub required_approvals: u8,
@@ -189,7 +235,8 @@ pub struct AccessReceipt {
     pub requester: RequestingPrincipal,
     pub purpose: PurposeBinding,
     pub legal_authority: LegalAuthority,
-    pub query_digest: String,
+    /// Canonical commitment to the lookup/predicate itself.
+    pub query_digest: Commitment32,
     pub policy_version: String,
     pub occurred_at_ms: u64,
     pub outcome: LookupOutcome,
@@ -198,6 +245,9 @@ pub struct AccessReceipt {
     pub rights: Vec<SubjectRight>,
     pub query_budget_charge: Option<QueryBudgetCharge>,
     pub inference: Option<InferenceDisclosure>,
+    /// Added only after the pre-attestation receipt commitment has been formed.
+    /// See [`pre_attestation_receipt_commitment`] for the deliberate exclusion
+    /// that avoids a receipt ↔ execution-attestation hash cycle.
     pub attestation: Option<AttestationRef>,
 }
 
@@ -224,6 +274,198 @@ pub enum NotificationDisposition {
     },
 }
 
+/// How much requester identity is copied into the initial human-facing notice.
+/// Full inspection rights may expose more under the governing policy; this
+/// controls only the push/inbox notification projection.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RequesterNoticeLevel {
+    OrganizationOnly,
+    OrganizationAndRole,
+    FullPrincipal,
+}
+
+/// Privacy policy for projecting an internal receipt into a subject notice.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubjectNoticePolicy {
+    pub requester_level: RequesterNoticeLevel,
+    pub include_authority_id: bool,
+    pub include_inference_summary: bool,
+}
+
+impl Default for SubjectNoticePolicy {
+    fn default() -> Self {
+        Self {
+            requester_level: RequesterNoticeLevel::OrganizationAndRole,
+            include_authority_id: false,
+            include_inference_summary: true,
+        }
+    }
+}
+
+/// Requester projection safe for an initial subject-facing notice.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubjectNoticeRequester {
+    pub organization_id: String,
+    pub actor_id: Option<String>,
+    pub role: Option<String>,
+}
+
+/// Machine-inference projection safe for the initial notice surface.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubjectInferenceNotice {
+    pub model_id: String,
+    pub model_version: String,
+    pub plain_language_summary: String,
+    pub confidence_ppm: u32,
+    pub significant_effect: bool,
+}
+
+/// Delayed-notification metadata shown once an embargo expires. Approver
+/// identities and sealed justification material are intentionally not copied
+/// into the push/inbox projection.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DelayedNoticeSummary {
+    pub authorization_id: String,
+    pub reason: DelayReason,
+    pub approved_at_ms: u64,
+    pub release_at_ms: u64,
+}
+
+/// Minimum safe notification projection derived from an internal receipt.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubjectNotice {
+    pub receipt_id: String,
+    pub occurred_at_ms: u64,
+    pub requester: SubjectNoticeRequester,
+    pub plain_language_purpose: String,
+    pub authority_type: AuthorityType,
+    pub authority_id: Option<String>,
+    pub jurisdiction: String,
+    pub outcome: LookupOutcome,
+    pub disclosure: DisclosureSummary,
+    pub rights: Vec<SubjectRight>,
+    pub inference: Option<SubjectInferenceNotice>,
+    pub delayed_notice: Option<DelayedNoticeSummary>,
+    pub attestation: Option<AttestationRef>,
+}
+
+/// Project a full internal receipt into the smaller initial notice shown to the
+/// subject. This prevents the notification channel itself from leaking case IDs,
+/// raw query commitments, approver identities, or sealed delay justifications.
+pub fn project_subject_notice(
+    receipt: &AccessReceipt,
+    policy: &SubjectNoticePolicy,
+) -> SubjectNotice {
+    let requester = match policy.requester_level {
+        RequesterNoticeLevel::OrganizationOnly => SubjectNoticeRequester {
+            organization_id: receipt.requester.organization_id.clone(),
+            actor_id: None,
+            role: None,
+        },
+        RequesterNoticeLevel::OrganizationAndRole => SubjectNoticeRequester {
+            organization_id: receipt.requester.organization_id.clone(),
+            actor_id: None,
+            role: Some(receipt.requester.role.clone()),
+        },
+        RequesterNoticeLevel::FullPrincipal => SubjectNoticeRequester {
+            organization_id: receipt.requester.organization_id.clone(),
+            actor_id: Some(receipt.requester.actor_id.clone()),
+            role: Some(receipt.requester.role.clone()),
+        },
+    };
+
+    let inference = if policy.include_inference_summary {
+        receipt.inference.as_ref().map(|inference| SubjectInferenceNotice {
+            model_id: inference.model_id.clone(),
+            model_version: inference.model_version.clone(),
+            plain_language_summary: inference.plain_language_summary.clone(),
+            confidence_ppm: inference.confidence_ppm,
+            significant_effect: inference.significant_effect,
+        })
+    } else {
+        None
+    };
+
+    let delayed_notice = match &receipt.notification {
+        NotificationDirective::Immediate => None,
+        NotificationDirective::Delayed(auth) => Some(DelayedNoticeSummary {
+            authorization_id: auth.authorization_id.clone(),
+            reason: auth.reason,
+            approved_at_ms: auth.approved_at_ms,
+            release_at_ms: auth.release_at_ms,
+        }),
+    };
+
+    SubjectNotice {
+        receipt_id: receipt.receipt_id.clone(),
+        occurred_at_ms: receipt.occurred_at_ms,
+        requester,
+        plain_language_purpose: receipt.purpose.plain_language_purpose.clone(),
+        authority_type: receipt.legal_authority.authority_type,
+        authority_id: policy
+            .include_authority_id
+            .then(|| receipt.legal_authority.authority_id.clone()),
+        jurisdiction: receipt.legal_authority.jurisdiction.clone(),
+        outcome: receipt.outcome,
+        disclosure: receipt.disclosure.clone(),
+        rights: receipt.rights.clone(),
+        inference,
+        delayed_notice,
+        attestation: receipt.attestation.clone(),
+    }
+}
+
+/// Compute a stable v1 commitment to an access receipt *before* an execution
+/// attestation is attached.
+///
+/// The attestation field is deliberately normalized to `None` before
+/// serialization. Xenia signs this receipt commitment, and the resulting Xenia
+/// proof reference is then inserted into `AccessReceipt.attestation`; excluding
+/// that one field is what prevents a cryptographic hash cycle. Verifiers must
+/// recompute this same pre-attestation commitment from the final receipt and
+/// compare it with the Xenia execution binding.
+pub fn pre_attestation_receipt_commitment(
+    receipt: &AccessReceipt,
+) -> Result<Commitment32, AccountabilityCommitmentError> {
+    let mut body = receipt.clone();
+    body.attestation = None;
+    hash_serialized(RECEIPT_COMMITMENT_DOMAIN, &body)
+}
+
+/// Compute the purpose/scope commitment carried into the Xenia execution
+/// binding.
+pub fn purpose_commitment(
+    purpose: &PurposeBinding,
+) -> Result<Commitment32, AccountabilityCommitmentError> {
+    hash_serialized(PURPOSE_COMMITMENT_DOMAIN, purpose)
+}
+
+/// Compute the policy commitment carried into the Xenia execution binding.
+pub fn policy_commitment(
+    policy: &AccountabilityPolicy,
+) -> Result<Commitment32, AccountabilityCommitmentError> {
+    hash_serialized(POLICY_COMMITMENT_DOMAIN, policy)
+}
+
+fn hash_serialized<T: Serialize>(
+    domain: &[u8],
+    value: &T,
+) -> Result<Commitment32, AccountabilityCommitmentError> {
+    let encoded = bincode::serialize(value)?;
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(domain);
+    hasher.update(&[0]);
+    hasher.update(&encoded);
+    Ok(Commitment32(*hasher.finalize().as_bytes()))
+}
+
+/// Errors from canonical accountability commitments.
+#[derive(Debug, Error)]
+pub enum AccountabilityCommitmentError {
+    #[error("failed to serialize accountability commitment body: {0}")]
+    Serialization(#[from] Box<bincode::ErrorKind>),
+}
+
 /// Fail-closed validation failures for reciprocal accountability.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AccountabilityError {
@@ -233,17 +475,25 @@ pub enum AccountabilityError {
     MissingRequester,
     MissingPurpose,
     MissingLegalAuthority,
-    MissingQueryDigest,
     MissingPolicyVersion,
+    ZeroAuthenticatedSourceId,
+    ZeroQueryDigest,
+    ZeroScopeDigest,
+    ZeroDisclosureResultDigest,
+    ZeroInferenceExplanationDigest,
+    ZeroAttestationDigest,
     PurposeExpiredBeforeLookup,
     InvalidInferenceConfidence,
     DeniedLookupDisclosedData,
     MissingRequiredRight(SubjectRight),
     MissingQueryBudgetCharge,
+    InvalidQueryBudgetCharge,
     MissingAttestation,
     DelayedNoticeDisabled,
     DelayReasonNotPermitted,
     MissingDelayAuthorization,
+    ZeroDelayJustificationDigest,
+    ZeroDelayApprovalDigest,
     InvalidDelayWindow,
     DelayExceedsPolicy,
     DelayAuthorizationAfterLookup,
@@ -295,19 +545,24 @@ pub fn validate_receipt(
     {
         return Err(AccountabilityError::MissingRequester);
     }
+    if receipt.requester.authenticated_source_id.is_zero() {
+        return Err(AccountabilityError::ZeroAuthenticatedSourceId);
+    }
     if receipt.purpose.purpose_code.trim().is_empty()
         || receipt.purpose.plain_language_purpose.trim().is_empty()
-        || receipt.purpose.scope_digest.trim().is_empty()
     {
         return Err(AccountabilityError::MissingPurpose);
+    }
+    if receipt.purpose.scope_digest.is_zero() {
+        return Err(AccountabilityError::ZeroScopeDigest);
     }
     if receipt.legal_authority.authority_id.trim().is_empty()
         || receipt.legal_authority.jurisdiction.trim().is_empty()
     {
         return Err(AccountabilityError::MissingLegalAuthority);
     }
-    if receipt.query_digest.trim().is_empty() {
-        return Err(AccountabilityError::MissingQueryDigest);
+    if receipt.query_digest.is_zero() {
+        return Err(AccountabilityError::ZeroQueryDigest);
     }
     if receipt.policy_version.trim().is_empty() {
         return Err(AccountabilityError::MissingPolicyVersion);
@@ -316,9 +571,24 @@ pub fn validate_receipt(
         return Err(AccountabilityError::PurposeExpiredBeforeLookup);
     }
 
+    if let Some(result_digest) = receipt.disclosure.result_digest {
+        if result_digest.is_zero() {
+            return Err(AccountabilityError::ZeroDisclosureResultDigest);
+        }
+    }
+
     if let Some(inference) = &receipt.inference {
         if inference.confidence_ppm > 1_000_000 {
             return Err(AccountabilityError::InvalidInferenceConfidence);
+        }
+        if inference.explanation_digest.is_zero() {
+            return Err(AccountabilityError::ZeroInferenceExplanationDigest);
+        }
+    }
+
+    if let Some(attestation) = &receipt.attestation {
+        if attestation.statement_digest.is_zero() || attestation.proof_digest.is_zero() {
+            return Err(AccountabilityError::ZeroAttestationDigest);
         }
     }
 
@@ -331,15 +601,23 @@ pub fn validate_receipt(
         return Err(AccountabilityError::DeniedLookupDisclosedData);
     }
 
-    let rights: BTreeSet<_> = receipt.rights.iter().cloned().collect();
+    let rights: BTreeSet<_> = receipt.rights.iter().copied().collect();
     for required in &policy.required_subject_rights {
         if !rights.contains(required) {
-            return Err(AccountabilityError::MissingRequiredRight(required.clone()));
+            return Err(AccountabilityError::MissingRequiredRight(*required));
         }
     }
 
     if policy.require_query_budget_charge && receipt.query_budget_charge.is_none() {
         return Err(AccountabilityError::MissingQueryBudgetCharge);
+    }
+    if let Some(charge) = &receipt.query_budget_charge {
+        if charge.budget_id.trim().is_empty()
+            || charge.units == 0
+            || charge.window_ends_at_ms <= receipt.occurred_at_ms
+        {
+            return Err(AccountabilityError::InvalidQueryBudgetCharge);
+        }
     }
     if policy.require_attestation && receipt.attestation.is_none() {
         return Err(AccountabilityError::MissingAttestation);
@@ -365,9 +643,11 @@ fn validate_delay(
     }
     if auth.authorization_id.trim().is_empty()
         || auth.legal_basis.trim().is_empty()
-        || auth.justification_digest.trim().is_empty()
     {
         return Err(AccountabilityError::MissingDelayAuthorization);
+    }
+    if auth.justification_digest.is_zero() {
+        return Err(AccountabilityError::ZeroDelayJustificationDigest);
     }
     if auth.release_at_ms <= receipt.occurred_at_ms || auth.release_at_ms <= auth.approved_at_ms {
         return Err(AccountabilityError::InvalidDelayWindow);
@@ -387,11 +667,11 @@ fn validate_delay(
 
     let mut approvers = BTreeSet::new();
     for approval in &auth.approvals {
-        if approval.approver_id.trim().is_empty()
-            || approval.organization_id.trim().is_empty()
-            || approval.approval_digest.trim().is_empty()
-        {
+        if approval.approver_id.trim().is_empty() || approval.organization_id.trim().is_empty() {
             return Err(AccountabilityError::MissingDelayAuthorization);
+        }
+        if approval.approval_digest.is_zero() {
+            return Err(AccountabilityError::ZeroDelayApprovalDigest);
         }
         let identity = (approval.organization_id.clone(), approval.approver_id.clone());
         if !approvers.insert(identity) {
@@ -416,6 +696,10 @@ mod tests {
     use super::*;
 
     const DAY_MS: u64 = 24 * 60 * 60 * 1000;
+
+    fn c(byte: u8) -> Commitment32 {
+        Commitment32([byte; 32])
+    }
 
     fn rights() -> Vec<SubjectRight> {
         vec![
@@ -454,12 +738,13 @@ mod tests {
                 organization_id: "agency-a".into(),
                 actor_id: "operator-key-7".into(),
                 role: "investigator".into(),
+                authenticated_source_id: c(9),
             },
             purpose: PurposeBinding {
                 purpose_code: "stolen-vehicle".into(),
                 plain_language_purpose: "Locate a reported stolen vehicle".into(),
                 matter_id: Some("case-123".into()),
-                scope_digest: "sha256:scope".into(),
+                scope_digest: c(10),
                 expires_at_ms: occurred_at_ms + DAY_MS,
             },
             legal_authority: LegalAuthority {
@@ -467,7 +752,7 @@ mod tests {
                 authority_id: "law:example:17".into(),
                 jurisdiction: "example-jurisdiction".into(),
             },
-            query_digest: "sha256:query".into(),
+            query_digest: c(11),
             policy_version: "ra-policy-1".into(),
             occurred_at_ms,
             outcome: LookupOutcome::Allowed,
@@ -475,7 +760,7 @@ mod tests {
                 kind: DisclosureKind::PredicateOnly,
                 data_classes: vec!["vehicle-presence".into()],
                 item_count: 1,
-                result_digest: Some("sha256:result".into()),
+                result_digest: Some(c(12)),
             },
             notification: NotificationDirective::Immediate,
             rights: rights(),
@@ -487,9 +772,9 @@ mod tests {
             }),
             inference: None,
             attestation: Some(AttestationRef {
-                scheme: "zk-or-signed-transcript".into(),
-                statement_digest: "sha256:statement".into(),
-                proof_digest: "sha256:proof".into(),
+                scheme: "xenia-accountability-execution-attestation-v1".into(),
+                statement_digest: c(13),
+                proof_digest: c(14),
                 verifier_profile: "sif-v0.1".into(),
             }),
         }
@@ -501,7 +786,7 @@ mod tests {
             authorization_id: "delay-001".into(),
             reason: DelayReason::ActiveInvestigation,
             legal_basis: "court-order:456".into(),
-            justification_digest: "sha256:sealed-justification".into(),
+            justification_digest: c(20),
             approved_at_ms: receipt.occurred_at_ms - 1_000,
             release_at_ms: receipt.occurred_at_ms + 7 * DAY_MS,
             required_approvals: 2,
@@ -509,12 +794,12 @@ mod tests {
                 DelayApproval {
                     organization_id: "agency-a".into(),
                     approver_id: "supervisor-1".into(),
-                    approval_digest: "sha256:approval-a".into(),
+                    approval_digest: c(21),
                 },
                 DelayApproval {
                     organization_id: "independent-court".into(),
                     approver_id: "judge-9".into(),
-                    approval_digest: "sha256:approval-b".into(),
+                    approval_digest: c(22),
                 },
             ],
         });
@@ -579,6 +864,7 @@ mod tests {
         let mut receipt = delayed_receipt();
         if let NotificationDirective::Delayed(auth) = &mut receipt.notification {
             auth.approved_at_ms = receipt.occurred_at_ms + 1;
+            auth.release_at_ms = receipt.occurred_at_ms + DAY_MS;
         }
         assert_eq!(
             validate_receipt(&receipt, &policy()),
@@ -627,7 +913,7 @@ mod tests {
             model_version: "v1".into(),
             plain_language_summary: "Vehicle may be associated with the subject".into(),
             confidence_ppm: 1_000_001,
-            explanation_digest: "sha256:explanation".into(),
+            explanation_digest: c(30),
             provenance_receipt_ids: vec!["receipt-prior".into()],
             significant_effect: true,
         });
@@ -635,5 +921,63 @@ mod tests {
             validate_receipt(&receipt, &policy()),
             Err(AccountabilityError::InvalidInferenceConfidence)
         );
+    }
+
+    #[test]
+    fn authenticated_source_id_is_required_for_xenia_binding() {
+        let mut receipt = immediate_receipt();
+        receipt.requester.authenticated_source_id = Commitment32::default();
+        assert_eq!(
+            validate_receipt(&receipt, &policy()),
+            Err(AccountabilityError::ZeroAuthenticatedSourceId)
+        );
+    }
+
+    #[test]
+    fn pre_attestation_commitment_breaks_the_hash_cycle() {
+        let mut receipt = immediate_receipt();
+        let first = pre_attestation_receipt_commitment(&receipt).expect("commit receipt");
+        receipt.attestation = Some(AttestationRef {
+            scheme: "a-different-proof-wrapper".into(),
+            statement_digest: c(40),
+            proof_digest: c(41),
+            verifier_profile: "different".into(),
+        });
+        let second = pre_attestation_receipt_commitment(&receipt).expect("recommit receipt");
+        assert_eq!(first, second);
+
+        receipt.purpose.plain_language_purpose.push_str(" (amended)");
+        let changed = pre_attestation_receipt_commitment(&receipt).expect("changed receipt");
+        assert_ne!(first, changed);
+    }
+
+    #[test]
+    fn purpose_and_policy_commitments_are_domain_separated() {
+        let receipt = immediate_receipt();
+        let purpose = purpose_commitment(&receipt.purpose).expect("purpose commitment");
+        let policy = policy_commitment(&policy()).expect("policy commitment");
+        assert_ne!(purpose, policy);
+        assert!(!purpose.is_zero());
+        assert!(!policy.is_zero());
+    }
+
+    #[test]
+    fn default_subject_notice_does_not_expose_actor_or_case_id() {
+        let receipt = immediate_receipt();
+        let notice = project_subject_notice(&receipt, &SubjectNoticePolicy::default());
+        assert_eq!(notice.requester.organization_id, "agency-a");
+        assert_eq!(notice.requester.actor_id, None);
+        assert_eq!(notice.requester.role.as_deref(), Some("investigator"));
+        assert_eq!(notice.authority_id, None);
+        assert!(!notice.plain_language_purpose.contains("case-123"));
+    }
+
+    #[test]
+    fn expired_delayed_notice_projection_discloses_that_notice_was_delayed() {
+        let receipt = delayed_receipt();
+        let notice = project_subject_notice(&receipt, &SubjectNoticePolicy::default());
+        let delayed = notice.delayed_notice.expect("delay summary");
+        assert_eq!(delayed.authorization_id, "delay-001");
+        assert_eq!(delayed.reason, DelayReason::ActiveInvestigation);
     }
 }
