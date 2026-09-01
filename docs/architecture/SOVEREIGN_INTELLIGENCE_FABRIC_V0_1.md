@@ -15,61 +15,87 @@ Notification has exactly two valid modes:
 
 There is intentionally no permanent-secret notification state.
 
-A delayed notice MAY be used only when a jurisdiction/deployment policy permits the stated reason, the delay is bounded, required approvals are present, and (when configured) at least one approver is outside the requesting organization. An authorization created after the lookup is invalid: secrecy cannot be retroactively blessed.
+Delayed notice MAY be used only when a jurisdiction/deployment policy permits the reason, the delay is bounded, required approvals are present, and—when configured—at least one approver is outside the requesting organization. Authorization created after the lookup is invalid: secrecy cannot be retroactively blessed.
 
 ## Privacy invariant: receipts must not become a surveillance system
 
 The accountability mechanism MUST NOT create a new globally searchable index of citizens.
 
-`PairwiseSubjectId` is therefore a pairwise/pseudonymous routing identifier. Implementations SHOULD derive a different subject handle for each institutional relationship or disclosure domain. Full receipts SHOULD remain private to the subject, the originating institution, and authorized oversight peers. Shared/public transparency surfaces SHOULD contain commitments and aggregate statistics rather than subject identifiers, case identifiers, raw predicates, or disclosed records.
+`PairwiseSubjectId` is a pairwise/pseudonymous routing identifier. Implementations SHOULD derive a different subject handle for each institutional relationship or disclosure domain. Full receipts SHOULD remain private to the subject, originating institution, and authorized oversight peers. Shared/public transparency surfaces SHOULD contain commitments and aggregate statistics rather than subject identifiers, case identifiers, raw predicates, or disclosed records.
 
 Notification routing information (email address, device token, DID endpoint, etc.) is outside the receipt schema and MUST be stored/sealed separately.
 
 ## Cross-domain placement
 
-Reciprocal accountability is not a Civic-only concept. The same primitive must apply to health, identity, finance, commerce, enterprise operations, sensor networks, and future Mycelix domains. The canonical types therefore live in the shared `mycelix-accountability-core` crate. Civic re-exports the types as the first integration surface, but does not own the protocol.
+Reciprocal accountability is not a Civic-only concept. The same primitive applies to health, identity, finance, commerce, enterprise operations, sensor networks, and future Mycelix domains. Canonical types live in `crates/mycelix-accountability-core`. Civic re-exports them as the first integration surface but does not own the protocol.
 
-## Receipt lifecycle
+## Evidence is plural
+
+A single signature or ZK proof must not be allowed to stand in for unrelated security claims. v0.1 therefore models evidence by role:
+
+- `ExecutionBinding` — authenticated requester/session/action and signed evidence frontier; Xenia is the natural producer.
+- `ComputationProof` — evidence that a declared predicate/model computation produced the committed minimum-necessary result; Symthaea is the natural producer.
+- `PolicyProof` — evidence that a declared policy program or policy decision was evaluated as specified.
+- `ExternalWitness` — independent ordering/timestamp/oversight evidence strengthening the claim that accountability evidence existed before disclosure.
+
+`AccountabilityPolicy.required_attestation_roles` decides which roles a deployment requires. A high-assurance deployment can require several independently verified roles instead of trusting one omnibus artifact.
+
+## Two-phase receipt lifecycle
+
+The receipt commitment intentionally excludes later proof references. That breaks the otherwise circular dependency in which Xenia/Symthaea would need to prove a receipt that already contains the digest of the proof being created.
 
 ```text
 requester
    |
-   | signed + purpose-bound QueryCapability
+   | authenticated, purpose-bound capability
    v
-policy gate ---- denied -----------------------------+
-   |                                                  |
- allowed / partial                                    |
-   v                                                  |
-local predicate / local model                         |
-   |                                                  |
-   +--> minimum necessary disclosure                  |
-   |                                                  |
-   +--> AccessReceipt <-------------------------------+
+policy gate ---- denied ------------------------------+
+   |                                                   |
+ allowed / partial                                     |
+   v                                                   |
+local predicate / model                                |
+   |                                                   |
+   +--> minimum necessary result                       |
+   |                                                   |
+   +--> semantic AccessReceipt <-----------------------+
           |
-          +--> commit before protected disclosure
+          +--> validate_pre_attestation_receipt()
           |
-          +--> Immediate -----------------> subject ledger / notification
-          |
-          +--> DelayedAuthorization ------> sealed escrow
-                                             |
-                                             +--> mandatory release_at
-                                                        |
-                                                        v
-                                             subject ledger / notification
+          +--> pre_attestation_receipt_commitment()
+                       |
+             +---------+-----------------+
+             |                           |
+             v                           v
+       Xenia execution              Symthaea computation
+       binding proof                proof / attestation
+             |                           |
+             +------------+--------------+
+                          |
+                     attach refs
+                          |
+                    validate_receipt()
+                          |
+             durable commit / witness
+                          |
+                   protected disclosure
+                          |
+              immediate notice OR escrow
+                          |
+                    mandatory release
 ```
 
-Denied requests create receipts as well. A denied request MUST have `DisclosureKind::None` and cannot use the receipt object to smuggle result data.
+Denied requests create receipts too. A denied request MUST have `DisclosureKind::None` and cannot use receipt metadata to smuggle result data.
 
 ## v0.1 schema
 
-The canonical Rust schema and fail-closed validator live in:
+Canonical Rust schema and fail-closed validators live in:
 
 `crates/mycelix-accountability-core/src/lib.rs`
 
 The receipt includes:
 
 - pairwise subject identifier;
-- requesting organization, actor key/identifier, and role;
+- requesting organization, actor identifier, role, and authenticated cryptographic source ID;
 - purpose, matter/case reference, scope commitment, and purpose expiry;
 - asserted legal/consensual authority and jurisdiction;
 - query commitment and policy version;
@@ -79,94 +105,58 @@ The receipt includes:
 - optional machine-inference disclosure;
 - subject rights advertised for this decision;
 - immediate or expiring delayed-notification directive;
-- optional proof/attestation reference.
+- zero or more typed proof/attestation references during construction, followed by all policy-required evidence roles before disclosure.
+
+All cross-stack security commitments use fixed 32-byte BLAKE3 commitments in v0.1 rather than free-form digest strings.
 
 ## Subject rights profile
 
-A deployment can configure required rights. The recommended high-accountability profile requires all of:
+A deployment can configure required rights. The recommended high-accountability profile requires:
 
 - **Know** — learn that a person-linked lookup occurred;
-- **Inspect** — inspect the accessible data and inference summary involved;
-- **Contest** — challenge inaccurate data or an unsupported inference;
+- **Inspect** — inspect accessible data and inference summaries involved;
+- **Contest** — challenge inaccurate data or unsupported inference;
 - **HumanReview** — request meaningful human review where automated reasoning has significant effect;
 - **Appeal** — challenge the authorization or resulting action through the applicable process;
-- **ProofOfPolicy** — obtain/verifiably check evidence that the declared policy was applied.
+- **ProofOfPolicy** — obtain or verifiably check evidence that the declared policy was applied.
 
-The validator fails closed when a policy-required right is absent from a receipt.
+The validator fails closed when a policy-required right is absent.
 
 ## Delayed-notification escrow
 
-Delayed notice is an exception, never a bypass.
+Delayed notice is an exception, never a bypass. `DelayedNotificationAuthorization` carries a standardized reason, legal/policy basis, sealed-justification commitment, approval time, mandatory release time, threshold count, and independent approval records.
 
-A `DelayedNotificationAuthorization` carries:
+The validator rejects disabled/unpermitted delay, missing authorization material, invalid release windows, delays beyond policy maximum, authorization created after lookup, insufficient/duplicate approvers, or missing independent oversight when required. At `release_at_ms`, evaluation returns `DeliverNow`; no code path means “withhold forever.”
 
-- standardized delay reason;
-- legal/policy basis;
-- commitment to the sealed justification;
-- approval time;
-- mandatory release time;
-- threshold count;
-- independent approval records.
+## Safe citizen notice projection
 
-The v0.1 validator rejects:
+The internal receipt and the initial notification are deliberately different objects. `SubjectNotice` can expose the institution, role, purpose, authority category, disclosure summary, rights, safe inference summary, delay history, and commitment-only proof references without copying raw query commitments, matter/case IDs, approver identities, or sealed investigative justification into a push-notification channel.
 
-- delay when the deployment disables it;
-- reasons not in the policy allow-list;
-- missing authorization/basis/justification commitments;
-- release at or before the lookup;
-- delays beyond the deployment maximum;
-- authorizations created after the lookup;
-- insufficient or duplicate approvers;
-- absence of independent oversight when policy requires it.
-
-When the release timestamp is reached, evaluation returns `DeliverNow`. There is no code path that returns "withhold forever."
+A deployment may reveal more during authenticated `Inspect`/`Contest` workflows according to law and policy; the initial notification should remain minimum-necessary in both directions.
 
 ## Anti-mosaic / query-budget invariant
 
-Many individually lawful low-disclosure queries can reconstruct a sensitive history. A privacy-preserving fabric therefore needs protection against composition attacks.
+Many individually lawful low-disclosure queries can reconstruct a sensitive history. `QueryBudgetCharge` lets deployments charge identifiable searches against time-bounded, purpose-scoped budgets. Higher layers should additionally rate-limit by actor, organization, subject cohort, predicate family, and geographic/time scope. Unusual fan-out should be surfaced to oversight and, where safe, affected subjects.
 
-`QueryBudgetCharge` lets deployments charge identifiable searches against time-bounded, purpose-scoped budgets. Higher layers should additionally rate-limit by actor, organization, subject cohort, predicate family, and geographic/time scope. An unusual fan-out should be surfaced to oversight and, where safe, to affected subjects.
-
-Aggregate analytics SHOULD use privacy-preserving aggregate mechanisms rather than resolving individuals and issuing millions of nominally independent person-linked requests.
+Aggregate analytics SHOULD use privacy-preserving aggregate mechanisms instead of resolving individuals and issuing millions of nominally independent person-linked requests.
 
 ## Inference accountability
 
-The danger is not only access to raw records; secret inference can materially affect a person even when every source datum is correct.
+The danger is not only raw-data access: secret inference can materially affect a person even when every source datum is correct. `InferenceDisclosure` carries a stable inference ID, model/version, plain-language summary, canonical integer confidence, explanation commitment, provenance receipt IDs, and whether the inference can have significant effect.
 
-`InferenceDisclosure` therefore carries a stable inference ID, model/version, plain-language summary, canonical integer confidence, explanation commitment, provenance receipt IDs, and whether the inference can have significant effect.
-
-Future versions should support signed correction/contest records without deleting historical evidence: the system should be able to say "this inference existed, was challenged, and was corrected" rather than silently rewriting history.
+Future versions should support signed correction/contest records without deleting historical evidence: “this inference existed, was challenged, and was corrected” is preferable to silently rewriting history.
 
 ## Xenia responsibility
 
-Xenia is the secure execution/session plane, not the policy authority.
+Xenia is the secure execution/session plane, not the policy authority. For SIF it should provide authenticated requester/device sessions, PQC-capable sealed transport where configured, replay protection/key rotation, signed action provenance, capability-bound session context, delivery acknowledgements, and cryptographic continuity between the authenticated execution and the semantic receipt commitment.
 
-For SIF traffic it should provide:
-
-- authenticated requester/device sessions;
-- PQC-capable sealed transport where configured;
-- replay protection and key rotation;
-- signed operator/action provenance;
-- capability-bound session context;
-- delivery acknowledgement for subject notifications;
-- cryptographic continuity between the lookup execution and the receipt commitment.
-
-The receipt schema remains transport-independent. Xenia should carry canonical receipt bytes or their commitments without learning data it does not require.
+The semantic requester includes an authenticated 32-byte source ID so Mycelix and Xenia can prove they are referring to the same principal without sending citizen identity or case contents into Xenia.
 
 ## Symthaea responsibility
 
-Symthaea is the local/federated cognition and verifiable-computation plane, not the authority that decides whether surveillance is lawful.
+Symthaea is the local/federated cognition and verifiable-computation plane, not the authority that decides whether surveillance is lawful. For SIF it should provide bounded local predicate evaluation, anomaly/similarity inference, federated computation where source data remains local, minimum-necessary result generation, verifiable computation/ZK attestations where supported, and explanations linked to machine-verifiable provenance.
 
-For SIF it should provide bounded functions such as:
-
-- local predicate evaluation;
-- local anomaly/similarity inference;
-- federated learning/querying where raw source data remains local;
-- minimum-necessary result generation;
-- ZK/verifiable attestations that a declared predicate/model/policy computation executed as specified;
-- plain-language explanations that remain linked to machine-verifiable provenance.
-
-`AttestationRef` is the v0.1 seam: it can point at a Symthaea ZK proof, an Xenia signed execution transcript, or a composite verifier profile without coupling Mycelix domains to a specific proof backend.
+Its initial integration target is `AttestationRole::ComputationProof`: bind the same operation/query/result/pre-attestation-receipt commitments used by the other layers without pretending that the proof itself establishes legal authority.
 
 ## Commit-before-disclose ordering
 
@@ -174,72 +164,78 @@ Production adapters MUST enforce this order:
 
 1. authenticate requester;
 2. validate purpose/scope capability;
-3. evaluate local predicate/model;
-4. determine the minimum necessary disclosure;
-5. build and validate `AccessReceipt`;
-6. durably commit receipt or escrow commitment;
-7. only then release protected output;
-8. deliver/queue subject notice according to `NotificationDisposition`;
-9. record delivery acknowledgement or retry state.
+3. evaluate the local predicate/model;
+4. determine minimum-necessary disclosure;
+5. build semantic `AccessReceipt`;
+6. run `validate_pre_attestation_receipt`;
+7. compute the pre-attestation receipt, purpose, query, policy, and result commitments;
+8. obtain required Xenia/Symthaea/policy/witness evidence and attach `AttestationRef`s;
+9. run final `validate_receipt` and verify the referenced proof bodies;
+10. durably commit or independently witness the receipt/evidence bundle;
+11. only then release protected output;
+12. deliver or escrow subject notice and record delivery/retry state.
 
-If step 5 or 6 fails, step 7 MUST fail closed.
-
-This prevents an outage in the accountability subsystem from degrading into an unlogged-surveillance mode.
+If steps 5–10 fail, disclosure MUST fail closed. A signature alone proves commitment, not wall-clock ordering, so durable or externally witnessed pre-disclosure commitment is part of the high-assurance design.
 
 ## Failure and abuse cases to test next
 
-- requester tries to omit or weaken purpose binding;
-- actor fans out a predicate across a population to reconstruct movements;
-- administrator attempts to create an unbounded embargo;
+- requester omits or weakens purpose binding;
+- actor fans out a predicate across a population to reconstruct movement;
+- administrator attempts an unbounded embargo;
 - approver signs the same delay twice under multiple identities;
 - requesting organization controls all purported oversight identities;
 - notification service is offline during disclosure;
 - subject is temporarily unreachable;
-- query is denied but operator attempts to encode information in receipt metadata;
-- model inference is updated after a citizen contests it;
+- denied query encodes information in receipt metadata;
+- model inference changes after citizen contest;
 - clock skew affects embargo release;
-- receipt commitment exists but full private receipt is lost;
+- receipt commitment exists but private receipt is lost;
 - policy version is revoked while an embargo is active;
-- jurisdiction changes during a cross-border query;
+- cross-border jurisdiction changes during a query;
 - compromised operator key performs high-volume lookups;
-- malicious subject attempts to infer protected third-party/source information from notification metadata.
+- malicious subject infers protected third-party/source information from notice metadata;
+- proof reference is valid but belongs to a different receipt/query/result;
+- execution proof exists but computation proof is missing;
+- valid signature is produced only after protected output was already disclosed.
 
 ## Next implementation tranches
 
-### v0.1A — current
+### v0.1A — current Mycelix core
 
 - cross-domain receipt/notification core;
-- Civic re-export as first integration surface;
-- fail-closed validator;
+- pairwise identities and safe citizen notice projection;
+- two-phase semantic/final validation;
+- multi-proof evidence roles;
 - delayed-notification expiry and independent-approval checks;
 - subject-rights gating;
-- query-budget and attestation seams;
-- unit tests of the structural invariants.
+- query-budget accounting seam;
+- canonical domain-separated commitments;
+- Civic re-export and focused CI gate.
 
 ### v0.1B — Mycelix persistence
 
 - private subject access ledger;
 - receipt commitment entry;
 - notification delivery state machine;
-- delayed-notice escrow entry + release scheduler;
+- delayed-notice escrow + release scheduler;
 - contest/correction records;
 - oversight aggregate views.
 
 ### v0.1C — Xenia binding
 
-- canonical lookup execution transcript;
-- receipt/transcript commitment binding;
+- authenticated session/requester/ledger authorization binding;
+- receipt/query/purpose/policy/result commitment binding;
 - sealed receipt delivery transport;
 - delivery acknowledgement and replay-safe retry;
-- operator/session identity mapping into `RequestingPrincipal`.
+- independently witnessed pre-disclosure ordering.
 
 ### v0.1D — Symthaea proof adapter
 
-- canonical predicate statement;
-- minimum-disclosure proof statement;
-- policy-execution attestation;
-- inference provenance commitment;
-- verifier profile registry feeding `AttestationRef`.
+- canonical computation statement;
+- minimum-disclosure result binding;
+- model/predicate commitment;
+- receipt and Xenia execution-binding linkage;
+- verifier-profile adapter feeding `AttestationRole::ComputationProof`.
 
 ### v0.2 — anti-abuse federation
 
@@ -252,4 +248,4 @@ This prevents an outage in the accountability subsystem from degrading into an u
 
 ## Non-claim
 
-This protocol is a research implementation contract, not a statement that any deployment is legally compliant. Legal bases, notice timing, secrecy restrictions, access rights, retention, court processes, and national-security rules vary by jurisdiction and require independent legal and security review.
+This protocol is a research implementation contract, not a legal-compliance certification. Legal bases, notice timing, secrecy restrictions, access rights, retention, judicial process, national-security rules, and evidentiary requirements vary by jurisdiction and require independent legal/security review.
