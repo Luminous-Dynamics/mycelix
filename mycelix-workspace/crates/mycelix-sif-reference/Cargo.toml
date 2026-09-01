@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-sif-reference"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reference policy and append-only receipt semantics for Sovereign Intelligence Fabric v0.1"
+
+[dependencies]
+mycelix-sif-protocol = { path = "../mycelix-sif-protocol" }
