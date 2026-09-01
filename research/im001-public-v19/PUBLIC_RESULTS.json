@@ -1,0 +1,28 @@
+{
+  "artifact": "IM-001 public results summary v19",
+  "claim_boundary": "Preregistration/pipeline tooling and synthetic sensitivity only; no real IDS/cyber-immunity result.",
+  "dataset_manifest_tool": {
+    "empty_directory_refused": true,
+    "synthetic_file_count": 2,
+    "two_run_stable_hash_equal": true
+  },
+  "prereg": {
+    "blocker_count": 25,
+    "final_holdout_permitted": false,
+    "status": "PRECALIBRATION_CONTRACT_PASS_FINAL_HOLDOUT_BLOCKED"
+  },
+  "synthetic_pipeline_summary": {
+    "0.00": {
+      "coordinate_median": {"max_fpr": 0.075, "mean_fpr": 0.049466666666666666, "mean_heldout_tpr": 0.6642, "min_heldout_tpr": 0.567},
+      "mean": {"max_fpr": 0.106, "mean_fpr": 0.0508, "mean_heldout_tpr": 0.6650666666666667, "min_heldout_tpr": 0.582}
+    },
+    "0.20": {
+      "coordinate_median": {"max_fpr": 0.082, "mean_fpr": 0.053899999999999997, "mean_heldout_tpr": 0.6092666666666666, "min_heldout_tpr": 0.481},
+      "mean": {"max_fpr": 0.071, "mean_fpr": 0.0483, "mean_heldout_tpr": 0.31489999999999996, "min_heldout_tpr": 0.163}
+    },
+    "0.35": {
+      "coordinate_median": {"max_fpr": 0.073, "mean_fpr": 0.05493333333333333, "mean_heldout_tpr": 0.45803333333333335, "min_heldout_tpr": 0.22},
+      "mean": {"max_fpr": 0.078, "mean_fpr": 0.05143333333333333, "mean_heldout_tpr": 0.0008666666666666667, "min_heldout_tpr": 0.0}
+    }
+  }
+}
