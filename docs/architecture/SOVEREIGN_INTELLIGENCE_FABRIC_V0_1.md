@@ -25,6 +25,10 @@ The accountability mechanism MUST NOT create a new globally searchable index of 
 
 Notification routing information (email address, device token, DID endpoint, etc.) is outside the receipt schema and MUST be stored/sealed separately.
 
+## Cross-domain placement
+
+Reciprocal accountability is not a Civic-only concept. The same primitive must apply to health, identity, finance, commerce, enterprise operations, sensor networks, and future Mycelix domains. The canonical types therefore live in the shared `mycelix-accountability-core` crate. Civic re-exports the types as the first integration surface, but does not own the protocol.
+
 ## Receipt lifecycle
 
 ```text
@@ -58,9 +62,9 @@ Denied requests create receipts as well. A denied request MUST have `DisclosureK
 
 ## v0.1 schema
 
-The Rust schema and fail-closed validator live in:
+The canonical Rust schema and fail-closed validator live in:
 
-`mycelix-civic/crates/civic-types/src/reciprocal_accountability.rs`
+`crates/mycelix-accountability-core/src/lib.rs`
 
 The receipt includes:
 
@@ -135,7 +139,7 @@ Future versions should support signed correction/contest records without deletin
 
 ## Xenia responsibility
 
-Xenia is the secure execution/session plane, not the civic policy authority.
+Xenia is the secure execution/session plane, not the policy authority.
 
 For SIF traffic it should provide:
 
@@ -162,7 +166,7 @@ For SIF it should provide bounded functions such as:
 - ZK/verifiable attestations that a declared predicate/model/policy computation executed as specified;
 - plain-language explanations that remain linked to machine-verifiable provenance.
 
-`AttestationRef` is the v0.1 seam: it can point at a Symthaea ZK proof, an Xenia signed execution transcript, or a composite verifier profile without coupling Mycelix Civic to a specific proof backend.
+`AttestationRef` is the v0.1 seam: it can point at a Symthaea ZK proof, an Xenia signed execution transcript, or a composite verifier profile without coupling Mycelix domains to a specific proof backend.
 
 ## Commit-before-disclose ordering
 
@@ -204,7 +208,8 @@ This prevents an outage in the accountability subsystem from degrading into an u
 
 ### v0.1A — current
 
-- shared receipt/notification types;
+- cross-domain receipt/notification core;
+- Civic re-export as first integration surface;
 - fail-closed validator;
 - delayed-notification expiry and independent-approval checks;
 - subject-rights gating;
