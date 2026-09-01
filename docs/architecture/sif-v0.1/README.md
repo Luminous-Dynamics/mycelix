@@ -12,5 +12,11 @@ Tracking issues:
 - #21 — retention semantics
 - #22 — schema invariants
 - #23 — test gate
+- #24 — stable cross-stack commitments
+- #26 — shared Rust protocol types
 
-The first code tranche should remain additive and should reuse existing identity, governance, consent, audit, and ZK primitives wherever possible rather than creating a parallel trust system.
+Draft implementation PR: #25.
+
+The first code tranche is additive and lives in `mycelix-workspace/crates/mycelix-sif-protocol` so the base contract stays independent from Holochain, Xenia, and Symthaea internals. It provides versioned/domain-separated commitments plus the common capability, receipt, delayed-notification, provenance, proof, and witness types.
+
+Integration policy remains strict: reuse existing identity, governance, consent, audit, and ZK primitives through adapters rather than creating a parallel trust system.
