@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-sif-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shared protocol types for Mycelix Sovereign Intelligence Fabric subject-access receipts"
+
+[dependencies]
+blake3 = "1.8"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
