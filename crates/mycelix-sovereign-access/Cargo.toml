@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-sovereign-access"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Portable policy types and invariants for accountable person-linked access in the Mycelix Sovereign Intelligence Fabric"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
