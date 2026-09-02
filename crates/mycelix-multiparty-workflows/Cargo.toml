@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-multiparty-workflows"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Append-only independently authored event models for multi-party Mycelix workflows"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
