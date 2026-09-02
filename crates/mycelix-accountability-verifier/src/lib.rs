@@ -15,24 +15,48 @@
 use std::fmt::Display;
 
 use mycelix_accountability_core::{
-    pre_attestation_receipt_commitment, policy_commitment, validate_pre_attestation_receipt,
-    validate_receipt, AccessReceipt, AccountabilityError, AccountabilityPolicy, AttestationRef,
-    AttestationRole, Commitment32, NotificationDisposition,
+    pre_attestation_receipt_commitment, policy_commitment, purpose_commitment,
+    validate_pre_attestation_receipt, validate_receipt, AccessReceipt, AccountabilityError,
+    AccountabilityPolicy, AttestationRef, AttestationRole, Commitment32, NotificationDisposition,
 };
 use thiserror::Error;
+
+/// Commitment-only context that every evidence provider receives during
+/// verification.
+///
+/// This deliberately contains no subject identifier, actor name, case/matter ID,
+/// purpose text, authority ID, or record data. It is nevertheless rich enough for
+/// Xenia/Symthaea adapters to prove that their internally bound query, purpose,
+/// policy, requester and result are the same commitments carried by the exact
+/// Mycelix receipt statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttestationVerificationContext {
+    /// Canonical pre-attestation receipt commitment shared by every proof role.
+    pub statement_digest: Commitment32,
+    /// Authenticated requester/source fingerprint expected by execution evidence.
+    pub requester_source_id: Commitment32,
+    /// Exact query commitment from the receipt.
+    pub query_digest: Commitment32,
+    /// Canonical purpose/scope commitment derived from the receipt.
+    pub purpose_digest: Commitment32,
+    /// Canonical accountability-policy commitment used for this verification.
+    pub policy_digest: Commitment32,
+    /// Minimum-necessary result commitment, when the receipt declares one.
+    pub result_digest: Option<Commitment32>,
+}
 
 /// Cryptographic verifier implemented by an evidence provider or adapter.
 ///
 /// A verifier MUST resolve/authenticate `proof_digest`, MUST treat `scheme` and
 /// `verifier_profile` as claims to be checked rather than trusted metadata, and MUST
-/// verify that the proof's public statement is exactly `expected_statement`.
+/// verify all public bindings relevant to its proof role against `expected`.
 pub trait AttestationVerifier {
     type Error: Display;
 
     fn verify(
         &self,
         attestation: &AttestationRef,
-        expected_statement: Commitment32,
+        expected: &AttestationVerificationContext,
     ) -> Result<(), Self::Error>;
 }
 
@@ -65,8 +89,7 @@ pub enum VerificationError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedReceipt {
     receipt: AccessReceipt,
-    statement_digest: Commitment32,
-    policy_digest: Commitment32,
+    verification_context: AttestationVerificationContext,
     verified_attestation_count: usize,
 }
 
@@ -76,14 +99,19 @@ impl VerifiedReceipt {
         &self.receipt
     }
 
+    /// Commitment-only context against which every attached proof was checked.
+    pub fn verification_context(&self) -> &AttestationVerificationContext {
+        &self.verification_context
+    }
+
     /// Public statement shared by every proof in this verified bundle.
     pub const fn statement_digest(&self) -> Commitment32 {
-        self.statement_digest
+        self.verification_context.statement_digest
     }
 
     /// Policy commitment used during verification.
     pub const fn policy_digest(&self) -> Commitment32 {
-        self.policy_digest
+        self.verification_context.policy_digest
     }
 
     /// Number of attached attestations that were cryptographically checked.
@@ -102,7 +130,7 @@ impl VerifiedReceipt {
     ) -> Result<NotificationDisposition, VerificationError> {
         let current_policy = policy_commitment(policy)
             .map_err(|_| VerificationError::CommitmentEncoding)?;
-        if current_policy != self.policy_digest {
+        if current_policy != self.verification_context.policy_digest {
             return Err(VerificationError::PolicyChangedAfterVerification);
         }
         mycelix_accountability_core::evaluate_notification(&self.receipt, now_ms, policy)
@@ -130,6 +158,32 @@ pub fn freeze_pre_attestation_statement(
         .map_err(|_| VerificationError::CommitmentEncoding)
 }
 
+/// Derive the complete privacy-preserving public context used by provider
+/// verifiers. The receipt is structurally validated first, so callers cannot
+/// obtain a verification context for malformed accountability state.
+pub fn verification_context(
+    receipt: &AccessReceipt,
+    policy: &AccountabilityPolicy,
+) -> Result<AttestationVerificationContext, VerificationError> {
+    validate_pre_attestation_receipt(receipt, policy)
+        .map_err(VerificationError::Structural)?;
+    let statement_digest = pre_attestation_receipt_commitment(receipt)
+        .map_err(|_| VerificationError::CommitmentEncoding)?;
+    let purpose_digest = purpose_commitment(&receipt.purpose)
+        .map_err(|_| VerificationError::CommitmentEncoding)?;
+    let policy_digest = policy_commitment(policy)
+        .map_err(|_| VerificationError::CommitmentEncoding)?;
+
+    Ok(AttestationVerificationContext {
+        statement_digest,
+        requester_source_id: receipt.requester.authenticated_source_id,
+        query_digest: receipt.query_digest,
+        purpose_digest,
+        policy_digest,
+        result_digest: receipt.disclosure.result_digest,
+    })
+}
+
 /// Structurally validate and cryptographically verify a finalized receipt.
 ///
 /// Every attached attestation is verified, not merely the roles required by policy.
@@ -143,20 +197,17 @@ pub fn verify_finalized_receipt<V: AttestationVerifier>(
 ) -> Result<VerifiedReceipt, VerificationError> {
     validate_receipt(receipt, policy).map_err(VerificationError::Structural)?;
 
-    let statement_digest = pre_attestation_receipt_commitment(receipt)
-        .map_err(|_| VerificationError::CommitmentEncoding)?;
-    let policy_digest = policy_commitment(policy)
-        .map_err(|_| VerificationError::CommitmentEncoding)?;
+    let expected = verification_context(receipt, policy)?;
 
     for attestation in &receipt.attestations {
-        if attestation.statement_digest != statement_digest {
+        if attestation.statement_digest != expected.statement_digest {
             return Err(VerificationError::StatementMismatch {
                 role: attestation.role,
             });
         }
 
         verifier
-            .verify(attestation, statement_digest)
+            .verify(attestation, &expected)
             .map_err(|error| VerificationError::CryptographicVerificationFailed {
                 role: attestation.role,
                 reason: error.to_string(),
@@ -165,8 +216,7 @@ pub fn verify_finalized_receipt<V: AttestationVerifier>(
 
     Ok(VerifiedReceipt {
         receipt: receipt.clone(),
-        statement_digest,
-        policy_digest,
+        verification_context: expected,
         verified_attestation_count: receipt.attestations.len(),
     })
 }
@@ -286,7 +336,7 @@ mod tests {
         fn verify(
             &self,
             attestation: &AttestationRef,
-            expected_statement: Commitment32,
+            expected: &AttestationVerificationContext,
         ) -> Result<(), Self::Error> {
             if attestation.scheme != "test-proof-v1" {
                 return Err("unsupported proof scheme");
@@ -294,8 +344,16 @@ mod tests {
             if attestation.verifier_profile != "test-verifier-v1" {
                 return Err("untrusted verifier profile");
             }
-            if attestation.statement_digest != expected_statement {
+            if attestation.statement_digest != expected.statement_digest {
                 return Err("statement mismatch");
+            }
+            if expected.requester_source_id != c(1)
+                || expected.query_digest != c(3)
+                || expected.result_digest != Some(c(4))
+                || expected.purpose_digest.is_zero()
+                || expected.policy_digest.is_zero()
+            {
+                return Err("commitment context mismatch");
             }
             if self.reject_role == Some(attestation.role) {
                 return Err("cryptographic proof rejected");
@@ -332,7 +390,6 @@ mod tests {
     #[test]
     fn proof_reference_presence_is_not_cryptographic_verification() {
         let receipt = finalized_receipt();
-        // The core structural validator succeeds because the required role is present.
         assert_eq!(validate_receipt(&receipt, &policy()), Ok(()));
 
         let verifier = TestVerifier {
@@ -396,11 +453,27 @@ mod tests {
     }
 
     #[test]
+    fn verification_context_contains_only_expected_public_commitments() {
+        let receipt = receipt();
+        let context = verification_context(&receipt, &policy()).unwrap();
+        assert_eq!(context.requester_source_id, c(1));
+        assert_eq!(context.query_digest, c(3));
+        assert_eq!(context.result_digest, Some(c(4)));
+        assert!(!context.purpose_digest.is_zero());
+        assert!(!context.policy_digest.is_zero());
+        assert_eq!(
+            context.statement_digest,
+            pre_attestation_receipt_commitment(&receipt).unwrap()
+        );
+    }
+
+    #[test]
     fn verified_snapshot_is_bound_to_the_policy_used_for_verification() {
         let receipt = finalized_receipt();
         let verifier = TestVerifier { reject_role: None };
         let verified = verify_finalized_receipt(&receipt, &policy(), &verifier).unwrap();
         assert_eq!(verified.verified_attestation_count(), 1);
+        assert_eq!(verified.verification_context().query_digest, c(3));
         assert_eq!(
             verified.evaluate_notification(receipt.occurred_at_ms, &policy()),
             Ok(NotificationDisposition::DeliverNow)
