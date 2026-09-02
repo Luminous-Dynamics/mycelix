@@ -10,9 +10,8 @@
 //! public API stable while the draft v0.1 protocol is hardened.
 
 #[allow(dead_code)]
-mod legacy {
-    include!("lib.rs");
-}
+#[path = "lib.rs"]
+mod legacy;
 
 mod canonical;
 
