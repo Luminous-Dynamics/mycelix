@@ -5,6 +5,9 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Cross-domain reciprocal accountability primitives for Mycelix"
 
+[lib]
+path = "src/lib_portable.rs"
+
 [dependencies]
 bincode = "1.3"
 blake3 = "1.5"
