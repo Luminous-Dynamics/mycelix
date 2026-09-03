@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use mycelix_content_core::DigestAlgorithmV1;
-
 use crate::model::*;
 
 const MICROS_PER_SECOND: i64 = 1_000_000;
@@ -33,7 +31,7 @@ impl HasActionV1 for ObservationEvidenceV1 {
 
 fn normalize<T>(items: Vec<T>, issues: &mut Vec<ProjectionIssueV1>) -> BTreeMap<ActionRefV1, T>
 where
-    T: HasActionV1 + Clone + Eq,
+    T: HasActionV1 + Eq,
 {
     let mut values = BTreeMap::new();
     let mut conflicted = BTreeSet::new();
@@ -99,16 +97,13 @@ fn expiry(authored_at: TimestampMicrosV1, ttl_seconds: u32) -> Option<TimestampM
     authored_at.0.checked_add(delta).map(TimestampMicrosV1)
 }
 
-fn first_withdrawal_at_or_before(
+fn first_withdrawal(
     advertisement: ActionRefV1,
-    now: TimestampMicrosV1,
     withdrawals: &BTreeMap<ActionRefV1, WithdrawalEvidenceV1>,
 ) -> Option<&WithdrawalEvidenceV1> {
     withdrawals
         .values()
-        .filter(|withdrawal| {
-            withdrawal.advertisement == advertisement && withdrawal.authored_at <= now
-        })
+        .filter(|withdrawal| withdrawal.advertisement == advertisement)
         .min_by_key(|withdrawal| (withdrawal.authored_at, withdrawal.action))
 }
 
@@ -130,7 +125,35 @@ fn push_issue(
     issues.push(ProjectionIssueV1 { action, kind });
 }
 
+fn observation_outcome_valid(
+    observation: &ObservationEvidenceV1,
+    ad: &ProviderAdvertisementEvidenceV1,
+) -> bool {
+    match &observation.outcome {
+        ObservationOutcomeEvidenceV1::VerifiedComplete { size_bytes } => {
+            *size_bytes > 0 && *size_bytes <= ad.max_blob_size_bytes
+        }
+        ObservationOutcomeEvidenceV1::DigestMismatch {
+            observed_digest,
+            size_bytes,
+        } => {
+            *size_bytes > 0
+                && *size_bytes <= ad.max_blob_size_bytes
+                && observed_digest.algorithm == observation.digest.algorithm
+                && observed_digest != &observation.digest
+        }
+        ObservationOutcomeEvidenceV1::UnavailableOrHidden
+        | ObservationOutcomeEvidenceV1::Busy
+        | ObservationOutcomeEvidenceV1::TransferFailed
+        | ObservationOutcomeEvidenceV1::ProviderReportedIntegrityFailure => true,
+    }
+}
+
 /// Deterministically projects a supplied evidence snapshot at an explicit timestamp.
+///
+/// Evidence authored after `evaluated_at` is discarded before deduplication,
+/// referential validation, or diagnostics. Later evidence therefore cannot alter
+/// an earlier historical replay.
 ///
 /// This function performs no I/O and never reads the system clock. Its result is a
 /// statement about the supplied snapshot only, not global Holochain finality.
@@ -138,11 +161,43 @@ pub fn project_content_state_v1(
     snapshot: EvidenceSnapshotV1,
     evaluated_at: TimestampMicrosV1,
 ) -> ProjectedContentStateV1 {
+    let coverage = snapshot.coverage;
     let mut issues = Vec::new();
-    let mut advertisements = normalize(snapshot.advertisements, &mut issues);
-    let mut availability = normalize(snapshot.availability, &mut issues);
-    let mut withdrawals = normalize(snapshot.withdrawals, &mut issues);
-    let mut observations = normalize(snapshot.observations, &mut issues);
+
+    // Causal replay boundary: future evidence is invisible to the projection in
+    // every respect, including conflict detection and diagnostics.
+    let mut advertisements = normalize(
+        snapshot
+            .advertisements
+            .into_iter()
+            .filter(|record| record.authored_at <= evaluated_at)
+            .collect(),
+        &mut issues,
+    );
+    let mut availability = normalize(
+        snapshot
+            .availability
+            .into_iter()
+            .filter(|record| record.authored_at <= evaluated_at)
+            .collect(),
+        &mut issues,
+    );
+    let mut withdrawals = normalize(
+        snapshot
+            .withdrawals
+            .into_iter()
+            .filter(|record| record.authored_at <= evaluated_at)
+            .collect(),
+        &mut issues,
+    );
+    let mut observations = normalize(
+        snapshot
+            .observations
+            .into_iter()
+            .filter(|record| record.authored_at <= evaluated_at)
+            .collect(),
+        &mut issues,
+    );
     remove_cross_kind_conflicts(
         &mut advertisements,
         &mut availability,
@@ -214,16 +269,14 @@ pub fn project_content_state_v1(
     for ad in advertisements.values() {
         let expires_at = expiry(ad.authored_at, ad.ttl_seconds)
             .expect("invalid advertisement expiries were removed above");
-        let temporal_state = if evaluated_at < ad.authored_at {
-            AdvertisementTemporalStateV1::NotYetAuthored
-        } else if evaluated_at < expires_at {
+        let temporal_state = if evaluated_at < expires_at {
             AdvertisementTemporalStateV1::Live { expires_at }
         } else {
             AdvertisementTemporalStateV1::Expired {
                 expired_at: expires_at,
             }
         };
-        let withdrawal = first_withdrawal_at_or_before(ad.action, evaluated_at, &withdrawals);
+        let withdrawal = first_withdrawal(ad.action, &withdrawals);
         projected_ads.push(ProjectedAdvertisementV1 {
             action: ad.action,
             provider: ad.provider,
@@ -293,6 +346,27 @@ pub fn project_content_state_v1(
             );
             continue;
         }
+
+        let ad_expires = expiry(ad.authored_at, ad.ttl_seconds)
+            .expect("invalid advertisement expiries were removed above");
+        if claim.authored_at >= ad_expires {
+            push_issue(
+                &mut issues,
+                claim.action,
+                ProjectionIssueKindV1::AvailabilityAfterAdvertisementExpiry,
+            );
+            continue;
+        }
+        let observed_withdrawal = first_withdrawal(ad.action, &withdrawals);
+        if observed_withdrawal.is_some_and(|withdrawal| withdrawal.authored_at <= claim.authored_at)
+        {
+            push_issue(
+                &mut issues,
+                claim.action,
+                ProjectionIssueKindV1::AvailabilityAfterObservedWithdrawal,
+            );
+            continue;
+        }
         let Some(claim_expires) = expiry(claim.authored_at, claim.ttl_seconds) else {
             push_issue(
                 &mut issues,
@@ -301,9 +375,6 @@ pub fn project_content_state_v1(
             );
             continue;
         };
-        let ad_expires = expiry(ad.authored_at, ad.ttl_seconds)
-            .expect("invalid advertisement expiries were removed above");
-        let observed_withdrawal = first_withdrawal_at_or_before(ad.action, evaluated_at, &withdrawals);
         let withdrawal_boundary = observed_withdrawal.map(|withdrawal| withdrawal.authored_at);
         let effective_until = withdrawal_boundary
             .into_iter()
@@ -312,11 +383,12 @@ pub fn project_content_state_v1(
             .expect("claim and advertisement expiry always exist");
 
         // Half-open time semantics: [claim_authored_at, effective_until).
-        if evaluated_at < claim.authored_at || evaluated_at >= effective_until {
+        if evaluated_at >= effective_until {
             continue;
         }
-        // A withdrawal observed at or before now always suppresses the candidate,
-        // including claims authored after a withdrawal.
+        // A withdrawal observed at or before evaluation always suppresses the
+        // candidate. At this point a prior-to-claim withdrawal has already been
+        // diagnosed separately.
         if observed_withdrawal.is_some() {
             continue;
         }
@@ -336,9 +408,6 @@ pub fn project_content_state_v1(
 
     let mut projected_observations = Vec::new();
     for observation in observations.values() {
-        if observation.authored_at > evaluated_at {
-            continue;
-        }
         let Some(ad) = advertisements.get(&observation.advertisement) else {
             push_issue(
                 &mut issues,
@@ -370,6 +439,14 @@ pub fn project_content_state_v1(
                 &mut issues,
                 observation.action,
                 ProjectionIssueKindV1::UnsupportedDigestAlgorithm,
+            );
+            continue;
+        }
+        if !observation_outcome_valid(observation, ad) {
+            push_issue(
+                &mut issues,
+                observation.action,
+                ProjectionIssueKindV1::InvalidObservationOutcome,
             );
             continue;
         }
@@ -417,13 +494,10 @@ pub fn project_content_state_v1(
 
     ProjectedContentStateV1 {
         evaluated_at,
-        coverage: snapshot.coverage,
+        coverage,
         advertisements: projected_ads,
         service_candidates: candidates,
         observations: projected_observations,
         issues,
     }
 }
-
-#[allow(dead_code)]
-fn _assert_algorithm_ord(_: DigestAlgorithmV1) {}
