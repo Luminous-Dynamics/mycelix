@@ -1,0 +1,26 @@
+name: Governance Constitution Quarantine
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-governance/dna/dna.yaml"
+      - "mycelix-governance/scripts/check-constitution-quarantine.py"
+      - ".github/workflows/governance-constitution-quarantine.yml"
+  push:
+    paths:
+      - "mycelix-governance/dna/dna.yaml"
+      - "mycelix-governance/scripts/check-constitution-quarantine.py"
+      - ".github/workflows/governance-constitution-quarantine.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quarantine:
+    name: Legacy constitution absent from binding DNA
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce constitutional authority packaging
+        run: python3 mycelix-governance/scripts/check-constitution-quarantine.py

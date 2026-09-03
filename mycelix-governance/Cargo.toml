@@ -13,6 +13,10 @@ members = [
     "zomes/execution/coordinator",
     "zomes/constitution/integrity",
     "zomes/constitution/coordinator",
+    "zomes/constitution-authority/integrity",
+    "zomes/constitution-authority/coordinator",
+    "zomes/constitution-transition/integrity",
+    "zomes/constitution-transition/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
     "zomes/threshold-signing/integrity",
@@ -54,7 +58,6 @@ mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
 
 # Utilities
 thiserror = "2.0"
-
 
 # WASM compatibility - getrandom 0.3 with custom backend (HDK provides __getrandom_v03_custom)
 # NOTE: Do NOT use features = ["js"] or ["wasm_js"] - they pull in wasm-bindgen
