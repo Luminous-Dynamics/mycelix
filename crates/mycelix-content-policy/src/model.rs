@@ -132,8 +132,11 @@ pub struct CandidateRejectionV1 {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum PoolFailureV1 {
     InvalidStorageIntent,
+    InvalidObjectManifest,
+    ManifestIntentMismatch,
     InvalidPlacementTarget,
     TargetObjectMismatch,
+    TargetNotInManifest,
     InvalidEvaluationTimestamp,
     EvaluationPredatesIntent,
     SnapshotCoverageInsufficient,
