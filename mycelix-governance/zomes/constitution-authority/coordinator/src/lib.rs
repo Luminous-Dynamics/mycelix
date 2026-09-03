@@ -106,7 +106,7 @@ pub fn get_published_constitution_genesis(_: ()) -> ExternResult<Option<Record>>
             "Cannot derive constitutional genesis record: {e}"
         )))
     })?;
-    let entry_hash = hash_entry(&EntryTypes::ConstitutionGenesis(record))?;
+    let entry_hash = hash_entry(&record)?;
     get(entry_hash, GetOptions::default())
 }
 
