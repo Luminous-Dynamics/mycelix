@@ -1,0 +1,14 @@
+[package]
+name = "execution_lifecycle_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Append-only candidate integrity for fenced governance execution lifecycle"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-governance-execution-lifecycle = { path = "../../../../crates/mycelix-governance-execution-lifecycle" }

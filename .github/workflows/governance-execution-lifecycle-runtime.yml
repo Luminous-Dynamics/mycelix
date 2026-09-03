@@ -1,0 +1,80 @@
+name: Governance Execution Lifecycle Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-execution-lifecycle/**'
+      - 'mycelix-governance/zomes/execution-lifecycle/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/governance-execution-lifecycle-runtime.yml'
+  push:
+    branches:
+      - 'security/governance-execution-lifecycle-runtime-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  portable-kernel:
+    name: Portable lifecycle kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-governance-execution-lifecycle/Cargo.toml -- --check
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-governance-execution-lifecycle/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-governance-execution-lifecycle/Cargo.toml --all-targets -- -D warnings
+
+  holochain-runtime:
+    name: Holochain lifecycle runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package execution_lifecycle_integrity --package execution_lifecycle -- --check
+      - name: Native test
+        working-directory: mycelix-governance
+        run: cargo test --package execution_lifecycle_integrity --package execution_lifecycle --all-targets
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package execution_lifecycle_integrity --package execution_lifecycle --all-targets -- -D warnings
+      - name: WASM integrity build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package execution_lifecycle_integrity
+      - name: WASM coordinator build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package execution_lifecycle
+
+  containment-audit:
+    name: Lifecycle containment audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify verifier remains unprovisioned and effects remain disabled
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          runtime = Path('mycelix-governance/zomes/execution-lifecycle/coordinator/src/lib.rs').read_text()
+          assert 'name: execution_lifecycle' in dna
+          assert 'name: execution_lifecycle_integrity' in dna
+          assert 'name: governance_execution_lifecycle_verifier' not in dna
+          assert 'automatic_external_effects_enabled: false' in runtime
+          assert 'pub fn claim_execution' in runtime
+          assert 'pub fn execute_claimed' not in runtime
+          assert 'pub fn execute_effect' not in runtime
+          print('PASS: lifecycle runtime remains fail-closed and effect-free')
+          PY

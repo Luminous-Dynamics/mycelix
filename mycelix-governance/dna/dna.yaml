@@ -30,6 +30,12 @@ integrity:
     - name: execution_integrity
       path: "../target/wasm32-unknown-unknown/release/execution_integrity.wasm"
 
+    # New append-only binding execution lifecycle. Candidate records are audit
+    # data only; the coordinator will not project authority without the external
+    # verifier boundary, which is intentionally not packaged yet.
+    - name: execution_lifecycle_integrity
+      path: "../target/wasm32-unknown-unknown/release/execution_lifecycle_integrity.wasm"
+
     # SECURITY: the legacy mutable constitution_integrity/constitution pair is
     # intentionally not packaged in the binding governance DNA. Its source stays
     # in the workspace for migration/history, but cannot form a second authority
@@ -94,6 +100,11 @@ coordinator:
       path: "../target/wasm32-unknown-unknown/release/governance_execution_preflight.wasm"
       dependencies:
         - name: execution_integrity
+
+    - name: execution_lifecycle
+      path: "../target/wasm32-unknown-unknown/release/execution_lifecycle.wasm"
+      dependencies:
+        - name: execution_lifecycle_integrity
 
     - name: constitution_authority
       path: "../target/wasm32-unknown-unknown/release/constitution_authority.wasm"

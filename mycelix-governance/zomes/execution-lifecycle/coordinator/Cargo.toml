@@ -1,0 +1,18 @@
+[package]
+name = "execution_lifecycle"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed coordinator for verified fenced governance execution lifecycle"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+blake3 = "1"
+execution_lifecycle_integrity = { path = "../integrity" }
+mycelix-governance-execution-lifecycle = { path = "../../../../crates/mycelix-governance-execution-lifecycle" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
