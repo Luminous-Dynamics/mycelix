@@ -10,3 +10,6 @@ blake3 = "1.5"
 mycelix-accountability-core = { path = "../mycelix-accountability-core" }
 mycelix-accountability-trust = { path = "../mycelix-accountability-trust" }
 thiserror = "2.0"
+
+[dev-dependencies]
+mycelix-accountability-verifier = { path = "../mycelix-accountability-verifier" }
