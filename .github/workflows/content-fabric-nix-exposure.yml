@@ -1,0 +1,50 @@
+name: Content Fabric Nix Exposure CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-nix-cache/**'
+      - 'crates/mycelix-nix-exposure/**'
+      - 'docs/content-fabric/REMOTE_EXPOSURE_POLICY_V1.md'
+      - '.github/workflows/content-fabric-nix-exposure.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-nix-cache/**'
+      - 'crates/mycelix-nix-exposure/**'
+      - 'docs/content-fabric/REMOTE_EXPOSURE_POLICY_V1.md'
+      - '.github/workflows/content-fabric-nix-exposure.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-nix-exposure-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exposure-policy:
+    name: CF-07A remote exposure policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-nix-exposure
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-nix-exposure/Cargo.toml -- --check
+      - name: Check
+        run: cargo check --manifest-path crates/mycelix-nix-exposure/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-nix-exposure/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-nix-exposure/Cargo.toml --all-targets

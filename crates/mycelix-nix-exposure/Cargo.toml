@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-nix-exposure"
+version = "0.1.0"
+edition = "2024"
+description = "Fail-closed remote exposure admission for Mycelix Content Fabric Nix cache entries"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+mycelix-content-core = { path = "../mycelix-content-core" }
+mycelix-infrastructure-types = { path = "../mycelix-infrastructure-types" }
+mycelix-nix-cache = { path = "../mycelix-nix-cache" }
+thiserror = "2"
