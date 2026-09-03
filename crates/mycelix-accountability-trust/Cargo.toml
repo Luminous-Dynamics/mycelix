@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-accountability-trust"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Trust-domain and verifier-independence policy for Mycelix accountability evidence"
+
+[dependencies]
+blake3 = "1.5"
+mycelix-accountability-core = { path = "../mycelix-accountability-core" }
+mycelix-accountability-verifier = { path = "../mycelix-accountability-verifier" }
+thiserror = "2.0"
