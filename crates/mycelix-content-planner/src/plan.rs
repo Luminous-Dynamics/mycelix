@@ -215,7 +215,7 @@ fn validate_pool_binding(
             || candidate.candidate.claim_authored_at > pool.evaluated_at
             || candidate.candidate.effective_until <= pool.evaluated_at
             || !matches!(
-                candidate.candidate.withdrawal,
+                &candidate.candidate.withdrawal,
                 WithdrawalObservationV1::NoWithdrawalObserved
             )
         {
