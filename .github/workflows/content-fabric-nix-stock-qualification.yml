@@ -1,0 +1,52 @@
+name: Content Fabric Stock Nix Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-nix-cache/**'
+      - '.github/workflows/content-fabric-nix-stock-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-nix-cache/**'
+      - '.github/workflows/content-fabric-nix-stock-qualification.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-stock-nix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  stock-nix-roundtrip:
+    name: CF-07 stock Nix trust round-trip
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-nix-cache
+      - name: Install upstream Nix 2.35.2
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
+          extra_nix_config: |
+            experimental-features = nix-command
+      - name: Record Nix version
+        run: nix --version
+      - name: Build qualification server
+        run: cargo check --manifest-path crates/mycelix-nix-cache/Cargo.toml --example qualification_server
+      - name: Prove stock Nix trust separation
+        run: bash crates/mycelix-nix-cache/tests/stock_nix_roundtrip.sh

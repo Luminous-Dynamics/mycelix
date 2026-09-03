@@ -1,0 +1,77 @@
+name: Content Fabric Nix Cache CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-content-http/**'
+      - 'crates/mycelix-nix-cache/**'
+      - 'docs/content-fabric/NIX_EDGE_CACHE_V1.md'
+      - '.github/workflows/content-fabric-nix-cache.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-content-http/**'
+      - 'crates/mycelix-nix-cache/**'
+      - 'docs/content-fabric/NIX_EDGE_CACHE_V1.md'
+      - '.github/workflows/content-fabric-nix-cache.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-nix-cache-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lower-stack:
+    name: CF-03 / CF-03A lower stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            crates/mycelix-content-node
+            crates/mycelix-content-http
+      - name: Check CF-03 formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-node/Cargo.toml -- --check
+      - name: Test CF-03
+        run: cargo test --manifest-path crates/mycelix-content-node/Cargo.toml --all-targets
+      - name: Check CF-03A formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-http/Cargo.toml -- --check
+      - name: Test CF-03A
+        run: cargo test --manifest-path crates/mycelix-content-http/Cargo.toml --all-targets
+
+  nix-cache:
+    name: CF-07 Nix edge cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-nix-cache
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-nix-cache/Cargo.toml -- --check
+      - name: Check
+        run: cargo check --manifest-path crates/mycelix-nix-cache/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-nix-cache/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-nix-cache/Cargo.toml --all-targets
