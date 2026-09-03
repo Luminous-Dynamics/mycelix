@@ -1,0 +1,18 @@
+[package]
+name = "governance_execution_plan_verifier"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Immutable execution-plan verifier for binding Mycelix governance"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+proposal_authority_integrity = { path = "../../proposal-authority/integrity" }
+proposals_integrity = { path = "../../proposals/integrity" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
+blake3 = "1"
