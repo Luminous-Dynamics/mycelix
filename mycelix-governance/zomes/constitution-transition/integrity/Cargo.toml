@@ -12,4 +12,4 @@ crate-type = ["cdylib", "rlib"]
 hdi = { workspace = true }
 serde = { workspace = true }
 mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
-proposal_authority_integrity = { path = "../../proposal-authority/integrity" }
+mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
