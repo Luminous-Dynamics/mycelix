@@ -204,9 +204,11 @@ pub fn qualify_executor_designation(
     {
         return Err(ExecutorDesignationError::DesignationExceedsGrantLifetime);
     }
-    // Because the designation names this exact threshold authorization, it must
-    // have been issued after that authorization was positively verified.
-    if designation.issued_at_ms < threshold.verified_at_ms {
+    // The designation may not predate the immutable threshold signature it
+    // scopes. Current verifier timestamps are freshness evidence only: a later
+    // re-verification must never retroactively invalidate an existing exact
+    // designation.
+    if designation.issued_at_ms < authority.signed_at_ms {
         return Err(ExecutorDesignationError::DesignationPredatesThresholdAuthority);
     }
     if designation.expires_at_ms > authority.valid_until_ms {
@@ -420,9 +422,7 @@ mod tests {
         CommitteeId, GovernanceBodyId, SignatureAlgorithm, SignatureId, SigningPolicyId,
     };
     use mycelix_governance_threshold_qualification::QualifiedThresholdAuthorization;
-    use mycelix_institutional_core::{
-        AuthoritySourceKind, RoleId, RulebookId,
-    };
+    use mycelix_institutional_core::{AuthoritySourceKind, RoleId, RulebookId};
 
     fn d(byte: u8) -> Digest32 {
         Digest32([byte; 32])
@@ -556,6 +556,21 @@ mod tests {
     }
 
     #[test]
+    fn later_threshold_reverification_does_not_invalidate_exact_designation() {
+        let mut threshold = threshold();
+        threshold.verified_at_ms = 29;
+        let qualified = qualify_executor_designation(
+            &threshold,
+            &grant_receipt(),
+            &designation_receipt(),
+            30,
+        )
+        .unwrap();
+        assert_eq!(qualified.executor_principal.as_str(), "did:mycelix:executor");
+        assert_eq!(qualified.valid_until_ms, 80);
+    }
+
+    #[test]
     fn broad_grant_cannot_cover_another_proposal_without_designation() {
         let mut receipt = designation_receipt();
         receipt.designation.proposal_id = ProposalId::new("MIP-99").unwrap();
@@ -596,6 +611,17 @@ mod tests {
             qualify_executor_designation(&threshold(), &grant, &designation_receipt(), 30)
                 .unwrap_err(),
             ExecutorDesignationError::ExecutorHolderMismatch
+        );
+    }
+
+    #[test]
+    fn designation_cannot_predate_threshold_signature() {
+        let mut receipt = designation_receipt();
+        receipt.designation.issued_at_ms = 19;
+        assert_eq!(
+            qualify_executor_designation(&threshold(), &grant_receipt(), &receipt, 30)
+                .unwrap_err(),
+            ExecutorDesignationError::DesignationPredatesThresholdAuthority
         );
     }
 
