@@ -13,37 +13,25 @@ use hdk::prelude::*;
 use mycelix_governance_authority::ProposalAuthorityContext;
 use mycelix_governance_constitution::{ConstitutionStatement, Digest32};
 use mycelix_governance_electorate::ElectorateSnapshot;
-use mycelix_governance_rights::BindingTallyPolicy;
-use mycelix_institutional_core::Digest32 as InstitutionalDigest32;
 use proposal_constitution_epoch_integrity::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+/// Minimal wire mirror: unknown fields from the source entry are intentionally
+/// ignored so this verifier couples only to authority semantics it consumes.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ProposalAuthorityBindingMirror {
-    id: String,
-    proposal_action_hash: ActionHash,
-    proposal_author: String,
     context: ProposalAuthorityContext,
-    actions_digest_profile: String,
-    signing_policy_digest_profile: String,
-    created_at: Timestamp,
 }
 
+/// Minimal verified-election mirror. Tally/finality policy details are already
+/// verified by `binding_voting`; this boundary only needs the institutional
+/// snapshot and exact proposal-authority action binding.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ElectionConfigurationMirror {
-    id: String,
     proposal_id: String,
     proposal_authority_binding: ActionHash,
     snapshot: ElectorateSnapshot,
-    tally_policy: BindingTallyPolicy,
-    tally_policy_profile: String,
-    ballot_finality_policy_digest: InstitutionalDigest32,
-    ballot_finality_policy_profile: String,
-    ballot_finality_policy_ref: String,
-    verifier_receipt_ref: String,
-    created_by: String,
-    created_at: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -51,8 +39,6 @@ struct VerifiedCurrentConstitutionMirror {
     dna_hash: String,
     statement: ConstitutionStatement,
     statement_digest: Digest32,
-    verified_transition_count: u64,
-    candidate_count: u64,
     legacy_constitution_authoritative: bool,
 }
 
