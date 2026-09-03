@@ -1,0 +1,50 @@
+name: Content Fabric Planner CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-planner/**'
+      - 'crates/mycelix-content-policy/**'
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-state/**'
+      - 'docs/content-fabric/DETERMINISTIC_PLANNER_V1.md'
+      - '.github/workflows/content-fabric-planner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-planner/**'
+      - 'crates/mycelix-content-policy/**'
+      - 'crates/mycelix-content-core/**'
+      - 'crates/mycelix-content-state/**'
+      - 'docs/content-fabric/DETERMINISTIC_PLANNER_V1.md'
+      - '.github/workflows/content-fabric-planner.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-planner-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deterministic-planner:
+    name: CF-06B deterministic planner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-planner
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-planner/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-planner/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-planner/Cargo.toml --all-targets
