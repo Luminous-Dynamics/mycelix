@@ -13,9 +13,7 @@ use mycelix_governance_authority::{
     GovernanceBodyId, ProposalAuthorityContext, ProposalId, SigningPolicyId,
     PROTOCOL_VERSION as GOVERNANCE_AUTHORITY_PROTOCOL_VERSION,
 };
-use mycelix_institutional_core::{
-    Digest32, InstitutionId, JurisdictionId, RulebookRef,
-};
+use mycelix_institutional_core::{Digest32, InstitutionId, JurisdictionId, RulebookRef};
 use proposal_authority_integrity::*;
 
 const EXECUTION_AUTHORITY_DOMAIN: &[u8] = b"mycelix-governance-execution-authority-v1\0";
@@ -167,22 +165,30 @@ fn fetch_proposal(proposal_id: &str) -> ExternResult<(Record, ProposalMirror)> {
 
     let record = io
         .decode::<Option<Record>>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot decode proposal lookup: {e}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(format!(
-            "Proposal '{proposal_id}' not found"
-        ))))?;
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot decode proposal lookup: {e}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Proposal '{proposal_id}' not found"
+            )))
+        })?;
 
     let proposal: ProposalMirror = record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot decode proposal entry: {e}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Proposal record has no application entry".into()
-        )))?;
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot decode proposal entry: {e}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Proposal record has no application entry".into()
+            ))
+        })?;
 
     if proposal.id != proposal_id {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -230,12 +236,16 @@ fn decode_binding(record: &Record) -> ExternResult<ProposalAuthorityBinding> {
     record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Malformed proposal authority binding: {e}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Proposal authority binding record has no entry".into()
-        )))
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Malformed proposal authority binding: {e}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Proposal authority binding record has no entry".into()
+            ))
+        })
 }
 
 /// Equality of authority-bearing semantics, intentionally ignoring persistence
@@ -246,8 +256,7 @@ fn same_authority_contract(
     right_context: &ProposalAuthorityContext,
     signing_profile: &str,
 ) -> bool {
-    left.proposal_author.len() > 0
-        && left.context.proposal_id == right_context.proposal_id
+    left.context.proposal_id == right_context.proposal_id
         && left.context.institution == right_context.institution
         && left.context.jurisdiction == right_context.jurisdiction
         && left.context.rulebook == right_context.rulebook
@@ -316,8 +325,7 @@ pub fn get_verified_proposal_authority_context(
             && candidate.context.governing_body == reference.context.governing_body
             && candidate.context.signing_policy_id == reference.context.signing_policy_id
             && candidate.context.signing_policy_digest == reference.context.signing_policy_digest
-            && candidate.signing_policy_digest_profile
-                == reference.signing_policy_digest_profile;
+            && candidate.signing_policy_digest_profile == reference.signing_policy_digest_profile;
         if !same {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "Ambiguous proposal authority: multiple conflicting contexts match current proposal bytes"
@@ -331,10 +339,12 @@ pub fn get_verified_proposal_authority_context(
     let record = matches
         .into_iter()
         .map(|(record, _)| record)
-        .max_by_key(|record| record.action().timestamp())
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Verified authority context disappeared during selection".into()
-        )))?;
+        .max_by_key(|record| record.action().timestamp().as_micros())
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Verified authority context disappeared during selection".into()
+            ))
+        })?;
     Ok(Some(record))
 }
 
@@ -381,16 +391,18 @@ pub fn activate_proposal_with_authority_context(
         )));
     }
     validate_profile_token(&input.signing_policy_digest_profile)?;
-    input
-        .rulebook
-        .validate()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+    input.rulebook.validate().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
             "Invalid rulebook reference: {e}"
-        ))))?;
+        )))
+    })?;
 
     let (proposal_record, proposal) = fetch_proposal(&input.proposal_id)?;
     ensure_proposal_author(&proposal)?;
-    if !matches!(proposal.status, ProposalStatusMirror::Draft | ProposalStatusMirror::Active) {
+    if !matches!(
+        proposal.status,
+        ProposalStatusMirror::Draft | ProposalStatusMirror::Active
+    ) {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Authority context can only activate/recover an Active proposal from Draft; current status is {:?}",
             proposal.status
@@ -421,11 +433,11 @@ pub fn activate_proposal_with_authority_context(
         created_at_ms: now_ms,
         expires_at_ms: input.expires_at_ms,
     };
-    context
-        .validate()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+    context.validate().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
             "Invalid proposal authority context: {e}"
-        ))))?;
+        )))
+    })?;
 
     let current = current_matching_bindings(&proposal)?;
     let mut reusable: Option<Record> = None;
@@ -442,6 +454,16 @@ pub fn activate_proposal_with_authority_context(
                     .into()
             )));
         }
+    }
+
+    // An Active proposal may only reach this path as an idempotent retry of a
+    // context that was already committed before activation. Never retrofit
+    // institutional meaning after voting has started.
+    if proposal.status == ProposalStatusMirror::Active && reusable.is_none() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot attach a new authority context to an already-Active proposal; create it before activation"
+                .into()
+        )));
     }
 
     let authority_context = if let Some(record) = reusable {
@@ -485,10 +507,12 @@ pub fn activate_proposal_with_authority_context(
     // Final defense: the activated/current proposal must still resolve to this
     // exact authority contract. A concurrent Draft mutation causes denial.
     let verified = get_verified_proposal_authority_context(input.proposal_id.clone())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Proposal activated without a context matching its current action bytes; binding governance must fail closed"
-                .into()
-        )))?;
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Proposal activated without a context matching its current action bytes; binding governance must fail closed"
+                    .into()
+            ))
+        })?;
 
     let verified_binding = decode_binding(&verified)?;
     let expected_binding = decode_binding(&authority_context)?;
