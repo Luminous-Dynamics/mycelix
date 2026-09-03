@@ -5,6 +5,7 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Append-only independently authored event models for multi-party Mycelix workflows"
 repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
