@@ -99,7 +99,6 @@ pub struct EvidenceSnapshotV1 {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AdvertisementTemporalStateV1 {
-    NotYetAuthored,
     Live { expires_at: TimestampMicrosV1 },
     Expired { expired_at: TimestampMicrosV1 },
 }
@@ -164,6 +163,9 @@ pub enum ProjectionIssueKindV1 {
     ZeroTtl,
     TtlExceedsAdvertisement,
     EvidencePredatesAdvertisement,
+    AvailabilityAfterAdvertisementExpiry,
+    AvailabilityAfterObservedWithdrawal,
+    InvalidObservationOutcome,
     TimestampOverflow,
 }
 
