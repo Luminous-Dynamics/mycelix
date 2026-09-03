@@ -13,9 +13,12 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
-pub const SUBJECT_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-subject-v1-blake3-framed";
-pub const SNAPSHOT_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-snapshot-v1-blake3-framed";
-pub const BUNDLE_IDENTITY_PROFILE: &str = "mycelix-authority-freshness-bundle-v1-blake3-framed";
+pub const SUBJECT_IDENTITY_PROFILE: &str =
+    "mycelix-authority-freshness-subject-v1-blake3-framed";
+pub const SNAPSHOT_IDENTITY_PROFILE: &str =
+    "mycelix-authority-freshness-snapshot-v1-blake3-framed";
+pub const BUNDLE_IDENTITY_PROFILE: &str =
+    "mycelix-authority-freshness-bundle-v1-blake3-framed";
 
 const DOMAIN_SUBJECT: &[u8] = b"mycelix/authority-freshness/subject/v1";
 const DOMAIN_SNAPSHOT: &[u8] = b"mycelix/authority-freshness/snapshot/v1";
@@ -23,6 +26,7 @@ const DOMAIN_BUNDLE: &[u8] = b"mycelix/authority-freshness/bundle/v1";
 const MAX_TEXT_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
 const MAX_SUBJECTS: usize = 64;
+const MAX_RECEIPTS: usize = 256;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfiledDigest {
@@ -85,6 +89,7 @@ impl AuthoritySubjectRef {
         self.validate()?;
         let mut hasher = blake3::Hasher::new();
         hasher.update(DOMAIN_SUBJECT);
+        frame(&mut hasher, SUBJECT_IDENTITY_PROFILE.as_bytes());
         frame(&mut hasher, &[self.kind.code()]);
         frame(&mut hasher, self.namespace.as_bytes());
         frame(&mut hasher, self.subject_id.as_bytes());
@@ -232,6 +237,9 @@ pub fn qualify_current_freshness(
     if required_subjects.is_empty() || required_subjects.len() > MAX_SUBJECTS {
         return Err(FreshnessError::InvalidSubjectCount);
     }
+    if receipts.len() > MAX_RECEIPTS {
+        return Err(FreshnessError::InvalidReceiptCount);
+    }
 
     let mut required = BTreeMap::<Vec<u8>, AuthoritySubjectRef>::new();
     for subject in required_subjects {
@@ -377,6 +385,7 @@ pub enum FreshnessError {
     InvalidVerificationTime,
     FreshnessLeaseExpired,
     InvalidSubjectCount,
+    InvalidReceiptCount,
     DuplicateRequirement,
     UnexpectedSubject,
     MissingSubject,
@@ -397,6 +406,7 @@ impl fmt::Display for FreshnessError {
             Self::InvalidVerificationTime => "invalid authority freshness verification time",
             Self::FreshnessLeaseExpired => "authority freshness verification lease is expired",
             Self::InvalidSubjectCount => "authority freshness subject count is invalid",
+            Self::InvalidReceiptCount => "authority freshness receipt count exceeds the v0.1 bound",
             Self::DuplicateRequirement => "duplicate authority freshness requirement",
             Self::UnexpectedSubject => "unexpected authority freshness subject",
             Self::MissingSubject => "required authority freshness subject is missing",
@@ -464,6 +474,14 @@ mod tests {
         assert_eq!(current.subjects.len(), 2);
         assert_eq!(current.lease_until_ms, 40);
         assert!(!current.freshness_digest.is_zero());
+    }
+
+    #[test]
+    fn subject_profile_is_part_of_subject_identity() {
+        let a = subject(AuthoritySubjectKind::AuthorityGrant, "grant:1", 1);
+        let mut b = a.clone();
+        b.identity.profile = "test-identity-v2-blake3".into();
+        assert_ne!(a.identity_digest().unwrap(), b.identity_digest().unwrap());
     }
 
     #[test]
@@ -585,6 +603,16 @@ mod tests {
         assert_eq!(
             qualify_current_freshness(&[grant], &[receipt(designation, 1)], 30).unwrap_err(),
             FreshnessError::UnexpectedSubject
+        );
+    }
+
+    #[test]
+    fn excessive_receipt_fan_in_is_rejected() {
+        let grant = subject(AuthoritySubjectKind::AuthorityGrant, "grant:1", 1);
+        let receipts = vec![receipt(grant.clone(), 1); MAX_RECEIPTS + 1];
+        assert_eq!(
+            qualify_current_freshness(&[grant], &receipts, 30).unwrap_err(),
+            FreshnessError::InvalidReceiptCount
         );
     }
 
