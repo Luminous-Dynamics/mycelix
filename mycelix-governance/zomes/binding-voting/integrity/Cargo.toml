@@ -1,0 +1,15 @@
+[package]
+name = "binding_voting_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Score-independent binding governance ballot integrity"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-governance-rights = { path = "../../../../crates/mycelix-governance-rights" }
+mycelix-governance-electorate = { path = "../../../../crates/mycelix-governance-electorate" }
