@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "zomes/proposals/integrity",
     "zomes/proposals/coordinator",
+    "zomes/proposal-authority/integrity",
+    "zomes/proposal-authority/coordinator",
     "zomes/voting/integrity",
     "zomes/voting/coordinator",
     "zomes/execution/integrity",
