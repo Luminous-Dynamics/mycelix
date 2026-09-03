@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{id::validate_token, InfrastructureErrorV1};
+use crate::{id::is_valid_token, InfrastructureErrorV1};
 
 const MAX_RESOURCE_DIMENSIONS_V1: usize = 64;
 
@@ -13,7 +13,9 @@ pub struct ResourceKeyV1(String);
 impl ResourceKeyV1 {
     pub fn new(value: impl Into<String>) -> Result<Self, InfrastructureErrorV1> {
         let value = value.into();
-        validate_token(&value).map_err(|_| InfrastructureErrorV1::InvalidResourceKey)?;
+        if !is_valid_token(&value) {
+            return Err(InfrastructureErrorV1::InvalidResourceKey);
+        }
         Ok(Self(value))
     }
 
@@ -22,7 +24,11 @@ impl ResourceKeyV1 {
     }
 
     pub fn validate(&self) -> Result<(), InfrastructureErrorV1> {
-        validate_token(&self.0).map_err(|_| InfrastructureErrorV1::InvalidResourceKey)
+        if is_valid_token(&self.0) {
+            Ok(())
+        } else {
+            Err(InfrastructureErrorV1::InvalidResourceKey)
+        }
     }
 }
 

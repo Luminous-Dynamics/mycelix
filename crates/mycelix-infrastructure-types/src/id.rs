@@ -18,15 +18,17 @@ impl StableIdV1 {
         schema_version: u16,
         fields: &[&[u8]],
     ) -> Result<Self, InfrastructureErrorV1> {
-        validate_token(domain).map_err(|_| InfrastructureErrorV1::InvalidSchemaTag)?;
+        if !is_valid_token(domain) {
+            return Err(InfrastructureErrorV1::InvalidSchemaTag);
+        }
 
         let mut hasher = blake3::Hasher::new();
         hasher.update(ID_MAGIC);
-        put_field(&mut hasher, domain.as_bytes())?;
+        put_field(&mut hasher, domain.as_bytes());
         hasher.update(&schema_version.to_be_bytes());
         hasher.update(&(fields.len() as u64).to_be_bytes());
         for field in fields {
-            put_field(&mut hasher, field)?;
+            put_field(&mut hasher, field);
         }
         Ok(Self(*hasher.finalize().as_bytes()))
     }
@@ -56,12 +58,14 @@ impl PayloadCommitmentV1 {
         canonical_bytes: &[u8],
     ) -> Result<Self, InfrastructureErrorV1> {
         let schema = schema.into();
-        validate_token(&schema).map_err(|_| InfrastructureErrorV1::InvalidSchemaTag)?;
+        if !is_valid_token(&schema) {
+            return Err(InfrastructureErrorV1::InvalidSchemaTag);
+        }
 
         let mut hasher = blake3::Hasher::new();
         hasher.update(PAYLOAD_MAGIC);
-        put_field(&mut hasher, schema.as_bytes())?;
-        put_field(&mut hasher, canonical_bytes)?;
+        put_field(&mut hasher, schema.as_bytes());
+        put_field(&mut hasher, canonical_bytes);
         Ok(Self {
             schema,
             digest: StableIdV1(*hasher.finalize().as_bytes()),
@@ -69,7 +73,11 @@ impl PayloadCommitmentV1 {
     }
 
     pub fn validate(&self) -> Result<(), InfrastructureErrorV1> {
-        validate_token(&self.schema).map_err(|_| InfrastructureErrorV1::InvalidSchemaTag)
+        if is_valid_token(&self.schema) {
+            Ok(())
+        } else {
+            Err(InfrastructureErrorV1::InvalidSchemaTag)
+        }
     }
 
     pub(crate) fn canonical_fields(&self) -> [&[u8]; 2] {
@@ -77,23 +85,19 @@ impl PayloadCommitmentV1 {
     }
 }
 
-pub(crate) fn validate_token(token: &str) -> Result<(), ()> {
+pub(crate) fn is_valid_token(token: &str) -> bool {
     let bytes = token.as_bytes();
-    if bytes.is_empty() || bytes.len() > 64 || !bytes[0].is_ascii_lowercase() {
-        return Err(());
-    }
-    if bytes.iter().any(|b| {
-        !(b.is_ascii_lowercase()
-            || b.is_ascii_digit()
-            || matches!(*b, b'.' | b'_' | b'/' | b'-' | b':'))
-    }) {
-        return Err(());
-    }
-    Ok(())
+    !bytes.is_empty()
+        && bytes.len() <= 64
+        && bytes[0].is_ascii_lowercase()
+        && bytes.iter().all(|b| {
+            b.is_ascii_lowercase()
+                || b.is_ascii_digit()
+                || matches!(*b, b'.' | b'_' | b'/' | b'-' | b':')
+        })
 }
 
-fn put_field(hasher: &mut blake3::Hasher, field: &[u8]) -> Result<(), InfrastructureErrorV1> {
+fn put_field(hasher: &mut blake3::Hasher, field: &[u8]) {
     hasher.update(&(field.len() as u64).to_be_bytes());
     hasher.update(field);
-    Ok(())
 }
