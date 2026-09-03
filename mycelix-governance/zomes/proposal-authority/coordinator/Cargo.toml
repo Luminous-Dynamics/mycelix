@@ -1,0 +1,18 @@
+[package]
+name = "proposal_authority"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Coordinator for immutable institution-bound governance proposal context"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+blake3 = "1.5"
+proposal_authority_integrity = { path = "../integrity" }
+mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
