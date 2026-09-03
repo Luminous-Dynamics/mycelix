@@ -7,6 +7,7 @@
 //! - Evidence types shared across justice and media
 //! - Status/phase traits for state machine validation
 //! - Role-based authorization helpers
+//! - Cross-domain reciprocal accountability receipts for person-linked lookups
 //! - Bridge types for cross-domain communication
 
 pub mod bridge_types;
@@ -16,5 +17,6 @@ pub mod status;
 
 pub use bridge_types::*;
 pub use evidence::*;
+pub use mycelix_accountability_core::*;
 pub use roles::*;
 pub use status::*;
