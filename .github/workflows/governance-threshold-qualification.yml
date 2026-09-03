@@ -1,0 +1,45 @@
+name: Governance Threshold Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-threshold-qualification/**'
+      - '.github/workflows/governance-threshold-qualification.yml'
+  push:
+    branches:
+      - 'security/governance-threshold-qualification-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Threshold qualification kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-governance-threshold-qualification/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-governance-threshold-qualification/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-governance-threshold-qualification/Cargo.toml --all-targets -- -D warnings
+      - name: Authority-separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-governance-threshold-qualification/src/lib.rs').read_text()
+          assert 'ExecutionAttempt' in src  # explicitly documented as NOT created
+          assert 'qualify_threshold_authorization' in src
+          assert 'verified_policy_digest' in src
+          assert 'verified_committee_key_digest' in src
+          assert 'verified_crypto_proof_ref' in src
+          assert 'PostQuantumVerificationRequired' in src
+          assert 'nonce:' not in src
+          assert 'verified: bool' not in src
+          print('PASS: threshold qualification is pre-attempt and receipt-bound')
+          PY
