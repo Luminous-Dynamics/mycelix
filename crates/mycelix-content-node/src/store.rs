@@ -4,6 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+
 use fs2::FileExt;
 use mycelix_content_core::{BlobDescriptorV1, ContentDigestV1, DigestAlgorithmV1};
 use parking_lot::Mutex;
@@ -168,7 +171,7 @@ impl LocalCasV1 {
     pub fn put<R: Read>(
         &self,
         expected: &BlobDescriptorV1,
-        reader: R,
+        mut reader: R,
     ) -> Result<PutOutcomeV1, CasErrorV1> {
         expected.validate()?;
         let final_path = self.blob_path(expected.digest);
@@ -187,10 +190,9 @@ impl LocalCasV1 {
         let mut temp = NamedTempFile::new_in(&self.staging_dir)
             .map_err(|source| CasErrorV1::io(&self.staging_dir, source))?;
 
-        // Read at most expected+1 bytes. This both detects oversize streams and
-        // prevents a dishonest sender from consuming unreserved disk indefinitely.
-        let read_limit = expected.size_bytes.saturating_add(1);
-        let mut bounded = reader.take(read_limit);
+        // Write exactly the reserved length at most. Then probe one extra sender byte
+        // without persisting it so a dishonest sender cannot consume unreserved disk.
+        let mut bounded = (&mut reader).take(expected.size_bytes);
         let (actual_digest, actual_size) = hash_reader(
             expected.digest.algorithm,
             &mut bounded,
@@ -204,6 +206,18 @@ impl LocalCasV1 {
                 actual: actual_size,
             });
         }
+
+        let mut extra = [0_u8; 1];
+        let extra_read = reader
+            .read(&mut extra)
+            .map_err(|source| CasErrorV1::io(temp.path(), source))?;
+        if extra_read != 0 {
+            return Err(CasErrorV1::SizeMismatch {
+                expected: expected.size_bytes,
+                actual: expected.size_bytes.saturating_add(extra_read as u64),
+            });
+        }
+
         if actual_digest != expected.digest {
             return Err(CasErrorV1::DigestMismatch {
                 expected: expected.digest,
@@ -262,7 +276,7 @@ impl LocalCasV1 {
         };
         validate_final_file_metadata(&path, &metadata)?;
 
-        let mut file = File::open(&path).map_err(|source| CasErrorV1::io(&path, source))?;
+        let mut file = open_blob_no_follow(&path)?;
         let opened_metadata = file
             .metadata()
             .map_err(|source| CasErrorV1::io(&path, source))?;
@@ -379,6 +393,14 @@ impl Drop for LocalCasV1 {
     }
 }
 
+fn open_blob_no_follow(path: &Path) -> Result<File, CasErrorV1> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NOFOLLOW);
+    options.open(path).map_err(|source| CasErrorV1::io(path, source))
+}
+
 fn reject_symlink_if_present(path: &Path) -> Result<(), CasErrorV1> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
@@ -449,7 +471,6 @@ fn scan_blob_tree(blobs_dir: &Path) -> Result<u64, CasErrorV1> {
             let metadata =
                 fs::symlink_metadata(&path).map_err(|source| CasErrorV1::io(&path, source))?;
             validate_final_file_metadata(&path, &metadata)?;
-            validate_digest_filename(&path)?;
             used_bytes = used_bytes
                 .checked_add(metadata.len())
                 .ok_or(CasErrorV1::UsageOverflow)?;
@@ -585,13 +606,14 @@ mod tests {
     }
 
     #[test]
-    fn oversized_stream_is_bounded_and_rejected() {
+    fn oversized_stream_is_probed_but_extra_byte_is_not_persisted() {
         let dir = tempfile::tempdir().unwrap();
         let cas = open_cas(dir.path(), 1024);
         let expected = descriptor(b"1234", DigestAlgorithmV1::Blake3_256);
         let error = cas.put(&expected, &b"12345-many-more"[..]).unwrap_err();
         assert!(matches!(error, CasErrorV1::SizeMismatch { actual: 5, .. }));
         assert_eq!(cas.capacity().used_bytes, 0);
+        assert_eq!(cas.capacity().reserved_bytes, 0);
     }
 
     #[test]
