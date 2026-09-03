@@ -24,12 +24,15 @@ There is deliberately no HTTP `PUT`, `POST`, `PATCH`, or `DELETE` storage route 
 For every GET or HEAD, the adapter:
 
 1. validates the algorithm tag and canonical lowercase 64-hex digest;
-2. obtains a bounded verification slot;
-3. runs the synchronous CAS verification on a blocking worker;
-4. receives the exact file handle that the CAS re-hashed and rewound;
-5. streams that verified handle directly to the client.
+2. attempts to acquire a bounded verification slot;
+3. returns `503 Retry-After: 1` immediately if verification capacity is saturated rather than building an unbounded waiter queue;
+4. runs the synchronous CAS verification on a blocking worker;
+5. receives the exact file handle that the CAS re-hashed and rewound;
+6. streams that verified handle directly to the client.
 
 The adapter never reconstructs a raw filesystem path and never reopens a blob after the CAS has verified it.
+
+Verification parallelism must be between 1 and 64 in v0.1; the default loopback configuration uses 4 slots.
 
 ## HTTP behavior
 
@@ -50,9 +53,9 @@ GET supports one RFC-style byte range in v0.1:
 
 Multi-range requests are intentionally rejected with `416` rather than silently implementing multipart semantics incorrectly. Unsatisfiable responses include `Content-Range: bytes */<size>`.
 
-## Concurrency
+## Integrity semantics
 
-Full-file verification is intentionally completed before any response body is sent. A semaphore bounds concurrent blocking verification work so a local client cannot create unlimited hashing jobs.
+Full-file verification is intentionally completed before any response body is sent. `/health` reports integrity as `verified-on-read`; it does not claim that a full-store audit occurred merely because the process is responsive.
 
 ## Authority boundary
 
