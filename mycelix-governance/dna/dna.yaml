@@ -27,9 +27,10 @@ integrity:
     - name: execution_integrity
       path: "../target/wasm32-unknown-unknown/release/execution_integrity.wasm"
 
-    - name: constitution_integrity
-      path: "../target/wasm32-unknown-unknown/release/constitution_integrity.wasm"
-
+    # SECURITY: the legacy mutable constitution_integrity/constitution pair is
+    # intentionally not packaged in the binding governance DNA. Its source stays
+    # in the workspace for migration/history, but cannot form a second authority
+    # plane beside constitution_authority/constitution_transition.
     - name: constitution_authority_integrity
       path: "../target/wasm32-unknown-unknown/release/constitution_authority_integrity.wasm"
 
@@ -80,11 +81,6 @@ coordinator:
       dependencies:
         - name: execution_integrity
         - name: proposals_integrity
-
-    - name: constitution
-      path: "../target/wasm32-unknown-unknown/release/constitution.wasm"
-      dependencies:
-        - name: constitution_integrity
 
     - name: constitution_authority
       path: "../target/wasm32-unknown-unknown/release/constitution_authority.wasm"
