@@ -4,13 +4,14 @@ use content_fabric_integrity::{
     FailureDomainKindV1, ProviderAdvertisementV1, IROH_ALPN_V1, SCHEMA_VERSION_V1,
 };
 use ed25519_dalek::{Signer, SigningKey, Verifier};
-use hdi::prelude::AgentPubKey;
+use hdi::prelude::{ActionHash, AgentPubKey};
 
 fn sample_advertisement() -> (SigningKey, ProviderAdvertisementV1) {
     let endpoint_key = SigningKey::from_bytes(&[7_u8; 32]);
     let mut ad = ProviderAdvertisementV1 {
         schema_version: SCHEMA_VERSION_V1,
         provider: AgentPubKey::from_raw_32(vec![3_u8; 32]),
+        binding_prev_action: ActionHash::from_raw_32(vec![4_u8; 32]),
         iroh_endpoint_id: endpoint_key.verifying_key().to_bytes(),
         endpoint_binding_signature: [0_u8; 64],
         protocol: IROH_ALPN_V1.to_string(),
@@ -29,7 +30,7 @@ fn sample_advertisement() -> (SigningKey, ProviderAdvertisementV1) {
 }
 
 #[test]
-fn endpoint_binding_commits_capability_fields_but_not_signature_bytes() {
+fn endpoint_binding_commits_capability_and_chain_head_but_not_signature_bytes() {
     let (key, ad) = sample_advertisement();
     key.verifying_key()
         .verify(
@@ -42,6 +43,10 @@ fn endpoint_binding_commits_capability_fields_but_not_signature_bytes() {
     let mut changed = ad.clone();
     changed.max_blob_size_bytes += 1;
     assert_ne!(original, provider_binding_bytes_v1(&changed));
+
+    let mut replayed_at_new_head = ad.clone();
+    replayed_at_new_head.binding_prev_action = ActionHash::from_raw_32(vec![5_u8; 32]);
+    assert_ne!(original, provider_binding_bytes_v1(&replayed_at_new_head));
 
     let mut signature_only = ad.clone();
     signature_only.endpoint_binding_signature = [9_u8; 64];
