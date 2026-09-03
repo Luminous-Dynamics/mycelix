@@ -57,10 +57,7 @@ id_type!(FinalityPolicyId, "finality_policy_id");
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IssuerTrustRequirement {
-    /// Credential must be issued by this exact DID.
     ExactIssuer { issuer_did: String },
-    /// Credential issuer must be authorized by an external trust registry under
-    /// this exact registry/profile/relationship tuple.
     TrustRegistry {
         registry_ref: String,
         registry_profile: String,
@@ -90,7 +87,6 @@ impl IssuerTrustRequirement {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PredicateRequirement {
     pub id: PredicateId,
-    /// Profile defining the predicate semantics/proof contract.
     pub evidence_profile: String,
 }
 
@@ -103,8 +99,7 @@ impl PredicateRequirement {
 
 /// One acceptable credential rule.
 ///
-/// Types are all-of: every type in `required_credential_types` must be present.
-/// Schema IDs are any-of: the credential must use one listed schema.
+/// Types are all-of: every required type must be present. Schema IDs are any-of.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CredentialRule {
     pub id: CredentialRuleId,
@@ -154,11 +149,8 @@ impl CredentialRule {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EvidenceCombination {
-    /// At least one credential rule must match.
     Any,
-    /// Every credential rule must be satisfied.
     All,
-    /// At least this many different rules must be satisfied.
     AtLeast(u16),
 }
 
@@ -173,13 +165,11 @@ pub struct EligibilityVerifierPolicy {
     pub right: CivicRight,
     pub credential_rules: Vec<CredentialRule>,
     pub combination: EvidenceCombination,
-    /// When true, one credential cannot satisfy multiple required rules.
+    /// When true, satisfying N rules requires N distinct credential IDs.
     pub distinct_credentials_across_rules: bool,
-    /// Maximum age of credential verification/revocation evidence at snapshot.
     pub max_evidence_age_ms: u64,
     pub valid_from_ms: u64,
     pub valid_until_ms: u64,
-    /// Institutional authority that adopted this policy.
     pub authorized_by: AuthorityGrantId,
     pub policy_proof_ref: String,
 }
@@ -229,6 +219,14 @@ impl EligibilityVerifierPolicy {
 
     pub fn active_at(&self, timestamp_ms: u64) -> bool {
         self.valid_from_ms <= timestamp_ms && timestamp_ms < self.valid_until_ms
+    }
+
+    fn required_rule_count(&self) -> usize {
+        match self.combination {
+            EvidenceCombination::Any => 1,
+            EvidenceCombination::All => self.credential_rules.len(),
+            EvidenceCombination::AtLeast(required) => required as usize,
+        }
     }
 }
 
@@ -287,10 +285,8 @@ impl VerifiedPredicateEvidence {
 
 /// Output of a cryptographic credential-verification adapter.
 ///
-/// The host is responsible for constructing this only after actually checking
-/// the credential signature, holder/subject binding, status/revocation, schema,
-/// proof format, and any trust-registry receipt. This struct never turns a raw
-/// user assertion into verified evidence by itself.
+/// The host constructs this only after checking signature, subject binding,
+/// status/revocation, schema, proof format, and any issuer trust receipt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedCredentialEvidence {
     pub credential_id: String,
@@ -367,10 +363,7 @@ pub enum EligibilityDecision {
 pub enum EligibilityDenial {
     PolicyInactive,
     NoEvidence,
-    EvidenceInvalid,
-    SubjectMismatch,
-    EvidenceTooOld,
-    CredentialInactive,
+    NoUsableEvidence,
     InsufficientMatchingRules,
     DistinctCredentialRequirementUnsatisfied,
 }
@@ -393,84 +386,154 @@ pub fn evaluate_eligibility(
         ));
     }
 
-    for credential in evidence {
-        if credential.validate().is_err() {
-            return Ok(EligibilityDecision::Ineligible(
-                EligibilityDenial::EvidenceInvalid,
-            ));
-        }
-        if &credential.subject != principal {
-            return Ok(EligibilityDecision::Ineligible(
-                EligibilityDenial::SubjectMismatch,
-            ));
-        }
-        if !fresh_at(
-            credential.verified_at_ms,
-            snapshot_at_ms,
-            policy.max_evidence_age_ms,
-        ) || !fresh_at(
-            credential.revocation_checked_at_ms,
-            snapshot_at_ms,
-            policy.max_evidence_age_ms,
-        ) {
-            return Ok(EligibilityDecision::Ineligible(
-                EligibilityDenial::EvidenceTooOld,
-            ));
-        }
-        if !(credential.valid_from_ms <= snapshot_at_ms
-            && snapshot_at_ms < credential.valid_until_ms)
-        {
-            return Ok(EligibilityDecision::Ineligible(
-                EligibilityDenial::CredentialInactive,
-            ));
-        }
-    }
+    // Invalid, wrong-subject, stale, or inactive evidence is unusable; it does
+    // not poison a separate valid credential under Any/N-of-M policies.
+    let usable = evidence
+        .iter()
+        .filter(|credential| {
+            credential.validate().is_ok()
+                && &credential.subject == principal
+                && fresh_at(
+                    credential.verified_at_ms,
+                    snapshot_at_ms,
+                    policy.max_evidence_age_ms,
+                )
+                && fresh_at(
+                    credential.revocation_checked_at_ms,
+                    snapshot_at_ms,
+                    policy.max_evidence_age_ms,
+                )
+                && credential.valid_from_ms <= snapshot_at_ms
+                && snapshot_at_ms < credential.valid_until_ms
+        })
+        .collect::<Vec<_>>();
 
-    let mut matches: Vec<(CredentialRuleId, String)> = Vec::new();
-    for rule in &policy.credential_rules {
-        if let Some(credential) = evidence.iter().find(|credential| rule_matches(rule, credential)) {
-            matches.push((rule.id.clone(), credential.credential_id.clone()));
-        }
-    }
-
-    let required = match policy.combination {
-        EvidenceCombination::Any => 1usize,
-        EvidenceCombination::All => policy.credential_rules.len(),
-        EvidenceCombination::AtLeast(required) => required as usize,
-    };
-    if matches.len() < required {
+    if usable.is_empty() {
         return Ok(EligibilityDecision::Ineligible(
-            EligibilityDenial::InsufficientMatchingRules,
+            EligibilityDenial::NoUsableEvidence,
         ));
     }
 
-    if policy.distinct_credentials_across_rules {
-        let distinct: BTreeSet<&str> = matches
+    let required = policy.required_rule_count();
+    let assignments = if policy.distinct_credentials_across_rules {
+        maximum_distinct_rule_assignment(&policy.credential_rules, &usable)
+    } else {
+        policy
+            .credential_rules
             .iter()
-            .map(|(_, credential_id)| credential_id.as_str())
-            .collect();
-        if distinct.len() < required {
-            return Ok(EligibilityDecision::Ineligible(
-                EligibilityDenial::DistinctCredentialRequirementUnsatisfied,
-            ));
-        }
+            .filter_map(|rule| {
+                usable
+                    .iter()
+                    .find(|credential| rule_matches(rule, credential))
+                    .map(|credential| (rule.id.clone(), credential.credential_id.clone()))
+            })
+            .collect::<Vec<_>>()
+    };
+
+    if assignments.len() < required {
+        let denial = if policy.distinct_credentials_across_rules
+            && count_rules_with_any_match(&policy.credential_rules, &usable) >= required
+        {
+            EligibilityDenial::DistinctCredentialRequirementUnsatisfied
+        } else {
+            EligibilityDenial::InsufficientMatchingRules
+        };
+        return Ok(EligibilityDecision::Ineligible(denial));
     }
 
-    matches.truncate(required.max(matches.len().min(required)));
-    let matched_rules = matches.iter().map(|(id, _)| id.clone()).collect();
-    let credential_ids = matches
-        .iter()
-        .map(|(_, credential_id)| credential_id.clone())
-        .collect();
+    let selected = assignments.into_iter().take(required).collect::<Vec<_>>();
     Ok(EligibilityDecision::Eligible(EligibilityPermitEvidence {
         policy_id: policy.id.clone(),
         policy_digest: policy.policy_digest,
         principal: principal.clone(),
         right: policy.right.clone(),
-        matched_rules,
-        credential_ids,
+        matched_rules: selected.iter().map(|(rule, _)| rule.clone()).collect(),
+        credential_ids: selected
+            .iter()
+            .map(|(_, credential)| credential.clone())
+            .collect(),
         evaluated_at_ms: snapshot_at_ms,
     }))
+}
+
+fn count_rules_with_any_match(
+    rules: &[CredentialRule],
+    evidence: &[&VerifiedCredentialEvidence],
+) -> usize {
+    rules
+        .iter()
+        .filter(|rule| evidence.iter().any(|credential| rule_matches(rule, credential)))
+        .count()
+}
+
+/// Deterministic maximum-cardinality bipartite matching between rules and
+/// credential IDs. This proves a real one-credential-per-rule assignment rather
+/// than relying on greedy first-match selection.
+fn maximum_distinct_rule_assignment(
+    rules: &[CredentialRule],
+    evidence: &[&VerifiedCredentialEvidence],
+) -> Vec<(CredentialRuleId, String)> {
+    // credential index -> rule index
+    let mut credential_match: Vec<Option<usize>> = vec![None; evidence.len()];
+
+    fn augment(
+        rule_index: usize,
+        rules: &[CredentialRule],
+        evidence: &[&VerifiedCredentialEvidence],
+        seen_credentials: &mut [bool],
+        credential_match: &mut [Option<usize>],
+    ) -> bool {
+        for credential_index in 0..evidence.len() {
+            if seen_credentials[credential_index]
+                || !rule_matches(&rules[rule_index], evidence[credential_index])
+            {
+                continue;
+            }
+            seen_credentials[credential_index] = true;
+            let can_take = match credential_match[credential_index] {
+                None => true,
+                Some(previous_rule) => augment(
+                    previous_rule,
+                    rules,
+                    evidence,
+                    seen_credentials,
+                    credential_match,
+                ),
+            };
+            if can_take {
+                credential_match[credential_index] = Some(rule_index);
+                return true;
+            }
+        }
+        false
+    }
+
+    for rule_index in 0..rules.len() {
+        let mut seen = vec![false; evidence.len()];
+        let _ = augment(
+            rule_index,
+            rules,
+            evidence,
+            &mut seen,
+            &mut credential_match,
+        );
+    }
+
+    let mut by_rule: BTreeMap<usize, usize> = BTreeMap::new();
+    for (credential_index, rule_index) in credential_match.into_iter().enumerate() {
+        if let Some(rule_index) = rule_index {
+            by_rule.insert(rule_index, credential_index);
+        }
+    }
+    by_rule
+        .into_iter()
+        .map(|(rule_index, credential_index)| {
+            (
+                rules[rule_index].id.clone(),
+                evidence[credential_index].credential_id.clone(),
+            )
+        })
+        .collect()
 }
 
 fn rule_matches(rule: &CredentialRule, credential: &VerifiedCredentialEvidence) -> bool {
@@ -545,14 +608,11 @@ pub struct BallotFinalityPolicy {
     pub rulebook: RulebookRef,
     pub ballot_set_digest_profile: String,
     pub min_observers: u32,
-    /// Minimum number of independent trust domains represented.
     pub min_trust_domains: u32,
-    /// Upper bound on how many observer attestations one trust domain can
-    /// contribute toward the threshold.
     pub max_observers_per_trust_domain: u32,
     pub allowed_trust_domains: Vec<String>,
-    /// Optional exact observer allowlist. Empty means observer identity is
-    /// governed by the external domain authorization receipt.
+    /// Empty means observer identity is governed by the external domain
+    /// authorization receipt instead of a fixed DID allowlist.
     pub allowed_observer_ids: Vec<String>,
     pub min_observation_delay_ms: u64,
     pub max_finalization_delay_ms: u64,
@@ -576,10 +636,8 @@ impl BallotFinalityPolicy {
         if self.min_observers == 0
             || self.min_trust_domains == 0
             || self.max_observers_per_trust_domain == 0
+            || self.min_trust_domains > self.min_observers
         {
-            return Err(PolicyError::InvalidObserverThreshold);
-        }
-        if self.min_trust_domains > self.min_observers {
             return Err(PolicyError::InvalidObserverThreshold);
         }
         if self.allowed_trust_domains.is_empty()
@@ -594,6 +652,14 @@ impl BallotFinalityPolicy {
         for domain in &self.allowed_trust_domains {
             validate_text(domain, "finality_policy.trust_domain", MAX_ID_BYTES)?;
         }
+        if self.min_trust_domains as usize > self.allowed_trust_domains.len() {
+            return Err(PolicyError::ImpossibleObserverThreshold);
+        }
+        let max_domain_capacity = (self.allowed_trust_domains.len() as u64)
+            .saturating_mul(self.max_observers_per_trust_domain as u64);
+        if self.min_observers as u64 > max_domain_capacity {
+            return Err(PolicyError::ImpossibleObserverThreshold);
+        }
         if self.allowed_observer_ids.len() > MAX_OBSERVERS {
             return Err(PolicyError::TooManyObservers);
         }
@@ -603,6 +669,11 @@ impl BallotFinalityPolicy {
         )?;
         for observer in &self.allowed_observer_ids {
             validate_did(observer, "finality_policy.observer_id")?;
+        }
+        if !self.allowed_observer_ids.is_empty()
+            && self.min_observers as usize > self.allowed_observer_ids.len()
+        {
+            return Err(PolicyError::ImpossibleObserverThreshold);
         }
         if self.max_finalization_delay_ms < self.min_observation_delay_ms {
             return Err(PolicyError::InvalidFinalityWindow);
@@ -634,8 +705,6 @@ pub struct ObserverAttestation {
     pub ballot_set_digest: Digest32,
     pub ballot_set_digest_profile: String,
     pub observed_at_ms: u64,
-    /// Receipt proving this observer was authorized by this trust domain and
-    /// signed this exact ballot-set observation.
     pub authorization_receipt_ref: String,
     pub attestation_receipt_ref: String,
 }
@@ -817,6 +886,7 @@ pub enum PolicyError {
     InvalidTimeRange(&'static str),
     ZeroVerificationTime,
     InvalidObserverThreshold,
+    ImpossibleObserverThreshold,
     InvalidTrustDomainCount,
     TooManyObservers,
     InvalidFinalityWindow,
@@ -844,6 +914,7 @@ impl fmt::Display for PolicyError {
             Self::InvalidTimeRange(field) => write!(f, "invalid time range for {field}"),
             Self::ZeroVerificationTime => write!(f, "verification/observation timestamp must be non-zero"),
             Self::InvalidObserverThreshold => write!(f, "invalid observer/trust-domain threshold"),
+            Self::ImpossibleObserverThreshold => write!(f, "observer threshold cannot be satisfied by allowed policy population"),
             Self::InvalidTrustDomainCount => write!(f, "invalid allowed trust-domain count"),
             Self::TooManyObservers => write!(f, "observer allowlist exceeds protocol bound"),
             Self::InvalidFinalityWindow => write!(f, "invalid ballot finality observation window"),
@@ -932,13 +1003,13 @@ mod tests {
         }
     }
 
-    fn credential_rule(id: &str, schema: &str, issuer: &str) -> CredentialRule {
+    fn credential_rule(id: &str, credential_type: &str, schema: &str) -> CredentialRule {
         CredentialRule {
             id: CredentialRuleId::new(id).unwrap(),
-            required_credential_types: vec!["GovernanceMembershipCredential".into()],
+            required_credential_types: vec![credential_type.into()],
             accepted_schema_ids: vec![schema.into()],
             issuer_trust: IssuerTrustRequirement::ExactIssuer {
-                issuer_did: issuer.into(),
+                issuer_did: "did:mycelix:trusted-issuer".into(),
             },
             required_predicates: vec![],
         }
@@ -955,8 +1026,8 @@ mod tests {
             right: CivicRight::Vote,
             credential_rules: vec![credential_rule(
                 "membership",
+                "GovernanceMembershipCredential",
                 "schema:governance-membership:v1",
-                "did:mycelix:trusted-issuer",
             )],
             combination: EvidenceCombination::Any,
             distinct_credentials_across_rules: true,
@@ -968,21 +1039,23 @@ mod tests {
         }
     }
 
-    fn credential(subject: &PrincipalId) -> VerifiedCredentialEvidence {
+    fn credential(
+        id: &str,
+        subject: &PrincipalId,
+        credential_types: Vec<&str>,
+        schema: &str,
+    ) -> VerifiedCredentialEvidence {
         VerifiedCredentialEvidence {
-            credential_id: "urn:vc:membership:alice".into(),
+            credential_id: id.into(),
             subject: subject.clone(),
             issuer_did: "did:mycelix:trusted-issuer".into(),
-            credential_types: vec![
-                "VerifiableCredential".into(),
-                "GovernanceMembershipCredential".into(),
-            ],
-            schema_id: "schema:governance-membership:v1".into(),
+            credential_types: credential_types.into_iter().map(str::to_string).collect(),
+            schema_id: schema.into(),
             valid_from_ms: 1_000,
             valid_until_ms: 100_000,
             verified_at_ms: 9_900,
             revocation_checked_at_ms: 9_900,
-            verification_receipt_ref: "receipt:vc:alice".into(),
+            verification_receipt_ref: format!("receipt:{id}"),
             issuer_trust: IssuerTrustEvidence::ExactIssuer,
             predicates: vec![],
         }
@@ -991,28 +1064,29 @@ mod tests {
     #[test]
     fn trusted_exact_issuer_credential_grants_vote_eligibility() {
         let principal = PrincipalId::new("did:mycelix:alice").unwrap();
-        let decision = evaluate_eligibility(
-            &eligibility_policy(),
+        let evidence = credential(
+            "urn:vc:membership:alice",
             &principal,
-            10_000,
-            &[credential(&principal)],
-        )
-        .unwrap();
+            vec!["VerifiableCredential", "GovernanceMembershipCredential"],
+            "schema:governance-membership:v1",
+        );
+        let decision = evaluate_eligibility(&eligibility_policy(), &principal, 10_000, &[evidence])
+            .unwrap();
         assert!(matches!(decision, EligibilityDecision::Eligible(_)));
     }
 
     #[test]
     fn valid_signature_from_wrong_issuer_does_not_grant_authority() {
         let principal = PrincipalId::new("did:mycelix:alice").unwrap();
-        let mut evidence = credential(&principal);
-        evidence.issuer_did = "did:mycelix:self-issued".into();
-        let decision = evaluate_eligibility(
-            &eligibility_policy(),
+        let mut evidence = credential(
+            "urn:vc:membership:alice",
             &principal,
-            10_000,
-            &[evidence],
-        )
-        .unwrap();
+            vec!["GovernanceMembershipCredential"],
+            "schema:governance-membership:v1",
+        );
+        evidence.issuer_did = "did:mycelix:self-issued".into();
+        let decision = evaluate_eligibility(&eligibility_policy(), &principal, 10_000, &[evidence])
+            .unwrap();
         assert_eq!(
             decision,
             EligibilityDecision::Ineligible(EligibilityDenial::InsufficientMatchingRules)
@@ -1020,20 +1094,96 @@ mod tests {
     }
 
     #[test]
-    fn stale_revocation_check_fails_closed() {
+    fn stale_extra_evidence_does_not_poison_any_policy() {
         let principal = PrincipalId::new("did:mycelix:alice").unwrap();
-        let mut evidence = credential(&principal);
-        evidence.revocation_checked_at_ms = 1_000;
+        let good = credential(
+            "urn:vc:good",
+            &principal,
+            vec!["GovernanceMembershipCredential"],
+            "schema:governance-membership:v1",
+        );
+        let mut stale = credential(
+            "urn:vc:stale",
+            &principal,
+            vec!["UnrelatedCredential"],
+            "schema:other:v1",
+        );
+        stale.revocation_checked_at_ms = 1;
         let decision = evaluate_eligibility(
             &eligibility_policy(),
             &principal,
-            70_000,
-            &[evidence],
+            10_000,
+            &[stale, good],
         )
         .unwrap();
+        assert!(matches!(decision, EligibilityDecision::Eligible(_)));
+    }
+
+    #[test]
+    fn distinct_rule_matching_can_reassign_broad_credential() {
+        let principal = PrincipalId::new("did:mycelix:alice").unwrap();
+        let mut policy = eligibility_policy();
+        policy.credential_rules = vec![
+            CredentialRule {
+                id: CredentialRuleId::new("rule:a-or-broad").unwrap(),
+                required_credential_types: vec!["TypeA".into()],
+                accepted_schema_ids: vec!["schema:broad".into(), "schema:a".into()],
+                issuer_trust: IssuerTrustRequirement::ExactIssuer {
+                    issuer_did: "did:mycelix:trusted-issuer".into(),
+                },
+                required_predicates: vec![],
+            },
+            credential_rule("rule:broad-only", "TypeB", "schema:broad"),
+        ];
+        policy.combination = EvidenceCombination::All;
+        policy.distinct_credentials_across_rules = true;
+
+        // The broad credential matches both rules; A-only matches the first.
+        // Greedy first-match would assign broad to rule 1 and falsely fail rule 2.
+        let broad = credential(
+            "urn:vc:broad",
+            &principal,
+            vec!["TypeA", "TypeB"],
+            "schema:broad",
+        );
+        let a_only = credential(
+            "urn:vc:a-only",
+            &principal,
+            vec!["TypeA"],
+            "schema:a",
+        );
+        let decision = evaluate_eligibility(&policy, &principal, 10_000, &[broad, a_only]).unwrap();
+        match decision {
+            EligibilityDecision::Eligible(permit) => {
+                assert_eq!(permit.credential_ids.len(), 2);
+                assert_eq!(permit.credential_ids.iter().collect::<BTreeSet<_>>().len(), 2);
+            }
+            other => panic!("expected distinct maximum matching, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn one_broad_credential_cannot_fake_two_distinct_requirements() {
+        let principal = PrincipalId::new("did:mycelix:alice").unwrap();
+        let mut policy = eligibility_policy();
+        policy.credential_rules = vec![
+            credential_rule("rule:a", "TypeA", "schema:broad"),
+            credential_rule("rule:b", "TypeB", "schema:broad"),
+        ];
+        policy.combination = EvidenceCombination::All;
+        policy.distinct_credentials_across_rules = true;
+        let broad = credential(
+            "urn:vc:broad",
+            &principal,
+            vec!["TypeA", "TypeB"],
+            "schema:broad",
+        );
+        let decision = evaluate_eligibility(&policy, &principal, 10_000, &[broad]).unwrap();
         assert_eq!(
             decision,
-            EligibilityDecision::Ineligible(EligibilityDenial::EvidenceTooOld)
+            EligibilityDecision::Ineligible(
+                EligibilityDenial::DistinctCredentialRequirementUnsatisfied
+            )
         );
     }
 
@@ -1094,7 +1244,6 @@ mod tests {
     fn many_observer_ids_in_one_domain_do_not_create_independence() {
         let mut policy = finality_policy();
         policy.max_observers_per_trust_domain = 3;
-        policy.allowed_trust_domains = vec!["domain:a".into(), "domain:b".into(), "domain:c".into()];
         let evidence = vec![
             attestation("a1", "domain:a"),
             attestation("a2", "domain:a"),
@@ -1111,6 +1260,16 @@ mod tests {
         assert_eq!(
             decision,
             FinalityDecision::NotFinal(FinalityDenial::InsufficientIndependentTrustDomains)
+        );
+    }
+
+    #[test]
+    fn impossible_observer_policy_is_rejected_at_configuration_time() {
+        let mut policy = finality_policy();
+        policy.min_trust_domains = 4;
+        assert_eq!(
+            policy.validate().unwrap_err(),
+            PolicyError::ImpossibleObserverThreshold
         );
     }
 
