@@ -14,6 +14,8 @@ members = [
     "zomes/execution/integrity",
     "zomes/execution/coordinator",
     "zomes/execution-preflight/coordinator",
+    "zomes/execution-lifecycle/integrity",
+    "zomes/execution-lifecycle/coordinator",
     "zomes/constitution/integrity",
     "zomes/constitution/coordinator",
     "zomes/constitution-authority/integrity",
