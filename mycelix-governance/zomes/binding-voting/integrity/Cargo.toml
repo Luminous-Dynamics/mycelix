@@ -13,3 +13,4 @@ hdi = { workspace = true }
 serde = { workspace = true }
 mycelix-governance-rights = { path = "../../../../crates/mycelix-governance-rights" }
 mycelix-governance-electorate = { path = "../../../../crates/mycelix-governance-electorate" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
