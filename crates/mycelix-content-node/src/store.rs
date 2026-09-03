@@ -54,6 +54,34 @@ pub struct AuditReportV1 {
     pub verified_bytes: u64,
 }
 
+#[derive(Debug)]
+pub struct VerifiedBlobV1 {
+    file: File,
+    size_bytes: u64,
+}
+
+impl VerifiedBlobV1 {
+    pub fn size_bytes(&self) -> u64 {
+        self.size_bytes
+    }
+
+    pub fn into_file(self) -> File {
+        self.file
+    }
+}
+
+impl Read for VerifiedBlobV1 {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buffer)
+    }
+}
+
+impl Seek for VerifiedBlobV1 {
+    fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+        self.file.seek(position)
+    }
+}
+
 #[derive(Debug, Default)]
 struct UsageStateV1 {
     used_bytes: u64,
@@ -262,53 +290,32 @@ impl LocalCasV1 {
         }
     }
 
-    /// Opens the same file handle that was fully verified, rewound to byte zero.
-    /// Callers do not receive an unverified path-only handle.
+    /// Verifies a digest-addressed blob without requiring caller-supplied size metadata.
+    /// The returned handle is the same handle that was hashed and is rewound to byte zero.
+    pub fn open_verified_digest(
+        &self,
+        digest: ContentDigestV1,
+    ) -> Result<VerifiedBlobV1, CasErrorV1> {
+        self.open_verified_inner(digest, None)
+    }
+
+    /// Verifies both exact-byte identity and the caller's declared blob size.
     pub fn open_verified(&self, expected: &BlobDescriptorV1) -> Result<File, CasErrorV1> {
         expected.validate()?;
-        let path = self.blob_path(expected.digest);
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(metadata) => metadata,
-            Err(source) if source.kind() == io::ErrorKind::NotFound => {
-                return Err(CasErrorV1::NotFound(expected.digest));
-            }
-            Err(source) => return Err(CasErrorV1::io(&path, source)),
-        };
-        validate_final_file_metadata(&path, &metadata)?;
-
-        let mut file = open_blob_no_follow(&path)?;
-        let opened_metadata = file
-            .metadata()
-            .map_err(|source| CasErrorV1::io(&path, source))?;
-        if opened_metadata.len() != expected.size_bytes {
-            return Err(CasErrorV1::SizeMismatch {
-                expected: expected.size_bytes,
-                actual: opened_metadata.len(),
-            });
-        }
-
-        let (actual_digest, actual_size) =
-            hash_reader(expected.digest.algorithm, &mut file, |_| Ok(()))
-                .map_err(|source| CasErrorV1::io(&path, source))?;
-        if actual_size != expected.size_bytes {
-            return Err(CasErrorV1::SizeMismatch {
-                expected: expected.size_bytes,
-                actual: actual_size,
-            });
-        }
-        if actual_digest != expected.digest {
-            return Err(CasErrorV1::DigestMismatch {
-                expected: expected.digest,
-                actual: actual_digest,
-            });
-        }
-        file.seek(SeekFrom::Start(0))
-            .map_err(|source| CasErrorV1::io(&path, source))?;
-        Ok(file)
+        self.open_verified_inner(expected.digest, Some(expected.size_bytes))
+            .map(VerifiedBlobV1::into_file)
     }
 
     pub fn contains_verified(&self, expected: &BlobDescriptorV1) -> Result<bool, CasErrorV1> {
         match self.open_verified(expected) {
+            Ok(_) => Ok(true),
+            Err(CasErrorV1::NotFound(_)) => Ok(false),
+            Err(other) => Err(other),
+        }
+    }
+
+    pub fn contains_digest_verified(&self, digest: ContentDigestV1) -> Result<bool, CasErrorV1> {
+        match self.open_verified_digest(digest) {
             Ok(_) => Ok(true),
             Err(CasErrorV1::NotFound(_)) => Ok(false),
             Err(other) => Err(other),
@@ -332,23 +339,68 @@ impl LocalCasV1 {
                     .map_err(|source| CasErrorV1::io(&path, source))?;
                 validate_final_file_metadata(&path, &metadata)?;
                 let digest = digest_from_path(algorithm, &path)?;
-                let expected = BlobDescriptorV1 {
-                    digest,
-                    size_bytes: metadata.len(),
-                    media_type: None,
-                };
-                self.open_verified(&expected)?;
+                let verified = self.open_verified_digest(digest)?;
                 report.verified_blobs = report
                     .verified_blobs
                     .checked_add(1)
                     .ok_or(CasErrorV1::UsageOverflow)?;
                 report.verified_bytes = report
                     .verified_bytes
-                    .checked_add(metadata.len())
+                    .checked_add(verified.size_bytes())
                     .ok_or(CasErrorV1::UsageOverflow)?;
             }
         }
         Ok(report)
+    }
+
+    fn open_verified_inner(
+        &self,
+        digest: ContentDigestV1,
+        expected_size: Option<u64>,
+    ) -> Result<VerifiedBlobV1, CasErrorV1> {
+        let path = self.blob_path(digest);
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(source) if source.kind() == io::ErrorKind::NotFound => {
+                return Err(CasErrorV1::NotFound(digest));
+            }
+            Err(source) => return Err(CasErrorV1::io(&path, source)),
+        };
+        validate_final_file_metadata(&path, &metadata)?;
+
+        let mut file = open_blob_no_follow(&path)?;
+        let opened_metadata = file
+            .metadata()
+            .map_err(|source| CasErrorV1::io(&path, source))?;
+        if let Some(expected_size) = expected_size
+            && opened_metadata.len() != expected_size
+        {
+            return Err(CasErrorV1::SizeMismatch {
+                expected: expected_size,
+                actual: opened_metadata.len(),
+            });
+        }
+
+        let (actual_digest, actual_size) = hash_reader(digest.algorithm, &mut file, |_| Ok(()))
+            .map_err(|source| CasErrorV1::io(&path, source))?;
+        if actual_size != opened_metadata.len() {
+            return Err(CasErrorV1::SizeMismatch {
+                expected: opened_metadata.len(),
+                actual: actual_size,
+            });
+        }
+        if actual_digest != digest {
+            return Err(CasErrorV1::DigestMismatch {
+                expected: digest,
+                actual: actual_digest,
+            });
+        }
+        file.seek(SeekFrom::Start(0))
+            .map_err(|source| CasErrorV1::io(&path, source))?;
+        Ok(VerifiedBlobV1 {
+            file,
+            size_bytes: actual_size,
+        })
     }
 
     fn reserve(&self, requested_bytes: u64) -> Result<ReservationV1<'_>, CasErrorV1> {
@@ -574,6 +626,21 @@ mod tests {
         file.read_to_end(&mut actual).unwrap();
         assert_eq!(actual, bytes);
         assert!(cas.contains_verified(&expected).unwrap());
+    }
+
+    #[test]
+    fn digest_only_verified_open_derives_size_and_rewinds_same_handle() {
+        let dir = tempfile::tempdir().unwrap();
+        let cas = open_cas(dir.path(), 1024);
+        let bytes = b"digest-only";
+        let expected = descriptor(bytes, DigestAlgorithmV1::Sha256);
+        cas.put(&expected, &bytes[..]).unwrap();
+        let mut verified = cas.open_verified_digest(expected.digest).unwrap();
+        assert_eq!(verified.size_bytes(), bytes.len() as u64);
+        let mut actual = Vec::new();
+        verified.read_to_end(&mut actual).unwrap();
+        assert_eq!(actual, bytes);
+        assert!(cas.contains_digest_verified(expected.digest).unwrap());
     }
 
     #[test]

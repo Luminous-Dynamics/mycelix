@@ -13,4 +13,6 @@ mod hasher;
 mod store;
 
 pub use error::CasErrorV1;
-pub use store::{AuditReportV1, CapacityV1, CasConfigV1, LocalCasV1, PutOutcomeV1};
+pub use store::{
+    AuditReportV1, CapacityV1, CasConfigV1, LocalCasV1, PutOutcomeV1, VerifiedBlobV1,
+};
