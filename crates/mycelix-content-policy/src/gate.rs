@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use mycelix_content_core::{
-    EncryptionRequirementV1, FailureDomainKindV1, RetentionRequirementV1, StorageIntentV1,
-};
+use mycelix_content_core::{EncryptionRequirementV1, RetentionRequirementV1, StorageIntentV1};
 use mycelix_content_state::{
     ActionRefV1, ProjectedContentStateV1, SnapshotCoverageV1, SnapshotServiceCandidateV1,
     WithdrawalObservationV1,
@@ -167,10 +165,10 @@ pub fn evaluate_hard_policy_v1(
     } else {
         u64::try_from(state.evaluated_at.0 / 1_000).ok()
     };
-    if evaluated_at_unix_ms.is_none() {
-        if !failures.contains(&PoolFailureV1::InvalidEvaluationTimestamp) {
-            failures.push(PoolFailureV1::InvalidEvaluationTimestamp);
-        }
+    if evaluated_at_unix_ms.is_none()
+        && !failures.contains(&PoolFailureV1::InvalidEvaluationTimestamp)
+    {
+        failures.push(PoolFailureV1::InvalidEvaluationTimestamp);
     }
     if let Some(now_ms) = evaluated_at_unix_ms {
         if now_ms < intent.created_at.0 {
@@ -207,7 +205,8 @@ pub fn evaluate_hard_policy_v1(
     }
 
     let now_ms = evaluated_at_unix_ms.expect("validated non-negative evaluation timestamp");
-    let retention_need = retention_need.expect("retention requirement evaluated after global checks");
+    let retention_need =
+        retention_need.expect("retention requirement evaluated after global checks");
     let (evidence_by_advertisement, conflicted_evidence) =
         normalize_provider_evidence(provider_evidence);
     let requirements = &intent.requirements;
@@ -240,19 +239,26 @@ pub fn evaluate_hard_policy_v1(
             reasons.push(CandidateRejectionReasonV1::ClientSideEncryptionRequired);
         }
 
-        let evidence = if conflicted_evidence.contains(&candidate.advertisement_action) {
-            reasons.push(CandidateRejectionReasonV1::ConflictingProviderPolicyEvidence);
-            None
+        let evidence = if provider_facts_required {
+            if conflicted_evidence.contains(&candidate.advertisement_action) {
+                reasons.push(CandidateRejectionReasonV1::ConflictingProviderPolicyEvidence);
+                None
+            } else {
+                evidence_by_advertisement.get(&candidate.advertisement_action)
+            }
         } else {
-            evidence_by_advertisement.get(&candidate.advertisement_action)
+            None
         };
 
-        if provider_facts_required && evidence.is_none() && reasons.iter().all(|reason| {
-            !matches!(
-                reason,
-                CandidateRejectionReasonV1::ConflictingProviderPolicyEvidence
-            )
-        }) {
+        if provider_facts_required
+            && evidence.is_none()
+            && reasons.iter().all(|reason| {
+                !matches!(
+                    reason,
+                    CandidateRejectionReasonV1::ConflictingProviderPolicyEvidence
+                )
+            })
+        {
             reasons.push(CandidateRejectionReasonV1::MissingProviderPolicyEvidence);
         }
 
@@ -379,7 +385,10 @@ pub fn evaluate_hard_policy_v1(
                     });
                     continue;
                 }
-                let value = values.into_iter().next().expect("exactly one attested domain");
+                let value = values
+                    .into_iter()
+                    .next()
+                    .expect("exactly one attested domain");
                 let provider_claims: BTreeSet<_> = candidate
                     .failure_domains
                     .iter()
