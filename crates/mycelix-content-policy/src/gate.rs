@@ -61,6 +61,31 @@ fn normalize_provider_evidence(
     (normalized, conflicted)
 }
 
+fn canonical_target_candidates<'a>(
+    state: &'a ProjectedContentStateV1,
+    target: &PlacementTargetV1,
+) -> Vec<&'a SnapshotServiceCandidateV1> {
+    let mut by_advertisement = BTreeMap::<ActionRefV1, &SnapshotServiceCandidateV1>::new();
+    for candidate in &state.service_candidates {
+        if candidate.digest != target.digest {
+            continue;
+        }
+        match by_advertisement.get(&candidate.advertisement_action) {
+            None => {
+                by_advertisement.insert(candidate.advertisement_action, candidate);
+            }
+            Some(existing)
+                if (candidate.claim_authored_at, candidate.availability_action)
+                    > (existing.claim_authored_at, existing.availability_action) =>
+            {
+                by_advertisement.insert(candidate.advertisement_action, candidate);
+            }
+            Some(_) => {}
+        }
+    }
+    by_advertisement.into_values().collect()
+}
+
 fn retention_need(
     requirement: RetentionRequirementV1,
     evaluated_at_unix_ms: u64,
@@ -221,16 +246,13 @@ pub fn evaluate_hard_policy_v1(
     let mut eligible = Vec::new();
     let mut rejections = Vec::new();
 
-    for candidate in &state.service_candidates {
+    for candidate in canonical_target_candidates(state, &target) {
         let mut reasons = Vec::new();
         if state.evaluated_at < candidate.claim_authored_at
             || state.evaluated_at >= candidate.effective_until
             || !matches!(candidate.withdrawal, WithdrawalObservationV1::NoWithdrawalObserved)
         {
             reasons.push(CandidateRejectionReasonV1::CandidateNotTemporallyLive);
-        }
-        if candidate.digest != target.digest {
-            reasons.push(CandidateRejectionReasonV1::TargetDigestMismatch);
         }
         if candidate.size_bytes != target.size_bytes {
             reasons.push(CandidateRejectionReasonV1::TargetSizeMismatch);
