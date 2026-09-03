@@ -22,12 +22,16 @@ Every lifecycle is bound to one exact `ExecutionDomain` containing:
 - exact constitutional epoch digest/profile;
 - exact executable-action digest/profile;
 - exact verified binding-tally reference;
-- exact threshold-authorization reference; and
+- exact threshold-authorization reference;
+- exact executor principal/workload identity;
+- exact executor-authority reference; and
 - exact effect-safety policy digest/profile.
 
-The effect-safety policy commits the runtime mechanism under which real-world effects are allowed, for example mandatory downstream idempotency or a trusted serialized single-writer fence. The pure kernel binds this policy but does not pretend to implement an external guarantee itself.
+The executor-authority reference is the host-verifiable institutional authority that selected the execution principal. The pure kernel does not infer execution authority from possession of a key or from being the caller.
 
-Changing any authority-bearing or effect-safety component creates a different execution domain. Old claims cannot carry forward.
+The effect-safety policy commits the runtime mechanism under which real-world effects are allowed, for example strict single-writer source-chain ordering plus mandatory downstream idempotency, or another trusted fencing service. The pure kernel binds this policy but does not pretend to implement an external guarantee itself.
+
+Changing any authority-bearing, executor, or effect-safety component creates a different execution domain. Old claims cannot carry forward.
 
 ## Append-only lifecycle
 
@@ -41,6 +45,14 @@ There is no mutable authoritative status field.
 
 There is no automatic retry transition in v0.1.
 
+## Executor binding
+
+`Claimed`, `Completed`, `Failed`, and `Uncertain` must name the exact `executor_principal` committed by the execution domain.
+
+This semantic equality is necessary but not sufficient: the host must also verify that the event was actually authorized/authenticated for that principal under `executor_authority_ref`.
+
+`Registered`, `ReadyAuthorized`, and `Cancelled` may be produced by different institutionally authorized actors because registration, admission, and cancellation are distinct powers.
+
 ## Durable pre-effect fence
 
 `Claimed` is the execution fence.
@@ -53,27 +65,38 @@ This means two concurrent claim publications from the same exact Ready authority
 
 A runtime must:
 
-1. freshly verify constitutional epoch, proposal authority, binding tally, executable action digest, threshold authority, and the exact effect-safety policy;
-2. commit the immutable claim in one successful persistence transaction;
-3. return the deterministic attempt ID only after that commit succeeds;
-4. perform external effects only in a later invocation that re-resolves the exact claim and current authority;
-5. derive downstream idempotency keys from `attempt_id + action_index` where supported; and
-6. refuse automatic effect execution when the bound safety policy cannot actually be enforced.
+1. freshly verify constitutional epoch, proposal authority, binding tally, executable action digest, threshold authority, executor authority, and the exact effect-safety policy;
+2. require the caller/workload to equal the bound executor principal;
+3. commit the immutable claim in one successful persistence transaction using strict ordering on the executor's authoritative source chain or equivalent fence;
+4. return the deterministic attempt ID only after that commit succeeds;
+5. perform external effects only in a later invocation that re-resolves the exact claim and current authority;
+6. derive downstream idempotency keys from `attempt_id + action_index` where supported; and
+7. refuse automatic effect execution when the bound safety policy cannot actually be enforced.
 
-A claim and an external effect MUST NOT be treated as one atomic operation. If an effect can occur outside the persistence transaction, the runtime must assume the effect may succeed even if later local work fails.
+A claim and an external effect MUST NOT be treated as one atomic operation. Holochain source-chain writes can be atomic within one extern, but network/external side effects are not part of that transaction. If an effect can occur outside the persistence transaction, the runtime must assume the effect may succeed even if later local work fails.
 
 ## Concurrency semantics
 
 A DHT projection alone is not a global mutex. Two callers can race before either observes the other's claim.
 
+Holochain provides a useful narrower primitive: on one agent source chain with strict ordering, concurrent writes race on the same chain head; one succeeds and another must fail/retry against the advanced head. That is suitable as one local serialization layer **only when the exact executor principal is bound and the runtime really uses that principal's authoritative chain**.
+
 Therefore v0.1 requires defense in depth:
 
-- competing verified claims ultimately freeze lifecycle projection;
+- one exact executor principal is committed by the domain;
+- strict single-writer/source-chain ordering or an explicitly equivalent fence serializes local claims;
+- competing verified claims that nevertheless appear ultimately freeze lifecycle projection;
 - all claims from the same exact Ready event derive the same deterministic attempt ID;
 - downstream idempotency keys therefore converge across such a race;
 - adapters that cannot enforce the bound effect-safety policy must refuse automatic effects rather than relying on eventual fork discovery.
 
-For non-idempotent external systems, a later runtime must use a trusted serialized/single-writer fencing mechanism committed by `effect_safety_policy` before claiming automatic-execution safety.
+For non-idempotent external systems, a runtime must use an effect-safety policy that supplies a real serialized fencing mechanism before claiming automatic-execution safety.
+
+## Countersigning is not the default fence
+
+Holochain countersigning may be useful for specific multi-party agreements, but it is currently an unstable feature and is not a general double-spend prevention mechanism. v0.1 therefore does not make countersigning the execution uniqueness primitive.
+
+A future profile may use countersigning or witnessed/enzyme workflows where appropriate, but that mechanism must be explicitly committed by the effect-safety policy and qualified independently.
 
 ## Crash semantics
 
@@ -106,10 +129,11 @@ Projection consumes the complete verified event set for one exact execution doma
 
 `Completed`, `Failed`, and `Uncertain` must:
 
-- be causal children of the exact `Claimed` event; and
+- be causal children of the exact `Claimed` event;
+- name the exact bound executor principal; and
 - reference the deterministic attempt ID derived from the claim's exact execution domain and Ready parent.
 
-A terminal event referring to another attempt is invalid even if proposal/action data look similar.
+A terminal event referring to another attempt or executor is invalid even if proposal/action data look similar.
 
 ## Legacy mutable timelock state
 
@@ -128,11 +152,13 @@ A future review/cancellation protocol may accept advisory or safety signals as i
 Before replacing mutable timelock status as the production authority source, integration tests must cover:
 
 - unauthorized direct timelock updates do not affect projected binding state;
-- two callers racing to claim produce a fail-closed ambiguity while deriving the same deterministic attempt/idempotency domain;
+- a claimant other than the exact bound executor principal is denied;
+- two concurrent strict writes by the bound executor do not both acquire independent automatic-execution authority;
+- two claim publications for one Ready event derive the same deterministic attempt/idempotency domain and ultimately fail closed if both verify;
 - a claim is durable before a mocked external effect begins;
 - crash after claim does not create an automatic second claim;
 - crash after effect but before completion produces reconciliation/uncertainty semantics rather than replay;
-- changed constitution, action digest, tally, proposal authority, threshold authority, or effect-safety policy cannot reuse an old claim;
+- changed constitution, action digest, tally, proposal authority, threshold authority, executor authority, executor principal, or effect-safety policy cannot reuse an old claim;
 - DHT reordering does not change projection;
 - missing-parent and partial verified sets deny;
 - competing terminal outcomes deny;
