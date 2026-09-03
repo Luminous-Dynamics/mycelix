@@ -54,8 +54,8 @@ impl ProfiledDigest {
 /// Everything that must remain identical for one real-world execution domain.
 ///
 /// A claim for this domain cannot be reused when the constitution, proposal
-/// authority, binding tally, threshold authorization, executable action bytes,
-/// or effect-safety policy changes.
+/// authority, binding tally, threshold authorization, designated executor,
+/// executable action bytes, or effect-safety policy changes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionDomain {
     pub protocol_version: String,
@@ -66,10 +66,16 @@ pub struct ExecutionDomain {
     pub actions: ProfiledDigest,
     pub binding_tally_ref: String,
     pub threshold_authorization_ref: String,
+    /// Exact principal/workload identity authorized to claim and report this
+    /// execution attempt. v0.1 intentionally uses one execution principal so a
+    /// host may serialize claims on one strict source chain or equivalent fence.
+    pub executor_principal: String,
+    /// Host-verifiable institutional authority that designated the executor.
+    pub executor_authority_ref: String,
     /// Commitment to the exact runtime safety policy used for external effects.
-    /// Examples include a profile requiring downstream idempotency or a trusted
-    /// single-writer fencing service. The kernel binds the policy but does not
-    /// implement the external mechanism itself.
+    /// Examples include mandatory downstream idempotency or a trusted serialized
+    /// single-writer fence. The kernel binds the policy but does not implement
+    /// the external mechanism itself.
     pub effect_safety_policy: ProfiledDigest,
 }
 
@@ -90,6 +96,11 @@ impl ExecutionDomain {
             &self.threshold_authorization_ref,
             "domain.threshold_authorization_ref",
         )?;
+        validate_text(&self.executor_principal, "domain.executor_principal")?;
+        validate_text(
+            &self.executor_authority_ref,
+            "domain.executor_authority_ref",
+        )?;
         self.effect_safety_policy
             .validate("domain.effect_safety_policy")
     }
@@ -106,6 +117,8 @@ impl ExecutionDomain {
         put_profiled_digest(&mut out, &self.actions);
         put_str(&mut out, &self.binding_tally_ref);
         put_str(&mut out, &self.threshold_authorization_ref);
+        put_str(&mut out, &self.executor_principal);
+        put_str(&mut out, &self.executor_authority_ref);
         put_profiled_digest(&mut out, &self.effect_safety_policy);
         Ok(out)
     }
@@ -207,6 +220,16 @@ impl LifecycleEventKind {
             Self::Uncertain { .. } => 5,
             Self::Cancelled { .. } => 6,
         }
+    }
+
+    fn requires_executor_actor(&self) -> bool {
+        matches!(
+            self,
+            Self::Claimed { .. }
+                | Self::Completed { .. }
+                | Self::Failed { .. }
+                | Self::Uncertain { .. }
+        )
     }
 }
 
@@ -320,6 +343,11 @@ impl VerifiedLifecycleEvent {
         let domain_digest = domain.digest()?;
         if self.event.execution_domain_digest != domain_digest {
             return Err(LifecycleError::WrongExecutionDomain);
+        }
+        if self.event.kind.requires_executor_actor()
+            && self.event.actor_id != domain.executor_principal
+        {
+            return Err(LifecycleError::ExecutorActorMismatch);
         }
         self.event.id()
     }
@@ -622,6 +650,7 @@ pub enum LifecycleError {
     ZeroDigest(&'static str),
     ZeroTimestamp,
     WrongExecutionDomain,
+    ExecutorActorMismatch,
     DigestCollisionOrConflictingDuplicate,
     InvalidRootEvent,
     NoLifecycleRoot,
@@ -654,6 +683,9 @@ impl fmt::Display for LifecycleError {
             Self::ZeroDigest(field) => write!(f, "{field} must not be the zero digest"),
             Self::ZeroTimestamp => write!(f, "event timestamp must be non-zero"),
             Self::WrongExecutionDomain => write!(f, "event belongs to another execution domain"),
+            Self::ExecutorActorMismatch => {
+                write!(f, "execution event actor differs from the bound executor principal")
+            }
             Self::DigestCollisionOrConflictingDuplicate => {
                 write!(f, "same event digest resolves to conflicting semantics")
             }
@@ -792,9 +824,11 @@ mod tests {
             },
             binding_tally_ref: "uhCkk-tally".into(),
             threshold_authorization_ref: "threshold:sig:1".into(),
+            executor_principal: "did:mycelix:executor".into(),
+            executor_authority_ref: "executor-grant:1".into(),
             effect_safety_policy: ProfiledDigest {
                 digest: digest(3),
-                profile: "mycelix-effect-safety-policy-v1".into(),
+                profile: "mycelix-effect-safety-single-writer-idempotent-v1".into(),
             },
         }
     }
@@ -805,11 +839,16 @@ mod tests {
         at: u64,
         kind: LifecycleEventKind,
     ) -> LifecycleEvent {
+        let actor_id = if kind.requires_executor_actor() {
+            domain.executor_principal.clone()
+        } else {
+            "did:mycelix:authority".into()
+        };
         LifecycleEvent {
             protocol_version: PROTOCOL_VERSION.into(),
             execution_domain_digest: domain.digest().unwrap(),
             parent_event_id: parent,
-            actor_id: "did:mycelix:actor".into(),
+            actor_id,
             occurred_at_ms: at,
             kind,
         }
@@ -881,6 +920,25 @@ mod tests {
                 event_id: claim_event_id,
                 attempt_id,
             }
+        );
+    }
+
+    #[test]
+    fn executor_events_must_use_exact_bound_principal() {
+        let (domain, mut events, ready_id) = ready_path();
+        let mut claimed = event(
+            &domain,
+            Some(ready_id),
+            3,
+            LifecycleEventKind::Claimed {
+                claim_nonce: digest(9),
+            },
+        );
+        claimed.actor_id = "did:mycelix:not-the-executor".into();
+        events.push(verified(claimed));
+        assert_eq!(
+            project_lifecycle(&domain, &events).unwrap_err(),
+            LifecycleError::ExecutorActorMismatch
         );
     }
 
@@ -1025,7 +1083,7 @@ mod tests {
         let domain = domain();
         let a = event(&domain, None, 1, LifecycleEventKind::Registered);
         let mut b = event(&domain, None, 1, LifecycleEventKind::Registered);
-        b.actor_id = "did:mycelix:other".into();
+        b.actor_id = "did:mycelix:other-authority".into();
         assert!(matches!(
             project_lifecycle(&domain, &[verified(a), verified(b)]).unwrap_err(),
             LifecycleError::AmbiguousLifecycleFork { parent: None, .. }
@@ -1127,12 +1185,19 @@ mod tests {
     }
 
     #[test]
-    fn changed_effect_safety_policy_invalidates_old_claim_domain() {
+    fn changed_executor_or_safety_policy_invalidates_old_claim_domain() {
         let (domain, events, _, _) = happy_path();
-        let mut changed = domain.clone();
-        changed.effect_safety_policy.digest = digest(88);
+        let mut changed_executor = domain.clone();
+        changed_executor.executor_principal = "did:mycelix:replacement".into();
         assert_eq!(
-            project_lifecycle(&changed, &events).unwrap_err(),
+            project_lifecycle(&changed_executor, &events).unwrap_err(),
+            LifecycleError::WrongExecutionDomain
+        );
+
+        let mut changed_policy = domain.clone();
+        changed_policy.effect_safety_policy.digest = digest(88);
+        assert_eq!(
+            project_lifecycle(&changed_policy, &events).unwrap_err(),
             LifecycleError::WrongExecutionDomain
         );
     }
