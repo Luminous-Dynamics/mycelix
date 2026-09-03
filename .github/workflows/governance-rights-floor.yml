@@ -1,0 +1,48 @@
+name: Governance Rights Floor
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-governance-rights/**'
+      - 'crates/mycelix-governance-electorate/**'
+      - 'crates/mycelix-governance-review/**'
+      - '.github/workflows/governance-rights-floor.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-governance-rights/**'
+      - 'crates/mycelix-governance-electorate/**'
+      - 'crates/mycelix-governance-review/**'
+
+jobs:
+  rights-floor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format
+        run: |
+          cargo fmt --manifest-path crates/mycelix-governance-rights/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-governance-electorate/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-governance-review/Cargo.toml -- --check
+
+      - name: Test rights kernel
+        run: cargo test --manifest-path crates/mycelix-governance-rights/Cargo.toml --all-targets
+
+      - name: Test electorate kernel
+        run: cargo test --manifest-path crates/mycelix-governance-electorate/Cargo.toml --all-targets
+
+      - name: Test governed review kernel
+        run: cargo test --manifest-path crates/mycelix-governance-review/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path crates/mycelix-governance-rights/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-governance-electorate/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-governance-review/Cargo.toml --all-targets -- -D warnings

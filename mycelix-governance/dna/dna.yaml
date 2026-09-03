@@ -14,6 +14,9 @@ integrity:
     - name: voting_integrity
       path: "../target/wasm32-unknown-unknown/release/voting_integrity.wasm"
 
+    - name: binding_voting_integrity
+      path: "../target/wasm32-unknown-unknown/release/binding_voting_integrity.wasm"
+
     - name: execution_integrity
       path: "../target/wasm32-unknown-unknown/release/execution_integrity.wasm"
 
@@ -53,6 +56,11 @@ coordinator:
       dependencies:
         - name: voting_integrity
         - name: proposals_integrity
+
+    - name: binding_voting
+      path: "../target/wasm32-unknown-unknown/release/binding_voting.wasm"
+      dependencies:
+        - name: binding_voting_integrity
 
     - name: execution
       path: "../target/wasm32-unknown-unknown/release/execution.wasm"
