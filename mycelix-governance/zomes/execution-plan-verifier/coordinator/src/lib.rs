@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Immutable execution-plan verifier for binding governance.
 //!
-//! The execution plan is derived from the exact historical Proposal create action
+//! The execution plan is derived from the exact historical Proposal version action
 //! referenced by the currently qualified ProposalAuthorityBinding. It never
 //! follows mutable Timelock state and never treats a latest Proposal update as
 //! executable-plan identity.
@@ -27,7 +27,7 @@ const MAX_REF_BYTES: usize = 2048;
 pub struct VerifiedExecutionPlan {
     pub protocol: String,
     pub proposal_id: String,
-    /// Immutable plan identity derived from the historical Proposal create action.
+    /// Immutable plan identity derived from one exact historical Proposal action.
     pub plan_ref: String,
     pub actions: String,
     pub actions_digest: Digest32,
@@ -39,7 +39,7 @@ pub struct VerifiedExecutionPlan {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecutionPlanVerifierStatus {
     pub protocol: String,
-    pub historical_create_action_required: bool,
+    pub historical_proposal_action_required: bool,
     pub proposal_authority_binding_required: bool,
     pub mutable_timelock_authority: bool,
     pub latest_proposal_update_authority: bool,
@@ -146,25 +146,22 @@ fn load_current_authority_binding(
     Ok((record, binding))
 }
 
-fn load_historical_create(binding: &ProposalAuthorityBinding) -> ExternResult<(Record, Proposal)> {
-    let record = get(
-        binding.proposal_action_hash.clone(),
-        GetOptions::default(),
-    )?
-    .ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "Proposal authority binding references a missing historical proposal action".into(),
-        ))
-    })?;
+fn load_historical_version(binding: &ProposalAuthorityBinding) -> ExternResult<(Record, Proposal)> {
+    let record = get(binding.proposal_action_hash.clone(), GetOptions::default())?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Proposal authority binding references a missing historical proposal action".into(),
+            ))
+        })?;
 
     if *record.action_address() != binding.proposal_action_hash {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Historical proposal lookup returned another action".into(),
         )));
     }
-    if !matches!(record.action(), Action::Create(_)) {
+    if !matches!(record.action(), Action::Create(_) | Action::Update(_)) {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Execution plan must originate from an immutable Proposal create action".into(),
+            "Execution plan must originate from an immutable Proposal create/update action".into(),
         )));
     }
 
@@ -181,11 +178,10 @@ fn load_historical_create(binding: &ProposalAuthorityBinding) -> ExternResult<(R
     if proposal.id != binding.context.proposal_id.as_str()
         || proposal.author != binding.proposal_author
         || proposal.status != ProposalStatus::Draft
-        || proposal.version != 1
+        || proposal.version == 0
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Historical proposal create semantics do not match the authority binding"
-                .into(),
+            "Historical Draft proposal semantics do not match the authority binding".into(),
         )));
     }
     if proposal.actions.is_empty() || proposal.actions.len() > MAX_ACTION_BYTES {
@@ -202,8 +198,7 @@ fn load_historical_create(binding: &ProposalAuthorityBinding) -> ExternResult<(R
     let expected_author = format!("did:mycelix:{}", record.action().author());
     if proposal.author != expected_author || binding.proposal_author != expected_author {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Historical Proposal create action is not author-bound to the authority binding"
-                .into(),
+            "Historical Proposal action is not author-bound to the authority binding".into(),
         )));
     }
 
@@ -212,7 +207,7 @@ fn load_historical_create(binding: &ProposalAuthorityBinding) -> ExternResult<(R
 
 fn plan_ref(proposal_action: &ActionHash, actions_digest: Digest32) -> String {
     format!(
-        "proposal-create:{}:{}:{}",
+        "proposal-version:{}:{}:{}",
         proposal_action,
         ACTIONS_DIGEST_PROFILE_V1,
         digest_hex(actions_digest),
@@ -238,7 +233,7 @@ pub fn resolve_execution_plan(proposal_id: String) -> ExternResult<VerifiedExecu
     }
 
     let (authority_record, binding) = load_current_authority_binding(&proposal_id)?;
-    let (proposal_record, proposal) = load_historical_create(&binding)?;
+    let (proposal_record, proposal) = load_historical_version(&binding)?;
     let digest = execution_authority_digest(&proposal.id, &proposal.actions);
     if digest != binding.context.actions_digest {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -249,7 +244,7 @@ pub fn resolve_execution_plan(proposal_id: String) -> ExternResult<VerifiedExecu
     let stable_plan_ref = plan_ref(proposal_record.action_address(), digest);
     require_ref(&stable_plan_ref, "execution plan ref")?;
     let verification_ref = format!(
-        "proposal-authority-binding:{};proposal-create:{}",
+        "proposal-authority-binding:{};proposal-version:{}",
         authority_record.action_address(),
         proposal_record.action_address(),
     );
@@ -272,7 +267,7 @@ pub fn resolve_execution_plan(proposal_id: String) -> ExternResult<VerifiedExecu
 pub fn get_execution_plan_verifier_status(_: ()) -> ExternResult<ExecutionPlanVerifierStatus> {
     Ok(ExecutionPlanVerifierStatus {
         protocol: PROTOCOL.into(),
-        historical_create_action_required: true,
+        historical_proposal_action_required: true,
         proposal_authority_binding_required: true,
         mutable_timelock_authority: false,
         latest_proposal_update_authority: false,
@@ -294,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn plan_ref_binds_create_action_profile_and_digest() {
+    fn plan_ref_binds_version_action_profile_and_digest() {
         let a = ActionHash::from_raw_36(vec![1; 36]);
         let b = ActionHash::from_raw_36(vec![2; 36]);
         let d1 = Digest32([3; 32]);
