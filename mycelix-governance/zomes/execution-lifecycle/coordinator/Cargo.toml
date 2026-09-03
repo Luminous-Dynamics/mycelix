@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 hdk = { workspace = true }
 serde = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
+blake3 = "1"
 execution_lifecycle_integrity = { path = "../integrity" }
 mycelix-governance-execution-lifecycle = { path = "../../../../crates/mycelix-governance-execution-lifecycle" }
 mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
