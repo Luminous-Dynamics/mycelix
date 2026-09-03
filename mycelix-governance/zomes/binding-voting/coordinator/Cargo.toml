@@ -1,0 +1,19 @@
+[package]
+name = "binding_voting"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Score-independent binding governance ballot coordinator"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+binding_voting_integrity = { path = "../integrity" }
+mycelix-governance-rights = { path = "../../../../crates/mycelix-governance-rights" }
+mycelix-governance-electorate = { path = "../../../../crates/mycelix-governance-electorate" }
+mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
