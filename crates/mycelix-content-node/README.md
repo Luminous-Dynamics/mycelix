@@ -8,7 +8,7 @@ This crate is intentionally narrower than a network node. It establishes the cra
 
 - exact-byte BLAKE3-256 and SHA-256 verification using `mycelix-content-core` identities
 - quota reservation before ingest
-- sender input bounded to expected size + 1 byte
+- at most the declared byte length is ever written for an ingest; one additional sender byte is probed only to detect oversize input
 - same-filesystem staging
 - file `sync_all()` before promotion
 - read-only immutable final files
@@ -18,7 +18,9 @@ This crate is intentionally narrower than a network node. It establishes the cra
 - single-process ownership of a CAS root through an exclusive lock
 - interrupted staging files are removed at startup
 - startup rejects symlinks, writable immutable files, malformed digest names, and unexpected tree entries
+- Unix verified reads use `O_NOFOLLOW` for the final blob path
 - verified reads return the same file handle that was hashed and rewound
+- digest-only verified retrieval derives the byte length from the opened handle, so content-addressed callers do not need a separate size database
 - full-store audit re-hashes every stored blob
 - quota usage is reconstructed from immutable files after restart
 
@@ -41,16 +43,21 @@ The caller supplies a `BlobDescriptorV1` and a `Read` stream. The CAS:
 
 1. checks for an already-present, independently verified immutable blob;
 2. reserves the declared byte size against quota;
-3. streams into a temporary file under `staging/` while hashing;
-4. reads at most the declared length plus one byte;
-5. rejects truncation, oversize streams, or digest mismatch;
-6. fsyncs the staged bytes;
-7. marks the file read-only;
-8. promotes without clobbering an existing digest path;
-9. moves the reserved bytes into used accounting immediately;
-10. fsyncs the final algorithm directory and staging directory on Unix.
+3. streams at most that exact byte count into a temporary file under `staging/` while hashing;
+4. rejects truncation, probes one non-persisted extra byte to reject oversize streams, and rejects digest mismatch;
+5. fsyncs the staged bytes;
+6. marks the file read-only;
+7. promotes without clobbering an existing digest path;
+8. moves the reserved bytes into used accounting immediately;
+9. fsyncs the final algorithm directory and staging directory on Unix.
 
 A failed ingest cannot make a partial blob addressable.
+
+## Retrieval contract
+
+`open_verified_digest()` accepts only `ContentDigestV1`. It resolves the canonical digest path, rejects invalid mutable/symlink state, opens with `O_NOFOLLOW` on Unix, derives size from that opened handle, re-hashes the full file, rewinds the same verified handle, and returns `VerifiedBlobV1`.
+
+`open_verified()` additionally checks a caller-provided `BlobDescriptorV1` size before returning the underlying verified file handle.
 
 ## Validation
 
