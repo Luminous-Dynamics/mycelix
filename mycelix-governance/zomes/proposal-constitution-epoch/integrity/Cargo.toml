@@ -1,0 +1,14 @@
+[package]
+name = "proposal_constitution_epoch_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Immutable constitutional-epoch binding for governance proposals"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
