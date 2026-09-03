@@ -1,0 +1,37 @@
+name: Accountability Bundle
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-accountability-core/**"
+      - "crates/mycelix-accountability-verifier/**"
+      - "crates/mycelix-accountability-trust/**"
+      - "crates/mycelix-accountability-bundle/**"
+      - ".github/workflows/accountability-bundle.yml"
+  push:
+    branches:
+      - "sif/pre-witness-evidence-bundle-v0.1"
+    paths:
+      - "crates/mycelix-accountability-core/**"
+      - "crates/mycelix-accountability-verifier/**"
+      - "crates/mycelix-accountability-trust/**"
+      - "crates/mycelix-accountability-bundle/**"
+      - ".github/workflows/accountability-bundle.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  accountability-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --check --manifest-path crates/mycelix-accountability-bundle/Cargo.toml
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-accountability-bundle/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-accountability-bundle/Cargo.toml --all-targets -- -D warnings
