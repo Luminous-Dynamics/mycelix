@@ -4,15 +4,21 @@ on:
   pull_request:
     paths:
       - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-content-core/**'
       - '.github/workflows/content-fabric.yml'
   push:
     branches: [main]
     paths:
       - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-content-core/**'
       - '.github/workflows/content-fabric.yml'
 
 permissions:
   contents: read
+
+concurrency:
+  group: content-fabric-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,3 +42,22 @@ jobs:
         run: cargo clippy --manifest-path crates/mycelix-infrastructure-types/Cargo.toml --all-targets -- -D warnings
       - name: Test
         run: cargo test --manifest-path crates/mycelix-infrastructure-types/Cargo.toml --all-targets
+
+  content-core:
+    name: CF-02 content core
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-core
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-core/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-core/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-core/Cargo.toml --all-targets
