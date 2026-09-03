@@ -129,7 +129,7 @@ fn require_record<T>(
     proposal_id: &str,
 ) -> ExternResult<(Record, T)>
 where
-    T: for<'de> Deserialize<'de> + SerializedBytes,
+    T: TryFrom<SerializedBytes, Error = SerializedBytesError>,
 {
     let record: Record = call_local::<_, Option<Record>>(zome, function, proposal_id.to_string())?
         .ok_or_else(|| {
