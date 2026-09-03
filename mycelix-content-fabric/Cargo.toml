@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "zomes/content-fabric/integrity",
+    "zomes/content-fabric/coordinator",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+hdk = "0.6.0"
+hdi = "0.7.0"
+holochain_serialized_bytes = "0.0.57"
+serde = { version = "1", features = ["derive"] }
+hex = "0.4"
+ed25519-dalek = { version = "2", default-features = false }
+
+[profile.dev]
+opt-level = "z"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false

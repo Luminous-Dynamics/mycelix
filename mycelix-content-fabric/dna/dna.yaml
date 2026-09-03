@@ -1,0 +1,17 @@
+---
+manifest_version: "0"
+name: mycelix_content_fabric
+
+integrity:
+  network_seed: "mycelix-content-fabric-v1"
+  properties: ~
+  zomes:
+    - name: content_fabric_integrity
+      path: ../target/wasm32-unknown-unknown/release/content_fabric_integrity.wasm
+
+coordinator:
+  zomes:
+    - name: content_fabric
+      path: ../target/wasm32-unknown-unknown/release/content_fabric.wasm
+      dependencies:
+        - name: content_fabric_integrity
