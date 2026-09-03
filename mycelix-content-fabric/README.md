@@ -13,6 +13,14 @@ It intentionally does **not** store bulk content, grant transport reads, create 
 
 All application entries and Content Fabric index links are append-only. Current state is derived from historical actions, TTLs, and withdrawals.
 
+## Fresh endpoint binding
+
+Call `get_provider_binding_context(())` immediately before creating an advertisement. It returns the calling Holochain agent and current source-chain head. The Iroh endpoint signs that chain head together with the complete advertised capability body.
+
+`publish_provider_advertisement` must be the next source-chain write. Integrity validation independently requires the signed `binding_prev_action` to equal the advertisement Create action's `prev_action`.
+
+An endpoint proof is therefore single-use at one chain position: replaying an old signed advertisement after the source chain advances fails validation.
+
 ## Trust boundaries
 
 Endpoint-key possession is cryptographically verified. Provider failure-domain labels remain self-claims and cannot alone satisfy independence policy. Availability claims are not content-integrity proof. `VerifiedComplete` is an observer statement, not universal truth.
