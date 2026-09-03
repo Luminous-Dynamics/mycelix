@@ -271,6 +271,13 @@ pub fn evaluate_hard_policy_v1(
             {
                 reasons.push(CandidateRejectionReasonV1::ProviderEvidenceIdentityMismatch);
             }
+            if evidence.valid_from_unix_ms >= evidence.valid_until_unix_ms {
+                reasons.push(CandidateRejectionReasonV1::InvalidProviderPolicyEvidenceWindow);
+            } else if now_ms < evidence.valid_from_unix_ms
+                || now_ms >= evidence.valid_until_unix_ms
+            {
+                reasons.push(CandidateRejectionReasonV1::ProviderPolicyEvidenceNotCurrent);
+            }
 
             if jurisdiction_constrained {
                 let all_jurisdiction_facts = &evidence.storage_jurisdictions;
