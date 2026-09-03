@@ -8,7 +8,8 @@
 //! candidates that cannot satisfy hard policy and validates selected subsets.
 
 mod gate;
+mod manifest_gate;
 mod model;
 
-pub use gate::evaluate_hard_policy_v1;
+pub use manifest_gate::evaluate_hard_policy_v1;
 pub use model::*;
