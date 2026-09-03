@@ -7,9 +7,9 @@ use mycelix_content_core::{
 };
 use mycelix_content_policy::*;
 use mycelix_content_state::{
-    ActionRefV1, AgentRefV1, EvidenceSnapshotV1, FailureDomainClaimEvidenceV1,
-    ProjectedContentStateV1, SnapshotCoverageV1, SnapshotServiceCandidateV1,
-    TimestampMicrosV1, WithdrawalObservationV1,
+    ActionRefV1, AgentRefV1, FailureDomainClaimEvidenceV1, ProjectedContentStateV1,
+    SnapshotCoverageV1, SnapshotServiceCandidateV1, TimestampMicrosV1,
+    WithdrawalObservationV1,
 };
 use mycelix_infrastructure_types::{PartyIdV1, UnixMillisV1};
 use proptest::prelude::*;
@@ -102,7 +102,10 @@ fn candidate(
     }
 }
 
-fn state(coverage: SnapshotCoverageV1, candidates: Vec<SnapshotServiceCandidateV1>) -> ProjectedContentStateV1 {
+fn state(
+    coverage: SnapshotCoverageV1,
+    candidates: Vec<SnapshotServiceCandidateV1>,
+) -> ProjectedContentStateV1 {
     ProjectedContentStateV1 {
         evaluated_at: TimestampMicrosV1(10_000_000),
         coverage,
@@ -124,6 +127,8 @@ fn policy_evidence(
     ProviderPolicyEvidenceV1 {
         advertisement: action(advertisement),
         provider: agent(provider),
+        valid_from_unix_ms: 0,
+        valid_until_unix_ms: 60_000,
         storage_jurisdictions: vec![AssuredJurisdictionV1 {
             jurisdiction: JurisdictionV1::new(jurisdiction).unwrap(),
             assurance,
@@ -170,7 +175,10 @@ fn strict_gate_refuses_partial_snapshot() {
         HardPolicyGateConfigV1::strict(),
     );
     assert!(result.qualified_pool.is_none());
-    assert_eq!(result.failures, vec![PoolFailureV1::SnapshotCoverageInsufficient]);
+    assert_eq!(
+        result.failures,
+        vec![PoolFailureV1::SnapshotCoverageInsufficient]
+    );
 }
 
 #[test]
@@ -204,6 +212,41 @@ fn self_claimed_jurisdiction_cannot_satisfy_strict_gate() {
     assert!(result.rejections[0]
         .reasons
         .contains(&CandidateRejectionReasonV1::InsufficientJurisdictionAssurance));
+}
+
+#[test]
+fn stale_policy_evidence_fails_closed() {
+    let intent = intent(requirements(
+        1,
+        Vec::new(),
+        &["ZA"],
+        &[],
+        EncryptionRequirementV1::NotRequired,
+        RetentionRequirementV1::BestEffort,
+    ));
+    let mut evidence = policy_evidence(
+        11,
+        21,
+        PolicyAssuranceV1::IndependentlyAttested,
+        "ZA",
+        "site-a",
+        "operator-a",
+    );
+    evidence.valid_until_unix_ms = 10_000;
+    let result = evaluate_hard_policy_v1(
+        &intent,
+        target(false),
+        &state(
+            SnapshotCoverageV1::QueriedIndexesComplete,
+            vec![candidate(1, 11, 21, "site-a", "operator-a")],
+        ),
+        vec![evidence],
+        HardPolicyGateConfigV1::strict(),
+    );
+    assert!(result.qualified_pool.is_none());
+    assert!(result.rejections[0]
+        .reasons
+        .contains(&CandidateRejectionReasonV1::ProviderPolicyEvidenceNotCurrent));
 }
 
 #[test]
@@ -298,9 +341,30 @@ fn pool_requires_distinct_independently_attested_failure_domains() {
         ],
     );
     let evidence = vec![
-        policy_evidence(11, 21, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-a", "operator-a"),
-        policy_evidence(12, 22, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-a", "operator-b"),
-        policy_evidence(13, 23, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-b", "operator-c"),
+        policy_evidence(
+            11,
+            21,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-a",
+            "operator-a",
+        ),
+        policy_evidence(
+            12,
+            22,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-a",
+            "operator-b",
+        ),
+        policy_evidence(
+            13,
+            23,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-b",
+            "operator-c",
+        ),
     ];
     let result = evaluate_hard_policy_v1(
         &intent,
@@ -332,9 +396,30 @@ fn selection_validator_rejects_a_policy_bad_subset() {
         ],
     );
     let evidence = vec![
-        policy_evidence(11, 21, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-a", "operator-a"),
-        policy_evidence(12, 22, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-a", "operator-b"),
-        policy_evidence(13, 23, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-b", "operator-c"),
+        policy_evidence(
+            11,
+            21,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-a",
+            "operator-a",
+        ),
+        policy_evidence(
+            12,
+            22,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-a",
+            "operator-b",
+        ),
+        policy_evidence(
+            13,
+            23,
+            PolicyAssuranceV1::IndependentlyAttested,
+            "ZA",
+            "site-b",
+            "operator-c",
+        ),
     ];
     let pool = evaluate_hard_policy_v1(
         &intent,
@@ -359,7 +444,10 @@ fn selection_validator_rejects_a_policy_bad_subset() {
 
 proptest! {
     #[test]
-    fn input_order_does_not_change_policy_result(reverse_candidates in any::<bool>(), reverse_evidence in any::<bool>()) {
+    fn input_order_does_not_change_policy_result(
+        reverse_candidates in any::<bool>(),
+        reverse_evidence in any::<bool>()
+    ) {
         let intent = intent(requirements(
             2,
             vec![(FailureDomainKindV1::Site, 2)],
@@ -373,18 +461,39 @@ proptest! {
             candidate(2, 12, 22, "site-b", "operator-b"),
         ];
         let mut evidence = vec![
-            policy_evidence(11, 21, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-a", "operator-a"),
-            policy_evidence(12, 22, PolicyAssuranceV1::IndependentlyAttested, "ZA", "site-b", "operator-b"),
+            policy_evidence(
+                11,
+                21,
+                PolicyAssuranceV1::IndependentlyAttested,
+                "ZA",
+                "site-a",
+                "operator-a",
+            ),
+            policy_evidence(
+                12,
+                22,
+                PolicyAssuranceV1::IndependentlyAttested,
+                "ZA",
+                "site-b",
+                "operator-b",
+            ),
         ];
         let baseline = evaluate_hard_policy_v1(
             &intent,
             target(false),
-            &state(SnapshotCoverageV1::QueriedIndexesComplete, candidates.clone()),
+            &state(
+                SnapshotCoverageV1::QueriedIndexesComplete,
+                candidates.clone(),
+            ),
             evidence.clone(),
             HardPolicyGateConfigV1::strict(),
         );
-        if reverse_candidates { candidates.reverse(); }
-        if reverse_evidence { evidence.reverse(); }
+        if reverse_candidates {
+            candidates.reverse();
+        }
+        if reverse_evidence {
+            evidence.reverse();
+        }
         let permuted = evaluate_hard_policy_v1(
             &intent,
             target(false),
@@ -395,6 +504,3 @@ proptest! {
         prop_assert_eq!(baseline, permuted);
     }
 }
-
-#[allow(dead_code)]
-fn _snapshot_type_anchor(_: EvidenceSnapshotV1) {}
