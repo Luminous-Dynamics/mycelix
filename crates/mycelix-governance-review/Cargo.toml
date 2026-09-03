@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-governance-review"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Governed review boundary between advisory signals and binding Mycelix governance outcomes"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+
+[dev-dependencies]
+serde_json = "1.0"

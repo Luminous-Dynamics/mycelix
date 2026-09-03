@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-governance-electorate"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Immutable electorate snapshots and membership verification bindings for Mycelix governance"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-governance-rights = { path = "../mycelix-governance-rights" }
+
+[dev-dependencies]
+serde_json = "1.0"
