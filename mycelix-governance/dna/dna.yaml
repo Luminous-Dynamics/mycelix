@@ -4,6 +4,13 @@ name: mycelix_governance_dna
 
 integrity:
   network_seed: "mycelix-governance-v1"
+  # SECURITY: binding constitutional authority is intentionally unprovisioned in
+  # source control. A deployment must replace this null with an exact
+  # ConstitutionGenesisManifest before packing/installing the governance DNA.
+  # DNA properties are integrity modifiers, so that manifest becomes part of the
+  # resulting network identity. constitution_authority rejects genesis while null.
+  properties:
+    governance_constitution: null
   zomes:
     - name: proposals_integrity
       path: "../target/wasm32-unknown-unknown/release/proposals_integrity.wasm"
@@ -22,6 +29,9 @@ integrity:
 
     - name: constitution_integrity
       path: "../target/wasm32-unknown-unknown/release/constitution_integrity.wasm"
+
+    - name: constitution_authority_integrity
+      path: "../target/wasm32-unknown-unknown/release/constitution_authority_integrity.wasm"
 
     - name: governance_bridge_integrity
       path: "../target/wasm32-unknown-unknown/release/governance_bridge_integrity.wasm"
@@ -72,6 +82,11 @@ coordinator:
       path: "../target/wasm32-unknown-unknown/release/constitution.wasm"
       dependencies:
         - name: constitution_integrity
+
+    - name: constitution_authority
+      path: "../target/wasm32-unknown-unknown/release/constitution_authority.wasm"
+      dependencies:
+        - name: constitution_authority_integrity
 
     - name: governance_bridge
       path: "../target/wasm32-unknown-unknown/release/governance_bridge.wasm"
