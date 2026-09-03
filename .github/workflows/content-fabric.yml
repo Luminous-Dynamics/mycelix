@@ -1,0 +1,38 @@
+name: Content Fabric CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - '.github/workflows/content-fabric.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - '.github/workflows/content-fabric.yml'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  infrastructure-types:
+    name: CF-01 infrastructure types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-infrastructure-types
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-infrastructure-types/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-infrastructure-types/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-infrastructure-types/Cargo.toml --all-targets
