@@ -15,6 +15,4 @@ holochain_serialized_bytes = { workspace = true }
 proposal_constitution_epoch_integrity = { path = "../integrity" }
 mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
 mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
-mycelix-governance-rights = { path = "../../../../crates/mycelix-governance-rights" }
 mycelix-governance-electorate = { path = "../../../../crates/mycelix-governance-electorate" }
-mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
