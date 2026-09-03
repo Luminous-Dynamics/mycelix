@@ -18,6 +18,10 @@ on:
       - "crates/mycelix-accountability-bundle/**"
       - ".github/workflows/accountability-bundle.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
