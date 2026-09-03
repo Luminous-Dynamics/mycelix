@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-content-planner-protocol"
+version = "0.1.0"
+edition = "2024"
+description = "Versioned external-planner protocol for Mycelix Content Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+mycelix-content-core = { path = "../mycelix-content-core" }
+mycelix-content-planner = { path = "../mycelix-content-planner" }
+mycelix-content-policy = { path = "../mycelix-content-policy" }
+mycelix-content-state = { path = "../mycelix-content-state" }
+
+[dev-dependencies]
+mycelix-infrastructure-types = { path = "../mycelix-infrastructure-types" }
