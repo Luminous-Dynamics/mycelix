@@ -16,12 +16,13 @@ The hApp answers discovery questions such as:
 
 It does not answer authorization, lease, payment, placement, or content-truth questions.
 
-## Endpoint binding
+## Fresh endpoint binding
 
 Every `ProviderAdvertisementV1` contains an Ed25519 Iroh endpoint public key and signature. The endpoint signs a serializer-independent, domain-separated preimage committing to:
 
 - schema version;
 - Holochain provider agent public key;
+- the provider source-chain head immediately before the advertisement;
 - Iroh endpoint public key;
 - `mycelix/content/1` ALPN;
 - maximum blob size;
@@ -29,13 +30,19 @@ Every `ProviderAdvertisementV1` contains an Ed25519 Iroh endpoint public key and
 - canonical supported digest algorithms;
 - canonical self-claimed failure-domain labels.
 
-A valid signature establishes control of the advertised endpoint key. It does not establish that the endpoint is reachable, trustworthy, authorized to serve a digest, or independent of another provider.
+The coordinator exposes `get_provider_binding_context(())` to obtain the exact provider identity and current chain head that the endpoint must sign. `publish_provider_advertisement` performs no chain write before the advertisement itself.
 
-## Availability privacy
+Integrity validation requires `binding_prev_action` to equal the advertisement Create action's `prev_action`. The endpoint proof is therefore single-use at one Holochain chain position; replaying the same signed advertisement after the provider chain advances fails validation.
+
+A valid fresh signature establishes control of the advertised endpoint key at the signed chain context. It does not establish that the endpoint is reachable, trustworthy, authorized to serve a digest, or independent of another provider.
+
+## Availability privacy and effective lifetime
 
 `ContentAvailabilityClaimV1` is opt-in discoverability. Private/restricted replicas MAY remain completely absent from digest indexes. Absence of a claim means only "not advertised".
 
 Publishing an availability claim does not create a CF-04 `ReadAuthorizerV1` grant.
+
+An availability claim is usable only while **both** its own TTL and its referenced provider advertisement remain active. Effective validity is the intersection of those lifetimes and ends immediately if the advertisement is withdrawn. The integrity layer bounds the claim TTL by the parent TTL value; the later projection layer evaluates actual action timestamps.
 
 ## Append-only evidence
 
