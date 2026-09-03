@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use mycelix_content_core::{
-    ContentDigestV1, DigestAlgorithmV1, EncryptionRequirementV1, FailureDomainPolicyV1,
-    ObjectIdV1, PlacementPreferencesV1, PlacementRequirementsV1, RetentionRequirementV1,
-    StorageClassV1, StorageIntentV1,
+    BlobDescriptorV1, ContentDigestV1, DigestAlgorithmV1, EncryptionRequirementV1,
+    FailureDomainPolicyV1, ObjectManifestV1, PlacementPreferencesV1, PlacementRequirementsV1,
+    RetentionRequirementV1, StorageClassV1, StorageIntentV1,
 };
 use mycelix_content_policy::{
     evaluate_hard_policy_v1, HardPolicyGateConfigV1, PlacementTargetV1, PoolFailureV1,
@@ -30,9 +30,21 @@ fn unrelated_digest() -> ContentDigestV1 {
     ContentDigestV1::compute(DigestAlgorithmV1::Blake3_256, b"unrelated")
 }
 
+fn manifest() -> ObjectManifestV1 {
+    ObjectManifestV1::new(
+        vec![BlobDescriptorV1 {
+            digest: target_digest(),
+            size_bytes: 100,
+            media_type: None,
+        }],
+        None,
+    )
+    .unwrap()
+}
+
 fn intent(minimum_replicas: u16) -> StorageIntentV1 {
     StorageIntentV1::new(
-        ObjectIdV1([7; 32]),
+        manifest().id,
         PartyIdV1([8; 32]),
         StorageClassV1::Durable,
         PlacementRequirementsV1::new(
@@ -84,25 +96,37 @@ fn state(candidates: Vec<SnapshotServiceCandidateV1>) -> ProjectedContentStateV1
 
 fn target() -> PlacementTargetV1 {
     PlacementTargetV1 {
-        object_id: ObjectIdV1([7; 32]),
+        object_id: manifest().id,
         digest: target_digest(),
         size_bytes: 100,
         client_side_encrypted: false,
     }
 }
 
+fn run(
+    minimum_replicas: u16,
+    candidates: Vec<SnapshotServiceCandidateV1>,
+) -> mycelix_content_policy::HardPolicyEvaluationV1 {
+    let manifest = manifest();
+    evaluate_hard_policy_v1(
+        &intent(minimum_replicas),
+        &manifest,
+        target(),
+        &state(candidates),
+        Vec::new(),
+        HardPolicyGateConfigV1::strict(),
+    )
+}
+
 #[test]
 fn renewed_claims_from_one_advertisement_count_as_one_replica() {
-    let result = evaluate_hard_policy_v1(
-        &intent(2),
-        target(),
-        &state(vec![
+    let result = run(
+        2,
+        vec![
             candidate(1, 11, 21, target_digest(), 2_000_000),
             candidate(2, 11, 21, target_digest(), 3_000_000),
             candidate(3, 12, 22, unrelated_digest(), 4_000_000),
-        ]),
-        Vec::new(),
-        HardPolicyGateConfigV1::strict(),
+        ],
     );
 
     assert!(result.qualified_pool.is_none());
@@ -117,15 +141,12 @@ fn renewed_claims_from_one_advertisement_count_as_one_replica() {
 
 #[test]
 fn newest_live_claim_is_the_canonical_candidate_for_an_advertisement() {
-    let result = evaluate_hard_policy_v1(
-        &intent(1),
-        target(),
-        &state(vec![
+    let result = run(
+        1,
+        vec![
             candidate(1, 11, 21, target_digest(), 2_000_000),
             candidate(2, 11, 21, target_digest(), 3_000_000),
-        ]),
-        Vec::new(),
-        HardPolicyGateConfigV1::strict(),
+        ],
     );
 
     let pool = result.qualified_pool.expect("one advertisement is one replica");
