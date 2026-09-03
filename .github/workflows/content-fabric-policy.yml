@@ -1,0 +1,48 @@
+name: Content Fabric Hard Policy CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-policy/**'
+      - 'crates/mycelix-content-state/**'
+      - 'crates/mycelix-content-core/**'
+      - 'docs/content-fabric/HARD_POLICY_GATE_V1.md'
+      - '.github/workflows/content-fabric-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-policy/**'
+      - 'crates/mycelix-content-state/**'
+      - 'crates/mycelix-content-core/**'
+      - 'docs/content-fabric/HARD_POLICY_GATE_V1.md'
+      - '.github/workflows/content-fabric-policy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  hard-policy:
+    name: CF-06A hard policy gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-policy
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-policy/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-policy/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-policy/Cargo.toml --all-targets
