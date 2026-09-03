@@ -1,0 +1,44 @@
+name: Content Fabric Iroh CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-iroh/**'
+      - 'docs/content-fabric/IROH_TRANSPORT_V1.md'
+      - '.github/workflows/content-fabric-iroh.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-iroh/**'
+      - 'docs/content-fabric/IROH_TRANSPORT_V1.md'
+      - '.github/workflows/content-fabric-iroh.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-iroh-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  content-iroh:
+    name: CF-04 Iroh transport
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-iroh
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-iroh/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-iroh/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-iroh/Cargo.toml --all-targets
