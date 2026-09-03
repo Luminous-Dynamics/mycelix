@@ -9,6 +9,7 @@ use axum::{
     http::{
         header::{
             ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG, RANGE,
+            RETRY_AFTER,
         },
         HeaderMap, HeaderName, HeaderValue, StatusCode,
     },
@@ -32,6 +33,7 @@ use crate::{
 };
 
 const X_CONTENT_TYPE_OPTIONS: HeaderName = HeaderName::from_static("x-content-type-options");
+const MAX_VERIFICATION_CONCURRENCY_V1: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct HttpConfigV1 {
@@ -54,6 +56,12 @@ impl HttpConfigV1 {
         if self.max_concurrent_verifications == 0 {
             return Err(HttpFacadeErrorV1::ZeroVerificationConcurrency);
         }
+        if self.max_concurrent_verifications > MAX_VERIFICATION_CONCURRENCY_V1 {
+            return Err(HttpFacadeErrorV1::VerificationConcurrencyTooHigh {
+                requested: self.max_concurrent_verifications,
+                maximum: MAX_VERIFICATION_CONCURRENCY_V1,
+            });
+        }
         Ok(())
     }
 }
@@ -71,6 +79,7 @@ enum ApiErrorV1 {
     RangeNotSatisfiable { size_bytes: u64 },
     IntegrityFailure,
     StorageUnavailable,
+    VerificationBusy,
     VerificationTaskFailed,
 }
 
@@ -98,6 +107,17 @@ impl IntoResponse for ApiErrorV1 {
                 "local content storage unavailable",
             )
                 .into_response(),
+            Self::VerificationBusy => {
+                let mut response = (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "content verification capacity is busy",
+                )
+                    .into_response();
+                response
+                    .headers_mut()
+                    .insert(RETRY_AFTER, HeaderValue::from_static("1"));
+                response
+            }
             Self::VerificationTaskFailed => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }
@@ -209,9 +229,8 @@ async fn verify_digest(
     let _permit = state
         .verification_slots
         .clone()
-        .acquire_owned()
-        .await
-        .map_err(|_| ApiErrorV1::VerificationTaskFailed)?;
+        .try_acquire_owned()
+        .map_err(|_| ApiErrorV1::VerificationBusy)?;
     let cas = state.cas.clone();
     tokio::task::spawn_blocking(move || cas.open_verified_digest(digest))
         .await
@@ -452,6 +471,31 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
+    #[tokio::test]
+    async fn saturated_verification_capacity_fails_fast() {
+        let dir = tempfile::tempdir().unwrap();
+        let cas = LocalCasV1::open(mycelix_content_node::CasConfigV1::new(dir.path(), 4096))
+            .unwrap();
+        let descriptor =
+            BlobDescriptorV1::from_bytes(DigestAlgorithmV1::Blake3_256, b"busy", None);
+        cas.put(&descriptor, &b"busy"[..]).unwrap();
+        let state = AppStateV1 {
+            cas: Arc::new(cas),
+            verification_slots: Arc::new(Semaphore::new(1)),
+        };
+        let _held = state
+            .verification_slots
+            .clone()
+            .acquire_owned()
+            .await
+            .unwrap();
+        let error = verify_digest(&state, descriptor.digest).await.unwrap_err();
+        assert!(matches!(error, ApiErrorV1::VerificationBusy));
+        let response = error.into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers()[RETRY_AFTER], "1");
+    }
+
     #[test]
     fn public_bind_is_fail_closed() {
         let config = HttpConfigV1 {
@@ -461,6 +505,18 @@ mod tests {
         assert!(matches!(
             config.validate(),
             Err(HttpFacadeErrorV1::NonLoopbackBind(_))
+        ));
+    }
+
+    #[test]
+    fn excessive_verification_parallelism_is_rejected() {
+        let config = HttpConfigV1 {
+            bind_addr: "127.0.0.1:8080".parse().unwrap(),
+            max_concurrent_verifications: MAX_VERIFICATION_CONCURRENCY_V1 + 1,
+        };
+        assert!(matches!(
+            config.validate(),
+            Err(HttpFacadeErrorV1::VerificationConcurrencyTooHigh { .. })
         ));
     }
 }

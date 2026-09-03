@@ -8,6 +8,8 @@ pub enum HttpFacadeErrorV1 {
     NonLoopbackBind(SocketAddr),
     #[error("verification concurrency must be at least one")]
     ZeroVerificationConcurrency,
+    #[error("verification concurrency {requested} exceeds v0.1 maximum {maximum}")]
+    VerificationConcurrencyTooHigh { requested: usize, maximum: usize },
     #[error("failed to bind content HTTP listener at {addr}: {source}")]
     Bind {
         addr: SocketAddr,
