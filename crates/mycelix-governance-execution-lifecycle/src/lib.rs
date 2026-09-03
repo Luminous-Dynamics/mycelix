@@ -21,11 +21,13 @@ use std::fmt;
 pub const PROTOCOL_VERSION: &str = "mycelix-governance-execution-lifecycle-v0.1";
 pub const DOMAIN_PROFILE: &str = "mycelix-governance-execution-domain-v1-blake3-framed";
 pub const EVENT_PROFILE: &str = "mycelix-governance-execution-event-v1-blake3-framed";
+pub const ATTEMPT_PROFILE: &str = "mycelix-governance-execution-attempt-v1-blake3-framed";
 pub const IDEMPOTENCY_PROFILE: &str =
     "mycelix-governance-execution-idempotency-v1-blake3-framed";
 
 const DOMAIN_DOMAIN: &[u8] = b"mycelix/governance/execution-domain/v1";
 const DOMAIN_EVENT: &[u8] = b"mycelix/governance/execution-event/v1";
+const DOMAIN_ATTEMPT: &[u8] = b"mycelix/governance/execution-attempt/v1";
 const DOMAIN_IDEMPOTENCY: &[u8] = b"mycelix/governance/execution-idempotency/v1";
 const MAX_TEXT_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
@@ -52,8 +54,8 @@ impl ProfiledDigest {
 /// Everything that must remain identical for one real-world execution domain.
 ///
 /// A claim for this domain cannot be reused when the constitution, proposal
-/// authority, binding tally, threshold authorization, or executable action bytes
-/// change.
+/// authority, binding tally, threshold authorization, executable action bytes,
+/// or effect-safety policy changes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionDomain {
     pub protocol_version: String,
@@ -64,6 +66,11 @@ pub struct ExecutionDomain {
     pub actions: ProfiledDigest,
     pub binding_tally_ref: String,
     pub threshold_authorization_ref: String,
+    /// Commitment to the exact runtime safety policy used for external effects.
+    /// Examples include a profile requiring downstream idempotency or a trusted
+    /// single-writer fencing service. The kernel binds the policy but does not
+    /// implement the external mechanism itself.
+    pub effect_safety_policy: ProfiledDigest,
 }
 
 impl ExecutionDomain {
@@ -82,7 +89,9 @@ impl ExecutionDomain {
         validate_text(
             &self.threshold_authorization_ref,
             "domain.threshold_authorization_ref",
-        )
+        )?;
+        self.effect_safety_policy
+            .validate("domain.effect_safety_policy")
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, LifecycleError> {
@@ -97,6 +106,7 @@ impl ExecutionDomain {
         put_profiled_digest(&mut out, &self.actions);
         put_str(&mut out, &self.binding_tally_ref);
         put_str(&mut out, &self.threshold_authorization_ref);
+        put_profiled_digest(&mut out, &self.effect_safety_policy);
         Ok(out)
     }
 
@@ -120,7 +130,9 @@ pub enum LifecycleEventKind {
     Registered,
     /// Current constitutional/tally/threshold authority admitted execution.
     ReadyAuthorized { preflight_ref: String },
-    /// Durable pre-effect fence. This event's own ID becomes the attempt ID.
+    /// Durable pre-effect fence. Competing claims from the same exact Ready event
+    /// intentionally share one deterministic attempt ID even when publication
+    /// metadata or claim nonce differs.
     Claimed { claim_nonce: Digest32 },
     /// All externally relevant effects completed with durable evidence.
     Completed {
@@ -358,6 +370,37 @@ impl LifecycleState {
     }
 }
 
+/// Deterministic attempt identity for one exact execution domain and one exact
+/// Ready authorization event.
+///
+/// Unlike the claim event ID, this intentionally excludes claim publisher,
+/// timestamp, and nonce. Two concurrent claims racing from the same exact Ready
+/// event therefore derive the same downstream idempotency domain even though the
+/// lifecycle projector still treats the competing claim events as a fork.
+pub fn execution_attempt_id(
+    domain: &ExecutionDomain,
+    ready_event_id: Digest32,
+) -> Result<Digest32, LifecycleError> {
+    let domain_digest = domain.digest()?;
+    attempt_id_from_digest(domain_digest, ready_event_id)
+}
+
+fn attempt_id_from_digest(
+    execution_domain_digest: Digest32,
+    ready_event_id: Digest32,
+) -> Result<Digest32, LifecycleError> {
+    require_digest(
+        execution_domain_digest,
+        "attempt.execution_domain_digest",
+    )?;
+    require_digest(ready_event_id, "attempt.ready_event_id")?;
+    let mut out = Vec::new();
+    put_domain(&mut out, DOMAIN_ATTEMPT);
+    put_digest(&mut out, execution_domain_digest);
+    put_digest(&mut out, ready_event_id);
+    Ok(hash(&out))
+}
+
 /// Deterministically project the complete verified event set.
 ///
 /// Security properties:
@@ -373,6 +416,7 @@ pub fn project_lifecycle(
     events: &[VerifiedLifecycleEvent],
 ) -> Result<LifecycleState, LifecycleError> {
     domain.validate()?;
+    let domain_digest = domain.digest()?;
 
     let mut unique: BTreeMap<DigestKey, (Digest32, &VerifiedLifecycleEvent)> = BTreeMap::new();
     for verified in events {
@@ -475,7 +519,7 @@ pub fn project_lifecycle(
             return Err(LifecycleError::CycleDetected);
         }
 
-        state = apply_transition(&state, next_id, &next.event.kind)?;
+        state = apply_transition(domain_digest, &state, next_id, &next.event.kind)?;
         current_id = next_id;
         current_at_ms = next.event.occurred_at_ms;
     }
@@ -488,6 +532,7 @@ fn sorted_ids(iter: impl Iterator<Item = Digest32>) -> Vec<Digest32> {
 }
 
 fn apply_transition(
+    domain_digest: Digest32,
     state: &LifecycleState,
     event_id: Digest32,
     kind: &LifecycleEventKind,
@@ -500,13 +545,15 @@ fn apply_transition(
         | (LifecycleState::Ready { .. }, LifecycleEventKind::Cancelled { .. }) => {
             Ok(LifecycleState::Cancelled { event_id })
         }
-        (LifecycleState::Ready { .. }, LifecycleEventKind::Claimed { .. }) => {
-            // The claim event's own canonical ID is the durable attempt ID.
-            Ok(LifecycleState::Claimed {
-                event_id,
-                attempt_id: event_id,
-            })
-        }
+        (
+            LifecycleState::Ready {
+                event_id: ready_event_id,
+            },
+            LifecycleEventKind::Claimed { .. },
+        ) => Ok(LifecycleState::Claimed {
+            event_id,
+            attempt_id: attempt_id_from_digest(domain_digest, *ready_event_id)?,
+        }),
         (
             LifecycleState::Claimed { attempt_id, .. },
             LifecycleEventKind::Completed {
@@ -745,6 +792,10 @@ mod tests {
             },
             binding_tally_ref: "uhCkk-tally".into(),
             threshold_authorization_ref: "threshold:sig:1".into(),
+            effect_safety_policy: ProfiledDigest {
+                digest: digest(3),
+                profile: "mycelix-effect-safety-policy-v1".into(),
+            },
         }
     }
 
@@ -771,7 +822,7 @@ mod tests {
         }
     }
 
-    fn happy_path() -> (ExecutionDomain, Vec<VerifiedLifecycleEvent>, Digest32) {
+    fn ready_path() -> (ExecutionDomain, Vec<VerifiedLifecycleEvent>, Digest32) {
         let domain = domain();
         let registered = event(&domain, None, 1, LifecycleEventKind::Registered);
         let registered_id = registered.id().unwrap();
@@ -784,6 +835,20 @@ mod tests {
             },
         );
         let ready_id = ready.id().unwrap();
+        (
+            domain,
+            vec![verified(registered), verified(ready)],
+            ready_id,
+        )
+    }
+
+    fn happy_path() -> (
+        ExecutionDomain,
+        Vec<VerifiedLifecycleEvent>,
+        Digest32,
+        Digest32,
+    ) {
+        let (domain, mut events, ready_id) = ready_path();
         let claimed = event(
             &domain,
             Some(ready_id),
@@ -792,12 +857,10 @@ mod tests {
                 claim_nonce: digest(9),
             },
         );
-        let attempt_id = claimed.id().unwrap();
-        (
-            domain,
-            vec![verified(registered), verified(ready), verified(claimed)],
-            attempt_id,
-        )
+        let claim_event_id = claimed.id().unwrap();
+        let attempt_id = execution_attempt_id(&domain, ready_id).unwrap();
+        events.push(verified(claimed));
+        (domain, events, claim_event_id, attempt_id)
     }
 
     #[test]
@@ -809,64 +872,21 @@ mod tests {
     }
 
     #[test]
-    fn claim_event_becomes_durable_attempt_id() {
-        let (domain, events, attempt_id) = happy_path();
+    fn claim_uses_deterministic_attempt_separate_from_claim_event_id() {
+        let (domain, events, claim_event_id, attempt_id) = happy_path();
+        assert_ne!(claim_event_id, attempt_id);
         assert_eq!(
             project_lifecycle(&domain, &events).unwrap(),
             LifecycleState::Claimed {
-                event_id: attempt_id,
+                event_id: claim_event_id,
                 attempt_id,
             }
         );
     }
 
     #[test]
-    fn completed_must_reference_exact_attempt() {
-        let (domain, mut events, attempt_id) = happy_path();
-        events.push(verified(event(
-            &domain,
-            Some(attempt_id),
-            4,
-            LifecycleEventKind::Completed {
-                attempt_id,
-                receipt_ref: "receipt:external:1".into(),
-            },
-        )));
-        assert!(matches!(
-            project_lifecycle(&domain, &events).unwrap(),
-            LifecycleState::Completed { .. }
-        ));
-
-        let mut wrong_events = events[..3].to_vec();
-        wrong_events.push(verified(event(
-            &domain,
-            Some(attempt_id),
-            4,
-            LifecycleEventKind::Completed {
-                attempt_id: digest(99),
-                receipt_ref: "receipt:wrong".into(),
-            },
-        )));
-        assert_eq!(
-            project_lifecycle(&domain, &wrong_events).unwrap_err(),
-            LifecycleError::AttemptMismatch
-        );
-    }
-
-    #[test]
-    fn competing_claims_are_a_fork_even_with_different_times() {
-        let domain = domain();
-        let registered = event(&domain, None, 1, LifecycleEventKind::Registered);
-        let registered_id = registered.id().unwrap();
-        let ready = event(
-            &domain,
-            Some(registered_id),
-            2,
-            LifecycleEventKind::ReadyAuthorized {
-                preflight_ref: "preflight:1".into(),
-            },
-        );
-        let ready_id = ready.id().unwrap();
+    fn competing_claims_share_downstream_attempt_domain_but_still_fork() {
+        let (domain, mut events, ready_id) = ready_path();
         let claim_a = event(
             &domain,
             Some(ready_id),
@@ -883,38 +903,64 @@ mod tests {
                 claim_nonce: digest(11),
             },
         );
+        let attempt_a = execution_attempt_id(&domain, ready_id).unwrap();
+        let attempt_b = execution_attempt_id(&domain, ready_id).unwrap();
+        assert_eq!(attempt_a, attempt_b);
+        assert_eq!(
+            action_idempotency_key(attempt_a, 0).unwrap(),
+            action_idempotency_key(attempt_b, 0).unwrap()
+        );
 
-        let first = project_lifecycle(
-            &domain,
-            &[
-                verified(registered.clone()),
-                verified(ready.clone()),
-                verified(claim_a.clone()),
-                verified(claim_b.clone()),
-            ],
-        )
-        .unwrap_err();
-        let second = project_lifecycle(
-            &domain,
-            &[
-                verified(claim_b),
-                verified(claim_a),
-                verified(ready),
-                verified(registered),
-            ],
-        )
-        .unwrap_err();
+        events.push(verified(claim_a.clone()));
+        events.push(verified(claim_b.clone()));
+        let first = project_lifecycle(&domain, &events).unwrap_err();
 
+        let mut reordered = events;
+        reordered.reverse();
+        let second = project_lifecycle(&domain, &reordered).unwrap_err();
         assert!(matches!(first, LifecycleError::AmbiguousLifecycleFork { .. }));
         assert_eq!(first, second);
     }
 
     #[test]
-    fn competing_terminal_outcomes_fail_closed() {
-        let (domain, mut events, attempt_id) = happy_path();
+    fn completed_must_reference_exact_attempt_and_claim_parent() {
+        let (domain, mut events, claim_event_id, attempt_id) = happy_path();
         events.push(verified(event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
+            4,
+            LifecycleEventKind::Completed {
+                attempt_id,
+                receipt_ref: "receipt:external:1".into(),
+            },
+        )));
+        assert!(matches!(
+            project_lifecycle(&domain, &events).unwrap(),
+            LifecycleState::Completed { .. }
+        ));
+
+        let mut wrong_events = events[..3].to_vec();
+        wrong_events.push(verified(event(
+            &domain,
+            Some(claim_event_id),
+            4,
+            LifecycleEventKind::Completed {
+                attempt_id: digest(99),
+                receipt_ref: "receipt:wrong".into(),
+            },
+        )));
+        assert_eq!(
+            project_lifecycle(&domain, &wrong_events).unwrap_err(),
+            LifecycleError::AttemptMismatch
+        );
+    }
+
+    #[test]
+    fn competing_terminal_outcomes_fail_closed() {
+        let (domain, mut events, claim_event_id, attempt_id) = happy_path();
+        events.push(verified(event(
+            &domain,
+            Some(claim_event_id),
             4,
             LifecycleEventKind::Completed {
                 attempt_id,
@@ -923,7 +969,7 @@ mod tests {
         )));
         events.push(verified(event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
             5,
             LifecycleEventKind::Failed {
                 attempt_id,
@@ -988,10 +1034,10 @@ mod tests {
 
     #[test]
     fn projection_is_arrival_order_independent() {
-        let (domain, mut events, attempt_id) = happy_path();
+        let (domain, mut events, claim_event_id, attempt_id) = happy_path();
         events.push(verified(event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
             4,
             LifecycleEventKind::Completed {
                 attempt_id,
@@ -1005,7 +1051,7 @@ mod tests {
 
     #[test]
     fn exact_duplicate_publication_is_harmless() {
-        let (domain, mut events, _) = happy_path();
+        let (domain, mut events, _, _) = happy_path();
         events.push(events[0].clone());
         assert!(matches!(
             project_lifecycle(&domain, &events).unwrap(),
@@ -1015,10 +1061,10 @@ mod tests {
 
     #[test]
     fn uncertain_is_terminal_and_never_auto_replays() {
-        let (domain, mut events, attempt_id) = happy_path();
+        let (domain, mut events, claim_event_id, attempt_id) = happy_path();
         let uncertain = event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
             4,
             LifecycleEventKind::Uncertain {
                 attempt_id,
@@ -1047,10 +1093,10 @@ mod tests {
 
     #[test]
     fn no_effect_failure_is_still_terminal_in_v0_1() {
-        let (domain, mut events, attempt_id) = happy_path();
+        let (domain, mut events, claim_event_id, attempt_id) = happy_path();
         events.push(verified(event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
             4,
             LifecycleEventKind::Failed {
                 attempt_id,
@@ -1071,9 +1117,20 @@ mod tests {
 
     #[test]
     fn changed_execution_domain_invalidates_old_events() {
-        let (domain, events, _) = happy_path();
+        let (domain, events, _, _) = happy_path();
         let mut changed = domain.clone();
         changed.actions.digest = digest(77);
+        assert_eq!(
+            project_lifecycle(&changed, &events).unwrap_err(),
+            LifecycleError::WrongExecutionDomain
+        );
+    }
+
+    #[test]
+    fn changed_effect_safety_policy_invalidates_old_claim_domain() {
+        let (domain, events, _, _) = happy_path();
+        let mut changed = domain.clone();
+        changed.effect_safety_policy.digest = digest(88);
         assert_eq!(
             project_lifecycle(&changed, &events).unwrap_err(),
             LifecycleError::WrongExecutionDomain
@@ -1105,10 +1162,10 @@ mod tests {
 
     #[test]
     fn cancellation_after_claim_is_not_valid_in_v0_1() {
-        let (domain, mut events, attempt_id) = happy_path();
+        let (domain, mut events, claim_event_id, _) = happy_path();
         events.push(verified(event(
             &domain,
-            Some(attempt_id),
+            Some(claim_event_id),
             4,
             LifecycleEventKind::Cancelled {
                 authorization_ref: "cancel:1".into(),
