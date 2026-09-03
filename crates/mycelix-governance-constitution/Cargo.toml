@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-governance-constitution"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "DNA-bound constitutional genesis and verified lineage contracts for Mycelix governance"
+
+[dependencies]
+blake3 = "1.8"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
