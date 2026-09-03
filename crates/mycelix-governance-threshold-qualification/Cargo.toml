@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-governance-threshold-qualification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure institution-bound threshold authority qualification for Mycelix governance"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
