@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-content-core"
+version = "0.1.0"
+edition = "2024"
+description = "Pure content identity, manifest, publication, and storage-policy types for Mycelix Content Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+blake3 = "1"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+mycelix-infrastructure-types = { path = "../mycelix-infrastructure-types" }
