@@ -1,0 +1,78 @@
+name: Governance Binding Voting
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-governance-authority/**'
+      - 'crates/mycelix-governance-rights/**'
+      - 'crates/mycelix-governance-electorate/**'
+      - 'mycelix-governance/zomes/proposal-authority/**'
+      - 'mycelix-governance/zomes/binding-voting/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/governance-binding-voting.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-institutional-core/**'
+      - 'crates/mycelix-governance-authority/**'
+      - 'crates/mycelix-governance-rights/**'
+      - 'crates/mycelix-governance-electorate/**'
+      - 'mycelix-governance/zomes/proposal-authority/**'
+      - 'mycelix-governance/zomes/binding-voting/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+
+jobs:
+  binding-voting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-governance
+            crates/mycelix-institutional-core
+            crates/mycelix-governance-authority
+            crates/mycelix-governance-rights
+            crates/mycelix-governance-electorate
+
+      - name: Format portable governance contracts
+        run: |
+          cargo fmt --manifest-path crates/mycelix-institutional-core/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-governance-authority/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-governance-rights/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-governance-electorate/Cargo.toml -- --check
+
+      - name: Test portable governance contracts
+        run: |
+          cargo test --manifest-path crates/mycelix-institutional-core/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-authority/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-rights/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-electorate/Cargo.toml --all-targets
+
+      - name: Format governance workspace
+        run: cd mycelix-governance && cargo fmt --all --check
+
+      - name: Test binding voting zomes
+        run: |
+          cd mycelix-governance
+          cargo test -p binding_voting_integrity -p binding_voting
+
+      - name: Check binding voting WASM
+        run: |
+          cd mycelix-governance
+          cargo check -p binding_voting_integrity -p binding_voting --target wasm32-unknown-unknown
+
+      - name: Clippy binding voting
+        run: |
+          cd mycelix-governance
+          cargo clippy -p binding_voting_integrity -p binding_voting --all-targets -- -D warnings
