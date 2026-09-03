@@ -1,29 +1,24 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed constitutional transition orchestration.
-//!
-//! Stored transition entries are candidates, not authority. Every authoritative
-//! projection re-resolves the binding tally, re-checks independent verifier
-//! boundaries, rebuilds verification evidence, and then delegates lineage/fork
-//! semantics to the portable constitution crate.
+//! Stored entries are candidates, never authority by existence.
 
 use constitution_transition_integrity::{
-    Anchor, ConstitutionTransitionCandidate, EntryTypes, LinkTypes,
+    parent_anchor_name, Anchor, ConstitutionTransitionCandidate, EntryTypes, LinkTypes,
 };
 use hdk::prelude::*;
 use mycelix_governance_constitution::{
-    ConstitutionGenesisManifest, ConstitutionStatement, ConstitutionTransitionAuthorization,
-    Digest32, GENESIS_MANIFEST_PROFILE, STATEMENT_PROFILE, TransitionVerificationEvidence,
-    VerifiedConstitutionTransition, project_verified_lineage,
+    project_verified_lineage, ConstitutionGenesisManifest, ConstitutionStatement,
+    ConstitutionTransitionAuthorization, Digest32, TransitionVerificationEvidence,
+    VerifiedConstitutionTransition, GENESIS_MANIFEST_PROFILE, STATEMENT_PROFILE,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 const RIGHTS_VERIFIER_ZOME: &str = "governance_rights_verifier";
 const THRESHOLD_VERIFIER_ZOME: &str = "governance_threshold_authority_verifier";
 const MAX_REF_BYTES: usize = 2048;
-const CANDIDATE_ANCHOR: &str = "all-constitutional-transition-candidates";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifiedConstitutionGenesisMirror {
@@ -97,7 +92,9 @@ pub struct VerifiedCurrentConstitution {
     pub dna_hash: String,
     pub statement: ConstitutionStatement,
     pub statement_digest: Digest32,
+    /// Canonical verified authorizations consumed along the projected lineage.
     pub verified_transition_count: u64,
+    /// Unique candidate records inspected only on parent indexes reached by the lineage.
     pub candidate_count: u64,
     pub legacy_constitution_authoritative: bool,
 }
@@ -150,8 +147,8 @@ fn require_ref(value: &str, field: &str) -> ExternResult<()> {
     Ok(())
 }
 
-fn all_candidates_anchor() -> ExternResult<EntryHash> {
-    hash_entry(&EntryTypes::Anchor(Anchor(CANDIDATE_ANCHOR.into())))
+fn parent_anchor_hash(parent: Digest32) -> ExternResult<EntryHash> {
+    hash_entry(&EntryTypes::Anchor(Anchor(parent_anchor_name(parent))))
 }
 
 fn manifest_from_genesis(
@@ -240,16 +237,26 @@ fn decode_candidate(record: &Record) -> Option<ConstitutionTransitionCandidate> 
         .flatten()
 }
 
-fn list_candidate_records() -> ExternResult<Vec<Record>> {
+/// Resolve only candidates indexed under one exact parent statement. Repeated
+/// links to the same action are deduplicated before any record/verifier work.
+fn list_candidate_records_for_parent(parent: Digest32) -> ExternResult<Vec<Record>> {
     let links = get_links(
-        LinkQuery::try_new(all_candidates_anchor()?, LinkTypes::AllTransitionCandidates)?,
+        LinkQuery::try_new(
+            parent_anchor_hash(parent)?,
+            LinkTypes::ParentToTransitionCandidate,
+        )?,
         GetStrategy::default(),
     )?;
-    let mut records = Vec::new();
+    let mut targets = BTreeMap::<String, ActionHash>::new();
     for link in links {
-        let Ok(action_hash) = ActionHash::try_from(link.target) else {
-            continue;
-        };
+        if let Ok(action_hash) = ActionHash::try_from(link.target) {
+            targets
+                .entry(action_hash.to_string())
+                .or_insert(action_hash);
+        }
+    }
+    let mut records = Vec::with_capacity(targets.len());
+    for (_, action_hash) in targets {
         if let Some(record) = get(action_hash, GetOptions::default())? {
             records.push(record);
         }
@@ -272,6 +279,19 @@ fn verify_external_evidence(
         )))
     })?;
     let proposal_id = candidate.authorization.proposal_id.as_str().to_string();
+
+    // Re-resolve the exact proposal authority binding used for cheap admission.
+    let verified_authority: Option<Record> = call_local(
+        "proposal_authority",
+        "get_verified_proposal_authority_context",
+        proposal_id.clone(),
+    )?;
+    let Some(verified_authority) = verified_authority else {
+        return Ok(None);
+    };
+    if *verified_authority.action_address() != candidate.proposal_authority_binding {
+        return Ok(None);
+    }
 
     let tally_record: Option<Record> = call_local(
         "binding_voting",
@@ -297,7 +317,7 @@ fn verify_external_evidence(
         },
     )?;
     if !tally.verified {
-        let _denial_reason = tally.reason.as_deref().unwrap_or("not verified");
+        let _ = tally.reason.as_deref();
         return Ok(None);
     }
     require_ref(&tally.receipt_ref, "binding tally verification receipt")?;
@@ -329,7 +349,7 @@ fn verify_external_evidence(
         },
     )?;
     if !threshold.verified {
-        let _denial_reason = threshold.reason.as_deref().unwrap_or("not verified");
+        let _ = threshold.reason.as_deref();
         return Ok(None);
     }
     require_ref(
@@ -391,6 +411,18 @@ pub fn submit_constitution_transition_candidate(
         )));
     }
 
+    let proposal_id = input.authorization.proposal_id.as_str().to_string();
+    let authority_record: Option<Record> = call_local(
+        "proposal_authority",
+        "get_verified_proposal_authority_context",
+        proposal_id,
+    )?;
+    let authority_record = authority_record.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Transition candidate requires a verified proposal authority context".into(),
+        ))
+    })?;
+
     let now = sys_time()?;
     let caller = agent_info()?.agent_initial_pubkey;
     let submitted_by = format!("did:mycelix:{caller}");
@@ -399,6 +431,7 @@ pub fn submit_constitution_transition_candidate(
             "Cannot digest transition authorization: {e}"
         )))
     })?;
+    let parent_digest = input.authorization.from_statement_digest;
     let candidate = ConstitutionTransitionCandidate {
         id: format!(
             "constitution-transition:{}:{}:{}",
@@ -408,6 +441,7 @@ pub fn submit_constitution_transition_candidate(
         ),
         child: input.child,
         authorization: input.authorization,
+        proposal_authority_binding: authority_record.action_address().clone(),
         submitted_by,
         submitted_at: now,
     };
@@ -416,12 +450,13 @@ pub fn submit_constitution_transition_candidate(
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
     let action_hash = create_entry(&EntryTypes::ConstitutionTransitionCandidate(candidate))?;
-    create_entry(&EntryTypes::Anchor(Anchor(CANDIDATE_ANCHOR.into())))?;
+    let anchor = Anchor(parent_anchor_name(parent_digest));
+    create_entry(&EntryTypes::Anchor(anchor.clone()))?;
     create_link(
-        all_candidates_anchor()?,
+        hash_entry(&EntryTypes::Anchor(anchor))?,
         action_hash.clone(),
-        LinkTypes::AllTransitionCandidates,
-        (),
+        LinkTypes::ParentToTransitionCandidate,
+        authorization_digest.0.to_vec(),
     )?;
     get(action_hash, GetOptions::default())?.ok_or_else(|| {
         wasm_error!(WasmErrorInner::Guest(
@@ -434,82 +469,111 @@ pub fn submit_constitution_transition_candidate(
 pub fn get_verified_current_constitution(_: ()) -> ExternResult<VerifiedCurrentConstitution> {
     let genesis = load_genesis()?;
     let manifest = manifest_from_genesis(&genesis.statement)?;
-    let records = list_candidate_records()?;
-    let candidate_count = records.len() as u64;
-
-    // Re-verify every candidate, then canonicalize duplicates by authorization
-    // digest. Separate publications of the same transition may receive fresh
-    // verifier receipt references; those receipt differences must not create a
-    // false constitutional fork.
-    let mut verified_by_authorization: BTreeMap<String, VerifiedConstitutionTransition> =
-        BTreeMap::new();
-    let mut nonce_bindings: BTreeMap<String, Digest32> = BTreeMap::new();
-
-    for record in records {
-        let Some(candidate) = decode_candidate(&record) else {
-            continue;
-        };
-        let Some(transition) = verify_external_evidence(&candidate)? else {
-            continue;
-        };
-        let authorization_digest = transition.authorization.digest().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Cannot digest verified transition authorization: {e}"
-            )))
-        })?;
-        let authorization_key = authorization_digest.to_hex();
-        let nonce_key = transition.authorization.transition_nonce.to_hex();
-
-        if let Some(existing_digest) = nonce_bindings.get(&nonce_key) {
-            if *existing_digest != authorization_digest {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Replay nonce is bound to multiple verified constitutional authorizations; fail closed"
-                        .into(),
-                )));
-            }
-        } else {
-            nonce_bindings.insert(nonce_key, authorization_digest);
-        }
-
-        if let Some(existing) = verified_by_authorization.get(&authorization_key) {
-            if existing.child != transition.child
-                || existing.authorization != transition.authorization
-            {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "One authorization digest resolves to conflicting constitutional semantics; fail closed"
-                        .into(),
-                )));
-            }
-            continue;
-        }
-        verified_by_authorization.insert(authorization_key, transition);
-    }
-
-    let verified = verified_by_authorization.into_values().collect::<Vec<_>>();
-    let current = project_verified_lineage(&manifest, &verified).map_err(|e| {
+    let mut current = manifest.genesis_statement().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot project verified constitutional lineage: {e}"
+            "Cannot derive constitutional genesis statement: {e}"
         )))
     })?;
+
+    let mut verified_history: Vec<VerifiedConstitutionTransition> = Vec::new();
+    let mut nonce_bindings: BTreeMap<String, Digest32> = BTreeMap::new();
+    let mut candidate_count = 0u64;
+
+    loop {
+        let parent_digest = current.digest().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot digest current constitution: {e}"
+            )))
+        })?;
+        let records = list_candidate_records_for_parent(parent_digest)?;
+        candidate_count = candidate_count.saturating_add(records.len() as u64);
+        if records.is_empty() {
+            break;
+        }
+
+        let mut by_authorization: BTreeMap<String, VerifiedConstitutionTransition> =
+            BTreeMap::new();
+        for record in records {
+            let Some(candidate) = decode_candidate(&record) else {
+                continue;
+            };
+            // Defense in depth against malformed or historical indexes.
+            if candidate.authorization.from_statement_digest != parent_digest {
+                continue;
+            }
+            let Some(transition) = verify_external_evidence(&candidate)? else {
+                continue;
+            };
+            let authorization_digest = transition.authorization.digest().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Cannot digest verified transition authorization: {e}"
+                )))
+            })?;
+            let authorization_key = authorization_digest.to_hex();
+            let nonce_key = transition.authorization.transition_nonce.to_hex();
+
+            if let Some(existing_digest) = nonce_bindings.get(&nonce_key) {
+                if *existing_digest != authorization_digest {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Replay nonce is bound to multiple verified constitutional authorizations; fail closed"
+                            .into(),
+                    )));
+                }
+            } else {
+                nonce_bindings.insert(nonce_key, authorization_digest);
+            }
+
+            if let Some(existing) = by_authorization.get(&authorization_key) {
+                if existing.child != transition.child
+                    || existing.authorization != transition.authorization
+                {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "One authorization digest resolves to conflicting constitutional semantics; fail closed"
+                            .into(),
+                    )));
+                }
+                continue;
+            }
+            by_authorization.insert(authorization_key, transition);
+        }
+
+        if by_authorization.is_empty() {
+            break;
+        }
+        verified_history.extend(by_authorization.into_values());
+        let next = project_verified_lineage(&manifest, &verified_history).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot project verified constitutional lineage: {e}"
+            )))
+        })?;
+        let next_digest = next.digest().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Cannot digest projected constitution: {e}"
+            )))
+        })?;
+        if next_digest == parent_digest {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Verified transition set did not advance constitutional lineage; fail closed".into(),
+            )));
+        }
+        current = next;
+    }
+
     let statement_digest = current.digest().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Cannot digest projected constitution: {e}"
         )))
     })?;
-
     Ok(VerifiedCurrentConstitution {
         dna_hash: genesis.dna_hash,
         statement: current,
         statement_digest,
-        verified_transition_count: verified.len() as u64,
+        verified_transition_count: verified_history.len() as u64,
         candidate_count,
         legacy_constitution_authoritative: false,
     })
 }
 
-/// Contract availability is not amendment authority. This remains false until
-/// both verifier services are implemented and the adversarial integration suite
-/// is promoted to a release gate.
 #[hdk_extern]
 pub fn get_constitution_transition_status(_: ()) -> ExternResult<ConstitutionTransitionStatus> {
     Ok(ConstitutionTransitionStatus {
@@ -519,6 +583,6 @@ pub fn get_constitution_transition_status(_: ()) -> ExternResult<ConstitutionTra
         required_rights_verifier_zome: RIGHTS_VERIFIER_ZOME.into(),
         required_threshold_verifier_zome: THRESHOLD_VERIFIER_ZOME.into(),
         legacy_constitution_authoritative: false,
-        note: "Transition verification contract is installed, but amendment authority remains disabled until both external verifier services and adversarial release gates are implemented.".into(),
+        note: "Transition contract is installed, but amendment authority remains disabled until both verifier services and adversarial release gates are implemented.".into(),
     })
 }
