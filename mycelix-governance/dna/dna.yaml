@@ -8,6 +8,9 @@ integrity:
     - name: proposals_integrity
       path: "../target/wasm32-unknown-unknown/release/proposals_integrity.wasm"
 
+    - name: proposal_authority_integrity
+      path: "../target/wasm32-unknown-unknown/release/proposal_authority_integrity.wasm"
+
     - name: voting_integrity
       path: "../target/wasm32-unknown-unknown/release/voting_integrity.wasm"
 
@@ -37,6 +40,12 @@ coordinator:
     - name: proposals
       path: "../target/wasm32-unknown-unknown/release/proposals.wasm"
       dependencies:
+        - name: proposals_integrity
+
+    - name: proposal_authority
+      path: "../target/wasm32-unknown-unknown/release/proposal_authority.wasm"
+      dependencies:
+        - name: proposal_authority_integrity
         - name: proposals_integrity
 
     - name: voting
