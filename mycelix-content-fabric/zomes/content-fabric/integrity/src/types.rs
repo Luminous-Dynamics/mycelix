@@ -72,6 +72,10 @@ pub struct FailureDomainClaimV1 {
 pub struct ProviderAdvertisementV1 {
     pub schema_version: u16,
     pub provider: AgentPubKey,
+    /// The provider source-chain head that the endpoint signed. Validation
+    /// requires this to equal the Create action's `prev_action`, making the
+    /// endpoint proof single-use at one chain position.
+    pub binding_prev_action: ActionHash,
     pub iroh_endpoint_id: [u8; 32],
     pub endpoint_binding_signature: [u8; 64],
     pub protocol: String,
