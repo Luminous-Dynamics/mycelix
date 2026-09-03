@@ -11,12 +11,13 @@ use mycelix_governance_electorate::{
     BallotQualification, ElectorateMembershipEvidence, ElectorateSnapshot, SnapshotBoundTally,
 };
 use mycelix_governance_rights::{BindingBallot, BindingTallyPolicy, RightPermit};
+use mycelix_institutional_core::Digest32;
 use std::collections::BTreeSet;
 
 const MAX_ID_BYTES: usize = 512;
 const MAX_REF_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
-const MAX_TALLY_BALLOT_REFS: usize = 1_000_000;
+const MAX_BALLOT_REFS: usize = 1_000_000;
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -24,10 +25,10 @@ pub struct Anchor(pub String);
 
 /// Immutable election configuration for one binding proposal ballot.
 ///
-/// The portable electorate snapshot supplies the denominator/provenance; the
-/// tally policy supplies how quorum and approval are calculated. Both are
-/// accepted as binding only after the coordinator receives an exact verification
-/// receipt from the local governance-rights verifier boundary.
+/// The electorate snapshot supplies denominator/provenance; the tally policy
+/// supplies the counting rule; and the ballot-finality policy supplies the rule
+/// for deciding when a DHT-observed ballot set is complete enough to freeze.
+/// All three are proposal/rulebook-bound at the coordinator verification layer.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ElectionConfiguration {
@@ -37,6 +38,9 @@ pub struct ElectionConfiguration {
     pub snapshot: ElectorateSnapshot,
     pub tally_policy: BindingTallyPolicy,
     pub tally_policy_profile: String,
+    pub ballot_finality_policy_digest: Digest32,
+    pub ballot_finality_policy_profile: String,
+    pub ballot_finality_policy_ref: String,
     pub verifier_receipt_ref: String,
     pub created_by: String,
     pub created_at: Timestamp,
@@ -59,6 +63,19 @@ impl ElectionConfiguration {
             .validate()
             .map_err(|e| format!("Invalid binding tally policy: {e}"))?;
         validate_profile(&self.tally_policy_profile, "tally policy profile")?;
+        require_digest(
+            self.ballot_finality_policy_digest,
+            "ballot finality policy digest",
+        )?;
+        validate_profile(
+            &self.ballot_finality_policy_profile,
+            "ballot finality policy profile",
+        )?;
+        validate_text(
+            &self.ballot_finality_policy_ref,
+            "ballot finality policy reference",
+            MAX_REF_BYTES,
+        )?;
         validate_text(
             &self.verifier_receipt_ref,
             "election configuration verifier receipt",
@@ -75,8 +92,9 @@ impl ElectionConfiguration {
 
 /// Append-only record for one binding ballot cast by one principal.
 ///
-/// Re-voting creates another record. Runtime tally projection chooses the latest
-/// valid source-chain action per voter, so no mutable global vote record exists.
+/// Re-voting creates another record. Runtime projection chooses the latest valid
+/// source-chain action per voter before asking the configured finality verifier
+/// to freeze the ballot set.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct BindingBallotRecord {
@@ -135,41 +153,41 @@ impl BindingBallotRecord {
     }
 }
 
-/// Audit record for a recomputed binding tally.
+/// Immutable checkpoint freezing the exact ballot action set accepted by a
+/// rulebook-bound finality policy.
 ///
-/// Stored tally entries are not trusted merely because they exist. Consumers
-/// must call the coordinator's verified tally endpoint, which re-resolves the
-/// proposal authority context, election configuration, and ballot projection.
+/// Time alone is not finality in an eventually consistent DHT. The coordinator
+/// first projects the latest valid source-chain ballot per voter, then requires
+/// a verifier receipt proving that this exact action set satisfies the configured
+/// observation/replication/finality policy.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
-pub struct BindingTallyRecord {
+pub struct BallotSetCheckpoint {
     pub id: String,
     pub proposal_id: String,
     pub proposal_authority_binding: ActionHash,
     pub election_configuration: ActionHash,
-    pub tally: SnapshotBoundTally,
-    /// One selected latest valid ballot action per voter.
     pub selected_ballots: Vec<ActionHash>,
-    /// Older valid ballot actions superseded by later source-chain actions.
     pub superseded_ballots: Vec<ActionHash>,
-    pub computed_by: String,
-    pub computed_at: Timestamp,
+    pub observed_valid_ballots: u64,
+    pub finality_policy_digest: Digest32,
+    pub finality_policy_profile: String,
+    pub finality_policy_ref: String,
+    pub observer_count: u32,
+    pub required_observer_count: u32,
+    pub verifier_receipt_ref: String,
+    pub finalized_by: String,
+    pub finalized_at: Timestamp,
 }
 
-impl BindingTallyRecord {
+impl BallotSetCheckpoint {
     pub fn validate_structure(&self) -> Result<(), String> {
-        validate_text(&self.id, "binding tally record id", MAX_ID_BYTES)?;
+        validate_text(&self.id, "ballot-set checkpoint id", MAX_ID_BYTES)?;
         validate_text(&self.proposal_id, "proposal id", MAX_ID_BYTES)?;
-        if self.tally.tally.proposal.as_str() != self.proposal_id {
-            return Err("Binding tally targets a different proposal".into());
-        }
-        require_mycelix_did(&self.computed_by, "binding tally author")?;
-        timestamp_ms(self.computed_at, "binding tally computed_at")?;
-
-        if self.selected_ballots.len() > MAX_TALLY_BALLOT_REFS
-            || self.superseded_ballots.len() > MAX_TALLY_BALLOT_REFS
+        if self.selected_ballots.len() > MAX_BALLOT_REFS
+            || self.superseded_ballots.len() > MAX_BALLOT_REFS
         {
-            return Err("Binding tally references too many ballot actions".into());
+            return Err("Ballot-set checkpoint references too many ballot actions".into());
         }
         ensure_unique_hashes(&self.selected_ballots, "selected ballot")?;
         ensure_unique_hashes(&self.superseded_ballots, "superseded ballot")?;
@@ -185,13 +203,60 @@ impl BindingTallyRecord {
         {
             return Err("A ballot cannot be both selected and superseded".into());
         }
+        if self.observed_valid_ballots
+            != (self.selected_ballots.len() + self.superseded_ballots.len()) as u64
+        {
+            return Err("Observed valid ballot count does not match checkpoint action set".into());
+        }
+        require_digest(self.finality_policy_digest, "finality policy digest")?;
+        validate_profile(&self.finality_policy_profile, "finality policy profile")?;
+        validate_text(
+            &self.finality_policy_ref,
+            "finality policy reference",
+            MAX_REF_BYTES,
+        )?;
+        if self.required_observer_count == 0 || self.observer_count < self.required_observer_count {
+            return Err("Ballot-set checkpoint does not meet observer threshold".into());
+        }
+        validate_text(
+            &self.verifier_receipt_ref,
+            "ballot-set finality receipt",
+            MAX_REF_BYTES,
+        )?;
+        require_mycelix_did(&self.finalized_by, "ballot-set checkpoint author")?;
+        timestamp_ms(self.finalized_at, "ballot-set checkpoint finalized_at")?;
+        Ok(())
+    }
+}
 
+/// Audit record for a recomputed binding tally over one finalized ballot set.
+/// Stored tallies are never trusted by existence alone; consumers must use the
+/// verified coordinator endpoint, which recomputes the tally from the checkpoint.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct BindingTallyRecord {
+    pub id: String,
+    pub proposal_id: String,
+    pub proposal_authority_binding: ActionHash,
+    pub election_configuration: ActionHash,
+    pub ballot_set_checkpoint: ActionHash,
+    pub tally: SnapshotBoundTally,
+    pub computed_by: String,
+    pub computed_at: Timestamp,
+}
+
+impl BindingTallyRecord {
+    pub fn validate_structure(&self) -> Result<(), String> {
+        validate_text(&self.id, "binding tally record id", MAX_ID_BYTES)?;
+        validate_text(&self.proposal_id, "proposal id", MAX_ID_BYTES)?;
+        if self.tally.tally.proposal.as_str() != self.proposal_id {
+            return Err("Binding tally targets a different proposal".into());
+        }
+        require_mycelix_did(&self.computed_by, "binding tally author")?;
+        timestamp_ms(self.computed_at, "binding tally computed_at")?;
         let tally = &self.tally.tally;
         if tally.votes_for + tally.votes_against + tally.abstentions != tally.unique_voters {
             return Err("Binding tally vote counts do not equal unique voter count".into());
-        }
-        if tally.unique_voters != self.selected_ballots.len() as u64 {
-            return Err("Selected ballot count does not equal unique voter count".into());
         }
         if tally.unique_voters > tally.eligible_voters {
             return Err("Binding tally has more voters than the electorate".into());
@@ -209,6 +274,7 @@ pub enum EntryTypes {
     Anchor(Anchor),
     ElectionConfiguration(ElectionConfiguration),
     BindingBallot(BindingBallotRecord),
+    BallotSetCheckpoint(BallotSetCheckpoint),
     BindingTally(BindingTallyRecord),
 }
 
@@ -216,7 +282,8 @@ pub enum EntryTypes {
 pub enum LinkTypes {
     ProposalToElectionConfiguration,
     ElectionConfigurationToBallot,
-    ElectionConfigurationToTally,
+    ElectionConfigurationToCheckpoint,
+    CheckpointToTally,
     VoterToBindingBallot,
 }
 
@@ -252,6 +319,22 @@ fn validate_create_ballot(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_checkpoint(
+    action: Create,
+    entry: BallotSetCheckpoint,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(error) = entry.validate_structure() {
+        return Ok(ValidateCallbackResult::Invalid(error));
+    }
+    let author_did = format!("did:mycelix:{}", action.author);
+    if entry.finalized_by != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Ballot-set checkpoint finalized_by must equal the committing agent".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_tally(
     action: Create,
     entry: BindingTallyRecord,
@@ -278,14 +361,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     validate_create_election(action, entry)
                 }
                 EntryTypes::BindingBallot(entry) => validate_create_ballot(action, entry),
+                EntryTypes::BallotSetCheckpoint(entry) => {
+                    validate_create_checkpoint(action, entry)
+                }
                 EntryTypes::BindingTally(entry) => validate_create_tally(action, entry),
             },
             OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
                 EntryTypes::ElectionConfiguration(_)
                 | EntryTypes::BindingBallot(_)
+                | EntryTypes::BallotSetCheckpoint(_)
                 | EntryTypes::BindingTally(_) => Ok(ValidateCallbackResult::Invalid(
-                    "Binding governance election, ballot, and tally entries are append-only".into(),
+                    "Binding governance election, ballot, checkpoint, and tally entries are append-only"
+                        .into(),
                 )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -350,4 +438,12 @@ fn ensure_unique_hashes(hashes: &[ActionHash], field: &str) -> Result<(), String
         return Err(format!("Duplicate {field} action hash"));
     }
     Ok(())
+}
+
+fn require_digest(digest: Digest32, field: &str) -> Result<(), String> {
+    if digest.is_zero() {
+        Err(format!("{field} must not be the zero digest"))
+    } else {
+        Ok(())
+    }
 }
