@@ -98,7 +98,6 @@ impl Default for HardPolicyGateConfigV1 {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum CandidateRejectionReasonV1 {
     CandidateNotTemporallyLive,
-    TargetDigestMismatch,
     TargetSizeMismatch,
     MissingProviderPolicyEvidence,
     ConflictingProviderPolicyEvidence,
