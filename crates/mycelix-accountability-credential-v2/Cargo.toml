@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-accountability-credential-v2"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Profile-bound Mycelix release credentials for high-assurance SIF disclosure"
+
+[dependencies]
+blake3 = "1.5"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+mycelix-accountability-bundle = { path = "../mycelix-accountability-bundle" }
+mycelix-accountability-core = { path = "../mycelix-accountability-core" }
+mycelix-accountability-credential = { path = "../mycelix-accountability-credential" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
