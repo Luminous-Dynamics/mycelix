@@ -1,0 +1,61 @@
+name: Governance Execution Plan Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/execution-plan-verifier/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/governance-execution-plan-verifier.yml'
+  push:
+    branches:
+      - 'security/governance-execution-plan-verifier-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    name: Immutable plan verifier native + WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package governance_execution_plan_verifier -- --check
+      - name: Native tests
+        working-directory: mycelix-governance
+        run: cargo test --package governance_execution_plan_verifier --all-targets
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package governance_execution_plan_verifier --all-targets -- -D warnings
+      - name: WASM build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package governance_execution_plan_verifier
+
+  containment:
+    name: Plan verifier remains non-authoritative and unprovisioned
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify immutable-source boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          src = Path('mycelix-governance/zomes/execution-plan-verifier/coordinator/src/lib.rs').read_text()
+          assert 'name: governance_execution_plan_verifier' not in dna
+          assert 'proposal_action_hash' in src
+          assert 'get(binding.proposal_action_hash.clone()' in src
+          assert 'mutable_timelock_authority: false' in src
+          assert 'latest_proposal_update_authority: false' in src
+          assert 'institutional_authority_minted_here: false' in src
+          assert 'Timelock' in Path('mycelix-governance/zomes/execution-plan-verifier/INVARIANTS.md').read_text()
+          assert 'get_proposal(' not in src
+          print('PASS: execution-plan verifier uses exact historical action and remains unprovisioned')
+          PY
