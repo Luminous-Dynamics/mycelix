@@ -1,9 +1,10 @@
 use std::collections::BTreeSet;
 
 use mycelix_content_core::{
-    ContentDigestV1, DigestAlgorithmV1, EncryptionRequirementV1, FailureDomainKindV1,
-    FailureDomainPolicyV1, JurisdictionV1, ObjectIdV1, PlacementPreferencesV1,
-    PlacementRequirementsV1, RetentionRequirementV1, StorageClassV1, StorageIntentV1,
+    BlobDescriptorV1, ContentDigestV1, DigestAlgorithmV1, EncryptionRequirementV1,
+    FailureDomainKindV1, FailureDomainPolicyV1, JurisdictionV1, ObjectManifestV1,
+    PlacementPreferencesV1, PlacementRequirementsV1, RetentionRequirementV1, StorageClassV1,
+    StorageIntentV1,
 };
 use mycelix_content_policy::*;
 use mycelix_content_state::{
@@ -24,6 +25,18 @@ fn agent(value: u8) -> AgentRefV1 {
 
 fn digest() -> ContentDigestV1 {
     ContentDigestV1::compute(DigestAlgorithmV1::Blake3_256, b"policy-target")
+}
+
+fn manifest() -> ObjectManifestV1 {
+    ObjectManifestV1::new(
+        vec![BlobDescriptorV1 {
+            digest: digest(),
+            size_bytes: 100,
+            media_type: None,
+        }],
+        None,
+    )
+    .unwrap()
 }
 
 fn requirements(
@@ -53,7 +66,7 @@ fn requirements(
 
 fn intent(requirements: PlacementRequirementsV1) -> StorageIntentV1 {
     StorageIntentV1::new(
-        ObjectIdV1([7; 32]),
+        manifest().id,
         PartyIdV1([8; 32]),
         StorageClassV1::Durable,
         requirements,
@@ -65,7 +78,7 @@ fn intent(requirements: PlacementRequirementsV1) -> StorageIntentV1 {
 
 fn target(client_side_encrypted: bool) -> PlacementTargetV1 {
     PlacementTargetV1 {
-        object_id: ObjectIdV1([7; 32]),
+        object_id: manifest().id,
         digest: digest(),
         size_bytes: 100,
         client_side_encrypted,
@@ -154,6 +167,24 @@ fn policy_evidence(
     }
 }
 
+fn run_gate(
+    intent: &StorageIntentV1,
+    target: PlacementTargetV1,
+    state: &ProjectedContentStateV1,
+    provider_evidence: Vec<ProviderPolicyEvidenceV1>,
+    config: HardPolicyGateConfigV1,
+) -> HardPolicyEvaluationV1 {
+    let manifest = manifest();
+    mycelix_content_policy::evaluate_hard_policy_v1(
+        intent,
+        &manifest,
+        target,
+        state,
+        provider_evidence,
+        config,
+    )
+}
+
 #[test]
 fn strict_gate_refuses_partial_snapshot() {
     let intent = intent(requirements(
@@ -164,7 +195,7 @@ fn strict_gate_refuses_partial_snapshot() {
         EncryptionRequirementV1::NotRequired,
         RetentionRequirementV1::BestEffort,
     ));
-    let result = evaluate_hard_policy_v1(
+    let result = run_gate(
         &intent,
         target(false),
         &state(
@@ -191,7 +222,7 @@ fn self_claimed_jurisdiction_cannot_satisfy_strict_gate() {
         EncryptionRequirementV1::NotRequired,
         RetentionRequirementV1::BestEffort,
     ));
-    let result = evaluate_hard_policy_v1(
+    let result = run_gate(
         &intent,
         target(false),
         &state(
@@ -233,7 +264,7 @@ fn stale_policy_evidence_fails_closed() {
         "operator-a",
     );
     evidence.valid_until_unix_ms = 10_000;
-    let result = evaluate_hard_policy_v1(
+    let result = run_gate(
         &intent,
         target(false),
         &state(
@@ -259,7 +290,7 @@ fn forbidden_jurisdiction_is_filtered_before_pool_qualification() {
         EncryptionRequirementV1::NotRequired,
         RetentionRequirementV1::BestEffort,
     ));
-    let result = evaluate_hard_policy_v1(
+    let result = run_gate(
         &intent,
         target(false),
         &state(
@@ -298,7 +329,7 @@ fn client_side_encryption_is_a_local_object_fact() {
         SnapshotCoverageV1::QueriedIndexesComplete,
         vec![candidate(1, 11, 21, "site-a", "operator-a")],
     );
-    let denied = evaluate_hard_policy_v1(
+    let denied = run_gate(
         &intent,
         target(false),
         &projected,
@@ -309,7 +340,7 @@ fn client_side_encryption_is_a_local_object_fact() {
         .reasons
         .contains(&CandidateRejectionReasonV1::ClientSideEncryptionRequired));
 
-    let allowed = evaluate_hard_policy_v1(
+    let allowed = run_gate(
         &intent,
         target(true),
         &projected,
@@ -366,7 +397,7 @@ fn pool_requires_distinct_independently_attested_failure_domains() {
             "operator-c",
         ),
     ];
-    let result = evaluate_hard_policy_v1(
+    let result = run_gate(
         &intent,
         target(false),
         &projected,
@@ -421,7 +452,7 @@ fn selection_validator_rejects_a_policy_bad_subset() {
             "operator-c",
         ),
     ];
-    let pool = evaluate_hard_policy_v1(
+    let pool = run_gate(
         &intent,
         target(false),
         &projected,
@@ -478,7 +509,7 @@ proptest! {
                 "operator-b",
             ),
         ];
-        let baseline = evaluate_hard_policy_v1(
+        let baseline = run_gate(
             &intent,
             target(false),
             &state(
@@ -494,7 +525,7 @@ proptest! {
         if reverse_evidence {
             evidence.reverse();
         }
-        let permuted = evaluate_hard_policy_v1(
+        let permuted = run_gate(
             &intent,
             target(false),
             &state(SnapshotCoverageV1::QueriedIndexesComplete, candidates),
