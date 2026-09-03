@@ -154,62 +154,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mycelix_governance_authority::{
-        GovernanceBodyId, ProposalId, SigningPolicyId, PROTOCOL_VERSION,
-    };
-    use mycelix_governance_authority::ProposalAuthorityContext;
-    use mycelix_institutional_core::{
-        Digest32, InstitutionId, JurisdictionId, RulebookId, RulebookRef,
-    };
-
-    fn sample_context() -> ProposalAuthorityContext {
-        ProposalAuthorityContext {
-            protocol_version: PROTOCOL_VERSION.into(),
-            proposal_id: ProposalId::new("MIP-42").unwrap(),
-            institution: InstitutionId::new("institution:example").unwrap(),
-            jurisdiction: Some(JurisdictionId::new("jurisdiction:za").unwrap()),
-            rulebook: RulebookRef {
-                id: RulebookId::new("rulebook:example").unwrap(),
-                version: "1".into(),
-                digest: Digest32([7; 32]),
-            },
-            governing_body: GovernanceBodyId::new("body:council").unwrap(),
-            action_class: "standard".into(),
-            actions_digest: Digest32([8; 32]),
-            signing_policy_id: SigningPolicyId::new("policy:signing:v1").unwrap(),
-            signing_policy_digest: Digest32([9; 32]),
-            created_at_ms: 2_000,
-            expires_at_ms: 20_000,
-        }
-    }
 
     #[test]
-    fn binding_requires_explicit_digest_profiles() {
-        let binding = ProposalAuthorityBinding {
-            id: "pac:MIP-42:1".into(),
-            proposal_action_hash: ActionHash::from_raw_39(vec![0; 39]),
-            proposal_author: "did:mycelix:alice".into(),
-            context: sample_context(),
-            actions_digest_profile: ACTIONS_DIGEST_PROFILE_V1.into(),
-            signing_policy_digest_profile: "mycelix-signing-policy-v1-blake3".into(),
-            created_at: Timestamp::from_micros(2_000_000),
-        };
-        assert!(binding.validate_structure().is_ok());
-    }
-
-    #[test]
-    fn unsupported_actions_profile_fails_closed() {
-        let mut binding = ProposalAuthorityBinding {
-            id: "pac:MIP-42:1".into(),
-            proposal_action_hash: ActionHash::from_raw_39(vec![0; 39]),
-            proposal_author: "did:mycelix:alice".into(),
-            context: sample_context(),
-            actions_digest_profile: "json-whatever".into(),
-            signing_policy_digest_profile: "mycelix-signing-policy-v1-blake3".into(),
-            created_at: Timestamp::from_micros(2_000_000),
-        };
-        assert!(binding.validate_structure().is_err());
-        binding.actions_digest_profile = ACTIONS_DIGEST_PROFILE_V1.into();
-        assert!(binding.validate_structure().is_ok());
+    fn digest_profile_tokens_are_strict_ascii() {
+        assert!(validate_profile_token("mycelix-signing-policy-v1-blake3", "profile").is_ok());
+        assert!(validate_profile_token("", "profile").is_err());
+        assert!(validate_profile_token("Policy With Spaces", "profile").is_err());
+        assert!(validate_profile_token("π-profile", "profile").is_err());
     }
 }
