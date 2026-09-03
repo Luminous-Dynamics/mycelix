@@ -1,0 +1,18 @@
+[package]
+name = "governance_execution_lifecycle_verifier"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed composition verifier for governance execution lifecycle authority"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+execution_lifecycle_integrity = { path = "../../execution-lifecycle/integrity" }
+mycelix-governance-execution-lifecycle = { path = "../../../../crates/mycelix-governance-execution-lifecycle" }
+mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }

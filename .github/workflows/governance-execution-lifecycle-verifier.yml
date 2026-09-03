@@ -1,0 +1,71 @@
+name: Governance Execution Lifecycle Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/execution-lifecycle-verifier/**'
+      - 'mycelix-governance/zomes/execution-lifecycle/VERIFIER_CONTRACT.md'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/governance-execution-lifecycle-verifier.yml'
+  push:
+    branches:
+      - 'security/governance-execution-lifecycle-verifier-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    name: Lifecycle verifier native + WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package governance_execution_lifecycle_verifier -- --check
+      - name: Native tests
+        working-directory: mycelix-governance
+        run: cargo test --package governance_execution_lifecycle_verifier --all-targets
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package governance_execution_lifecycle_verifier --all-targets -- -D warnings
+      - name: WASM build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package governance_execution_lifecycle_verifier
+
+  containment:
+    name: Verifier remains unprovisioned until providers qualify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify authority providers are not silently provisioned
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          verifier = Path('mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs').read_text()
+          forbidden = [
+              'name: governance_execution_lifecycle_verifier',
+              'name: governance_execution_plan_verifier',
+              'name: governance_executor_authority_verifier',
+              'name: governance_effect_safety_authority_verifier',
+              'name: governance_execution_outcome_verifier',
+              'name: governance_execution_review_authority_verifier',
+          ]
+          for token in forbidden:
+              assert token not in dna, f'unqualified authority plane packaged: {token}'
+          assert 'const PLAN_VERIFIER_ZOME' in verifier
+          assert 'const THRESHOLD_VERIFIER_ZOME' in verifier
+          assert 'const EXECUTOR_VERIFIER_ZOME' in verifier
+          assert 'const SAFETY_PROVIDER_ZOME' in verifier
+          assert 'external_effects_enabled: false' in verifier
+          assert 'Phi' not in verifier
+          assert 'reputation' not in verifier.lower()
+          print('PASS: lifecycle verifier remains composition-only and unprovisioned')
+          PY
