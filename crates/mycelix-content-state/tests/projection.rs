@@ -78,7 +78,7 @@ fn parent_expiry_clamps_claim_and_boundary_is_half_open() {
 }
 
 #[test]
-fn withdrawal_suppresses_existing_and_later_claims() {
+fn withdrawal_suppresses_existing_claims_and_diagnoses_later_claims() {
     let withdrawal = WithdrawalEvidenceV1 {
         action: action(3),
         authored_at: at(5),
@@ -103,6 +103,10 @@ fn withdrawal_suppresses_existing_and_later_claims() {
         withdrawn.advertisements[0].withdrawal,
         WithdrawalObservationV1::Withdrawn { authored_at, .. } if authored_at == at(5)
     ));
+    assert!(withdrawn.issues.contains(&ProjectionIssueV1 {
+        action: action(4),
+        kind: ProjectionIssueKindV1::AvailabilityAfterObservedWithdrawal,
+    }));
 }
 
 #[test]
@@ -120,17 +124,38 @@ fn partial_snapshot_never_upgrades_absence_to_not_withdrawn() {
 }
 
 #[test]
-fn historical_replay_ignores_future_evidence_until_its_authored_time() {
+fn historical_replay_is_causally_isolated_from_future_evidence() {
     let evidence = snapshot(vec![ad(1, 7, 10, 20)], vec![claim(2, 7, 1, 11, 10, 42)], vec![]);
     let before = project_content_state_v1(evidence.clone(), at(9));
+    assert!(before.advertisements.is_empty());
     assert!(before.service_candidates.is_empty());
-    assert!(matches!(
-        before.advertisements[0].temporal_state,
-        AdvertisementTemporalStateV1::NotYetAuthored
-    ));
+    assert!(before.issues.is_empty());
 
     let after = project_content_state_v1(evidence, at(11));
+    assert_eq!(after.advertisements.len(), 1);
     assert_eq!(after.service_candidates.len(), 1);
+}
+
+#[test]
+fn future_conflicting_duplicate_cannot_poison_earlier_replay() {
+    let current = ad(1, 7, 0, 20);
+    let mut future_conflict = current.clone();
+    future_conflict.authored_at = at(10);
+    future_conflict.max_blob_size_bytes = 999;
+
+    let state = project_content_state_v1(
+        snapshot(vec![current], vec![claim(2, 7, 1, 1, 10, 42)], vec![]),
+        at(5),
+    );
+    let with_future_conflict = project_content_state_v1(
+        snapshot(
+            vec![ad(1, 7, 0, 20), future_conflict],
+            vec![claim(2, 7, 1, 1, 10, 42)],
+            vec![],
+        ),
+        at(5),
+    );
+    assert_eq!(state, with_future_conflict);
 }
 
 #[test]
@@ -167,6 +192,17 @@ fn conflicting_duplicate_action_is_never_resolved_by_arrival_order() {
 }
 
 #[test]
+fn availability_authored_after_parent_expiry_is_diagnostic_not_candidate() {
+    let evidence = snapshot(vec![ad(1, 7, 0, 5)], vec![claim(2, 7, 1, 6, 2, 42)], vec![]);
+    let state = project_content_state_v1(evidence, at(7));
+    assert!(state.service_candidates.is_empty());
+    assert!(state.issues.contains(&ProjectionIssueV1 {
+        action: action(2),
+        kind: ProjectionIssueKindV1::AvailabilityAfterAdvertisementExpiry,
+    }));
+}
+
+#[test]
 fn observations_remain_separate_from_service_candidate_truth() {
     let observation = ObservationEvidenceV1 {
         action: action(3),
@@ -183,7 +219,7 @@ fn observations_remain_separate_from_service_candidate_truth() {
     let state = project_content_state_v1(evidence, at(5));
     assert!(state.service_candidates.is_empty());
     assert_eq!(state.observations.len(), 1);
-    assert_eq!(state.observations[0].age_micros, 2 * SECOND as u64);
+    assert_eq!(state.observations[0].age_micros, (2 * SECOND) as u64);
 }
 
 proptest! {
