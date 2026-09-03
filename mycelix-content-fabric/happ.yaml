@@ -1,0 +1,18 @@
+---
+manifest_version: "0"
+name: mycelix-content-fabric
+description: |
+  Metadata-only discovery and observation plane for Mycelix Content Fabric.
+  Bulk bytes, read grants, leases, placement authority, and settlement remain outside Holochain.
+
+roles:
+  - name: content_fabric
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      path: ./dna/mycelix_content_fabric.dna
+      modifiers:
+        network_seed: ~
+        properties: ~
+      clone_limit: 0
