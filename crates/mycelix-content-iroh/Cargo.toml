@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-content-iroh"
+version = "0.1.0"
+edition = "2024"
+description = "Iroh transport adapter for Mycelix Content Fabric verified whole-blob transfer"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+blake3 = "1"
+iroh = "1.1"
+mycelix-content-core = { path = "../mycelix-content-core" }
+mycelix-content-node = { path = "../mycelix-content-node" }
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["fs", "io-util", "rt", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync", "time"] }
