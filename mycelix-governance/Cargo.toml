@@ -7,6 +7,8 @@ members = [
     "zomes/proposal-authority/coordinator",
     "zomes/voting/integrity",
     "zomes/voting/coordinator",
+    "zomes/binding-voting/integrity",
+    "zomes/binding-voting/coordinator",
     "zomes/execution/integrity",
     "zomes/execution/coordinator",
     "zomes/constitution/integrity",
