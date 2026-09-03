@@ -53,9 +53,37 @@ fn fetch_linked_records(
     Ok(records)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProviderBindingContextV1 {
+    pub provider: AgentPubKey,
+    pub binding_prev_action: ActionHash,
+}
+
+/// Returns the exact one-use source-chain head that an Iroh endpoint must sign.
+/// The provider advertisement must be the next source-chain action after this context.
+#[hdk_extern]
+pub fn get_provider_binding_context(_: ()) -> ExternResult<ProviderBindingContextV1> {
+    let info = agent_info()?;
+    Ok(ProviderBindingContextV1 {
+        provider: info.agent_initial_pubkey,
+        binding_prev_action: info.chain_head.0,
+    })
+}
+
 #[hdk_extern]
 pub fn publish_provider_advertisement(ad: ProviderAdvertisementV1) -> ExternResult<Record> {
-    require_agent(&ad.provider)?;
+    let info = agent_info()?;
+    if ad.provider != info.agent_initial_pubkey {
+        return Err(guest_error("provider advertisement identity does not match caller"));
+    }
+    if ad.binding_prev_action != info.chain_head.0 {
+        return Err(guest_error(
+            "provider endpoint binding context is stale; request a fresh chain head and re-sign",
+        ));
+    }
+
+    // This must remain the first chain write in this function. Integrity validation
+    // requires the signed binding_prev_action to equal the Create action prev_action.
     let action_hash = create_entry(&EntryTypes::ProviderAdvertisementV1(ad.clone()))?;
 
     let all = ensure_anchor(all_providers_anchor_v1())?;
