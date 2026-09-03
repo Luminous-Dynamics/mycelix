@@ -1,0 +1,15 @@
+[package]
+name = "proposal_authority_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Immutable institutional authority context for governance proposals"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
