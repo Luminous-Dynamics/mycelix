@@ -4,25 +4,19 @@
 //! Provider-neutral cryptographic verification for reciprocal-accountability receipts.
 //!
 //! `mycelix-accountability-core` owns semantic/privacy invariants and opaque
-//! attestation references. This crate owns the missing fail-closed boundary between
+//! attestation references. This crate owns the fail-closed boundary between
 //! "a proof reference is present" and "the referenced proof was actually verified".
-//!
-//! Providers (Xenia, Symthaea, independent witnesses, future proof systems) resolve
-//! an [`AttestationRef`] from their own evidence store and authenticate its scheme,
-//! verifier profile/key material, proof bytes, and public statement. Mycelix itself
-//! does not need to depend on those implementations.
 
 use std::fmt::Display;
 
 use mycelix_accountability_core::{
-    pre_attestation_receipt_commitment, policy_commitment, purpose_commitment,
-    validate_pre_attestation_receipt, validate_receipt, AccessReceipt, AccountabilityError,
-    AccountabilityPolicy, AttestationRef, AttestationRole, Commitment32, NotificationDisposition,
+    AccessReceipt, AccountabilityError, AccountabilityPolicy, AttestationRef, AttestationRole,
+    Commitment32, NotificationDisposition, policy_commitment, pre_attestation_receipt_commitment,
+    purpose_commitment, validate_pre_attestation_receipt, validate_receipt,
 };
 use thiserror::Error;
 
-/// Commitment-only context that every evidence provider receives during
-/// verification.
+/// Commitment-only context supplied to every evidence provider during verification.
 ///
 /// This deliberately contains no subject identifier, actor name, case/matter ID,
 /// purpose text, authority ID, or record data. It is nevertheless rich enough for
@@ -84,8 +78,6 @@ pub enum VerificationError {
 ///
 /// This is intentionally not an authorization token. It records that all proof
 /// references attached to this exact snapshot were verified under one exact policy.
-/// Downstream code should pass this type, rather than a raw [`AccessReceipt`], across
-/// the final evidence/disclosure boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedReceipt {
     receipt: AccessReceipt,
@@ -120,16 +112,13 @@ impl VerifiedReceipt {
     }
 
     /// Evaluate notification using the same policy that was verified.
-    ///
-    /// Replacing the policy after proof verification fails closed rather than
-    /// silently changing notification/delay semantics beneath a verified receipt.
     pub fn evaluate_notification(
         &self,
         now_ms: u64,
         policy: &AccountabilityPolicy,
     ) -> Result<NotificationDisposition, VerificationError> {
-        let current_policy = policy_commitment(policy)
-            .map_err(|_| VerificationError::CommitmentEncoding)?;
+        let current_policy =
+            policy_commitment(policy).map_err(|_| VerificationError::CommitmentEncoding)?;
         if current_policy != self.verification_context.policy_digest {
             return Err(VerificationError::PolicyChangedAfterVerification);
         }
@@ -140,11 +129,6 @@ impl VerifiedReceipt {
 
 /// Validate the semantic receipt at the freeze point and return the exact statement
 /// that Xenia/Symthaea/witnesses must prove.
-///
-/// Unlike the lower-level core structural validator, this guard deliberately rejects
-/// *all* already-attached evidence. That makes "commit first, prove second" an
-/// executable invariant and prevents callers from accidentally blessing a mutable or
-/// circular pre-attestation state.
 pub fn freeze_pre_attestation_statement(
     receipt: &AccessReceipt,
     policy: &AccountabilityPolicy,
@@ -152,27 +136,22 @@ pub fn freeze_pre_attestation_statement(
     if !receipt.attestations.is_empty() {
         return Err(VerificationError::EvidenceAttachedBeforeCommitment);
     }
-    validate_pre_attestation_receipt(receipt, policy)
-        .map_err(VerificationError::Structural)?;
-    pre_attestation_receipt_commitment(receipt)
-        .map_err(|_| VerificationError::CommitmentEncoding)
+    validate_pre_attestation_receipt(receipt, policy).map_err(VerificationError::Structural)?;
+    pre_attestation_receipt_commitment(receipt).map_err(|_| VerificationError::CommitmentEncoding)
 }
 
-/// Derive the complete privacy-preserving public context used by provider
-/// verifiers. The receipt is structurally validated first, so callers cannot
-/// obtain a verification context for malformed accountability state.
+/// Derive the complete privacy-preserving public context used by provider verifiers.
 pub fn verification_context(
     receipt: &AccessReceipt,
     policy: &AccountabilityPolicy,
 ) -> Result<AttestationVerificationContext, VerificationError> {
-    validate_pre_attestation_receipt(receipt, policy)
-        .map_err(VerificationError::Structural)?;
+    validate_pre_attestation_receipt(receipt, policy).map_err(VerificationError::Structural)?;
     let statement_digest = pre_attestation_receipt_commitment(receipt)
         .map_err(|_| VerificationError::CommitmentEncoding)?;
-    let purpose_digest = purpose_commitment(&receipt.purpose)
-        .map_err(|_| VerificationError::CommitmentEncoding)?;
-    let policy_digest = policy_commitment(policy)
-        .map_err(|_| VerificationError::CommitmentEncoding)?;
+    let purpose_digest =
+        purpose_commitment(&receipt.purpose).map_err(|_| VerificationError::CommitmentEncoding)?;
+    let policy_digest =
+        policy_commitment(policy).map_err(|_| VerificationError::CommitmentEncoding)?;
 
     Ok(AttestationVerificationContext {
         statement_digest,
@@ -187,16 +166,12 @@ pub fn verification_context(
 /// Structurally validate and cryptographically verify a finalized receipt.
 ///
 /// Every attached attestation is verified, not merely the roles required by policy.
-/// This prevents an invalid optional/decorative proof from hitchhiking beside valid
-/// required evidence. The core validator still decides which roles are mandatory;
-/// the provider adapter decides whether each referenced proof is authentic and valid.
 pub fn verify_finalized_receipt<V: AttestationVerifier>(
     receipt: &AccessReceipt,
     policy: &AccountabilityPolicy,
     verifier: &V,
 ) -> Result<VerifiedReceipt, VerificationError> {
     validate_receipt(receipt, policy).map_err(VerificationError::Structural)?;
-
     let expected = verification_context(receipt, policy)?;
 
     for attestation in &receipt.attestations {
@@ -206,12 +181,12 @@ pub fn verify_finalized_receipt<V: AttestationVerifier>(
             });
         }
 
-        verifier
-            .verify(attestation, &expected)
-            .map_err(|error| VerificationError::CryptographicVerificationFailed {
+        verifier.verify(attestation, &expected).map_err(|error| {
+            VerificationError::CryptographicVerificationFailed {
                 role: attestation.role,
                 reason: error.to_string(),
-            })?;
+            }
+        })?;
     }
 
     Ok(VerifiedReceipt {
@@ -225,10 +200,10 @@ pub fn verify_finalized_receipt<V: AttestationVerifier>(
 mod tests {
     use super::*;
     use mycelix_accountability_core::{
-        AuthorityType, DisclosureKind, DisclosureSummary, LegalAuthority, LookupOutcome,
-        NotificationDirective, PairwiseSubjectId, PurposeBinding, QueryBudgetCharge,
-        RequestingPrincipal, SubjectRight, ACCOUNTABILITY_COMMITMENT_ALGORITHM,
-        RECIPROCAL_ACCOUNTABILITY_PROTOCOL_VERSION,
+        ACCOUNTABILITY_COMMITMENT_ALGORITHM, AuthorityType, DisclosureKind, DisclosureSummary,
+        LegalAuthority, LookupOutcome, NotificationDirective, PairwiseSubjectId, PurposeBinding,
+        QueryBudgetCharge, RECIPROCAL_ACCOUNTABILITY_PROTOCOL_VERSION, RequestingPrincipal,
+        SubjectRight,
     };
 
     const DAY_MS: u64 = 24 * 60 * 60 * 1000;
@@ -391,7 +366,6 @@ mod tests {
     fn proof_reference_presence_is_not_cryptographic_verification() {
         let receipt = finalized_receipt();
         assert_eq!(validate_receipt(&receipt, &policy()), Ok(()));
-
         let verifier = TestVerifier {
             reject_role: Some(AttestationRole::ExecutionBinding),
         };
@@ -488,10 +462,13 @@ mod tests {
     }
 
     #[test]
-    fn verifier_contract_uses_the_same_commitment_profile_as_core() {
+    fn verifier_contract_uses_same_commitment_profile_as_core() {
         assert_eq!(ACCOUNTABILITY_COMMITMENT_ALGORITHM, "blake3-256");
         let receipt = receipt();
         let frozen = freeze_pre_attestation_statement(&receipt, &policy()).unwrap();
-        assert_eq!(frozen, pre_attestation_receipt_commitment(&receipt).unwrap());
+        assert_eq!(
+            frozen,
+            pre_attestation_receipt_commitment(&receipt).unwrap()
+        );
     }
 }

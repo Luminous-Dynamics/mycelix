@@ -3,16 +3,20 @@
 
 //! Language-neutral v1 canonical encoding for accountability commitments.
 //!
-//! This module deliberately does not use Serde/bincode. Every field has an
-//! explicit byte representation, enum tags are fixed by this protocol version,
-//! integers are big-endian, strings are length-prefixed UTF-8, options are
-//! tagged, and collections with set semantics are sorted before encoding.
+//! This codec deliberately does not use Serde/bincode. Integers are big-endian,
+//! strings are length-prefixed UTF-8, enum tags are fixed by protocol version,
+//! options are explicitly tagged, and collections with set semantics are sorted
+//! and deduplicated before encoding.
 
-use crate::legacy::*;
+use crate::protocol::*;
 use thiserror::Error;
 
 /// Canonical byte codec bound into every v1 accountability commitment.
 pub const ACCOUNTABILITY_CANONICAL_CODEC: &str = "mycelix-accountability-canonical-v1";
+
+const RECEIPT_COMMITMENT_DOMAIN_V1: &[u8] = b"mycelix:accountability-receipt:pre-attestation:v1";
+const PURPOSE_COMMITMENT_DOMAIN_V1: &[u8] = b"mycelix:accountability-purpose:v1";
+const POLICY_COMMITMENT_DOMAIN_V1: &[u8] = b"mycelix:accountability-policy:v1";
 
 /// Errors from canonical accountability commitment encoding.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -24,8 +28,7 @@ pub enum AccountabilityCommitmentError {
 type CanonicalResult<T> = Result<T, AccountabilityCommitmentError>;
 
 /// Compute the stable v1 commitment to the semantic receipt before proofs are
-/// attached. `attestations` are intentionally excluded to avoid proof/receipt
-/// hash cycles.
+/// attached. `attestations` are intentionally excluded from the encoded body.
 pub fn pre_attestation_receipt_commitment(
     receipt: &AccessReceipt,
 ) -> CanonicalResult<Commitment32> {
@@ -41,14 +44,12 @@ pub fn purpose_commitment(purpose: &PurposeBinding) -> CanonicalResult<Commitmen
 }
 
 /// Compute the policy commitment carried into execution/proof bindings.
-/// Set-like policy vectors are normalized, so semantically identical policy
-/// sets produce the same digest regardless of insertion order.
 pub fn policy_commitment(policy: &AccountabilityPolicy) -> CanonicalResult<Commitment32> {
     let encoded = canonical_policy_bytes(policy)?;
     Ok(hash_canonical(POLICY_COMMITMENT_DOMAIN_V1, &encoded))
 }
 
-/// Export the exact canonical pre-attestation bytes for independent verifier
+/// Export exact canonical pre-attestation receipt bytes for independent
 /// implementations and golden-vector testing.
 pub fn canonical_pre_attestation_receipt_bytes(
     receipt: &AccessReceipt,
@@ -80,7 +81,7 @@ pub fn canonical_pre_attestation_receipt_bytes(
     Ok(out)
 }
 
-/// Export the exact canonical policy bytes for independent implementations and
+/// Export exact canonical policy bytes for independent implementations and
 /// golden-vector testing.
 pub fn canonical_policy_bytes(policy: &AccountabilityPolicy) -> CanonicalResult<Vec<u8>> {
     let mut out = Vec::new();
@@ -115,11 +116,6 @@ pub fn canonical_policy_bytes(policy: &AccountabilityPolicy) -> CanonicalResult<
     }
     Ok(out)
 }
-
-const RECEIPT_COMMITMENT_DOMAIN_V1: &[u8] =
-    b"mycelix:accountability-receipt:pre-attestation:v1";
-const PURPOSE_COMMITMENT_DOMAIN_V1: &[u8] = b"mycelix:accountability-purpose:v1";
-const POLICY_COMMITMENT_DOMAIN_V1: &[u8] = b"mycelix:accountability-policy:v1";
 
 fn hash_canonical(domain: &[u8], encoded: &[u8]) -> Commitment32 {
     let mut hasher = blake3::Hasher::new();
@@ -184,8 +180,16 @@ fn encode_notification(out: &mut Vec<u8>, value: &NotificationDirective) -> Cano
 
             let mut approvals: Vec<_> = auth.approvals.iter().collect();
             approvals.sort_by(|left, right| {
-                (&left.organization_id, &left.approver_id, left.approval_digest.0)
-                    .cmp(&(&right.organization_id, &right.approver_id, right.approval_digest.0))
+                (
+                    &left.organization_id,
+                    &left.approver_id,
+                    left.approval_digest.0,
+                )
+                    .cmp(&(
+                        &right.organization_id,
+                        &right.approver_id,
+                        right.approval_digest.0,
+                    ))
             });
             push_len(out, approvals.len())?;
             for approval in approvals {
@@ -398,7 +402,11 @@ mod tests {
                 result_digest: Some(c(12)),
             },
             notification: NotificationDirective::Immediate,
-            rights: vec![SubjectRight::Contest, SubjectRight::Know, SubjectRight::Inspect],
+            rights: vec![
+                SubjectRight::Contest,
+                SubjectRight::Know,
+                SubjectRight::Inspect,
+            ],
             query_budget_charge: Some(QueryBudgetCharge {
                 budget_id: "budget-1".into(),
                 units: 1,
@@ -415,7 +423,7 @@ mod tests {
                 provenance_receipt_ids: vec!["receipt-z".into(), "receipt-a".into()],
                 significant_effect: false,
             }),
-            attestations: vec![],
+            attestations: Vec::new(),
         }
     }
 
@@ -463,14 +471,18 @@ mod tests {
             proof_digest: c(21),
             verifier_profile: "example-v1".into(),
         });
-        assert_eq!(expected, pre_attestation_receipt_commitment(&reordered).unwrap());
+
+        assert_eq!(
+            expected,
+            pre_attestation_receipt_commitment(&reordered).unwrap()
+        );
     }
 
     #[test]
     fn policy_commitment_is_invariant_to_set_order() {
         let base = policy();
         let expected = policy_commitment(&base).unwrap();
-        let mut reordered = base.clone();
+        let mut reordered = base;
         reordered.permitted_delay_reasons.reverse();
         reordered.required_subject_rights.reverse();
         reordered.required_attestation_roles.reverse();
@@ -482,16 +494,22 @@ mod tests {
         let base = receipt();
         let expected = pre_attestation_receipt_commitment(&base).unwrap();
         let mut changed = base;
-        changed.purpose.plain_language_purpose.push_str(" materially changed");
-        assert_ne!(expected, pre_attestation_receipt_commitment(&changed).unwrap());
+        changed
+            .purpose
+            .plain_language_purpose
+            .push_str(" materially changed");
+        assert_ne!(
+            expected,
+            pre_attestation_receipt_commitment(&changed).unwrap()
+        );
     }
 
     #[test]
-    fn exported_canonical_bytes_are_stable_and_nonempty() {
-        let bytes = canonical_pre_attestation_receipt_bytes(&receipt()).unwrap();
+    fn canonical_bytes_are_stable_nonempty_domains() {
+        let receipt_bytes = canonical_pre_attestation_receipt_bytes(&receipt()).unwrap();
         let policy_bytes = canonical_policy_bytes(&policy()).unwrap();
-        assert!(!bytes.is_empty());
+        assert!(!receipt_bytes.is_empty());
         assert!(!policy_bytes.is_empty());
-        assert_ne!(bytes, policy_bytes);
+        assert_ne!(receipt_bytes, policy_bytes);
     }
 }
