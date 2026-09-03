@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-authority-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Canonical semantic identities for Mycelix institutional authority objects"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
