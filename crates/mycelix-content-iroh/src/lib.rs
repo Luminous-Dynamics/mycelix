@@ -14,7 +14,10 @@ mod wire;
 
 pub use client::{ContentClientConfigV1, ContentClientV1, VerifiedDownloadV1};
 pub use error::{TransportErrorV1, WireErrorV1};
-pub use provider::{ContentProviderConfigV1, ContentProviderV1};
+pub use provider::{
+    AllowAllReadsV1, ContentProviderConfigV1, ContentProviderV1, DenyAllReadsV1,
+    ReadAuthorizerV1,
+};
 pub use wire::{
     ContentRequestV1, ContentResponseHeaderV1, ContentResponseStatusV1, CONTENT_ALPN_V1,
     REQUEST_LEN_V1, RESPONSE_HEADER_LEN_V1,

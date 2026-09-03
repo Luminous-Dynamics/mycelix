@@ -3,7 +3,9 @@ use std::{fmt, sync::Arc, time::Duration};
 use iroh::{
     endpoint::{Connection, SendStream},
     protocol::{AcceptError, ProtocolHandler},
+    EndpointId,
 };
+use mycelix_content_core::ContentDigestV1;
 use mycelix_content_node::{CasErrorV1, LocalCasV1};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -17,6 +19,36 @@ use crate::{
 
 const MAX_PROVIDER_CONCURRENCY_V1: usize = 64;
 const ACK_WAIT_V1: Duration = Duration::from_secs(5);
+
+/// Local, non-blocking authorization snapshot for transport reads.
+///
+/// Implementations should be cheap lookups over state maintained by a higher
+/// authority layer. CF-04 intentionally does not perform remote authorization
+/// calls or create access policy on its own.
+pub trait ReadAuthorizerV1: fmt::Debug + Send + Sync + 'static {
+    fn allows(&self, peer: EndpointId, digest: ContentDigestV1) -> bool;
+}
+
+/// Explicit public-content policy. This must be selected deliberately when a
+/// provider is intended to expose every locally stored digest.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct AllowAllReadsV1;
+
+impl ReadAuthorizerV1 for AllowAllReadsV1 {
+    fn allows(&self, _peer: EndpointId, _digest: ContentDigestV1) -> bool {
+        true
+    }
+}
+
+/// Fail-closed policy useful while an authority snapshot has not been loaded.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DenyAllReadsV1;
+
+impl ReadAuthorizerV1 for DenyAllReadsV1 {
+    fn allows(&self, _peer: EndpointId, _digest: ContentDigestV1) -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ContentProviderConfigV1 {
@@ -46,12 +78,14 @@ impl ContentProviderConfigV1 {
 #[derive(Clone)]
 pub struct ContentProviderV1 {
     cas: Arc<LocalCasV1>,
+    authorizer: Arc<dyn ReadAuthorizerV1>,
     slots: Arc<Semaphore>,
 }
 
 impl fmt::Debug for ContentProviderV1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ContentProviderV1")
+            .field("authorizer", &self.authorizer)
             .field("available_slots", &self.slots.available_permits())
             .finish_non_exhaustive()
     }
@@ -60,11 +94,13 @@ impl fmt::Debug for ContentProviderV1 {
 impl ContentProviderV1 {
     pub fn new(
         cas: Arc<LocalCasV1>,
+        authorizer: Arc<dyn ReadAuthorizerV1>,
         config: ContentProviderConfigV1,
     ) -> Result<Self, TransportErrorV1> {
         let config = config.validate()?;
         Ok(Self {
             cas,
+            authorizer,
             slots: Arc::new(Semaphore::new(config.max_concurrent_transfers)),
         })
     }
@@ -72,6 +108,7 @@ impl ContentProviderV1 {
 
 impl ProtocolHandler for ContentProviderV1 {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
+        let peer = connection.remote_id();
         let (mut send, mut recv) = connection.accept_bi().await?;
         let mut request_bytes = [0_u8; REQUEST_LEN_V1];
         AsyncReadExt::read_exact(&mut recv, &mut request_bytes).await?;
@@ -88,6 +125,14 @@ impl ProtocolHandler for ContentProviderV1 {
                 return Ok(());
             }
         };
+
+        // Authorization is intentionally checked before CAS lookup. Denial is
+        // returned as NOT_FOUND so unauthorized peers cannot distinguish a
+        // private existing digest from an absent digest.
+        if !self.authorizer.allows(peer, request.digest) {
+            send_status(&mut send, ContentResponseStatusV1::NotFound).await?;
+            return Ok(());
+        }
 
         let _permit = match self.slots.clone().try_acquire_owned() {
             Ok(permit) => permit,

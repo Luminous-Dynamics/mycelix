@@ -6,7 +6,7 @@ Status: draft implementation contract for CF-04.
 
 CF-04 transports already-defined Content Fabric blobs over Iroh. It MUST NOT
 change global content identity, storage policy, publication provenance, lease
-authority, or software-admission authority.
+authority, read authority, or software-admission authority.
 
 ALPN is the exact byte string:
 
@@ -25,8 +25,8 @@ Every request is exactly 44 bytes:
 | 11 | 1 | flags/reserved = `0` |
 | 12 | 32 | digest bytes |
 
-Unknown versions, operations, algorithms, or non-zero reserved fields MUST fail
-closed.
+Unknown versions, operations, algorithms, non-zero reserved fields, or bytes after
+the fixed request frame MUST fail closed.
 
 The numeric digest tags are wire values; they are not derived from Rust enum
 ordering.
@@ -56,10 +56,36 @@ For every non-OK status, payload size MUST be zero and no content payload follow
 For OK, exactly `payload size` bytes follow and the stream then ends.
 Trailing bytes are a protocol violation.
 
+## Read authorization
+
+Transport reachability does not imply read entitlement.
+
+A CF-04 provider MUST have an explicit local read-authorizer snapshot before it
+can serve data. The reference adapter exposes `ReadAuthorizerV1`, whose decision
+inputs are the authenticated Iroh `EndpointId` for the peer and the requested
+`ContentDigestV1`.
+
+The transport layer MUST NOT create read grants, query a remote policy service on
+the request hot path, or infer authorization from the mere possession of a CAS
+blob. A higher authority layer is responsible for maintaining the local snapshot.
+
+Authorization MUST occur before CAS lookup.
+
+A denied request MUST be externally indistinguishable from an absent digest in
+v1: both return `NOT_FOUND`. This prevents an unauthorized peer from using CF-04
+as an existence oracle for private or encrypted replicas.
+
+The reference adapter includes two explicit policies:
+
+- `DenyAllReadsV1` — fail closed while no usable authorization snapshot exists.
+- `AllowAllReadsV1` — deliberate public-content mode.
+
+There is no implicit allow-all provider constructor.
+
 ## Integrity
 
-A provider MUST fully verify the requested CAS blob before sending the response
-payload.
+An authorized provider MUST fully verify the requested CAS blob before sending
+the response payload.
 
 A client MUST know the expected `BlobDescriptorV1` before accepting a transfer.
 It MUST reject:
@@ -72,6 +98,13 @@ It MUST reject:
 The transport-level Iroh endpoint identity identifies the peer connection. It is
 not content integrity and is not sufficient to authorize installation or trust
 software.
+
+Provider error semantics distinguish evidence classes:
+
+- structural/immutability/digest failures in the local CAS → `INTEGRITY_FAILURE`;
+- ordinary I/O/runtime failures → `INTERNAL_ERROR`.
+
+An outage therefore does not masquerade as evidence that content bytes are bad.
 
 ## Why v1 has no remote ranges
 
@@ -90,6 +123,9 @@ than treating a transport implementation's chunk tree as global object identity.
 Providers MUST cap concurrent verified transfers and SHOULD shed excess demand
 rather than permit an unbounded waiter queue.
 
+A completed provider send MUST NOT let a peer retain a transfer slot indefinitely
+by withholding stream acknowledgement; the reference adapter bounds that wait.
+
 Clients MUST configure a non-zero maximum blob size and MUST reject responses over
 that bound.
 
@@ -104,3 +140,10 @@ into CF-03 uses the ordinary `LocalCasV1::put()` path.
 This intentionally re-verifies and copies the file in v1. A future optimized
 handoff MAY remove the duplicate I/O only if it preserves the same reservation,
 fsync, immutable-file, digest-verification, and atomic-promotion invariants.
+
+## Coordination boundary
+
+A future Holochain coordination layer may publish endpoint reachability and
+service/capability evidence. Such an advertisement does not grant read access.
+The CF-04 provider's local authorizer remains the final read gate before CAS
+lookup.

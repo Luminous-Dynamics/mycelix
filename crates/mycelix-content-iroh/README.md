@@ -18,14 +18,30 @@ verified uniformly by every client. Arbitrary remote byte ranges are not exposed
 until Content Fabric has a digest-algorithm-neutral authenticated range-proof
 contract.
 
+## Read authorization
+
+A provider cannot be constructed without an explicit `ReadAuthorizerV1`.
+Authorization is a cheap, local policy snapshot supplied by a higher authority
+layer; CF-04 does not make remote policy calls or invent access rights.
+
+Two reference policies exist:
+
+- `DenyAllReadsV1` — fail closed while no authorization snapshot exists.
+- `AllowAllReadsV1` — explicit public-content mode.
+
+Authorization is checked before CAS lookup. A denied request receives the same
+`NOT_FOUND` response as an absent digest so unauthorized peers cannot use the
+transport as an existence oracle for private replicas.
+
 ## Provider path
 
-1. Parse the fixed-width request frame.
-2. Shed excess work with a bounded transfer semaphore.
-3. Ask CF-03 to `open_verified_digest()`.
-4. Send the fixed response header.
-5. Stream the exact verified file handle.
-6. Finish the QUIC stream and wait only a bounded interval for acknowledgement.
+1. Parse the fixed-width request frame and require immediate request EOF.
+2. Check local read authorization before CAS lookup.
+3. Shed excess work with a bounded transfer semaphore.
+4. Ask CF-03 to `open_verified_digest()`.
+5. Send the fixed response header.
+6. Stream the exact verified file handle.
+7. Finish the QUIC stream and wait only a bounded interval for acknowledgement.
 
 The provider never sends bytes from an unverified CAS path.
 

@@ -263,7 +263,9 @@ mod tests {
     use mycelix_content_node::CasConfigV1;
 
     use super::*;
-    use crate::{ContentProviderConfigV1, ContentProviderV1};
+    use crate::{
+        AllowAllReadsV1, ContentProviderConfigV1, ContentProviderV1, DenyAllReadsV1,
+    };
 
     async fn direct_endpoint() -> Endpoint {
         Endpoint::builder(presets::Minimal)
@@ -292,6 +294,7 @@ mod tests {
         let provider_endpoint = direct_endpoint().await;
         let provider = ContentProviderV1::new(
             Arc::clone(&provider_cas),
+            Arc::new(AllowAllReadsV1),
             ContentProviderConfigV1::default(),
         )
         .unwrap();
@@ -314,6 +317,42 @@ mod tests {
         assert_eq!(downloaded, bytes);
         download.import_into_cas(&receiver_cas).unwrap();
         assert!(receiver_cas.contains_verified(&expected).unwrap());
+
+        client.endpoint().close().await;
+        router.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn denied_read_is_indistinguishable_from_absence() {
+        let provider_root = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let provider_cas = Arc::new(
+            LocalCasV1::open(CasConfigV1::new(provider_root.path(), 1024 * 1024)).unwrap(),
+        );
+        let bytes = b"private ciphertext";
+        let expected = BlobDescriptorV1::from_bytes(DigestAlgorithmV1::Blake3_256, bytes, None);
+        provider_cas.put(&expected, &bytes[..]).unwrap();
+
+        let provider_endpoint = direct_endpoint().await;
+        let provider = ContentProviderV1::new(
+            provider_cas,
+            Arc::new(DenyAllReadsV1),
+            ContentProviderConfigV1::default(),
+        )
+        .unwrap();
+        let router = Router::builder(provider_endpoint)
+            .accept(CONTENT_ALPN_V1, provider)
+            .spawn();
+
+        let client = ContentClientV1::new(
+            direct_endpoint().await,
+            ContentClientConfigV1::new(download_dir.path(), 1024 * 1024),
+        )
+        .unwrap();
+        assert!(matches!(
+            client.fetch(router.endpoint().addr(), &expected).await,
+            Err(TransportErrorV1::RemoteNotFound(_))
+        ));
 
         client.endpoint().close().await;
         router.shutdown().await.unwrap();
