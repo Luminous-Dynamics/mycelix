@@ -49,6 +49,9 @@ pub struct ProviderPolicyEvidenceV1 {
     /// The exact CF-05 advertisement this evidence describes.
     pub advertisement: ActionRefV1,
     pub provider: AgentRefV1,
+    /// Half-open validity window for this verified policy-evidence bundle.
+    pub valid_from_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
     pub storage_jurisdictions: Vec<AssuredJurisdictionV1>,
     /// Evidence that provider-managed encryption at rest is enabled/supported for this placement.
     pub provider_at_rest_encryption: Option<PolicyAssuranceV1>,
@@ -100,6 +103,8 @@ pub enum CandidateRejectionReasonV1 {
     MissingProviderPolicyEvidence,
     ConflictingProviderPolicyEvidence,
     ProviderEvidenceIdentityMismatch,
+    InvalidProviderPolicyEvidenceWindow,
+    ProviderPolicyEvidenceNotCurrent,
     MissingJurisdictionEvidence,
     InsufficientJurisdictionAssurance,
     InvalidJurisdictionEvidence,
