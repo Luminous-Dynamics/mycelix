@@ -6,6 +6,7 @@ on:
       - 'crates/mycelix-infrastructure-types/**'
       - 'crates/mycelix-content-core/**'
       - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-content-http/**'
       - '.github/workflows/content-fabric.yml'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'crates/mycelix-infrastructure-types/**'
       - 'crates/mycelix-content-core/**'
       - 'crates/mycelix-content-node/**'
+      - 'crates/mycelix-content-http/**'
       - '.github/workflows/content-fabric.yml'
 
 permissions:
@@ -82,3 +84,22 @@ jobs:
         run: cargo clippy --manifest-path crates/mycelix-content-node/Cargo.toml --all-targets -- -D warnings
       - name: Test
         run: cargo test --manifest-path crates/mycelix-content-node/Cargo.toml --all-targets
+
+  content-http:
+    name: CF-03A loopback HTTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-http
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-http/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-http/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-http/Cargo.toml --all-targets

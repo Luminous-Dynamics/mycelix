@@ -1,0 +1,24 @@
+[package]
+name = "mycelix-content-http"
+version = "0.1.0"
+edition = "2024"
+description = "Loopback-only read HTTP facade for Mycelix Content Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/luminous-dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+hex = "0.4"
+mycelix-content-core = { path = "../mycelix-content-core" }
+mycelix-content-node = { path = "../mycelix-content-node" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1.53", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "sync"] }
+tokio-util = { version = "0.7", features = ["io"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
