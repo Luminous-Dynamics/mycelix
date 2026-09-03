@@ -4,14 +4,17 @@
 //!
 //! A candidate is NOT authority by existence. The coordinator re-verifies its
 //! binding tally and threshold authorization every time it projects the current
-//! constitution.
+//! constitution. Integrity only provides cheap provenance/index admission so an
+//! arbitrary global link flood cannot become an unbounded verification surface.
 
 use hdi::prelude::*;
 use mycelix_governance_constitution::{
-    ConstitutionStatement, ConstitutionTransitionAuthorization,
+    ConstitutionStatement, ConstitutionTransitionAuthorization, Digest32,
 };
+use proposal_authority_integrity::ProposalAuthorityBinding;
 
 const MAX_ID_BYTES: usize = 512;
+const PARENT_ANCHOR_PREFIX: &str = "constitution-transition-parent:";
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -23,6 +26,9 @@ pub struct ConstitutionTransitionCandidate {
     pub id: String,
     pub child: ConstitutionStatement,
     pub authorization: ConstitutionTransitionAuthorization,
+    /// Exact immutable proposal-authority record used as cheap candidate
+    /// admission/provenance. It is not sufficient transition authority.
+    pub proposal_authority_binding: ActionHash,
     pub submitted_by: String,
     pub submitted_at: Timestamp,
 }
@@ -64,7 +70,47 @@ pub enum EntryTypes {
 
 #[hdk_link_types]
 pub enum LinkTypes {
-    AllTransitionCandidates,
+    /// `constitution-transition-parent:<parent-statement-digest>` -> candidate.
+    ParentToTransitionCandidate,
+}
+
+pub fn parent_anchor_name(parent: Digest32) -> String {
+    format!("{PARENT_ANCHOR_PREFIX}{}", parent.to_hex())
+}
+
+fn validate_proposal_authority_binding(
+    candidate: &ConstitutionTransitionCandidate,
+) -> ExternResult<Result<(), String>> {
+    let record = must_get_valid_record(candidate.proposal_authority_binding.clone())?;
+    let binding: ProposalAuthorityBinding = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Transition candidate proposal-authority reference is not a proposal authority binding"
+                    .into(),
+            ))
+        })?;
+
+    if binding.proposal_author != candidate.submitted_by {
+        return Ok(Err(
+            "Transition candidate submitter must equal the referenced proposal author".into(),
+        ));
+    }
+    if binding.context.proposal_id.as_str() != candidate.authorization.proposal_id.as_str() {
+        return Ok(Err(
+            "Transition candidate proposal id differs from referenced proposal authority context"
+                .into(),
+        ));
+    }
+    if binding.context.institution.as_str() != candidate.child.institution_id.as_str() {
+        return Ok(Err(
+            "Transition candidate institution differs from referenced proposal authority context"
+                .into(),
+        ));
+    }
+    Ok(Ok(()))
 }
 
 fn validate_create_candidate(
@@ -80,6 +126,70 @@ fn validate_create_candidate(
             "Transition candidate submitted_by must equal the committing agent".into(),
         ));
     }
+    if let Err(error) = validate_proposal_authority_binding(&candidate)? {
+        return Ok(ValidateCallbackResult::Invalid(error));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_parent_link(
+    action: CreateLink,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+) -> ExternResult<ValidateCallbackResult> {
+    let target = match ActionHash::try_from(target_address) {
+        Ok(target) => target,
+        Err(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Constitutional transition index must target a candidate action".into(),
+            ))
+        }
+    };
+    let record = must_get_valid_record(target)?;
+    let candidate: ConstitutionTransitionCandidate = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Constitutional transition index target is not a transition candidate".into(),
+            ))
+        })?;
+
+    if let Err(error) = candidate.validate_structure() {
+        return Ok(ValidateCallbackResult::Invalid(error));
+    }
+    if let Err(error) = validate_proposal_authority_binding(&candidate)? {
+        return Ok(ValidateCallbackResult::Invalid(error));
+    }
+
+    let author_did = format!("did:mycelix:{}", action.author);
+    if candidate.submitted_by != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transition index link must be authored by the candidate submitter".into(),
+        ));
+    }
+
+    let expected_base = hash_entry(&Anchor(parent_anchor_name(
+        candidate.authorization.from_statement_digest,
+    )))?;
+    if base_address != AnyLinkableHash::from(expected_base) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transition candidate is indexed under the wrong parent statement".into(),
+        ));
+    }
+
+    let authorization_digest = candidate
+        .authorization
+        .digest()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if tag.0 != authorization_digest.0.to_vec() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transition candidate link tag must equal the exact authorization digest".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -103,14 +213,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
+        FlatOp::RegisterCreateLink {
+            link_type: LinkTypes::ParentToTransitionCandidate,
+            base_address,
+            target_address,
+            tag,
+            action,
+        } => validate_create_parent_link(action, base_address, target_address, tag),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
             "Constitutional transition candidates are append-only".into(),
         )),
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
             "Constitutional transition links are append-only".into(),
         )),
-        FlatOp::RegisterCreateLink { .. }
-        | FlatOp::StoreRecord(_)
+        FlatOp::StoreRecord(_)
         | FlatOp::RegisterAgentActivity(_)
         | FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
     }
