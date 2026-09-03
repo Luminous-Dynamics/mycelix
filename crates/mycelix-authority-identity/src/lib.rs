@@ -6,9 +6,7 @@
 //! cryptographic semantic identities over those objects so freshness, delegation,
 //! executor, and audit adapters do not invent incompatible same-ID hashing rules.
 
-use mycelix_institutional_core::{
-    AuthorityGrant, AuthoritySourceKind, Digest32, ValidationError,
-};
+use mycelix_institutional_core::{AuthorityGrant, AuthoritySourceKind, Digest32, ValidationError};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
@@ -16,6 +14,7 @@ use std::fmt;
 pub const AUTHORITY_GRANT_IDENTITY_PROFILE: &str =
     "mycelix-authority-grant-v1-blake3-framed-semantic";
 const DOMAIN_AUTHORITY_GRANT: &[u8] = b"mycelix/authority-identity/grant/v1";
+const MAX_ID_BYTES: usize = 512;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CanonicalAuthorityIdentity {
@@ -35,6 +34,18 @@ pub fn authority_grant_identity(
     grant
         .validate()
         .map_err(AuthorityIdentityError::InvalidAuthorityGrant)?;
+
+    for role in &grant.roles {
+        validate_id(role.as_str()).map_err(|_| AuthorityIdentityError::InvalidRoleId)?;
+    }
+    for capability in &grant.capabilities {
+        validate_id(capability.as_str())
+            .map_err(|_| AuthorityIdentityError::InvalidCapabilityId)?;
+    }
+    if let Some(parent) = &grant.delegated_from {
+        validate_id(parent.as_str())
+            .map_err(|_| AuthorityIdentityError::InvalidDelegatedParentId)?;
+    }
 
     let roles = canonical_text_set(
         grant.roles.iter().map(|role| role.as_str()),
@@ -78,10 +89,7 @@ pub fn authority_grant_identity(
         frame(&mut hasher, role.as_bytes());
     }
 
-    frame(
-        &mut hasher,
-        &(capabilities.len() as u64).to_le_bytes(),
-    );
+    frame(&mut hasher, &(capabilities.len() as u64).to_le_bytes());
     for capability in capabilities {
         frame(&mut hasher, capability.as_bytes());
     }
@@ -123,6 +131,14 @@ fn canonical_text_set<'a>(
     Ok(unique.into_iter().collect())
 }
 
+fn validate_id(value: &str) -> Result<(), ()> {
+    if value.trim().is_empty() || value.len() > MAX_ID_BYTES {
+        Err(())
+    } else {
+        Ok(())
+    }
+}
+
 fn source_kind_code(kind: &AuthoritySourceKind) -> u8 {
     match kind {
         AuthoritySourceKind::Credential => 1,
@@ -152,6 +168,9 @@ fn frame(hasher: &mut blake3::Hasher, bytes: &[u8]) {
 #[derive(Debug)]
 pub enum AuthorityIdentityError {
     InvalidAuthorityGrant(ValidationError),
+    InvalidRoleId,
+    InvalidCapabilityId,
+    InvalidDelegatedParentId,
     DuplicateRole,
     DuplicateCapability,
     DuplicateAuthoritySource,
@@ -161,7 +180,13 @@ impl PartialEq for AuthorityIdentityError {
     fn eq(&self, other: &Self) -> bool {
         matches!(
             (self, other),
-            (Self::DuplicateRole, Self::DuplicateRole)
+            (Self::InvalidRoleId, Self::InvalidRoleId)
+                | (Self::InvalidCapabilityId, Self::InvalidCapabilityId)
+                | (
+                    Self::InvalidDelegatedParentId,
+                    Self::InvalidDelegatedParentId
+                )
+                | (Self::DuplicateRole, Self::DuplicateRole)
                 | (Self::DuplicateCapability, Self::DuplicateCapability)
                 | (
                     Self::DuplicateAuthoritySource,
@@ -180,6 +205,13 @@ impl fmt::Display for AuthorityIdentityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidAuthorityGrant(error) => write!(f, "invalid authority grant: {error}"),
+            Self::InvalidRoleId => write!(f, "authority grant contains an invalid role id"),
+            Self::InvalidCapabilityId => {
+                write!(f, "authority grant contains an invalid capability id")
+            }
+            Self::InvalidDelegatedParentId => {
+                write!(f, "authority grant contains an invalid delegated parent id")
+            }
             Self::DuplicateRole => write!(f, "authority grant contains a duplicate role"),
             Self::DuplicateCapability => {
                 write!(f, "authority grant contains a duplicate capability")
@@ -333,6 +365,30 @@ mod tests {
         assert_eq!(
             authority_grant_identity(&duplicate_source).unwrap_err(),
             AuthorityIdentityError::DuplicateAuthoritySource
+        );
+    }
+
+    #[test]
+    fn malformed_deserialized_set_ids_are_rejected() {
+        let mut invalid_role = grant();
+        invalid_role.roles = vec![RoleId("".into())];
+        assert_eq!(
+            authority_grant_identity(&invalid_role).unwrap_err(),
+            AuthorityIdentityError::InvalidRoleId
+        );
+
+        let mut invalid_capability = grant();
+        invalid_capability.capabilities = vec![CapabilityId("   ".into())];
+        assert_eq!(
+            authority_grant_identity(&invalid_capability).unwrap_err(),
+            AuthorityIdentityError::InvalidCapabilityId
+        );
+
+        let mut invalid_parent = grant();
+        invalid_parent.delegated_from = Some(AuthorityGrantId("".into()));
+        assert_eq!(
+            authority_grant_identity(&invalid_parent).unwrap_err(),
+            AuthorityIdentityError::InvalidDelegatedParentId
         );
     }
 }
