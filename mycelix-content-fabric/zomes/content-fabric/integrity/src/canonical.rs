@@ -15,6 +15,7 @@ pub fn provider_binding_bytes_v1(ad: &ProviderAdvertisementV1) -> Vec<u8> {
     append_field(&mut out, ENDPOINT_BINDING_DOMAIN_V1);
     out.extend_from_slice(&ad.schema_version.to_be_bytes());
     append_field(&mut out, ad.provider.get_raw_39());
+    append_field(&mut out, ad.binding_prev_action.get_raw_39());
     append_field(&mut out, &ad.iroh_endpoint_id);
     append_field(&mut out, ad.protocol.as_bytes());
     out.extend_from_slice(&ad.max_blob_size_bytes.to_be_bytes());
