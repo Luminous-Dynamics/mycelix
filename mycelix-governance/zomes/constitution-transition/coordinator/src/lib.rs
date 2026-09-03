@@ -13,8 +13,8 @@ use constitution_transition_integrity::{
 use hdk::prelude::*;
 use mycelix_governance_constitution::{
     ConstitutionGenesisManifest, ConstitutionStatement, ConstitutionTransitionAuthorization,
-    Digest32, TransitionVerificationEvidence, VerifiedConstitutionTransition,
-    project_verified_lineage,
+    Digest32, GENESIS_MANIFEST_PROFILE, STATEMENT_PROFILE, TransitionVerificationEvidence,
+    VerifiedConstitutionTransition, project_verified_lineage,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -22,7 +22,6 @@ use std::collections::BTreeMap;
 
 const RIGHTS_VERIFIER_ZOME: &str = "governance_rights_verifier";
 const THRESHOLD_VERIFIER_ZOME: &str = "governance_threshold_authority_verifier";
-const MAX_ID_BYTES: usize = 512;
 const MAX_REF_BYTES: usize = 2048;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -102,6 +101,17 @@ pub struct VerifiedCurrentConstitution {
     pub legacy_constitution_authoritative: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConstitutionTransitionStatus {
+    pub protocol: String,
+    pub transition_contract_installed: bool,
+    pub amendments_operational: bool,
+    pub required_rights_verifier_zome: String,
+    pub required_threshold_verifier_zome: String,
+    pub legacy_constitution_authoritative: bool,
+    pub note: String,
+}
+
 fn call_local<I, O>(zome: &str, function: &str, input: I) -> ExternResult<O>
 where
     I: Serialize,
@@ -130,16 +140,6 @@ where
     })
 }
 
-fn timestamp_ms(timestamp: Timestamp) -> ExternResult<u64> {
-    let micros = timestamp.as_micros();
-    if micros <= 0 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Timestamp must be positive".into(),
-        )));
-    }
-    Ok(micros as u64 / 1_000)
-}
-
 fn require_ref(value: &str, field: &str) -> ExternResult<()> {
     if value.trim().is_empty() || value.len() > MAX_REF_BYTES {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -166,14 +166,37 @@ fn load_genesis() -> ExternResult<VerifiedConstitutionGenesisMirror> {
             "Genesis authority unexpectedly claims amendments are already enabled".into(),
         )));
     }
-    let actual_digest = genesis.statement.digest().map_err(|e| {
+    if genesis.dna_hash.trim().is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an empty DNA hash".into(),
+        )));
+    }
+    if genesis.manifest_digest_profile != GENESIS_MANIFEST_PROFILE
+        || genesis.statement_digest_profile != STATEMENT_PROFILE
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an unexpected canonical digest profile".into(),
+        )));
+    }
+    let actual_statement_digest = genesis.statement.digest().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Cannot digest verified genesis statement: {e}"
         )))
     })?;
-    if actual_digest != genesis.statement_digest {
+    if actual_statement_digest != genesis.statement_digest {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Constitution authority returned an inconsistent genesis statement digest".into(),
+        )));
+    }
+    let reconstructed = manifest_from_genesis(&genesis.statement)?;
+    let actual_manifest_digest = reconstructed.digest().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Cannot digest reconstructed genesis manifest: {e}"
+        )))
+    })?;
+    if actual_manifest_digest != genesis.manifest_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an inconsistent genesis manifest digest".into(),
         )));
     }
     Ok(genesis)
@@ -275,6 +298,7 @@ fn verify_external_evidence(
         },
     )?;
     if !tally.verified {
+        let _denial_reason = tally.reason.as_deref().unwrap_or("not verified");
         return Ok(None);
     }
     require_ref(&tally.receipt_ref, "binding tally verification receipt")?;
@@ -306,6 +330,7 @@ fn verify_external_evidence(
         },
     )?;
     if !threshold.verified {
+        let _denial_reason = threshold.reason.as_deref().unwrap_or("not verified");
         return Ok(None);
     }
     require_ref(
@@ -464,10 +489,18 @@ pub fn get_verified_current_constitution(_: ()) -> ExternResult<VerifiedCurrentC
     })
 }
 
-/// Convenience status endpoint. It intentionally invokes the full verification
-/// path so verifier outage/fork/replay conditions are visible to callers.
+/// Contract availability is not amendment authority. This remains false until
+/// both verifier services are implemented and the adversarial integration suite
+/// is promoted to a release gate.
 #[hdk_extern]
-pub fn constitutional_amendments_available(_: ()) -> ExternResult<bool> {
-    let _ = get_verified_current_constitution(())?;
-    Ok(true)
+pub fn get_constitution_transition_status(_: ()) -> ExternResult<ConstitutionTransitionStatus> {
+    Ok(ConstitutionTransitionStatus {
+        protocol: "mycelix-governance-constitution-transition-v0.1".into(),
+        transition_contract_installed: true,
+        amendments_operational: false,
+        required_rights_verifier_zome: RIGHTS_VERIFIER_ZOME.into(),
+        required_threshold_verifier_zome: THRESHOLD_VERIFIER_ZOME.into(),
+        legacy_constitution_authoritative: false,
+        note: "Transition verification contract is installed, but amendment authority remains disabled until both external verifier services and adversarial release gates are implemented.".into(),
+    })
 }
