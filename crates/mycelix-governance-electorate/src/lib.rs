@@ -48,18 +48,12 @@ macro_rules! id_type {
 
 id_type!(ElectorateSnapshotId, "electorate_snapshot_id");
 
-/// What happens to eligibility after the electorate has been frozen.
-///
-/// The denominator never changes silently during a ballot. If a deployment
-/// needs a materially different electorate it must run a distinct ballot with
-/// a new snapshot, preserving the original result/history.
+/// v0.1 deliberately freezes the quorum denominator while continuing to honor
+/// rights revocation for individual ballots. A materially different electorate
+/// requires a distinct ballot/snapshot rather than silently mutating an open
+/// election's denominator.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RevocationSemantics {
-    /// Eligibility is evaluated at the snapshot boundary for this ballot.
-    /// Subsequent credential changes affect future ballots, not this one.
-    FrozenAtSnapshot,
-    /// A later revocation may prevent the affected principal from casting, but
-    /// the original electorate denominator remains fixed for auditability.
     RejectRevokedBallotKeepDenominator,
 }
 
@@ -88,6 +82,15 @@ pub struct ElectorateSnapshot {
     /// Privacy-preserving commitment to the exact electorate member set.
     pub membership_commitment: Digest32,
     pub membership_commitment_profile: String,
+
+    /// Exact verifier/trust policy allowed to qualify membership proofs.
+    /// Commitment format and verifier policy are intentionally separate.
+    pub membership_verifier_policy_digest: Digest32,
+    pub membership_verifier_policy_profile: String,
+    pub membership_verifier_policy_ref: String,
+
+    /// Proof format/profile used for individual membership witnesses.
+    pub membership_verification_profile: String,
 
     /// Snapshot must be captured no later than ballot opening.
     pub captured_at_ms: u64,
@@ -132,6 +135,10 @@ impl ElectorateSnapshot {
             self.membership_commitment,
             "snapshot.membership_commitment",
         )?;
+        require_digest(
+            self.membership_verifier_policy_digest,
+            "snapshot.membership_verifier_policy_digest",
+        )?;
         validate_profile(
             &self.eligibility_criteria_profile,
             "snapshot.eligibility_criteria_profile",
@@ -139,6 +146,19 @@ impl ElectorateSnapshot {
         validate_profile(
             &self.membership_commitment_profile,
             "snapshot.membership_commitment_profile",
+        )?;
+        validate_profile(
+            &self.membership_verifier_policy_profile,
+            "snapshot.membership_verifier_policy_profile",
+        )?;
+        validate_profile(
+            &self.membership_verification_profile,
+            "snapshot.membership_verification_profile",
+        )?;
+        validate_text(
+            &self.membership_verifier_policy_ref,
+            "snapshot.membership_verifier_policy_ref",
+            MAX_ID_BYTES,
         )?;
         if self.captured_at_ms == 0
             || self.ballot_opens_at_ms == 0
@@ -167,9 +187,10 @@ impl ElectorateSnapshot {
 /// Host-produced evidence that one principal is a member of the exact committed
 /// electorate set.
 ///
-/// The host MUST verify the proof named by `membership_proof_ref` against
-/// `membership_commitment` under `verification_profile`. A populated struct is
-/// not, by itself, cryptographic proof.
+/// The host MUST verify the proof named by `membership_proof_ref` against the
+/// snapshot's membership commitment, under the exact verifier/trust policy and
+/// proof profile bound by the snapshot. A populated struct is not, by itself,
+/// cryptographic proof.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ElectorateMembershipEvidence {
     pub protocol_version: String,
@@ -177,9 +198,13 @@ pub struct ElectorateMembershipEvidence {
     pub principal: PrincipalId,
     pub eligibility_grant_id: EligibilityGrantId,
     pub membership_commitment: Digest32,
+
     pub verification_profile: String,
+    pub verifier_policy_digest: Digest32,
+    pub verifier_policy_profile: String,
     pub verifier_id: String,
     pub trust_domain_id: String,
+
     pub verified_at_ms: u64,
     pub expires_at_ms: u64,
     pub membership_proof_ref: String,
@@ -207,7 +232,15 @@ impl ElectorateMembershipEvidence {
             self.membership_commitment,
             "membership.membership_commitment",
         )?;
+        require_digest(
+            self.verifier_policy_digest,
+            "membership.verifier_policy_digest",
+        )?;
         validate_profile(&self.verification_profile, "membership.verification_profile")?;
+        validate_profile(
+            &self.verifier_policy_profile,
+            "membership.verifier_policy_profile",
+        )?;
         validate_text(&self.verifier_id, "membership.verifier_id", MAX_ID_BYTES)?;
         validate_text(
             &self.trust_domain_id,
@@ -282,8 +315,16 @@ impl BallotQualification {
         if self.membership.membership_commitment != snapshot.membership_commitment {
             return Err(ElectorateError::MembershipCommitmentMismatch);
         }
-        if self.membership.verification_profile != snapshot.membership_commitment_profile {
-            return Err(ElectorateError::MembershipProfileMismatch);
+        if self.membership.verification_profile != snapshot.membership_verification_profile {
+            return Err(ElectorateError::MembershipVerificationProfileMismatch);
+        }
+        if self.membership.verifier_policy_digest != snapshot.membership_verifier_policy_digest {
+            return Err(ElectorateError::VerifierPolicyMismatch);
+        }
+        if self.membership.verifier_policy_profile
+            != snapshot.membership_verifier_policy_profile
+        {
+            return Err(ElectorateError::VerifierPolicyProfileMismatch);
         }
         if self.membership.verified_at_ms > self.ballot.cast_at_ms
             || self.membership.expires_at_ms <= self.ballot.cast_at_ms
@@ -302,6 +343,8 @@ impl BallotQualification {
 pub struct SnapshotBoundTally {
     pub snapshot_id: ElectorateSnapshotId,
     pub membership_commitment: Digest32,
+    pub membership_commitment_profile: String,
+    pub verifier_policy_digest: Digest32,
     pub snapshot_proof_ref: String,
     pub tally: BindingTally,
 }
@@ -335,6 +378,8 @@ pub fn tally_snapshot_ballots(
     Ok(SnapshotBoundTally {
         snapshot_id: snapshot.id.clone(),
         membership_commitment: snapshot.membership_commitment,
+        membership_commitment_profile: snapshot.membership_commitment_profile.clone(),
+        verifier_policy_digest: snapshot.membership_verifier_policy_digest,
         snapshot_proof_ref: snapshot.snapshot_proof_ref.clone(),
         tally,
     })
@@ -362,7 +407,9 @@ pub enum ElectorateError {
     PrincipalMismatch,
     EligibilityGrantMismatch,
     MembershipCommitmentMismatch,
-    MembershipProfileMismatch,
+    MembershipVerificationProfileMismatch,
+    VerifierPolicyMismatch,
+    VerifierPolicyProfileMismatch,
     MembershipEvidenceInactive,
     InvalidBindingTally,
 }
@@ -390,7 +437,13 @@ impl fmt::Display for ElectorateError {
             Self::PrincipalMismatch => write!(f, "ballot, permit and membership principal differ"),
             Self::EligibilityGrantMismatch => write!(f, "ballot, permit and membership grant differ"),
             Self::MembershipCommitmentMismatch => write!(f, "membership evidence targets another electorate commitment"),
-            Self::MembershipProfileMismatch => write!(f, "membership proof profile differs from electorate commitment profile"),
+            Self::MembershipVerificationProfileMismatch => {
+                write!(f, "membership proof format differs from snapshot policy")
+            }
+            Self::VerifierPolicyMismatch => write!(f, "membership verifier policy digest mismatch"),
+            Self::VerifierPolicyProfileMismatch => {
+                write!(f, "membership verifier policy profile mismatch")
+            }
             Self::MembershipEvidenceInactive => write!(f, "membership evidence is not active when ballot is cast"),
             Self::InvalidBindingTally => write!(f, "binding tally rejected qualified ballot set"),
         }
@@ -479,7 +532,11 @@ mod tests {
             eligibility_criteria_digest: digest(8),
             eligibility_criteria_profile: "mycelix-eligibility-criteria-v1".into(),
             membership_commitment: digest(9),
-            membership_commitment_profile: "mycelix-electorate-membership-v1".into(),
+            membership_commitment_profile: "mycelix-electorate-root-v1".into(),
+            membership_verifier_policy_digest: digest(10),
+            membership_verifier_policy_profile: "mycelix-verifier-policy-v1".into(),
+            membership_verifier_policy_ref: "policy:electorate-verifier:v1".into(),
+            membership_verification_profile: "mycelix-electorate-membership-proof-v1".into(),
             captured_at_ms: 900,
             ballot_opens_at_ms: 1_000,
             ballot_closes_at_ms: 10_000,
@@ -519,7 +576,9 @@ mod tests {
                 principal,
                 eligibility_grant_id: grant_id,
                 membership_commitment: digest(9),
-                verification_profile: "mycelix-electorate-membership-v1".into(),
+                verification_profile: "mycelix-electorate-membership-proof-v1".into(),
+                verifier_policy_digest: digest(10),
+                verifier_policy_profile: "mycelix-verifier-policy-v1".into(),
                 verifier_id: "verifier:membership:v1".into(),
                 trust_domain_id: "trust-domain:community:v1".into(),
                 verified_at_ms: 1_100,
@@ -596,13 +655,36 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_requires_explicit_membership_profile() {
+    fn unapproved_verifier_policy_is_rejected() {
+        let snapshot = snapshot();
+        let mut qualification = qualification("alice", BallotChoice::For, 2_000);
+        qualification.membership.verifier_policy_digest = digest(99);
+        assert_eq!(
+            qualification.validate_against_snapshot(&snapshot).unwrap_err(),
+            ElectorateError::VerifierPolicyMismatch
+        );
+    }
+
+    #[test]
+    fn proof_profile_cannot_be_confused_with_commitment_profile() {
+        let snapshot = snapshot();
+        let mut qualification = qualification("alice", BallotChoice::For, 2_000);
+        qualification.membership.verification_profile =
+            snapshot.membership_commitment_profile.clone();
+        assert_eq!(
+            qualification.validate_against_snapshot(&snapshot).unwrap_err(),
+            ElectorateError::MembershipVerificationProfileMismatch
+        );
+    }
+
+    #[test]
+    fn snapshot_requires_explicit_membership_profiles() {
         let mut snapshot = snapshot();
-        snapshot.membership_commitment_profile = "".into();
+        snapshot.membership_verification_profile = "".into();
         assert!(matches!(
             snapshot.validate(),
             Err(ElectorateError::InvalidProfile(
-                "snapshot.membership_commitment_profile"
+                "snapshot.membership_verification_profile"
             ))
         ));
     }
