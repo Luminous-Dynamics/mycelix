@@ -490,7 +490,7 @@ mod tests {
             .await
             .unwrap();
         let error = verify_digest(&state, descriptor.digest).await.unwrap_err();
-        assert!(matches!(error, ApiErrorV1::VerificationBusy));
+        assert!(matches!(&error, ApiErrorV1::VerificationBusy));
         let response = error.into_response();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(response.headers()[RETRY_AFTER], "1");
