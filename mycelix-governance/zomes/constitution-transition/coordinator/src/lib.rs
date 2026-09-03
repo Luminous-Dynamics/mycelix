@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed constitutional transition orchestration.
 //!
-//! Stored transition entries are candidates, not authority. Every projection of
-//! the current constitution re-resolves the verified binding tally, re-checks a
-//! separate threshold-authorization verifier, rebuilds verification evidence,
-//! and then delegates lineage/fork semantics to the portable constitution crate.
+//! Stored transition entries are candidates, not authority. Every authoritative
+//! projection re-resolves the binding tally, re-checks independent verifier
+//! boundaries, rebuilds verification evidence, and then delegates lineage/fork
+//! semantics to the portable constitution crate.
 
 use constitution_transition_integrity::{
     Anchor, ConstitutionTransitionCandidate, EntryTypes, LinkTypes,
@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 const RIGHTS_VERIFIER_ZOME: &str = "governance_rights_verifier";
 const THRESHOLD_VERIFIER_ZOME: &str = "governance_threshold_authority_verifier";
 const MAX_REF_BYTES: usize = 2048;
+const CANDIDATE_ANCHOR: &str = "all-constitutional-transition-candidates";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifiedConstitutionGenesisMirror {
@@ -150,56 +151,7 @@ fn require_ref(value: &str, field: &str) -> ExternResult<()> {
 }
 
 fn all_candidates_anchor() -> ExternResult<EntryHash> {
-    hash_entry(&EntryTypes::Anchor(Anchor(
-        "all-constitutional-transition-candidates".into(),
-    )))
-}
-
-fn load_genesis() -> ExternResult<VerifiedConstitutionGenesisMirror> {
-    let genesis: VerifiedConstitutionGenesisMirror = call_local(
-        "constitution_authority",
-        "get_verified_constitution_genesis",
-        (),
-    )?;
-    if genesis.amendments_enabled {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Genesis authority unexpectedly claims amendments are already enabled".into(),
-        )));
-    }
-    if genesis.dna_hash.trim().is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Constitution authority returned an empty DNA hash".into(),
-        )));
-    }
-    if genesis.manifest_digest_profile != GENESIS_MANIFEST_PROFILE
-        || genesis.statement_digest_profile != STATEMENT_PROFILE
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Constitution authority returned an unexpected canonical digest profile".into(),
-        )));
-    }
-    let actual_statement_digest = genesis.statement.digest().map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot digest verified genesis statement: {e}"
-        )))
-    })?;
-    if actual_statement_digest != genesis.statement_digest {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Constitution authority returned an inconsistent genesis statement digest".into(),
-        )));
-    }
-    let reconstructed = manifest_from_genesis(&genesis.statement)?;
-    let actual_manifest_digest = reconstructed.digest().map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot digest reconstructed genesis manifest: {e}"
-        )))
-    })?;
-    if actual_manifest_digest != genesis.manifest_digest {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Constitution authority returned an inconsistent genesis manifest digest".into(),
-        )));
-    }
-    Ok(genesis)
+    hash_entry(&EntryTypes::Anchor(Anchor(CANDIDATE_ANCHOR.into())))
 }
 
 fn manifest_from_genesis(
@@ -231,6 +183,53 @@ fn manifest_from_genesis(
         )))
     })?;
     Ok(manifest)
+}
+
+fn load_genesis() -> ExternResult<VerifiedConstitutionGenesisMirror> {
+    let genesis: VerifiedConstitutionGenesisMirror = call_local(
+        "constitution_authority",
+        "get_verified_constitution_genesis",
+        (),
+    )?;
+    if genesis.amendments_enabled {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Genesis authority unexpectedly claims amendments are already enabled".into(),
+        )));
+    }
+    if genesis.dna_hash.trim().is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an empty DNA hash".into(),
+        )));
+    }
+    if genesis.manifest_digest_profile != GENESIS_MANIFEST_PROFILE
+        || genesis.statement_digest_profile != STATEMENT_PROFILE
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an unexpected canonical digest profile".into(),
+        )));
+    }
+    let statement_digest = genesis.statement.digest().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Cannot digest verified genesis statement: {e}"
+        )))
+    })?;
+    if statement_digest != genesis.statement_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an inconsistent genesis statement digest".into(),
+        )));
+    }
+    let manifest = manifest_from_genesis(&genesis.statement)?;
+    let manifest_digest = manifest.digest().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Cannot digest reconstructed genesis manifest: {e}"
+        )))
+    })?;
+    if manifest_digest != genesis.manifest_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Constitution authority returned an inconsistent genesis manifest digest".into(),
+        )));
+    }
+    Ok(genesis)
 }
 
 fn decode_candidate(record: &Record) -> Option<ConstitutionTransitionCandidate> {
@@ -417,9 +416,7 @@ pub fn submit_constitution_transition_candidate(
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
 
     let action_hash = create_entry(&EntryTypes::ConstitutionTransitionCandidate(candidate))?;
-    create_entry(&EntryTypes::Anchor(Anchor(
-        "all-constitutional-transition-candidates".into(),
-    )))?;
+    create_entry(&EntryTypes::Anchor(Anchor(CANDIDATE_ANCHOR.into())))?;
     create_link(
         all_candidates_anchor()?,
         action_hash.clone(),
@@ -440,8 +437,14 @@ pub fn get_verified_current_constitution(_: ()) -> ExternResult<VerifiedCurrentC
     let records = list_candidate_records()?;
     let candidate_count = records.len() as u64;
 
-    let mut verified = Vec::new();
+    // Re-verify every candidate, then canonicalize duplicates by authorization
+    // digest. Separate publications of the same transition may receive fresh
+    // verifier receipt references; those receipt differences must not create a
+    // false constitutional fork.
+    let mut verified_by_authorization: BTreeMap<String, VerifiedConstitutionTransition> =
+        BTreeMap::new();
     let mut nonce_bindings: BTreeMap<String, Digest32> = BTreeMap::new();
+
     for record in records {
         let Some(candidate) = decode_candidate(&record) else {
             continue;
@@ -449,25 +452,40 @@ pub fn get_verified_current_constitution(_: ()) -> ExternResult<VerifiedCurrentC
         let Some(transition) = verify_external_evidence(&candidate)? else {
             continue;
         };
-        let nonce = transition.authorization.transition_nonce.to_hex();
         let authorization_digest = transition.authorization.digest().map_err(|e| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "Cannot digest verified transition authorization: {e}"
             )))
         })?;
-        if let Some(existing) = nonce_bindings.get(&nonce) {
-            if *existing != authorization_digest {
+        let authorization_key = authorization_digest.to_hex();
+        let nonce_key = transition.authorization.transition_nonce.to_hex();
+
+        if let Some(existing_digest) = nonce_bindings.get(&nonce_key) {
+            if *existing_digest != authorization_digest {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Replay nonce is bound to multiple verified constitutional authorizations; fail closed"
                         .into(),
                 )));
             }
         } else {
-            nonce_bindings.insert(nonce, authorization_digest);
+            nonce_bindings.insert(nonce_key, authorization_digest);
         }
-        verified.push(transition);
+
+        if let Some(existing) = verified_by_authorization.get(&authorization_key) {
+            if existing.child != transition.child
+                || existing.authorization != transition.authorization
+            {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "One authorization digest resolves to conflicting constitutional semantics; fail closed"
+                        .into(),
+                )));
+            }
+            continue;
+        }
+        verified_by_authorization.insert(authorization_key, transition);
     }
 
+    let verified = verified_by_authorization.into_values().collect::<Vec<_>>();
     let current = project_verified_lineage(&manifest, &verified).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Cannot project verified constitutional lineage: {e}"
