@@ -1,25 +1,20 @@
 [package]
-name = "execution"
+name = "governance_execution_preflight"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
-description = "Governance execution coordinator zome"
+description = "Cross-layer constitutional preflight for governance execution"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mycelix-bridge-common = { workspace = true }
 hdk = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
-execution_integrity = { path = "../integrity" }
-governance-utils = { workspace = true }
-mycelix-zome-helpers = { workspace = true }
-proposals_integrity = { path = "../../proposals/integrity" }
-mycelix-governance-execution-preflight = { path = "../../../../crates/mycelix-governance-execution-preflight" }
-mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
-mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
 blake3 = "1"
-k256 = { workspace = true }
+mycelix-governance-execution-preflight = { path = "../../../../crates/mycelix-governance-execution-preflight" }
+mycelix-governance-authority = { path = "../../../../crates/mycelix-governance-authority" }
+mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
+mycelix-governance-electorate = { path = "../../../../crates/mycelix-governance-electorate" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }

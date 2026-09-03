@@ -1,0 +1,63 @@
+name: Governance Execution Epoch
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-execution-preflight/**'
+      - 'mycelix-governance/zomes/proposal-constitution-epoch/**'
+      - 'mycelix-governance/zomes/execution-preflight/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/**'
+      - '.github/workflows/governance-execution-epoch.yml'
+  push:
+    branches:
+      - 'security/governance-authority-end-to-end-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Constitutional epoch execution runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format runtime
+        working-directory: mycelix-governance
+        run: cargo fmt --package proposal_constitution_epoch_integrity --package proposal_constitution_epoch --package governance_execution_preflight -- --check
+      - name: Native test runtime
+        working-directory: mycelix-governance
+        run: cargo test --package proposal_constitution_epoch_integrity --package proposal_constitution_epoch --package governance_execution_preflight --all-targets
+      - name: Native clippy runtime
+        working-directory: mycelix-governance
+        run: cargo clippy --package proposal_constitution_epoch_integrity --package proposal_constitution_epoch --package governance_execution_preflight --all-targets -- -D warnings
+      - name: WASM epoch integrity build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package proposal_constitution_epoch_integrity
+      - name: WASM epoch coordinator build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package proposal_constitution_epoch
+      - name: WASM execution preflight build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package governance_execution_preflight
+
+  pure-kernel:
+    name: Pure execution preflight regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format kernel
+        run: cargo fmt --manifest-path crates/mycelix-governance-execution-preflight/Cargo.toml -- --check
+      - name: Test kernel
+        run: cargo test --manifest-path crates/mycelix-governance-execution-preflight/Cargo.toml --all-targets
+      - name: Clippy kernel
+        run: cargo clippy --manifest-path crates/mycelix-governance-execution-preflight/Cargo.toml --all-targets -- -D warnings

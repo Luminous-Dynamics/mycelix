@@ -18,6 +18,9 @@ integrity:
     - name: proposal_authority_integrity
       path: "../target/wasm32-unknown-unknown/release/proposal_authority_integrity.wasm"
 
+    - name: proposal_constitution_epoch_integrity
+      path: "../target/wasm32-unknown-unknown/release/proposal_constitution_epoch_integrity.wasm"
+
     - name: voting_integrity
       path: "../target/wasm32-unknown-unknown/release/voting_integrity.wasm"
 
@@ -65,6 +68,11 @@ coordinator:
         - name: proposal_authority_integrity
         - name: proposals_integrity
 
+    - name: proposal_constitution_epoch
+      path: "../target/wasm32-unknown-unknown/release/proposal_constitution_epoch.wasm"
+      dependencies:
+        - name: proposal_constitution_epoch_integrity
+
     - name: voting
       path: "../target/wasm32-unknown-unknown/release/voting.wasm"
       dependencies:
@@ -81,6 +89,11 @@ coordinator:
       dependencies:
         - name: execution_integrity
         - name: proposals_integrity
+
+    - name: governance_execution_preflight
+      path: "../target/wasm32-unknown-unknown/release/governance_execution_preflight.wasm"
+      dependencies:
+        - name: execution_integrity
 
     - name: constitution_authority
       path: "../target/wasm32-unknown-unknown/release/constitution_authority.wasm"
