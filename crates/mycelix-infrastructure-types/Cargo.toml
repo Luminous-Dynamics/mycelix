@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-infrastructure-types"
+version = "0.1.0"
+edition = "2024"
+description = "Transport-neutral capability, offering, lease, and receipt envelopes for Mycelix infrastructure services"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1"
