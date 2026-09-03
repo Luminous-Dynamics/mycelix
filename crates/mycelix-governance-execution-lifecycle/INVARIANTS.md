@@ -21,10 +21,13 @@ Every lifecycle is bound to one exact `ExecutionDomain` containing:
 - exact proposal-authority reference;
 - exact constitutional epoch digest/profile;
 - exact executable-action digest/profile;
-- exact verified binding-tally reference; and
-- exact threshold-authorization reference.
+- exact verified binding-tally reference;
+- exact threshold-authorization reference; and
+- exact effect-safety policy digest/profile.
 
-Changing any authority-bearing component creates a different execution domain. Old claims cannot carry forward.
+The effect-safety policy commits the runtime mechanism under which real-world effects are allowed, for example mandatory downstream idempotency or a trusted serialized single-writer fence. The pure kernel binds this policy but does not pretend to implement an external guarantee itself.
+
+Changing any authority-bearing or effect-safety component creates a different execution domain. Old claims cannot carry forward.
 
 ## Append-only lifecycle
 
@@ -42,17 +45,35 @@ There is no automatic retry transition in v0.1.
 
 `Claimed` is the execution fence.
 
-Its canonical event ID is the attempt ID.
+The **claim event ID** identifies the exact immutable claim publication and remains part of lifecycle causality.
+
+The **attempt ID** is different: it is deterministically derived from the exact execution-domain digest plus the exact `ReadyAuthorized` event ID. It deliberately excludes claim publisher, claim timestamp, and claim nonce.
+
+This means two concurrent claim publications from the same exact Ready authority still create `AmbiguousLifecycleFork`, but they derive the same downstream attempt/idempotency domain rather than becoming two independent real-world attempts.
 
 A runtime must:
 
-1. freshly verify constitutional epoch, proposal authority, binding tally, executable action digest, and threshold authority;
+1. freshly verify constitutional epoch, proposal authority, binding tally, executable action digest, threshold authority, and the exact effect-safety policy;
 2. commit the immutable claim in one successful persistence transaction;
-3. return the attempt ID only after that commit succeeds;
+3. return the deterministic attempt ID only after that commit succeeds;
 4. perform external effects only in a later invocation that re-resolves the exact claim and current authority;
-5. derive downstream idempotency keys from `attempt_id + action_index` where supported.
+5. derive downstream idempotency keys from `attempt_id + action_index` where supported; and
+6. refuse automatic effect execution when the bound safety policy cannot actually be enforced.
 
 A claim and an external effect MUST NOT be treated as one atomic operation. If an effect can occur outside the persistence transaction, the runtime must assume the effect may succeed even if later local work fails.
+
+## Concurrency semantics
+
+A DHT projection alone is not a global mutex. Two callers can race before either observes the other's claim.
+
+Therefore v0.1 requires defense in depth:
+
+- competing verified claims ultimately freeze lifecycle projection;
+- all claims from the same exact Ready event derive the same deterministic attempt ID;
+- downstream idempotency keys therefore converge across such a race;
+- adapters that cannot enforce the bound effect-safety policy must refuse automatic effects rather than relying on eventual fork discovery.
+
+For non-idempotent external systems, a later runtime must use a trusted serialized/single-writer fencing mechanism committed by `effect_safety_policy` before claiming automatic-execution safety.
 
 ## Crash semantics
 
@@ -83,9 +104,12 @@ Projection consumes the complete verified event set for one exact execution doma
 
 ## Attempt binding
 
-`Completed`, `Failed`, and `Uncertain` must reference the exact canonical ID of the preceding `Claimed` event.
+`Completed`, `Failed`, and `Uncertain` must:
 
-A terminal event referring to another claim is invalid even if proposal/action data look similar.
+- be causal children of the exact `Claimed` event; and
+- reference the deterministic attempt ID derived from the claim's exact execution domain and Ready parent.
+
+A terminal event referring to another attempt is invalid even if proposal/action data look similar.
 
 ## Legacy mutable timelock state
 
@@ -104,13 +128,14 @@ A future review/cancellation protocol may accept advisory or safety signals as i
 Before replacing mutable timelock status as the production authority source, integration tests must cover:
 
 - unauthorized direct timelock updates do not affect projected binding state;
-- two callers racing to claim produce one unique executable claim or a fail-closed ambiguity;
+- two callers racing to claim produce a fail-closed ambiguity while deriving the same deterministic attempt/idempotency domain;
 - a claim is durable before a mocked external effect begins;
 - crash after claim does not create an automatic second claim;
 - crash after effect but before completion produces reconciliation/uncertainty semantics rather than replay;
-- changed constitution, action digest, tally, proposal authority, or threshold authority cannot reuse an old claim;
+- changed constitution, action digest, tally, proposal authority, threshold authority, or effect-safety policy cannot reuse an old claim;
 - DHT reordering does not change projection;
 - missing-parent and partial verified sets deny;
 - competing terminal outcomes deny;
-- deterministic downstream idempotency keys remain stable across retries of the same claimed attempt;
+- deterministic downstream idempotency keys remain stable for the same exact attempt;
+- an adapter unable to enforce the bound effect-safety policy refuses automatic effects; and
 - advisory scores cannot authorize lifecycle events.
