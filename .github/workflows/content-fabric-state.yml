@@ -1,0 +1,46 @@
+name: Content Fabric State CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-content-state/**'
+      - 'crates/mycelix-content-core/**'
+      - 'docs/content-fabric/STATE_PROJECTION_V1.md'
+      - '.github/workflows/content-fabric-state.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-content-state/**'
+      - 'crates/mycelix-content-core/**'
+      - 'docs/content-fabric/STATE_PROJECTION_V1.md'
+      - '.github/workflows/content-fabric-state.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-state-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  state-projection:
+    name: CF-05A state projection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-content-state
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-content-state/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-content-state/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-content-state/Cargo.toml --all-targets
