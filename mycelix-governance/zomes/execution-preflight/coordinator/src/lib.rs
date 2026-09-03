@@ -25,40 +25,30 @@ const TALLY_ACTION_REF_DOMAIN: &[u8] = b"mycelix/governance/binding-tally-action
 const TALLY_ACTION_REF_PROFILE: &str = "mycelix-binding-tally-action-ref-v1-blake3";
 const MAX_ACTION_BYTES: usize = 4096;
 
+/// Minimal mirror of the verified proposal-authority record.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ProposalAuthorityBindingMirror {
-    id: String,
-    proposal_action_hash: ActionHash,
-    proposal_author: String,
     context: ProposalAuthorityContext,
     actions_digest_profile: String,
-    signing_policy_digest_profile: String,
-    created_at: Timestamp,
 }
 
+/// Minimal mirror of the verified proposal constitutional epoch.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct ProposalConstitutionEpochBindingMirror {
-    id: String,
     proposal_id: String,
     proposal_authority_binding: ActionHash,
     election_configuration: ActionHash,
     constitution_statement_digest: ConstitutionDigest32,
     constitution_version: u64,
-    ballot_opens_at_ms: u64,
-    bound_by: String,
-    bound_at: Timestamp,
 }
 
+/// Minimal mirror of the authoritative recomputed binding tally.
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 struct BindingTallyRecordMirror {
-    id: String,
     proposal_id: String,
     proposal_authority_binding: ActionHash,
     election_configuration: ActionHash,
-    ballot_set_checkpoint: ActionHash,
     tally: SnapshotBoundTally,
-    computed_by: String,
-    computed_at: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,8 +56,6 @@ struct VerifiedCurrentConstitutionMirror {
     dna_hash: String,
     statement: ConstitutionStatement,
     statement_digest: ConstitutionDigest32,
-    verified_transition_count: u64,
-    candidate_count: u64,
     legacy_constitution_authoritative: bool,
 }
 
