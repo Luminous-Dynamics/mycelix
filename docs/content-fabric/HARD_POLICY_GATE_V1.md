@@ -6,18 +6,21 @@ Status: **CF-06A contract**
 
 CF-06A creates a strict boundary between Content Fabric evidence and optimization.
 
-The optimizer MUST NOT receive raw CF-05A `SnapshotServiceCandidateV1` values. It receives a `PolicyQualifiedPoolV1` only after hard policy has been applied and pool feasibility has been established.
+The optimizer MUST NOT receive raw CF-05A `SnapshotServiceCandidateV1` values. It receives a `PolicyQualifiedPoolV1` only after immutable-object binding, hard policy, and pool feasibility have been established.
 
 The intended flow is:
 
 ```text
+StorageIntent + validated ObjectManifest + exact blob target
+        |
+        v
 CF-05 append-only evidence
         |
         v
 CF-05A deterministic projection
         |
         v
-CF-06A exact-target + hard-policy gate
+CF-06A manifest binding + exact-target + hard-policy gate
         |
         +--> rejected candidates + reasons
         |
@@ -36,9 +39,24 @@ later executor authority boundary
 
 Preference scoring never runs on candidates already known to violate hard policy.
 
+## Manifest binding
+
+A `StorageIntentV1` authorizes placement for one immutable `ObjectManifestV1` identity. Repeating that object ID beside an arbitrary digest is not sufficient authority to place that digest.
+
+The public CF-06A admission function therefore requires the validated object manifest and fails closed unless:
+
+1. `ObjectManifestV1::validate()` succeeds;
+2. the manifest ID equals `StorageIntentV1::object_id`;
+3. `PlacementTargetV1::object_id` equals that manifest ID; and
+4. the exact `(digest, size_bytes)` target occurs in the manifest's blob list.
+
+The unbound evaluator is private to the crate. Downstream callers can only reach the manifest-bound public gate.
+
+The qualified pool retains the compact target rather than carrying the entire manifest into the optimizer.
+
 ## Exact-target isolation
 
-One gate invocation evaluates one `PlacementTargetV1`.
+One gate invocation evaluates one `PlacementTargetV1` that has already passed manifest membership.
 
 Candidates for other digests are ignored before hard-policy evaluation; they are not provider failures and cannot inflate or poison the target pool. Candidates for the target digest must still match the target size exactly.
 
