@@ -1,0 +1,57 @@
+name: Governance Constitution Transition
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-constitution/**'
+      - 'mycelix-governance/zomes/constitution-authority/**'
+      - 'mycelix-governance/zomes/constitution-transition/**'
+      - 'mycelix-governance/zomes/binding-voting/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/**'
+      - '.github/workflows/governance-constitution-transition.yml'
+  push:
+    branches:
+      - 'security/governance-constitutional-transition-verifier-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  transition-runtime:
+    name: Constitutional transition runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package constitution_transition_integrity --package constitution_transition -- --check
+      - name: Native test
+        working-directory: mycelix-governance
+        run: cargo test --package constitution_transition_integrity --package constitution_transition --all-targets
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package constitution_transition_integrity --package constitution_transition --all-targets
+      - name: WASM integrity build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package constitution_transition_integrity
+      - name: WASM coordinator build
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package constitution_transition
+
+  portable-lineage:
+    name: Portable constitutional lineage regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Test lineage
+        run: cargo test --manifest-path crates/mycelix-governance-constitution/Cargo.toml --all-targets
+      - name: Clippy lineage
+        run: cargo clippy --manifest-path crates/mycelix-governance-constitution/Cargo.toml --all-targets -- -D warnings
