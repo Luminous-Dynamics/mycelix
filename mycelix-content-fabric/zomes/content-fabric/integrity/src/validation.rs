@@ -33,7 +33,7 @@ fn validate_domain_value(value: &str) -> Result<(), String> {
     if !bytes.iter().all(|byte| {
         byte.is_ascii_lowercase()
             || byte.is_ascii_digit()
-            || matches!(byte, b'-' | b'_' | b'.' | b':')
+            || matches!(*byte, b'-' | b'_' | b'.' | b':')
     }) {
         return Err("failure-domain value must use canonical lowercase ASCII tokens".into());
     }
@@ -293,8 +293,9 @@ pub fn validate_content_fabric_op(op: Op) -> ExternResult<ValidateCallbackResult
                     if withdrawal.provider != action.author {
                         return Ok(invalid("withdrawal author must equal provider"));
                     }
-                    validate_schema(withdrawal.schema_version)
-                        .map_err(guest_error)?;
+                    if let Err(message) = validate_schema(withdrawal.schema_version) {
+                        return Ok(invalid(message));
+                    }
                     if withdrawal.note.as_ref().is_some_and(|note| note.len() > 256) {
                         return Ok(invalid("withdrawal note exceeds 256 bytes"));
                     }
