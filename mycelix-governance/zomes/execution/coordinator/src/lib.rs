@@ -12,6 +12,8 @@ use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
 
+mod preflight;
+
 /// Domain separator for governance execution authorization digests.
 ///
 /// The exact proposal ID and exact action JSON bytes are hashed. Reformatting or
@@ -152,6 +154,7 @@ fn find_timelock_by_id(timelock_id: &str) -> ExternResult<Record> {
 /// degradation path for governance side effects.
 fn verify_threshold_authorization(timelock: &Timelock) -> ExternResult<ThresholdSignature> {
     let expected_digest = execution_authority_digest(timelock);
+    preflight::require_current_binding_authority(timelock, expected_digest)?;
 
     let signature_response = call(
         CallTargetCell::Local,
