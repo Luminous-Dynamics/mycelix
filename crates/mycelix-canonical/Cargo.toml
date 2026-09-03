@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-canonical"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Deterministic domain-separated canonical bytes and SHA-256 digests for Mycelix signed protocols"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+sha2 = "0.10"
