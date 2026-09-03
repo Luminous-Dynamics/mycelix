@@ -51,11 +51,15 @@ The scoped designation must:
 - bind the same proposal/action digest/profile as threshold authority;
 - bind the same immutable threshold-authorization reference;
 - use the same institution/jurisdiction/rulebook;
-- be issued no earlier than the referenced threshold authorization was verified;
+- not predate the immutable threshold signature that created the scoped authorization evidence;
 - remain entirely inside the underlying grant lifetime;
 - remain entirely inside the threshold authorization lifetime;
 - carry an explicit AuthoritySourceRef; and
 - have both its source proof and designation attestation independently verified.
+
+A runtime verifier timestamp is **not** part of designation identity. Re-verifying the same exact threshold authorization later may refresh freshness evidence, but it must never retroactively invalidate an executor designation that was validly issued after the underlying threshold signature.
+
+This is the same general separation used by the lifecycle Ready identity: stable authority identity and current freshness are distinct facts.
 
 ## Output
 
