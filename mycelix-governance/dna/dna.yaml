@@ -33,6 +33,9 @@ integrity:
     - name: constitution_authority_integrity
       path: "../target/wasm32-unknown-unknown/release/constitution_authority_integrity.wasm"
 
+    - name: constitution_transition_integrity
+      path: "../target/wasm32-unknown-unknown/release/constitution_transition_integrity.wasm"
+
     - name: governance_bridge_integrity
       path: "../target/wasm32-unknown-unknown/release/governance_bridge_integrity.wasm"
 
@@ -87,6 +90,11 @@ coordinator:
       path: "../target/wasm32-unknown-unknown/release/constitution_authority.wasm"
       dependencies:
         - name: constitution_authority_integrity
+
+    - name: constitution_transition
+      path: "../target/wasm32-unknown-unknown/release/constitution_transition.wasm"
+      dependencies:
+        - name: constitution_transition_integrity
 
     - name: governance_bridge
       path: "../target/wasm32-unknown-unknown/release/governance_bridge.wasm"
