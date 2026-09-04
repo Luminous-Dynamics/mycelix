@@ -28,6 +28,34 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Verify shared frontend source distribution
+        shell: bash
+        run: |
+          status=0
+          for manifest in \
+            crates/mycelix-leptos-client/Cargo.toml \
+            crates/mycelix-leptos-ui/Cargo.toml \
+            crates/mycelix-leptos-core/Cargo.toml; do
+            if [ ! -f "$manifest" ]; then
+              echo "::error file=$manifest::Required shared frontend source is missing from this repository."
+              status=1
+            fi
+          done
+
+          if [ "$status" -ne 0 ]; then
+            echo "Shared frontend source distribution is incomplete."
+            echo "Archive candidates retained by the repository:"
+            find mycelix-workspace/crates -maxdepth 1 -type f -name 'mycelix-leptos-*.tar.gz' -print 2>/dev/null || true
+
+            for archive in mycelix-workspace/crates/mycelix-leptos-*.tar.gz; do
+              [ -f "$archive" ] || continue
+              echo "=== archive listing: $archive ==="
+              tar -tzf "$archive" | sed -n '1,200p'
+            done
+
+            exit 1
+          fi
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
