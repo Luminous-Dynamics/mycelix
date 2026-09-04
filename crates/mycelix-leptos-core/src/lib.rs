@@ -14,6 +14,7 @@
 //! - [`ConnectionStatusIndicator`] — Navbar-sized connection state indicator
 //! - [`ConnectionBadge`] — Compact connection badge for navbars
 //! - [`TrustBadge`] — Consciousness-gated trust tier badge
+//! - [`EvidenceDisclosure`] — Evidence availability/freshness disclosure without verification claims
 //! - [`TierGate`] — Gating component that shows/hides children by tier
 //! - [`LoadingSkeleton`] — Pulsing skeleton placeholder for loading states
 //! - [`AppErrorBoundary`] — Styled error boundary with retry
@@ -64,6 +65,7 @@ pub use mycelix_leptos_ui::data_table;
 pub use mycelix_leptos_ui::empty_state;
 pub mod did_registry;
 pub mod error_boundary;
+pub mod evidence;
 pub mod flow_indicator;
 pub mod forms;
 pub mod freshness;
@@ -113,6 +115,7 @@ pub use personal_leptos_types::TrustTier;
 // Re-exports — UI components
 pub use connection_status::ConnectionStatusIndicator;
 pub use error_boundary::AppErrorBoundary;
+pub use evidence::{EvidenceAvailability, EvidenceDisclosure};
 pub use loading::LoadingSkeleton;
 pub use progress_bar::ProgressBar;
 pub use stat_card::StatCard;
