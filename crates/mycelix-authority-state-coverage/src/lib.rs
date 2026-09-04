@@ -39,6 +39,7 @@ const MAX_PROFILE_BYTES: usize = 128;
 const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_DOMAINS: usize = 32;
 const MAX_ALLOWED_SUBJECT_KINDS: usize = 16;
+const MAX_HEAD_GENERATION: u64 = 256;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CoverageMode {
@@ -73,9 +74,9 @@ impl CoverageMode {
                 {
                     return Err(AuthorityCoverageError::InvalidWitnessPolicy);
                 }
-                let maximum_from_domains =
-                    u32::from(*min_trust_domains) * u32::from(*max_per_trust_domain);
-                if maximum_from_domains < u32::from(*min_witnesses) {
+                let maximum_witnesses =
+                    (MAX_TRUST_DOMAINS as u32) * u32::from(*max_per_trust_domain);
+                if u32::from(*min_witnesses) > maximum_witnesses {
                     return Err(AuthorityCoverageError::ImpossibleWitnessPolicy);
                 }
                 Ok(())
@@ -136,10 +137,7 @@ impl AuthorityCoveragePolicy {
         {
             return Err(AuthorityCoverageError::InvalidAllowedSubjectKinds);
         }
-        let codes = canonical_subject_kind_codes(&self.allowed_subject_kinds)?;
-        if codes.len() != self.allowed_subject_kinds.len() {
-            return Err(AuthorityCoverageError::DuplicateSubjectKind);
-        }
+        canonical_subject_kind_codes(&self.allowed_subject_kinds)?;
         if self.max_source_age_ms == 0
             || self.max_coverage_lease_ms == 0
             || matches!(self.mode, CoverageMode::WitnessQuorum { .. })
@@ -240,7 +238,10 @@ impl AuthoritySourceHeadAttestation {
             .validate()
             .map_err(|_| AuthorityCoverageError::InvalidSourceIdentity)?;
         require_profile(&self.source_identity.profile)?;
-        if self.head_generation == 0 || self.head_transition_digest.is_zero() {
+        if self.head_generation == 0
+            || self.head_generation > MAX_HEAD_GENERATION
+            || self.head_transition_digest.is_zero()
+        {
             return Err(AuthorityCoverageError::InvalidHeadIdentity);
         }
         require_ref(&self.head_status_record_ref)?;
@@ -321,6 +322,7 @@ impl AuthorityHeadWitnessObservation {
             || self.head_transition_digest.is_zero()
             || self.challenge_digest.is_zero()
             || self.head_generation == 0
+            || self.head_generation > MAX_HEAD_GENERATION
         {
             return Err(AuthorityCoverageError::InvalidWitnessHeadIdentity);
         }
@@ -364,6 +366,8 @@ impl AuthorityHeadWitnessObservation {
 pub struct VerifiedAuthorityHeadWitness {
     pub observation: AuthorityHeadWitnessObservation,
     pub verified_observation_proof_ref: String,
+    pub verified_observer_id: String,
+    pub verified_trust_domain_id: String,
     pub verified_trust_domain_ref: String,
     pub verification_ref: String,
     pub verified_at_ms: u64,
@@ -391,6 +395,34 @@ pub struct QualifiedAuthorityStateCoverage {
 }
 
 impl QualifiedAuthorityStateCoverage {
+    pub fn challenge_digest(&self) -> Digest32 {
+        self.challenge_digest
+    }
+
+    pub fn policy_digest(&self) -> Digest32 {
+        self.policy_digest
+    }
+
+    pub fn policy_profile(&self) -> &str {
+        &self.policy_profile
+    }
+
+    pub fn source_head_digest(&self) -> Digest32 {
+        self.source_head_digest
+    }
+
+    pub fn source_head_profile(&self) -> &str {
+        &self.source_head_profile
+    }
+
+    pub fn witness_count(&self) -> u16 {
+        self.witness_count
+    }
+
+    pub fn trust_domain_count(&self) -> u16 {
+        self.trust_domain_count
+    }
+
     pub fn coverage_digest(&self) -> Digest32 {
         self.coverage_digest
     }
@@ -597,7 +629,9 @@ fn verify_source<'a>(
         return Err(AuthorityCoverageError::SourceProofMismatch);
     }
     require_ref(&receipt.verification_ref)?;
-    if receipt.verified_at_ms == 0
+    if source.responded_at_ms < policy.valid_from_ms
+        || source.responded_at_ms >= policy.valid_until_ms
+        || receipt.verified_at_ms == 0
         || receipt.verified_at_ms > now_ms
         || receipt.verified_at_ms < source.responded_at_ms
         || now_ms >= source.expires_at_ms
@@ -631,8 +665,16 @@ fn verify_witness(
     if receipt.verified_observation_proof_ref != witness.observation_proof_ref {
         return Err(AuthorityCoverageError::WitnessProofMismatch);
     }
+    require_ref(&receipt.verified_observer_id)?;
+    require_ref(&receipt.verified_trust_domain_id)?;
     require_ref(&receipt.verified_trust_domain_ref)?;
     require_ref(&receipt.verification_ref)?;
+    if receipt.verified_observer_id != witness.observer_id {
+        return Err(AuthorityCoverageError::WitnessObserverMismatch);
+    }
+    if receipt.verified_trust_domain_id != witness.trust_domain_id {
+        return Err(AuthorityCoverageError::WitnessTrustDomainMismatch);
+    }
     if receipt.verified_at_ms == 0
         || receipt.verified_at_ms > now_ms
         || receipt.verified_at_ms < witness.observed_at_ms
@@ -784,6 +826,8 @@ pub enum AuthorityCoverageError {
     TooManyWitnesses,
     WitnessHeadMismatch,
     WitnessProofMismatch,
+    WitnessObserverMismatch,
+    WitnessTrustDomainMismatch,
     StaleWitness,
     AmbiguousObserver,
     TrustDomainConcentration,
@@ -825,6 +869,8 @@ impl fmt::Display for AuthorityCoverageError {
             Self::TooManyWitnesses => "authority coverage witness fan-in exceeds v0.1 bound",
             Self::WitnessHeadMismatch => "witness observed a different authority source head",
             Self::WitnessProofMismatch => "verified witness proof mismatch",
+            Self::WitnessObserverMismatch => "verified witness observer identity mismatch",
+            Self::WitnessTrustDomainMismatch => "verified witness trust-domain identity mismatch",
             Self::StaleWitness => "authority head witness is stale or unverified",
             Self::AmbiguousObserver => "same observer supplied conflicting coverage evidence",
             Self::TrustDomainConcentration => "too many witnesses come from one trust domain",
@@ -946,6 +992,8 @@ mod tests {
         };
         VerifiedAuthorityHeadWitness {
             verified_observation_proof_ref: observation.observation_proof_ref.clone(),
+            verified_observer_id: observation.observer_id.clone(),
+            verified_trust_domain_id: observation.trust_domain_id.clone(),
             verified_trust_domain_ref: format!("trust-domain-proof:{domain}"),
             verification_ref: format!("witness-verification:{observer}"),
             verified_at_ms: 945,
@@ -1008,8 +1056,8 @@ mod tests {
             1_000,
         )
         .unwrap();
-        assert_eq!(coverage.witness_count, 3);
-        assert_eq!(coverage.trust_domain_count, 2);
+        assert_eq!(coverage.witness_count(), 3);
+        assert_eq!(coverage.trust_domain_count(), 2);
     }
 
     #[test]
@@ -1093,6 +1141,31 @@ mod tests {
     }
 
     #[test]
+    fn verified_trust_domain_must_match_observation() {
+        let challenge = d(9);
+        let source = source_receipt(challenge);
+        let source_digest = source.attestation.identity_digest().unwrap();
+        let mode = CoverageMode::WitnessQuorum {
+            min_witnesses: 1,
+            min_trust_domains: 1,
+            max_per_trust_domain: 1,
+        };
+        let mut witness = witness(challenge, source_digest, "observer:a", "domain:1");
+        witness.verified_trust_domain_id = "domain:other".into();
+        assert_eq!(
+            qualify_authority_state_coverage(
+                &policy_receipt(mode),
+                &source,
+                &[witness],
+                challenge,
+                1_000,
+            )
+            .unwrap_err(),
+            AuthorityCoverageError::WitnessTrustDomainMismatch
+        );
+    }
+
+    #[test]
     fn source_identity_change_denies_under_same_logical_source_ref() {
         let challenge = d(9);
         let mut source = source_receipt(challenge);
@@ -1108,6 +1181,24 @@ mod tests {
             )
             .unwrap_err(),
             AuthorityCoverageError::SourceIdentityMismatch
+        );
+    }
+
+    #[test]
+    fn source_response_before_policy_lifetime_denies() {
+        let challenge = d(9);
+        let mut policy = policy_receipt(CoverageMode::DirectSource);
+        policy.policy.valid_from_ms = 925;
+        assert_eq!(
+            qualify_authority_state_coverage(
+                &policy,
+                &source_receipt(challenge),
+                &[],
+                challenge,
+                1_000,
+            )
+            .unwrap_err(),
+            AuthorityCoverageError::StaleSourceHead
         );
     }
 }
