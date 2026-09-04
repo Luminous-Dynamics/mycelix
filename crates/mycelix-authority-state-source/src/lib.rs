@@ -517,6 +517,9 @@ fn project(
     {
         return Err(AuthorityStateSourceError::CoverageHeadMismatch);
     }
+    if coverage.verified_at_ms < endpoint.transition.effective_at_ms {
+        return Err(AuthorityStateSourceError::InvalidCoverageWindow);
+    }
 
     let selected = match mode {
         ProjectionMode::Current => {
@@ -851,7 +854,7 @@ mod tests {
             verified_authority_proof_ref: transition.authority_proof_ref.clone(),
             authoritative_source_ref: "authority-state-source:test".into(),
             verification_ref: format!("verification:{}", transition.generation),
-            verified_at_ms: 900,
+            verified_at_ms: 1_000,
             lease_until_ms: 2_000,
             transition,
         }
@@ -1016,7 +1019,7 @@ mod tests {
         let mut transitions = lineage();
         let coverage = coverage(&transitions);
         transitions[1].transition.effective_at_ms = 50;
-        transitions[1].verified_at_ms = 900;
+        transitions[1].verified_at_ms = 1_000;
         assert_eq!(
             project_current_authority_state(&subject(), &transitions, &coverage, 1_000)
                 .unwrap_err(),
