@@ -1,6 +1,6 @@
 # mycelix-xenia-reader-bridge
 
-CF-07C2 binds Xenia's sealed authenticated application-channel evidence to one explicitly pinned Mycelix CF-07C1 reader-enrollment snapshot. CF-07C3 then consumes that sealed reader+plaintext binding through one exact bounded request schema and a current CF-07A serving snapshot.
+CF-07C2 binds Xenia's sealed authenticated application-channel evidence to one explicitly pinned Mycelix CF-07C1 reader-enrollment snapshot. CF-07C3 consumes that sealed reader+plaintext binding through one exact bounded request schema and a current CF-07A serving snapshot. CF-07C4 then consumes only the resulting `AuthorizedNixReadV1` and prepares the exact representation through CF-03 verified local CAS reads.
 
 The boundary is:
 
@@ -26,23 +26,25 @@ EnrollmentBoundOpenedPayloadV1
         v
 exact 40-byte CF-07C3 request parse
         |
-        +-- family magic MCFR
-        +-- schema = 1
-        +-- operation = NarInfo | Nar
-        +-- reserved byte = 0
-        +-- exact 32-byte Nix store hash
-        |
         v
 RemoteServingSnapshotV1::entry_for_reader_at(...)
         |
         v
 AuthorizedNixReadV1
         |
-        +-- exact operation
-        +-- exact authorized store entry internally
+        +-- exact operation/store entry
         +-- exact serving snapshot/projection/policy commitments
         +-- exclusive serve-until deadline
-        +-- enrollment/Xenia audit chain
+        |
+        v
+prepare_authorized_nix_read_v1(...)
+        |
+        +-- NarInfo -> one-shot deadline-bound writer
+        |
+        `-- Nar -> exact SHA-256 + size
+                    -> CF-03 LocalCasV1::open_verified
+                    -> same verified/rewound file handle
+                    -> sequential deadline-bound reader
 ```
 
 This crate deliberately does **not**:
@@ -56,26 +58,22 @@ This crate deliberately does **not**:
 - accept variable-length/trailing request bytes;
 - accept unknown request operations or non-zero reserved semantics;
 - allow request plaintext to choose the serving-evaluation time;
-- expose a generic authorized cache-entry accessor that erases NarInfo-vs-Nar authority;
-- expose representation facts without a current-time deadline check;
+- expose a generic authorized cache-entry accessor;
+- accept a second digest, size, path, store hash, operation, or deadline after `AuthorizedNixReadV1` exists;
+- expose the verified raw `File`, `Seek`, or `into_file` from the NAR serving path;
+- expose a reusable NarInfo `String`/`Vec` body;
 - expose a listener; or
 - decide Nix signature/trusted-key policy.
 
-The Xenia dependency is pinned to exact review commit:
+The Xenia dependency remains pinned to exact review commit:
 
 ```text
 2125d0db2a5b7a995d129646e851adacb1c9f1fa
 ```
 
-from Xenia PR #281. Updating that cryptographic-evidence dependency is an explicit review event rather than a floating branch dependency.
+from Xenia PR #281.
 
-## Content Fabric payload domain
-
-CF-07C2 reserves Xenia application payload byte `0xCF` for the Content Fabric reader channel.
-
-That byte is only the Xenia AEAD/replay stream domain. CF-07C3 defines the independent inner request schema.
-
-## CF-07C3 request wire format
+## CF-07C3 request schema
 
 The v1 request is exactly 40 bytes:
 
@@ -87,33 +85,52 @@ The v1 request is exactly 40 bytes:
 8..40  exact 32-byte Nix store hash text
 ```
 
-`MCFR` is stable family framing; the separate u16 field owns schema versioning.
+`MCFR` is stable family framing; the separate u16 field owns schema versioning. Identity, groups, enrollment, registry, serving snapshot, timestamps, arbitrary URL/path, and artifact-trust assertions do not appear in request bytes.
 
-No identity, group, enrollment, registry, serving snapshot, timestamp, path suffix, arbitrary URL, or other authority assertion appears in request bytes.
+## CF-07C4 verified representation preparation
 
-The decoder rejects short or long messages, wrong magic, unsupported schema versions, unknown operations, non-zero reserved bits, and store hashes rejected by the existing exact `NixStoreHashV1` parser.
+`prepare_authorized_nix_read_v1(authorized, cas)` consumes the non-Clone CF-07C3 authorization. There is no second resource argument.
 
-## Registry pinning
+For `NarInfo`, the already-authorized cache entry is rendered internally into `AuthorizedNarInfoV1`. The body remains private; `write_to(...)` consumes the authority and emits at most 4 KiB per write while checking both the original Unix `serve_until_unix_ms` and a private monotonic deadline before and after every chunk.
 
-`bind_xenia_opened_reader_v1(...)` requires both the immutable `ReaderEnrollmentRegistryV1` and the `StableIdV1` registry commitment expected by higher-level policy/configuration. The call fails if they differ.
+For `Nar`, CF-07C4 reads the exact authorized SHA-256 and size from `AuthorizedNixReadV1`, constructs:
 
-This does not make the expected ID self-authenticating. A deployment still needs a trustworthy source for the pinned commitment. It makes substitution of another registry snapshot explicit at this boundary.
+```text
+BlobDescriptorV1 {
+    digest = sha256:<authorized digest>,
+    size_bytes = <authorized NAR size>,
+    media_type = None,
+}
+```
 
-## Serving authority
+and calls CF-03 `LocalCasV1::open_verified(&descriptor)`.
 
-`authorize_bound_nix_read_v1(...)` consumes `EnrollmentBoundOpenedPayloadV1`; callers cannot retain a second copy because that evidence is non-Clone.
+CF-03 validates the exact size, opens with its no-follow final-file rules, hashes the same opened handle, verifies the digest, rewinds it, and returns that handle. CF-07C4 does not reconstruct or reopen a filesystem path afterward.
 
-The trusted server runtime supplies `request_time_unix_ms`. CF-07C3 parses the request and immediately calls `RemoteServingSnapshotV1::entry_for_reader_at(store_hash, reader, request_time_unix_ms)` using the still-sealed enrolled reader.
+Because full-file verification can take time, CF-07C4 rechecks the serving horizon *after* CF-03 verification before releasing a reader.
 
-Unauthorized and absent objects both remain `Ok(None)`, preserving CF-07A's non-enumerating behavior.
+## Dual-clock stream expiry
 
-On success, `AuthorizedNixReadV1` binds the operation to the exact authorized entry, the serving snapshot/projection/policy commitments, the trusted authorization time, and the snapshot's exclusive `serve_until_unix_ms` horizon. There is no public generic `entry()` accessor:
+Prepared streams carry both:
 
-- `render_narinfo_at(now)` returns metadata only for a `NarInfo` authorization that is still within the serving horizon;
-- `nar_sha256_digest_at(now)` and `nar_size_at(now)` return raw-NAR retrieval facts only for a `Nar` authorization that is still within the serving horizon.
+- the original exclusive Unix `serve_until_unix_ms`; and
+- a private monotonic `Instant` derived conservatively from the remaining authority horizon.
 
-A metadata authorization therefore cannot be reused as a raw-NAR capability, and an expired authorization cannot yield representation facts through the ordinary public API.
+Every bounded NAR read and NarInfo write checks both clocks. This gives fail-closed behavior for either direction of wall-clock movement:
+
+- wall-clock rollback cannot extend authority beyond the monotonic deadline;
+- wall-clock jump forward expires authority immediately through the Unix check.
+
+If raw-NAR expiry occurs while one file read is in progress, the just-read caller-buffer region is zeroed and the stream terminalizes before returning an error. NAR reads are capped at 64 KiB per call, are sequential only, and terminalize on expiry, clock failure, underlying I/O error, or unexpected early EOF.
+
+There is deliberately no `Seek`, clone, or raw-file extraction path.
+
+## Audit-only output
+
+Prepared representations expose `PreparedNixReadAuditV1`, which is cloneable because it is intentionally non-authorizing. It contains operation/store-hash and snapshot/enrollment/Xenia generation commitments, but no reader principal/groups, CAS path, NAR digest, raw NAR size, file handle, or body bytes.
+
+Cloning audit facts therefore does not clone resource-serving authority.
 
 ## Remaining boundary
 
-CF-07C3 authorizes *which immutable Nix object representation may be read and until when*. A later serving adapter still must use the Nar digest/size to obtain CF-03 verified bytes, must preserve the authorized operation, must recheck the deadline during long streams, and must keep Nix artifact signature/trusted-key policy independent of transport/cache authorization.
+CF-07C4 provides a verified local representation reader/writer, not a network listener. A future HTTP/Xenia response adapter should consume these one-shot/streaming types directly rather than accepting a new resource identifier. It must preserve deadline errors as terminal response failures and keep Nix artifact signature/trusted-key policy independent of cache disclosure authority.
