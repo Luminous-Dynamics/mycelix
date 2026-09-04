@@ -3,46 +3,91 @@
 
 //! Canonical shared application composition for Mycelix Leptos frontends.
 //!
-//! This module intentionally owns only cross-domain providers. Domain-specific
-//! contexts, routes, and authorization semantics remain in each application.
+//! This module intentionally owns only cross-domain runtime providers.
+//! Domain-specific themes, contexts, routes, actions, and authorization
+//! semantics remain in each application.
 
 use leptos::prelude::*;
 
 use crate::{
-    init_consciousness_ui, provide_consciousness_context, provide_homeostasis_context,
-    provide_thermodynamic_context, provide_toast_context, HolochainProviderAuto,
-    HolochainProviderConfig, ToastContainer,
+    HolochainProviderAuto, HolochainProviderConfig, ToastContainer, init_consciousness_ui,
+    provide_consciousness_context, provide_homeostasis_context, provide_thermodynamic_context,
+    provide_toast_context,
 };
 
-/// Shared runtime composition for Mycelix applications.
+/// Optional homeostasis configuration for a Mycelix application.
 ///
-/// The component establishes the common Holochain/runtime providers and leaves
-/// domain providers and routing to `children`. This keeps the application root
-/// consistent without turning `mycelix-leptos-core` into a source of domain
-/// authority.
+/// The CSS variable name is static because the underlying homeostasis provider
+/// installs a reactive effect that retains the name for the lifetime of the app.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HomeostasisConfig {
+    pub counters: usize,
+    pub css_var_name: &'static str,
+}
+
+impl HomeostasisConfig {
+    pub const fn new(counters: usize, css_var_name: &'static str) -> Self {
+        Self {
+            counters,
+            css_var_name,
+        }
+    }
+}
+
+/// Cross-domain configuration for [`MycelixApplication`].
+///
+/// Domain configuration does not belong here. In particular, this type must
+/// not become a second source of truth for routes, domain authorization, or
+/// business state.
+#[derive(Clone, Debug)]
+pub struct MycelixApplicationConfig {
+    pub holochain: HolochainProviderConfig,
+    pub homeostasis: Option<HomeostasisConfig>,
+}
+
+impl MycelixApplicationConfig {
+    pub fn new(holochain: HolochainProviderConfig) -> Self {
+        Self {
+            holochain,
+            homeostasis: None,
+        }
+    }
+
+    pub fn with_homeostasis(mut self, homeostasis: HomeostasisConfig) -> Self {
+        self.homeostasis = Some(homeostasis);
+        self
+    }
+}
+
+/// Canonical shared runtime composition for Mycelix applications.
+///
+/// This component establishes the Holochain provider first, then initializes
+/// common experiential and toast contexts inside that boundary. Domain
+/// providers and routing remain children of this component so they can consume
+/// the shared contexts without moving domain authority into this crate.
 #[component]
 pub fn MycelixApplication(
-    config: HolochainProviderConfig,
-    #[prop(optional, default = 2)] homeostasis_capacity: usize,
-    #[prop(optional, into, default = "--homeostasis".into())] homeostasis_css_var: String,
+    config: MycelixApplicationConfig,
     children: Children,
 ) -> impl IntoView {
+    let MycelixApplicationConfig {
+        holochain,
+        homeostasis,
+    } = config;
+
     view! {
-        <HolochainProviderAuto config=config>
-            <MycelixApplicationInner
-                homeostasis_capacity=homeostasis_capacity
-                homeostasis_css_var=homeostasis_css_var
-            >
+        <HolochainProviderAuto config=holochain>
+            <MycelixSharedProviders homeostasis=homeostasis>
                 {children()}
-            </MycelixApplicationInner>
+            </MycelixSharedProviders>
         </HolochainProviderAuto>
     }
 }
 
+/// Common providers that must be initialized inside the Holochain boundary.
 #[component]
-fn MycelixApplicationInner(
-    homeostasis_capacity: usize,
-    homeostasis_css_var: String,
+fn MycelixSharedProviders(
+    homeostasis: Option<HomeostasisConfig>,
     children: Children,
 ) -> impl IntoView {
     // Shared provider initialization order is intentional. Domain providers
@@ -50,14 +95,29 @@ fn MycelixApplicationInner(
     provide_thermodynamic_context();
     provide_consciousness_context();
     provide_toast_context();
-    provide_homeostasis_context(homeostasis_capacity, &homeostasis_css_var);
+
+    if let Some(homeostasis) = homeostasis {
+        provide_homeostasis_context(homeostasis.counters, homeostasis.css_var_name);
+    }
 
     // Wire shared experiential state to CSS custom properties once the
-    // providers above exist.
+    // consciousness and thermodynamic providers above exist.
     init_consciousness_ui();
 
     view! {
         {children()}
         <ToastContainer />
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HomeostasisConfig;
+
+    #[test]
+    fn homeostasis_config_preserves_counter_and_css_contract() {
+        let config = HomeostasisConfig::new(2, "--homeostasis");
+        assert_eq!(config.counters, 2);
+        assert_eq!(config.css_var_name, "--homeostasis");
     }
 }
