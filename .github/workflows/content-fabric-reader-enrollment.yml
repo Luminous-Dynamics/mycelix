@@ -1,0 +1,46 @@
+name: Content Fabric Reader Enrollment CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-reader-enrollment/**'
+      - 'docs/content-fabric/READER_ENROLLMENT_V1.md'
+      - '.github/workflows/content-fabric-reader-enrollment.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-reader-enrollment/**'
+      - 'docs/content-fabric/READER_ENROLLMENT_V1.md'
+      - '.github/workflows/content-fabric-reader-enrollment.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-reader-enrollment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reader-enrollment:
+    name: CF-07C1 reader enrollment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-reader-enrollment
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-reader-enrollment/Cargo.toml -- --check
+      - name: Check
+        run: cargo check --manifest-path crates/mycelix-reader-enrollment/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-reader-enrollment/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/mycelix-reader-enrollment/Cargo.toml --all-targets
