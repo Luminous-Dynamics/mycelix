@@ -5,6 +5,14 @@
 
 use leptos::prelude::*;
 
+fn normalized_progress(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
 /// A horizontal progress bar.
 ///
 /// The component exposes semantic class names and CSS custom properties so a
@@ -17,8 +25,7 @@ pub fn ProgressBar(
     #[prop(optional)] label: Option<String>,
     #[prop(optional)] color: Option<String>,
 ) -> impl IntoView {
-    let clamped = value.clamp(0.0, 1.0);
-    let pct = clamped * 100.0;
+    let pct = normalized_progress(value) * 100.0;
     let aria_label = label.clone().unwrap_or_else(|| "Progress".to_string());
     let fill_style = match color {
         Some(color) => format!(
@@ -62,5 +69,19 @@ pub fn ProgressBar(
                 }
             })}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalized_progress;
+
+    #[test]
+    fn progress_is_bounded_and_non_finite_values_fail_closed_to_zero() {
+        assert_eq!(normalized_progress(-0.5), 0.0);
+        assert_eq!(normalized_progress(0.4), 0.4);
+        assert_eq!(normalized_progress(1.5), 1.0);
+        assert_eq!(normalized_progress(f64::NAN), 0.0);
+        assert_eq!(normalized_progress(f64::INFINITY), 0.0);
     }
 }
