@@ -18,6 +18,8 @@ members = [
     "zomes/execution-lifecycle/coordinator",
     "zomes/execution-lifecycle-verifier/coordinator",
     "zomes/execution-plan-verifier/coordinator",
+    "zomes/authority-state-challenge/integrity",
+    "zomes/authority-state-challenge/coordinator",
     "zomes/constitution/integrity",
     "zomes/constitution/coordinator",
     "zomes/constitution-authority/integrity",
