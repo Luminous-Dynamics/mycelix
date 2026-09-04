@@ -30,29 +30,38 @@ pub struct ProvenanceStep {
 }
 
 impl ProvenanceStep {
-    /// Whether this step exposes an evidence gap or retrieval uncertainty.
-    pub fn has_evidence_gap(&self) -> bool {
+    /// Whether evidence availability for this step is not presently established
+    /// as `Present`.
+    ///
+    /// This deliberately says nothing about freshness or validity. A present
+    /// but stale record is not an availability gap.
+    pub fn has_availability_gap(&self) -> bool {
         !matches!(self.evidence, EvidenceAvailability::Present { .. })
     }
 }
 
-fn gap_count(steps: &[ProvenanceStep]) -> usize {
-    steps.iter().filter(|step| step.has_evidence_gap()).count()
+fn availability_gap_count(steps: &[ProvenanceStep]) -> usize {
+    steps
+        .iter()
+        .filter(|step| step.has_availability_gap())
+        .count()
 }
 
 /// Ordered provenance trail.
 ///
-/// The component preserves every supplied step, including gaps. It does not
-/// infer missing steps, validate chain continuity, establish authority, or
-/// perform cryptographic verification.
+/// The component preserves every supplied step, including availability gaps.
+/// It does not infer missing steps, validate chain continuity, establish
+/// authority, or perform cryptographic verification.
 #[component]
 pub fn ProvenanceTrail(steps: Vec<ProvenanceStep>) -> impl IntoView {
     let count = steps.len();
-    let gaps = gap_count(&steps);
-    let aria_label = if gaps == 0 {
+    let availability_gaps = availability_gap_count(&steps);
+    let aria_label = if availability_gaps == 0 {
         format!("Provenance trail, {count} steps")
     } else {
-        format!("Provenance trail, {count} steps, {gaps} evidence gaps or uncertainties")
+        format!(
+            "Provenance trail, {count} steps, {availability_gaps} evidence availability gaps"
+        )
     };
     let steps_for_list = steps.clone();
 
@@ -78,7 +87,7 @@ pub fn ProvenanceTrail(steps: Vec<ProvenanceStep>) -> impl IntoView {
                 <For
                     each=move || steps_for_list.clone()
                     key=|step| step.id.clone()
-                    children=move |step| view! { <ProvenanceStepView step /> }
+                    children=move |step| view! { <ProvenanceStepView step=step /> }
                 />
             </ol>
         </section>
@@ -137,7 +146,7 @@ fn ProvenanceStepView(step: ProvenanceStep) -> impl IntoView {
 
 #[cfg(test)]
 mod tests {
-    use super::{ProvenanceStep, gap_count};
+    use super::{ProvenanceStep, availability_gap_count};
     use crate::evidence::EvidenceAvailability;
     use crate::freshness::FreshnessLevel;
 
@@ -152,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_unavailable_and_unknown_steps_count_as_visible_gaps() {
+    fn missing_unavailable_and_unknown_steps_count_as_availability_gaps() {
         let steps = vec![
             step("proposal", EvidenceAvailability::Present { freshness: None }),
             step("decision", EvidenceAvailability::Missing),
@@ -161,14 +170,14 @@ mod tests {
         ];
 
         assert_eq!(steps.len(), 4);
-        assert_eq!(gap_count(&steps), 3);
+        assert_eq!(availability_gap_count(&steps), 3);
         assert_eq!(steps[1].evidence.label(), "Missing");
         assert_eq!(steps[2].evidence.label(), "Unavailable");
         assert_eq!(steps[3].evidence.label(), "Unknown");
     }
 
     #[test]
-    fn present_but_stale_evidence_is_not_a_missing_provenance_step() {
+    fn present_but_stale_evidence_is_not_an_availability_gap() {
         let stale = step(
             "decision",
             EvidenceAvailability::Present {
@@ -176,7 +185,7 @@ mod tests {
             },
         );
 
-        assert!(!stale.has_evidence_gap());
+        assert!(!stale.has_availability_gap());
         assert_eq!(stale.evidence.freshness(), Some(FreshnessLevel::Stale));
     }
 
@@ -187,7 +196,7 @@ mod tests {
             step("decision", EvidenceAvailability::Present { freshness: None }),
         ];
 
-        assert_eq!(gap_count(&steps), 0);
+        assert_eq!(availability_gap_count(&steps), 0);
         assert!(steps.iter().all(|step| step.evidence.label() == "Present"));
     }
 }
