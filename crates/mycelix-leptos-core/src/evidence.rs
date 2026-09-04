@@ -22,6 +22,11 @@ pub enum EvidenceAvailability {
     /// Evidence exists and is available to the caller. No validity claim.
     Present {
         /// Optional freshness information about the available evidence.
+        ///
+        /// `None` means no freshness assertion is being made. Use
+        /// `Some(FreshnessLevel::Unknown)` when freshness is relevant but the
+        /// caller cannot establish it. Keeping those states distinct avoids
+        /// manufacturing uncertainty where no freshness claim was requested.
         freshness: Option<FreshnessLevel>,
     },
     /// The caller has established that the expected evidence is absent.
@@ -135,7 +140,7 @@ pub fn EvidenceDisclosure(
                 >
                     {availability.label()}
                 </span>
-                {freshness.map(|level| view! { <FreshnessBadge level /> })}
+                {freshness.map(|level| view! { <FreshnessBadge level=level /> })}
             </div>
 
             {detail.map(|detail| view! {
@@ -187,13 +192,17 @@ mod tests {
     }
 
     #[test]
-    fn unknown_freshness_is_preserved_for_present_evidence() {
-        let state = EvidenceAvailability::Present {
+    fn no_freshness_assertion_differs_from_unknown_freshness() {
+        let unasserted = EvidenceAvailability::Present { freshness: None };
+        let unknown = EvidenceAvailability::Present {
             freshness: Some(FreshnessLevel::Unknown),
         };
+
+        assert_eq!(accessibility_label(unasserted), "Evidence: Present");
         assert_eq!(
-            accessibility_label(state),
+            accessibility_label(unknown),
             "Evidence: Present. Freshness: Unknown"
         );
+        assert_ne!(unasserted, unknown);
     }
 }
