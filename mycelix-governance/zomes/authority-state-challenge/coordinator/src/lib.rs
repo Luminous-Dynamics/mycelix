@@ -64,7 +64,7 @@ pub struct ChallengeRuntimeStatus {
     pub private_entropy: bool,
     pub caller_nonce_authority: bool,
     pub context_provider_required: String,
-    pub context_provider_reachable: bool,
+    pub provider_probed_without_subject: bool,
     pub operational: bool,
 }
 
@@ -174,12 +174,9 @@ pub fn issue_authority_state_challenge(
     })?;
     let entropy_action = create_entry(EntryTypes::ChallengeEntropy(entropy_entry))?;
 
-    // Read the actual committed action timestamp rather than predicting the
-    // timestamp Holochain will assign to the private write.
-    let entropy_record = get(entropy_action.clone(), GetOptions::default())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "new private challenge entropy record is unavailable locally".into(),
-        )))?;
+    // Private entry content is verified strictly from this agent's own source
+    // chain, where Holochain permits local private-entry queries.
+    let entropy_record = get_local_record(&entropy_action)?;
     let issued_at_ms = timestamp_ms(entropy_record.action().timestamp(), "entropy action")?;
 
     let semantic_ceiling = context.context_valid_until_ms.min(context.valid_until_ms);
@@ -277,13 +274,7 @@ pub fn verify_issued_authority_state_challenge(
         )));
     }
 
-    let entropy_record = get(
-        challenge_record.entropy_action.clone(),
-        GetOptions::default(),
-    )?
-    .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-        "private entropy proof is unavailable on the issuer source chain".into(),
-    )))?;
+    let entropy_record = get_local_record(&challenge_record.entropy_action)?;
     let entropy_author = create_author(entropy_record.action())?;
     if entropy_author != current_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -346,33 +337,27 @@ pub fn verify_issued_authority_state_challenge(
 
 #[hdk_extern]
 pub fn challenge_runtime_status(_: ()) -> ExternResult<ChallengeRuntimeStatus> {
-    let reachable = call_local::<_, VerifiedChallengeContext>(
-        CONTEXT_PROVIDER_ZOME,
-        CONTEXT_PROVIDER_FUNCTION,
-        AuthoritySubjectRef {
-            // Deliberately invalid sentinel: success is not expected and must not
-            // be interpreted as provider authority. We report operational=false
-            // until a real subject-specific provider check occurs during issue.
-            kind: mycelix_authority_freshness::AuthoritySubjectKind::AuthorityGrant,
-            namespace: "status-probe".into(),
-            subject_id: "status-probe".into(),
-            identity: mycelix_authority_freshness::ProfiledDigest {
-                digest: Digest32::ZERO,
-                profile: "status-probe".into(),
-            },
-        },
-    )
-    .is_ok();
     Ok(ChallengeRuntimeStatus {
         protocol: CHALLENGE_RUNTIME_PROTOCOL.into(),
         private_entropy: true,
         caller_nonce_authority: false,
         context_provider_required: CONTEXT_PROVIDER_ZOME.into(),
-        context_provider_reachable: reachable,
-        // A generic reachability probe is never enough to establish operational
-        // authority. Only subject-specific issuance can prove that.
+        // Status never probes an authority provider with synthetic data. Only a
+        // real subject-specific issuance can establish operational authority.
+        provider_probed_without_subject: false,
         operational: false,
     })
+}
+
+fn get_local_record(action_hash: &ActionHash) -> ExternResult<Record> {
+    query(ChainQueryFilter::new().include_entries(true))?
+        .into_iter()
+        .find(|record| record.action_address() == action_hash)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "local source-chain record is unavailable: {action_hash}"
+            )))
+        })
 }
 
 fn create_author(action: &Action) -> ExternResult<AgentPubKey> {
