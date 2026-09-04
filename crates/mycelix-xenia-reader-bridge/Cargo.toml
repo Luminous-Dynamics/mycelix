@@ -10,6 +10,8 @@ repository = "https://github.com/Luminous-Dynamics/mycelix"
 readme = "README.md"
 
 [dependencies]
+mycelix-content-core = { path = "../mycelix-content-core" }
+mycelix-content-node = { path = "../mycelix-content-node" }
 mycelix-infrastructure-types = { path = "../mycelix-infrastructure-types" }
 mycelix-nix-cache = { path = "../mycelix-nix-cache" }
 mycelix-nix-exposure = { path = "../mycelix-nix-exposure" }
@@ -18,4 +20,4 @@ thiserror = "2"
 xenia-peer-core = { git = "https://github.com/Luminous-Dynamics/xenia-peer", rev = "2125d0db2a5b7a995d129646e851adacb1c9f1fa" }
 
 [dev-dependencies]
-mycelix-content-core = { path = "../mycelix-content-core" }
+tempfile = "3"
