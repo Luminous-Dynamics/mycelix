@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'crates/mycelix-authority-delegation/**'
+      - 'crates/mycelix-authority-delegation-policy/**'
       - 'crates/mycelix-authority-identity/**'
       - 'crates/mycelix-authority-freshness/**'
       - 'crates/mycelix-institutional-core/**'
@@ -48,8 +49,11 @@ jobs:
           invariants = Path('crates/mycelix-authority-delegation/INVARIANTS.md').read_text()
 
           required = [
-              'DelegationAuthorityBinding',
-              'verified_delegation_authority_digest',
+              'QualifiedDelegationAuthority',
+              'DelegationAuthorityRef',
+              'validate_delegation_scope',
+              'RedelegationNotAuthorized',
+              'allow_redelegation',
               'LineageGenerationMismatch',
               'GrantFreshnessPredatesGrant',
               'DelegationFreshnessPredatesAttestation',
@@ -61,15 +65,23 @@ jobs:
           for token in required:
               assert token in src, token
 
+          forbidden = [
+              'DelegationAuthorityBinding',
+              'verified_delegation_authority_digest',
+              'verified: bool',
+          ]
+          for token in forbidden:
+              assert token not in src, token
+
           assert 'Deserialize)]\npub struct QualifiedDelegationEdge' not in src
           assert 'Deserialize)]\npub struct QualifiedDelegationLineage' not in src
-          assert 'verified: bool' not in src
           lowered = src.lower()
           assert 'phi' not in lowered
           assert 'reputation' not in lowered
           assert 'model_score' not in lowered
 
           assert 'Possession is not delegability' in invariants
+          assert 'Re-delegation is explicit authority' in invariants
           assert 'Generation continuity across edges' in invariants
-          print('PASS: delegation requires exact attenuation, independent delegability authority, and generation-consistent lineage')
+          print('PASS: delegation requires current qualified policy authority, exact attenuation, explicit redelegation, and generation-consistent lineage')
           PY
