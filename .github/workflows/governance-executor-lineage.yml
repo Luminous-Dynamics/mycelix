@@ -1,0 +1,81 @@
+name: Governance Executor Lineage
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-governance-executor-lineage/**'
+      - 'crates/mycelix-governance-executor-designation/**'
+      - 'crates/mycelix-authority-delegation/**'
+      - 'crates/mycelix-authority-delegation-policy/**'
+      - 'crates/mycelix-authority-identity/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-governance-threshold-qualification/**'
+      - 'crates/mycelix-governance-authority/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/governance-executor-lineage.yml'
+  push:
+    branches:
+      - 'security/governance-executor-lineage-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-executor-lineage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact lineage-bound executor authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-governance-executor-lineage/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-governance-executor-lineage/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-governance-executor-lineage/Cargo.toml --all-targets -- -D warnings
+      - name: Authority-separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-governance-executor-lineage/src/lib.rs').read_text()
+          invariants = Path('crates/mycelix-governance-executor-lineage/INVARIANTS.md').read_text()
+
+          required = [
+              'qualify_complete_delegation_lineage',
+              'QualifiedDelegationEdge',
+              'QualifiedLineageBoundExecutorAuthority',
+              'authority_grant_identity',
+              'executor_designation_identity',
+              'sanitized_grant_receipt.delegation_verification_ref',
+              'compatibility_lineage_marker',
+              'EXECUTOR_LINEAGE_AUTHORITY_PROFILE',
+              'MissingDelegationLineage',
+              'UnexpectedDelegationLineage',
+          ]
+          for token in required:
+              assert token in src, token
+
+          assert 'Deserialize)]\npub struct QualifiedLineageBoundExecutorAuthority' not in src
+          assert 'grant_receipt.delegation_verification_ref.as_' not in src
+          lowered = src.lower()
+          assert 'phi' not in lowered
+          assert 'reputation' not in lowered
+          assert 'model_score' not in lowered
+
+          assert 'Caller delegation strings are not authority' in invariants
+          assert 'Exact target grant bytes are re-qualified' in invariants
+          assert 'Dynamic freshness remains outside stable identity' in invariants
+          print('PASS: executor authority binds exact canonical grant, exact designation, and exact current delegation lineage')
+          PY
