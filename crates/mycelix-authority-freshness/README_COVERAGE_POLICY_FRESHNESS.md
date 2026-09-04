@@ -1,1 +1,0 @@
-This additive extension is intentionally narrow. It introduces no runtime provider, no Holochain zome, no DNA change, and no effect authority. Review and qualification should focus on stable subject-code assignment and preservation of existing authority-freshness semantics. See `COVERAGE_POLICY_FRESHNESS.md` for the normative contract.
