@@ -4,7 +4,7 @@
 //! 8D Sovereign Profile Radar Chart
 
 use leptos::prelude::*;
-use sovereign_profile::{CivicTier, SovereignDimension, SovereignProfile};
+use sovereign_profile::{SovereignDimension, SovereignProfile};
 
 /// Size presets for the radar chart.
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -58,19 +58,34 @@ impl SovereignRadarSize {
 
 const AXIS_COUNT: usize = 8;
 
-/// Color for a civic tier (matches CSS variables from base.css).
+/// Theme-aware color for a civic tier.
+///
+/// The CSS variables are defined by the shared Mycelix design system, with the
+/// historical palette retained as a fallback for consumers that render this
+/// component without importing the shared stylesheet.
 fn tier_color(score: f64) -> &'static str {
     if score >= 0.8 {
-        "#e8c547" // guardian gold
+        "var(--tier-guardian, #e8c547)"
     } else if score >= 0.6 {
-        "#b08fd4" // steward violet
+        "var(--tier-steward, #b08fd4)"
     } else if score >= 0.4 {
-        "#6abf69" // citizen green
+        "var(--tier-citizen, #6abf69)"
     } else if score >= 0.3 {
-        "#5ba0c9" // participant blue
+        "var(--tier-participant, #5ba0c9)"
     } else {
-        "#7a8575" // observer grey
+        "var(--tier-observer, #7a8575)"
     }
+}
+
+/// Presentation-only pulse dynamics. Invalid or out-of-range scores must not
+/// be able to generate negative animation durations or unbounded transforms.
+fn pulse_dynamics(score: f64) -> (f64, f64) {
+    let bounded = if score.is_finite() {
+        score.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (4.0 - (bounded * 3.0), 1.0 + (bounded * 0.05))
 }
 
 /// Compute polygon points for the 8D profile.
@@ -137,10 +152,8 @@ pub fn SovereignRadar(
 
     let weights = weights.unwrap_or_default();
 
-    // Pulse effect derived from combined score. Each closure gets its own
-    // clone — `weights` isn't `Copy`, and both closures need to hold their
-    // own copy for the component's lifetime (they're called repeatedly on
-    // every reactive update, not just once).
+    // Each reactive consumer gets its own weight clone so no presentation
+    // concern becomes the owner of the profile's scoring configuration.
     let score_weights = weights.clone();
     let score = move || profile.get().combined_score(&score_weights);
     let tier = move || profile.get().tier(&weights);
@@ -158,7 +171,6 @@ pub fn SovereignRadar(
             let lx = cx + label_r * angle.cos();
             let ly = cy + label_r * angle.sin();
 
-            // Simplified label mapping
             let label_text = match dim {
                 SovereignDimension::EpistemicIntegrity => "Epistemic",
                 SovereignDimension::ThermodynamicYield => "Energy",
@@ -225,10 +237,6 @@ pub fn SovereignRadar(
         })
         .collect::<Vec<_>>();
 
-    // Profile polygon + center text. `score` is also used by the pulse
-    // `<style>` closure below, and closures aren't `Copy` (only `Clone`,
-    // when their captures are `Clone`) — so this closure gets its own
-    // clone rather than moving the original.
     let profile_view_score = score.clone();
     let profile_view = move || {
         let p = profile.get();
@@ -286,40 +294,54 @@ pub fn SovereignRadar(
         }
     };
 
-    let viewbox = format!("0 0 {} {}", px, px);
-    let container_class = if class.is_empty() {
+    let base_class = if class.is_empty() {
         "sovereign-radar".to_string()
     } else {
         format!("sovereign-radar {}", class)
     };
+    let container_class = if pulse {
+        format!("{} sovereign-radar-pulse", base_class)
+    } else {
+        base_class
+    };
+
+    // Pulse dynamics now live on instance-scoped custom properties. The old
+    // implementation emitted a global `.sovereign-radar svg` rule per
+    // component, allowing one pulsing instance to animate another instance
+    // whose `pulse` prop was false.
+    let pulse_style_score = score.clone();
+    let container_style = move || {
+        if !pulse {
+            return String::new();
+        }
+        let (duration, scale) = pulse_dynamics(pulse_style_score());
+        format!(
+            "--sovereign-pulse-duration: {duration:.3}s; --sovereign-pulse-scale: {scale:.4};"
+        )
+    };
 
     view! {
-        <div class=container_class>
+        <div class=container_class style=container_style>
             <style>
-                {move || {
-                    if !pulse { return "".to_string(); }
-                    let s = score();
-                    let duration = 4.0 - (s * 3.0);
-                    let scale = 1.0 + (s * 0.05);
-                    format!(
-                        "@keyframes sovereign-pulse {{
-                            0% {{ transform: scale(1); }}
-                            50% {{ transform: scale({}); }}
-                            100% {{ transform: scale(1); }}
-                        }}
-                        .sovereign-radar svg {{
-                            animation: sovereign-pulse {}s ease-in-out infinite;
-                            transform-origin: center;
-                        }}",
-                        scale, duration
-                    )
-                }}
+                "@keyframes sovereign-pulse {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(var(--sovereign-pulse-scale, 1.02)); }
+                }
+                .sovereign-radar-pulse svg {
+                    animation: sovereign-pulse var(--sovereign-pulse-duration, 3s) ease-in-out infinite;
+                    transform-origin: center;
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .sovereign-radar-pulse svg { animation: none; }
+                }"
             </style>
             <svg
-                viewBox=viewbox
+                viewBox=format!("0 0 {} {}", px, px)
                 width={format!("{}", px as u32)}
                 height={format!("{}", px as u32)}
                 xmlns="http://www.w3.org/2000/svg"
+                role="img"
+                aria-label="Sovereign profile radar chart"
                 style="display:block;margin:0 auto"
             >
                 {rings_view}
@@ -327,5 +349,29 @@ pub fn SovereignRadar(
                 {profile_view}
             </svg>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pulse_dynamics, tier_color};
+
+    #[test]
+    fn tier_colors_resolve_through_semantic_tokens() {
+        assert!(tier_color(0.0).starts_with("var(--tier-observer"));
+        assert!(tier_color(0.3).starts_with("var(--tier-participant"));
+        assert!(tier_color(0.4).starts_with("var(--tier-citizen"));
+        assert!(tier_color(0.6).starts_with("var(--tier-steward"));
+        assert!(tier_color(0.8).starts_with("var(--tier-guardian"));
+    }
+
+    #[test]
+    fn pulse_dynamics_are_finite_and_bounded() {
+        assert_eq!(pulse_dynamics(-1.0), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(0.0), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(1.0), (1.0, 1.05));
+        assert_eq!(pulse_dynamics(2.0), (1.0, 1.05));
+        assert_eq!(pulse_dynamics(f64::NAN), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(f64::INFINITY), (4.0, 1.0));
     }
 }
