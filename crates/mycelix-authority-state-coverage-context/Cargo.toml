@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-authority-state-coverage-context"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Policy-bound challenge and witness trust context for Mycelix authority-state coverage"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-state-source = { path = "../mycelix-authority-state-source" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
