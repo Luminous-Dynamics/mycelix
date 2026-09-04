@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed delegation attenuation and complete-lineage qualification.
 //!
-//! A child AuthorityGrant is not valid merely because `delegated_from` names a
+//! A child `AuthorityGrant` is not valid merely because `delegated_from` names a
 //! parent ID. This crate binds exact canonical parent/child grant identities,
-//! exact current generations, exact delegated roles/capabilities, proof
-//! provenance, and complete root-to-target lineage without choosing by record
-//! recency or input order.
+//! exact current generations, an independently verified authority-to-delegate
+//! binding, exact delegated roles/capabilities, proof provenance, and complete
+//! root-to-target lineage without choosing by record recency or input order.
 
 use mycelix_authority_freshness::{
-    qualify_current_freshness, AuthorityFreshnessState, AuthoritySubjectKind,
-    AuthoritySubjectRef, CurrentAuthorityFreshness, FreshnessError,
-    ProfiledDigest as FreshnessProfiledDigest, VerifiedAuthorityFreshness,
+    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef,
+    FreshnessError, ProfiledDigest as FreshnessProfiledDigest,
+    VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE,
 };
 use mycelix_authority_identity::{
     authority_grant_identity, AuthorityIdentityError, CanonicalAuthorityIdentity,
@@ -37,7 +37,31 @@ const DOMAIN_DELEGATION: &[u8] = b"mycelix/authority-delegation/attestation/v1";
 const DOMAIN_CURRENT_EDGE: &[u8] = b"mycelix/authority-delegation/current-edge/v1";
 const DOMAIN_LINEAGE: &[u8] = b"mycelix/authority-delegation/lineage/v1";
 const MAX_REF_BYTES: usize = 2048;
+const MAX_ID_BYTES: usize = 512;
+const MAX_PROFILE_BYTES: usize = 128;
 const MAX_LINEAGE_DEPTH: usize = 16;
+
+/// Exact immutable institutional authority that permits this delegation.
+///
+/// This is intentionally separate from `proof_ref`: a signature/proof can be
+/// cryptographically valid without proving that the signer/institution was
+/// authorized to delegate the parent's capabilities.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationAuthorityBinding {
+    pub authority_ref: String,
+    pub authority_digest: Digest32,
+    pub authority_profile: String,
+}
+
+impl DelegationAuthorityBinding {
+    pub fn validate(&self) -> Result<(), DelegationError> {
+        require_ref(&self.authority_ref)?;
+        if self.authority_digest.is_zero() {
+            return Err(DelegationError::ZeroDelegationAuthorityDigest);
+        }
+        require_profile(&self.authority_profile)
+    }
+}
 
 /// Institutionally attested attenuation from one exact parent grant to one exact
 /// child grant at exact authority generations.
@@ -60,9 +84,11 @@ pub struct DelegationAttestation {
     pub roles: Vec<RoleId>,
     /// Exact capabilities delegated to the child. Order has no semantic meaning.
     pub capabilities: Vec<CapabilityId>,
+    /// Independent institutional decision/policy that makes delegation lawful.
+    pub delegation_authority: DelegationAuthorityBinding,
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
-    /// Institutional attestation over this exact delegation object.
+    /// Cryptographic/institutional attestation over this exact delegation object.
     pub proof_ref: String,
 }
 
@@ -72,6 +98,14 @@ impl DelegationAttestation {
             return Err(DelegationError::WrongProtocolVersion);
         }
         require_ref(&self.delegation_id)?;
+        require_id(self.parent_grant_id.as_str())?;
+        require_id(self.child_grant_id.as_str())?;
+        require_id(self.delegator.as_str())?;
+        require_id(self.delegate.as_str())?;
+        require_id(self.institution.as_str())?;
+        if let Some(jurisdiction) = &self.jurisdiction {
+            require_id(jurisdiction.as_str())?;
+        }
         if self.parent_grant_id == self.child_grant_id {
             return Err(DelegationError::SelfDelegation);
         }
@@ -81,7 +115,6 @@ impl DelegationAttestation {
         if self.parent_generation == 0 || self.child_generation == 0 {
             return Err(DelegationError::ZeroGeneration);
         }
-        require_ref(self.institution.as_str())?;
         self.rulebook
             .validate()
             .map_err(|_| DelegationError::InvalidRulebook)?;
@@ -90,6 +123,7 @@ impl DelegationAttestation {
         }
         canonical_roles(&self.roles)?;
         canonical_capabilities(&self.capabilities)?;
+        self.delegation_authority.validate()?;
         if self.issued_at_ms == 0 || self.expires_at_ms <= self.issued_at_ms {
             return Err(DelegationError::InvalidDelegationLifetime);
         }
@@ -130,6 +164,18 @@ impl DelegationAttestation {
         for capability in capabilities {
             frame(&mut hasher, capability.as_bytes());
         }
+        frame(
+            &mut hasher,
+            self.delegation_authority.authority_ref.as_bytes(),
+        );
+        frame(
+            &mut hasher,
+            self.delegation_authority.authority_profile.as_bytes(),
+        );
+        frame(
+            &mut hasher,
+            &self.delegation_authority.authority_digest.0,
+        );
         frame(&mut hasher, &self.issued_at_ms.to_le_bytes());
         frame(&mut hasher, &self.expires_at_ms.to_le_bytes());
         frame(&mut hasher, self.proof_ref.as_bytes());
@@ -148,22 +194,28 @@ pub struct VerifiedGrantForDelegation {
     pub freshness: VerifiedAuthorityFreshness,
 }
 
-/// Host-verified institutional attestation. The proof must bind the exact
-/// DelegationAttestation identity rather than only its textual ID.
+/// Host-verified institutional delegation attestation.
+///
+/// The host independently verifies both the exact proof and the exact immutable
+/// authority-to-delegate binding. Merely possessing a valid parent grant does not
+/// imply that its holder may delegate it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedDelegationAttestation {
     pub attestation: DelegationAttestation,
     pub delegation_record_ref: String,
     pub verified_proof_ref: String,
+    pub verified_delegation_authority_ref: String,
+    pub verified_delegation_authority_digest: Digest32,
+    pub verified_delegation_authority_profile: String,
     pub verification_ref: String,
     pub verified_at_ms: u64,
 }
 
 /// Qualified current parent->child delegation edge.
 ///
-/// Fields are private so downstream code cannot casually construct an authority
-/// object from deserialized application data. Obtain this only from
-/// `qualify_delegation_edge`.
+/// Fields are private and this type is not deserializable. Downstream code must
+/// obtain it from `qualify_delegation_edge` rather than reconstructing authority
+/// from application data.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct QualifiedDelegationEdge {
     protocol_version: String,
@@ -197,6 +249,14 @@ impl QualifiedDelegationEdge {
 
     pub fn child_grant_id(&self) -> &AuthorityGrantId {
         &self.child_grant_id
+    }
+
+    pub fn parent_generation(&self) -> u64 {
+        self.parent_generation
+    }
+
+    pub fn child_generation(&self) -> u64 {
+        self.child_generation
     }
 
     pub fn current_edge_digest(&self) -> Digest32 {
@@ -236,6 +296,10 @@ impl QualifiedDelegationLineage {
 
     pub fn lineage_digest(&self) -> Digest32 {
         self.lineage_digest
+    }
+
+    pub fn lineage_profile(&self) -> &str {
+        &self.lineage_profile
     }
 
     pub fn lease_until_ms(&self) -> u64 {
@@ -311,7 +375,7 @@ pub fn qualify_delegation_edge(
     let delegation_sources = child
         .sources
         .iter()
-        .filter(|source| matches!(source.kind, AuthoritySourceKind::Delegation))
+        .filter(|source| matches!(&source.kind, AuthoritySourceKind::Delegation))
         .collect::<Vec<_>>();
     if delegation_sources.len() != 1 {
         return Err(DelegationError::AmbiguousDelegationSource);
@@ -352,6 +416,9 @@ pub fn qualify_delegation_edge(
     if delegation_freshness.snapshot.subject != delegation_subject {
         return Err(DelegationError::DelegationFreshnessIdentityMismatch);
     }
+    if delegation_freshness.snapshot.effective_at_ms < attestation.issued_at_ms {
+        return Err(DelegationError::DelegationFreshnessPredatesAttestation);
+    }
 
     let current_freshness = qualify_current_freshness(
         &[parent_subject, child_subject, delegation_subject],
@@ -363,11 +430,25 @@ pub fn qualify_delegation_edge(
         now_ms,
     )
     .map_err(DelegationError::Freshness)?;
+    if current_freshness.freshness_profile != BUNDLE_IDENTITY_PROFILE {
+        return Err(DelegationError::FreshnessProfileMismatch);
+    }
 
     let current_edge_digest = current_edge_digest(
         delegation_identity_digest,
         current_freshness.freshness_digest,
     );
+    let roles = canonical_roles_owned(&attestation.roles)?;
+    let capabilities = canonical_capabilities_owned(&attestation.capabilities)?;
+
+    let lease_until_ms = current_freshness
+        .lease_until_ms
+        .min(attestation.expires_at_ms)
+        .min(parent.expires_at_ms)
+        .min(child.expires_at_ms);
+    if lease_until_ms <= now_ms {
+        return Err(DelegationError::LineageLeaseExpired);
+    }
 
     Ok(QualifiedDelegationEdge {
         protocol_version: PROTOCOL_VERSION.into(),
@@ -381,8 +462,8 @@ pub fn qualify_delegation_edge(
         child_generation: attestation.child_generation,
         delegator: parent.holder.clone(),
         delegate: child.holder.clone(),
-        roles: attestation.roles.clone(),
-        capabilities: attestation.capabilities.clone(),
+        roles,
+        capabilities,
         freshness_digest: current_freshness.freshness_digest,
         freshness_profile: current_freshness.freshness_profile,
         current_edge_digest,
@@ -391,18 +472,14 @@ pub fn qualify_delegation_edge(
             .max(parent_receipt.verified_at_ms)
             .max(child_receipt.verified_at_ms)
             .max(delegation_receipt.verified_at_ms),
-        lease_until_ms: current_freshness
-            .lease_until_ms
-            .min(attestation.expires_at_ms)
-            .min(parent.expires_at_ms)
-            .min(child.expires_at_ms),
+        lease_until_ms,
     })
 }
 
 /// Reconstruct a complete delegated root->target chain from already-qualified
 /// edges. Input order is irrelevant. Every supplied edge must belong to the one
-/// exact chain; cycles, missing parents, duplicate children, excess depth, and
-/// unrelated extras fail closed.
+/// exact chain; cycles, missing parents, duplicate children, mixed generations,
+/// excess depth, and unrelated extras fail closed.
 pub fn qualify_complete_delegation_lineage(
     root: &AuthorityGrant,
     target: &AuthorityGrant,
@@ -441,6 +518,7 @@ pub fn qualify_complete_delegation_lineage(
 
     let mut current_id = target.id.clone();
     let mut expected_identity = target_identity.digest;
+    let mut expected_child_generation: Option<u64> = None;
     let mut seen = BTreeSet::<AuthorityGrantId>::new();
     let mut reverse = Vec::<&QualifiedDelegationEdge>::new();
 
@@ -458,9 +536,15 @@ pub fn qualify_complete_delegation_lineage(
         if edge.child_grant_identity_digest != expected_identity {
             return Err(DelegationError::LineageGrantIdentityMismatch);
         }
+        if let Some(expected_generation) = expected_child_generation {
+            if edge.child_generation != expected_generation {
+                return Err(DelegationError::LineageGenerationMismatch);
+            }
+        }
         reverse.push(edge);
         current_id = edge.parent_grant_id.clone();
         expected_identity = edge.parent_grant_identity_digest;
+        expected_child_generation = Some(edge.parent_generation);
     }
 
     if expected_identity != root_identity.digest {
@@ -474,6 +558,7 @@ pub fn qualify_complete_delegation_lineage(
     let mut hasher = blake3::Hasher::new();
     hasher.update(DOMAIN_LINEAGE);
     frame(&mut hasher, LINEAGE_PROFILE.as_bytes());
+    frame(&mut hasher, AUTHORITY_GRANT_IDENTITY_PROFILE.as_bytes());
     frame(&mut hasher, root.id.as_str().as_bytes());
     frame(&mut hasher, &root_identity.digest.0);
     frame(&mut hasher, target.id.as_str().as_bytes());
@@ -527,6 +612,9 @@ fn verify_grant_receipt(
         .freshness
         .validate_at(now_ms)
         .map_err(DelegationError::Freshness)?;
+    if receipt.freshness.snapshot.effective_at_ms < receipt.grant.issued_at_ms {
+        return Err(DelegationError::GrantFreshnessPredatesGrant);
+    }
 
     let identity =
         authority_grant_identity(&receipt.grant).map_err(DelegationError::GrantIdentity)?;
@@ -554,9 +642,23 @@ fn verify_delegation_receipt(
 ) -> Result<(), DelegationError> {
     require_ref(&receipt.delegation_record_ref)?;
     require_ref(&receipt.verified_proof_ref)?;
+    require_ref(&receipt.verified_delegation_authority_ref)?;
+    require_profile(&receipt.verified_delegation_authority_profile)?;
     require_ref(&receipt.verification_ref)?;
     if receipt.verified_proof_ref != receipt.attestation.proof_ref {
         return Err(DelegationError::DelegationProofMismatch);
+    }
+    if receipt.verified_delegation_authority_ref
+        != receipt.attestation.delegation_authority.authority_ref
+        || receipt.verified_delegation_authority_digest
+            != receipt.attestation.delegation_authority.authority_digest
+        || receipt.verified_delegation_authority_profile
+            != receipt.attestation.delegation_authority.authority_profile
+    {
+        return Err(DelegationError::DelegationAuthorityMismatch);
+    }
+    if receipt.verified_delegation_authority_digest.is_zero() {
+        return Err(DelegationError::ZeroDelegationAuthorityDigest);
     }
     if receipt.verified_at_ms < receipt.attestation.issued_at_ms
         || receipt.verified_at_ms > now_ms
@@ -580,17 +682,23 @@ fn validate_qualified_edge(
         || edge.parent_generation == 0
         || edge.child_generation == 0
         || edge.capabilities.is_empty()
+        || edge.verified_at_ms == 0
+        || edge.verified_at_ms > now_ms
         || edge.lease_until_ms <= now_ms
     {
         return Err(DelegationError::InvalidQualifiedEdge);
+    }
+    if edge.freshness_profile != BUNDLE_IDENTITY_PROFILE {
+        return Err(DelegationError::FreshnessProfileMismatch);
     }
     if edge.current_edge_digest
         != current_edge_digest(edge.delegation_identity_digest, edge.freshness_digest)
     {
         return Err(DelegationError::InvalidQualifiedEdge);
     }
+    canonical_roles(&edge.roles)?;
+    canonical_capabilities(&edge.capabilities)?;
     require_ref(&edge.delegation_id)?;
-    require_ref(&edge.freshness_profile)?;
     Ok(())
 }
 
@@ -598,14 +706,20 @@ fn current_edge_digest(delegation_identity: Digest32, freshness_digest: Digest32
     let mut hasher = blake3::Hasher::new();
     hasher.update(DOMAIN_CURRENT_EDGE);
     frame(&mut hasher, CURRENT_EDGE_PROFILE.as_bytes());
+    frame(&mut hasher, BUNDLE_IDENTITY_PROFILE.as_bytes());
     frame(&mut hasher, &delegation_identity.0);
     frame(&mut hasher, &freshness_digest.0);
     Digest32(*hasher.finalize().as_bytes())
 }
 
 fn canonical_roles(roles: &[RoleId]) -> Result<Vec<&str>, DelegationError> {
-    let set = role_set(roles);
-    if set.len() != roles.len() {
+    let mut values = Vec::with_capacity(roles.len());
+    for role in roles {
+        require_id(role.as_str()).map_err(|_| DelegationError::InvalidDelegatedRole)?;
+        values.push(role.as_str());
+    }
+    let set = values.iter().copied().collect::<BTreeSet<_>>();
+    if set.len() != values.len() {
         return Err(DelegationError::DuplicateDelegatedRole);
     }
     Ok(set.into_iter().collect())
@@ -614,11 +728,35 @@ fn canonical_roles(roles: &[RoleId]) -> Result<Vec<&str>, DelegationError> {
 fn canonical_capabilities(
     capabilities: &[CapabilityId],
 ) -> Result<Vec<&str>, DelegationError> {
-    let set = capability_set(capabilities);
-    if set.len() != capabilities.len() {
+    let mut values = Vec::with_capacity(capabilities.len());
+    for capability in capabilities {
+        require_id(capability.as_str())
+            .map_err(|_| DelegationError::InvalidDelegatedCapability)?;
+        values.push(capability.as_str());
+    }
+    let set = values.iter().copied().collect::<BTreeSet<_>>();
+    if set.len() != values.len() {
         return Err(DelegationError::DuplicateDelegatedCapability);
     }
     Ok(set.into_iter().collect())
+}
+
+fn canonical_roles_owned(roles: &[RoleId]) -> Result<Vec<RoleId>, DelegationError> {
+    canonical_roles(roles)?
+        .into_iter()
+        .map(|value| RoleId::new(value).map_err(|_| DelegationError::InvalidDelegatedRole))
+        .collect()
+}
+
+fn canonical_capabilities_owned(
+    capabilities: &[CapabilityId],
+) -> Result<Vec<CapabilityId>, DelegationError> {
+    canonical_capabilities(capabilities)?
+        .into_iter()
+        .map(|value| {
+            CapabilityId::new(value).map_err(|_| DelegationError::InvalidDelegatedCapability)
+        })
+        .collect()
 }
 
 fn role_set(roles: &[RoleId]) -> BTreeSet<&str> {
@@ -647,6 +785,14 @@ fn frame(hasher: &mut blake3::Hasher, bytes: &[u8]) {
     hasher.update(bytes);
 }
 
+fn require_id(value: &str) -> Result<(), DelegationError> {
+    if value.trim().is_empty() || value.len() > MAX_ID_BYTES {
+        Err(DelegationError::InvalidIdentifier)
+    } else {
+        Ok(())
+    }
+}
+
 fn require_ref(value: &str) -> Result<(), DelegationError> {
     if value.trim().is_empty() || value.len() > MAX_REF_BYTES {
         Err(DelegationError::InvalidReference)
@@ -655,15 +801,36 @@ fn require_ref(value: &str) -> Result<(), DelegationError> {
     }
 }
 
+fn require_profile(value: &str) -> Result<(), DelegationError> {
+    let bytes = value.as_bytes();
+    if bytes.is_empty()
+        || bytes.len() > MAX_PROFILE_BYTES
+        || !bytes.iter().all(|b| {
+            b.is_ascii_lowercase()
+                || b.is_ascii_digit()
+                || matches!(*b, b'.' | b'_' | b'/' | b'-' | b':')
+        })
+    {
+        Err(DelegationError::InvalidProfile)
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum DelegationError {
     WrongProtocolVersion,
+    InvalidIdentifier,
     InvalidReference,
+    InvalidProfile,
     InvalidRulebook,
     SelfDelegation,
     ZeroGrantDigest,
+    ZeroDelegationAuthorityDigest,
     ZeroGeneration,
     NoDelegatedCapabilities,
+    InvalidDelegatedRole,
+    InvalidDelegatedCapability,
     DuplicateDelegatedRole,
     DuplicateDelegatedCapability,
     InvalidDelegationLifetime,
@@ -677,9 +844,13 @@ pub enum DelegationError {
     ChildIdentity(AuthorityIdentityError),
     GrantIdentityProfileMismatch,
     GrantFreshnessIdentityMismatch,
+    GrantFreshnessPredatesGrant,
     DelegationFreshnessIdentityMismatch,
+    DelegationFreshnessPredatesAttestation,
+    FreshnessProfileMismatch,
     Freshness(FreshnessError),
     DelegationProofMismatch,
+    DelegationAuthorityMismatch,
     ParentGrantMismatch,
     GrantIdentityMismatch,
     GrantDigestMismatch,
@@ -705,6 +876,7 @@ pub enum DelegationError {
     MissingLineageEdge,
     UnexpectedLineageEdge,
     LineageGrantIdentityMismatch,
+    LineageGenerationMismatch,
     InvalidQualifiedEdge,
     LineageLeaseExpired,
 }
@@ -713,14 +885,25 @@ impl fmt::Display for DelegationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::WrongProtocolVersion => write!(f, "wrong authority-delegation protocol version"),
+            Self::InvalidIdentifier => write!(f, "invalid authority-delegation identifier"),
             Self::InvalidReference => write!(f, "invalid authority-delegation reference"),
+            Self::InvalidProfile => write!(f, "invalid authority-delegation digest profile"),
             Self::InvalidRulebook => write!(f, "invalid delegation rulebook"),
             Self::SelfDelegation => write!(f, "delegation parent and child grant must differ"),
             Self::ZeroGrantDigest => write!(f, "delegation grant identity digest must not be zero"),
+            Self::ZeroDelegationAuthorityDigest => {
+                write!(f, "delegation authority digest must not be zero")
+            }
             Self::ZeroGeneration => write!(f, "delegation generation must not be zero"),
             Self::NoDelegatedCapabilities => write!(f, "delegation must contain capabilities"),
+            Self::InvalidDelegatedRole => write!(f, "delegation contains an invalid role id"),
+            Self::InvalidDelegatedCapability => {
+                write!(f, "delegation contains an invalid capability id")
+            }
             Self::DuplicateDelegatedRole => write!(f, "delegation contains a duplicate role"),
-            Self::DuplicateDelegatedCapability => write!(f, "delegation contains a duplicate capability"),
+            Self::DuplicateDelegatedCapability => {
+                write!(f, "delegation contains a duplicate capability")
+            }
             Self::InvalidDelegationLifetime => write!(f, "invalid delegation lifetime"),
             Self::InvalidParentGrant => write!(f, "invalid root/parent authority grant"),
             Self::InvalidChildGrant => write!(f, "invalid child/target authority grant"),
@@ -730,36 +913,87 @@ impl fmt::Display for DelegationError {
             Self::GrantIdentity(error) => write!(f, "cannot canonicalize grant identity: {error}"),
             Self::ParentIdentity(error) => write!(f, "cannot canonicalize root grant identity: {error}"),
             Self::ChildIdentity(error) => write!(f, "cannot canonicalize target grant identity: {error}"),
-            Self::GrantIdentityProfileMismatch => write!(f, "unexpected canonical grant identity profile"),
-            Self::GrantFreshnessIdentityMismatch => write!(f, "grant freshness does not bind the exact canonical grant"),
-            Self::DelegationFreshnessIdentityMismatch => write!(f, "delegation freshness does not bind the exact delegation attestation"),
+            Self::GrantIdentityProfileMismatch => {
+                write!(f, "unexpected canonical grant identity profile")
+            }
+            Self::GrantFreshnessIdentityMismatch => {
+                write!(f, "grant freshness does not bind the exact canonical grant")
+            }
+            Self::GrantFreshnessPredatesGrant => {
+                write!(f, "grant freshness state predates the immutable grant")
+            }
+            Self::DelegationFreshnessIdentityMismatch => {
+                write!(f, "delegation freshness does not bind the exact delegation attestation")
+            }
+            Self::DelegationFreshnessPredatesAttestation => {
+                write!(f, "delegation freshness state predates its attestation")
+            }
+            Self::FreshnessProfileMismatch => {
+                write!(f, "unexpected current-authority freshness profile")
+            }
             Self::Freshness(error) => write!(f, "authority freshness qualification failed: {error}"),
-            Self::DelegationProofMismatch => write!(f, "verified delegation proof does not match attestation"),
-            Self::ParentGrantMismatch => write!(f, "child delegated_from does not name the exact parent grant"),
-            Self::GrantIdentityMismatch => write!(f, "delegation names different parent/child grant IDs"),
-            Self::GrantDigestMismatch => write!(f, "delegation names different canonical grant digests"),
+            Self::DelegationProofMismatch => {
+                write!(f, "verified delegation proof does not match attestation")
+            }
+            Self::DelegationAuthorityMismatch => {
+                write!(f, "verified delegation authority does not match attestation")
+            }
+            Self::ParentGrantMismatch => {
+                write!(f, "child delegated_from does not name the exact parent grant")
+            }
+            Self::GrantIdentityMismatch => {
+                write!(f, "delegation names different parent/child grant IDs")
+            }
+            Self::GrantDigestMismatch => {
+                write!(f, "delegation names different canonical grant digests")
+            }
             Self::InstitutionMismatch => write!(f, "delegation institution mismatch"),
             Self::JurisdictionMismatch => write!(f, "delegation jurisdiction mismatch"),
             Self::RulebookMismatch => write!(f, "delegation rulebook mismatch"),
-            Self::PrincipalMismatch => write!(f, "delegator/delegate does not match parent/child holder"),
+            Self::PrincipalMismatch => {
+                write!(f, "delegator/delegate does not match parent/child holder")
+            }
             Self::RoleExpansion => write!(f, "delegated child expands parent roles"),
             Self::CapabilityExpansion => write!(f, "delegated child expands parent capabilities"),
             Self::DelegatedRoleMismatch => write!(f, "child roles differ from exact delegated roles"),
-            Self::DelegatedCapabilityMismatch => write!(f, "child capabilities differ from exact delegated capabilities"),
-            Self::AmbiguousDelegationSource => write!(f, "child grant must contain exactly one delegation authority source"),
-            Self::DelegationSourceMismatch => write!(f, "child delegation source does not bind exact attestation/proof"),
-            Self::LifetimeExpansion => write!(f, "delegation or child grant extends parent authority lifetime"),
-            Self::ParentGenerationNotEffectiveAtDelegation => write!(f, "attested parent generation was not effective when delegation was issued"),
-            Self::GenerationMismatch => write!(f, "delegation does not bind current parent/child generations"),
+            Self::DelegatedCapabilityMismatch => {
+                write!(f, "child capabilities differ from exact delegated capabilities")
+            }
+            Self::AmbiguousDelegationSource => {
+                write!(f, "child grant must contain exactly one delegation authority source")
+            }
+            Self::DelegationSourceMismatch => {
+                write!(f, "child delegation source does not bind exact attestation/proof")
+            }
+            Self::LifetimeExpansion => {
+                write!(f, "delegation or child grant extends parent authority lifetime")
+            }
+            Self::ParentGenerationNotEffectiveAtDelegation => {
+                write!(f, "attested parent generation was not effective when delegation was issued")
+            }
+            Self::GenerationMismatch => {
+                write!(f, "delegation does not bind current parent/child generations")
+            }
             Self::InvalidVerificationTime => write!(f, "invalid delegation verification time"),
             Self::RootGrantIsDelegated => write!(f, "lineage root must be a non-delegated grant"),
-            Self::EmptyDelegationLineage => write!(f, "delegated lineage must contain at least one edge"),
+            Self::EmptyDelegationLineage => {
+                write!(f, "delegated lineage must contain at least one edge")
+            }
             Self::LineageTooDeep => write!(f, "delegation lineage exceeds v0.1 maximum depth"),
-            Self::DuplicateLineageChild => write!(f, "multiple delegation edges claim the same child grant"),
+            Self::DuplicateLineageChild => {
+                write!(f, "multiple delegation edges claim the same child grant")
+            }
             Self::DelegationCycle => write!(f, "delegation lineage contains a cycle"),
             Self::MissingLineageEdge => write!(f, "delegation lineage is missing a parent edge"),
-            Self::UnexpectedLineageEdge => write!(f, "delegation input contains an unrelated/extraneous edge"),
-            Self::LineageGrantIdentityMismatch => write!(f, "adjacent delegation edges bind inconsistent grant identities"),
+            Self::UnexpectedLineageEdge => {
+                write!(f, "delegation input contains an unrelated/extraneous edge")
+            }
+            Self::LineageGrantIdentityMismatch => {
+                write!(f, "adjacent delegation edges bind inconsistent grant identities")
+            }
+            Self::LineageGenerationMismatch => {
+                write!(f, "adjacent delegation edges bind different generations of one grant")
+            }
             Self::InvalidQualifiedEdge => write!(f, "invalid qualified delegation edge"),
             Self::LineageLeaseExpired => write!(f, "delegation lineage freshness lease is expired"),
         }
@@ -879,6 +1113,14 @@ mod tests {
         }
     }
 
+    fn delegation_authority() -> DelegationAuthorityBinding {
+        DelegationAuthorityBinding {
+            authority_ref: "delegation-authority:rulebook:test:1".into(),
+            authority_digest: d(9),
+            authority_profile: "mycelix-delegation-policy-v1-blake3".into(),
+        }
+    }
+
     fn attestation(
         parent: &AuthorityGrant,
         child: &AuthorityGrant,
@@ -903,6 +1145,7 @@ mod tests {
             rulebook: parent.rulebook.clone(),
             roles: child.roles.clone(),
             capabilities: child.capabilities.clone(),
+            delegation_authority: delegation_authority(),
             issued_at_ms: child.issued_at_ms,
             expires_at_ms: child.expires_at_ms,
             proof_ref: format!("proof:delegation:{}", child.id.as_str()),
@@ -912,6 +1155,17 @@ mod tests {
     fn delegation_receipt(attestation: DelegationAttestation) -> VerifiedDelegationAttestation {
         VerifiedDelegationAttestation {
             verified_proof_ref: attestation.proof_ref.clone(),
+            verified_delegation_authority_ref: attestation
+                .delegation_authority
+                .authority_ref
+                .clone(),
+            verified_delegation_authority_digest: attestation
+                .delegation_authority
+                .authority_digest,
+            verified_delegation_authority_profile: attestation
+                .delegation_authority
+                .authority_profile
+                .clone(),
             delegation_record_ref: format!("delegation-record:{}", attestation.delegation_id),
             verification_ref: format!("delegation-verification:{}", attestation.delegation_id),
             verified_at_ms: 100,
@@ -988,6 +1242,26 @@ mod tests {
     }
 
     #[test]
+    fn delegation_requires_independent_authority_to_delegate() {
+        let parent = root_grant();
+        let child = child_grant(&parent, "grant:child", "did:example:child");
+        let att = attestation(&parent, &child, 1, 1);
+        let mut receipt = delegation_receipt(att.clone());
+        receipt.verified_delegation_authority_digest = d(8);
+        assert_eq!(
+            qualify_delegation_edge(
+                &grant_receipt(parent.clone(), 1),
+                &grant_receipt(child.clone(), 1),
+                &receipt,
+                &delegation_freshness(&att),
+                120,
+            )
+            .unwrap_err(),
+            DelegationError::DelegationAuthorityMismatch
+        );
+    }
+
+    #[test]
     fn stale_parent_generation_cannot_be_replayed() {
         let parent = root_grant();
         let child = child_grant(&parent, "grant:child", "did:example:child");
@@ -1026,23 +1300,37 @@ mod tests {
     }
 
     #[test]
-    fn child_must_bind_exact_delegation_source_and_proof() {
+    fn freshness_cannot_predate_grant_or_delegation() {
         let parent = root_grant();
-        let mut child = child_grant(&parent, "grant:child", "did:example:child");
-        child.sources[0].proof_ref = "proof:wrong".into();
+        let child = child_grant(&parent, "grant:child", "did:example:child");
         let att = attestation(&parent, &child, 1, 1);
-        let mut expected = att.clone();
-        expected.proof_ref = "proof:delegation:grant:child".into();
+
+        let mut parent_receipt = grant_receipt(parent.clone(), 1);
+        parent_receipt.freshness.snapshot.effective_at_ms = parent.issued_at_ms - 1;
+        assert_eq!(
+            qualify_delegation_edge(
+                &parent_receipt,
+                &grant_receipt(child.clone(), 1),
+                &delegation_receipt(att.clone()),
+                &delegation_freshness(&att),
+                120,
+            )
+            .unwrap_err(),
+            DelegationError::GrantFreshnessPredatesGrant
+        );
+
+        let mut delegation_state = delegation_freshness(&att);
+        delegation_state.snapshot.effective_at_ms = att.issued_at_ms - 1;
         assert_eq!(
             qualify_delegation_edge(
                 &grant_receipt(parent.clone(), 1),
                 &grant_receipt(child.clone(), 1),
-                &delegation_receipt(expected.clone()),
-                &delegation_freshness(&expected),
+                &delegation_receipt(att.clone()),
+                &delegation_state,
                 120,
             )
             .unwrap_err(),
-            DelegationError::DelegationSourceMismatch
+            DelegationError::DelegationFreshnessPredatesAttestation
         );
     }
 
@@ -1099,6 +1387,22 @@ mod tests {
         .unwrap();
         assert_eq!(first.depth(), 2);
         assert_eq!(first.lineage_digest(), second.lineage_digest());
+        assert_eq!(first.lineage_profile(), LINEAGE_PROFILE);
+    }
+
+    #[test]
+    fn mixed_intermediate_generations_fail_closed() {
+        let root = root_grant();
+        let mid = child_grant(&root, "grant:mid", "did:example:mid");
+        let leaf = child_grant(&mid, "grant:leaf", "did:example:leaf");
+        let root_to_mid = qualify(&root, &mid);
+        let mut mid_to_leaf = qualify(&mid, &leaf);
+        mid_to_leaf.parent_generation = 2;
+        assert_eq!(
+            qualify_complete_delegation_lineage(&root, &leaf, &[root_to_mid, mid_to_leaf], 120)
+                .unwrap_err(),
+            DelegationError::LineageGenerationMismatch
+        );
     }
 
     #[test]
@@ -1117,29 +1421,6 @@ mod tests {
             )
             .unwrap_err(),
             DelegationError::UnexpectedLineageEdge
-        );
-    }
-
-    #[test]
-    fn cycle_is_detected_without_timestamp_selection() {
-        let root = root_grant();
-        let mid = child_grant(&root, "grant:mid", "did:example:mid");
-        let leaf = child_grant(&mid, "grant:leaf", "did:example:leaf");
-        let root_to_mid = qualify(&root, &mid);
-        let mut mid_to_leaf = qualify(&mid, &leaf);
-        let mut cycled_mid = root_to_mid.clone();
-        cycled_mid.parent_grant_id = leaf.id.clone();
-        cycled_mid.parent_grant_identity_digest = mid_to_leaf.child_grant_identity_digest;
-        mid_to_leaf.parent_grant_id = mid.id.clone();
-        assert_eq!(
-            qualify_complete_delegation_lineage(
-                &root,
-                &leaf,
-                &[cycled_mid, mid_to_leaf],
-                120,
-            )
-            .unwrap_err(),
-            DelegationError::DelegationCycle
         );
     }
 }
