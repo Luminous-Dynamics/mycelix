@@ -1,0 +1,81 @@
+name: Authority Challenge Context Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-challenge-context-verifier/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - '.github/workflows/authority-challenge-context-verifier.yml'
+  push:
+    branches:
+      - 'security/authority-challenge-context-verifier-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-challenge-context-verifier-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Current challenge context composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-challenge-context-verifier/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-challenge-context-verifier/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-challenge-context-verifier/Cargo.toml --all-targets -- -D warnings
+      - name: Downstream policy-chain compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-state-coverage/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-state-coverage-context/Cargo.toml --all-targets
+      - name: Authority composition audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-challenge-context-verifier/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-challenge-context-verifier/INVARIANTS.md').read_text()
+
+          required = [
+              'AuthoritySubjectKind::AuthorityCoveragePolicy',
+              'AuthoritySubjectKind::CoverageTrustContextPolicy',
+              'AuthoritySubjectKind::WitnessTrustPolicy',
+              'AuthoritySubjectKind::AuthorityGrant',
+              'qualify_current_freshness',
+              'REQUIRED_CHALLENGE_CAPABILITY',
+              'authority_state.challenge_issue',
+              'verified_trust_verifier_ref',
+              'witness_trust_verifier_ref',
+              'CurrentFreshnessDenied',
+              'ContextNotCurrentlyUsable',
+              'QualifiedChallengeContext',
+          ]
+          for token in required:
+              assert token in src, token
+
+          assert '#[derive(Clone, Debug, PartialEq, Eq, Serialize)]\npub struct QualifiedChallengeContext' in src
+          assert 'Deserialize)]\npub struct QualifiedChallengeContext' not in src
+          assert 'semantic policy and current policy are different facts' in inv.lower()
+          assert 'historical state cannot mint a live challenge' in inv.lower()
+          assert 'wrong trust verifier' in inv.lower()
+
+          lowered = src.lower()
+          for forbidden in ['hdk::', '#[hdk_extern]', 'create_entry(', 'call_remote(', 'execute_actions', 'phi', 'guardian']:
+              assert forbidden not in lowered, forbidden
+          print('PASS: challenge context requires exact semantic authority plus exact current generations')
+          PY
