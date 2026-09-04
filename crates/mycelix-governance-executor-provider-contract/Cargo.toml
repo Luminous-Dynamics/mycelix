@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-governance-executor-provider-contract"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure runtime provider projection contract for current Mycelix governance executor authority"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
+mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
+mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
