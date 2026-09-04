@@ -5,12 +5,14 @@ on:
     paths:
       - 'mycelix-governance/zomes/execution-lifecycle-verifier/**'
       - 'mycelix-governance/zomes/execution-lifecycle/VERIFIER_CONTRACT.md'
+      - 'crates/mycelix-governance-executor-provider-contract/**'
+      - 'crates/mycelix-governance-current-executor-authority/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
       - '.github/workflows/governance-execution-lifecycle-verifier.yml'
   push:
     branches:
-      - 'security/governance-execution-lifecycle-verifier-v0.1'
+      - 'security/governance-lifecycle-current-executor-v0.1'
 
 permissions:
   contents: read
@@ -21,9 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - name: Format
@@ -43,13 +46,15 @@ jobs:
     name: Verifier remains unprovisioned until providers qualify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Verify authority providers are not silently provisioned
         run: |
           python3 - <<'PY'
           from pathlib import Path
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
           verifier = Path('mycelix-governance/zomes/execution-lifecycle-verifier/coordinator/src/lib.rs').read_text()
+          contract = Path('mycelix-governance/zomes/execution-lifecycle-verifier/CURRENT_EXECUTOR_AUTHORITY.md').read_text()
+          provider = Path('crates/mycelix-governance-executor-provider-contract/src/lib.rs').read_text()
           forbidden = [
               'name: governance_execution_lifecycle_verifier',
               'name: governance_execution_plan_verifier',
@@ -67,5 +72,10 @@ jobs:
           assert 'external_effects_enabled: false' in verifier
           assert 'Phi' not in verifier
           assert 'reputation' not in verifier.lower()
-          print('PASS: lifecycle verifier remains composition-only and unprovisioned')
+
+          assert 'current-executor:<CURRENT_EXECUTOR_AUTHORITY_PROFILE>:<64-hex digest>' in contract
+          assert 'same threshold-authorization identity digest/profile' in contract
+          assert 'executor_authority_ref' in provider
+          assert 'qualify_current_executor_authority' in provider
+          print('PASS: lifecycle remains unprovisioned and current-executor authority has a deterministic provider contract')
           PY
