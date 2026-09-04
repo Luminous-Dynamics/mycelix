@@ -54,9 +54,11 @@ governance-leptos-types = { path = "../../crates/governance-leptos-types" }
 finance-leptos-types = { path = "../../../mycelix-finance/crates/finance-leptos-types" }
 personal-leptos-types = { path = "../../../mycelix-personal/crates/personal-leptos-types" }
 
-# Mycelix shared Leptos infrastructure
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
+# Mycelix shared Leptos infrastructure. The top-level standalone export is one
+# directory shallower than mycelix-workspace/mycelix-governance, so these
+# paths intentionally differ from the canonical workspace copy.
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
 
 [profile.release]
 opt-level = "z"
