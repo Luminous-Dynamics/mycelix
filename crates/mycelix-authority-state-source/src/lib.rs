@@ -6,7 +6,8 @@
 //! current. This crate supplies the missing pure source/projection semantics.
 //! It never selects by DHT arrival order or newest timestamp. Instead, it
 //! reconstructs one exact contiguous generation chain from independently verified
-//! append-only transition records and fails closed on ambiguity.
+//! append-only transition records and requires an independently verified source
+//! coverage receipt proving that the supplied endpoint is the authoritative head.
 
 use mycelix_authority_freshness::{
     AuthorityFreshnessSnapshot, AuthorityFreshnessState, AuthoritySubjectRef,
@@ -241,13 +242,59 @@ impl VerifiedAuthorityStateTransition {
     }
 }
 
+/// Independently verified proof that one logical authoritative source has been
+/// completely observed through one exact transition head.
+///
+/// Without this receipt, a valid prefix (for example generations 1-2) could be
+/// mistaken for current even when a generation-3 revocation exists. Coverage is
+/// dynamic source evidence and is intentionally separate from transition identity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedAuthorityStateCoverage {
+    pub subject: AuthoritySubjectRef,
+    pub authoritative_source_ref: String,
+    pub head_generation: u64,
+    pub head_transition_digest: Digest32,
+    pub head_status_record_ref: String,
+    pub coverage_proof_ref: String,
+    pub verification_ref: String,
+    pub verified_at_ms: u64,
+    pub lease_until_ms: u64,
+}
+
+impl VerifiedAuthorityStateCoverage {
+    pub fn validate_at(&self, now_ms: u64) -> Result<(), AuthorityStateSourceError> {
+        self.subject
+            .validate()
+            .map_err(|_| AuthorityStateSourceError::InvalidSubject)?;
+        require_ref(&self.authoritative_source_ref)?;
+        require_ref(&self.head_status_record_ref)?;
+        require_ref(&self.coverage_proof_ref)?;
+        require_ref(&self.verification_ref)?;
+        if self.head_generation == 0 || self.head_generation > MAX_TRANSITIONS as u64 {
+            return Err(AuthorityStateSourceError::GenerationOutOfRange);
+        }
+        if self.head_transition_digest.is_zero() {
+            return Err(AuthorityStateSourceError::ZeroCoverageHeadDigest);
+        }
+        if now_ms == 0
+            || self.verified_at_ms == 0
+            || self.verified_at_ms > now_ms
+            || self.lease_until_ms <= now_ms
+        {
+            return Err(AuthorityStateSourceError::InvalidCoverageWindow);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProjectionMode {
     Current,
     AsOf(u64),
 }
 
-/// Non-forgeable pure projection over one exact verified transition lineage.
+/// Non-forgeable pure projection over one exact verified transition lineage and
+/// one exact authoritative coverage/head proof.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct QualifiedAuthorityStateProjection {
     subject: AuthoritySubjectRef,
@@ -331,22 +378,28 @@ impl QualifiedAuthorityStateProjection {
 }
 
 /// Resolve the exact current endpoint of one complete verified transition chain.
+///
+/// `coverage` is mandatory: a valid transition prefix is not evidence that no
+/// later authoritative transition exists.
 pub fn project_current_authority_state(
     subject: &AuthoritySubjectRef,
     receipts: &[VerifiedAuthorityStateTransition],
+    coverage: &VerifiedAuthorityStateCoverage,
     now_ms: u64,
 ) -> Result<QualifiedAuthorityStateProjection, AuthorityStateSourceError> {
-    project(subject, receipts, ProjectionMode::Current, now_ms)
+    project(subject, receipts, coverage, ProjectionMode::Current, now_ms)
 }
 
 /// Resolve the exact state that was effective at `as_of_ms` after first proving
-/// one complete, unambiguous transition lineage.
+/// one complete, unambiguous transition lineage through the currently verified
+/// authoritative source head.
 ///
 /// This answers a historical audit question only. The returned projection cannot
 /// be converted into a live `VerifiedAuthorityFreshness` receipt.
 pub fn project_authority_state_as_of(
     subject: &AuthoritySubjectRef,
     receipts: &[VerifiedAuthorityStateTransition],
+    coverage: &VerifiedAuthorityStateCoverage,
     as_of_ms: u64,
     verification_now_ms: u64,
 ) -> Result<QualifiedAuthorityStateProjection, AuthorityStateSourceError> {
@@ -356,6 +409,7 @@ pub fn project_authority_state_as_of(
     project(
         subject,
         receipts,
+        coverage,
         ProjectionMode::AsOf(as_of_ms),
         verification_now_ms,
     )
@@ -364,12 +418,17 @@ pub fn project_authority_state_as_of(
 fn project(
     subject: &AuthoritySubjectRef,
     receipts: &[VerifiedAuthorityStateTransition],
+    coverage: &VerifiedAuthorityStateCoverage,
     mode: ProjectionMode,
     verification_now_ms: u64,
 ) -> Result<QualifiedAuthorityStateProjection, AuthorityStateSourceError> {
     subject
         .validate()
         .map_err(|_| AuthorityStateSourceError::InvalidSubject)?;
+    coverage.validate_at(verification_now_ms)?;
+    if &coverage.subject != subject {
+        return Err(AuthorityStateSourceError::CoverageSubjectMismatch);
+    }
     if verification_now_ms == 0 {
         return Err(AuthorityStateSourceError::InvalidVerificationWindow);
     }
@@ -381,21 +440,17 @@ fn project(
     }
 
     let mut by_generation = BTreeMap::<u64, NormalizedTransition>::new();
-    let mut authoritative_source_ref: Option<String> = None;
-    let mut verified_at_ms = 0u64;
-    let mut lease_until_ms = u64::MAX;
+    let authoritative_source_ref = coverage.authoritative_source_ref.clone();
+    let mut verified_at_ms = coverage.verified_at_ms;
+    let mut lease_until_ms = coverage.lease_until_ms;
 
     for receipt in receipts {
         receipt.validate_at(verification_now_ms)?;
         if &receipt.transition.subject != subject {
             return Err(AuthorityStateSourceError::SubjectMismatch);
         }
-        match &authoritative_source_ref {
-            Some(existing) if existing != &receipt.authoritative_source_ref => {
-                return Err(AuthorityStateSourceError::AuthoritativeSourceMismatch);
-            }
-            None => authoritative_source_ref = Some(receipt.authoritative_source_ref.clone()),
-            _ => {}
+        if receipt.authoritative_source_ref != authoritative_source_ref {
+            return Err(AuthorityStateSourceError::AuthoritativeSourceMismatch);
         }
 
         let digest = receipt.transition.identity_digest()?;
@@ -419,7 +474,6 @@ fn project(
         lease_until_ms = lease_until_ms.min(receipt.lease_until_ms);
     }
 
-    let source_ref = authoritative_source_ref.ok_or(AuthorityStateSourceError::MissingRoot)?;
     let root = by_generation
         .get(&1)
         .ok_or(AuthorityStateSourceError::MissingRoot)?;
@@ -453,16 +507,23 @@ fn project(
         previous = Some(current);
     }
 
+    let endpoint = ordered
+        .last()
+        .copied()
+        .ok_or(AuthorityStateSourceError::MissingRoot)?;
+    if coverage.head_generation != endpoint.transition.generation
+        || coverage.head_transition_digest != endpoint.digest
+        || coverage.head_status_record_ref != endpoint.transition.status_record_ref
+    {
+        return Err(AuthorityStateSourceError::CoverageHeadMismatch);
+    }
+
     let selected = match mode {
         ProjectionMode::Current => {
-            let last = ordered
-                .last()
-                .copied()
-                .ok_or(AuthorityStateSourceError::MissingRoot)?;
-            if last.transition.effective_at_ms > verification_now_ms {
+            if endpoint.transition.effective_at_ms > verification_now_ms {
                 return Err(AuthorityStateSourceError::CurrentTransitionInFuture);
             }
-            last
+            endpoint
         }
         ProjectionMode::AsOf(as_of_ms) => ordered
             .iter()
@@ -510,7 +571,7 @@ fn project(
         lineage_profile: LINEAGE_IDENTITY_PROFILE.into(),
         projection_digest,
         projection_profile: PROJECTION_IDENTITY_PROFILE.into(),
-        authoritative_source_ref: source_ref,
+        authoritative_source_ref,
         verified_at_ms,
         lease_until_ms,
         historical_as_of_ms,
@@ -667,6 +728,10 @@ pub enum AuthorityStateSourceError {
     TransitionAuthorityMismatch,
     AuthorityProofMismatch,
     InvalidVerificationWindow,
+    InvalidCoverageWindow,
+    ZeroCoverageHeadDigest,
+    CoverageSubjectMismatch,
+    CoverageHeadMismatch,
     TooManyTransitions,
     SubjectMismatch,
     AuthoritativeSourceMismatch,
@@ -703,6 +768,10 @@ impl fmt::Display for AuthorityStateSourceError {
             Self::TransitionAuthorityMismatch => "verified transition authority ref mismatch",
             Self::AuthorityProofMismatch => "verified transition authority proof mismatch",
             Self::InvalidVerificationWindow => "invalid authority-state verification window",
+            Self::InvalidCoverageWindow => "invalid authority-state source coverage window",
+            Self::ZeroCoverageHeadDigest => "authority-state source coverage head digest is zero",
+            Self::CoverageSubjectMismatch => "authority-state source coverage belongs to another subject",
+            Self::CoverageHeadMismatch => "supplied transition endpoint does not match authoritative source head",
             Self::TooManyTransitions => "authority-state transition fan-in exceeds v0.1 bound",
             Self::SubjectMismatch => "authority-state transition belongs to another subject",
             Self::AuthoritativeSourceMismatch => "authority-state receipts use different authoritative sources",
@@ -813,9 +882,34 @@ mod tests {
         vec![verified(t1), verified(t2), verified(t3)]
     }
 
+    fn coverage(receipts: &[VerifiedAuthorityStateTransition]) -> VerifiedAuthorityStateCoverage {
+        let head = receipts
+            .iter()
+            .max_by_key(|receipt| receipt.transition.generation)
+            .unwrap();
+        VerifiedAuthorityStateCoverage {
+            subject: subject(),
+            authoritative_source_ref: "authority-state-source:test".into(),
+            head_generation: head.transition.generation,
+            head_transition_digest: head.transition.identity_digest().unwrap(),
+            head_status_record_ref: head.transition.status_record_ref.clone(),
+            coverage_proof_ref: "coverage-proof:test".into(),
+            verification_ref: "coverage-verification:test".into(),
+            verified_at_ms: 950,
+            lease_until_ms: 1_900,
+        }
+    }
+
     #[test]
-    fn current_projection_uses_unique_chain_endpoint() {
-        let projection = project_current_authority_state(&subject(), &lineage(), 1_000).unwrap();
+    fn current_projection_uses_unique_covered_chain_endpoint() {
+        let transitions = lineage();
+        let projection = project_current_authority_state(
+            &subject(),
+            &transitions,
+            &coverage(&transitions),
+            1_000,
+        )
+        .unwrap();
         assert_eq!(projection.snapshot().generation, 3);
         assert_eq!(projection.snapshot().state, AuthorityFreshnessState::Active);
         assert!(projection.to_current_freshness_receipt().is_ok());
@@ -826,8 +920,9 @@ mod tests {
         let a = lineage();
         let mut b = a.clone();
         b.reverse();
-        let left = project_current_authority_state(&subject(), &a, 1_000).unwrap();
-        let right = project_current_authority_state(&subject(), &b, 1_000).unwrap();
+        let coverage = coverage(&a);
+        let left = project_current_authority_state(&subject(), &a, &coverage, 1_000).unwrap();
+        let right = project_current_authority_state(&subject(), &b, &coverage, 1_000).unwrap();
         assert_eq!(left.projection_digest(), right.projection_digest());
         assert_eq!(left.lineage_digest(), right.lineage_digest());
     }
@@ -835,10 +930,23 @@ mod tests {
     #[test]
     fn historical_projection_preserves_pre_revocation_truth() {
         let transitions = lineage();
-        let before_revoke =
-            project_authority_state_as_of(&subject(), &transitions, 150, 1_000).unwrap();
-        let after_revoke =
-            project_authority_state_as_of(&subject(), &transitions, 250, 1_000).unwrap();
+        let coverage = coverage(&transitions);
+        let before_revoke = project_authority_state_as_of(
+            &subject(),
+            &transitions,
+            &coverage,
+            150,
+            1_000,
+        )
+        .unwrap();
+        let after_revoke = project_authority_state_as_of(
+            &subject(),
+            &transitions,
+            &coverage,
+            250,
+            1_000,
+        )
+        .unwrap();
         assert_eq!(before_revoke.snapshot().state, AuthorityFreshnessState::Active);
         assert_eq!(after_revoke.snapshot().state, AuthorityFreshnessState::Revoked);
         assert_eq!(
@@ -848,8 +956,21 @@ mod tests {
     }
 
     #[test]
+    fn omitted_later_generation_fails_coverage() {
+        let full = lineage();
+        let full_coverage = coverage(&full);
+        let prefix = vec![full[0].clone(), full[1].clone()];
+        assert_eq!(
+            project_current_authority_state(&subject(), &prefix, &full_coverage, 1_000)
+                .unwrap_err(),
+            AuthorityStateSourceError::CoverageHeadMismatch
+        );
+    }
+
+    #[test]
     fn generation_fork_denies_instead_of_selecting_by_time() {
         let mut transitions = lineage();
+        let base_coverage = coverage(&transitions);
         let t1 = transitions[0].transition.clone();
         let fork = transition(
             2,
@@ -860,7 +981,8 @@ mod tests {
         );
         transitions.push(verified(fork));
         assert_eq!(
-            project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &transitions, &base_coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::GenerationFork
         );
     }
@@ -868,9 +990,11 @@ mod tests {
     #[test]
     fn missing_generation_denies() {
         let transitions = lineage();
+        let full_coverage = coverage(&transitions);
         let broken = vec![transitions[0].clone(), transitions[2].clone()];
         assert_eq!(
-            project_current_authority_state(&subject(), &broken, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &broken, &full_coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::GenerationDiscontinuity
         );
     }
@@ -878,9 +1002,11 @@ mod tests {
     #[test]
     fn parent_digest_mismatch_denies() {
         let mut transitions = lineage();
+        let coverage = coverage(&transitions);
         transitions[1].transition.previous_transition_digest = Some(d(99));
         assert_eq!(
-            project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &transitions, &coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::ParentMismatch
         );
     }
@@ -888,10 +1014,12 @@ mod tests {
     #[test]
     fn effective_time_regression_denies() {
         let mut transitions = lineage();
+        let coverage = coverage(&transitions);
         transitions[1].transition.effective_at_ms = 50;
         transitions[1].verified_at_ms = 900;
         assert_eq!(
-            project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &transitions, &coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::EffectiveTimeRegression
         );
     }
@@ -919,13 +1047,10 @@ mod tests {
             Some(&t2),
             300,
         );
+        let receipts = vec![verified(t1), verified(t2), verified(t3)];
+        let coverage = coverage(&receipts);
         assert_eq!(
-            project_current_authority_state(
-                &subject(),
-                &[verified(t1), verified(t2), verified(t3)],
-                1_000
-            )
-            .unwrap_err(),
+            project_current_authority_state(&subject(), &receipts, &coverage, 1_000).unwrap_err(),
             AuthorityStateSourceError::TransitionAfterSuperseded
         );
     }
@@ -933,9 +1058,11 @@ mod tests {
     #[test]
     fn unverified_authority_binding_denies() {
         let mut transitions = lineage();
+        let coverage = coverage(&transitions);
         transitions[1].verified_authority_ref = "authority:wrong".into();
         assert_eq!(
-            project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &transitions, &coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::TransitionAuthorityMismatch
         );
     }
@@ -943,9 +1070,11 @@ mod tests {
     #[test]
     fn different_authoritative_sources_deny() {
         let mut transitions = lineage();
+        let coverage = coverage(&transitions);
         transitions[2].authoritative_source_ref = "authority-state-source:other".into();
         assert_eq!(
-            project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
+            project_current_authority_state(&subject(), &transitions, &coverage, 1_000)
+                .unwrap_err(),
             AuthorityStateSourceError::AuthoritativeSourceMismatch
         );
     }
