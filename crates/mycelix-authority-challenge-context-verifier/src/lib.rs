@@ -7,8 +7,8 @@
 //! receipts with one exact current freshness bundle.
 
 use mycelix_authority_freshness::{
-    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef,
-    CurrentAuthorityFreshness, ProfiledDigest, VerifiedAuthorityFreshness,
+    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef, ProfiledDigest,
+    VerifiedAuthorityFreshness,
 };
 use mycelix_authority_state_coverage::{
     AuthorityCoveragePolicy, CoverageMode, VerifiedAuthorityCoveragePolicy,
@@ -32,7 +32,6 @@ pub const REQUIRED_CHALLENGE_CAPABILITY: &str = "authority_state.challenge_issue
 
 const DOMAIN_CONTEXT: &[u8] = b"mycelix/authority-state/current-challenge-context/v1";
 const MAX_REF_BYTES: usize = 2048;
-const MAX_PROFILE_BYTES: usize = 128;
 
 /// Independently verified proof that one exact institutional AuthorityGrant gives
 /// one principal the bounded capability to issue authority-state challenges.
@@ -65,6 +64,8 @@ pub struct VerifiedWitnessTrustPolicyAuthority {
     pub institution_ref: String,
     pub jurisdiction_ref: Option<String>,
     pub rulebook_ref: String,
+    /// Must equal the exact trust-verification authority named by the context policy.
+    pub verified_trust_verifier_ref: String,
     pub authority_ref: String,
     pub policy_proof_ref: String,
     pub verification_ref: String,
@@ -104,6 +105,9 @@ impl QualifiedChallengeContext {
     pub fn context_policy_profile(&self) -> &str { &self.context_policy_profile }
     pub fn coverage_policy_digest(&self) -> Digest32 { self.coverage_policy_digest }
     pub fn coverage_policy_profile(&self) -> &str { &self.coverage_policy_profile }
+    pub fn witness_trust_policy(&self) -> Option<&ProfiledDigest> { self.witness_trust_policy.as_ref() }
+    pub fn issuer_grant_subject_digest(&self) -> Digest32 { self.issuer_grant_subject_digest }
+    pub fn issuer_grant_subject_profile(&self) -> &str { &self.issuer_grant_subject_profile }
     pub fn max_challenge_lifetime_ms(&self) -> u64 { self.max_challenge_lifetime_ms }
     pub fn context_valid_until_ms(&self) -> u64 { self.context_valid_until_ms }
     pub fn challenge_issuer_did(&self) -> &str { &self.challenge_issuer_did }
@@ -135,8 +139,12 @@ pub fn qualify_challenge_context(
 
     let context = verify_context_receipt(context_receipt, now_ms)?;
     let coverage = verify_coverage_receipt(coverage_receipt, now_ms)?;
-    let context_digest = context.identity_digest().map_err(|_| ChallengeContextError::InvalidContextPolicy)?;
-    let coverage_digest = coverage.identity_digest().map_err(|_| ChallengeContextError::InvalidCoveragePolicy)?;
+    let context_digest = context
+        .identity_digest()
+        .map_err(|_| ChallengeContextError::InvalidContextPolicy)?;
+    let coverage_digest = coverage
+        .identity_digest()
+        .map_err(|_| ChallengeContextError::InvalidCoveragePolicy)?;
 
     if context.coverage_policy.digest != coverage_digest
         || context.coverage_policy.profile != POLICY_IDENTITY_PROFILE
@@ -246,7 +254,9 @@ fn verify_context_receipt<'a>(
     now_ms: u64,
 ) -> Result<&'a CoverageTrustContextPolicy, ChallengeContextError> {
     let policy = &receipt.policy;
-    policy.validate().map_err(|_| ChallengeContextError::InvalidContextPolicy)?;
+    policy
+        .validate()
+        .map_err(|_| ChallengeContextError::InvalidContextPolicy)?;
     if !policy.active_at(now_ms)
         || receipt.verified_at_ms == 0
         || receipt.verified_at_ms > now_ms
@@ -265,7 +275,9 @@ fn verify_coverage_receipt<'a>(
     now_ms: u64,
 ) -> Result<&'a AuthorityCoveragePolicy, ChallengeContextError> {
     let policy = &receipt.policy;
-    policy.validate().map_err(|_| ChallengeContextError::InvalidCoveragePolicy)?;
+    policy
+        .validate()
+        .map_err(|_| ChallengeContextError::InvalidCoveragePolicy)?;
     if !policy.is_active_at(now_ms)
         || receipt.verified_at_ms == 0
         || receipt.verified_at_ms > now_ms
@@ -287,13 +299,20 @@ fn verify_witness_mode(
 ) -> Result<Option<ProfiledDigest>, ChallengeContextError> {
     match (&coverage.mode, &context.witness_trust_policy, receipt) {
         (CoverageMode::DirectSource, None, None) => Ok(None),
-        (CoverageMode::DirectSource, _, _) => Err(ChallengeContextError::UnexpectedWitnessTrustPolicy),
+        (CoverageMode::DirectSource, _, _) => {
+            Err(ChallengeContextError::UnexpectedWitnessTrustPolicy)
+        }
         (CoverageMode::WitnessQuorum { .. }, Some(expected), Some(actual)) => {
+            let expected_verifier = context
+                .witness_trust_verifier_ref
+                .as_deref()
+                .ok_or(ChallengeContextError::MissingWitnessTrustPolicy)?;
             if actual.protocol_version != WITNESS_TRUST_RECEIPT_PROTOCOL
                 || &actual.policy != expected
                 || actual.institution_ref != context.institution_ref
                 || actual.jurisdiction_ref != context.jurisdiction_ref
                 || actual.rulebook_ref != context.rulebook_ref
+                || actual.verified_trust_verifier_ref != expected_verifier
                 || actual.verified_at_ms == 0
                 || actual.verified_at_ms > now_ms
                 || actual.valid_until_ms <= now_ms
@@ -301,6 +320,7 @@ fn verify_witness_mode(
                 return Err(ChallengeContextError::WitnessTrustAuthorityMismatch);
             }
             for value in [
+                actual.verified_trust_verifier_ref.as_str(),
                 actual.authority_ref.as_str(),
                 actual.policy_proof_ref.as_str(),
                 actual.verification_ref.as_str(),
@@ -309,7 +329,9 @@ fn verify_witness_mode(
             }
             Ok(Some(actual.policy.clone()))
         }
-        (CoverageMode::WitnessQuorum { .. }, _, _) => Err(ChallengeContextError::MissingWitnessTrustPolicy),
+        (CoverageMode::WitnessQuorum { .. }, _, _) => {
+            Err(ChallengeContextError::MissingWitnessTrustPolicy)
+        }
     }
 }
 
@@ -331,7 +353,10 @@ fn verify_issuer(
     {
         return Err(ChallengeContextError::InvalidIssuerGrant);
     }
-    receipt.grant_subject.validate().map_err(|_| ChallengeContextError::InvalidIssuerGrant)?;
+    receipt
+        .grant_subject
+        .validate()
+        .map_err(|_| ChallengeContextError::InvalidIssuerGrant)?;
     for value in [
         receipt.issuer_did.as_str(),
         receipt.authority_ref.as_str(),
@@ -354,9 +379,14 @@ fn policy_subject(
         kind,
         namespace: namespace.into(),
         subject_id: subject_id.into(),
-        identity: ProfiledDigest { digest, profile: profile.into() },
+        identity: ProfiledDigest {
+            digest,
+            profile: profile.into(),
+        },
     };
-    subject.validate().map_err(|_| ChallengeContextError::InvalidPolicyFreshnessSubject)?;
+    subject
+        .validate()
+        .map_err(|_| ChallengeContextError::InvalidPolicyFreshnessSubject)?;
     Ok(subject)
 }
 
@@ -373,7 +403,9 @@ fn current_context_digest(
     freshness_digest: Digest32,
     issuer_did: &str,
 ) -> Result<Digest32, ChallengeContextError> {
-    let subject_digest = subject.identity_digest().map_err(|_| ChallengeContextError::InvalidSubject)?;
+    let subject_digest = subject
+        .identity_digest()
+        .map_err(|_| ChallengeContextError::InvalidSubject)?;
     let mut hasher = blake3::Hasher::new();
     hasher.update(DOMAIN_CONTEXT);
     frame(&mut hasher, CONTEXT_IDENTITY_PROFILE.as_bytes());
@@ -447,12 +479,22 @@ impl fmt::Display for ChallengeContextError {
             Self::ContextPolicyVerificationMismatch => "context-policy verification mismatch",
             Self::CoveragePolicyVerificationMismatch => "coverage-policy verification mismatch",
             Self::CoveragePolicyMismatch => "context references a different coverage policy",
-            Self::UnexpectedWitnessTrustPolicy => "witness-trust authority supplied for DirectSource mode",
-            Self::MissingWitnessTrustPolicy => "WitnessQuorum requires exact witness-trust authority",
-            Self::WitnessTrustAuthorityMismatch => "witness-trust authority does not match current context",
+            Self::UnexpectedWitnessTrustPolicy => {
+                "witness-trust authority supplied for DirectSource mode"
+            }
+            Self::MissingWitnessTrustPolicy => {
+                "WitnessQuorum requires exact witness-trust authority"
+            }
+            Self::WitnessTrustAuthorityMismatch => {
+                "witness-trust authority does not match current context"
+            }
             Self::InvalidIssuerGrant => "challenge issuer grant is invalid or out of scope",
-            Self::InvalidPolicyFreshnessSubject => "cannot construct exact policy freshness subject",
-            Self::CurrentFreshnessDenied => "required challenge authority is not currently active",
+            Self::InvalidPolicyFreshnessSubject => {
+                "cannot construct exact policy freshness subject"
+            }
+            Self::CurrentFreshnessDenied => {
+                "required challenge authority is not currently active"
+            }
             Self::ContextNotCurrentlyUsable => "qualified challenge context is stale or expired",
         };
         write!(f, "{message}")
@@ -469,7 +511,9 @@ mod tests {
         PROTOCOL_VERSION as FRESHNESS_PROTOCOL,
     };
 
-    fn d(byte: u8) -> Digest32 { Digest32([byte; 32]) }
+    fn d(byte: u8) -> Digest32 {
+        Digest32([byte; 32])
+    }
 
     #[test]
     fn new_policy_subject_kinds_are_distinct() {
@@ -479,21 +523,24 @@ mod tests {
             "coverage",
             d(1),
             "policy-v1",
-        ).unwrap();
+        )
+        .unwrap();
         let context = policy_subject(
             AuthoritySubjectKind::CoverageTrustContextPolicy,
             "ns",
             "context",
             d(1),
             "policy-v1",
-        ).unwrap();
+        )
+        .unwrap();
         let witness = policy_subject(
             AuthoritySubjectKind::WitnessTrustPolicy,
             "ns",
             "witness",
             d(1),
             "policy-v1",
-        ).unwrap();
+        )
+        .unwrap();
         assert_ne!(coverage.identity_digest().unwrap(), context.identity_digest().unwrap());
         assert_ne!(context.identity_digest().unwrap(), witness.identity_digest().unwrap());
     }
@@ -506,7 +553,8 @@ mod tests {
             "coverage",
             d(1),
             "policy-v1",
-        ).unwrap();
+        )
+        .unwrap();
         let receipt = VerifiedAuthorityFreshness {
             snapshot: AuthorityFreshnessSnapshot {
                 protocol_version: FRESHNESS_PROTOCOL.into(),
