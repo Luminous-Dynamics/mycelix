@@ -1,0 +1,59 @@
+name: Mycelix Frontend Core
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/frontend-core.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-ui
+            crates/mycelix-leptos-client
+
+      - name: Check shared frontend formatting
+        run: |
+          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml --all -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml --all -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-client/Cargo.toml --all -- --check
+
+      - name: Check shared frontend crates for wasm32
+        run: |
+          cargo check --manifest-path crates/mycelix-leptos-client/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-ui/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path crates/mycelix-leptos-core/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Run shared frontend unit tests
+        run: |
+          cargo test --manifest-path crates/mycelix-leptos-client/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-ui/Cargo.toml --lib
+          cargo test --manifest-path crates/mycelix-leptos-core/Cargo.toml --lib
