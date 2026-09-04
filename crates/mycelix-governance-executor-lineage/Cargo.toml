@@ -11,4 +11,5 @@ blake3 = "1"
 mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-authority-identity = { path = "../mycelix-authority-identity" }
 mycelix-authority-delegation = { path = "../mycelix-authority-delegation" }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
 mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
