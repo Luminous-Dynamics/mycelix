@@ -1,0 +1,96 @@
+name: Content Fabric Xenia Reader Bridge CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-nix-exposure/**'
+      - 'crates/mycelix-reader-enrollment/**'
+      - 'crates/mycelix-xenia-reader-bridge/**'
+      - 'docs/content-fabric/XENIA_READER_BRIDGE_V1.md'
+      - '.github/workflows/content-fabric-xenia-reader-bridge.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-infrastructure-types/**'
+      - 'crates/mycelix-nix-exposure/**'
+      - 'crates/mycelix-reader-enrollment/**'
+      - 'crates/mycelix-xenia-reader-bridge/**'
+      - 'docs/content-fabric/XENIA_READER_BRIDGE_V1.md'
+      - '.github/workflows/content-fabric-xenia-reader-bridge.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-fabric-xenia-reader-bridge-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BRIDGE_MANIFEST: crates/mycelix-xenia-reader-bridge/Cargo.toml
+  PINNED_XENIA_REV: 2125d0db2a5b7a995d129646e851adacb1c9f1fa
+
+jobs:
+  rust-196:
+    name: CF-07C2 Xenia reader bridge / Rust 1.96
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-xenia-reader-bridge
+      - name: Verify pinned Xenia evidence revision resolves exactly
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --format-version 1 --manifest-path "$BRIDGE_MANIFEST" > /tmp/metadata.json
+          python3 - <<'PY'
+          import json
+          import os
+
+          expected = os.environ["PINNED_XENIA_REV"]
+          with open("/tmp/metadata.json", "r", encoding="utf-8") as handle:
+              metadata = json.load(handle)
+          matches = [
+              package
+              for package in metadata["packages"]
+              if package["name"] == "xenia-peer-core"
+          ]
+          assert len(matches) == 1, f"expected one xenia-peer-core package, got {len(matches)}"
+          source = matches[0].get("source") or ""
+          assert source.startswith("git+https://github.com/Luminous-Dynamics/xenia-peer"), source
+          assert source.endswith("#" + expected), source
+          print(f"qualified xenia-peer-core source: {source}")
+          PY
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$BRIDGE_MANIFEST" -- --check
+      - name: Check
+        run: cargo check --manifest-path "$BRIDGE_MANIFEST" --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path "$BRIDGE_MANIFEST" --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" --all-targets
+      - name: Docs
+        run: RUSTDOCFLAGS='-D warnings' cargo doc --manifest-path "$BRIDGE_MANIFEST" --no-deps
+
+  msrv:
+    name: CF-07C2 Xenia reader bridge / Rust 1.94 MSRV
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.94'
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-xenia-reader-bridge
+      - name: Check on declared MSRV
+        run: cargo check --manifest-path "$BRIDGE_MANIFEST" --all-targets
+      - name: Test on declared MSRV
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" --all-targets
