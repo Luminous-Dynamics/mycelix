@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-reader-enrollment"
+version = "0.1.0"
+edition = "2024"
+description = "Explicit hybrid-key reader enrollment registry for Mycelix Content Fabric"
+license = "AGPL-3.0-or-later"
+authors = ["Luminous Dynamics <contact@luminousdynamics.org>"]
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+readme = "README.md"
+
+[dependencies]
+mycelix-infrastructure-types = { path = "../mycelix-infrastructure-types" }
+thiserror = "2"
