@@ -8,49 +8,48 @@ use leptos_router::{
 };
 
 use crate::components::Nav;
-use crate::contexts::governance_context::provide_governance_context;
 use crate::contexts::finance_context::provide_finance_context;
+use crate::contexts::governance_context::provide_governance_context;
 use crate::pages::*;
 
 use mycelix_leptos_core::{
-    HolochainProviderAuto, HolochainProviderConfig, ConnectStrategy,
-    provide_consciousness_context, provide_thermodynamic_context,
-    provide_homeostasis_context, init_consciousness_ui,
-    provide_toast_context, ToastContainer,
+    ConnectStrategy, HolochainProviderConfig, HomeostasisConfig, MycelixApplication,
+    MycelixApplicationConfig,
 };
 
 #[component]
 pub fn App() -> impl IntoView {
-    let config = HolochainProviderConfig {
+    let holochain = HolochainProviderConfig {
         app_id: "mycelix-unified".into(),
         default_role: None, // Multi-role: governance + finance
         log_prefix: "[Civic]",
         connect_strategy: ConnectStrategy::WebSocket,
         status_labels: None,
     };
+    let config = MycelixApplicationConfig::new(holochain)
+        .with_homeostasis(HomeostasisConfig::new(2, "--homeostasis"));
+
     view! {
-        <HolochainProviderAuto config=config>
-            <AppInner />
-        </HolochainProviderAuto>
+        <MycelixApplication config=config>
+            <GovernanceApplication />
+        </MycelixApplication>
     }
 }
 
+/// Governance-owned application composition.
+///
+/// Cross-domain runtime providers live in `MycelixApplication`. Everything
+/// below this boundary remains domain-local: civic theme, governance/finance
+/// contexts, civic actions, navigation, routes, and authority semantics.
 #[component]
-fn AppInner() -> impl IntoView {
-    // Initialize providers in dependency order
+fn GovernanceApplication() -> impl IntoView {
     crate::themes::provide_theme_context();
-    provide_thermodynamic_context();
-    provide_consciousness_context();
-    provide_toast_context();
-    provide_homeostasis_context(2, "--homeostasis");
     provide_governance_context();
     provide_finance_context();
 
-    // Action dispatch layer
+    // Action dispatch remains domain-local: the shared application boundary
+    // must not become an authority or business-action layer.
     crate::contexts::civic_actions::provide_civic_actions();
-
-    // Wire consciousness + thermodynamic → CSS custom properties
-    init_consciousness_ui();
 
     view! {
         <Router>
@@ -76,7 +75,6 @@ fn AppInner() -> impl IntoView {
                     <Route path=path!("/profile") view=ProfilePage />
                 </Routes>
             </main>
-            <ToastContainer />
         </Router>
     }
 }
