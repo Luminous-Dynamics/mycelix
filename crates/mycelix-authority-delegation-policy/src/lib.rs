@@ -4,12 +4,13 @@
 //!
 //! Possessing a capability is not the same as possessing authority to delegate
 //! it. This crate qualifies one explicit delegation policy against one exact,
-//! currently fresh parent AuthorityGrant and exposes only the attenuated scope
-//! that a later delegation-lineage kernel may consume.
+//! currently fresh parent AuthorityGrant and one exact, currently fresh policy
+//! generation. A later delegation-lineage kernel consumes the resulting bounded
+//! authority instead of trusting an opaque policy digest echo.
 
 use mycelix_authority_freshness::{
-    qualify_current_freshness, AuthoritySubjectKind, AuthoritySubjectRef,
-    CurrentAuthorityFreshness, FreshnessError, ProfiledDigest as FreshnessProfiledDigest,
+    qualify_current_freshness, AuthorityFreshnessState, AuthoritySubjectKind,
+    AuthoritySubjectRef, FreshnessError, ProfiledDigest as FreshnessProfiledDigest,
     VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE,
 };
 use mycelix_authority_identity::{
@@ -27,8 +28,11 @@ use std::fmt;
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-delegation-policy-v0.1";
 pub const DELEGATION_POLICY_IDENTITY_PROFILE: &str =
     "mycelix-authority-delegation-policy-v1-blake3-framed-semantic";
+pub const CURRENT_DELEGATION_AUTHORITY_PROFILE: &str =
+    "mycelix-authority-delegation-current-v1-blake3-framed";
 
 const DOMAIN_POLICY: &[u8] = b"mycelix/authority-delegation-policy/v1";
+const DOMAIN_CURRENT_AUTHORITY: &[u8] = b"mycelix/authority-delegation-current/v1";
 const MAX_ID_BYTES: usize = 512;
 const MAX_REF_BYTES: usize = 2048;
 const MAX_DELEGATES: usize = 256;
@@ -55,7 +59,7 @@ impl DelegateScope {
         }
     }
 
-    pub fn allows(&self, principal: &PrincipalId) -> bool {
+    fn allows(&self, principal: &PrincipalId) -> bool {
         match self {
             Self::AnyPrincipal => true,
             Self::AllowList(values) => values.iter().any(|value| value == principal),
@@ -76,21 +80,14 @@ pub struct DelegationPolicy {
     pub parent_grant_digest: Digest32,
     pub parent_generation: u64,
     pub delegator: PrincipalId,
-    /// Maximum roles that may appear in a child grant.
     pub delegable_roles: Vec<RoleId>,
-    /// Maximum capabilities that may appear in a child grant.
     pub delegable_capabilities: Vec<CapabilityId>,
     pub delegate_scope: DelegateScope,
-    /// Whether a child created under this policy may itself be used as the
-    /// parent of another delegation edge.
     pub allow_redelegation: bool,
-    /// Maximum lifetime of one child/delegation interval.
     pub max_child_lifetime_ms: u64,
     pub valid_from_ms: u64,
     pub valid_until_ms: u64,
-    /// Institutional authority source for adoption of this policy.
     pub source: AuthoritySourceRef,
-    /// Attestation over this exact policy semantics, verified by the host.
     pub policy_proof_ref: String,
 }
 
@@ -130,6 +127,9 @@ impl DelegationPolicy {
         self.source
             .validate()
             .map_err(|_| DelegationPolicyError::InvalidAuthoritySource)?;
+        if matches!(&self.source.kind, AuthoritySourceKind::Delegation) {
+            return Err(DelegationPolicyError::CircularDelegationPolicySource);
+        }
         require_ref(&self.policy_proof_ref)
     }
 
@@ -161,7 +161,6 @@ impl DelegationPolicy {
         frame(&mut hasher, &self.parent_grant_digest.0);
         frame(&mut hasher, &self.parent_generation.to_le_bytes());
         frame(&mut hasher, self.delegator.as_str().as_bytes());
-
         frame(&mut hasher, &(roles.len() as u64).to_le_bytes());
         for role in roles {
             frame(&mut hasher, role.as_bytes());
@@ -192,28 +191,36 @@ impl DelegationPolicy {
     }
 }
 
-/// Stable semantic reference embedded by a later delegation attestation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DelegationAuthorityRef {
     pub policy_id: String,
     pub policy_digest: Digest32,
     pub policy_profile: String,
+    pub parent_generation: u64,
+    pub policy_generation: u64,
+    pub current_authority_digest: Digest32,
+    pub current_authority_profile: String,
 }
 
 impl DelegationAuthorityRef {
     pub fn validate(&self) -> Result<(), DelegationPolicyError> {
         require_id(&self.policy_id)?;
-        if self.policy_digest.is_zero() {
+        if self.policy_digest.is_zero() || self.current_authority_digest.is_zero() {
             return Err(DelegationPolicyError::ZeroPolicyDigest);
         }
         if self.policy_profile != DELEGATION_POLICY_IDENTITY_PROFILE {
             return Err(DelegationPolicyError::WrongPolicyIdentityProfile);
         }
+        if self.current_authority_profile != CURRENT_DELEGATION_AUTHORITY_PROFILE {
+            return Err(DelegationPolicyError::WrongCurrentAuthorityProfile);
+        }
+        if self.parent_generation == 0 || self.policy_generation == 0 {
+            return Err(DelegationPolicyError::ZeroCurrentAuthorityGeneration);
+        }
         Ok(())
     }
 }
 
-/// Host-verified exact current parent grant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedDelegationParentGrant {
     pub grant: AuthorityGrant,
@@ -224,7 +231,6 @@ pub struct VerifiedDelegationParentGrant {
     pub freshness: VerifiedAuthorityFreshness,
 }
 
-/// Host verification of policy adoption and its institutional source proof.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedDelegationPolicy {
     pub policy: DelegationPolicy,
@@ -233,10 +239,9 @@ pub struct VerifiedDelegationPolicy {
     pub verified_source_proof_ref: String,
     pub verification_ref: String,
     pub verified_at_ms: u64,
+    pub freshness: VerifiedAuthorityFreshness,
 }
 
-/// Qualified, current, exact authority to issue bounded delegations from one
-/// parent grant. Private fields + no Deserialize prevent application-data minting.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct QualifiedDelegationAuthority {
     protocol_version: String,
@@ -263,6 +268,10 @@ pub struct QualifiedDelegationAuthority {
 }
 
 impl QualifiedDelegationAuthority {
+    pub fn protocol_version(&self) -> &str {
+        &self.protocol_version
+    }
+
     pub fn authority_ref(&self) -> &DelegationAuthorityRef {
         &self.authority_ref
     }
@@ -299,6 +308,18 @@ impl QualifiedDelegationAuthority {
         self.allow_redelegation
     }
 
+    pub fn policy_record_ref(&self) -> &str {
+        &self.policy_record_ref
+    }
+
+    pub fn policy_verification_ref(&self) -> &str {
+        &self.policy_verification_ref
+    }
+
+    pub fn parent_verification_ref(&self) -> &str {
+        &self.parent_verification_ref
+    }
+
     pub fn verified_at_ms(&self) -> u64 {
         self.verified_at_ms
     }
@@ -307,8 +328,6 @@ impl QualifiedDelegationAuthority {
         self.lease_until_ms
     }
 
-    /// Check one proposed child/delegation scope against this exact qualified
-    /// policy without minting any child authority.
     pub fn validate_delegation_scope(
         &self,
         delegate: &PrincipalId,
@@ -318,7 +337,7 @@ impl QualifiedDelegationAuthority {
         expires_at_ms: u64,
         now_ms: u64,
     ) -> Result<(), DelegationPolicyError> {
-        if now_ms == 0 || now_ms >= self.lease_until_ms {
+        if now_ms == 0 || now_ms < self.verified_at_ms || now_ms >= self.lease_until_ms {
             return Err(DelegationPolicyError::PolicyLeaseExpired);
         }
         require_id(delegate.as_str())?;
@@ -341,8 +360,11 @@ impl QualifiedDelegationAuthority {
         {
             return Err(DelegationPolicyError::CapabilityOutsidePolicy);
         }
-        if issued_at_ms == 0 || expires_at_ms <= issued_at_ms {
+        if issued_at_ms == 0 || issued_at_ms > now_ms || expires_at_ms <= issued_at_ms {
             return Err(DelegationPolicyError::InvalidChildLifetime);
+        }
+        if now_ms >= expires_at_ms {
+            return Err(DelegationPolicyError::ChildAlreadyExpired);
         }
         if issued_at_ms < self.valid_from_ms || expires_at_ms > self.valid_until_ms {
             return Err(DelegationPolicyError::ChildOutsidePolicyLifetime);
@@ -362,7 +384,7 @@ pub fn qualify_delegation_authority(
     if now_ms == 0 {
         return Err(DelegationPolicyError::InvalidVerificationTime);
     }
-    let (parent_identity, current_parent) = verify_parent(parent_receipt, now_ms)?;
+    let (parent_identity, parent_subject) = verify_parent(parent_receipt, now_ms)?;
     let policy = &policy_receipt.policy;
     policy.validate()?;
     verify_policy_receipt(policy_receipt, now_ms)?;
@@ -412,14 +434,49 @@ pub fn qualify_delegation_authority(
     }
 
     let policy_digest = policy.identity_digest()?;
+    let policy_subject = AuthoritySubjectRef {
+        kind: AuthoritySubjectKind::Delegation,
+        namespace: policy.institution.as_str().to_string(),
+        subject_id: policy.policy_id.clone(),
+        identity: FreshnessProfiledDigest {
+            digest: policy_digest,
+            profile: DELEGATION_POLICY_IDENTITY_PROFILE.into(),
+        },
+    };
+    if policy_receipt.freshness.snapshot.subject != policy_subject {
+        return Err(DelegationPolicyError::PolicyFreshnessIdentityMismatch);
+    }
+    if policy_receipt.freshness.snapshot.effective_at_ms < policy.valid_from_ms {
+        return Err(DelegationPolicyError::PolicyFreshnessPredatesPolicy);
+    }
+
+    let current = qualify_current_freshness(
+        &[parent_subject, policy_subject],
+        &[
+            parent_receipt.freshness.clone(),
+            policy_receipt.freshness.clone(),
+        ],
+        now_ms,
+    )
+    .map_err(DelegationPolicyError::Freshness)?;
+    if current.freshness_profile != BUNDLE_IDENTITY_PROFILE {
+        return Err(DelegationPolicyError::WrongFreshnessProfile);
+    }
+
+    let policy_generation = policy_receipt.freshness.snapshot.generation;
+    let current_authority_digest = current_authority_digest(policy_digest, current.freshness_digest);
     let authority_ref = DelegationAuthorityRef {
         policy_id: policy.policy_id.clone(),
         policy_digest,
         policy_profile: DELEGATION_POLICY_IDENTITY_PROFILE.into(),
+        parent_generation: policy.parent_generation,
+        policy_generation,
+        current_authority_digest,
+        current_authority_profile: CURRENT_DELEGATION_AUTHORITY_PROFILE.into(),
     };
     authority_ref.validate()?;
 
-    let lease_until_ms = current_parent
+    let lease_until_ms = current
         .lease_until_ms
         .min(policy.valid_until_ms)
         .min(parent_receipt.grant.expires_at_ms);
@@ -447,7 +504,7 @@ pub fn qualify_delegation_authority(
         policy_record_ref: policy_receipt.policy_record_ref.clone(),
         policy_verification_ref: policy_receipt.verification_ref.clone(),
         parent_verification_ref: parent_receipt.verification_ref.clone(),
-        verified_at_ms: current_parent
+        verified_at_ms: current
             .verified_at_ms
             .max(parent_receipt.verified_at_ms)
             .max(policy_receipt.verified_at_ms),
@@ -458,7 +515,7 @@ pub fn qualify_delegation_authority(
 fn verify_parent(
     receipt: &VerifiedDelegationParentGrant,
     now_ms: u64,
-) -> Result<(CanonicalAuthorityIdentity, CurrentAuthorityFreshness), DelegationPolicyError> {
+) -> Result<(CanonicalAuthorityIdentity, AuthoritySubjectRef), DelegationPolicyError> {
     receipt
         .grant
         .validate()
@@ -496,16 +553,7 @@ fn verify_parent(
     if receipt.freshness.snapshot.subject != expected_subject {
         return Err(DelegationPolicyError::ParentFreshnessIdentityMismatch);
     }
-    let current = qualify_current_freshness(
-        std::slice::from_ref(&expected_subject),
-        std::slice::from_ref(&receipt.freshness),
-        now_ms,
-    )
-    .map_err(DelegationPolicyError::Freshness)?;
-    if current.freshness_profile != BUNDLE_IDENTITY_PROFILE {
-        return Err(DelegationPolicyError::WrongFreshnessProfile);
-    }
-    Ok((identity, current))
+    Ok((identity, expected_subject))
 }
 
 fn verify_policy_receipt(
@@ -525,7 +573,21 @@ fn verify_policy_receipt(
     if receipt.verified_at_ms < receipt.policy.valid_from_ms || receipt.verified_at_ms > now_ms {
         return Err(DelegationPolicyError::InvalidVerificationTime);
     }
-    Ok(())
+    receipt
+        .freshness
+        .validate_at(now_ms)
+        .map_err(DelegationPolicyError::Freshness)
+}
+
+fn current_authority_digest(policy_digest: Digest32, freshness_digest: Digest32) -> Digest32 {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(DOMAIN_CURRENT_AUTHORITY);
+    frame(&mut hasher, CURRENT_DELEGATION_AUTHORITY_PROFILE.as_bytes());
+    frame(&mut hasher, DELEGATION_POLICY_IDENTITY_PROFILE.as_bytes());
+    frame(&mut hasher, BUNDLE_IDENTITY_PROFILE.as_bytes());
+    frame(&mut hasher, &policy_digest.0);
+    frame(&mut hasher, &freshness_digest.0);
+    Digest32(*hasher.finalize().as_bytes())
 }
 
 fn canonical_roles(roles: &[RoleId]) -> Result<Vec<&str>, DelegationPolicyError> {
@@ -583,9 +645,7 @@ fn canonical_capabilities_owned(
 ) -> Result<Vec<CapabilityId>, DelegationPolicyError> {
     canonical_capabilities(capabilities)?
         .into_iter()
-        .map(|value| {
-            CapabilityId::new(value).map_err(|_| DelegationPolicyError::InvalidCapabilityId)
-        })
+        .map(|value| CapabilityId::new(value).map_err(|_| DelegationPolicyError::InvalidCapabilityId))
         .collect()
 }
 
@@ -616,10 +676,7 @@ fn canonical_delegate_scope_owned(
         CanonicalDelegateScope::AllowList(values) => Ok(DelegateScope::AllowList(
             values
                 .into_iter()
-                .map(|value| {
-                    PrincipalId::new(value)
-                        .map_err(|_| DelegationPolicyError::InvalidPrincipalId)
-                })
+                .map(|value| PrincipalId::new(value).map_err(|_| DelegationPolicyError::InvalidPrincipalId))
                 .collect::<Result<Vec<_>, _>>()?,
         )),
     }
@@ -630,10 +687,7 @@ fn role_set(roles: &[RoleId]) -> BTreeSet<&str> {
 }
 
 fn capability_set(capabilities: &[CapabilityId]) -> BTreeSet<&str> {
-    capabilities
-        .iter()
-        .map(|capability| capability.as_str())
-        .collect()
+    capabilities.iter().map(|capability| capability.as_str()).collect()
 }
 
 fn source_kind_code(kind: &AuthoritySourceKind) -> u8 {
@@ -685,10 +739,13 @@ pub enum DelegationPolicyError {
     InvalidReference,
     InvalidRulebook,
     InvalidAuthoritySource,
+    CircularDelegationPolicySource,
     ZeroParentGrantDigest,
     ZeroPolicyDigest,
     WrongPolicyIdentityProfile,
+    WrongCurrentAuthorityProfile,
     ZeroParentGeneration,
+    ZeroCurrentAuthorityGeneration,
     NoDelegableCapabilities,
     InvalidRoleId,
     InvalidCapabilityId,
@@ -706,6 +763,8 @@ pub enum DelegationPolicyError {
     WrongParentIdentityProfile,
     ParentFreshnessIdentityMismatch,
     ParentFreshnessPredatesGrant,
+    PolicyFreshnessIdentityMismatch,
+    PolicyFreshnessPredatesPolicy,
     WrongFreshnessProfile,
     Freshness(FreshnessError),
     PolicyProofMismatch,
@@ -728,6 +787,7 @@ pub enum DelegationPolicyError {
     RoleOutsidePolicy,
     CapabilityOutsidePolicy,
     InvalidChildLifetime,
+    ChildAlreadyExpired,
     ChildOutsidePolicyLifetime,
     ChildLifetimeTooLong,
 }
@@ -740,10 +800,13 @@ impl fmt::Display for DelegationPolicyError {
             Self::InvalidReference => write!(f, "invalid delegation-policy reference"),
             Self::InvalidRulebook => write!(f, "invalid delegation-policy rulebook"),
             Self::InvalidAuthoritySource => write!(f, "invalid delegation-policy authority source"),
+            Self::CircularDelegationPolicySource => write!(f, "delegation cannot directly authorize its own delegation policy"),
             Self::ZeroParentGrantDigest => write!(f, "parent grant digest must not be zero"),
-            Self::ZeroPolicyDigest => write!(f, "delegation policy digest must not be zero"),
+            Self::ZeroPolicyDigest => write!(f, "delegation/current authority digest must not be zero"),
             Self::WrongPolicyIdentityProfile => write!(f, "wrong delegation policy identity profile"),
+            Self::WrongCurrentAuthorityProfile => write!(f, "wrong current delegation-authority profile"),
             Self::ZeroParentGeneration => write!(f, "parent generation must not be zero"),
+            Self::ZeroCurrentAuthorityGeneration => write!(f, "current delegation-authority generation must not be zero"),
             Self::NoDelegableCapabilities => write!(f, "delegation policy must permit at least one capability"),
             Self::InvalidRoleId => write!(f, "delegation policy contains an invalid role id"),
             Self::InvalidCapabilityId => write!(f, "delegation policy contains an invalid capability id"),
@@ -761,8 +824,10 @@ impl fmt::Display for DelegationPolicyError {
             Self::WrongParentIdentityProfile => write!(f, "wrong canonical parent grant profile"),
             Self::ParentFreshnessIdentityMismatch => write!(f, "parent freshness does not bind exact grant identity"),
             Self::ParentFreshnessPredatesGrant => write!(f, "parent freshness state predates parent grant"),
+            Self::PolicyFreshnessIdentityMismatch => write!(f, "policy freshness does not bind exact policy identity"),
+            Self::PolicyFreshnessPredatesPolicy => write!(f, "policy freshness state predates policy validity"),
             Self::WrongFreshnessProfile => write!(f, "wrong current-authority freshness profile"),
-            Self::Freshness(error) => write!(f, "parent freshness qualification failed: {error}"),
+            Self::Freshness(error) => write!(f, "current authority freshness qualification failed: {error}"),
             Self::PolicyProofMismatch => write!(f, "verified delegation policy proof mismatch"),
             Self::SourceProofMismatch => write!(f, "verified delegation policy source proof mismatch"),
             Self::PolicyInactive => write!(f, "delegation policy is inactive"),
@@ -783,6 +848,7 @@ impl fmt::Display for DelegationPolicyError {
             Self::RoleOutsidePolicy => write!(f, "child role is outside delegation policy scope"),
             Self::CapabilityOutsidePolicy => write!(f, "child capability is outside delegation policy scope"),
             Self::InvalidChildLifetime => write!(f, "invalid child delegation lifetime"),
+            Self::ChildAlreadyExpired => write!(f, "child delegation is already expired"),
             Self::ChildOutsidePolicyLifetime => write!(f, "child delegation lies outside policy lifetime"),
             Self::ChildLifetimeTooLong => write!(f, "child delegation exceeds policy lifetime ceiling"),
         }
@@ -795,12 +861,9 @@ impl std::error::Error for DelegationPolicyError {}
 mod tests {
     use super::*;
     use mycelix_authority_freshness::{
-        AuthorityFreshnessSnapshot, AuthorityFreshnessState,
-        PROTOCOL_VERSION as FRESHNESS_PROTOCOL_VERSION,
+        AuthorityFreshnessSnapshot, PROTOCOL_VERSION as FRESHNESS_PROTOCOL_VERSION,
     };
-    use mycelix_institutional_core::{
-        RulebookId, PROTOCOL_VERSION as CORE_PROTOCOL_VERSION,
-    };
+    use mycelix_institutional_core::{RulebookId, PROTOCOL_VERSION as CORE_PROTOCOL_VERSION};
 
     fn d(byte: u8) -> Digest32 {
         Digest32([byte; 32])
@@ -821,14 +884,8 @@ mod tests {
             holder: PrincipalId::new("did:example:root").unwrap(),
             institution: InstitutionId::new("institution:test").unwrap(),
             jurisdiction: None,
-            roles: vec![
-                RoleId::new("role:executor").unwrap(),
-                RoleId::new("role:reviewer").unwrap(),
-            ],
-            capabilities: vec![
-                CapabilityId::new("governance.execute").unwrap(),
-                CapabilityId::new("governance.read").unwrap(),
-            ],
+            roles: vec![RoleId::new("role:executor").unwrap(), RoleId::new("role:reviewer").unwrap()],
+            capabilities: vec![CapabilityId::new("governance.execute").unwrap(), CapabilityId::new("governance.read").unwrap()],
             rulebook: rulebook(),
             sources: vec![AuthoritySourceRef {
                 kind: AuthoritySourceKind::GovernanceDecision,
@@ -851,10 +908,7 @@ mod tests {
                     kind: AuthoritySubjectKind::AuthorityGrant,
                     namespace: grant.institution.as_str().into(),
                     subject_id: grant.id.as_str().into(),
-                    identity: FreshnessProfiledDigest {
-                        digest: identity.digest,
-                        profile: identity.profile,
-                    },
+                    identity: FreshnessProfiledDigest { digest: identity.digest, profile: identity.profile },
                 },
                 generation,
                 state: AuthorityFreshnessState::Active,
@@ -895,9 +949,7 @@ mod tests {
             delegator: grant.holder.clone(),
             delegable_roles: vec![RoleId::new("role:executor").unwrap()],
             delegable_capabilities: vec![CapabilityId::new("governance.execute").unwrap()],
-            delegate_scope: DelegateScope::AllowList(vec![
-                PrincipalId::new("did:example:child").unwrap(),
-            ]),
+            delegate_scope: DelegateScope::AllowList(vec![PrincipalId::new("did:example:child").unwrap()]),
             allow_redelegation: false,
             max_child_lifetime_ms: 80,
             valid_from_ms: 20,
@@ -911,15 +963,42 @@ mod tests {
         }
     }
 
-    fn policy_receipt(policy: DelegationPolicy) -> VerifiedDelegationPolicy {
+    fn policy_freshness(policy: &DelegationPolicy, generation: u64) -> VerifiedAuthorityFreshness {
+        VerifiedAuthorityFreshness {
+            snapshot: AuthorityFreshnessSnapshot {
+                protocol_version: FRESHNESS_PROTOCOL_VERSION.into(),
+                subject: AuthoritySubjectRef {
+                    kind: AuthoritySubjectKind::Delegation,
+                    namespace: policy.institution.as_str().into(),
+                    subject_id: policy.policy_id.clone(),
+                    identity: FreshnessProfiledDigest { digest: policy.identity_digest().unwrap(), profile: DELEGATION_POLICY_IDENTITY_PROFILE.into() },
+                },
+                generation,
+                state: AuthorityFreshnessState::Active,
+                effective_at_ms: policy.valid_from_ms,
+                status_record_ref: format!("status:{}:g{generation}", policy.policy_id),
+            },
+            authoritative_source_ref: "authority-state:delegation-policy".into(),
+            verification_ref: "freshness-verification:delegation-policy".into(),
+            verified_at_ms: 90,
+            lease_until_ms: 150,
+        }
+    }
+
+    fn policy_receipt_with_generation(policy: DelegationPolicy, generation: u64) -> VerifiedDelegationPolicy {
         VerifiedDelegationPolicy {
             verified_policy_proof_ref: policy.policy_proof_ref.clone(),
             verified_source_proof_ref: policy.source.proof_ref.clone(),
             policy_record_ref: "policy-record:1".into(),
             verification_ref: "policy-verification:1".into(),
             verified_at_ms: 90,
+            freshness: policy_freshness(&policy, generation),
             policy,
         }
+    }
+
+    fn policy_receipt(policy: DelegationPolicy) -> VerifiedDelegationPolicy {
+        policy_receipt_with_generation(policy, 1)
     }
 
     fn qualify() -> QualifiedDelegationAuthority {
@@ -930,49 +1009,57 @@ mod tests {
     fn exact_policy_qualifies_against_current_parent() {
         let authority = qualify();
         assert_eq!(authority.parent_generation(), 1);
-        assert!(!authority.authority_ref().policy_digest.is_zero());
+        assert_eq!(authority.authority_ref().policy_generation, 1);
+        assert!(!authority.authority_ref().current_authority_digest.is_zero());
         assert!(!authority.allow_redelegation());
     }
 
     #[test]
     fn policy_cannot_expand_parent_capabilities() {
-        let mut policy = policy();
-        policy
-            .delegable_capabilities
-            .push(CapabilityId::new("treasury.admin").unwrap());
-        assert_eq!(
-            qualify_delegation_authority(&parent_receipt(1), &policy_receipt(policy), 100)
-                .unwrap_err(),
-            DelegationPolicyError::CapabilityExpansion
-        );
+        let mut value = policy();
+        value.delegable_capabilities.push(CapabilityId::new("treasury.admin").unwrap());
+        assert_eq!(qualify_delegation_authority(&parent_receipt(1), &policy_receipt(value), 100).unwrap_err(), DelegationPolicyError::CapabilityExpansion);
     }
 
     #[test]
     fn stale_parent_generation_is_denied() {
-        assert_eq!(
-            qualify_delegation_authority(&parent_receipt(2), &policy_receipt(policy()), 100)
-                .unwrap_err(),
-            DelegationPolicyError::ParentGenerationMismatch
-        );
+        assert_eq!(qualify_delegation_authority(&parent_receipt(2), &policy_receipt(policy()), 100).unwrap_err(), DelegationPolicyError::ParentGenerationMismatch);
+    }
+
+    #[test]
+    fn revoked_policy_denies_current_authority() {
+        let mut receipt = policy_receipt(policy());
+        receipt.freshness.snapshot.state = AuthorityFreshnessState::Revoked;
+        assert_eq!(qualify_delegation_authority(&parent_receipt(1), &receipt, 100).unwrap_err(), DelegationPolicyError::Freshness(FreshnessError::SubjectNotActive));
+    }
+
+    #[test]
+    fn policy_generation_changes_current_authority_identity() {
+        let first = qualify();
+        let second = qualify_delegation_authority(&parent_receipt(1), &policy_receipt_with_generation(policy(), 2), 100).unwrap();
+        assert_ne!(first.authority_ref(), second.authority_ref());
+        assert_eq!(first.authority_ref().policy_digest, second.authority_ref().policy_digest);
     }
 
     #[test]
     fn source_proof_is_independent_from_policy_proof() {
         let mut receipt = policy_receipt(policy());
         receipt.verified_source_proof_ref = "proof:wrong-source".into();
-        assert_eq!(
-            qualify_delegation_authority(&parent_receipt(1), &receipt, 100).unwrap_err(),
-            DelegationPolicyError::SourceProofMismatch
-        );
+        assert_eq!(qualify_delegation_authority(&parent_receipt(1), &receipt, 100).unwrap_err(), DelegationPolicyError::SourceProofMismatch);
+    }
+
+    #[test]
+    fn delegation_cannot_directly_bootstrap_its_own_policy() {
+        let mut value = policy();
+        value.source.kind = AuthoritySourceKind::Delegation;
+        assert_eq!(value.validate().unwrap_err(), DelegationPolicyError::CircularDelegationPolicySource);
     }
 
     #[test]
     fn set_reordering_preserves_policy_identity() {
         let mut first = policy();
         first.delegable_roles.push(RoleId::new("role:reviewer").unwrap());
-        first
-            .delegable_capabilities
-            .push(CapabilityId::new("governance.read").unwrap());
+        first.delegable_capabilities.push(CapabilityId::new("governance.read").unwrap());
         let mut second = first.clone();
         second.delegable_roles.reverse();
         second.delegable_capabilities.reverse();
@@ -980,16 +1067,26 @@ mod tests {
     }
 
     #[test]
-    fn later_reverification_preserves_authority_identity() {
+    fn redelegation_permission_is_identity_bearing() {
+        let first = policy();
+        let mut second = first.clone();
+        second.allow_redelegation = true;
+        assert_ne!(first.identity_digest().unwrap(), second.identity_digest().unwrap());
+    }
+
+    #[test]
+    fn later_reverification_same_generation_preserves_authority_identity() {
         let first = qualify();
         let mut parent = parent_receipt(1);
         parent.verification_ref = "grant-verification:later".into();
         parent.verified_at_ms = 99;
-        parent.freshness.verification_ref = "freshness:later".into();
+        parent.freshness.verification_ref = "freshness:later-parent".into();
         parent.freshness.verified_at_ms = 99;
         let mut policy_receipt = policy_receipt(policy());
         policy_receipt.verification_ref = "policy-verification:later".into();
         policy_receipt.verified_at_ms = 99;
+        policy_receipt.freshness.verification_ref = "freshness:later-policy".into();
+        policy_receipt.freshness.verified_at_ms = 99;
         let second = qualify_delegation_authority(&parent, &policy_receipt, 100).unwrap();
         assert_eq!(first.authority_ref(), second.authority_ref());
     }
@@ -997,49 +1094,13 @@ mod tests {
     #[test]
     fn delegate_and_child_scope_are_enforced() {
         let authority = qualify();
-        assert_eq!(
-            authority
-                .validate_delegation_scope(
-                    &PrincipalId::new("did:example:other").unwrap(),
-                    &[RoleId::new("role:executor").unwrap()],
-                    &[CapabilityId::new("governance.execute").unwrap()],
-                    100,
-                    150,
-                    100,
-                )
-                .unwrap_err(),
-            DelegationPolicyError::DelegateNotAllowed
-        );
-        assert_eq!(
-            authority
-                .validate_delegation_scope(
-                    &PrincipalId::new("did:example:child").unwrap(),
-                    &[RoleId::new("role:executor").unwrap()],
-                    &[CapabilityId::new("governance.read").unwrap()],
-                    100,
-                    150,
-                    100,
-                )
-                .unwrap_err(),
-            DelegationPolicyError::CapabilityOutsidePolicy
-        );
+        assert_eq!(authority.validate_delegation_scope(&PrincipalId::new("did:example:other").unwrap(), &[RoleId::new("role:executor").unwrap()], &[CapabilityId::new("governance.execute").unwrap()], 100, 150, 100).unwrap_err(), DelegationPolicyError::DelegateNotAllowed);
+        assert_eq!(authority.validate_delegation_scope(&PrincipalId::new("did:example:child").unwrap(), &[RoleId::new("role:executor").unwrap()], &[CapabilityId::new("governance.read").unwrap()], 100, 150, 100).unwrap_err(), DelegationPolicyError::CapabilityOutsidePolicy);
     }
 
     #[test]
     fn child_lifetime_is_bounded() {
         let authority = qualify();
-        assert_eq!(
-            authority
-                .validate_delegation_scope(
-                    &PrincipalId::new("did:example:child").unwrap(),
-                    &[RoleId::new("role:executor").unwrap()],
-                    &[CapabilityId::new("governance.execute").unwrap()],
-                    90,
-                    175,
-                    100,
-                )
-                .unwrap_err(),
-            DelegationPolicyError::ChildLifetimeTooLong
-        );
+        assert_eq!(authority.validate_delegation_scope(&PrincipalId::new("did:example:child").unwrap(), &[RoleId::new("role:executor").unwrap()], &[CapabilityId::new("governance.execute").unwrap()], 90, 175, 100).unwrap_err(), DelegationPolicyError::ChildLifetimeTooLong);
     }
 }
