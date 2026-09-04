@@ -1,0 +1,113 @@
+name: Authority State Challenge Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-state-challenge/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/authority-state-challenge-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-state-challenge-runtime-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-state-challenge-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Private entropy challenge native + WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_state_challenge_integrity --package authority_state_challenge -- --check
+      - name: Native tests
+        working-directory: mycelix-governance
+        run: cargo test --package authority_state_challenge_integrity --package authority_state_challenge --all-targets
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_state_challenge_integrity --package authority_state_challenge --all-targets -- -D warnings
+      - name: WASM builds
+        working-directory: mycelix-governance
+        run: |
+          cargo check --release --target wasm32-unknown-unknown --package authority_state_challenge_integrity
+          cargo check --release --target wasm32-unknown-unknown --package authority_state_challenge
+
+  containment:
+    name: Challenge authority remains private, fail-closed, and unprovisioned
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Audit challenge authority boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          integrity = Path('mycelix-governance/zomes/authority-state-challenge/integrity/src/lib.rs').read_text()
+          coordinator = Path('mycelix-governance/zomes/authority-state-challenge/coordinator/src/lib.rs').read_text()
+          invariants = Path('mycelix-governance/zomes/authority-state-challenge/INVARIANTS.md').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          required_integrity = [
+              '#[entry_type(visibility = "private")]',
+              'ChallengeEntropyRecord',
+              'AuthorityStateChallengeRecord',
+              'entropy_nonce_digest',
+              'randomness_proof_ref != self.entropy_action.to_string()',
+              'authority-state challenge records are immutable',
+          ]
+          for token in required_integrity:
+              assert token in integrity, token
+
+          required_coordinator = [
+              'authority_state_context_policy_verifier',
+              'resolve_challenge_context',
+              'random_bytes(ENTROPY_BYTES)',
+              'create_entry(EntryTypes::ChallengeEntropy',
+              'get_local_record(&entropy_action)',
+              'query(ChainQueryFilter::new().include_entries(true))',
+              'verified_nonce_digest: challenge.nonce_digest',
+              'verified_randomness_proof_ref: challenge.randomness_proof_ref.clone()',
+              'verified_challenge_issuer_ref: challenge.challenge_issuer_ref.clone()',
+              'provider_probed_without_subject: false',
+              'operational: false',
+          ]
+          for token in required_coordinator:
+              assert token in coordinator, token
+
+          request_body = coordinator.split('pub struct IssueAuthorityStateChallengeRequest', 1)[1].split('}', 1)[0].lower()
+          assert 'entropy' not in request_body
+          assert 'nonce' not in request_body
+          assert 'status-probe' not in coordinator
+
+          for name in ['authority_state_challenge_integrity', 'authority_state_challenge']:
+              assert f'name: {name}' not in dna, f'unqualified challenge zome packaged: {name}'
+
+          assert 'Raw entropy is private by construction' in invariants
+          assert 'Status does not probe authority with synthetic data' in invariants
+          assert 'Deliberately unprovisioned' in invariants
+
+          lowered = coordinator.lower()
+          for forbidden in ['phi', 'reputation', 'model_score', 'guardian']:
+              assert forbidden not in lowered, forbidden
+          print('PASS: challenge runtime uses private host entropy, exact current context, local proof verification, and remains unprovisioned')
+          PY
