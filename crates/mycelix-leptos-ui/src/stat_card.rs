@@ -6,6 +6,9 @@
 use leptos::prelude::*;
 
 /// A card displaying a labeled statistic.
+///
+/// Layout and color are intentionally expressed through semantic class names
+/// so domain themes can restyle the card without replacing this component.
 #[component]
 pub fn StatCard(
     label: &'static str,
@@ -14,27 +17,16 @@ pub fn StatCard(
     #[prop(optional)] icon: Option<&'static str>,
 ) -> impl IntoView {
     view! {
-        <div
-            style="padding: 16px 20px; border-radius: 8px; \
-                   border: 1px solid #e5e7eb; background-color: white; \
-                   font-family: system-ui, sans-serif; min-width: 140px;"
-        >
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                {icon.map(|i| view! { <span style="font-size: 1rem;">{i}</span> })}
-                <span style="font-size: 0.75rem; font-weight: 500; color: #6b7280; \
-                             text-transform: uppercase; letter-spacing: 0.05em;">
-                    {label}
-                </span>
+        <div class="stat-card">
+            <div class="stat-card-header">
+                {icon.map(|i| view! {
+                    <span class="stat-card-icon" aria-hidden="true">{i}</span>
+                })}
+                <span class="stat-card-label">{label}</span>
             </div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: #111827; line-height: 1.2;">
-                {value}
-            </div>
+            <div class="stat-card-value">{value}</div>
             {subtitle.map(|sub| {
-                view! {
-                    <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 4px;">
-                        {sub}
-                    </div>
-                }
+                view! { <div class="stat-card-subtitle">{sub}</div> }
             })}
         </div>
     }
