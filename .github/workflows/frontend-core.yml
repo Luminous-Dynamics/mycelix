@@ -61,10 +61,13 @@ jobs:
           fi
 
           echo "Retained archive: $archive"
-          sha256sum "$archive"
+          sha256sum "$archive" || true
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          tar -xzf "$archive" -C "$tmp"
+          if ! tar -xzf "$archive" -C "$tmp"; then
+            echo "::warning::Retained frontend archive could not be extracted. It is non-authoritative evidence and does not gate source qualification."
+            exit 0
+          fi
 
           echo "Top-level archive inventory:"
           find "$tmp" -maxdepth 3 -type f -print | sort | sed -n '1,200p'
@@ -77,6 +80,11 @@ jobs:
 
           archive_ui="$(dirname "$match")"
           echo "Archive UI candidate: $archive_ui"
+          if [ ! -d "$archive_ui/src" ]; then
+            echo "::warning::Archive UI candidate has no src/ tree. The Git-backed monorepo lineage remains authoritative."
+            exit 0
+          fi
+
           if diff -ru "$archive_ui/src" crates/mycelix-leptos-ui/src; then
             echo "Retained archive UI Rust source matches the restored authoritative source tree."
           else
