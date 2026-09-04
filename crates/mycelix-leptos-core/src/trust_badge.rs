@@ -3,65 +3,56 @@
 
 //! Trust tier badge component.
 //!
-//! Displays a user's consciousness-gated trust tier as a colored badge.
-//! The five tiers map to the Mycelix bridge-common consciousness gating
-//! system: Observer -> Participant -> Citizen -> Steward -> Guardian.
+//! Displays a user's consciousness-gated trust tier. This component presents
+//! an application-level tier; it does not claim cryptographic verification,
+//! identity proof, capability authority, or evidence validity.
 
 use leptos::prelude::*;
 
-/// Badge color and label configuration for each trust tier.
-struct TierStyle {
-    background: &'static str,
-    color: &'static str,
-    border: &'static str,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TierPresentation {
+    css_class: &'static str,
     label: &'static str,
 }
 
-fn tier_style(tier: &str) -> TierStyle {
-    match tier.to_lowercase().as_str() {
-        "observer" => TierStyle {
-            background: "#f3f4f6", // gray-100
-            color: "#4b5563",      // gray-600
-            border: "#d1d5db",     // gray-300
+fn tier_presentation(tier: &str) -> TierPresentation {
+    match tier.trim().to_ascii_lowercase().as_str() {
+        "observer" => TierPresentation {
+            css_class: "tier-observer",
             label: "Observer",
         },
-        "participant" => TierStyle {
-            background: "#dbeafe", // blue-100
-            color: "#2563eb",      // blue-600
-            border: "#93c5fd",     // blue-300
+        // The shared stylesheet retains the historical basic/standard/elevated
+        // class names while the product language uses Participant/Citizen/
+        // Steward. Keep that compatibility mapping explicit here rather than
+        // duplicating colors in Rust.
+        "participant" => TierPresentation {
+            css_class: "tier-basic",
             label: "Participant",
         },
-        "citizen" => TierStyle {
-            background: "#dcfce7", // green-100
-            color: "#16a34a",      // green-600
-            border: "#86efac",     // green-300
+        "citizen" => TierPresentation {
+            css_class: "tier-standard",
             label: "Citizen",
         },
-        "steward" => TierStyle {
-            background: "#f3e8ff", // purple-100
-            color: "#9333ea",      // purple-600
-            border: "#c084fc",     // purple-300
+        "steward" => TierPresentation {
+            css_class: "tier-elevated",
             label: "Steward",
         },
-        "guardian" => TierStyle {
-            background: "#fef3c7", // amber-100
-            color: "#b45309",      // amber-700
-            border: "#fbbf24",     // amber-400
+        "guardian" => TierPresentation {
+            css_class: "tier-guardian",
             label: "Guardian",
         },
-        _ => TierStyle {
-            background: "#f3f4f6",
-            color: "#4b5563",
-            border: "#d1d5db",
+        _ => TierPresentation {
+            css_class: "trust-tier-unknown",
             label: "Unknown",
         },
     }
 }
 
-/// Displays a trust tier as a styled badge.
+/// Displays a trust tier using the shared Mycelix design-system tier classes.
 ///
-/// The `tier` string is matched case-insensitively against the five
-/// Mycelix trust tiers. Unknown values render a gray "Unknown" badge.
+/// Unknown input remains explicitly unknown rather than being visually mapped
+/// to the lowest known tier. That distinction matters: an unrecognized or
+/// unavailable tier value is not evidence that the subject is an Observer.
 ///
 /// # Props
 ///
@@ -75,20 +66,43 @@ fn tier_style(tier: &str) -> TierStyle {
 /// ```
 #[component]
 pub fn TrustBadge(tier: String) -> impl IntoView {
-    let style = tier_style(&tier);
-    let label = style.label.to_string();
+    let presentation = tier_presentation(&tier);
+    let aria_label = format!("Trust tier: {}", presentation.label);
+    let class = format!(
+        "tier-badge trust-badge {}",
+        presentation.css_class
+    );
+    let unknown_style = if presentation.label == "Unknown" {
+        "background: var(--bg-surface, transparent); color: var(--text-muted, currentColor); border: 1px solid var(--border-visible, currentColor);"
+    } else {
+        ""
+    };
 
     view! {
-        <span
-            style=format!(
-                "display: inline-flex; align-items: center; padding: 2px 10px; \
-                 border-radius: 9999px; font-size: 0.75rem; font-weight: 600; \
-                 font-family: system-ui, sans-serif; line-height: 1.25rem; \
-                 background-color: {}; color: {}; border: 1px solid {};",
-                style.background, style.color, style.border,
-            )
-        >
-            {label}
+        <span class=class style=unknown_style aria-label=aria_label>
+            {presentation.label}
         </span>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tier_presentation;
+
+    #[test]
+    fn product_tier_names_map_to_existing_shared_theme_classes() {
+        assert_eq!(tier_presentation("observer").css_class, "tier-observer");
+        assert_eq!(tier_presentation("Participant").css_class, "tier-basic");
+        assert_eq!(tier_presentation("CITIZEN").css_class, "tier-standard");
+        assert_eq!(tier_presentation(" steward ").css_class, "tier-elevated");
+        assert_eq!(tier_presentation("guardian").css_class, "tier-guardian");
+    }
+
+    #[test]
+    fn unknown_tier_is_not_downgraded_to_observer() {
+        let unknown = tier_presentation("not-a-tier");
+        assert_eq!(unknown.label, "Unknown");
+        assert_eq!(unknown.css_class, "trust-tier-unknown");
+        assert_ne!(unknown.css_class, "tier-observer");
     }
 }
