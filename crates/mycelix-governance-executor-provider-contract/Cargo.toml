@@ -9,6 +9,7 @@ description = "Pure runtime provider projection contract for current Mycelix gov
 serde = { version = "1", features = ["derive"] }
 mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-identity = { path = "../mycelix-authority-identity" }
 mycelix-governance-authority = { path = "../mycelix-governance-authority" }
 mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
 mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
