@@ -4,7 +4,7 @@
 //! 8D Sovereign Profile Radar Chart
 
 use leptos::prelude::*;
-use sovereign_profile::{CivicTier, SovereignDimension, SovereignProfile};
+use sovereign_profile::{SovereignDimension, SovereignProfile};
 
 /// Size presets for the radar chart.
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -75,6 +75,17 @@ fn tier_color(score: f64) -> &'static str {
     } else {
         "var(--tier-observer, #7a8575)"
     }
+}
+
+/// Presentation-only pulse dynamics. Invalid or out-of-range scores must not
+/// be able to generate negative animation durations or unbounded transforms.
+fn pulse_dynamics(score: f64) -> (f64, f64) {
+    let bounded = if score.is_finite() {
+        score.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (4.0 - (bounded * 3.0), 1.0 + (bounded * 0.05))
 }
 
 /// Compute polygon points for the 8D profile.
@@ -303,9 +314,7 @@ pub fn SovereignRadar(
         if !pulse {
             return String::new();
         }
-        let s = pulse_style_score();
-        let duration = 4.0 - (s * 3.0);
-        let scale = 1.0 + (s * 0.05);
+        let (duration, scale) = pulse_dynamics(pulse_style_score());
         format!(
             "--sovereign-pulse-duration: {duration:.3}s; --sovereign-pulse-scale: {scale:.4};"
         )
@@ -340,5 +349,29 @@ pub fn SovereignRadar(
                 {profile_view}
             </svg>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pulse_dynamics, tier_color};
+
+    #[test]
+    fn tier_colors_resolve_through_semantic_tokens() {
+        assert!(tier_color(0.0).starts_with("var(--tier-observer"));
+        assert!(tier_color(0.3).starts_with("var(--tier-participant"));
+        assert!(tier_color(0.4).starts_with("var(--tier-citizen"));
+        assert!(tier_color(0.6).starts_with("var(--tier-steward"));
+        assert!(tier_color(0.8).starts_with("var(--tier-guardian"));
+    }
+
+    #[test]
+    fn pulse_dynamics_are_finite_and_bounded() {
+        assert_eq!(pulse_dynamics(-1.0), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(0.0), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(1.0), (1.0, 1.05));
+        assert_eq!(pulse_dynamics(2.0), (1.0, 1.05));
+        assert_eq!(pulse_dynamics(f64::NAN), (4.0, 1.0));
+        assert_eq!(pulse_dynamics(f64::INFINITY), (4.0, 1.0));
     }
 }
