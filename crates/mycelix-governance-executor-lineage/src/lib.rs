@@ -24,8 +24,7 @@ use mycelix_authority_identity::{
 use mycelix_governance_authority::ProposalId;
 use mycelix_governance_executor_designation::{
     qualify_executor_designation, ExecutorDesignation, ExecutorDesignationError,
-    QualifiedExecutorDesignation, VerifiedAuthorityGrant, VerifiedExecutorDesignation,
-    VerifiedThresholdAuthorization,
+    VerifiedAuthorityGrant, VerifiedExecutorDesignation, VerifiedThresholdAuthorization,
 };
 use mycelix_institutional_core::{
     AuthorityGrant, AuthorityGrantId, AuthoritySourceKind, CapabilityId, Digest32, InstitutionId,
@@ -130,6 +129,10 @@ impl QualifiedLineageBoundExecutorAuthority {
         &self.authority_profile
     }
 
+    pub fn semantic_valid_until_ms(&self) -> u64 {
+        self.semantic_valid_until_ms
+    }
+
     pub fn verified_at_ms(&self) -> u64 {
         self.verified_at_ms
     }
@@ -163,9 +166,9 @@ pub fn qualify_lineage_bound_executor_authority(
     // then overwrite that field with a deterministic marker derived from the
     // qualified lineage. The marker carries no authority outside the old API.
     let mut sanitized_grant_receipt = grant_receipt.clone();
-    sanitized_grant_receipt.delegation_verification_ref = lineage
-        .as_ref()
-        .map(|qualified| compatibility_lineage_marker(qualified.lineage_digest(), qualified.lineage_profile()));
+    sanitized_grant_receipt.delegation_verification_ref = lineage.as_ref().map(|qualified| {
+        compatibility_lineage_marker(qualified.lineage_digest(), qualified.lineage_profile())
+    });
 
     let qualified = qualify_executor_designation(
         threshold,
@@ -264,13 +267,9 @@ fn qualify_exact_lineage(
             Err(ExecutorLineageError::MissingDelegationLineage)
         }
         (Some(_), DelegationLineageEvidence::Delegated { root_grant, edges }) => {
-            let lineage = qualify_complete_delegation_lineage(
-                root_grant,
-                executor_grant,
-                edges,
-                now_ms,
-            )
-            .map_err(ExecutorLineageError::Delegation)?;
+            let lineage =
+                qualify_complete_delegation_lineage(root_grant, executor_grant, edges, now_ms)
+                    .map_err(ExecutorLineageError::Delegation)?;
             if lineage.target_grant_id() != &executor_grant.id {
                 return Err(ExecutorLineageError::LineageTargetMismatch);
             }
@@ -498,15 +497,34 @@ impl fmt::Display for ExecutorLineageError {
             Self::InvalidIdentifier => write!(f, "invalid executor-lineage identifier"),
             Self::InvalidReference => write!(f, "invalid executor-lineage reference"),
             Self::InvalidProfile => write!(f, "invalid executor-lineage digest profile"),
-            Self::GrantIdentity(error) => write!(f, "cannot canonicalize executor grant: {error}"),
-            Self::GrantIdentityProfileMismatch => write!(f, "unexpected canonical grant identity profile"),
-            Self::GrantIdentityMismatch => write!(f, "qualified executor designation names another grant"),
-            Self::MissingDelegationLineage => write!(f, "delegated executor grant lacks exact current delegation lineage"),
-            Self::UnexpectedDelegationLineage => write!(f, "direct executor grant must not carry delegation lineage"),
-            Self::LineageTargetMismatch => write!(f, "delegation lineage terminates at another grant"),
-            Self::Delegation(error) => write!(f, "delegation-lineage qualification failed: {error}"),
-            Self::ExecutorDesignation(error) => write!(f, "executor-designation qualification failed: {error}"),
-            Self::InactiveCurrentAuthority => write!(f, "lineage-bound executor authority is not currently reusable"),
+            Self::GrantIdentity(error) => {
+                write!(f, "cannot canonicalize executor grant: {error}")
+            }
+            Self::GrantIdentityProfileMismatch => {
+                write!(f, "unexpected canonical grant identity profile")
+            }
+            Self::GrantIdentityMismatch => {
+                write!(f, "qualified executor designation names another grant")
+            }
+            Self::MissingDelegationLineage => write!(
+                f,
+                "delegated executor grant lacks exact current delegation lineage"
+            ),
+            Self::UnexpectedDelegationLineage => {
+                write!(f, "direct executor grant must not carry delegation lineage")
+            }
+            Self::LineageTargetMismatch => {
+                write!(f, "delegation lineage terminates at another grant")
+            }
+            Self::Delegation(error) => {
+                write!(f, "delegation-lineage qualification failed: {error}")
+            }
+            Self::ExecutorDesignation(error) => {
+                write!(f, "executor-designation qualification failed: {error}")
+            }
+            Self::InactiveCurrentAuthority => {
+                write!(f, "lineage-bound executor authority is not currently reusable")
+            }
         }
     }
 }
@@ -579,6 +597,9 @@ mod tests {
         // The stable digest input type contains semantic authority only; there are
         // intentionally no verification timestamps, verification references, or
         // freshness lease fields to mutate here.
-        assert_eq!(EXECUTOR_LINEAGE_AUTHORITY_PROFILE, "mycelix-governance-executor-lineage-authority-v1-blake3-framed");
+        assert_eq!(
+            EXECUTOR_LINEAGE_AUTHORITY_PROFILE,
+            "mycelix-governance-executor-lineage-authority-v1-blake3-framed"
+        );
     }
 }
