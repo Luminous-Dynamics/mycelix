@@ -67,6 +67,11 @@ pub fn AvailabilityState(
     action: Option<AnyView>,
 ) -> impl IntoView {
     let availability_label = format!("Availability: {}", kind.label());
+    let status_style = if kind == AvailabilityStateKind::Unknown {
+        "background: var(--bg-surface, transparent); color: var(--text-muted, currentColor); border-color: var(--border-visible, currentColor);"
+    } else {
+        ""
+    };
 
     view! {
         <div class=format!("availability-state {}", kind.css_class())>
@@ -77,6 +82,7 @@ pub fn AvailabilityState(
                         <span class="availability-state-title">{title}</span>
                         <span
                             class=format!("status-pill {}", kind.css_class())
+                            style=status_style
                             aria-label=availability_label
                         >
                             {kind.label()}
