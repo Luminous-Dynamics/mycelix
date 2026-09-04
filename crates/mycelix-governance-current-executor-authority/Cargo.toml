@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-governance-current-executor-authority"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure generation-bound current executor authority qualification for Mycelix governance"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-identity = { path = "../mycelix-authority-identity" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
+mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
