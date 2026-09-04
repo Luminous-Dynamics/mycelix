@@ -35,9 +35,11 @@ jobs:
           for manifest in \
             crates/mycelix-leptos-client/Cargo.toml \
             crates/mycelix-leptos-ui/Cargo.toml \
-            crates/mycelix-leptos-core/Cargo.toml; do
+            crates/mycelix-leptos-core/Cargo.toml \
+            mycelix-workspace/mycelix-personal/crates/personal-leptos-types/Cargo.toml \
+            mycelix-workspace/mycelix-identity/crates/mycelix-crypto/Cargo.toml; do
             if [ ! -f "$manifest" ]; then
-              echo "::error file=$manifest::Required shared frontend source is missing from this repository."
+              echo "::error file=$manifest::Required shared frontend dependency source is missing from this repository."
               status=1
             fi
           done
@@ -46,14 +48,39 @@ jobs:
             echo "Shared frontend source distribution is incomplete."
             echo "Archive candidates retained by the repository:"
             find mycelix-workspace/crates -maxdepth 1 -type f -name 'mycelix-leptos-*.tar.gz' -print 2>/dev/null || true
-
-            for archive in mycelix-workspace/crates/mycelix-leptos-*.tar.gz; do
-              [ -f "$archive" ] || continue
-              echo "=== archive listing: $archive ==="
-              tar -tzf "$archive" | sed -n '1,200p'
-            done
-
             exit 1
+          fi
+
+      - name: Inventory retained frontend archive evidence
+        shell: bash
+        run: |
+          archive="mycelix-workspace/crates/mycelix-leptos-.tar.gz"
+          if [ ! -f "$archive" ]; then
+            echo "No retained frontend archive present."
+            exit 0
+          fi
+
+          echo "Retained archive: $archive"
+          sha256sum "$archive"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          tar -xzf "$archive" -C "$tmp"
+
+          echo "Top-level archive inventory:"
+          find "$tmp" -maxdepth 3 -type f -print | sort | sed -n '1,200p'
+
+          match="$(find "$tmp" -type f -path '*/mycelix-leptos-ui/Cargo.toml' -print -quit)"
+          if [ -z "$match" ]; then
+            echo "::notice::Retained archive does not contain a mycelix-leptos-ui/Cargo.toml at a recognizable path; authoritative restoration does not rely on this archive."
+            exit 0
+          fi
+
+          archive_ui="$(dirname "$match")"
+          echo "Archive UI candidate: $archive_ui"
+          if diff -ru "$archive_ui/src" crates/mycelix-leptos-ui/src; then
+            echo "Retained archive UI Rust source matches the restored authoritative source tree."
+          else
+            echo "::warning::Retained archive UI Rust source differs from the restored authoritative source tree. The Git-backed monorepo lineage remains authoritative."
           fi
 
       - uses: dtolnay/rust-toolchain@stable
