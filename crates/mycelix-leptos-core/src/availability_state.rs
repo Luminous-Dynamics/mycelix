@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Generic availability-state rendering helpers for Mycelix frontends.
+//!
+//! Availability is deliberately not collapsed into a binary online/offline
+//! signal. In particular, `Unknown` means the application cannot currently
+//! establish the state; it must not be presented as `Empty`, `Unavailable`, or
+//! `Live` merely to produce a more definite-looking interface.
 
 use leptos::prelude::*;
 
@@ -12,6 +17,7 @@ pub enum AvailabilityStateKind {
     Empty,
     Locked,
     Degraded,
+    Unknown,
     Unavailable,
 }
 
@@ -23,6 +29,7 @@ impl AvailabilityStateKind {
             Self::Empty => "Empty",
             Self::Locked => "Locked",
             Self::Degraded => "Degraded",
+            Self::Unknown => "Unknown",
             Self::Unavailable => "Unavailable",
         }
     }
@@ -34,6 +41,7 @@ impl AvailabilityStateKind {
             Self::Empty => "availability-empty",
             Self::Locked => "availability-locked",
             Self::Degraded => "availability-degraded",
+            Self::Unknown => "availability-unknown",
             Self::Unavailable => "availability-unavailable",
         }
     }
@@ -45,6 +53,7 @@ impl AvailabilityStateKind {
             Self::Empty => "○",
             Self::Locked => "◈",
             Self::Degraded => "△",
+            Self::Unknown => "?",
             Self::Unavailable => "×",
         }
     }
@@ -57,19 +66,39 @@ pub fn AvailabilityState(
     #[prop(into)] description: String,
     action: Option<AnyView>,
 ) -> impl IntoView {
+    let availability_label = format!("Availability: {}", kind.label());
+
     view! {
         <div class=format!("availability-state {}", kind.css_class())>
             <div class="availability-state-header">
-                <span class="availability-state-icon">{kind.icon()}</span>
+                <span class="availability-state-icon" aria-hidden="true">{kind.icon()}</span>
                 <div class="availability-state-copy">
                     <div class="availability-state-meta">
                         <span class="availability-state-title">{title}</span>
-                        <span class=format!("status-pill {}", kind.css_class())>{kind.label()}</span>
+                        <span
+                            class=format!("status-pill {}", kind.css_class())
+                            aria-label=availability_label
+                        >
+                            {kind.label()}
+                        </span>
                     </div>
                     <p class="availability-state-description">{description}</p>
                 </div>
             </div>
             {action}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AvailabilityStateKind;
+
+    #[test]
+    fn unknown_is_distinct_from_empty_and_unavailable() {
+        assert_ne!(AvailabilityStateKind::Unknown, AvailabilityStateKind::Empty);
+        assert_ne!(AvailabilityStateKind::Unknown, AvailabilityStateKind::Unavailable);
+        assert_eq!(AvailabilityStateKind::Unknown.label(), "Unknown");
+        assert_eq!(AvailabilityStateKind::Unknown.css_class(), "availability-unknown");
     }
 }
