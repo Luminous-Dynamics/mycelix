@@ -4,36 +4,46 @@ Status: **pure semantic qualification kernel; not a runtime authority source**
 
 This crate answers two narrow questions:
 
-1. Does one exact, currently fresh parent grant lawfully attenuate into one exact, currently fresh child grant under one independently authorized delegation attestation?
-2. Do already-qualified edges form one complete, generation-consistent, current root-to-target delegation lineage?
+1. Does one exact, currently fresh parent grant lawfully attenuate into one exact, currently fresh child grant under one **already-qualified current delegation policy authority** from `mycelix-authority-delegation-policy`?
+2. Do already-qualified edges form one complete, generation-consistent, policy-consistent current root-to-target delegation lineage?
 
-It does not store grants, choose a current revocation record, verify cryptography itself, execute effects, or infer delegation authority from reputation, role prestige, model output, or possession of a capability.
+It does not store grants, choose current revocation records, adopt delegation policy, verify cryptography itself, execute effects, or infer delegation authority from reputation, role prestige, model output, or possession of a capability.
 
 ## 1. Possession is not delegability
 
 A parent grant containing capability `X` does **not** imply that its holder may delegate `X`.
 
-Every `DelegationAttestation` must bind a separate immutable `DelegationAuthorityBinding`:
+`qualify_delegation_edge` requires a real `QualifiedDelegationAuthority` produced by the policy kernel. Application data, a policy ID, a policy digest, or a cryptographically valid delegation proof is insufficient.
 
-- exact authority reference;
-- exact non-zero authority digest; and
-- exact authority digest profile.
+The attestation commits the exact current `DelegationAuthorityRef`, including policy identity and current parent/policy generations. It must equal the ref exposed by the qualified policy authority.
 
-`VerifiedDelegationAttestation` must independently verify that exact binding in addition to verifying the delegation proof itself.
+## 2. Policy scope is mechanically enforced
 
-A cryptographically valid proof with the wrong/missing delegation-authority binding is insufficient.
+The qualified policy authority must bind the same:
 
-## 2. Exact grant identity
+- parent grant ID;
+- parent canonical grant digest;
+- parent generation;
+- delegator;
+- institution;
+- jurisdiction; and
+- rulebook.
 
-Parent and child grants are identified with the shared canonical profile from `mycelix-authority-identity`:
+The edge qualifier calls `QualifiedDelegationAuthority::validate_delegation_scope` over the actual child holder, child roles, child capabilities, delegation issue time, and delegation expiry.
+
+Policy meaning is therefore executable semantics rather than a provider convention.
+
+## 3. Exact grant identity
+
+Parent and child grants use the shared canonical profile:
 
 `mycelix-authority-grant-v1-blake3-framed-semantic`
 
 A textual grant ID is never enough.
 
-The attestation commits the exact parent and child canonical grant digests. Same ID with changed holder, capability, rulebook, source/proof lineage, lifetime, or delegation parent is a different authority object.
+The attestation commits exact parent and child canonical grant digests. Same ID with changed holder, capability, rulebook, source/proof lineage, lifetime, or delegation parent is a different authority object.
 
-## 3. Exact parent/child relation
+## 4. Exact parent/child relation
 
 A qualified edge requires:
 
@@ -42,98 +52,101 @@ A qualified edge requires:
 - attestation parent/child digests exactly match canonical grant identities;
 - delegator equals parent holder;
 - delegate equals child holder; and
-- parent, child, and attestation have the same institution, jurisdiction, and rulebook.
+- parent, child, attestation, and qualified delegation policy agree on institution, jurisdiction, and rulebook.
 
-## 4. Authority may only attenuate
+## 5. Authority may only attenuate
 
 The child role set must be a subset of the parent role set.
 
 The child capability set must be a subset of the parent capability set.
 
-The attestation's role/capability sets must exactly equal the child's sets.
+The attestation role/capability sets must exactly equal the child's sets.
 
-Set ordering is non-semantic. Duplicate delegated roles/capabilities are invalid rather than silently normalized.
+The qualified policy may impose an even narrower role/capability/delegate/lifetime scope, which must also pass.
 
-Malformed deserialized role/capability identifiers are rejected before canonicalization.
+Set ordering is non-semantic. Duplicate delegated roles/capabilities are invalid rather than silently normalized. Malformed deserialized role/capability identifiers are rejected before canonicalization.
 
-## 5. Delegation provenance is exact
+## 6. Delegation provenance is exact
 
 The child grant must contain exactly one `AuthoritySourceKind::Delegation` source.
 
 That source must bind the exact delegation ID and exact proof reference from the attestation.
 
-A proof/source from another parent-child pair cannot be replayed onto a changed child because both the child canonical digest and source/proof lineage are identity-bearing.
+A proof/source from another parent-child pair cannot be replayed onto changed child bytes because canonical grant identity and proof/source lineage are identity-bearing.
 
-## 6. Lifetime can only shrink
+## 7. Lifetime can only shrink
 
 The delegation cannot begin before the parent grant exists or outlive the parent grant.
 
 The child cannot begin before the delegation exists and cannot outlive either the delegation or parent grant.
 
-No delegation edge may extend authority lifetime.
+The qualified delegation policy may further reduce the permitted child interval and contributes its own current lease horizon.
 
-## 7. Current freshness is separate from historical identity
+No edge may extend parent or policy authority lifetime.
+
+## 8. Current freshness is separate from historical identity
 
 Parent grant, child grant, and delegation attestation each require current freshness evidence from `mycelix-authority-freshness`.
 
-Their complete current freshness set must qualify under the registered bundle profile.
+The complete edge freshness set must qualify under `BUNDLE_IDENTITY_PROFILE`.
 
-A freshness status for a grant may not become effective before the immutable grant exists.
+The qualified delegation policy separately proves current parent+policy freshness and exposes a bounded lease. The final edge lease is the minimum of all relevant current-authority and semantic expiry horizons.
 
-A freshness status for a delegation may not become effective before the immutable delegation attestation exists.
+A grant freshness status may not become effective before the immutable grant exists. A delegation freshness status may not become effective before the immutable attestation exists.
 
-Later re-verification of the same generation/state may refresh proof metadata and lease horizon without changing edge identity.
+Later re-verification of unchanged generations may refresh proof metadata/leases without changing stable authority identity. Generation or state changes alter current authority.
 
-A generation/state change changes the current freshness commitment and therefore the current edge identity.
-
-## 8. Delegation binds exact generations
+## 9. Delegation binds exact generations
 
 The attestation commits exact parent and child generations.
 
-Those generations must equal the current freshness snapshots supplied for parent and child.
+Those generations must equal current grant freshness snapshots. The parent generation must already have been effective when delegation was issued.
 
-The parent generation must already have been effective when the delegation was issued.
+The attestation's `DelegationAuthorityRef` also commits the exact current parent/policy generations qualified by the policy layer, preventing stale policy authority from being silently reused after revocation/re-authorization.
 
-A stale parent/child generation cannot be replayed into a current edge.
-
-## 9. Current edge identity is stable but revocation-sensitive
+## 10. Current edge identity is policy- and revocation-sensitive
 
 `QualifiedDelegationEdge.current_edge_digest` commits:
 
-- exact delegation-attestation semantic identity; and
-- exact generation-bound current-freshness bundle identity.
+- exact delegation-attestation semantic identity;
+- exact generation-bound edge freshness bundle; and
+- the effective `allow_redelegation` decision inherited from the exact qualified policy authority.
 
-Verifier invocation timestamps and verification references are not part of this stable identity.
+The attestation itself commits the exact current `DelegationAuthorityRef`.
 
-The qualified edge itself is not `Deserialize` and has private fields. Downstream code must obtain it through qualification rather than reconstructing authority from application data.
+Dynamic verifier invocation timestamps/references do not define edge identity.
 
-## 10. Complete lineage is reconstructed, not selected
+Qualified edge/lineage types have private fields and intentionally do not implement `Deserialize`.
 
-`qualify_complete_delegation_lineage` receives already-qualified current edges and reconstructs the exact target-to-root parent chain.
+## 11. Re-delegation is explicit authority
 
-It must never choose a winner by:
+A child grant being technically usable as a parent does not imply onward delegation is lawful.
 
-- timestamp;
-- DHT arrival order;
-- vector order;
-- highest score;
-- reputation;
-- Phi/consciousness; or
-- model recommendation.
+For every intermediate hop in a multi-edge lineage, the **incoming** edge must carry `allow_redelegation == true` from its exact qualified policy authority.
+
+If any incoming policy did not explicitly authorize onward delegation, complete lineage qualification returns `RedelegationNotAuthorized`.
+
+A one-edge root→target delegation does not require onward re-delegation authority because the target is not being used as another parent.
+
+## 12. Complete lineage is reconstructed, not selected
+
+`qualify_complete_delegation_lineage` receives already-qualified current edges and reconstructs the exact target-to-root chain.
+
+It never chooses a winner by timestamp, DHT/input order, author identity, score, reputation, Phi/consciousness, stake, or model recommendation.
 
 Input edge order is irrelevant.
 
-## 11. Generation continuity across edges
+## 13. Generation continuity across edges
 
 For every intermediate grant:
 
-`previous_edge.child_generation == next_edge.parent_generation`
+`incoming.child_generation == outgoing.parent_generation`
 
-The canonical grant identity must also match across adjacent edges.
+Canonical grant identity must also match across adjacent edges.
 
-A lineage may not splice a generation-1 child view into a generation-2 parent view of the same intermediate immutable grant, even when both edge objects were independently valid at different times.
+A lineage may not splice a generation-1 child view into a generation-2 parent view of the same intermediate grant, even if each edge was independently valid at a different time.
 
-## 12. Closed-set fail-closed lineage
+## 14. Closed-set fail-closed lineage
 
 The complete lineage rejects:
 
@@ -141,46 +154,41 @@ The complete lineage rejects:
 - duplicate children;
 - cycles;
 - unrelated/extraneous edges;
-- identity discontinuity;
+- canonical identity discontinuity;
 - generation discontinuity;
-- expired edge/freshness leases;
+- unauthorized re-delegation;
+- expired edge/current-policy/freshness leases;
 - delegated roots; and
 - depth greater than 16.
 
 Every supplied edge must belong to the one exact root-to-target chain.
 
-## 13. Historical verification is separate
+## 15. Historical verification is separate
 
 This crate qualifies **current** delegation authority.
 
-Later revocation must prevent new authority use without destroying auditability of a delegation or action that was valid historically.
+Later revocation must prevent new authority use without destroying auditability of a delegation/action that was valid historically.
 
-Historical replay must resolve the generations effective as-of the historical event rather than reusing the current-authority function.
+Historical replay must resolve the policy/grant/delegation generations effective as-of the historical event rather than calling current-authority qualification with stale receipts.
 
-## 14. Advisory systems have no authority here
+## 16. Advisory systems have no authority here
 
 Phi, consciousness scores, reputation, stake, intelligence/model output, and advisory recommendations are not inputs to delegation qualification.
 
-They cannot:
+They cannot authorize delegation, expand a child grant, select a lineage branch/generation, bypass a delegation policy, create re-delegation permission, revoke authority, or restore revoked authority.
 
-- authorize delegation;
-- expand a child grant;
-- select a lineage branch;
-- choose a generation;
-- revoke a grant; or
-- restore revoked authority.
-
-## 15. Runtime follow-on remains fail-closed
+## 17. Runtime follow-on remains fail-closed
 
 A future runtime provider must independently establish the exact:
 
 - canonical parent and child grant records;
 - grant proof validity;
-- delegation authority decision/policy validity;
+- institution-adopted delegation policy and policy proof/source validity;
+- current parent/policy freshness used to construct `QualifiedDelegationAuthority`;
 - delegation proof validity;
-- current generation/status source for every required subject; and
-- bounded freshness lease.
+- current parent/child/delegation status for every required edge; and
+- bounded freshness leases.
 
-Missing provider, lookup failure, malformed receipt, ambiguous current state, revoked generation, or stale lease must deny.
+Missing provider, lookup failure, malformed receipt, ambiguous current state, revoked/superseded generation, stale lease, policy mismatch, or missing re-delegation authority must deny.
 
 This crate does **not** enable external effects.
