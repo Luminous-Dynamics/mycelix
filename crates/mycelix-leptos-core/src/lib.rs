@@ -15,6 +15,7 @@
 //! - [`ConnectionBadge`] — Compact connection badge for navbars
 //! - [`TrustBadge`] — Consciousness-gated trust tier badge
 //! - [`EvidenceDisclosure`] — Evidence availability/freshness disclosure without verification claims
+//! - [`ProvenanceTrail`] — Ordered, gap-preserving explanation of consequential records/events
 //! - [`TierGate`] — Gating component that shows/hides children by tier
 //! - [`LoadingSkeleton`] — Pulsing skeleton placeholder for loading states
 //! - [`AppErrorBoundary`] — Styled error boundary with retry
@@ -75,6 +76,7 @@ pub mod indlela;
 pub use mycelix_leptos_ui::loading;
 pub mod local_identity;
 pub mod modal;
+pub mod provenance;
 pub use mycelix_leptos_ui::progress_bar;
 pub mod search_bar;
 pub mod showcase;
@@ -151,6 +153,7 @@ pub use local_identity::{
     LocalIdentity, load_json, local_did, provide_local_identity, save_json, use_local_identity,
 };
 pub use modal::{ConfirmDialog, Modal, ModalSize};
+pub use provenance::{ProvenanceStep, ProvenanceTrail};
 pub use search_bar::SearchBar;
 pub use showcase::Showcase;
 pub use sovereign_radar::{SovereignRadar, SovereignRadarSize};
