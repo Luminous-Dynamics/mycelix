@@ -1,0 +1,81 @@
+name: Authority State Runtime Contract
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-state-coverage-context/RUNTIME_ADAPTER_CONTRACT.md'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-source/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-state-runtime-contract.yml'
+  push:
+    branches:
+      - 'security/authority-state-runtime-contract-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-state-runtime-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Runtime authority remains explicit and unprovisioned
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Audit runtime contract and containment
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          contract = Path('crates/mycelix-authority-state-coverage-context/RUNTIME_ADAPTER_CONTRACT.md').read_text()
+          dna_path = Path('mycelix-governance/dna/dna.yaml')
+          dna = dna_path.read_text() if dna_path.exists() else ''
+
+          required = [
+              'Local DHT visibility is not proof of authoritative completeness.',
+              'host randomness',
+              'private source-chain entropy record',
+              'respond_authority_state_head_challenge',
+              'capability protected',
+              'source-chain head',
+              'must_get_agent_activity',
+              'Trust-domain classification is a separate provider',
+              'Same operator running many keys does not create independence',
+              'Source compromise and refusal are distinct from coverage',
+              'Historical verification uses immutable receipts',
+              'No external effects',
+          ]
+          for token in required:
+              assert token in contract, token
+
+          forbidden_runtime_shortcuts = [
+              'DHT query returned no later records, therefore current',
+              'highest timestamp is current authority',
+              'different AgentPubKeys imply independent trust domains',
+          ]
+          for token in forbidden_runtime_shortcuts:
+              assert token not in contract, token
+
+          # These names are reserved for future qualified runtime providers. This
+          # contract PR must not silently provision them into the binding DNA.
+          forbidden_zomes = [
+              'authority_state_challenge',
+              'authority_state_source',
+              'authority_state_coverage',
+              'authority_state_witness',
+              'authority_state_trust_domain_verifier',
+          ]
+          for name in forbidden_zomes:
+              assert f'name: {name}' not in dna, f'unqualified authority-state runtime zome provisioned: {name}'
+
+          lowered = contract.lower()
+          assert 'phi' not in lowered
+          assert 'reputation' not in lowered
+          assert 'model score' not in lowered
+          print('PASS: authority-state runtime remains challenge-bound, coverage-aware, fail-closed, and unprovisioned')
+          PY
