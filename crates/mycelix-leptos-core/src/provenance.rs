@@ -104,11 +104,14 @@ fn ProvenanceStepView(step: ProvenanceStep) -> impl IntoView {
         inspect_href,
     } = step;
 
+    let inspect_context = label.clone();
     let action = inspect_href.map(|href| {
+        let aria_label = format!("Inspect evidence for {inspect_context}");
         view! {
             <a
                 class="provenance-inspect-link"
                 href=href
+                aria-label=aria_label
                 style="display: inline-flex; margin-top: var(--space-xs, 0.25rem); font-size: var(--text-sm, 0.8125rem);"
             >
                 "Inspect"
