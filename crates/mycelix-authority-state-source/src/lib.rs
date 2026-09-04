@@ -100,6 +100,9 @@ impl AuthorityStateTransition {
         if self.generation == 0 {
             return Err(AuthorityStateSourceError::ZeroGeneration);
         }
+        if self.generation > MAX_TRANSITIONS as u64 {
+            return Err(AuthorityStateSourceError::GenerationOutOfRange);
+        }
         if self.effective_at_ms == 0 {
             return Err(AuthorityStateSourceError::InvalidEffectiveTime);
         }
@@ -146,7 +149,9 @@ impl AuthorityStateTransition {
         let Some(previous_digest) = self.previous_transition_digest else {
             return Err(AuthorityStateSourceError::MissingParent);
         };
-        if previous_generation == 0 || previous_generation + 1 != self.generation {
+        if previous_generation == 0
+            || previous_generation.checked_add(1) != Some(self.generation)
+        {
             return Err(AuthorityStateSourceError::GenerationDiscontinuity);
         }
         if previous_digest.is_zero() {
@@ -426,7 +431,7 @@ fn project(
         .keys()
         .next_back()
         .ok_or(AuthorityStateSourceError::MissingRoot)?;
-    if max_generation as usize != by_generation.len() {
+    if max_generation != by_generation.len() as u64 {
         return Err(AuthorityStateSourceError::GenerationDiscontinuity);
     }
 
@@ -649,6 +654,7 @@ pub enum AuthorityStateSourceError {
     InvalidSubject,
     InvalidReference,
     ZeroGeneration,
+    GenerationOutOfRange,
     InvalidEffectiveTime,
     ZeroReasonDigest,
     InvalidRootTransition,
@@ -684,6 +690,7 @@ impl fmt::Display for AuthorityStateSourceError {
             Self::InvalidSubject => "invalid authority-state subject",
             Self::InvalidReference => "invalid authority-state reference",
             Self::ZeroGeneration => "authority-state generation must be non-zero",
+            Self::GenerationOutOfRange => "authority-state generation exceeds v0.1 bound",
             Self::InvalidEffectiveTime => "authority-state effective time must be non-zero",
             Self::ZeroReasonDigest => "authority-state reason digest must be non-zero",
             Self::InvalidRootTransition => "authority-state root must establish generation 1 Active",
@@ -940,6 +947,30 @@ mod tests {
         assert_eq!(
             project_current_authority_state(&subject(), &transitions, 1_000).unwrap_err(),
             AuthorityStateSourceError::AuthoritativeSourceMismatch
+        );
+    }
+
+    #[test]
+    fn generation_above_protocol_bound_denies_without_arithmetic() {
+        let transition = AuthorityStateTransition {
+            protocol_version: PROTOCOL_VERSION.into(),
+            transition_id: "transition:overflow".into(),
+            subject: subject(),
+            generation: u64::MAX,
+            kind: AuthorityStateTransitionKind::Reactivate,
+            state: AuthorityFreshnessState::Active,
+            previous_generation: Some(u64::MAX),
+            previous_transition_digest: Some(d(9)),
+            effective_at_ms: 500,
+            status_record_ref: "status:overflow".into(),
+            reason_digest: d(8),
+            authority_ref: "authority:overflow".into(),
+            authority_proof_ref: "authority-proof:overflow".into(),
+            record_proof_ref: "record-proof:overflow".into(),
+        };
+        assert_eq!(
+            transition.validate().unwrap_err(),
+            AuthorityStateSourceError::GenerationOutOfRange
         );
     }
 }
