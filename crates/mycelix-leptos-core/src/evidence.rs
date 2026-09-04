@@ -113,7 +113,7 @@ pub fn EvidenceDisclosure(
     availability: EvidenceAvailability,
     #[prop(into)] title: String,
     #[prop(optional, into)] detail: Option<String>,
-    action: Option<AnyView>,
+    #[prop(optional_no_strip)] action: Option<AnyView>,
 ) -> impl IntoView {
     let evidence_label = accessibility_label(availability);
     let freshness = availability.freshness();
