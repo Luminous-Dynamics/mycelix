@@ -122,7 +122,7 @@ pub fn entropy_nonce_digest(bytes: &[u8]) -> Digest32 {
     hasher.update(ENTROPY_DIGEST_PROFILE.as_bytes());
     hasher.update(&(bytes.len() as u64).to_le_bytes());
     hasher.update(bytes);
-    Digest32(*hasher.finalize().as_bytes()))
+    Digest32(*hasher.finalize().as_bytes())
 }
 
 fn validate_create_entropy(
