@@ -51,9 +51,10 @@ send_wrapper = "0.6"
 # WASM-safe mirror types (NO hdi dependencies)
 identity-leptos-types = { path = "../../crates/identity-leptos-types" }
 
-# Mycelix shared Leptos infrastructure
-mycelix-leptos-core = { path = "../../../../crates/mycelix-leptos-core" }
-mycelix-leptos-client = { path = "../../../../crates/mycelix-leptos-client", features = ["browser"] }
+# Mycelix shared Leptos infrastructure. This top-level export is one directory
+# shallower than the canonical copy under mycelix-workspace/.
+mycelix-leptos-core = { path = "../../../crates/mycelix-leptos-core" }
+mycelix-leptos-client = { path = "../../../crates/mycelix-leptos-client", features = ["browser"] }
 
 [profile.release]
 opt-level = "z"
