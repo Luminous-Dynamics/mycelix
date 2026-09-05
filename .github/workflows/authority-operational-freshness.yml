@@ -1,0 +1,108 @@
+name: Authority Operational Freshness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-operational-freshness/**'
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-state-source/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/authority-operational-freshness.yml'
+  push:
+    branches:
+      - 'security/authority-operational-freshness-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-operational-freshness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Covered current operational authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-operational-freshness/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-operational-freshness/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-operational-freshness/Cargo.toml --all-targets -- -D warnings
+      - name: Downstream authority compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-operational-context/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-state-source/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-state-coverage-context/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+      - name: Operational freshness authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-operational-freshness/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-operational-freshness/INVARIANTS.md').read_text().lower()
+
+          required = [
+              'qualify_operational_subject_freshness',
+              'context.validate_current_at(now_ms)',
+              'qualify_context_bound_coverage(',
+              'project_current_authority_state(',
+              'to_current_freshness_receipt()',
+              'freshness.lease_until_ms = freshness.lease_until_ms.min(context.valid_until_ms())',
+              'AUTHORITY_IDENTITY_PROFILE',
+              'EVIDENCE_IDENTITY_PROFILE',
+              'operational_authority_digest(',
+              'operational_evidence_digest(',
+              'qualify_operational_freshness_set',
+              'qualify_current_freshness(',
+              'authority_items.sort_by',
+              'BootstrapRootMismatch',
+          ]
+          for token in required:
+              assert token in src, token
+
+          # Stable authority identity must not include the fresh coverage instance.
+          authority_fn = src.split('fn operational_authority_digest(', 1)[1].split('fn operational_evidence_digest(', 1)[0]
+          assert 'context_coverage_digest' not in authority_fn
+          evidence_fn = src.split('fn operational_evidence_digest(', 1)[1].split('fn operational_set_digest(', 1)[0]
+          assert 'context_coverage_digest' in evidence_fn
+
+          forbidden = [
+              'project_authority_state_as_of(',
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'get_links(',
+              'execute_actions',
+              'latest timestamp',
+          ]
+          lowered = src.lower()
+          for token in forbidden:
+              assert token.lower() not in lowered, token
+
+          before = src.split('pub struct QualifiedOperationalSubjectFreshness', 1)[0][-180:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+
+          assert 'stable authority identity and dynamic evidence identity are separate' in inv
+          assert 'a valid prefix is not current authority' in inv
+          assert 'historical state cannot become live freshness' in inv
+          assert 'one bootstrap-root epoch per closed set' in inv
+          assert 'set identity also commits policy-qualified authority identities' in inv
+
+          print('PASS: operational freshness is policy-current, coverage-complete, current-only, and separates stable authority from fresh evidence')
+          PY
