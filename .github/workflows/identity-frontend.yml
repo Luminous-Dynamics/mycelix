@@ -1,0 +1,82 @@
+name: Identity Frontend
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-identity/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-identity/apps/leptos/**'
+      - 'mycelix-identity/crates/identity-leptos-types/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/identity-frontend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-identity/apps/leptos/**'
+      - 'mycelix-workspace/mycelix-identity/apps/leptos/**'
+      - 'mycelix-identity/crates/identity-leptos-types/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-leptos-types/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-ui/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/identity-frontend.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  identity-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify exported Identity frontend mirrors
+        shell: bash
+        run: |
+          diff -ru \
+            --exclude Cargo.toml \
+            mycelix-identity/apps/leptos \
+            mycelix-workspace/mycelix-identity/apps/leptos
+
+      - name: Verify exported Identity type mirrors
+        shell: bash
+        run: |
+          diff -ru \
+            mycelix-identity/crates/identity-leptos-types \
+            mycelix-workspace/mycelix-identity/crates/identity-leptos-types
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity/apps/leptos
+            mycelix-workspace/mycelix-identity/apps/leptos
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-ui
+            crates/mycelix-leptos-client
+
+      - name: Verify both exported manifests resolve locally
+        run: |
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path mycelix-identity/apps/leptos/Cargo.toml >/dev/null
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path mycelix-workspace/mycelix-identity/apps/leptos/Cargo.toml >/dev/null
+
+      - name: Check Identity frontend formatting
+        run: |
+          cargo fmt --manifest-path mycelix-identity/apps/leptos/Cargo.toml --all -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/apps/leptos/Cargo.toml --all -- --check
+
+      - name: Check Identity frontends for wasm32
+        run: |
+          cargo check --manifest-path mycelix-identity/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
