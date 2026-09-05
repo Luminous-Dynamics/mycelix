@@ -1,180 +1,219 @@
-# Authority State Challenge Runtime v0.1 — Normative Invariants
+# Authority-State Probe Runtime v0.1 — Normative Invariants
 
 Status: **implemented runtime candidate; deliberately unprovisioned in the binding governance DNA**
 
-This zome pair implements only the challenge-issuance role from the authority-state runtime contract.
+This zome pair implements only fresh read-only evidence probing.
 
-It does not implement the authority-state source, source-head verifier, witness verifier, trust-domain verifier, coverage composer, governance executor, or any external effect.
+A probe is **not authority**.
 
-## 1. Context authority is mandatory
+It does not prove that the candidate coverage/context policies are current, does not prove the target authority subject is current, and cannot authorize governance, mutation, voting, lifecycle claims, or external effects.
 
-Challenge issuance calls exactly one independent context provider:
+## 1. Bootstrap-cycle rule
 
-`authority_state_context_policy_verifier.resolve_challenge_context(subject)`
+The runtime MUST NOT require current operational coverage/context policy freshness merely to generate the probe used to discover that freshness.
 
-A positive context receipt must bind the exact subject, context-policy digest/profile, coverage-policy digest/profile, bounded challenge lifetime, context lifetime, designated challenge issuer, verification provenance and current lease.
+The invalid dependency is:
 
-If the provider zome/function is absent, undecodable, stale, inexact, or designates another issuer, issuance denies.
+`probe -> current policy freshness -> probe`.
 
-Caller input contains only the requested exact `AuthoritySubjectRef`. Caller-provided context/policy authority is not accepted.
+`issue_authority_state_probe` therefore performs no call to:
 
-## 2. Caller nonce authority is impossible
+- `authority_state_context_policy_verifier`;
+- `authority_current_freshness_verifier`;
+- an issuer-grant verifier; or
+- any execution-authority provider.
 
-The issuance API has no entropy/nonce field.
+The probe becomes useful only when later constitution/root or operational qualification accepts the exact policy identities it carries.
 
-Entropy is generated inside the coordinator using Holochain's host `random_bytes` function.
+## 2. Caller policy selection is candidate evidence, not authority
+
+The request may identify:
+
+- one exact `AuthoritySubjectRef`;
+- one exact candidate context-policy digest;
+- one exact candidate coverage-policy digest; and
+- a bounded requested lifetime.
+
+The runtime supplies the registered policy profiles itself.
+
+Caller-selected candidate digests are **not** treated as current policy. Later #96/root qualification must recompute and accept those exact identities independently.
+
+## 3. Caller nonce authority is impossible
+
+The issuance API has no entropy, nonce, randomness-proof, timestamp, or issuer field.
+
+Entropy is generated inside the coordinator using Holochain host `random_bytes`.
 
 The caller cannot select:
 
 - entropy bytes;
 - nonce digest;
 - randomness-proof ref;
-- issue timestamp;
-- expiry; or
-- challenge issuer.
+- issue timestamp; or
+- probe author/provenance.
 
-## 3. Raw entropy is private by construction
+The caller may request a shorter lifetime, bounded by `MAX_PROBE_LIFETIME_MS`. A requested lifetime grants no authority and later policy qualification may reject it as too long for the accepted context.
+
+## 4. Raw entropy is private by construction
 
 `ChallengeEntropyRecord` is registered with:
 
 `#[entry_type(visibility = "private")]`
 
-The raw 32-byte entropy remains only on the issuer's local source chain and is never copied into `AuthorityStateChallengeRecord`.
+The raw 32-byte entropy remains only on the probe author's local source chain and is never copied into the public record.
 
-Every Holochain action is still public; revealing the private entry's create-action hash as a proof reference does not reveal the private entry content.
+Every Holochain action remains public; revealing the private entry's action hash does not reveal the private entry content.
 
-## 4. Entropy digest is exact and domain separated
+## 5. Candidate policy identities are exact
 
-The private record commits the exact 32 entropy bytes through `entropy_nonce_digest` using the registered entropy digest profile/domain.
+The private entropy record and public `CoverageChallenge` both commit:
 
-Integrity validation recomputes the digest.
+- exact context-policy digest + registered `CONTEXT_POLICY_PROFILE`;
+- exact coverage-policy digest + registered `POLICY_IDENTITY_PROFILE`; and
+- exact target subject.
 
-Malformed entropy length, zero/mismatched policy binding, wrong protocol, malformed subject, wrong issuer, or nonce mismatch denies.
+Zero digests or wrong profiles deny.
 
-## 5. Private proof identity is the exact create action
+The runtime does not verify currentness of those identities during probe creation.
 
-The public `CoverageChallenge.randomness_proof_ref` must equal the exact `ChallengeEntropyRecord` create-action hash.
+## 6. Entropy proof is exact and domain separated
 
-It cannot be an arbitrary proof label.
+The private record commits exactly 32 entropy bytes through `entropy_nonce_digest` under the registered entropy profile/domain.
 
-During local verification, the coordinator re-queries its own source chain including private entries and requires:
+Integrity validation recomputes the nonce digest.
 
-- the exact entropy action;
-- a Create action authored by the current issuer;
-- exact private entropy entry bytes;
-- recomputed nonce digest;
-- exact subject;
-- exact context/coverage policy digests/profiles; and
-- exact issuer binding.
+The public challenge `randomness_proof_ref` must equal the exact private entropy create-action hash.
 
-Generic DHT visibility is not used to recover private entropy.
+## 7. Author identity is provenance only
 
-## 6. Public challenge is immutable audit provenance
+The private entropy `issued_by` and public `challenge_issuer_ref` must equal the committing agent as `did:mycelix:<AgentPubKey>`.
+
+This prevents provenance substitution.
+
+It does **not** mean that the author holds an institutional grant or that the probe is authoritative.
+
+No `AuthorityGrant` is required merely to collect read-only freshness evidence.
+
+Operational deployments may rate-limit or capability-protect the endpoint for abuse resistance, but such access control is not governance authority.
+
+## 8. Public probe is immutable audit provenance
 
 `AuthorityStateChallengeRecord` is public and append-only.
 
 Update/delete operations are invalid.
 
-The create action author must equal `challenge.challenge_issuer_ref` as a `did:mycelix:` identifier.
+The public record stores only:
 
-The challenge must already be issued and still live when its public record is committed.
+- protocol;
+- exact `CoverageChallenge`; and
+- exact private entropy action hash.
 
-Existence of the public challenge record is not authority by itself.
+It deliberately contains no `context_verification_ref`, because probe creation does not claim context authority.
 
-## 7. Issuance time comes from the committed entropy action
+## 9. Committed issue time
 
-The coordinator does not predict the timestamp Holochain will assign to the private write.
+The coordinator does not predict Holochain's action timestamp.
 
-After creating the private entry it queries the exact local action and derives `CoverageChallenge.issued_at_ms` from that committed action timestamp.
+After committing private entropy, it queries the exact local record and derives `CoverageChallenge.issued_at_ms` from the committed action timestamp.
 
-The challenge expiry is bounded by the minimum of:
+Expiry is `issued_at_ms + requested_lifetime_ms`, with overflow denial and the hard v0.1 maximum.
 
-- issue time + context-authorized maximum challenge lifetime;
-- context semantic expiry; and
-- current context verification lease.
+Later accepted context/root policy may impose a shorter valid window; #96 rejects probes outside that policy window.
 
-If the context expires during issuance, the whole call fails.
+## 10. Private proof verification is issuer-local
 
-## 8. Source-chain transaction semantics are relied on only locally
+`verify_issued_authority_state_probe` requires the public probe to have been authored by the current local agent because only that agent can access the private entropy content.
 
-Private entropy creation and public challenge creation occur in one zome invocation.
+It queries the author's local source chain with entries included and requires:
 
-Holochain source-chain transaction semantics provide local commit/rollback behavior for the call.
+- exact private entropy action;
+- Create action authored by the probe author;
+- exact entropy bytes;
+- recomputed nonce digest;
+- exact subject;
+- exact candidate policy digests/profiles; and
+- exact author provenance.
 
-This does not imply distributed finality, global atomicity, or successful source/witness coverage.
+Generic DHT visibility is not used to recover private entropy.
 
-## 9. Verification is issuer-local
+## 11. Probe verification proves randomness/provenance only
 
-`verify_issued_authority_state_challenge` requires the challenge record to have been authored by the current local agent because only that agent can access the corresponding private entropy entry.
+A positive `VerifiedCoverageChallenge` from this runtime means only that:
 
-Another agent cannot manufacture a positive randomness receipt from the public action hash alone.
+- the public challenge exists and is live;
+- the private entropy proof exists locally;
+- the nonce digest recomputes;
+- the exact candidate policy identities are bound into the entropy/probe pair; and
+- the author/provenance echo is exact.
 
-## 10. Current context is re-resolved during verification
+It does **not** mean either candidate policy is current.
 
-A valid immutable entropy proof is not timeless current authority.
+There is intentionally no current-context lookup in probe verification.
 
-Before returning `VerifiedCoverageChallenge`, verification calls the independent context provider again and requires the same exact subject/context/coverage-policy/issuer semantics to remain current.
+## 12. Later authority qualification remains mandatory
 
-Policy/source rotation or context replacement therefore invalidates stale challenge authority even before nominal challenge expiry.
+Before probe evidence can contribute to `VerifiedAuthorityFreshness`, later layers must independently prove at least:
 
-## 11. Verified challenge receipt exactly echoes proof identity
+- the exact accepted bootstrap/operational context policy;
+- the exact accepted coverage policy;
+- source-head evidence under the exact challenge;
+- witness/trust bindings when required;
+- complete covered transition lineage; and
+- exact current-state projection.
 
-A positive `VerifiedCoverageChallenge` contains:
+For control-plane policy subjects this must be rooted through the current constitution/bootstrap root from #111/#109, not recursively through the operational policy plane.
 
-- exact public challenge;
-- `verified_nonce_digest == challenge.nonce_digest`;
-- `verified_randomness_proof_ref == challenge.randomness_proof_ref`;
-- `verified_challenge_issuer_ref == challenge.challenge_issuer_ref`;
-- deterministic verification reference; and
-- current verification time.
+## 13. Status semantics
 
-This matches the pure #96 trust-context contract.
+`probe_runtime_status` is declarative only.
 
-## 12. Status does not probe authority with synthetic data
-
-`challenge_runtime_status` is declarative only.
-
-It explicitly reports:
+It reports:
 
 - private entropy enabled;
 - caller nonce authority disabled;
-- required context-provider name;
-- no provider probe without a real subject; and
-- `operational = false`.
+- candidate policy selection allowed;
+- candidate policy selection grants no authority;
+- probe grants no authority; and
+- `operational = false` while unprovisioned.
 
-Code presence or provider-name knowledge never implies operational authority.
+No provider is probed with synthetic data.
 
-## 13. Deliberately unprovisioned
+## 14. Deliberately unprovisioned
 
-The zome pair is part of the Rust workspace only so native/WASM compilation can qualify it.
+The zome pair remains in the Rust workspace only for native/WASM qualification.
 
 `mycelix-governance/dna/dna.yaml` MUST NOT contain:
 
 - `authority_state_challenge_integrity`; or
 - `authority_state_challenge`.
 
-The context-policy verifier is also not provisioned yet.
+Therefore the binding governance DNA cannot invoke the probe runtime from this tranche.
 
-Therefore the binding governance DNA cannot invoke this challenge runtime from this tranche.
+## 15. No remote source/witness behavior yet
 
-## 14. No remote source/witness behavior yet
+This tranche does not:
 
-This tranche does not call remote peers, expose the future source-head challenge responder, inspect another agent's activity, classify witness trust domains, or manufacture coverage.
+- call remote authority sources;
+- inspect another agent's activity;
+- classify witness trust domains;
+- qualify coverage;
+- project current state; or
+- manufacture freshness.
 
-Those remain separate authority roles under the runtime contract.
+Those remain separate roles.
 
-## 15. No advisory or execution authority
+## 16. No advisory or effect authority
 
 Phi, consciousness, reputation, stake, Guardian status, caller identity, model output and Symthaea recommendations cannot:
 
 - select entropy;
-- choose policy/context;
-- designate the challenge issuer;
-- extend challenge expiry;
-- verify private entropy; or
-- create coverage/execution authority.
+- turn candidate policy IDs into current policy;
+- transform a probe into authority;
+- extend a qualified policy window;
+- create lifecycle claims; or
+- execute effects.
 
-## 16. Required qualification before provisioning
+## 17. Required qualification before provisioning
 
 At minimum:
 
@@ -182,11 +221,12 @@ At minimum:
 - native tests;
 - warnings-denied Clippy;
 - integrity + coordinator WASM builds;
-- static proof that entropy entry visibility is private;
-- static proof that caller input contains no nonce/entropy field;
-- static proof that context provider failure is fail-closed;
-- static proof that private proof retrieval uses local source-chain `query`;
-- static proof that synthetic status probing is absent; and
-- multi-agent/Sweettest coverage with a real context-policy verifier.
+- private-entry visibility test;
+- caller-selected nonce/replay denial;
+- exact candidate-context binding tests;
+- probe-expiry tests;
+- bootstrap-root/context rotation tests;
+- proof that no current-policy/issuer-grant call occurs during probe issuance; and
+- Sweettest proving probe existence alone never creates current authority.
 
 External effects remain disabled.
