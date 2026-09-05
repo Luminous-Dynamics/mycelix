@@ -194,4 +194,46 @@ mod tests {
         let decoded = serde_json::from_str::<TrustResolutionV1>(encoded);
         assert!(decoded.is_err(), "V1 must reject unknown fields");
     }
+
+    #[test]
+    fn holochain_messagepack_round_trip_preserves_quarantine_semantics() {
+        let resolution = TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(
+            StructuralTrustTierV1::Guardian,
+        ));
+
+        let encoded = holochain_serialized_bytes::encode(&resolution)
+            .expect("encode TrustResolutionV1 with Holochain canonical MessagePack");
+        let decoded: TrustResolutionV1 = holochain_serialized_bytes::decode(&encoded)
+            .expect("decode TrustResolutionV1 with Holochain canonical MessagePack");
+
+        assert_eq!(decoded, resolution);
+        assert_eq!(decoded.validate_schema(), Ok(()));
+        assert_eq!(decoded.authority, TrustAuthorityDispositionV1::Quarantined);
+    }
+
+    #[test]
+    fn holochain_messagepack_rejects_extended_v1_payload() {
+        #[derive(Debug, Serialize)]
+        struct ExtendedTrustResolutionV1 {
+            schema_version: u16,
+            structural: StructuralTrustStateV1,
+            proof_verification: ProofVerificationStateV1,
+            authority: TrustAuthorityDispositionV1,
+            future_authority: &'static str,
+        }
+
+        let extended = ExtendedTrustResolutionV1 {
+            schema_version: TRUST_RESOLUTION_V1_SCHEMA,
+            structural: StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Guardian),
+            proof_verification: ProofVerificationStateV1::NotEstablished,
+            authority: TrustAuthorityDispositionV1::Quarantined,
+            future_authority: "Verified",
+        };
+
+        let encoded = holochain_serialized_bytes::encode(&extended)
+            .expect("encode extended V1 payload for rejection test");
+        let decoded = holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded);
+
+        assert!(decoded.is_err(), "V1 must reject extended Holochain payloads");
+    }
 }
