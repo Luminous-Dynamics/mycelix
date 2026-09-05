@@ -1,6 +1,6 @@
 # mycelix-xenia-reader-bridge
 
-This crate implements the CF-07C2 → CF-07C5 authenticated Content Fabric reader chain.
+This crate implements the CF-07C2 → CF-07C6 authenticated Content Fabric reader chain.
 
 ```text
 Xenia hybrid authentication
@@ -31,7 +31,7 @@ AuthorizedNixReadV1
         |
         +-- exact operation/store object
         +-- exact serving snapshot/policy commitments
-        +-- exclusive serve-until deadline
+        +-- exclusive server serve-until deadline
         +-- request transcript/context/credential lineage
         |
         v
@@ -54,15 +54,29 @@ CF-07C5 MCFS response stream
         +-- same operation + store hash on every frame
         +-- deadline-aware Xenia send after AEAD seal
         `-- channel returned only after valid End frame
+
+client side, same 0xCF channel:
+
+MCFR request sent before one caller-owned deadline
+        |
+        v
+CF-07C6 XeniaNixResponseReceiverV1
+        |
+        +-- Xenia deadline-owned receive
+        +-- same channel + AEAD + replay
+        +-- exact MCFS framing/sequence/hash/op checks
+        +-- NarInfo <= 1 MiB
+        +-- raw NAR == predeclared NarSize
+        `-- channel recoverable only after valid End
 ```
 
 The Xenia dependency is pinned to exact review commit:
 
 ```text
-07b1d57d65b0349327e1e986e6e5869f55b8a1c9
+68cce019d472e00570b488599c97c62144aa30a0
 ```
 
-from Xenia PR #300, stacked on the authenticated application channel in PR #281. CI resolves Cargo metadata and checks that exact source revision in every bridge qualification lane.
+from Xenia PR #302, which is stacked on PR #300's deadline-aware authenticated send and PR #281's sealed authenticated application channel. CI resolves Cargo metadata and checks that exact source revision.
 
 ## Request domain and schema
 
@@ -84,11 +98,11 @@ No PartyId, groups, enrollment, registry ID, serving snapshot, timestamp, arbitr
 
 CF-07C2 maps only the exact authenticated Ed25519 + ML-DSA-65 key pair through one explicitly pinned reader-enrollment registry. It never hashes a peer key into a PartyId and never accepts a request-supplied principal/group assertion.
 
-The resulting `RemoteReaderV1` stays crate-private through request parsing. CF-07C3 immediately evaluates that sealed reader against `RemoteServingSnapshotV1::entry_for_reader_at(...)` at a trusted server-supplied time.
+The resulting `RemoteReaderV1` stays crate-private through request parsing. CF-07C3 immediately evaluates that sealed reader against `RemoteServingSnapshotV1::entry_for_reader_at(...)` at trusted server time.
 
 Unauthorized and absent objects remain indistinguishable.
 
-`AuthorizedNixReadV1` is the first public resource-operation authority. It binds operation, exact store entry, serving snapshot/projection/policy commitments, enrollment/Xenia audit lineage, authorization time, and the exclusive `serve_until_unix_ms` horizon.
+`AuthorizedNixReadV1` is the first public server-side resource-operation authority. It binds operation, exact store entry, serving snapshot/projection/policy commitments, enrollment/Xenia audit lineage, authorization time, and the exclusive `serve_until_unix_ms` horizon.
 
 There is no generic public cache-entry accessor and no public reader identity extraction.
 
@@ -96,9 +110,7 @@ There is no generic public cache-entry accessor and no public reader identity ex
 
 `prepare_authorized_nix_read_v1(authorized, cas)` consumes CF-07C3 authority and accepts no second digest, size, store hash, path, URL, operation, or deadline.
 
-For `Nar`, C4 derives the exact SHA-256 + size only from the authorization, constructs one `BlobDescriptorV1`, and calls CF-03 `LocalCasV1::open_verified`.
-
-CF-03 validates the opened file size, hashes the same opened handle, requires the exact digest, rewinds it, and returns that handle. C4 never reopens a path afterward.
+For raw NAR, C4 derives the exact SHA-256 + size only from the authorization and calls CF-03 `LocalCasV1::open_verified`. CF-03 hashes the same opened handle it returns. C4 never reopens a path afterward.
 
 The raw-NAR reader is sequential, at most 64 KiB per read, non-Clone, non-Seek, and has no raw-file extraction surface. NarInfo remains private behind a consuming one-shot writer.
 
@@ -106,58 +118,39 @@ C4 enforces both the original Unix serving deadline and a private monotonic dead
 
 ## CF-07C5 authenticated response stream
 
-`send_authorized_nix_read_over_xenia_v1(...)` consumes:
+`send_authorized_nix_read_over_xenia_v1(...)` returns the Xenia channel only if the complete response succeeds.
 
-- one `AuthenticatedPeerApplicationChannelV1<T>`;
-- one `AuthorizedNixReadV1`; and
-- an `Arc<LocalCasV1>`.
+Before CAS verification or response send, C5 requires the outbound channel to match the request authorization on exact handshake transcript, negotiated context, and hybrid credential commitment. This closes response redirection to another valid authenticated peer/channel.
 
-It returns the Xenia channel only if the complete response succeeds.
+MCFS schema v1 repeats the exact operation and 32-byte store hash on every independently AEAD-protected frame, uses exact u64 sequencing, carries at most 64 KiB per Data frame, and completes only with an empty End frame committing the exact accumulated byte count.
 
-Before CAS verification or any response send, C5 requires the outbound channel to match the request authorization on:
+C5 passes its conservative monotonic deadline into Xenia PR #300's `send_payload_before_deadline(...)`, which checks before seal, after seal/before carrier I/O, around carrier I/O, and after completion. Failed/timed-out/late channels are not returned.
 
-- exact handshake transcript hash;
-- exact negotiated context commitment; and
-- exact hybrid credential commitment recomputed from the outbound channel's sealed Ed25519 + ML-DSA-65 authenticated keys.
+## CF-07C6 deadline-owned response receive
 
-This closes response redirection to a different authenticated peer/channel generation. A single-key match is insufficient.
+C6 is the reciprocal client-side serial boundary.
 
-The low-level frame sender remains hidden in a private module; the generation/credential-bound wrapper is the only exported C5 send API.
+The NarInfo and raw-NAR request functions now require one caller-owned `std::time::Instant` deadline. The MCFR request is sent with Xenia's deadline-aware send, and the same deadline is stored in `XeniaNixResponseReceiverV1` for every MCFS receive until End.
 
-Before potentially expensive CAS verification, C5 derives an additional conservative monotonic deadline from the C3 serving horizon. It then runs C4 preparation and carries only the resulting representation through the same authenticated `0xCF` channel.
+Before each receive, C6 removes the authenticated channel from receiver state and calls Xenia PR #302's consuming `recv_opened_payload_before_deadline_v1(...)`. The channel is reinserted only after both Xenia receive/open and MCFS structural validation succeed.
 
-The response frame family uses `MCFS` and schema `1`. Every fixed 60-byte header repeats the operation and exact 32-byte store hash, then carries a u64 response sequence, u32 payload length, and u64 final-byte count field.
+Therefore timeout, caller cancellation, carrier/domain/AEAD/replay failure, or malformed MCFS data leaves no recoverable channel. `finish()` returns the channel only after a valid End frame.
 
-Data payloads are at most 64 KiB. A response is complete only after an authenticated End frame whose total equals all Data bytes.
+C6 validates exact MCFS magic/schema/kind, request operation, request store hash, sequence, declared length, frame ceiling, Data/End field rules, cumulative byte arithmetic, and End total.
 
-The public API consumes the channel by value, structurally preventing two C5 responses from interleaving during delivery. The v1 server contract should keep one outstanding Content Fabric request per channel until that response either returns the channel or destroys it on failure.
+NarInfo is bounded to 1 MiB. Raw NAR requires a non-zero expected NarSize from previously validated metadata and requires End to equal that exact size.
 
-## Bounded metadata production
-
-C4's NarInfo writer is synchronous and one-shot. C5 runs it in a blocking task behind a Tokio channel of depth `1`.
-
-Because C4 emits no more than 4 KiB per writer call, at most one metadata chunk can wait ahead of the authenticated carrier. C5 does not create a second full NarInfo buffer before sending.
+`ReceivedXeniaNixResponseChunkV1` is transient in-progress data, not completion authority. `CompletedXeniaNixResponseV1` exists only after valid End and proves framing/size completion only—not digest or software trust.
 
 ## Deadline semantics
 
-C4 and C5/Xenia enforce complementary boundaries.
+Server disclosure authority and client round-trip lifetime remain separate:
 
-C4 guarantees it releases no new representation bytes after its own serving authority expires.
+- CF-07A/C4/C5 enforce the server's disclosure horizon;
+- CF-07C6 enforces a caller-owned monotonic request/response deadline;
+- neither deadline comes from untrusted response plaintext.
 
-C5 additionally checks the earlier conservative monotonic deadline plus the original Unix deadline before and after each response-frame send. The same monotonic deadline is passed into Xenia PR #300's `send_payload_before_deadline(...)`.
-
-Inside the sealed Xenia application channel the deadline is checked again:
-
-1. before AEAD sealing;
-2. after AEAD sealing but immediately before carrier I/O;
-3. around the same-peer carrier send using `tokio::time::timeout_at`; and
-4. after carrier completion.
-
-The outer C5 timeout remains as defense in depth around the private sink path. If either layer observes expiry, send failure, or late completion, the channel is not returned.
-
-This closes the former seal-to-send timing gap. It still does **not** claim that bytes already accepted by an OS/kernel/NIC/network buffer before the deadline can be recalled afterward. Expiry cannot retroactively revoke bytes committed below the application layer.
-
-If the outer async send future is cancelled while CF-03 preparation or a bounded blocking read is still running, the Xenia channel drops with the future. Detached blocking work may finish locally, but it no longer has a transport path through C5.
+Expiry or cancellation cannot retroactively recall bytes already committed below the application layer. The invariant is instead that a failed/late path cannot return a healthy authority-bearing channel for reuse.
 
 ## Explicit non-claims
 
@@ -166,7 +159,7 @@ This crate does **not**:
 - expose a listener or bind address;
 - authenticate raw caller assertions;
 - derive PartyId from key hashes;
-- accept a caller-provided principal/group assertion;
+- accept caller-provided principal/group assertions;
 - expose the enrolled `RemoteReaderV1` before resource authorization;
 - accept a second resource identity after `AuthorizedNixReadV1` exists;
 - expose a raw verified `File`, `Seek`, or reusable NarInfo body;
@@ -175,10 +168,12 @@ This crate does **not**:
 - refresh serving snapshots;
 - fetch missing content remotely;
 - multiplex multiple outstanding v1 requests on one channel;
+- promote partial C6 chunks into CAS;
+- prove raw NAR digest merely from MCFS completion;
 - implement long-lived Xenia rekey;
 - sign Nix metadata;
 - decide Nix `trusted-public-keys`; or
-- prove that remote receipt occurred before the serving deadline.
+- prove remote receipt occurred before the server serving deadline.
 
 Nix software trust remains independent of Content Fabric transport/disclosure authority.
 
@@ -188,3 +183,4 @@ Nix software trust remains independent of Content Fabric transport/disclosure au
 - `docs/content-fabric/XENIA_TYPED_READER_REQUEST_V1.md`
 - `docs/content-fabric/VERIFIED_READ_SERVING_V1.md`
 - `docs/content-fabric/XENIA_RESPONSE_STREAM_V1.md`
+- `docs/content-fabric/XENIA_RESPONSE_RECEIVE_V1.md`
