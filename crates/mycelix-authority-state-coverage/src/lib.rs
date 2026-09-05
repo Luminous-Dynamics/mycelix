@@ -752,6 +752,9 @@ fn subject_kind_code(kind: &AuthoritySubjectKind) -> u8 {
         AuthoritySubjectKind::ExecutorDesignation => 4,
         AuthoritySubjectKind::EffectSafetyPolicy => 5,
         AuthoritySubjectKind::Delegation => 6,
+        AuthoritySubjectKind::AuthorityCoveragePolicy => 7,
+        AuthoritySubjectKind::CoverageTrustContextPolicy => 8,
+        AuthoritySubjectKind::WitnessTrustPolicy => 9,
     }
 }
 
