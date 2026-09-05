@@ -1,0 +1,122 @@
+name: Authority Current Operational
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-current-operational/**'
+      - 'crates/mycelix-authority-operational-freshness/**'
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-control-plane-freshness/**'
+      - 'crates/mycelix-authority-state-bootstrap-root/**'
+      - 'crates/mycelix-authority-state-source/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/authority-current-operational.yml'
+  push:
+    branches:
+      - 'security/authority-current-operational-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-current-operational-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: End-to-end non-circular current authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-current-operational/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-current-operational/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-current-operational/Cargo.toml --all-targets -- -D warnings
+      - name: Downstream authority compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-state-bootstrap-root/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-control-plane-freshness/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-operational-context/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-operational-freshness/Cargo.toml --all-targets
+      - name: End-to-end authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-current-operational/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-current-operational/INVARIANTS.md').read_text().lower()
+
+          required = [
+              'CurrentOperationalAuthorityEvidence',
+              'CoveredSubjectEvidence',
+              'qualify_bootstrap_root(',
+              'qualify_control_plane_subject_freshness(',
+              'qualify_operational_policy_context(',
+              'qualify_operational_subject_freshness(',
+              'QualifiedCurrentOperationalAuthority',
+              'stable_qualification_digest(',
+              'evidence_qualification_digest(',
+              'current_freshness.validate_at(now_ms)',
+              'MAX_CONTROL_PLANE_SUBJECTS',
+              'MAX_WITNESSES',
+              'MAX_TRANSITIONS',
+          ]
+          for token in required:
+              assert token in src, token
+
+          # Candidate adapter types may deserialize; positive authority may not.
+          assert '#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]\npub struct CurrentOperationalAuthorityEvidence' in src
+          assert '#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]\npub struct CoveredSubjectEvidence' in src
+          before = src.split('pub struct QualifiedCurrentOperationalAuthority', 1)[0][-180:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+
+          # Qualified positive intermediates must be constructed locally, never
+          # accepted as transport fields in the evidence struct definitions.
+          evidence_defs = src.split('pub struct QualifiedCurrentOperationalAuthority', 1)[0]
+          for forbidden in [
+              'QualifiedAuthorityStateBootstrapRoot,',
+              'QualifiedControlPlaneSubjectFreshness,',
+              'QualifiedOperationalPolicyContext,',
+              'QualifiedOperationalSubjectFreshness,',
+          ]:
+              # Imports are allowed, but evidence struct field syntax is not.
+              assert f'pub {forbidden}' not in evidence_defs, forbidden
+
+          lowered = src.lower()
+          for forbidden in [
+              'project_authority_state_as_of(',
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'get_links(',
+              'execute_actions',
+          ]:
+              assert forbidden.lower() not in lowered, forbidden
+
+          stable_fn = src.split('fn stable_qualification_digest(', 1)[1].split('fn evidence_qualification_digest(', 1)[0]
+          assert 'operational_evidence_digest' not in stable_fn
+          evidence_fn = src.split('fn evidence_qualification_digest(', 1)[1].split('fn frame(', 1)[0]
+          assert 'operational_evidence_digest' in evidence_fn
+
+          assert 'positive authority objects are intentionally non-deserializable' in inv
+          assert 'control-plane policy currentness is always requalified' in inv
+          assert 'target currentness is always requalified' in inv
+          assert 'stable authority vs dynamic evidence remains separated' in inv
+          assert 'no observation heuristic or hidden provider authority' in inv
+
+          print('PASS: current operational authority is rebuilt locally from bounded evidence through the complete non-circular pure chain')
+          PY
