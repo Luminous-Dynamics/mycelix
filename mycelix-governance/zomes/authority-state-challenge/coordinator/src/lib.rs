@@ -1,11 +1,12 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Fail-closed authority-state freshness challenge issuer.
+//! Non-authoritative authority-state freshness probe issuer.
 //!
-//! Issuance is unavailable unless an independent context-policy verifier resolves
-//! the exact current subject/context and designates this agent as challenge issuer.
-//! Raw entropy remains private on the issuer's source chain. Verification later
-//! re-resolves current context and rechecks the exact private entropy record.
+//! A probe collects fresh randomness-bound evidence. It does not decide whether
+//! the candidate coverage/context policies are current and does not require the
+//! operational freshness plane to authorize the very probe used to discover
+//! freshness. Authority is established only later by constitution/root-qualified
+//! coverage and current-state projection.
 
 use authority_state_challenge_integrity::{
     entropy_nonce_digest, AuthorityStateChallengeRecord, ChallengeEntropyRecord, EntryTypes,
@@ -18,82 +19,42 @@ use mycelix_authority_state_coverage_context::{
     CoverageChallenge, VerifiedCoverageChallenge, CONTEXT_POLICY_PROFILE,
 };
 use mycelix_institutional_core::Digest32;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const CONTEXT_PROVIDER_ZOME: &str = "authority_state_context_policy_verifier";
-const CONTEXT_PROVIDER_FUNCTION: &str = "resolve_challenge_context";
-const CONTEXT_PROVIDER_PROTOCOL: &str = "mycelix-authority-state-challenge-context-v0.1";
 const ENTROPY_BYTES: u32 = 32;
-const MAX_REF_BYTES: usize = 2048;
-const MAX_CHALLENGE_LIFETIME_MS: u64 = 60_000;
+const MAX_PROBE_LIFETIME_MS: u64 = 60_000;
 
+/// Request for a read-only evidence probe.
+///
+/// The caller selects only which exact candidate policy identities the probe
+/// should be bound to and a bounded lifetime. These values are not accepted as
+/// proof that either policy is current. Later bootstrap/operational qualification
+/// must independently prove those exact identities are authoritative.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct IssueAuthorityStateChallengeRequest {
+pub struct IssueAuthorityStateProbeRequest {
     pub subject: AuthoritySubjectRef,
+    pub context_policy_digest: Digest32,
+    pub coverage_policy_digest: Digest32,
+    pub requested_lifetime_ms: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct VerifiedChallengeContext {
-    protocol: String,
-    subject: AuthoritySubjectRef,
-    context_policy_digest: Digest32,
-    context_policy_profile: String,
-    coverage_policy_digest: Digest32,
-    coverage_policy_profile: String,
-    max_challenge_lifetime_ms: u64,
-    context_valid_until_ms: u64,
-    challenge_issuer_did: String,
-    verification_ref: String,
-    verified_at_ms: u64,
-    valid_until_ms: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct IssuedAuthorityStateChallenge {
-    pub challenge_action: ActionHash,
+pub struct IssuedAuthorityStateProbe {
+    pub probe_action: ActionHash,
     pub entropy_action: ActionHash,
     pub challenge: CoverageChallenge,
-    pub context_verification_ref: String,
     pub issued_at_ms: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ChallengeRuntimeStatus {
+pub struct ProbeRuntimeStatus {
     pub protocol: String,
     pub private_entropy: bool,
     pub caller_nonce_authority: bool,
-    pub context_provider_required: String,
-    pub provider_probed_without_subject: bool,
+    pub candidate_policy_selection: bool,
+    pub candidate_policy_selection_grants_authority: bool,
+    pub probe_grants_authority: bool,
     pub operational: bool,
-}
-
-fn call_local<I, O>(zome: &str, function: &str, input: I) -> ExternResult<O>
-where
-    I: Serialize,
-    O: DeserializeOwned,
-{
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::from(zome),
-        FunctionName::from(function),
-        None,
-        ExternIO::encode(input)
-            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?,
-    )?;
-    let io = match response {
-        ZomeCallResponse::Ok(io) => io,
-        other => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "{zome}::{function} unavailable; challenge issuance fails closed: {other:?}"
-            ))));
-        }
-    };
-    io.decode::<O>().map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "cannot decode {zome}::{function} response: {error}"
-        )))
-    })
 }
 
 fn now_ms() -> ExternResult<u64> {
@@ -105,50 +66,38 @@ fn current_issuer_did() -> ExternResult<String> {
     Ok(format!("did:mycelix:{}", info.agent_initial_pubkey))
 }
 
-fn resolve_context(subject: &AuthoritySubjectRef, now: u64) -> ExternResult<VerifiedChallengeContext> {
-    subject.validate().map_err(|_| {
+fn validate_probe_request(request: &IssueAuthorityStateProbeRequest) -> ExternResult<()> {
+    request.subject.validate().map_err(|_| {
         wasm_error!(WasmErrorInner::Guest(
-            "challenge subject is malformed".into(),
+            "authority-state probe subject is malformed".into(),
         ))
     })?;
-    let context: VerifiedChallengeContext = call_local(
-        CONTEXT_PROVIDER_ZOME,
-        CONTEXT_PROVIDER_FUNCTION,
-        subject.clone(),
-    )?;
-    if context.protocol != CONTEXT_PROVIDER_PROTOCOL
-        || &context.subject != subject
-        || context.context_policy_digest.is_zero()
-        || context.coverage_policy_digest.is_zero()
-        || context.context_policy_profile != CONTEXT_POLICY_PROFILE
-        || context.coverage_policy_profile != POLICY_IDENTITY_PROFILE
-        || context.max_challenge_lifetime_ms == 0
-        || context.max_challenge_lifetime_ms > MAX_CHALLENGE_LIFETIME_MS
-        || context.context_valid_until_ms <= now
-        || context.valid_until_ms <= now
-        || context.verified_at_ms == 0
-        || context.verified_at_ms > now
+    if request.context_policy_digest.is_zero() || request.coverage_policy_digest.is_zero() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "probe candidate policy digests must be non-zero".into(),
+        )));
+    }
+    if request.requested_lifetime_ms == 0
+        || request.requested_lifetime_ms > MAX_PROBE_LIFETIME_MS
     {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "challenge context provider returned stale or inexact authority".into(),
-        )));
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "probe lifetime must be 1-{MAX_PROBE_LIFETIME_MS} ms"
+        ))));
     }
-    require_ref(&context.challenge_issuer_did, "challenge issuer")?;
-    require_ref(&context.verification_ref, "context verification ref")?;
-    if context.challenge_issuer_did != current_issuer_did()? {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "this agent is not the current institution-authorized challenge issuer".into(),
-        )));
-    }
-    Ok(context)
+    Ok(())
 }
 
+/// Generate one fresh read-only probe bound to exact candidate policy identities.
+///
+/// This endpoint intentionally performs no current-policy or issuer-grant lookup.
+/// The resulting `CoverageChallenge` is evidence-shaped provenance only. A later
+/// qualifier must prove its exact policy identities under the current bootstrap or
+/// operational authority root before the challenge can contribute to freshness.
 #[hdk_extern]
-pub fn issue_authority_state_challenge(
-    request: IssueAuthorityStateChallengeRequest,
-) -> ExternResult<IssuedAuthorityStateChallenge> {
-    let before_entropy_ms = now_ms()?;
-    let context = resolve_context(&request.subject, before_entropy_ms)?;
+pub fn issue_authority_state_probe(
+    request: IssueAuthorityStateProbeRequest,
+) -> ExternResult<IssuedAuthorityStateProbe> {
+    validate_probe_request(&request)?;
 
     // Entropy is generated inside the coordinator by the Holochain host. Caller
     // bytes never enter the nonce path.
@@ -159,55 +108,49 @@ pub fn issue_authority_state_challenge(
     let entropy_entry = ChallengeEntropyRecord {
         protocol_version: CHALLENGE_RUNTIME_PROTOCOL.into(),
         subject: request.subject.clone(),
-        context_policy_digest: context.context_policy_digest,
-        context_policy_profile: context.context_policy_profile.clone(),
-        coverage_policy_digest: context.coverage_policy_digest,
-        coverage_policy_profile: context.coverage_policy_profile.clone(),
+        context_policy_digest: request.context_policy_digest,
+        context_policy_profile: CONTEXT_POLICY_PROFILE.into(),
+        coverage_policy_digest: request.coverage_policy_digest,
+        coverage_policy_profile: POLICY_IDENTITY_PROFILE.into(),
         entropy,
         nonce_digest,
         issued_by: issuer_did.clone(),
     };
     entropy_entry.validate_structure().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "cannot create challenge entropy: {error}"
+            "cannot create authority-state probe entropy: {error}"
         )))
     })?;
     let entropy_action = create_entry(EntryTypes::ChallengeEntropy(entropy_entry))?;
 
-    // Private entry content is verified strictly from this agent's own source
+    // Private entry content is recovered strictly from this agent's own source
     // chain, where Holochain permits local private-entry queries.
     let entropy_record = get_local_record(&entropy_action)?;
-    let issued_at_ms = timestamp_ms(entropy_record.action().timestamp(), "entropy action")?;
-
-    let semantic_ceiling = context.context_valid_until_ms.min(context.valid_until_ms);
-    let requested_expiry = issued_at_ms
-        .checked_add(context.max_challenge_lifetime_ms)
+    let issued_at_ms = timestamp_ms(entropy_record.action().timestamp(), "probe entropy action")?;
+    let expires_at_ms = issued_at_ms
+        .checked_add(request.requested_lifetime_ms)
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "challenge lifetime overflow".into(),
+            "probe lifetime overflow".into(),
         )))?;
-    let expires_at_ms = requested_expiry.min(semantic_ceiling);
-    if expires_at_ms <= issued_at_ms {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "challenge context expired during entropy issuance".into(),
-        )));
-    }
 
     let challenge = CoverageChallenge {
         protocol_version: mycelix_authority_state_coverage_context::PROTOCOL_VERSION.into(),
-        context_policy_digest: context.context_policy_digest,
-        context_policy_profile: context.context_policy_profile,
-        coverage_policy_digest: context.coverage_policy_digest,
-        coverage_policy_profile: context.coverage_policy_profile,
+        context_policy_digest: request.context_policy_digest,
+        context_policy_profile: CONTEXT_POLICY_PROFILE.into(),
+        coverage_policy_digest: request.coverage_policy_digest,
+        coverage_policy_profile: POLICY_IDENTITY_PROFILE.into(),
         subject: request.subject,
         nonce_digest,
         randomness_proof_ref: entropy_action.to_string(),
         issued_at_ms,
         expires_at_ms,
+        // Provenance only. #96 later requires this to match the verified private
+        // entropy proof; it is not treated as an institutional authority grant.
         challenge_issuer_ref: issuer_did,
     };
     challenge.validate().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "constructed challenge is invalid: {error}"
+            "constructed authority-state probe is invalid: {error}"
         )))
     })?;
 
@@ -215,70 +158,73 @@ pub fn issue_authority_state_challenge(
         protocol_version: CHALLENGE_RUNTIME_PROTOCOL.into(),
         challenge: challenge.clone(),
         entropy_action: entropy_action.clone(),
-        context_verification_ref: context.verification_ref.clone(),
     };
     public_record.validate_structure().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "constructed challenge record is invalid: {error}"
+            "constructed authority-state probe record is invalid: {error}"
         )))
     })?;
-    let challenge_action = create_entry(EntryTypes::AuthorityStateChallenge(public_record))?;
+    let probe_action = create_entry(EntryTypes::AuthorityStateChallenge(public_record))?;
 
-    Ok(IssuedAuthorityStateChallenge {
-        challenge_action,
+    Ok(IssuedAuthorityStateProbe {
+        probe_action,
         entropy_action,
         challenge,
-        context_verification_ref: context.verification_ref,
         issued_at_ms,
     })
 }
 
+/// Verify only the randomness/provenance properties of one locally issued probe.
+///
+/// A positive `VerifiedCoverageChallenge` here is deliberately **not** proof that
+/// the candidate policy identities are current. That authority decision belongs
+/// to #96 plus the constitution-rooted/operational currentness layer.
 #[hdk_extern]
-pub fn verify_issued_authority_state_challenge(
-    challenge_action: ActionHash,
+pub fn verify_issued_authority_state_probe(
+    probe_action: ActionHash,
 ) -> ExternResult<VerifiedCoverageChallenge> {
     let now = now_ms()?;
-    let record = get(challenge_action.clone(), GetOptions::default())?
+    let record = get(probe_action.clone(), GetOptions::default())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "challenge record does not exist".into(),
+            "authority-state probe record does not exist".into(),
         )))?;
-    let challenge_record: AuthorityStateChallengeRecord = record
+    let probe_record: AuthorityStateChallengeRecord = record
         .entry()
         .to_app_option()
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "challenge action does not contain an authority-state challenge".into(),
+            "probe action does not contain an authority-state probe".into(),
         )))?;
-    challenge_record.validate_structure().map_err(|error| {
+    probe_record.validate_structure().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "stored challenge record is invalid: {error}"
+            "stored authority-state probe is invalid: {error}"
         )))
     })?;
 
-    let challenge_author = create_author(record.action())?;
+    let probe_author = create_author(record.action())?;
     let current_agent = agent_info()?.agent_initial_pubkey;
-    if challenge_author != current_agent {
+    if probe_author != current_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "only the original challenge issuer can verify its private entropy proof".into(),
+            "only the original probe author can verify its private entropy proof".into(),
         )));
     }
     let issuer_did = format!("did:mycelix:{current_agent}");
-    if challenge_record.challenge.challenge_issuer_ref != issuer_did {
+    if probe_record.challenge.challenge_issuer_ref != issuer_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "challenge issuer no longer matches the author-bound proof".into(),
+            "probe provenance no longer matches the author-bound proof".into(),
         )));
     }
-    if now >= challenge_record.challenge.expires_at_ms {
+    if now >= probe_record.challenge.expires_at_ms {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "challenge has expired".into(),
+            "authority-state probe has expired".into(),
         )));
     }
 
-    let entropy_record = get_local_record(&challenge_record.entropy_action)?;
+    let entropy_record = get_local_record(&probe_record.entropy_action)?;
     let entropy_author = create_author(entropy_record.action())?;
     if entropy_author != current_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "private entropy proof was authored by another agent".into(),
+            "private probe entropy was authored by another agent".into(),
         )));
     }
     let entropy: ChallengeEntropyRecord = entropy_record
@@ -286,16 +232,16 @@ pub fn verify_issued_authority_state_challenge(
         .to_app_option()
         .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "entropy action does not contain the private challenge entropy entry".into(),
+            "entropy action does not contain private authority-state probe entropy".into(),
         )))?;
     entropy.validate_structure().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "stored private challenge entropy is invalid: {error}"
+            "stored private authority-state probe entropy is invalid: {error}"
         )))
     })?;
 
-    let challenge = &challenge_record.challenge;
-    if challenge.randomness_proof_ref != challenge_record.entropy_action.to_string()
+    let challenge = &probe_record.challenge;
+    if challenge.randomness_proof_ref != probe_record.entropy_action.to_string()
         || entropy.nonce_digest != challenge.nonce_digest
         || entropy_nonce_digest(&entropy.entropy) != challenge.nonce_digest
         || entropy.subject != challenge.subject
@@ -306,22 +252,7 @@ pub fn verify_issued_authority_state_challenge(
         || entropy.issued_by != challenge.challenge_issuer_ref
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "private entropy proof does not exactly bind the public challenge".into(),
-        )));
-    }
-
-    // Current verification re-resolves the authority context. A challenge issued
-    // before policy/source rotation cannot remain current merely because its
-    // immutable entropy proof is still valid.
-    let context = resolve_context(&challenge.subject, now)?;
-    if context.context_policy_digest != challenge.context_policy_digest
-        || context.context_policy_profile != challenge.context_policy_profile
-        || context.coverage_policy_digest != challenge.coverage_policy_digest
-        || context.coverage_policy_profile != challenge.coverage_policy_profile
-        || context.challenge_issuer_did != challenge.challenge_issuer_ref
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "challenge policy context is no longer current".into(),
+            "private entropy proof does not exactly bind the public probe".into(),
         )));
     }
 
@@ -330,21 +261,21 @@ pub fn verify_issued_authority_state_challenge(
         verified_nonce_digest: challenge.nonce_digest,
         verified_randomness_proof_ref: challenge.randomness_proof_ref.clone(),
         verified_challenge_issuer_ref: challenge.challenge_issuer_ref.clone(),
-        verification_ref: format!("challenge-verification:{challenge_action}"),
+        verification_ref: format!("probe-verification:{probe_action}"),
         verified_at_ms: now,
     })
 }
 
 #[hdk_extern]
-pub fn challenge_runtime_status(_: ()) -> ExternResult<ChallengeRuntimeStatus> {
-    Ok(ChallengeRuntimeStatus {
+pub fn probe_runtime_status(_: ()) -> ExternResult<ProbeRuntimeStatus> {
+    Ok(ProbeRuntimeStatus {
         protocol: CHALLENGE_RUNTIME_PROTOCOL.into(),
         private_entropy: true,
         caller_nonce_authority: false,
-        context_provider_required: CONTEXT_PROVIDER_ZOME.into(),
-        // Status never probes an authority provider with synthetic data. Only a
-        // real subject-specific issuance can establish operational authority.
-        provider_probed_without_subject: false,
+        candidate_policy_selection: true,
+        candidate_policy_selection_grants_authority: false,
+        probe_grants_authority: false,
+        // Still unprovisioned in the binding governance DNA.
         operational: false,
     })
 }
@@ -364,7 +295,7 @@ fn create_author(action: &Action) -> ExternResult<AgentPubKey> {
     match action {
         Action::Create(create) => Ok(create.author.clone()),
         _ => Err(wasm_error!(WasmErrorInner::Guest(
-            "authority-state challenge proof must reference a create action".into(),
+            "authority-state probe proof must reference a create action".into(),
         ))),
     }
 }
@@ -377,13 +308,4 @@ fn timestamp_ms(timestamp: Timestamp, field: &str) -> ExternResult<u64> {
         ))));
     }
     Ok(micros as u64 / 1_000)
-}
-
-fn require_ref(value: &str, field: &str) -> ExternResult<()> {
-    if value.trim().is_empty() || value.len() > MAX_REF_BYTES {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{field} must be 1-{MAX_REF_BYTES} bytes"
-        ))));
-    }
-    Ok(())
 }
