@@ -64,11 +64,31 @@ jobs:
       - name: Assert V1 remains quarantine-only
         shell: bash
         run: |
-          FILE=crates/mycelix-core-types/src/trust_resolution.rs
-          grep -Fq 'ProofVerificationStateV1::NotEstablished' "$FILE"
-          grep -Fq 'TrustAuthorityDispositionV1::Quarantined' "$FILE"
+          python - <<'PY'
+          from pathlib import Path
+          import re
 
-          if grep -Eq 'ProofVerificationStateV1::(Verified|Valid)|TrustAuthorityDispositionV1::(Authorized|Elevated)' "$FILE"; then
-            echo 'ERROR: V1 must remain quarantine-only; create a new protocol version for verified authority' >&2
-            exit 1
-          fi
+          text = Path('crates/mycelix-core-types/src/trust_resolution.rs').read_text()
+
+          def enum_variants(name: str) -> list[str]:
+              match = re.search(rf'pub enum {name}\s*\{{(.*?)\n\}}', text, re.S)
+              if not match:
+                  raise SystemExit(f'ERROR: could not find enum {name}')
+              body = re.sub(r'^\s*///.*$', '', match.group(1), flags=re.M)
+              return [part.strip() for part in body.split(',') if part.strip()]
+
+          proof = enum_variants('ProofVerificationStateV1')
+          authority = enum_variants('TrustAuthorityDispositionV1')
+
+          if proof != ['NotEstablished']:
+              raise SystemExit(
+                  f'ERROR: V1 proof states changed from quarantine-only: {proof!r}; '
+                  'create a new protocol version instead'
+              )
+
+          if authority != ['Quarantined']:
+              raise SystemExit(
+                  f'ERROR: V1 authority states changed from quarantine-only: {authority!r}; '
+                  'create a new protocol version instead'
+              )
+          PY
