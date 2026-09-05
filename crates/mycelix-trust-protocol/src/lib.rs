@@ -16,7 +16,7 @@
 
 #![forbid(unsafe_code)]
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Exact wire schema version for [`TrustResolutionV1`].
 pub const TRUST_RESOLUTION_V1_SCHEMA: u16 = 1;
@@ -64,17 +64,18 @@ pub enum TrustAuthorityDispositionV1 {
 
 /// Cross-domain trust resolution V1.
 ///
-/// The explicit schema field is part of the serialized payload so consumers can
-/// reject unknown versions rather than decoding them as a locally similar type.
-/// Unknown fields are also rejected so V1 cannot be extended in place while
-/// older consumers silently ignore added semantics.
+/// Construction is intentionally closed: external callers can only create V1
+/// through [`TrustResolutionV1::quarantined`]. Deserialization rejects unknown
+/// versions and unknown fields, so a producer cannot extend V1 in place while an
+/// older consumer silently ignores new semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrustResolutionV1 {
-    pub schema_version: u16,
-    pub structural: StructuralTrustStateV1,
-    pub proof_verification: ProofVerificationStateV1,
-    pub authority: TrustAuthorityDispositionV1,
+    #[serde(deserialize_with = "deserialize_v1_schema")]
+    schema_version: u16,
+    structural: StructuralTrustStateV1,
+    proof_verification: ProofVerificationStateV1,
+    authority: TrustAuthorityDispositionV1,
 }
 
 impl TrustResolutionV1 {
@@ -88,7 +89,30 @@ impl TrustResolutionV1 {
         }
     }
 
-    /// Validate the explicit wire version before a consumer interprets fields.
+    /// Exact schema version carried by this resolution.
+    pub const fn schema_version(&self) -> u16 {
+        self.schema_version
+    }
+
+    /// Structurally admitted credential state, for diagnostics only.
+    pub const fn structural(&self) -> StructuralTrustStateV1 {
+        self.structural
+    }
+
+    /// Cryptographic proof-verification state.
+    pub const fn proof_verification(&self) -> ProofVerificationStateV1 {
+        self.proof_verification
+    }
+
+    /// Consequential authority disposition.
+    pub const fn authority(&self) -> TrustAuthorityDispositionV1 {
+        self.authority
+    }
+
+    /// Defense-in-depth validation for values already present in memory.
+    ///
+    /// Normal wire deserialization rejects unsupported versions before a value
+    /// can be produced, but this remains useful for tests and internal audits.
     pub fn validate_schema(&self) -> Result<(), TrustResolutionV1Error> {
         if self.schema_version == TRUST_RESOLUTION_V1_SCHEMA {
             Ok(())
@@ -101,6 +125,21 @@ impl TrustResolutionV1 {
     }
 }
 
+fn deserialize_v1_schema<'de, D>(deserializer: D) -> Result<u16, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let actual = u16::deserialize(deserializer)?;
+    if actual == TRUST_RESOLUTION_V1_SCHEMA {
+        Ok(actual)
+    } else {
+        Err(serde::de::Error::custom(format_args!(
+            "unsupported TrustResolutionV1 schema version: expected {}, got {}",
+            TRUST_RESOLUTION_V1_SCHEMA, actual
+        )))
+    }
+}
+
 /// Contract-validation failures for V1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrustResolutionV1Error {
@@ -110,6 +149,14 @@ pub enum TrustResolutionV1Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Debug, Serialize)]
+    struct WireLikeTrustResolutionV1 {
+        schema_version: u16,
+        structural: StructuralTrustStateV1,
+        proof_verification: ProofVerificationStateV1,
+        authority: TrustAuthorityDispositionV1,
+    }
 
     #[test]
     fn every_structural_tier_remains_quarantined() {
@@ -124,12 +171,12 @@ mod tests {
         for tier in tiers {
             let resolution =
                 TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(tier));
-            assert_eq!(resolution.schema_version, TRUST_RESOLUTION_V1_SCHEMA);
+            assert_eq!(resolution.schema_version(), TRUST_RESOLUTION_V1_SCHEMA);
             assert_eq!(
-                resolution.proof_verification,
+                resolution.proof_verification(),
                 ProofVerificationStateV1::NotEstablished
             );
-            assert_eq!(resolution.authority, TrustAuthorityDispositionV1::Quarantined);
+            assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
             assert_eq!(resolution.validate_schema(), Ok(()));
         }
     }
@@ -141,12 +188,25 @@ mod tests {
             StructuralTrustTierV1::Observer,
         ));
 
-        assert_ne!(none.structural, observer.structural);
-        assert_eq!(none.authority, observer.authority);
+        assert_ne!(none.structural(), observer.structural());
+        assert_eq!(none.authority(), observer.authority());
     }
 
     #[test]
-    fn unknown_schema_version_fails_closed() {
+    fn unsupported_schema_is_rejected_during_json_deserialization() {
+        let encoded = r#"{
+            "schema_version": 2,
+            "structural": "NoActiveCredential",
+            "proof_verification": "NotEstablished",
+            "authority": "Quarantined"
+        }"#;
+
+        let decoded = serde_json::from_str::<TrustResolutionV1>(encoded);
+        assert!(decoded.is_err(), "unsupported V1 schema must fail at decode");
+    }
+
+    #[test]
+    fn validate_schema_is_defense_in_depth() {
         let mut resolution = TrustResolutionV1::quarantined(
             StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Elevated),
         );
@@ -159,7 +219,7 @@ mod tests {
                 actual: TRUST_RESOLUTION_V1_SCHEMA + 1,
             })
         );
-        assert_eq!(resolution.authority, TrustAuthorityDispositionV1::Quarantined);
+        assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
     }
 
     #[test]
@@ -174,9 +234,9 @@ mod tests {
 
         assert_eq!(decoded, resolution);
         assert_eq!(decoded.validate_schema(), Ok(()));
-        assert_eq!(decoded.authority, TrustAuthorityDispositionV1::Quarantined);
+        assert_eq!(decoded.authority(), TrustAuthorityDispositionV1::Quarantined);
         assert_eq!(
-            decoded.proof_verification,
+            decoded.proof_verification(),
             ProofVerificationStateV1::NotEstablished
         );
     }
@@ -208,7 +268,23 @@ mod tests {
 
         assert_eq!(decoded, resolution);
         assert_eq!(decoded.validate_schema(), Ok(()));
-        assert_eq!(decoded.authority, TrustAuthorityDispositionV1::Quarantined);
+        assert_eq!(decoded.authority(), TrustAuthorityDispositionV1::Quarantined);
+    }
+
+    #[test]
+    fn holochain_messagepack_rejects_unsupported_schema() {
+        let unsupported = WireLikeTrustResolutionV1 {
+            schema_version: TRUST_RESOLUTION_V1_SCHEMA + 1,
+            structural: StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Guardian),
+            proof_verification: ProofVerificationStateV1::NotEstablished,
+            authority: TrustAuthorityDispositionV1::Quarantined,
+        };
+
+        let encoded = holochain_serialized_bytes::encode(&unsupported)
+            .expect("encode unsupported V1 payload for rejection test");
+        let decoded = holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded);
+
+        assert!(decoded.is_err(), "unsupported V1 schema must fail at decode");
     }
 
     #[test]
