@@ -51,6 +51,9 @@ pub enum AuthoritySubjectKind {
     ExecutorDesignation,
     EffectSafetyPolicy,
     Delegation,
+    AuthorityCoveragePolicy,
+    CoverageTrustContextPolicy,
+    WitnessTrustPolicy,
 }
 
 impl AuthoritySubjectKind {
@@ -62,6 +65,9 @@ impl AuthoritySubjectKind {
             Self::ExecutorDesignation => 4,
             Self::EffectSafetyPolicy => 5,
             Self::Delegation => 6,
+            Self::AuthorityCoveragePolicy => 7,
+            Self::CoverageTrustContextPolicy => 8,
+            Self::WitnessTrustPolicy => 9,
         }
     }
 }
@@ -482,6 +488,19 @@ mod tests {
         let mut b = a.clone();
         b.identity.profile = "test-identity-v2-blake3".into();
         assert_ne!(a.identity_digest().unwrap(), b.identity_digest().unwrap());
+    }
+
+    #[test]
+    fn subject_kind_codes_are_stable_and_coverage_kinds_are_additive() {
+        assert_eq!(AuthoritySubjectKind::AuthorityGrant.code(), 1);
+        assert_eq!(AuthoritySubjectKind::SigningPolicy.code(), 2);
+        assert_eq!(AuthoritySubjectKind::ThresholdAuthorization.code(), 3);
+        assert_eq!(AuthoritySubjectKind::ExecutorDesignation.code(), 4);
+        assert_eq!(AuthoritySubjectKind::EffectSafetyPolicy.code(), 5);
+        assert_eq!(AuthoritySubjectKind::Delegation.code(), 6);
+        assert_eq!(AuthoritySubjectKind::AuthorityCoveragePolicy.code(), 7);
+        assert_eq!(AuthoritySubjectKind::CoverageTrustContextPolicy.code(), 8);
+        assert_eq!(AuthoritySubjectKind::WitnessTrustPolicy.code(), 9);
     }
 
     #[test]
