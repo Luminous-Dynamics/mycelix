@@ -3,16 +3,12 @@ name: Trust Resolution Schema
 on:
   pull_request:
     paths:
-      - 'crates/mycelix-core-types/src/trust_resolution.rs'
-      - 'crates/mycelix-core-types/src/lib.rs'
-      - 'crates/mycelix-core-types/Cargo.toml'
+      - 'crates/mycelix-trust-protocol/**'
       - '.github/workflows/trust-resolution-schema.yml'
   push:
     branches: [main]
     paths:
-      - 'crates/mycelix-core-types/src/trust_resolution.rs'
-      - 'crates/mycelix-core-types/src/lib.rs'
-      - 'crates/mycelix-core-types/Cargo.toml'
+      - 'crates/mycelix-trust-protocol/**'
       - '.github/workflows/trust-resolution-schema.yml'
 
 env:
@@ -32,34 +28,41 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: crates/mycelix-core-types
+          workspaces: crates/mycelix-trust-protocol
 
       - name: Check formatting
         run: |
           cargo fmt \
-            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
             -- --check
 
-      - name: Test default feature surface
+      - name: Test schema
         run: |
           cargo test \
-            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
             --lib
 
-      - name: Test serde wire surface
-        run: |
-          cargo test \
-            --manifest-path crates/mycelix-core-types/Cargo.toml \
-            --features serde \
-            --lib
-
-      - name: Check serde schema for wasm32
+      - name: Check schema for wasm32
         run: |
           cargo check \
-            --manifest-path crates/mycelix-core-types/Cargo.toml \
-            --no-default-features \
-            --features serde \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
             --target wasm32-unknown-unknown
+
+      - name: Assert protocol crate stays narrow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          manifest = tomllib.loads(Path('crates/mycelix-trust-protocol/Cargo.toml').read_text())
+          deps = set(manifest.get('dependencies', {}))
+          if deps != {'serde'}:
+              raise SystemExit(
+                  f'ERROR: trust protocol runtime dependencies changed: {sorted(deps)!r}; '
+                  'keep this wire crate serde-only unless separately reviewed'
+              )
+          PY
 
       - name: Assert V1 remains quarantine-only
         shell: bash
@@ -68,7 +71,7 @@ jobs:
           from pathlib import Path
           import re
 
-          text = Path('crates/mycelix-core-types/src/trust_resolution.rs').read_text()
+          text = Path('crates/mycelix-trust-protocol/src/lib.rs').read_text()
 
           def enum_variants(name: str) -> list[str]:
               match = re.search(rf'pub enum {name}\s*\{{(.*?)\n\}}', text, re.S)
