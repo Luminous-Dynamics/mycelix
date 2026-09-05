@@ -1,20 +1,19 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Integrity for authority-state freshness challenges.
+//! Integrity for non-authoritative authority-state freshness probes.
 //!
-//! Raw host entropy is private source-chain data. Public challenge records expose
-//! only the entropy action reference and its domain-separated digest. Neither
-//! entry becomes authority merely because it exists; the coordinator must
-//! re-resolve the current policy context and re-verify the private entropy proof.
+//! Raw host entropy is private source-chain data. Public probe records expose
+//! only the entropy action reference and its domain-separated digest. A probe is
+//! evidence collection only: neither the private entropy record nor the public
+//! challenge record creates governance, mutation, freshness, or execution authority.
 
 use hdi::prelude::*;
 use mycelix_authority_freshness::AuthoritySubjectRef;
-use mycelix_authority_state_coverage_context::{
-    CoverageChallenge, CONTEXT_POLICY_PROFILE,
-};
+use mycelix_authority_state_coverage::POLICY_IDENTITY_PROFILE;
+use mycelix_authority_state_coverage_context::{CoverageChallenge, CONTEXT_POLICY_PROFILE};
 use mycelix_institutional_core::Digest32;
 
-pub const CHALLENGE_RUNTIME_PROTOCOL: &str = "mycelix-authority-state-challenge-runtime-v0.1";
+pub const CHALLENGE_RUNTIME_PROTOCOL: &str = "mycelix-authority-state-probe-runtime-v0.1";
 pub const ENTROPY_DIGEST_PROFILE: &str =
     "mycelix-authority-state-challenge-entropy-v1-blake3-framed";
 const DOMAIN_ENTROPY: &[u8] = b"mycelix/authority-state/challenge-entropy/v1";
@@ -23,6 +22,10 @@ const MAX_REF_BYTES: usize = 2048;
 
 /// Private-by-construction entropy provenance. These bytes MUST NOT be published
 /// to the DHT. The create action hash becomes the public randomness-proof ref.
+///
+/// The context/coverage identities are candidate identities selected for this
+/// read-only probe. Their presence here does not establish that either policy is
+/// current or institutionally authoritative.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ChallengeEntropyRecord {
@@ -34,58 +37,68 @@ pub struct ChallengeEntropyRecord {
     pub coverage_policy_profile: String,
     pub entropy: Vec<u8>,
     pub nonce_digest: Digest32,
+    /// Provenance only. The author of a probe is not thereby an authority holder.
     pub issued_by: String,
 }
 
 impl ChallengeEntropyRecord {
     pub fn validate_structure(&self) -> Result<(), String> {
         if self.protocol_version != CHALLENGE_RUNTIME_PROTOCOL {
-            return Err("wrong challenge entropy protocol".into());
+            return Err("wrong authority-state probe entropy protocol".into());
         }
         self.subject
             .validate()
-            .map_err(|_| "invalid challenge entropy subject".to_string())?;
+            .map_err(|_| "invalid authority-state probe subject".to_string())?;
         if self.context_policy_digest.is_zero() || self.coverage_policy_digest.is_zero() {
-            return Err("challenge entropy policy digests must be non-zero".into());
+            return Err("probe candidate policy digests must be non-zero".into());
         }
         if self.context_policy_profile != CONTEXT_POLICY_PROFILE {
-            return Err("challenge entropy context profile mismatch".into());
+            return Err("probe candidate context-policy profile mismatch".into());
         }
-        validate_ref(&self.coverage_policy_profile, "coverage policy profile")?;
+        if self.coverage_policy_profile != POLICY_IDENTITY_PROFILE {
+            return Err("probe candidate coverage-policy profile mismatch".into());
+        }
         if self.entropy.len() != ENTROPY_BYTES {
-            return Err(format!("challenge entropy must be exactly {ENTROPY_BYTES} bytes"));
+            return Err(format!("probe entropy must be exactly {ENTROPY_BYTES} bytes"));
         }
         if self.nonce_digest != entropy_nonce_digest(&self.entropy) {
-            return Err("challenge entropy digest does not recompute exactly".into());
+            return Err("probe entropy digest does not recompute exactly".into());
         }
-        require_mycelix_did(&self.issued_by, "challenge entropy issuer")
+        require_mycelix_did(&self.issued_by, "probe issuer provenance")
     }
 }
 
-/// Public challenge provenance. The private entropy is referenced by action hash,
-/// never copied into this entry.
+/// Public probe provenance. The private entropy is referenced by action hash,
+/// never copied into this entry. The exact candidate policy identities already
+/// live inside `CoverageChallenge`; no separate authority-verification ref is
+/// stored because probe creation itself is deliberately non-authoritative.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct AuthorityStateChallengeRecord {
     pub protocol_version: String,
     pub challenge: CoverageChallenge,
     pub entropy_action: ActionHash,
-    pub context_verification_ref: String,
 }
 
 impl AuthorityStateChallengeRecord {
     pub fn validate_structure(&self) -> Result<(), String> {
         if self.protocol_version != CHALLENGE_RUNTIME_PROTOCOL {
-            return Err("wrong public challenge runtime protocol".into());
+            return Err("wrong public authority-state probe protocol".into());
         }
         self.challenge
             .validate()
-            .map_err(|error| format!("invalid coverage challenge: {error}"))?;
-        validate_ref(&self.context_verification_ref, "context verification ref")?;
-        if self.challenge.randomness_proof_ref != self.entropy_action.to_string() {
-            return Err("challenge randomness proof must equal private entropy action ref".into());
+            .map_err(|error| format!("invalid coverage probe challenge: {error}"))?;
+        if self.challenge.context_policy_profile != CONTEXT_POLICY_PROFILE
+            || self.challenge.coverage_policy_profile != POLICY_IDENTITY_PROFILE
+        {
+            return Err("probe policy profiles are not the registered v0.1 profiles".into());
         }
-        require_mycelix_did(&self.challenge.challenge_issuer_ref, "challenge issuer")
+        if self.challenge.randomness_proof_ref != self.entropy_action.to_string() {
+            return Err("probe randomness proof must equal private entropy action ref".into());
+        }
+        // This is provenance, not an authority check. It still prevents a public
+        // probe from mislabeling another author as its entropy origin.
+        require_mycelix_did(&self.challenge.challenge_issuer_ref, "probe issuer provenance")
     }
 }
 
@@ -109,7 +122,7 @@ pub fn entropy_nonce_digest(bytes: &[u8]) -> Digest32 {
     hasher.update(ENTROPY_DIGEST_PROFILE.as_bytes());
     hasher.update(&(bytes.len() as u64).to_le_bytes());
     hasher.update(bytes);
-    Digest32(*hasher.finalize().as_bytes())
+    Digest32(*hasher.finalize().as_bytes()))
 }
 
 fn validate_create_entropy(
@@ -122,7 +135,7 @@ fn validate_create_entropy(
     let expected = format!("did:mycelix:{}", action.author);
     if entry.issued_by != expected {
         return Ok(ValidateCallbackResult::Invalid(
-            "private challenge entropy must be issued by the committing agent".into(),
+            "private probe entropy provenance must equal the committing agent".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -138,13 +151,13 @@ fn validate_create_challenge(
     let expected = format!("did:mycelix:{}", action.author);
     if entry.challenge.challenge_issuer_ref != expected {
         return Ok(ValidateCallbackResult::Invalid(
-            "public challenge issuer must equal the committing agent".into(),
+            "public probe provenance must equal the committing agent".into(),
         ));
     }
-    let action_ms = timestamp_ms(action.timestamp, "challenge create action")?;
+    let action_ms = timestamp_ms(action.timestamp, "probe create action")?;
     if entry.challenge.issued_at_ms > action_ms || action_ms >= entry.challenge.expires_at_ms {
         return Ok(ValidateCallbackResult::Invalid(
-            "public challenge must already be issued and remain live at commit time".into(),
+            "public probe must already be issued and remain live at commit time".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -159,19 +172,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::AuthorityStateChallenge(entry) => validate_create_challenge(action, entry),
             },
             OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
-                "authority-state challenge records are immutable".into(),
+                "authority-state probe records are immutable".into(),
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterCreateLink { .. } => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
-            "authority-state challenge links are append-only".into(),
+            "authority-state probe links are append-only".into(),
         )),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Invalid(
-            "authority-state challenge records are append-only".into(),
+            "authority-state probe records are append-only".into(),
         )),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Invalid(
-            "authority-state challenge records cannot be updated".into(),
+            "authority-state probe records cannot be updated".into(),
         )),
         FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
             Ok(ValidateCallbackResult::Valid)
