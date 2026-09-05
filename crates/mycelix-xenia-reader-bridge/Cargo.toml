@@ -18,7 +18,7 @@ mycelix-nix-exposure = { path = "../mycelix-nix-exposure" }
 mycelix-reader-enrollment = { path = "../mycelix-reader-enrollment" }
 thiserror = "2"
 tokio = { version = "1.53", features = ["rt", "sync", "time"] }
-xenia-peer-core = { git = "https://github.com/Luminous-Dynamics/xenia-peer", rev = "07b1d57d65b0349327e1e986e6e5869f55b8a1c9" }
+xenia-peer-core = { git = "https://github.com/Luminous-Dynamics/xenia-peer", rev = "68cce019d472e00570b488599c97c62144aa30a0" }
 
 [dev-dependencies]
 tempfile = "3"

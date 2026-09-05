@@ -1,4 +1,4 @@
-name: Content Fabric Xenia Verified Read Serving CI
+name: Content Fabric Xenia Response Receive CI
 
 on:
   pull_request:
@@ -10,8 +10,8 @@ on:
       - 'crates/mycelix-nix-exposure/**'
       - 'crates/mycelix-reader-enrollment/**'
       - 'crates/mycelix-xenia-reader-bridge/**'
-      - 'docs/content-fabric/VERIFIED_READ_SERVING_V1.md'
-      - '.github/workflows/content-fabric-xenia-verified-read-serving.yml'
+      - 'docs/content-fabric/XENIA_RESPONSE_RECEIVE_V1.md'
+      - '.github/workflows/content-fabric-xenia-response-receive.yml'
   push:
     branches: [main]
     paths:
@@ -22,14 +22,14 @@ on:
       - 'crates/mycelix-nix-exposure/**'
       - 'crates/mycelix-reader-enrollment/**'
       - 'crates/mycelix-xenia-reader-bridge/**'
-      - 'docs/content-fabric/VERIFIED_READ_SERVING_V1.md'
-      - '.github/workflows/content-fabric-xenia-verified-read-serving.yml'
+      - 'docs/content-fabric/XENIA_RESPONSE_RECEIVE_V1.md'
+      - '.github/workflows/content-fabric-xenia-response-receive.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: content-fabric-xenia-verified-read-serving-${{ github.workflow }}-${{ github.ref }}
+  group: content-fabric-xenia-response-receive-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -39,7 +39,7 @@ env:
 
 jobs:
   rust-196:
-    name: CF-07C4 verified read serving / Rust 1.96
+    name: CF-07C6 Xenia response receive / Rust 1.96
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -53,7 +53,7 @@ jobs:
           workspaces: |
             crates/mycelix-xenia-reader-bridge
             crates/mycelix-content-node
-      - name: Verify pinned Xenia evidence revision resolves exactly
+      - name: Verify pinned Xenia deadline-receive revision resolves exactly
         shell: bash
         run: |
           set -euo pipefail
@@ -65,11 +65,7 @@ jobs:
           expected = os.environ["PINNED_XENIA_REV"]
           with open("/tmp/metadata.json", "r", encoding="utf-8") as handle:
               metadata = json.load(handle)
-          matches = [
-              package
-              for package in metadata["packages"]
-              if package["name"] == "xenia-peer-core"
-          ]
+          matches = [p for p in metadata["packages"] if p["name"] == "xenia-peer-core"]
           assert len(matches) == 1, f"expected one xenia-peer-core package, got {len(matches)}"
           source = matches[0].get("source") or ""
           assert source.startswith("git+https://github.com/Luminous-Dynamics/xenia-peer"), source
@@ -82,7 +78,13 @@ jobs:
         run: cargo check --manifest-path "$BRIDGE_MANIFEST" --all-targets
       - name: Clippy bridge
         run: cargo clippy --manifest-path "$BRIDGE_MANIFEST" --all-targets -- -D warnings
-      - name: Test verified-serving boundary
+      - name: Test deadline-owned MCFS receiver
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" response_receive::tests -- --nocapture
+      - name: Requalify C5 delivery binding
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" delivery::tests -- --nocapture
+      - name: Requalify C5 response framing
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" response::tests -- --nocapture
+      - name: Requalify C4 verified serving
         run: cargo test --manifest-path "$BRIDGE_MANIFEST" serve::tests -- --nocapture
       - name: Test full bridge
         run: cargo test --manifest-path "$BRIDGE_MANIFEST" --all-targets
@@ -92,7 +94,7 @@ jobs:
         run: RUSTDOCFLAGS='-D warnings' cargo doc --manifest-path "$BRIDGE_MANIFEST" --no-deps
 
   msrv:
-    name: CF-07C4 verified read serving / Rust 1.94 MSRV
+    name: CF-07C6 Xenia response receive / Rust 1.94 MSRV
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -107,7 +109,11 @@ jobs:
             crates/mycelix-content-node
       - name: Check bridge on declared MSRV
         run: cargo check --manifest-path "$BRIDGE_MANIFEST" --all-targets
-      - name: Test verified-serving boundary on declared MSRV
-        run: cargo test --manifest-path "$BRIDGE_MANIFEST" serve::tests -- --nocapture
+      - name: Test deadline-owned MCFS receiver on declared MSRV
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" response_receive::tests -- --nocapture
+      - name: Requalify C5 delivery on declared MSRV
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" delivery::tests -- --nocapture
+      - name: Requalify C5 response framing on declared MSRV
+        run: cargo test --manifest-path "$BRIDGE_MANIFEST" response::tests -- --nocapture
       - name: Requalify CF-03 verified CAS on declared MSRV
         run: cargo test --manifest-path "$NODE_MANIFEST" --all-targets
