@@ -1,0 +1,74 @@
+name: Trust Resolution Schema
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-core-types/src/trust_resolution.rs'
+      - 'crates/mycelix-core-types/src/lib.rs'
+      - 'crates/mycelix-core-types/Cargo.toml'
+      - '.github/workflows/trust-resolution-schema.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-core-types/src/trust_resolution.rs'
+      - 'crates/mycelix-core-types/src/lib.rs'
+      - 'crates/mycelix-core-types/Cargo.toml'
+      - '.github/workflows/trust-resolution-schema.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-core-types
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            -- --check
+
+      - name: Test default feature surface
+        run: |
+          cargo test \
+            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            --lib
+
+      - name: Test serde wire surface
+        run: |
+          cargo test \
+            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            --features serde \
+            --lib
+
+      - name: Check serde schema for wasm32
+        run: |
+          cargo check \
+            --manifest-path crates/mycelix-core-types/Cargo.toml \
+            --no-default-features \
+            --features serde \
+            --target wasm32-unknown-unknown
+
+      - name: Assert V1 remains quarantine-only
+        shell: bash
+        run: |
+          FILE=crates/mycelix-core-types/src/trust_resolution.rs
+          grep -Fq 'ProofVerificationStateV1::NotEstablished' "$FILE"
+          grep -Fq 'TrustAuthorityDispositionV1::Quarantined' "$FILE"
+
+          if grep -Eq 'ProofVerificationStateV1::(Verified|Valid)|TrustAuthorityDispositionV1::(Authorized|Elevated)' "$FILE"; then
+            echo 'ERROR: V1 must remain quarantine-only; create a new protocol version for verified authority' >&2
+            exit 1
+          fi
