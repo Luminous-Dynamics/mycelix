@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-authority-control-plane-freshness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Constitution-rooted control-plane authority freshness qualification for Mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-state-source = { path = "../mycelix-authority-state-source" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }
+mycelix-authority-state-bootstrap-root = { path = "../mycelix-authority-state-bootstrap-root" }
