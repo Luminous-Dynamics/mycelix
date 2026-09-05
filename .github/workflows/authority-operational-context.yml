@@ -1,0 +1,103 @@
+name: Authority Operational Policy Context
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-control-plane-freshness/**'
+      - 'crates/mycelix-authority-state-bootstrap-root/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/authority-operational-context.yml'
+  push:
+    branches:
+      - 'security/authority-operational-context-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-operational-context-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact current operational policy context
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-operational-context/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-operational-context/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-operational-context/Cargo.toml --all-targets -- -D warnings
+      - name: Downstream authority compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-control-plane-freshness/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-state-coverage-context/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+      - name: Operational-context authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-authority-operational-context/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-operational-context/INVARIANTS.md').read_text()
+
+          required = [
+              'qualify_operational_policy_context',
+              'root.manifest().control_plane_namespace',
+              'coverage.namespace != target_subject.namespace',
+              'AuthoritySubjectKind::AuthorityCoveragePolicy',
+              'AuthoritySubjectKind::CoverageTrustContextPolicy',
+              'AuthoritySubjectKind::WitnessTrustPolicy',
+              'qualify_current_freshness',
+              'qualified.root_qualification_digest()',
+              'qualified.root_qualification_profile()',
+              'current_policies.lease_until_ms',
+              '.min(root.valid_until_ms())',
+              'TargetOutsideCoveragePolicy',
+              'ControlPlaneTargetForbidden',
+              'QualifiedOperationalPolicyContext',
+          ]
+          for token in required:
+              assert token in src, token
+
+          forbidden = [
+              'VerifiedChallengeIssuerGrant',
+              'REQUIRED_CHALLENGE_CAPABILITY',
+              'authority_state.challenge_issue',
+              'challenge_issuer_did',
+              'issuer_grant',
+              'hdk::',
+              '#[hdk_extern]',
+              'call_remote(',
+              'create_entry(',
+              'project_authority_state_as_of',
+              'execute_actions',
+          ]
+          lowered = src.lower()
+          for token in forbidden:
+              assert token.lower() not in lowered, token
+
+          struct = src.split('pub struct QualifiedOperationalPolicyContext', 1)[0]
+          assert 'Serialize)]' in struct[-160:]
+          assert 'Deserialize' not in struct[-160:]
+
+          assert 'covered subject namespace != policy-state registry namespace' in inv.lower()
+          assert 'probe authorship is provenance, not institutional authority' in inv.lower()
+          assert 'historical state cannot enter this boundary' in inv.lower()
+          assert 'no dht/currentness heuristics' in inv.lower()
+
+          print('PASS: operational policy context uses exact control-plane currentness without probe-author authority')
+          PY
