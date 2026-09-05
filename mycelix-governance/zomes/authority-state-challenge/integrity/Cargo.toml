@@ -3,7 +3,7 @@ name = "authority_state_challenge_integrity"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
-description = "Private entropy and public challenge provenance for authority-state freshness"
+description = "Private entropy and public non-authoritative probe provenance for authority-state freshness"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -13,5 +13,6 @@ hdi = { workspace = true }
 serde = { workspace = true }
 blake3 = "1"
 mycelix-authority-freshness = { path = "../../../../crates/mycelix-authority-freshness" }
+mycelix-authority-state-coverage = { path = "../../../../crates/mycelix-authority-state-coverage" }
 mycelix-authority-state-coverage-context = { path = "../../../../crates/mycelix-authority-state-coverage-context" }
 mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }

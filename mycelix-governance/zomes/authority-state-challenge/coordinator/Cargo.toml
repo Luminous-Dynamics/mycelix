@@ -3,7 +3,7 @@ name = "authority_state_challenge"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
-description = "Fail-closed private-entropy challenge issuer for authority-state coverage"
+description = "Private-entropy non-authoritative probe issuer for authority-state freshness evidence"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

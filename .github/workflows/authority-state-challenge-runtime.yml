@@ -1,4 +1,4 @@
-name: Authority State Challenge Runtime
+name: Authority State Probe Runtime
 
 on:
   pull_request:
@@ -12,13 +12,13 @@ on:
       - '.github/workflows/authority-state-challenge-runtime.yml'
   push:
     branches:
-      - 'security/authority-state-challenge-runtime-v0.1'
+      - 'security/authority-state-probe-runtime-v0.1'
 
 permissions:
   contents: read
 
 concurrency:
-  group: authority-state-challenge-runtime-${{ github.workflow }}-${{ github.ref }}
+  group: authority-state-probe-runtime-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   qualify:
-    name: Private entropy challenge native + WASM
+    name: Private entropy probe native + WASM
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -52,12 +52,12 @@ jobs:
           cargo check --release --target wasm32-unknown-unknown --package authority_state_challenge
 
   containment:
-    name: Challenge authority remains private, fail-closed, and unprovisioned
+    name: Probe remains private, non-authoritative, and unprovisioned
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Audit challenge authority boundary
+      - name: Audit probe boundary
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -72,15 +72,18 @@ jobs:
               'ChallengeEntropyRecord',
               'AuthorityStateChallengeRecord',
               'entropy_nonce_digest',
+              'POLICY_IDENTITY_PROFILE',
+              'CONTEXT_POLICY_PROFILE',
               'randomness_proof_ref != self.entropy_action.to_string()',
-              'authority-state challenge records are immutable',
+              'authority-state probe records are immutable',
           ]
           for token in required_integrity:
               assert token in integrity, token
 
           required_coordinator = [
-              'authority_state_context_policy_verifier',
-              'resolve_challenge_context',
+              'pub struct IssueAuthorityStateProbeRequest',
+              'issue_authority_state_probe',
+              'verify_issued_authority_state_probe',
               'random_bytes(ENTROPY_BYTES)',
               'create_entry(EntryTypes::ChallengeEntropy',
               'get_local_record(&entropy_action)',
@@ -88,26 +91,42 @@ jobs:
               'verified_nonce_digest: challenge.nonce_digest',
               'verified_randomness_proof_ref: challenge.randomness_proof_ref.clone()',
               'verified_challenge_issuer_ref: challenge.challenge_issuer_ref.clone()',
-              'provider_probed_without_subject: false',
+              'candidate_policy_selection_grants_authority: false',
+              'probe_grants_authority: false',
               'operational: false',
           ]
           for token in required_coordinator:
               assert token in coordinator, token
 
-          request_body = coordinator.split('pub struct IssueAuthorityStateChallengeRequest', 1)[1].split('}', 1)[0].lower()
-          assert 'entropy' not in request_body
-          assert 'nonce' not in request_body
-          assert 'status-probe' not in coordinator
+          # The caller may select candidate policy identities/lifetime, but never
+          # randomness, proof identity, issue time, or issuer provenance.
+          request_body = coordinator.split('pub struct IssueAuthorityStateProbeRequest', 1)[1].split('}', 1)[0].lower()
+          for forbidden in ['entropy', 'nonce', 'randomness_proof', 'issued_at', 'issuer']:
+              assert forbidden not in request_body, forbidden
+
+          # Probe generation/verification must not recurse into the currentness
+          # plane it exists to observe.
+          for forbidden in [
+              'authority_state_context_policy_verifier',
+              'resolve_challenge_context',
+              'authority_current_freshness_verifier',
+              'resolve_current_freshness',
+              'authority_challenge_issuer_grant_verifier',
+              'context_verification_ref',
+          ]:
+              assert forbidden not in coordinator, forbidden
 
           for name in ['authority_state_challenge_integrity', 'authority_state_challenge']:
-              assert f'name: {name}' not in dna, f'unqualified challenge zome packaged: {name}'
+              assert f'name: {name}' not in dna, f'unqualified probe zome packaged: {name}'
 
-          assert 'Raw entropy is private by construction' in invariants
-          assert 'Status does not probe authority with synthetic data' in invariants
-          assert 'Deliberately unprovisioned' in invariants
+          lower_inv = invariants.lower()
+          assert 'a probe is **not authority**' in invariants
+          assert 'bootstrap-cycle rule' in lower_inv
+          assert 'probe verification proves randomness/provenance only' in lower_inv
+          assert 'deliberately unprovisioned' in lower_inv
 
           lowered = coordinator.lower()
-          for forbidden in ['phi', 'reputation', 'model_score', 'guardian']:
+          for forbidden in ['phi', 'reputation', 'model_score', 'guardian', 'execute_actions']:
               assert forbidden not in lowered, forbidden
-          print('PASS: challenge runtime uses private host entropy, exact current context, local proof verification, and remains unprovisioned')
+          print('PASS: probe uses private host entropy, binds candidate context exactly, grants no authority, and remains unprovisioned')
           PY
