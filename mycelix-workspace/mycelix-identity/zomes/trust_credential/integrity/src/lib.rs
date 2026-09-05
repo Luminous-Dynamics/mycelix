@@ -14,6 +14,8 @@
 //! - KVectorRangeProof proves values are in valid \[0,1\] range
 //! - Proofs are generated off-chain and verified on-chain
 
+mod link_binding;
+
 use hdi::prelude::*;
 
 /// K-Vector Trust Credential
@@ -252,19 +254,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            action,
+            base_address,
+            target_address,
+            tag,
+            link_type,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::SubjectToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToPresentation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::TierToCredential => Ok(ValidateCallbackResult::Valid),
-            }
+            link_binding::validate_create_link_binding(
+                action,
+                base_address,
+                target_address,
+                link_type,
+            )
         }
         FlatOp::RegisterDeleteLink {
             original_action,
