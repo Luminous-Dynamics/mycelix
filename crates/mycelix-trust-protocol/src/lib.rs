@@ -14,6 +14,8 @@
 //! A future protocol that carries accepted signed verification-record evidence
 //! must use a new versioned type rather than weakening V1 in place.
 
+#![forbid(unsafe_code)]
+
 use serde::{Deserialize, Serialize};
 
 /// Exact wire schema version for [`TrustResolutionV1`].
@@ -64,7 +66,10 @@ pub enum TrustAuthorityDispositionV1 {
 ///
 /// The explicit schema field is part of the serialized payload so consumers can
 /// reject unknown versions rather than decoding them as a locally similar type.
+/// Unknown fields are also rejected so V1 cannot be extended in place while
+/// older consumers silently ignore added semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TrustResolutionV1 {
     pub schema_version: u16,
     pub structural: StructuralTrustStateV1,
@@ -107,18 +112,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn guardian_structural_tier_remains_quarantined() {
-        let resolution = TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(
+    fn every_structural_tier_remains_quarantined() {
+        let tiers = [
+            StructuralTrustTierV1::Observer,
+            StructuralTrustTierV1::Basic,
+            StructuralTrustTierV1::Standard,
+            StructuralTrustTierV1::Elevated,
             StructuralTrustTierV1::Guardian,
-        ));
+        ];
 
-        assert_eq!(resolution.schema_version, TRUST_RESOLUTION_V1_SCHEMA);
-        assert_eq!(
-            resolution.proof_verification,
-            ProofVerificationStateV1::NotEstablished
-        );
-        assert_eq!(resolution.authority, TrustAuthorityDispositionV1::Quarantined);
-        assert_eq!(resolution.validate_schema(), Ok(()));
+        for tier in tiers {
+            let resolution =
+                TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(tier));
+            assert_eq!(resolution.schema_version, TRUST_RESOLUTION_V1_SCHEMA);
+            assert_eq!(
+                resolution.proof_verification,
+                ProofVerificationStateV1::NotEstablished
+            );
+            assert_eq!(resolution.authority, TrustAuthorityDispositionV1::Quarantined);
+            assert_eq!(resolution.validate_schema(), Ok(()));
+        }
     }
 
     #[test]
@@ -166,5 +179,19 @@ mod tests {
             decoded.proof_verification,
             ProofVerificationStateV1::NotEstablished
         );
+    }
+
+    #[test]
+    fn unknown_fields_are_rejected() {
+        let encoded = r#"{
+            "schema_version": 1,
+            "structural": "NoActiveCredential",
+            "proof_verification": "NotEstablished",
+            "authority": "Quarantined",
+            "future_authority": "Verified"
+        }"#;
+
+        let decoded = serde_json::from_str::<TrustResolutionV1>(encoded);
+        assert!(decoded.is_err(), "V1 must reject unknown fields");
     }
 }
