@@ -152,6 +152,7 @@ pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod trust;
+pub mod trust_resolution;
 pub mod wisdom_engine;
 
 pub use collective_field::*;
@@ -160,6 +161,7 @@ pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use trust::*;
+pub use trust_resolution::*;
 pub use wisdom_engine::*;
 
 /// Mycelix protocol version
