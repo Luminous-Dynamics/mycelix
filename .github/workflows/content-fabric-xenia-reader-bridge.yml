@@ -28,7 +28,7 @@ concurrency:
 
 env:
   BRIDGE_MANIFEST: crates/mycelix-xenia-reader-bridge/Cargo.toml
-  PINNED_XENIA_REV: 2125d0db2a5b7a995d129646e851adacb1c9f1fa
+  PINNED_XENIA_REV: 07b1d57d65b0349327e1e986e6e5869f55b8a1c9
 
 jobs:
   rust-196:
