@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-ssf-snapshots"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
