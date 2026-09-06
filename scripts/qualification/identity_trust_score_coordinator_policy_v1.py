@@ -2,7 +2,8 @@
 """Materialize coordinator-wide adoption of the canonical trust-score theorem.
 
 Qualification-only transformation. It edits the CI checkout, not committed
-product source, and requires every security-sensitive before-image exactly once.
+product source, and requires every security-sensitive before-image exactly once
+inside the specific extern/helper that owns it.
 """
 
 from pathlib import Path
@@ -23,13 +24,34 @@ def replace_once(text: str, before: str, after: str, label: str) -> str:
     return text.replace(before, after, 1)
 
 
+def replace_in_region(
+    text: str,
+    start_marker: str,
+    end_marker: str,
+    before: str,
+    after: str,
+    label: str,
+) -> str:
+    start = text.index(start_marker)
+    end = text.index(end_marker, start)
+    region = text[start:end]
+    count = region.count(before)
+    if count != 1:
+        raise SystemExit(
+            f"ERROR: {label} before-image count is {count} in scoped region, "
+            "expected exactly 1"
+        )
+    region = region.replace(before, after, 1)
+    return text[:start] + region + text[end:]
+
+
 manifest = MANIFEST.read_text()
 manifest = replace_once(
     manifest,
-    "hdk = { workspace = true }\ntrust_credential_integrity = { path = \"../integrity\" }\n",
-    "hdk = { workspace = true }\n"
-    "mycelix-trust-score-assertion-policy = { path = \"../../../crates/trust-score-assertion-policy\" }\n"
-    "trust_credential_integrity = { path = \"../integrity\" }\n",
+    'hdk = { workspace = true }\ntrust_credential_integrity = { path = "../integrity" }\n',
+    'hdk = { workspace = true }\n'
+    'mycelix-trust-score-assertion-policy = { path = "../../../crates/trust-score-assertion-policy" }\n'
+    'trust_credential_integrity = { path = "../integrity" }\n',
     "coordinator policy dependency",
 )
 MANIFEST.write_text(manifest)
@@ -75,8 +97,7 @@ fn trust_tier_from_band_v1(tier: TrustTierBandV1) -> TrustTier {
 }
 
 /// Coordinator admission helper. DHT integrity remains authoritative, but every
-/// coordinator path should reject malformed scores before performing business or
-/// request-state logic.
+/// coordinator path rejects malformed score ranges before consuming them.
 fn validate_coordinator_score_range(lower: f32, upper: f32) -> ExternResult<TrustTier> {
     let band = validate_score_range_v1(lower, upper).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -85,10 +106,27 @@ fn validate_coordinator_score_range(lower: f32, upper: f32) -> ExternResult<Trus
     })?;
     Ok(trust_tier_from_band_v1(band))
 }
+
+/// Require a claimed Identity tier to match the canonical midpoint-derived tier.
+/// This is structural self-consistency only; it does not establish proof validity
+/// or bind a presentation to a source credential.
+fn validate_coordinator_score_assertion(
+    lower: f32,
+    upper: f32,
+    claimed_tier: &TrustTier,
+) -> ExternResult<()> {
+    validate_score_assertion_v1(lower, upper, trust_tier_band_v1(claimed_tier)).map_err(
+        |error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid trust score assertion: {error:?}"
+            )))
+        },
+    )
+}
 '''
 text = replace_once(text, anchor, helpers, "coordinator score-policy helpers")
 
-old_issue_guard = '''    if input.trust_score_lower < 0.0
+old_range_guard = '''    if input.trust_score_lower < 0.0
         || input.trust_score_upper > 1.0
         || input.trust_score_lower > input.trust_score_upper
     {
@@ -97,17 +135,21 @@ old_issue_guard = '''    if input.trust_score_lower < 0.0
         )));
     }
 '''
-text = replace_once(
+
+text = replace_in_region(
     text,
-    old_issue_guard,
+    "pub fn issue_trust_credential(",
+    "/// Input for issuing a trust credential",
+    old_range_guard,
     '''    let trust_tier =
         validate_coordinator_score_range(input.trust_score_lower, input.trust_score_upper)?;
 ''',
     "issue trust score admission",
 )
-
-text = replace_once(
+text = replace_in_region(
     text,
+    "pub fn issue_trust_credential(",
+    "/// Input for issuing a trust credential",
     '''    // Determine trust tier from the proven range
     let mid_score = (input.trust_score_lower as f64 + input.trust_score_upper as f64) / 2.0;
     let trust_tier = TrustTier::from_score(mid_score);
@@ -117,11 +159,11 @@ text = replace_once(
     "duplicate issue midpoint derivation",
 )
 
-# The same weak guard appears once more in self-attestation. After the first
-# issue-path replacement above, it must still occur exactly once.
-text = replace_once(
+text = replace_in_region(
     text,
-    old_issue_guard,
+    "pub fn self_attest_trust(",
+    "/// Input for self-attesting trust",
+    old_range_guard,
     '''    let _ = validate_coordinator_score_range(
         input.trust_score_lower,
         input.trust_score_upper,
@@ -130,38 +172,99 @@ text = replace_once(
     "self-attestation trust score admission",
 )
 
-text = replace_once(
+# A disclosed presentation must at least be numerically self-consistent. This does
+# not claim the presentation is bound to the named source credential; that is a
+# separate schema/authority invariant.
+text = replace_in_region(
     text,
+    "pub fn create_presentation(",
+    "/// Input for creating a presentation",
+    '''    if input.purpose.is_empty() || input.purpose.len() > 2048 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Purpose must be 1-2048 characters".into()
+        )));
+    }
+''',
+    '''    if input.purpose.is_empty() || input.purpose.len() > 2048 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Purpose must be 1-2048 characters".into()
+        )));
+    }
+    if input.disclose_range {
+        validate_coordinator_score_assertion(
+            input.trust_range.lower,
+            input.trust_range.upper,
+            &input.disclosed_tier,
+        )?;
+    }
+''',
+    "presentation disclosed score assertion",
+)
+
+text = replace_in_region(
+    text,
+    "pub fn request_attestation(",
+    "/// Input for requesting attestation",
+    '''    if let Some(score) = input.min_trust_score {
+        if !(0.0..=1.0).contains(&score) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Min trust score must be between 0.0 and 1.0".into()
+            )));
+        }
+    }
+''',
+    '''    if let Some(score) = input.min_trust_score {
+        let _ = validate_coordinator_score_range(score, score)?;
+    }
+''',
+    "attestation request minimum score admission",
+)
+
+# Fulfillment must admit the caller-supplied score before any request lookup or
+# request-state mutation can consume that evidence.
+text = replace_in_region(
+    text,
+    "pub fn fulfill_attestation(",
+    "/// Input for fulfilling an attestation",
+    old_range_guard,
+    '''    let trust_tier =
+        validate_coordinator_score_range(input.trust_score_lower, input.trust_score_upper)?;
+''',
+    "fulfillment score admission",
+)
+text = replace_in_region(
+    text,
+    "pub fn fulfill_attestation(",
+    "/// Input for fulfilling an attestation",
     '''    // Verify the provided proof meets request requirements
     let mid_score = (input.trust_score_lower as f64 + input.trust_score_upper as f64) / 2.0;
     let trust_tier = TrustTier::from_score(mid_score);
 
 ''',
-    '''    // Reject malformed/non-finite score evidence before request requirement
-    // comparisons or request-state fulfillment logic can consume it.
-    let trust_tier =
-        validate_coordinator_score_range(input.trust_score_lower, input.trust_score_upper)?;
-
+    '''    // Structural score admission occurred before request lookup/state changes.
+    // The checks below only compare the already-admitted structural evidence
+    // against this request's requirements; they do not verify STARK semantics.
 ''',
-    "fulfillment score admission",
+    "fulfillment duplicate midpoint derivation",
 )
-
-text = replace_once(
+text = replace_in_region(
     text,
+    "pub fn fulfill_attestation(",
+    "/// Input for fulfilling an attestation",
     '''    if let Some(min_score) = req.min_trust_score {
         if input.trust_score_lower < min_score {
 ''',
     '''    if let Some(min_score) = req.min_trust_score {
-        // Historical requests may predate strict finite-score admission. Re-audit
-        // the requested scalar before using it as a comparison threshold.
+        // Historical requests can predate strict finite-score admission.
         let _ = validate_coordinator_score_range(min_score, min_score)?;
         if input.trust_score_lower < min_score {
 ''',
     "historical request minimum score audit",
 )
-
-text = replace_once(
+text = replace_in_region(
     text,
+    "pub fn fulfill_attestation(",
+    "/// Input for fulfilling an attestation",
     '''    if let Some(ref min_tier) = req.min_tier {
         if (mid_score) < min_tier.min_score() {
 ''',
@@ -199,7 +302,14 @@ new_verify = '''    // Structural range/tier diagnostics use the same canonical 
     )
     .is_ok();
 '''
-text = replace_once(text, old_verify, new_verify, "runtime structural verification policy")
+text = replace_in_region(
+    text,
+    "pub fn verify_credential(",
+    "/// Result of credential verification",
+    old_verify,
+    new_verify,
+    "runtime structural verification policy",
+)
 
 old_pure = '''    let range_valid = trust_score_range.lower >= 0.0
         && trust_score_range.upper <= 1.0
@@ -220,7 +330,14 @@ new_pure = '''    let range_valid =
     )
     .is_ok();
 '''
-text = replace_once(text, old_pure, new_pure, "pure structural verification policy")
+text = replace_in_region(
+    text,
+    "pub fn verify_credential_pure(",
+    "#[cfg(test)]\nmod tests {",
+    old_pure,
+    new_pure,
+    "pure structural verification policy",
+)
 
 text = replace_once(
     text,
@@ -268,10 +385,11 @@ text = replace_once(
     "coordinator score policy regression tests",
 )
 
-# Static after-image checks.
 for required in [
     "validate_coordinator_score_range(input.trust_score_lower, input.trust_score_upper)?",
+    "validate_coordinator_score_range(score, score)?",
     "validate_coordinator_score_range(min_score, min_score)?",
+    "validate_coordinator_score_assertion(",
     "trust_tier_band_v1(&trust_tier) < trust_tier_band_v1(min_tier)",
     "validate_score_assertion_v1(",
     "local_and_policy_tier_mappings_round_trip_all_variants",
@@ -280,27 +398,37 @@ for required in [
     if required not in text:
         raise SystemExit(f"ERROR: coordinator score-policy after-image missing: {required}")
 
-# No admission path may retain the legacy ordinary comparison gate or local
-# midpoint derivation after this transformation.
-issue_start = text.index("pub fn issue_trust_credential(")
-issue_end = text.index("/// Input for issuing a trust credential", issue_start)
-issue_body = text[issue_start:issue_end]
-for forbidden in [
-    "input.trust_score_lower < 0.0",
-    "TrustTier::from_score(mid_score)",
+# High-risk coordinator paths may no longer carry private numeric semantics.
+for start_marker, end_marker, forbidden in [
+    (
+        "pub fn issue_trust_credential(",
+        "/// Input for issuing a trust credential",
+        ["input.trust_score_lower < 0.0", "TrustTier::from_score(mid_score)"],
+    ),
+    (
+        "pub fn self_attest_trust(",
+        "/// Input for self-attesting trust",
+        ["input.trust_score_lower < 0.0"],
+    ),
+    (
+        "pub fn request_attestation(",
+        "/// Input for requesting attestation",
+        ["(0.0..=1.0).contains(&score)"],
+    ),
+    (
+        "pub fn fulfill_attestation(",
+        "/// Input for fulfilling an attestation",
+        ["let mid_score =", "min_tier.min_score()", "input.trust_score_lower < 0.0"],
+    ),
 ]:
-    if forbidden in issue_body:
-        raise SystemExit(f"ERROR: legacy issue score rule remains: {forbidden}")
-
-fulfill_start = text.index("pub fn fulfill_attestation(")
-fulfill_end = text.index("/// Input for fulfilling an attestation", fulfill_start)
-fulfill_body = text[fulfill_start:fulfill_end]
-for forbidden in [
-    "let mid_score =",
-    "min_tier.min_score()",
-]:
-    if forbidden in fulfill_body:
-        raise SystemExit(f"ERROR: legacy fulfillment score rule remains: {forbidden}")
+    start = text.index(start_marker)
+    end = text.index(end_marker, start)
+    body = text[start:end]
+    for needle in forbidden:
+        if needle in body:
+            raise SystemExit(
+                f"ERROR: legacy private score rule remains in {start_marker}: {needle}"
+            )
 
 LIB.write_text(text)
 print("Materialized coordinator-wide canonical trust-score policy adoption V1.")
