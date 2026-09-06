@@ -13,7 +13,7 @@ on:
       - '.github/workflows/authority-current-freshness-runtime.yml'
   push:
     branches:
-      - 'security/authority-current-freshness-runtime-v0.1'
+      - 'security/authority-current-freshness-provider-split-v0.1'
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ env:
 
 jobs:
   qualify:
-    name: Fail-closed current freshness composition
+    name: Split-verifier current freshness composition
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,7 +54,7 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: Current-freshness authority audit
+      - name: Split-verifier authority audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -69,11 +69,22 @@ jobs:
               'qualify_control_plane_subject_freshness(',
               'qualify_operational_policy_context(',
               'qualify_operational_subject_freshness(',
+              'authority_state_evidence_plan_provider',
+              'plan_control_plane_probes',
+              'plan_operational_probe',
+              'authority_state_challenge',
               'verify_issued_authority_state_probe',
-              'pub probe_action: ActionHash',
-              'MAX_CONTROL_PLANE_BUNDLES',
+              'authority_state_source_head_verifier',
+              'verify_source_head',
+              'authority_state_witness_verifier',
+              'verify_witness_evidence',
+              'authority_state_transition_verifier',
+              'verify_transition_lineage',
+              'MAX_CONTROL_PLANE_PROBES',
               'MAX_WITNESSES',
+              'MAX_TRUST_BINDINGS',
               'MAX_TRANSITIONS',
+              'evidence_plan_grants_authority: false',
               'latest_dht_record_authority: false',
               'provider_positive_object_authority: false',
               'probe_authority: false',
@@ -83,7 +94,10 @@ jobs:
           for token in required:
               assert token in src, token
 
-          forbidden = [
+          # One omnibus evidence-oracle provider must not reappear.
+          for forbidden in [
+              'authority_control_plane_evidence_provider',
+              'authority_operational_evidence_provider',
               'pub challenge: VerifiedCoverageChallenge',
               'get_links(',
               'get_details(',
@@ -95,17 +109,17 @@ jobs:
               'phi',
               'reputation',
               'model_score',
-          ]
-          lowered = src.lower()
-          for token in forbidden:
-              assert token.lower() not in lowered, token
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
 
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in cargo
           assert 'name: authority_current_freshness_verifier' not in dna
-          assert 'no serialized positive-authority shortcut' in inv
-          assert 'probe verification is a separate boundary' in inv
+          assert 'discovery and verification are different roles' in inv
+          assert 'source-head verification is independent' in inv
+          assert 'witness/trust verification is independent' in inv
+          assert 'transition verification is independent' in inv
           assert 'a valid transition prefix is not current authority' in inv
           assert 'deliberately unprovisioned' in inv
           assert 'no latest-record heuristics' in inv
-          print('PASS: current freshness runtime reconstructs authority locally, verifies probes separately, and remains unprovisioned')
+          print('PASS: current freshness separates planning, probe, source, witness/trust, and transition verifier roles')
           PY
