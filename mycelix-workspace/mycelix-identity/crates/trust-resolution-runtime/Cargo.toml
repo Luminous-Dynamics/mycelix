@@ -12,3 +12,6 @@ crate-type = ["rlib"]
 mycelix-trust-current-state-policy = { path = "../trust-current-state-policy" }
 mycelix-trust-protocol = { path = "../../../../crates/mycelix-trust-protocol" }
 trust_credential_integrity = { path = "../../zomes/trust_credential/integrity" }
+
+[dev-dependencies]
+holochain_zome_types = { workspace = true }
