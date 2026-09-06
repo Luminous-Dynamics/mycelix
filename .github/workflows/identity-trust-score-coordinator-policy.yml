@@ -1,0 +1,166 @@
+name: Identity Trust Score Coordinator Policy Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_trust_score_coordinator_policy_v1.py'
+      - '.github/workflows/identity-trust-score-coordinator-policy.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_trust_score_coordinator_policy_v1.py'
+      - '.github/workflows/identity-trust-score-coordinator-policy.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coordinator-score-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact coordinator policy candidate
+        run: python scripts/qualification/identity_trust_score_coordinator_policy_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml'
+            'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs'
+          )
+          if [[ ${#changed[@]} -ne ${#expected[@]} ]]; then
+            printf 'ERROR: generated coordinator patch changed unexpected file count\n'
+            printf 'changed: %s\n' "${changed[*]}"
+            exit 1
+          fi
+          for i in "${!expected[@]}"; do
+            if [[ "${changed[$i]}" != "${expected[$i]}" ]]; then
+              printf 'ERROR: generated scope mismatch at %s: %s != %s\n' \
+                "$i" "${changed[$i]}" "${expected[$i]}"
+              exit 1
+            fi
+          done
+          git diff --check
+          git diff --binary > /tmp/identity-trust-score-coordinator-policy-v1.patch
+
+      - name: Assert coordinator convergence contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs')
+          text = path.read_text()
+
+          required = [
+              'validate_coordinator_score_range(input.trust_score_lower, input.trust_score_upper)?',
+              'validate_coordinator_score_range(score, score)?',
+              'validate_coordinator_score_range(min_score, min_score)?',
+              'validate_coordinator_score_assertion(',
+              'trust_tier_band_v1(&trust_tier) < trust_tier_band_v1(min_tier)',
+              'validate_score_assertion_v1(',
+              'local_and_policy_tier_mappings_round_trip_all_variants',
+              'structural_verifier_rejects_infinite_range_via_shared_policy',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: coordinator convergence marker missing: {needle}')
+
+          def region(start_marker: str, end_marker: str) -> str:
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              return text[start:end]
+
+          forbidden_by_region = {
+              ('pub fn issue_trust_credential(', '/// Input for issuing a trust credential'): [
+                  'input.trust_score_lower < 0.0',
+                  'TrustTier::from_score(mid_score)',
+              ],
+              ('pub fn self_attest_trust(', '/// Input for self-attesting trust'): [
+                  'input.trust_score_lower < 0.0',
+              ],
+              ('pub fn request_attestation(', '/// Input for requesting attestation'): [
+                  '(0.0..=1.0).contains(&score)',
+              ],
+              ('pub fn fulfill_attestation(', '/// Input for fulfilling an attestation'): [
+                  'let mid_score =',
+                  'min_tier.min_score()',
+                  'input.trust_score_lower < 0.0',
+              ],
+          }
+          for markers, needles in forbidden_by_region.items():
+              body = region(*markers)
+              for needle in needles:
+                  if needle in body:
+                      raise SystemExit(
+                          f'ERROR: private numeric semantics remain in {markers[0]}: {needle}'
+                      )
+
+          presentation = region(
+              'pub fn create_presentation(',
+              '/// Input for creating a presentation',
+          )
+          if 'if input.disclose_range {' not in presentation:
+              raise SystemExit('ERROR: disclosed presentation range is not structurally audited')
+          if 'validate_coordinator_score_assertion(' not in presentation:
+              raise SystemExit('ERROR: presentation range/tier self-consistency not enforced')
+
+          # This tranche must not pretend presentation source binding or proof
+          # verification is solved.
+          forbidden_claims = [
+              'proof_verified: true',
+              'cryptographically_verified',
+              'source_credential_verified',
+          ]
+          lowered = text.lower()
+          for needle in forbidden_claims:
+              if needle in lowered:
+                  raise SystemExit(f'ERROR: unsupported verification claim introduced: {needle}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of materialized candidate
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test canonical structural score policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/Cargo.toml \
+            --lib
+
+      - name: Test materialized coordinator
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --lib
+
+      - name: Check materialized coordinator for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Preserve generated patch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-trust-score-coordinator-policy-v1-patch
+          path: /tmp/identity-trust-score-coordinator-policy-v1.patch
+          if-no-files-found: ignore
