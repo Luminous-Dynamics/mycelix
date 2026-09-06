@@ -1,0 +1,199 @@
+name: Identity Attestation Request Network Read Coordinator
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_attestation_request_network_read_coordinator_v1.py'
+      - '.github/workflows/identity-attestation-request-network-read-coordinator.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_attestation_request_network_read_coordinator_v1.py'
+      - '.github/workflows/identity-attestation-request-network-read-coordinator.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-network-read-coordinator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact proposed coordinator patch
+        run: python scripts/qualification/identity_attestation_request_network_read_coordinator_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml"
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs"
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs \
+            > /tmp/identity-attestation-request-network-read-coordinator-v1.patch
+
+      - name: Assert generated coordinator boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          manifest_path = root / 'zomes/trust_credential/coordinator/Cargo.toml'
+          source_path = root / 'zomes/trust_credential/coordinator/src/lib.rs'
+
+          manifest = tomllib.loads(manifest_path.read_text())
+          deps = manifest.get('dependencies', {})
+          gatherer = deps.get('mycelix-attestation-request-evidence-gatherer')
+          if not isinstance(gatherer, dict):
+              raise SystemExit('ERROR: coordinator is not bound to the request evidence gatherer')
+          if gatherer.get('path') != '../../../crates/attestation-request-evidence-gatherer':
+              raise SystemExit('ERROR: coordinator gatherer dependency path drifted')
+
+          text = source_path.read_text()
+          required = [
+              'use mycelix_attestation_request_evidence_gatherer::{',
+              'ObservedAttestationRequestStateV1, resolve_subject_attestation_requests_v1,',
+              'let observed = resolve_subject_attestation_requests_v1(&subject_did)?;',
+              'ObservedAttestationRequestStateV1::ObservedPending',
+              'pending.push(request.canonical_root_record);',
+              'ObservedAttestationRequestStateV1::ObservedConflict { terminal_updates }',
+              'pending state is unresolved',
+              'ObservedAttestationRequestStateV1::ObservedFulfilled',
+              'ObservedAttestationRequestStateV1::ObservedDeclined',
+              'ObservedAttestationRequestStateV1::ObservedExpired',
+              'ObservedAttestationRequestStateV1::ObservedCancelled',
+              'ObservedAttestationRequestStateV1::ObservedExpiredByTime',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generated coordinator boundary missing: {needle!r}')
+
+          start = text.index('pub fn get_pending_requests(subject_did: String)')
+          end = text.index('/// Get credentials for a subject', start)
+          body = text[start:end]
+
+          forbidden = [
+              'ChainQueryFilter',
+              'query(filter)',
+              'seen_ids',
+              '.into_iter().rev()',
+              'AttestationStatus::Pending',
+              'sys_time()',
+              'to_app_option::<AttestationRequest>()',
+              'get_links(',
+              'get_details(',
+              'validate_attestation_request_transition_v1',
+              'validate_attestation_request_root_assertion_v1',
+          ]
+          for needle in forbidden:
+              if needle in body:
+                  raise SystemExit(
+                      f'ERROR: coordinator reintroduced traversal/policy/winner semantics: {needle!r}'
+                  )
+
+          # The root record may be returned only under the state theorem. It must
+          # never be inspected as though its embedded Pending entry were current.
+          if 'canonical_root_record.entry()' in body or 'canonical_root_record.action()' in body:
+              raise SystemExit('ERROR: coordinator is interpreting canonical root provenance as current state')
+
+          # This is a read-only tranche. Prove the two request mutation externs
+          # remain byte-for-byte identical to exact HEAD after materialization.
+          baseline = subprocess.check_output(
+              ['git', 'show', f'HEAD:{source_path.as_posix()}'],
+              text=True,
+          )
+
+          def region(source: str, start_marker: str, end_marker: str) -> str:
+              region_start = source.index(start_marker)
+              region_end = source.index(end_marker, region_start)
+              return source[region_start:region_end]
+
+          protected_regions = [
+              (
+                  'fulfill_attestation',
+                  'pub fn fulfill_attestation(input: FulfillAttestationInput)',
+                  '/// Input for fulfilling an attestation',
+              ),
+              (
+                  'decline_attestation',
+                  'pub fn decline_attestation(input: DeclineAttestationInput)',
+                  '/// Input for declining an attestation',
+              ),
+          ]
+          for label, start_marker, end_marker in protected_regions:
+              if region(baseline, start_marker, end_marker) != region(text, start_marker, end_marker):
+                  raise SystemExit(
+                      f'ERROR: read-only coordinator candidate changed protected {label} write path'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of generated coordinator
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test request evidence gatherer
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/Cargo.toml
+
+      - name: Test generated coordinator
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --lib
+
+      - name: Check generated coordinator for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-attestation-request-network-read-coordinator-v1-patch
+          path: /tmp/identity-attestation-request-network-read-coordinator-v1.patch
+          if-no-files-found: error
