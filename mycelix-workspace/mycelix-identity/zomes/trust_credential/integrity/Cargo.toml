@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 hdi = { workspace = true }
 holo_hash = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
+mycelix-trust-score-assertion-policy = { path = "../../../crates/trust-score-assertion-policy" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
