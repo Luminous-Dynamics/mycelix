@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - 'security/authority-evidence-lease-v0.1'
+      - 'security/authority-evidence-lease-provenance-v0.1'
 
 permissions:
   contents: read
@@ -21,7 +22,7 @@ env:
 
 jobs:
   qualify:
-    name: Monotone evidence-lease algebra
+    name: Monotone lease algebra and canonical provenance
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,7 +41,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets -- -D warnings
 
-      - name: Lease authority audit
+      - name: Lease and provenance authority audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -48,12 +49,47 @@ jobs:
           src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
           inv = Path('crates/mycelix-authority-evidence-lease/INVARIANTS.md').read_text().lower()
 
-          assert 'pub struct EvidenceLease {' in src
-          assert 'pub struct LeasedEvidence<T> {' in src
-          assert 'self.verified_at_ms.max(other.verified_at_ms)' in src
-          assert 'self.valid_until_ms.min(other.valid_until_ms)' in src
-          assert 'self.valid_until_ms.min(cap_valid_until_ms)' in src
-          assert 'EmptyLeaseSet' in src
+          required = [
+              'pub struct EvidenceLease {',
+              'pub struct LeasedEvidence<T> {',
+              'pub enum EvidenceLeaseRole {',
+              'pub struct EvidenceLeaseContribution {',
+              'pub struct QualifiedEvidenceLeaseManifest {',
+              'pub fn qualify_evidence_lease_manifest(',
+              'self.verified_at_ms.max(other.verified_at_ms)',
+              'self.valid_until_ms.min(other.valid_until_ms)',
+              'self.valid_until_ms.min(cap_valid_until_ms)',
+              'contribution.validate_at(now_ms)?',
+              'EvidenceLease::intersect_all(',
+              'identities.sort_unstable()',
+              'DuplicateContribution',
+              'MAX_CONTRIBUTIONS',
+              'manifest_digest: *hasher.finalize().as_bytes()',
+          ]
+          for token in required:
+              assert token in src, token
+
+          manifest = src.split('pub fn qualify_evidence_lease_manifest(', 1)[1].split('fn require_ref(', 1)[0]
+          validate = manifest.index('contribution.validate_at(now_ms)?')
+          identity = manifest.index('let identity = contribution.identity_digest()?')
+          sort = manifest.index('identities.sort_unstable()')
+          intersect = manifest.index('let aggregate_lease = EvidenceLease::intersect_all(')
+          digest = manifest.index('let mut hasher = blake3::Hasher::new()')
+          assert validate < identity < sort < intersect < digest
+
+          role_block = src.split('pub enum EvidenceLeaseRole {', 1)[1].split('}', 1)[0]
+          for role in [
+              'BootstrapRoot',
+              'OperationalCoveragePolicy',
+              'OperationalContextPolicy',
+              'SourceHead',
+              'WitnessObservation',
+              'WitnessTrustBinding',
+              'AuthorityStateTransition',
+              'ControlPlaneFreshness',
+              'OperationalFreshness',
+          ]:
+              assert role in role_block, role
 
           for forbidden in [
               'hdk::',
@@ -73,5 +109,10 @@ jobs:
           assert 'intersections are monotone' in inv
           assert 'expiry cannot be revived' in inv
           assert 'transport envelope grants no authority' in inv
-          print('PASS: evidence leases only narrow reusable proof horizons')
+          assert 'provenance manifest is audit evidence, not authority' in inv
+          assert 'contributor order has no authority meaning' in inv
+          assert 'omission is visible to manifest identity' in inv
+          assert 'duplicate contributions are forbidden' in inv
+          assert 'manifest aggregate is conservative' in inv
+          print('PASS: evidence leases narrow reuse and canonically commit exact provenance contributors')
           PY
