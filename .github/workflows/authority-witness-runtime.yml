@@ -1,0 +1,143 @@
+name: Authority Witness Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-state-witness-verifier/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-witness-verifier/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - '.github/workflows/authority-witness-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-witness-runtime-split-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-witness-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Split witness runtime composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Pure witness tests
+        run: cargo test --manifest-path crates/mycelix-authority-witness-verifier/Cargo.toml --all-targets
+
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_state_witness_verifier -- --check
+
+      - name: Native check
+        working-directory: mycelix-governance
+        run: cargo check --package authority_state_witness_verifier --all-targets
+
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_state_witness_verifier --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_state_witness_verifier
+
+      - name: Witness runtime authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('mycelix-governance/zomes/authority-state-witness-verifier/coordinator/src/lib.rs').read_text()
+          inv = Path('mycelix-governance/zomes/authority-state-witness-verifier/INVARIANTS.md').read_text().lower()
+          cargo = Path('mycelix-governance/zomes/authority-state-witness-verifier/coordinator/Cargo.toml').read_text()
+          workspace = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'mycelix-authority-witness-verifier' in cargo
+          assert 'qualify_witness_evidence(' in src
+          assert 'authority_state_context_policy_candidate_provider' in src
+          assert 'authority_state_witness_candidate_provider' in src
+          assert 'authority_state_witness_observation_proof_verifier' in src
+          assert 'authority_state_witness_trust_classification_verifier' in src
+
+          public_request = src.split('pub struct WitnessVerificationRequest {', 1)[1].split('}', 1)[0]
+          assert 'pub challenge: VerifiedCoverageChallenge' in public_request
+          assert 'pub source_head: VerifiedAuthoritySourceHead' in public_request
+
+          context_request = src.split('pub struct ContextPolicyCandidateRequest {', 1)[1].split('}', 1)[0]
+          assert 'pub context_policy_digest: Digest32' in context_request
+          assert 'pub context_policy_profile: String' in context_request
+          assert 'CoverageTrustContextPolicy' not in context_request
+
+          discovery = src.split('pub struct WitnessCandidateDiscoveryRequest {', 1)[1].split('}', 1)[0]
+          assert 'VerifiedAuthorityHeadWitness' not in discovery
+          assert 'VerifiedWitnessTrustBinding' not in discovery
+
+          classification = src.split('pub struct WitnessTrustClassificationVerificationRequest {', 1)[1].split('}', 1)[0]
+          assert 'pub observer_id: String' in classification
+          assert 'pub witness_trust_policy: ProfiledDigest' in classification
+          assert 'pub expected_trust_verifier_ref: String' in classification
+          assert 'trust_domain_id' not in classification
+          assert 'trust_domain_ref' not in classification
+          assert 'observation' not in classification
+
+          context = src.split('fn resolve_exact_context(', 1)[1].split('/// Preserve the existing', 1)[0]
+          assert 'context.identity_digest()' in context
+          assert 'digest != challenge.challenge.context_policy_digest' in context
+
+          compose = src.split('pub fn verify_witness_evidence(', 1)[1].split('#[hdk_extern]\npub fn witness_runtime_status', 1)[0]
+          observation = compose.index('let observation_proof: VerifiedWitnessObservationProof = call_local(')
+          classification_call = compose.index('let classification_proof: VerifiedWitnessTrustClassificationProof = call_local(')
+          now = compose.index('let now = now_ms()?;')
+          qualify = compose.index('let qualified = qualify_witness_evidence(')
+          assert observation < classification_call < now < qualify
+          assert 'witnesses.push(qualified.to_verified_witness())' in compose
+          assert 'trust_bindings.push(qualified.to_verified_trust_binding())' in compose
+
+          for token in [
+              'context_discovery_grants_authority: false',
+              'witness_discovery_grants_authority: false',
+              'observation_proof_verifier_separate: true',
+              'trust_classification_verifier_separate: true',
+              'trust_binding_constructed_locally: true',
+              'source_head_authenticated_here: false',
+              'quorum_decided_here: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]:
+              assert token in src, token
+
+          for forbidden in [
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'execute_actions',
+              'reputation',
+              'model_score',
+              'phi',
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
+
+          assert '"zomes/authority-state-witness-verifier/coordinator"' in workspace
+          assert 'name: authority_state_witness_verifier' not in dna
+          assert 'context discovery is digest-constrained candidate lookup' in inv
+          assert 'trust classification verification is separate and non-steerable' in inv
+          assert '#168 qualification is mandatory and local' in inv
+          assert 'quorum remains downstream' in inv
+          assert 'deliberately unprovisioned' in inv
+          print('PASS: witness discovery, observation authentication and trust classification remain separate')
+          PY
