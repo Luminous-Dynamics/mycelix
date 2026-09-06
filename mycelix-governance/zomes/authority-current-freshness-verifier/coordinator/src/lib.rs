@@ -1,11 +1,10 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Fail-closed runtime composition for current operational authority freshness.
+//! Fail-closed runtime composition for deployment-bound current operational authority.
 //!
-//! The binding constitutional head comes from the existing constitution-transition
-//! authority plane. Root-adoption proof authentication, probe provenance, source
-//! authentication, witness/trust verification and transition verification remain
-//! separate roles. Positive authority is reconstructed locally through pure kernels.
+//! Positive semantic authority is reconstructed locally through #148/#111/#115/#116/#117.
+//! Only after that non-deserializable proof exists do we bind it to the exact local
+//! host DNA and exact final binding constitutional statement.
 
 use hdk::prelude::*;
 use mycelix_authority_bootstrap_root_adoption_verifier::{
@@ -17,6 +16,9 @@ use mycelix_authority_control_plane_freshness::{
 };
 use mycelix_authority_freshness::{AuthoritySubjectRef, VerifiedAuthorityFreshness};
 use mycelix_authority_operational_context::qualify_operational_policy_context;
+use mycelix_authority_operational_deployment_fence::{
+    qualify_operational_freshness_for_deployment, HostLocalDnaContext,
+};
 use mycelix_authority_operational_freshness::qualify_operational_subject_freshness;
 use mycelix_authority_state_bootstrap_root::{
     qualify_bootstrap_root, AuthorityStateBootstrapRootManifest,
@@ -36,7 +38,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.1";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.2";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -54,7 +56,7 @@ const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
 const CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS: u64 = 30_000;
-const CURRENT_CONSTITUTION_RETURN_LEASE_MS: u64 = 5_000;
+const DEPLOYMENT_RETURN_LEASE_MS: u64 = 5_000;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct VerifiedCurrentConstitutionMirror {
@@ -66,8 +68,6 @@ struct VerifiedCurrentConstitutionMirror {
     legacy_constitution_authoritative: bool,
 }
 
-/// The proof-verifier receives the exact semantic adoption claim constructed
-/// locally. It may authenticate that claim/proof, but cannot return #111 authority.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RootAdoptionProofVerificationRequest {
     pub claim: BootstrapRootAdoptionClaim,
@@ -140,6 +140,9 @@ struct ResolvedBootstrapRoot {
     constitution: VerifiedCurrentConstitutionMirror,
 }
 
+/// Wire projection only after local semantic + deployment qualification.
+/// `authority_*` / `evidence_*` preserve #117's substrate-neutral identities;
+/// `deployment_*` are the identities live consumers must use.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub protocol: String,
@@ -152,6 +155,13 @@ pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub authority_profile: String,
     pub evidence_digest: Digest32,
     pub evidence_profile: String,
+    pub local_dna_hash: String,
+    pub constitution_statement_digest: Digest32,
+    pub constitution_statement_profile: String,
+    pub deployment_authority_digest: Digest32,
+    pub deployment_authority_profile: String,
+    pub deployment_evidence_digest: Digest32,
+    pub deployment_evidence_profile: String,
     pub current_freshness: VerifiedAuthorityFreshness,
     pub verification_ref: String,
     pub verified_at_ms: u64,
@@ -168,6 +178,10 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub constitution_rechecked_before_return: bool,
     pub root_adoption_proof_verifier_separate: bool,
     pub root_adoption_constructed_locally: bool,
+    pub host_local_dna_derived: bool,
+    pub constitutional_dna_cross_checked: bool,
+    pub deployment_authority_constructed_locally: bool,
+    pub semantic_only_output: bool,
     pub evidence_plan_grants_authority: bool,
     pub latest_dht_record_authority: bool,
     pub provider_positive_object_authority: bool,
@@ -322,9 +336,6 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
         )))
     })?;
 
-    // #148 reconstructs the semantic adoption claim from the exact current
-    // constitution + candidate root. The proof verifier authenticates only this
-    // exact claim/proof instance and cannot emit the #111 adoption receipt.
     let adoption_claim = build_adoption_claim(&manifest, &constitution_before.statement)
         .map_err(|error| {
             wasm_error!(WasmErrorInner::Guest(format!(
@@ -577,42 +588,60 @@ pub fn resolve_current_operational_freshness(
             "operational freshness qualification denied: {error}"
         )))
     })?;
-
-    let mut freshness = current.to_verified_freshness();
-    freshness.validate_at(current_now).map_err(|error| {
+    current.to_verified_freshness().validate_at(current_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "qualified operational freshness is not currently usable: {error}"
         )))
     })?;
 
+    // Host DNA is obtained independently of the constitutional receipt. The
+    // constitutional plane uses the same canonical DnaHash string encoding, but
+    // equality is still checked only inside the pure deployment fence.
+    let host_dna_hash = dna_info()?.hash.to_string();
+    let host_dna_observed_at = now_ms()?;
+
+    // Re-project constitutional truth after the host-DNA observation. Any
+    // advancement during the entire semantic composition or host lookup denies.
     let final_constitution = resolve_binding_current_constitution()?;
     ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;
     let final_now = now_ms()?;
-    freshness.validate_at(final_now).map_err(|error| {
+
+    let deployment_until = final_now
+        .checked_add(DEPLOYMENT_RETURN_LEASE_MS)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "deployment-fence lease overflow".into(),
+            ))
+        })?;
+    let host_context = HostLocalDnaContext::from_host_observation(
+        host_dna_hash,
+        host_dna_observed_at,
+        deployment_until,
+    )
+    .map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "qualified freshness expired before final constitutional fence: {error}"
+            "host local-DNA context denied: {error}"
+        )))
+    })?;
+    let constitution_statement_digest =
+        constitution_digest_to_core(final_constitution.statement_digest);
+    let deployment = qualify_operational_freshness_for_deployment(
+        &current,
+        &final_constitution.dna_hash,
+        constitution_statement_digest,
+        &host_context,
+        final_now,
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "deployment-bound operational freshness denied: {error}"
         )))
     })?;
 
-    let fenced_until = final_now
-        .checked_add(CURRENT_CONSTITUTION_RETURN_LEASE_MS)
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "final constitutional fence lease overflow".into(),
-            ))
-        })?;
-    let final_verification_ref = format!(
-        "current-operational-freshness-fenced:{}:{}:{}",
-        current.authority_profile(),
-        digest_hex(current.authority_digest()),
-        digest_hex(constitution_digest_to_core(final_constitution.statement_digest))
-    );
-    freshness.verification_ref = final_verification_ref.clone();
-    freshness.verified_at_ms = freshness.verified_at_ms.max(final_now);
-    freshness.lease_until_ms = freshness.lease_until_ms.min(fenced_until);
+    let freshness = deployment.to_verified_freshness();
     freshness.validate_at(final_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "constitution-fenced freshness is not reusable: {error}"
+            "deployment-bound freshness is not reusable: {error}"
         )))
     })?;
 
@@ -627,9 +656,16 @@ pub fn resolve_current_operational_freshness(
         authority_profile: current.authority_profile().into(),
         evidence_digest: current.evidence_digest(),
         evidence_profile: current.evidence_profile().into(),
-        verification_ref: final_verification_ref,
-        verified_at_ms: freshness.verified_at_ms,
-        lease_until_ms: freshness.lease_until_ms,
+        local_dna_hash: deployment.dna_hash().into(),
+        constitution_statement_digest: deployment.constitution_statement_digest(),
+        constitution_statement_profile: deployment.constitution_statement_profile().into(),
+        deployment_authority_digest: deployment.deployment_authority_digest(),
+        deployment_authority_profile: deployment.deployment_authority_profile().into(),
+        deployment_evidence_digest: deployment.deployment_evidence_digest(),
+        deployment_evidence_profile: deployment.deployment_evidence_profile().into(),
+        verification_ref: deployment.verification_ref().into(),
+        verified_at_ms: deployment.verified_at_ms(),
+        lease_until_ms: deployment.valid_until_ms(),
         current_freshness: freshness,
     })
 }
@@ -645,6 +681,10 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         constitution_rechecked_before_return: true,
         root_adoption_proof_verifier_separate: true,
         root_adoption_constructed_locally: true,
+        host_local_dna_derived: true,
+        constitutional_dna_cross_checked: true,
+        deployment_authority_constructed_locally: true,
+        semantic_only_output: false,
         evidence_plan_grants_authority: false,
         latest_dht_record_authority: false,
         provider_positive_object_authority: false,

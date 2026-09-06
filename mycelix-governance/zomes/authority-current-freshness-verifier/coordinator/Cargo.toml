@@ -14,6 +14,7 @@ serde = { workspace = true }
 mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
 mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
 mycelix-authority-bootstrap-root-adoption-verifier = { path = "../../../../crates/mycelix-authority-bootstrap-root-adoption-verifier" }
+mycelix-authority-operational-deployment-fence = { path = "../../../../crates/mycelix-authority-operational-deployment-fence" }
 mycelix-authority-freshness = { path = "../../../../crates/mycelix-authority-freshness" }
 mycelix-authority-state-source = { path = "../../../../crates/mycelix-authority-state-source" }
 mycelix-authority-state-coverage = { path = "../../../../crates/mycelix-authority-state-coverage" }
