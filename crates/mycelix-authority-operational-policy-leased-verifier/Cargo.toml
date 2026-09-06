@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-authority-operational-policy-leased-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Lease-complete operational policy proof qualification for Mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }
+mycelix-authority-operational-policy-verifier = { path = "../mycelix-authority-operational-policy-verifier" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }

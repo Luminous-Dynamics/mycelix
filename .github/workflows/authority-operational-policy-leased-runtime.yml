@@ -1,0 +1,71 @@
+name: Authority Operational Policy Leased Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-operational-policy-leased-provider/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-operational-policy-leased-verifier/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - '.github/workflows/authority-operational-policy-leased-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-operational-policy-leased-runtime-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Lease-complete operational policy composer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - name: Pure leased-policy tests
+        run: cargo test --manifest-path crates/mycelix-authority-operational-policy-leased-verifier/Cargo.toml --all-targets
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_operational_policy_leased_provider -- --check
+      - name: Native check
+        working-directory: mycelix-governance
+        run: cargo check --package authority_operational_policy_leased_provider --all-targets
+      - name: Clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_operational_policy_leased_provider --all-targets -- -D warnings
+      - name: WASM
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_operational_policy_leased_provider
+      - name: Runtime authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('mycelix-governance/zomes/authority-operational-policy-leased-provider/coordinator/src/lib.rs').read_text()
+          inv = Path('mycelix-governance/zomes/authority-operational-policy-leased-provider/INVARIANTS.md').read_text().lower()
+          workspace = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          for token in [
+              'authority_operational_policy_candidate_provider',
+              'authority_operational_policy_record_proof_verifier',
+              'authority_operational_policy_adoption_proof_verifier',
+              'qualify_coverage_policy_leased(',
+              'qualify_context_policy_leased(',
+              '.intersect(qualified_context.lease(), final_now)',
+              'LeasedEvidence::new(',
+              'generation_currentness_decided_here: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]:
+              assert token in src, token
+          assert '"zomes/authority-operational-policy-leased-provider/coordinator"' in workspace
+          assert 'name: authority_operational_policy_leased_provider' not in dna
+          assert 'historical provider remains unchanged' in inv
+          assert 'currentness remains downstream' in inv
+          print('PASS: leased operational policy runtime preserves split proofs and explicit verifier horizon')
+          PY

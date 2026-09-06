@@ -1,0 +1,57 @@
+name: Authority Operational Policy Leased Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-operational-policy-leased-verifier/**'
+      - 'crates/mycelix-authority-operational-policy-verifier/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
+      - '.github/workflows/authority-operational-policy-leased-verifier.yml'
+  push:
+    branches:
+      - 'security/authority-operational-policy-leased-runtime-v0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Lease-complete policy proof qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-operational-policy-leased-verifier/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-operational-policy-leased-verifier/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-operational-policy-leased-verifier/Cargo.toml --all-targets -- -D warnings
+      - name: Static equivalence audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-authority-operational-policy-leased-verifier/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-authority-operational-policy-leased-verifier/INVARIANTS.md').read_text().lower()
+          for token in [
+              'qualify_coverage_policy_leased(',
+              'qualify_context_policy_leased(',
+              'RECORD_PROOF_PROTOCOL',
+              'ADOPTION_PROOF_PROTOCOL',
+              'EvidenceLease::new(',
+              'proof_valid_until_ms.min(policy_valid_until_ms)',
+              'representable_receipt_matches_legacy_172_projection',
+              'short_proof_horizon_is_preserved_where_legacy_denies',
+          ]:
+              assert token in src, token
+          assert '#172 remains unchanged' in inv
+          assert 'currentness remains #115/#116' in inv
+          assert 'short verifier leases remain explicit' in inv
+          for forbidden in ['hdk::', '#[hdk_extern]', 'get_links(', 'execute_actions', 'reputation', 'model_score', 'phi']:
+              assert forbidden.lower() not in src.lower(), forbidden
+          print('PASS: lease-complete policy verifier is equivalent to #172 when representable and preserves short proof horizons otherwise')
+          PY
