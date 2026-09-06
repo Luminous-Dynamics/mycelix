@@ -13,6 +13,7 @@ hdk = { workspace = true }
 serde = { workspace = true }
 mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
 mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
+mycelix-authority-evidence-lease = { path = "../../../../crates/mycelix-authority-evidence-lease" }
 mycelix-authority-bootstrap-root-adoption-verifier = { path = "../../../../crates/mycelix-authority-bootstrap-root-adoption-verifier" }
 mycelix-authority-operational-deployment-fence = { path = "../../../../crates/mycelix-authority-operational-deployment-fence" }
 mycelix-authority-state-transition-verifier = { path = "../../../../crates/mycelix-authority-state-transition-verifier" }
