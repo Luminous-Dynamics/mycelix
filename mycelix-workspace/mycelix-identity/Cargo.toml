@@ -7,6 +7,8 @@ members = [
     "crates/attestation-request-policy",
     # Holochain-free canonical attestation request root theorem
     "crates/attestation-request-root-policy",
+    # Holochain-free convergent attestation fulfillment theorem
+    "crates/attestation-fulfillment-policy",
     # Dependency-free fixed-point K-vector authority theorem
     "crates/trust-authority-policy",
     # Shared crypto-agile types (PQE abstraction layer)
