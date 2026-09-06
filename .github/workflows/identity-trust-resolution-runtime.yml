@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Assert fail-closed adapter contract
+      - name: Assert fail-closed observation-scoped adapter contract
         shell: bash
         run: |
           python - <<'PY'
@@ -65,13 +65,28 @@ jobs:
               'observe_update',
               'map_structural_tier',
               'resolve_observed_credential_state',
+              'resolve_subject_to_v1',
+              'AmbiguousObservedActiveCredentials',
+              'two_observed_active_credentials_are_ambiguous_not_highest_wins',
               'historical_tier_mutation_fails_closed',
               'historical_proof_mutation_fails_closed',
               'observed_guardian_remains_not_established_and_quarantined',
+              'NoActiveCredentialObserved',
+              'ObservedActiveTier',
           ]
           for needle in required:
               if needle not in text:
                   raise SystemExit(f'ERROR: required adapter contract missing: {needle}')
+
+          if 'StructuralTrustStateV1::ActiveTier(' in text:
+              raise SystemExit(
+                  'ERROR: bare ActiveTier reintroduced; V1 structural state must remain observation-scoped'
+              )
+          if 'StructuralTrustStateV1::NoActiveCredential' in text and \
+             'StructuralTrustStateV1::NoActiveCredentialObserved' not in text:
+              raise SystemExit(
+                  'ERROR: bare NoActiveCredential reintroduced; V1 absence must remain observation-scoped'
+              )
 
           for tier in ['Observer', 'Basic', 'Standard', 'Elevated', 'Guardian']:
               if f'TrustTier::{tier} => StructuralTrustTierV1::{tier}' not in text:
