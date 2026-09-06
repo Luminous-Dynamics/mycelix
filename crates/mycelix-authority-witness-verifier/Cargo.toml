@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-witness-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Split witness observation-authentication and trust-classification qualification for Mycelix authority coverage"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }
