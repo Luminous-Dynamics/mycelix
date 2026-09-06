@@ -5,6 +5,7 @@ on:
     paths:
       - 'mycelix-workspace/mycelix-identity/Cargo.toml'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
       - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'mycelix-workspace/mycelix-identity/Cargo.toml'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
       - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
@@ -37,13 +39,22 @@ jobs:
           root = Path('mycelix-workspace/mycelix-identity')
           member = 'crates/attestation-request-resolution-runtime'
           workspace = tomllib.loads((root / 'Cargo.toml').read_text())
-          if member not in workspace.get('workspace', {}).get('members', []):
-              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+          members = workspace.get('workspace', {}).get('members', [])
+          for required_member in [
+              'crates/attestation-request-policy',
+              'crates/attestation-request-root-policy',
+              member,
+          ]:
+              if required_member not in members:
+                  raise SystemExit(
+                      f'ERROR: {required_member} is not an explicit identity workspace member'
+                  )
 
           manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
           deps = manifest.get('dependencies', {})
           if set(deps) != {
               'mycelix-attestation-request-policy',
+              'mycelix-attestation-request-root-policy',
               'trust_credential_integrity',
           }:
               raise SystemExit(
@@ -51,24 +62,30 @@ jobs:
               )
           if deps['mycelix-attestation-request-policy'].get('path') != '../attestation-request-policy':
               raise SystemExit('ERROR: runtime is not bound to the canonical lifecycle policy')
+          if deps['mycelix-attestation-request-root-policy'].get('path') != '../attestation-request-root-policy':
+              raise SystemExit('ERROR: runtime is not bound to the canonical root policy')
           if deps['trust_credential_integrity'].get('path') != '../../zomes/trust_credential/integrity':
               raise SystemExit('ERROR: runtime is not bound to canonical trust credential types')
 
           text = (root / member / 'src/lib.rs').read_text()
           required = [
               '#![forbid(unsafe_code)]',
+              'AttestationRequestRootAssertionErrorV1',
+              'AttestationRequestRootAssertionV1',
+              'validate_attestation_request_root_assertion_v1',
+              'RootAssertionRejected',
               'AttestationRequestLineageObservationV1',
               'ObservedAttestationRequestStateV1',
               'ObservedConflict { terminal_updates: usize }',
-              'HistoricalDeleteObserved { count: usize }',
-              'NonRootUpdateObserved { index: usize }',
+              'HistoricalDeleteObserved',
+              'NonRootUpdateObserved',
               'DuplicateRequestIdObserved',
               'validate_attestation_request_root_v1',
               'validate_unique_request_ids_v1',
               'resolve_attestation_request_lineage_v1',
               'validate_attestation_request_transition_v1(transition)',
               'classify_attestation_request_actor_v1(',
-              'RootMinTrustScoreNonFinite',
+              'historical_identifier_and_validity_bounds_are_reaudited',
               'ObservedExpiredByTime',
               'concurrent_terminal_siblings_are_conflict_even_when_status_matches',
               'different_terminal_siblings_are_conflict_not_latest_wins',
@@ -80,10 +97,34 @@ jobs:
               if needle not in text:
                   raise SystemExit(f'ERROR: request resolution runtime missing {needle!r}')
 
+          # Root structure belongs exclusively to the canonical root-policy crate.
+          # This adapter owns only root-action author and subject-index bindings.
+          for needle in [
+              'fn valid_did_shape(',
+              'root.id.is_empty()',
+              'root.components.is_empty()',
+              'root.purpose.is_empty()',
+              '!score.is_finite()',
+          ]:
+              if needle in text:
+                  raise SystemExit(
+                      f'ERROR: private request-root theorem reappeared in resolver: {needle!r}'
+                  )
+
+          root_fn_start = text.index('pub fn validate_attestation_request_root_v1(')
+          root_fn_end = text.index('/// Fail closed when two distinct canonical roots', root_fn_start)
+          root_fn = text[root_fn_start:root_fn_end]
+          for needle in [
+              'root.requester_did != root_author_did',
+              'root.subject_did != expected_subject_did',
+              'AttestationRequestRootAssertionV1',
+              'validate_attestation_request_root_assertion_v1(assertion)',
+          ]:
+              if needle not in root_fn:
+                  raise SystemExit(f'ERROR: resolver root adapter missing {needle!r}')
+
           # This layer consumes already-gathered observations. Network traversal,
           # chronology selection, and coordinator authority must not leak into it.
-          # Ban executable selection/traversal patterns rather than prose such as
-          # the regression name `...not_latest_wins`.
           forbidden = [
               'use hdk',
               'use hdi',
@@ -134,6 +175,11 @@ jobs:
         run: |
           cargo test \
             --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
 
       - name: Test request resolution runtime
         run: |
