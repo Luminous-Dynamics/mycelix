@@ -1,0 +1,13 @@
+# SSF Execution Surface Admission v0.1
+
+This crate binds one exact use-time revalidated semantic lease to one exact provider-neutral execution generation before any durable effect-admission boundary may consider it.
+
+The execution generation contains a stable surface identity, an authenticated carrier generation (logical session + exact authenticated transcript + transport-authority generation), an actuator generation (exact policy + health generation), an exact operation-carrier commitment, and a bounded lifetime.
+
+Equal logical session identity is deliberately insufficient: a different authenticated transcript is a different execution generation. The same applies to transport, actuator policy, actuator health, and operation-carrier generations.
+
+An independently expected execution generation is supplied separately from the verifier. The verifier descriptor is checked before and after qualification, and its receipt must rebind the exact use-time lease subject and exact expected execution generation.
+
+The admission lifetime is the minimum of the use-time lease, verifier generation, execution generation, and receipt lifetime. Expired execution generations and receipts fail closed under the uncertainty-aware latest plausible current time inherited from use-time revalidation.
+
+The result remains an admission candidate only. It contains no single-use effect capability, no direct state-install authority, and no effect authority.
