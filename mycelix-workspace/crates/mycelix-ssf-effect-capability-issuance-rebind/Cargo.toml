@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-ssf-effect-capability-issuance-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-durable-effect-capability-issuance = { path = "../mycelix-ssf-durable-effect-capability-issuance" }
+mycelix-ssf-historical-effect-capability-issuance = { path = "../mycelix-ssf-historical-effect-capability-issuance" }
