@@ -2,32 +2,31 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Workspace-only split witness verification composition adapter.
 //!
-//! This coordinator preserves the existing `verify_witness_evidence` wire ABI
-//! consumed by the current-freshness runtime while removing the previously opaque
-//! witness oracle behind it. Context lookup, observation discovery, observation
-//! authentication and institutional trust classification are separate roles.
-//! Positive #94/#96 compatibility receipts are constructed only after local #168
-//! pure qualification.
+//! Context lookup, observation discovery, observation authentication and
+//! institutional trust classification are separate roles. The legacy endpoint
+//! remains fail-closed when its ABI cannot preserve a tighter verifier horizon;
+//! the leased endpoint carries that horizon explicitly.
 
 use hdk::prelude::*;
+use mycelix_authority_evidence_lease::{EvidenceLease, LeasedEvidence};
 use mycelix_authority_freshness::{AuthoritySubjectRef, ProfiledDigest};
 use mycelix_authority_state_coverage::{
-    AuthorityHeadWitnessObservation, VerifiedAuthorityHeadWitness,
-    VerifiedAuthoritySourceHead, WITNESS_IDENTITY_PROFILE,
+    AuthorityHeadWitnessObservation, VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead,
+    WITNESS_IDENTITY_PROFILE,
 };
 use mycelix_authority_state_coverage_context::{
-    CoverageTrustContextPolicy, VerifiedCoverageChallenge,
-    VerifiedWitnessTrustBinding, CONTEXT_POLICY_PROFILE,
+    CoverageTrustContextPolicy, VerifiedCoverageChallenge, VerifiedWitnessTrustBinding,
+    CONTEXT_POLICY_PROFILE,
 };
 use mycelix_authority_witness_verifier::{
-    qualify_witness_evidence, VerifiedWitnessObservationProof,
+    qualify_witness_evidence, QualifiedWitnessEvidence, VerifiedWitnessObservationProof,
     VerifiedWitnessTrustClassificationProof,
 };
 use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-witness-runtime-v0.1";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-witness-runtime-v0.2";
 const CONTEXT_POLICY_CANDIDATE_PROVIDER_ZOME: &str =
     "authority_state_context_policy_candidate_provider";
 const WITNESS_CANDIDATE_PROVIDER_ZOME: &str = "authority_state_witness_candidate_provider";
@@ -37,34 +36,24 @@ const TRUST_CLASSIFICATION_VERIFIER_ZOME: &str =
     "authority_state_witness_trust_classification_verifier";
 const MAX_WITNESSES: usize = 64;
 
-/// Public ABI retained for the existing current-freshness coordinator.
-///
-/// The source-head receipt is expected to have been authenticated by the caller's
-/// independent source-head path. This zome cross-binds it but does not claim to
-/// authenticate the source itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WitnessVerificationRequest {
     pub challenge: VerifiedCoverageChallenge,
     pub source_head: VerifiedAuthoritySourceHead,
 }
 
-/// Existing compatibility bundle. The two vectors are produced only by local
-/// #168 qualification, never supplied directly by a provider.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedWitnessEvidenceBundle {
     pub witnesses: Vec<VerifiedAuthorityHeadWitness>,
     pub trust_bindings: Vec<VerifiedWitnessTrustBinding>,
 }
 
-/// Candidate-only semantic context lookup, constrained by the exact digest and
-/// profile already committed by the verified challenge.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContextPolicyCandidateRequest {
     pub context_policy_digest: Digest32,
     pub context_policy_profile: String,
 }
 
-/// Discovery request for raw witness observations only.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WitnessCandidateDiscoveryRequest {
     pub subject: AuthoritySubjectRef,
@@ -83,8 +72,7 @@ pub struct WitnessObservationProofVerificationRequest {
     pub observation_profile: String,
 }
 
-/// Trust classification deliberately contains no requested domain. The verifier
-/// answers which domain contains this observer under the exact policy/verifier.
+/// Trust classification deliberately contains no requested domain.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WitnessTrustClassificationVerificationRequest {
     pub observer_id: String,
@@ -100,10 +88,18 @@ pub struct WitnessRuntimeStatus {
     pub observation_proof_verifier_separate: bool,
     pub trust_classification_verifier_separate: bool,
     pub trust_binding_constructed_locally: bool,
+    pub legacy_projection_fail_closed: bool,
+    pub leased_endpoint_available: bool,
+    pub leased_endpoint_preserves_exact_horizon: bool,
     pub source_head_authenticated_here: bool,
     pub quorum_decided_here: bool,
     pub external_effects_enabled: bool,
     pub operational: bool,
+}
+
+struct QualifiedWitnessBundle {
+    qualified: Vec<QualifiedWitnessEvidence>,
+    lease: EvidenceLease,
 }
 
 fn call_local<I, O>(zome: &str, function: &str, input: I) -> ExternResult<O>
@@ -142,6 +138,10 @@ fn now_ms() -> ExternResult<u64> {
         )));
     }
     Ok(micros as u64 / 1_000)
+}
+
+fn lease_error(context: &str, error: impl std::fmt::Display) -> WasmError {
+    wasm_error!(WasmErrorInner::Guest(format!("{context}: {error}")))
 }
 
 fn resolve_exact_context(
@@ -184,12 +184,7 @@ fn resolve_exact_context(
     Ok(context)
 }
 
-/// Preserve the existing current-freshness runtime ABI while internally splitting
-/// witness discovery, observation authentication and trust classification.
-#[hdk_extern]
-pub fn verify_witness_evidence(
-    request: WitnessVerificationRequest,
-) -> ExternResult<VerifiedWitnessEvidenceBundle> {
+fn qualify_bundle(request: WitnessVerificationRequest) -> ExternResult<QualifiedWitnessBundle> {
     request.challenge.challenge.validate().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "invalid witness verification challenge: {error}"
@@ -207,18 +202,31 @@ pub fn verify_witness_evidence(
     }
 
     let context = resolve_exact_context(&request.challenge)?;
+    let base_now = now_ms()?;
+    let mut lease = EvidenceLease::new(
+        request
+            .challenge
+            .verified_at_ms
+            .max(request.source_head.verified_at_ms),
+        request
+            .challenge
+            .challenge
+            .expires_at_ms
+            .min(request.source_head.attestation.expires_at_ms)
+            .min(context.valid_until_ms),
+        base_now,
+    )
+    .map_err(|error| lease_error("base witness evidence lease denied", error))?;
 
-    // DirectSource has no witness/trust authority. Do not invoke witness providers
-    // merely because code for them exists.
     let Some(witness_trust_policy) = context.witness_trust_policy.clone() else {
         if context.witness_trust_verifier_ref.is_some() {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "witness context has verifier without trust policy".into(),
             )));
         }
-        return Ok(VerifiedWitnessEvidenceBundle {
-            witnesses: Vec::new(),
-            trust_bindings: Vec::new(),
+        return Ok(QualifiedWitnessBundle {
+            qualified: Vec::new(),
+            lease,
         });
     };
     let expected_trust_verifier_ref = context
@@ -269,8 +277,7 @@ pub fn verify_witness_evidence(
         ))));
     }
 
-    let mut witnesses = Vec::with_capacity(candidates.len());
-    let mut trust_bindings = Vec::with_capacity(candidates.len());
+    let mut qualified_values = Vec::with_capacity(candidates.len());
     for observation in candidates {
         observation.validate().map_err(|error| {
             wasm_error!(WasmErrorInner::Guest(format!(
@@ -302,9 +309,6 @@ pub fn verify_witness_evidence(
             },
         )?;
 
-        // Qualification time follows both evidence-producing verifiers. #168 then
-        // binds their independent facts to the exact context/challenge/source and
-        // constructs #94/#96 compatibility receipts locally.
         let now = now_ms()?;
         let qualified = qualify_witness_evidence(
             &context,
@@ -320,13 +324,76 @@ pub fn verify_witness_evidence(
                 "witness evidence qualification denied: {error}"
             )))
         })?;
-        witnesses.push(qualified.to_verified_witness());
-        trust_bindings.push(qualified.to_verified_trust_binding());
+        qualified_values.push(qualified);
     }
 
-    Ok(VerifiedWitnessEvidenceBundle {
-        witnesses,
-        trust_bindings,
+    let final_now = now_ms()?;
+    lease.validate_at(final_now)
+        .map_err(|error| lease_error("base witness evidence lease expired during composition", error))?;
+    for qualified in &qualified_values {
+        let witness_lease = EvidenceLease::new(
+            qualified.verified_at_ms(),
+            qualified.valid_until_ms(),
+            final_now,
+        )
+        .map_err(|error| lease_error("qualified witness lease denied", error))?;
+        lease = lease
+            .intersect(&witness_lease, final_now)
+            .map_err(|error| lease_error("witness lease intersection denied", error))?;
+    }
+
+    Ok(QualifiedWitnessBundle {
+        qualified: qualified_values,
+        lease,
+    })
+}
+
+fn project_bundle(bundle: &QualifiedWitnessBundle) -> VerifiedWitnessEvidenceBundle {
+    VerifiedWitnessEvidenceBundle {
+        witnesses: bundle
+            .qualified
+            .iter()
+            .map(QualifiedWitnessEvidence::to_verified_witness)
+            .collect(),
+        trust_bindings: bundle
+            .qualified
+            .iter()
+            .map(QualifiedWitnessEvidence::to_verified_trust_binding)
+            .collect(),
+    }
+}
+
+/// Legacy compatibility endpoint. If a witness's signed semantic expiry exceeds
+/// the true #168 proof horizon, this ABI cannot carry the tighter bound and denies.
+#[hdk_extern]
+pub fn verify_witness_evidence(
+    request: WitnessVerificationRequest,
+) -> ExternResult<VerifiedWitnessEvidenceBundle> {
+    let bundle = qualify_bundle(request)?;
+    for qualified in &bundle.qualified {
+        if qualified.to_verified_witness().observation.expires_at_ms > qualified.valid_until_ms() {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "legacy witness projection would widen verifier validity beyond {}",
+                qualified.valid_until_ms()
+            ))));
+        }
+    }
+    Ok(project_bundle(&bundle))
+}
+
+/// Lease-complete endpoint for currentness composition. The legacy-compatible
+/// witness/trust receipts are paired with the exact minimum dynamic evidence lease.
+#[hdk_extern]
+pub fn verify_witness_evidence_leased(
+    request: WitnessVerificationRequest,
+) -> ExternResult<LeasedEvidence<VerifiedWitnessEvidenceBundle>> {
+    let bundle = qualify_bundle(request)?;
+    let now = now_ms()?;
+    LeasedEvidence::new(project_bundle(&bundle), bundle.lease, now).map_err(|error| {
+        lease_error(
+            "cannot construct lease-complete witness evidence bundle",
+            error,
+        )
     })
 }
 
@@ -339,6 +406,9 @@ pub fn witness_runtime_status(_: ()) -> ExternResult<WitnessRuntimeStatus> {
         observation_proof_verifier_separate: true,
         trust_classification_verifier_separate: true,
         trust_binding_constructed_locally: true,
+        legacy_projection_fail_closed: true,
+        leased_endpoint_available: true,
+        leased_endpoint_preserves_exact_horizon: true,
         source_head_authenticated_here: false,
         quorum_decided_here: false,
         external_effects_enabled: false,

@@ -4,8 +4,8 @@
 //!
 //! Observation authentication and institutional trust-domain classification are
 //! distinct facts. This pure kernel requires independent receipts for both and
-//! locally binds them to the exact challenge/context/source head before projecting
-//! the existing #94/#96 compatibility receipts.
+//! locally binds them to the exact challenge/context/source head before producing
+//! a non-deserializable qualification with an explicit dynamic evidence horizon.
 
 use mycelix_authority_freshness::ProfiledDigest;
 use mycelix_authority_state_coverage::{
@@ -36,10 +36,7 @@ const MAX_REF_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
 
 /// Evidence-shaped cryptographic authentication of one exact witness observation.
-///
-/// This receipt proves only that the exact observer identity authenticated the
-/// exact observation bytes/proof. It does not classify that observer into an
-/// institutionally trusted independence domain.
+/// This receipt does not classify institutional trust domains.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedWitnessObservationProof {
     pub protocol_version: String,
@@ -95,10 +92,8 @@ impl VerifiedWitnessObservationProof {
 }
 
 /// Evidence-shaped institutional classification of one observer under one exact
-/// witness-trust policy and designated trust-verifier domain.
-///
-/// This receipt does not authenticate any witness observation. It classifies only
-/// the observer-to-domain relation.
+/// witness-trust policy and designated verifier. It does not authenticate an
+/// observation, source head or challenge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedWitnessTrustClassificationProof {
     pub protocol_version: String,
@@ -161,19 +156,17 @@ impl VerifiedWitnessTrustClassificationProof {
         if self.verified_trust_verifier_ref != *expected_verifier {
             return Err(WitnessVerificationError::TrustVerifierMismatch);
         }
-        validate_window(
-            1,
-            self.verified_at_ms,
-            self.valid_until_ms,
-            now_ms,
-        )
-        .map_err(|_| WitnessVerificationError::InvalidTrustClassificationWindow)
+        validate_window(1, self.verified_at_ms, self.valid_until_ms, now_ms)
+            .map_err(|_| WitnessVerificationError::InvalidTrustClassificationWindow)
     }
 }
 
-/// Non-deserializable positive witness qualification. The two compatibility
-/// receipts remain coupled inside this object so neither verifier can manufacture
-/// the complete #94/#96 witness authority surface by itself.
+/// Non-deserializable proof that one exact observation has both independent
+/// observation authentication and exact institutional trust classification.
+///
+/// The compatibility receipts are projections. `valid_until_ms` is the true
+/// reusable horizon and MUST be preserved by any transport that allows a shorter
+/// verifier lease than the signed observation's semantic expiry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct QualifiedWitnessEvidence {
     witness: VerifiedAuthorityHeadWitness,
@@ -301,16 +294,6 @@ pub fn qualify_witness_evidence(
 
     observation_proof.validate_against(observation, observation_digest, now_ms)?;
     classification_proof.validate_against(context, observation, now_ms)?;
-
-    // The legacy VerifiedAuthorityHeadWitness ABI has no independent verifier
-    // expiry field. Do not project it if either verifier horizon is tighter than
-    // the signed observation's own expiry; doing so would widen reusable authority.
-    let proof_horizon = observation_proof
-        .valid_until_ms
-        .min(classification_proof.valid_until_ms);
-    if observation.expires_at_ms > proof_horizon {
-        return Err(WitnessVerificationError::LossyWitnessProjection);
-    }
 
     let expected_trust_policy = context
         .witness_trust_policy
@@ -464,7 +447,10 @@ fn evidence_digest(
     frame(&mut hasher, observation.verification_ref.as_bytes());
     frame(&mut hasher, &observation.verified_at_ms.to_le_bytes());
     frame(&mut hasher, &observation.valid_until_ms.to_le_bytes());
-    frame(&mut hasher, classification.verified_trust_verifier_ref.as_bytes());
+    frame(
+        &mut hasher,
+        classification.verified_trust_verifier_ref.as_bytes(),
+    );
     frame(&mut hasher, classification.verification_ref.as_bytes());
     frame(&mut hasher, &classification.verified_at_ms.to_le_bytes());
     frame(&mut hasher, &classification.valid_until_ms.to_le_bytes());
@@ -547,7 +533,6 @@ pub enum WitnessVerificationError {
     ChallengeContextMismatch,
     ObservationSourceHeadMismatch,
     ObservationPredatesSourceResponse,
-    LossyWitnessProjection,
     InvalidTrustBinding,
     WitnessEvidenceExpired,
 }
@@ -556,7 +541,9 @@ impl fmt::Display for WitnessVerificationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::WrongObservationProofProtocol => "wrong witness observation-proof protocol",
-            Self::WrongTrustClassificationProtocol => "wrong witness trust-classification protocol",
+            Self::WrongTrustClassificationProtocol => {
+                "wrong witness trust-classification protocol"
+            }
             Self::InvalidReference => "invalid witness verifier reference",
             Self::InvalidProfile => "invalid witness verifier profile",
             Self::InvalidVerificationTime => "invalid witness qualification time",
@@ -565,22 +552,45 @@ impl fmt::Display for WitnessVerificationError {
             Self::InvalidSourceHead => "invalid authenticated source head",
             Self::InvalidObservation => "invalid witness observation",
             Self::InvalidWitnessTrustPolicy => "invalid witness trust policy identity",
-            Self::MissingWitnessTrustPolicy => "witness qualification requires an exact witness trust policy",
-            Self::MissingWitnessTrustVerifier => "witness qualification requires an exact trust verifier",
-            Self::ObservationIdentityMismatch => "observation proof belongs to another witness observation",
+            Self::MissingWitnessTrustPolicy => {
+                "witness qualification requires an exact witness trust policy"
+            }
+            Self::MissingWitnessTrustVerifier => {
+                "witness qualification requires an exact trust verifier"
+            }
+            Self::ObservationIdentityMismatch => {
+                "observation proof belongs to another witness observation"
+            }
             Self::ObserverIdentityMismatch => "observation proof authenticated another observer",
             Self::ObservationProofRefMismatch => "observation proof reference mismatch",
-            Self::InvalidObservationProofWindow => "witness observation proof is stale or causally invalid",
-            Self::WitnessTrustPolicyMismatch => "trust classification belongs to another witness trust policy",
-            Self::ClassificationObserverMismatch => "trust classification belongs to another observer",
-            Self::ClassificationDomainMismatch => "trust classification belongs to another trust domain",
-            Self::ClassificationProofRefMismatch => "trust classification proof reference mismatch",
-            Self::TrustVerifierMismatch => "trust classification came from the wrong verifier domain",
-            Self::InvalidTrustClassificationWindow => "witness trust classification is stale or invalid",
+            Self::InvalidObservationProofWindow => {
+                "witness observation proof is stale or causally invalid"
+            }
+            Self::WitnessTrustPolicyMismatch => {
+                "trust classification belongs to another witness trust policy"
+            }
+            Self::ClassificationObserverMismatch => {
+                "trust classification belongs to another observer"
+            }
+            Self::ClassificationDomainMismatch => {
+                "trust classification belongs to another trust domain"
+            }
+            Self::ClassificationProofRefMismatch => {
+                "trust classification proof reference mismatch"
+            }
+            Self::TrustVerifierMismatch => {
+                "trust classification came from the wrong verifier domain"
+            }
+            Self::InvalidTrustClassificationWindow => {
+                "witness trust classification is stale or invalid"
+            }
             Self::ChallengeContextMismatch => "witness challenge belongs to another trust context",
-            Self::ObservationSourceHeadMismatch => "witness observation does not match the authenticated source head/challenge",
-            Self::ObservationPredatesSourceResponse => "witness observation predates the source response it claims to observe",
-            Self::LossyWitnessProjection => "legacy witness projection would widen verifier validity",
+            Self::ObservationSourceHeadMismatch => {
+                "witness observation does not match the authenticated source head/challenge"
+            }
+            Self::ObservationPredatesSourceResponse => {
+                "witness observation predates the source response it claims to observe"
+            }
             Self::InvalidTrustBinding => "locally constructed witness trust binding is invalid",
             Self::WitnessEvidenceExpired => "qualified witness evidence is not currently reusable",
         };
@@ -694,7 +704,10 @@ mod tests {
         }
     }
 
-    fn observation(source: &VerifiedAuthoritySourceHead, challenge: &VerifiedCoverageChallenge) -> AuthorityHeadWitnessObservation {
+    fn observation(
+        source: &VerifiedAuthoritySourceHead,
+        challenge: &VerifiedCoverageChallenge,
+    ) -> AuthorityHeadWitnessObservation {
         AuthorityHeadWitnessObservation {
             protocol_version: COVERAGE_PROTOCOL.into(),
             subject: subject(),
@@ -712,7 +725,9 @@ mod tests {
         }
     }
 
-    fn observation_proof(observation: &AuthorityHeadWitnessObservation) -> VerifiedWitnessObservationProof {
+    fn observation_proof(
+        observation: &AuthorityHeadWitnessObservation,
+    ) -> VerifiedWitnessObservationProof {
         VerifiedWitnessObservationProof {
             protocol_version: OBSERVATION_PROOF_PROTOCOL.into(),
             observation_digest: observation.identity_digest().unwrap(),
@@ -726,7 +741,10 @@ mod tests {
         }
     }
 
-    fn classification(context: &CoverageTrustContextPolicy, observation: &AuthorityHeadWitnessObservation) -> VerifiedWitnessTrustClassificationProof {
+    fn classification(
+        context: &CoverageTrustContextPolicy,
+        observation: &AuthorityHeadWitnessObservation,
+    ) -> VerifiedWitnessTrustClassificationProof {
         VerifiedWitnessTrustClassificationProof {
             protocol_version: TRUST_CLASSIFICATION_PROOF_PROTOCOL.into(),
             witness_trust_policy: context.witness_trust_policy.clone().unwrap(),
@@ -792,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    fn tighter_proof_horizon_cannot_be_projected_away() {
+    fn tighter_proof_horizon_is_preserved_without_changing_observation_identity() {
         let context = context();
         let challenge = challenge(&context);
         let source = source(&challenge);
@@ -800,18 +818,21 @@ mod tests {
         let mut observation_proof = observation_proof(&observation);
         observation_proof.valid_until_ms = 400;
         let classification = classification(&context, &observation);
+        let qualified = qualify_witness_evidence(
+            &context,
+            &challenge,
+            &source,
+            &observation,
+            &observation_proof,
+            &classification,
+            200,
+        )
+        .unwrap();
+        assert_eq!(qualified.valid_until_ms(), 400);
         assert_eq!(
-            qualify_witness_evidence(
-                &context,
-                &challenge,
-                &source,
-                &observation,
-                &observation_proof,
-                &classification,
-                200,
-            )
-            .unwrap_err(),
-            WitnessVerificationError::LossyWitnessProjection
+            qualified.to_verified_witness().observation.expires_at_ms,
+            500
         );
+        assert_eq!(qualified.to_verified_trust_binding().valid_until_ms, 400);
     }
 }
