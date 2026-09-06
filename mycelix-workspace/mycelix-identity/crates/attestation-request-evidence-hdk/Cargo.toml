@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-attestation-request-evidence-hdk"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Mechanical HDK evidence producer for Mycelix attestation request lineages"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+holo_hash = { workspace = true }
+mycelix-attestation-request-root-policy = { path = "../attestation-request-root-policy" }
+mycelix-attestation-request-resolution-runtime = { path = "../attestation-request-resolution-runtime" }
+trust_credential_integrity = { path = "../../zomes/trust_credential/integrity" }
