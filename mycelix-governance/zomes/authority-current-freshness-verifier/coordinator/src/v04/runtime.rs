@@ -1,5 +1,7 @@
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct ProvenanceCounts {
+    current_constitution: usize,
+    bootstrap_root_adoption: usize,
     bootstrap_root: usize,
     operational_coverage_policy: usize,
     operational_context_policy: usize,
@@ -14,6 +16,8 @@ struct ProvenanceCounts {
 impl ProvenanceCounts {
     fn observe(&mut self, role: EvidenceLeaseRole) {
         match role {
+            EvidenceLeaseRole::CurrentConstitution => self.current_constitution += 1,
+            EvidenceLeaseRole::BootstrapRootAdoption => self.bootstrap_root_adoption += 1,
             EvidenceLeaseRole::BootstrapRoot => self.bootstrap_root += 1,
             EvidenceLeaseRole::OperationalCoveragePolicy => self.operational_coverage_policy += 1,
             EvidenceLeaseRole::OperationalContextPolicy => self.operational_context_policy += 1,
@@ -27,7 +31,9 @@ impl ProvenanceCounts {
     }
 
     fn total(self) -> usize {
-        self.bootstrap_root
+        self.current_constitution
+            + self.bootstrap_root_adoption
+            + self.bootstrap_root
             + self.operational_coverage_policy
             + self.operational_context_policy
             + self.source_head
@@ -78,8 +84,11 @@ pub fn resolve_current_operational_freshness(
         .lease
         .validate_at(context_now)
         .map_err(|error| lease_error("operational policy lease expired before #116", error))?;
-    let root_lease = EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), context_now)
-        .map_err(|error| lease_error("bootstrap-root evidence lease denied", error))?;
+    resolved_root
+        .lease
+        .validate_at(context_now)
+        .map_err(|error| lease_error("bootstrap-root evidence lease expired before #116", error))?;
+    let root_lease = resolved_root.lease.clone();
     let policy_control_lease = intersect_leases(
         &policies.lease,
         &control_plane.lease,
@@ -168,15 +177,9 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
     let mut contributions = Vec::with_capacity(
-        4 + control_plane.contributions.len() + evidence.contributions.len(),
+        6 + control_plane.contributions.len() + evidence.contributions.len(),
     );
-    contributions.push(contribution(
-        EvidenceLeaseRole::BootstrapRoot,
-        root.qualification_digest(),
-        root.qualification_profile(),
-        root.verification_ref(),
-        root_lease,
-    ));
+    contributions.extend(resolved_root.contributions.iter().cloned());
     contributions.push(contribution(
         EvidenceLeaseRole::OperationalCoveragePolicy,
         coverage_digest,
@@ -202,6 +205,8 @@ pub fn resolve_current_operational_freshness(
     ));
 
     let expected = ProvenanceCounts {
+        current_constitution: 1,
+        bootstrap_root_adoption: 1,
         bootstrap_root: 1,
         operational_coverage_policy: 1,
         operational_context_policy: 1,
@@ -345,6 +350,9 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         constitution_rechecked_before_return: true,
         root_adoption_proof_verifier_separate: true,
         root_adoption_constructed_locally: true,
+        current_constitution_provenance_explicit: true,
+        root_adoption_provenance_explicit: true,
+        root_provenance_lease_constructed_at_root_boundary: true,
         transition_discovery_grants_authority: false,
         transition_record_proof_verifier_separate: true,
         transition_authority_proof_verifier_separate: true,

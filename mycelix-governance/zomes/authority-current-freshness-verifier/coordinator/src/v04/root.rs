@@ -214,6 +214,7 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
             "qualified bootstrap-root adoption claim changed during composition".into(),
         )));
     }
+
     let adoption = qualified_adoption.to_verified_adoption();
     let constitution_receipt = current_constitution_receipt(&constitution_after, now)?;
     let root = qualify_bootstrap_root(&manifest, &constitution_receipt, &adoption, now)
@@ -234,9 +235,65 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
         )));
     }
 
+    let constitution_lease = EvidenceLease::new(
+        constitution_receipt.verified_at_ms,
+        constitution_receipt.valid_until_ms,
+        now,
+    )
+    .map_err(|error| lease_error("current-constitution root provenance lease denied", error))?;
+    let adoption_lease = EvidenceLease::new(adoption.verified_at_ms, adoption.valid_until_ms, now)
+        .map_err(|error| lease_error("bootstrap-root adoption provenance lease denied", error))?;
+    let root_lease = EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), now)
+        .map_err(|error| lease_error("qualified bootstrap-root provenance lease denied", error))?;
+
+    let root_inputs_lease = intersect_leases(
+        &constitution_lease,
+        &adoption_lease,
+        now,
+        "constitution/adoption root provenance lease intersection denied",
+    )?;
+    let root_containment = intersect_leases(
+        &root_inputs_lease,
+        &root_lease,
+        now,
+        "root provenance containment intersection denied",
+    )?;
+    if root_containment != root_lease {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "qualified bootstrap-root lease does not conservatively contain constitution/adoption evidence"
+                .into(),
+        )));
+    }
+
+    let contributions = vec![
+        contribution(
+            EvidenceLeaseRole::CurrentConstitution,
+            constitution_receipt.statement_digest,
+            &constitution_receipt.statement_profile,
+            &constitution_receipt.verification_ref,
+            constitution_lease,
+        ),
+        contribution(
+            EvidenceLeaseRole::BootstrapRootAdoption,
+            qualified_adoption.evidence_digest(),
+            qualified_adoption.evidence_profile(),
+            &adoption.verification_ref,
+            adoption_lease,
+        ),
+        contribution(
+            EvidenceLeaseRole::BootstrapRoot,
+            root.qualification_digest(),
+            root.qualification_profile(),
+            root.verification_ref(),
+            root_lease.clone(),
+        ),
+    ];
+
     Ok(ResolvedBootstrapRoot {
         root,
         constitution: constitution_after,
+        lease: root_lease,
+        contributions,
     })
 }
 

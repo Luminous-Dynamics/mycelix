@@ -35,6 +35,7 @@ on:
       - 'security/authority-current-freshness-lease-provenance-v0.1'
       - 'security/authority-current-freshness-provenance-deployment-v0.1'
       - 'security/authority-currentness-wire-boundary-v0.1'
+      - 'security/authority-root-provenance-v0.2'
 
 permissions:
   contents: read
@@ -48,7 +49,7 @@ env:
 
 jobs:
   qualify:
-    name: Provenance-bound deployment current freshness
+    name: Root-explicit provenance-bound current freshness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -89,18 +90,22 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: End-to-end provenance-bound deployment audit
+      - name: End-to-end root provenance deployment audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
           root = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src')
           lib = (root / 'lib.rs').read_text()
-          src = '\n'.join((root / 'v04' / name).read_text() for name in [
+          parts = {name: (root / 'v04' / name).read_text() for name in [
               'types.rs', 'root.rs', 'evidence.rs', 'runtime.rs'
-          ])
+          ]}
+          src = '\n'.join(parts.values())
+          root_src = parts['root.rs']
+          runtime = parts['runtime.rs']
           inv = Path('mycelix-governance/zomes/authority-current-freshness-verifier/INVARIANTS.md').read_text().lower()
           crate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml').read_text()
+          lease_src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
@@ -108,6 +113,11 @@ jobs:
               assert f'include!("v04/{name}");' in lib
 
           assert 'mycelix-authority-evidence-lease' in crate
+          assert 'mycelix-authority-evidence-lease-v0.2' in lease_src
+          assert 'mycelix-authority-evidence-lease-manifest-v2-blake3-framed' in lease_src
+          for role in ['CurrentConstitution', 'BootstrapRootAdoption']:
+              assert role in lease_src, role
+
           for token in [
               'qualify_evidence_lease_manifest',
               'EvidenceLeaseContribution',
@@ -119,6 +129,27 @@ jobs:
               'qualify_operational_freshness_for_deployment_with_provenance',
           ]:
               assert token in src, token
+
+          # Root provenance is constructed only after the exact constitution/adoption/root theorem succeeds.
+          resolve_root = root_src.split('fn resolve_root()', 1)[1].split('fn resolve_operational_policies(', 1)[0]
+          proof = resolve_root.index('let adoption_proof: VerifiedBootstrapRootAdoptionProof = call_local(')
+          after = resolve_root.index('let constitution_after = resolve_binding_current_constitution()?;')
+          q_adoption = resolve_root.index('let qualified_adoption = qualify_bootstrap_root_adoption(')
+          receipt = resolve_root.index('let constitution_receipt = current_constitution_receipt(')
+          q_root = resolve_root.index('let root = qualify_bootstrap_root(')
+          constitution_lease = resolve_root.index('let constitution_lease = EvidenceLease::new(')
+          contributions = resolve_root.index('let contributions = vec![')
+          assert proof < after < q_adoption < receipt < q_root < constitution_lease < contributions
+          assert 'let adoption_lease = EvidenceLease::new(adoption.verified_at_ms, adoption.valid_until_ms, now)' in resolve_root
+          assert 'let root_lease = EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), now)' in resolve_root
+          assert 'let root_inputs_lease = intersect_leases(' in resolve_root
+          assert 'if root_containment != root_lease' in resolve_root
+          for role in ['CurrentConstitution', 'BootstrapRootAdoption', 'BootstrapRoot']:
+              assert f'EvidenceLeaseRole::{role}' in resolve_root, role
+          assert 'qualified_adoption.evidence_digest()' in resolve_root
+          assert 'qualified_adoption.evidence_profile()' in resolve_root
+          assert 'lease: root_lease' in resolve_root
+          assert 'contributions,' in resolve_root
 
           assert 'const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_leased_provider";' in src
           assert '"resolve_operational_policy_candidates_leased"' in src
@@ -152,10 +183,13 @@ jobs:
           assert 'EvidenceLeaseRole::ControlPlaneFreshness' in control
           assert 'probe_count: qualified.len()' in control
 
-          operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
-          for role in ['BootstrapRoot', 'OperationalCoveragePolicy', 'OperationalContextPolicy', 'OperationalFreshness']:
-              assert f'EvidenceLeaseRole::{role}' in operational
-          assert 'let expected = ProvenanceCounts {' in operational
+          operational = runtime.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
+          assert 'resolved_root.lease' in operational
+          assert 'EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), context_now)' not in operational
+          assert 'contributions.extend(resolved_root.contributions.iter().cloned())' in operational
+          assert 'current_constitution: 1' in operational
+          assert 'bootstrap_root_adoption: 1' in operational
+          assert 'bootstrap_root: 1' in operational
           assert 'source_head: control_plane.probe_count + 1' in operational
           assert 'witness_observation: control_plane.witness_count + evidence.witnesses.len()' in operational
           assert 'authority_state_transition: control_plane.transition_count + evidence.transitions.len()' in operational
@@ -172,23 +206,19 @@ jobs:
           assert 'deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())' in operational
           assert 'deployment.provenance_manifest_profile() != provenance.manifest_profile()' in operational
           assert 'deployment.provenance_contributor_count() != provenance.contributor_count()' in operational
-          assert 'deployment.composition_evidence_verified_at_ms()' in operational
-          assert 'deployment.composition_evidence_valid_until_ms()' in operational
 
           assert 'composition_evidence_manifest_digest: deployment.provenance_manifest_digest()' in operational
           assert 'composition_evidence_manifest_profile: deployment.provenance_manifest_profile().into()' in operational
           assert 'composition_evidence_contributor_count: deployment.provenance_contributor_count()' in operational
-          assert 'composition_evidence_verified_at_ms: deployment.composition_evidence_verified_at_ms()' in operational
-          assert 'composition_evidence_valid_until_ms: deployment.composition_evidence_valid_until_ms()' in operational
           assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
           assert 'deployment_evidence_profile: deployment.deployment_evidence_profile().into()' in operational
 
-          closed = src.split('fn qualify_closed_provenance(', 1)[1].split('#[hdk_extern]\npub fn resolve_current_operational_freshness', 1)[0]
+          closed = runtime.split('fn qualify_closed_provenance(', 1)[1].split('#[hdk_extern]\npub fn resolve_current_operational_freshness', 1)[0]
           assert 'observed != expected' in closed
           assert 'observed.total() != contributions.len()' in closed
           assert 'qualify_evidence_lease_manifest(contributions, now)' in closed
 
-          receipt = src.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
+          receipt_block = src.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
           for field in [
               'composition_evidence_manifest_digest',
               'composition_evidence_manifest_profile',
@@ -197,9 +227,12 @@ jobs:
               'composition_evidence_verified_at_ms',
               'composition_evidence_valid_until_ms',
           ]:
-              assert field in receipt, field
+              assert field in receipt_block, field
 
           required = [
+              'current_constitution_provenance_explicit: true',
+              'root_adoption_provenance_explicit: true',
+              'root_provenance_lease_constructed_at_root_boundary: true',
               'leased_source_head_consumed: true',
               'leased_witness_evidence_consumed: true',
               'leased_operational_policy_consumed: true',
@@ -243,15 +276,15 @@ jobs:
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in workspace
           assert 'name: authority_current_freshness_verifier' not in dna
           for invariant in [
+              'root establishment provenance is explicit',
               'dynamic evidence lease is not authority identity',
               'provenance contributor set is constructed locally',
               'required role/cardinality closure is exact',
               'canonical provenance manifest must reproduce the global lease',
               'provenance must be bound into dynamic deployment evidence',
-              'runtime cross-checks the provenance-bound deployment echo',
-              'deployment is capped by the global evidence lease',
+              'wire receipt is transport/audit only',
               'deliberately unprovisioned',
           ]:
               assert invariant in inv, invariant
-          print('PASS: canonical provenance is closed, bound into deployment evidence, and wire output remains audit-only')
+          print('PASS: root constitution/adoption/root provenance is explicit, closed, lease-equal and deployment-bound')
           PY

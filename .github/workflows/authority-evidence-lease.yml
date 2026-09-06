@@ -9,6 +9,7 @@ on:
     branches:
       - 'security/authority-evidence-lease-v0.1'
       - 'security/authority-evidence-lease-provenance-v0.1'
+      - 'security/authority-root-provenance-v0.2'
 
 permissions:
   contents: read
@@ -50,6 +51,10 @@ jobs:
           inv = Path('crates/mycelix-authority-evidence-lease/INVARIANTS.md').read_text().lower()
 
           required = [
+              'pub const PROTOCOL_VERSION: &str = "mycelix-authority-evidence-lease-v0.2";',
+              '"mycelix-authority-evidence-lease-manifest-v2-blake3-framed"',
+              'b"mycelix/authority/evidence-lease/contribution/v2"',
+              'b"mycelix/authority/evidence-lease/manifest/v2"',
               'pub struct EvidenceLease {',
               'pub struct LeasedEvidence<T> {',
               'pub enum EvidenceLeaseRole {',
@@ -88,8 +93,29 @@ jobs:
               'AuthorityStateTransition',
               'ControlPlaneFreshness',
               'OperationalFreshness',
+              'CurrentConstitution',
+              'BootstrapRootAdoption',
           ]:
               assert role in role_block, role
+
+          code_block = src.split('fn code(self) -> u8 {', 1)[1].split('\n    }\n}', 1)[0]
+          expected_codes = {
+              'BootstrapRoot': 1,
+              'OperationalCoveragePolicy': 2,
+              'OperationalContextPolicy': 3,
+              'SourceHead': 4,
+              'WitnessObservation': 5,
+              'WitnessTrustBinding': 6,
+              'AuthorityStateTransition': 7,
+              'ControlPlaneFreshness': 8,
+              'OperationalFreshness': 9,
+              'CurrentConstitution': 10,
+              'BootstrapRootAdoption': 11,
+          }
+          for role, code in expected_codes.items():
+              assert f'Self::{role} => {code}' in code_block, (role, code)
+
+          assert 'root_subroles_are_distinct_provenance' in src
 
           for forbidden in [
               'hdk::',
@@ -114,5 +140,7 @@ jobs:
           assert 'omission is visible to manifest identity' in inv
           assert 'duplicate contributions are forbidden' in inv
           assert 'manifest aggregate is conservative' in inv
-          print('PASS: evidence leases narrow reuse and canonically commit exact provenance contributors')
+          assert 'closed role vocabulary is protocol-versioned' in inv
+          assert 'root establishment facts remain separable' in inv
+          print('PASS: v0.2 evidence leases narrow reuse and canonically commit versioned provenance roles')
           PY
