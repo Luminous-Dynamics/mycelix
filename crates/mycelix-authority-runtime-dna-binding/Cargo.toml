@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-authority-runtime-dna-binding"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact local-DNA deployment binding for current Mycelix authority qualification"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-current-operational = { path = "../mycelix-authority-current-operational" }
