@@ -1,0 +1,18 @@
+[package]
+name = "authority_operational_policy_provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed operational policy candidate/proof composition adapter"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../../../../crates/mycelix-authority-freshness" }
+mycelix-authority-state-coverage = { path = "../../../../crates/mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../../../../crates/mycelix-authority-state-coverage-context" }
+mycelix-authority-operational-policy-verifier = { path = "../../../../crates/mycelix-authority-operational-policy-verifier" }

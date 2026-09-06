@@ -1,0 +1,152 @@
+name: Authority Operational Policy Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-operational-policy-provider/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-operational-policy-verifier/**'
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - '.github/workflows/authority-operational-policy-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-operational-policy-runtime-split-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-operational-policy-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Split operational policy runtime composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Pure policy tests
+        run: cargo test --manifest-path crates/mycelix-authority-operational-policy-verifier/Cargo.toml --all-targets
+
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_operational_policy_provider -- --check
+
+      - name: Native check
+        working-directory: mycelix-governance
+        run: cargo check --package authority_operational_policy_provider --all-targets
+
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_operational_policy_provider --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_operational_policy_provider
+
+      - name: Existing current-freshness caller compatibility
+        working-directory: mycelix-governance
+        run: cargo check --package authority_current_freshness_verifier --all-targets
+
+      - name: Operational policy runtime authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('mycelix-governance/zomes/authority-operational-policy-provider/coordinator/src/lib.rs').read_text()
+          inv = Path('mycelix-governance/zomes/authority-operational-policy-provider/INVARIANTS.md').read_text().lower()
+          current = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/lib.rs').read_text()
+          cargo = Path('mycelix-governance/zomes/authority-operational-policy-provider/coordinator/Cargo.toml').read_text()
+          workspace = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'mycelix-authority-operational-policy-verifier' in cargo
+          assert 'qualify_coverage_policy(' in src
+          assert 'qualify_context_policy(' in src
+          assert 'authority_operational_policy_candidate_provider' in src
+          assert 'authority_operational_policy_record_proof_verifier' in src
+          assert 'authority_operational_policy_adoption_proof_verifier' in src
+
+          public = src.split('pub struct OperationalPolicyCandidateBundle {', 1)[1].split('}', 1)[0]
+          assert 'pub coverage: VerifiedAuthorityCoveragePolicy' in public
+          assert 'pub context: VerifiedCoverageTrustContextPolicy' in public
+          caller = current.split('pub struct OperationalPolicyCandidateBundle {', 1)[1].split('}', 1)[0]
+          assert 'pub coverage: VerifiedAuthorityCoveragePolicy' in caller
+          assert 'pub context: VerifiedCoverageTrustContextPolicy' in caller
+          assert '"authority_operational_policy_provider"' in current
+          assert '"resolve_operational_policy_candidates"' in current
+
+          candidates = src.split('pub struct OperationalPolicySemanticCandidates {', 1)[1].split('}', 1)[0]
+          assert 'pub coverage: AuthorityCoveragePolicy' in candidates
+          assert 'pub context: CoverageTrustContextPolicy' in candidates
+          assert 'VerifiedAuthorityCoveragePolicy' not in candidates
+          assert 'VerifiedCoverageTrustContextPolicy' not in candidates
+
+          record = src.split('pub struct PolicyRecordProofVerificationRequest {', 1)[1].split('}', 1)[0]
+          adoption = src.split('pub struct PolicyAdoptionProofVerificationRequest {', 1)[1].split('}', 1)[0]
+          assert 'authority_ref' not in record
+          assert 'policy_proof_ref' not in record
+          assert 'policy_record_ref' not in adoption
+
+          compose = src.split('pub fn resolve_operational_policy_candidates(', 1)[1].split('#[hdk_extern]\npub fn operational_policy_runtime_status', 1)[0]
+          assert 'candidates.context.coverage_policy.digest != coverage_digest' in compose
+          assert 'qualified_coverage.to_verified_policy()' in compose
+          assert 'qualified_context.to_verified_policy()' in compose
+
+          coverage_record = compose.index('let coverage_record = verify_record(')
+          coverage_adoption = compose.index('let coverage_adoption = verify_adoption(')
+          coverage_now = compose.index('let coverage_now = now_ms()?;')
+          coverage_qualify = compose.index('let qualified_coverage = qualify_coverage_policy(')
+          assert coverage_record < coverage_adoption < coverage_now < coverage_qualify
+
+          context_record = compose.index('let context_record = verify_record(')
+          context_adoption = compose.index('let context_adoption = verify_adoption(')
+          context_now = compose.index('let context_now = now_ms()?;')
+          context_qualify = compose.index('let qualified_context = qualify_context_policy(')
+          assert context_record < context_adoption < context_now < context_qualify
+
+          for token in [
+              'policy_discovery_grants_authority: false',
+              'record_proof_verifier_separate: true',
+              'adoption_proof_verifier_separate: true',
+              'policy_receipts_constructed_locally: true',
+              'generation_currentness_decided_here: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]:
+              assert token in src, token
+
+          for forbidden in [
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'execute_actions',
+              'reputation',
+              'model_score',
+              'phi',
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
+
+          assert '"zomes/authority-operational-policy-provider/coordinator"' in workspace
+          assert 'name: authority_operational_policy_provider' not in dna
+          assert 'policy discovery is not authority' in inv
+          assert 'policy record proof is separate' in inv
+          assert 'institutional adoption proof is separate' in inv
+          assert 'currentness remains #115/#116' in inv
+          assert 'deliberately unprovisioned' in inv
+          print('PASS: operational policy discovery, record authenticity, adoption and currentness remain separate')
+          PY
