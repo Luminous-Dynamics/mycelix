@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-ssf-authorization-coverage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-authorization = { path = "../mycelix-ssf-authorization" }
+mycelix-ssf-approved-verifier = { path = "../mycelix-ssf-approved-verifier" }
+mycelix-ssf-reconciliation = { path = "../mycelix-ssf-reconciliation" }
+mycelix-ssf-reconciliation-safety = { path = "../mycelix-ssf-reconciliation-safety" }
+
+[dev-dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-snapshots = { path = "../mycelix-ssf-snapshots" }
+mycelix-ssf-transitions = { path = "../mycelix-ssf-transitions" }
+mycelix-ssf-recovery = { path = "../mycelix-ssf-recovery" }
