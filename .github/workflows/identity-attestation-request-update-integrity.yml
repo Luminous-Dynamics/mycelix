@@ -1,0 +1,163 @@
+name: Identity Attestation Request Update Integrity Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_attestation_request_update_integrity_v1.py'
+      - '.github/workflows/identity-attestation-request-update-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_attestation_request_update_integrity_v1.py'
+      - '.github/workflows/identity-attestation-request-update-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-request-update-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact proposed product patch
+        run: python scripts/qualification/identity_attestation_request_update_integrity_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml"
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs \
+            > /tmp/identity-attestation-request-update-integrity-v1.patch
+
+      - name: Assert shared lifecycle adapter contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          manifest_path = root / 'zomes/trust_credential/integrity/Cargo.toml'
+          source_path = root / 'zomes/trust_credential/integrity/src/lib.rs'
+
+          manifest = tomllib.loads(manifest_path.read_text())
+          dep = manifest.get('dependencies', {}).get('mycelix-attestation-request-policy')
+          expected_path = '../../../crates/attestation-request-policy'
+          if not isinstance(dep, dict) or dep.get('path') != expected_path:
+              raise SystemExit(
+                  f'ERROR: integrity zome is not bound to lifecycle policy at {expected_path!r}'
+              )
+
+          text = source_path.read_text()
+          required = [
+              'mycelix_attestation_request_policy::{',
+              'classify_attestation_request_actor_v1(',
+              'AttestationRequestAssertionEqualityV1 {',
+              'AttestationRequestTransitionV1 {',
+              'validate_attestation_request_transition_v1(transition)',
+              'id: updated.id == original.id',
+              'requester_did: updated.requester_did == original.requester_did',
+              'subject_did: updated.subject_did == original.subject_did',
+              'components: updated.components == original.components',
+              'min_trust_score: updated.min_trust_score == original.min_trust_score',
+              'min_tier: updated.min_tier == original.min_tier',
+              'purpose: updated.purpose == original.purpose',
+              'expires_at: updated.expires_at == original.expires_at',
+              'created_at: updated.created_at == original.created_at',
+              'update_timestamp_micros: action.timestamp.as_micros()',
+              'expires_at_micros: original.expires_at.as_micros()',
+              'attestation_status_mapping_covers_every_variant',
+              'request_assertion_equality_adapter_covers_every_frozen_field',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generated lifecycle adapter missing {needle!r}')
+
+          register_start = text.index('        FlatOp::RegisterUpdate(update) => {')
+          register_end = text.index('        FlatOp::RegisterDelete', register_start)
+          register = text[register_start:register_end]
+          for needle in [
+              '*original_action.action().author() == action.author',
+              'classify_attestation_request_actor_v1(',
+              '== AttestationRequestActorV1::Subject',
+          ]:
+              if needle not in register:
+                  raise SystemExit(f'ERROR: RegisterUpdate boundary missing {needle!r}')
+
+          update_start = text.index('fn validate_update_request(')
+          update_end = text.index('#[cfg(test)]', update_start)
+          update = text[update_start:update_end]
+          forbidden = [
+              'enum AttestationRequestUpdateActor',
+              'fn validate_attestation_request_transition(',
+              'let valid = match',
+              '(a, b) if a == b',
+              'Attestation request update must be committed by its subject',
+          ]
+          for needle in forbidden:
+              if needle in update:
+                  raise SystemExit(f'ERROR: private/conflicting request lifecycle rule remains: {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of materialized patch
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            -- --check
+
+      - name: Test canonical lifecycle policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test materialized integrity zome
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --lib
+
+      - name: Check materialized integrity zome for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-attestation-request-update-integrity-v1-patch
+          path: /tmp/identity-attestation-request-update-integrity-v1.patch
+          if-no-files-found: error
