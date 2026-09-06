@@ -13,9 +13,9 @@
 use hdk::prelude::*;
 use mycelix_attestation_request_resolution_runtime::{
     AttestationRequestLineageObservationV1, AttestationRequestUpdateObservationV1,
-    ObservedAttestationRequestStateV1, resolve_attestation_request_lineage_v1,
-    validate_unique_request_ids_v1,
+    resolve_attestation_request_lineage_v1, validate_unique_request_ids_v1,
 };
+pub use mycelix_attestation_request_resolution_runtime::ObservedAttestationRequestStateV1;
 use trust_credential_integrity::{AttestationRequest, LinkTypes};
 
 /// One fully gathered and semantically resolved request root.
