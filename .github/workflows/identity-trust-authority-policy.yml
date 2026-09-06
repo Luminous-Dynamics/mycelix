@@ -1,0 +1,138 @@
+name: Identity Trust Authority Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - '.github/workflows/identity-trust-authority-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - '.github/workflows/identity-trust-authority-policy.yml'
+
+jobs:
+  qualify-trust-authority-policy-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert fixed-point authority theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/trust-authority-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if deps:
+              raise SystemExit(f'ERROR: authority theorem gained runtime dependencies: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'K_VECTOR_DIMENSIONS_V2: usize = 8',
+              'TRUST_SCORE_SCALE_V2: u64 = 1_000_000',
+              'K_VECTOR_WEIGHT_SUM_V2: u64 = 100',
+              '[25, 15, 20, 15, 5, 10, 5, 5]',
+              'BASIC_MIN_SCORE_SCALED_V2: u64 = 300_000',
+              'STANDARD_MIN_SCORE_SCALED_V2: u64 = 400_000',
+              'ELEVATED_MIN_SCORE_SCALED_V2: u64 = 600_000',
+              'GUARDIAN_MIN_SCORE_SCALED_V2: u64 = 800_000',
+              'GuaranteedTrustTierV2',
+              'weighted_trust_numerator_v2',
+              'validate_kvector_witness_score_range_v2',
+              'guaranteed_trust_tier_v2',
+              '(lower_scaled as u128) * (K_VECTOR_WEIGHT_SUM_V2 as u128)',
+              '(upper_scaled as u128) * (K_VECTOR_WEIGHT_SUM_V2 as u128)',
+              'midpoint_and_upper_bound_cannot_strengthen_authority',
+              'guaranteed_trust_tier_v2(400_000, 800_000)',
+              'Ok(GuaranteedTrustTierV2::Standard)',
+              'guaranteed_trust_tier_v2(0, 1_000_000)',
+              'Ok(GuaranteedTrustTierV2::Observer)',
+              'known_vector_has_exact_integer_score',
+              'Ok(69_500_000)',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: trust authority theorem missing: {needle!r}')
+
+          lower_text = text.lower()
+          forbidden = [
+              'f32',
+              'f64',
+              'k_coherence',
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde',
+              'winterfell',
+              'risc0',
+              'miden',
+              'sha2',
+              'sys_time(',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
+          ]
+          for needle in forbidden:
+              if needle in lower_text:
+                  raise SystemExit(f'ERROR: float/model/backend/winner semantics leaked into authority theorem: {needle!r}')
+
+          # Explicitly reject the SDK prototype's extra `k_v` dimension without
+          # matching canonical identifiers such as `K_VECTOR_*`.
+          for needle in ['pub k_v:', '`k_v`', '"k_v"']:
+              if needle in lower_text:
+                  raise SystemExit(f'ERROR: 10-D SDK model leaked into canonical 8-D theorem: {needle!r}')
+
+          # Freeze that tier authority reads only the validated lower bound after
+          # range validation. The upper bound may validate range shape, but cannot
+          # participate in threshold comparisons.
+          start = text.index('pub fn guaranteed_trust_tier_v2(')
+          end = text.index('#[cfg(test)]', start)
+          body = text[start:end]
+          threshold_body = body.split('validate_score_range_v2(lower_scaled, upper_scaled)?;', 1)[1]
+          if 'upper_scaled >=' in threshold_body or 'upper_scaled <=' in threshold_body:
+              raise SystemExit('ERROR: upper bound participates in authority-tier threshold selection')
+          if 'lower_scaled >=' not in threshold_body:
+              raise SystemExit('ERROR: lower bound no longer drives authority-tier thresholds')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml \
+            -- --check
+
+      - name: Test fixed-point authority theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml
+
+      - name: Check fixed-point authority theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
