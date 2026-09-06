@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-business-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Transport-neutral institutional contracts for Mycelix Business"
+publish = false
+
+[dependencies]
