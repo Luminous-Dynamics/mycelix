@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-issued-authority-lease-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-authority-lease-issuance = { path = "../mycelix-ssf-authority-lease-issuance" }
+mycelix-ssf-bounded-authority-lease-candidate = { path = "../mycelix-ssf-bounded-authority-lease-candidate" }
+mycelix-ssf-historical-authority-lease-reconciliation = { path = "../mycelix-ssf-historical-authority-lease-reconciliation" }
