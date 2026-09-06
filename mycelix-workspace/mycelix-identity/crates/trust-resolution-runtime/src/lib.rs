@@ -9,8 +9,9 @@
 //!
 //! A coordinator/runtime caller gathers canonical credential roots, every
 //! observed update record, delete counts, and authoritative Holochain observation
-//! time. This crate then owns assertion equivalence, historical-update collapse,
-//! tier mapping, subject-level ambiguity handling, and quarantine-only V1 output.
+//! time. This crate then owns root-assertion sanity, update equivalence,
+//! historical-update collapse, tier mapping, subject-level ambiguity handling,
+//! and quarantine-only V1 output.
 
 #![forbid(unsafe_code)]
 
@@ -23,9 +24,28 @@ use mycelix_trust_protocol::{
 };
 use trust_credential_integrity::{TrustCredential, TrustTier};
 
+/// Structural defects that can exist in historical credential roots admitted
+/// before stricter validation is deployed.
+///
+/// These are fail-closed because V1 may expose a structural tier diagnostically;
+/// even a quarantined diagnostic tier must not be derived from NaN/∞ or a range
+/// whose midpoint disagrees with the claimed tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CanonicalRootAssertionError {
+    NonFiniteTrustRange,
+    OutOfBoundsTrustRange,
+    ReversedTrustRange,
+    TierDoesNotMatchRangeMidpoint,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrustResolutionRuntimeError {
+    MalformedCanonicalRoot(CanonicalRootAssertionError),
     CurrentState(CredentialStateResolutionError),
+    SubjectMalformedCanonicalRoot {
+        credential_index: usize,
+        source: CanonicalRootAssertionError,
+    },
     SubjectLineage {
         credential_index: usize,
         source: CredentialStateResolutionError,
@@ -49,6 +69,42 @@ pub struct CredentialLineageInput<'a> {
     pub root: &'a TrustCredential,
     pub observed_updates: &'a [TrustCredential],
     pub valid_delete_count: usize,
+}
+
+/// Re-check the historically relevant structural assertion rules for a
+/// canonical credential creation root.
+///
+/// The current integrity zome historically used ordinary float comparisons and
+/// a weaker `upper >= tier.min_score()` check. Non-finite values can evade
+/// ordinary comparisons, and that upper-bound check does not prove the claimed
+/// tier equals the coordinator's midpoint-derived tier. The adapter therefore
+/// re-establishes the intended structural theorem before exposing any observed
+/// tier through V1.
+pub fn validate_canonical_root_assertion(
+    root: &TrustCredential,
+) -> Result<(), CanonicalRootAssertionError> {
+    let lower = root.trust_score_range.lower;
+    let upper = root.trust_score_range.upper;
+
+    if !lower.is_finite() || !upper.is_finite() {
+        return Err(CanonicalRootAssertionError::NonFiniteTrustRange);
+    }
+
+    if !(0.0..=1.0).contains(&lower) || !(0.0..=1.0).contains(&upper) {
+        return Err(CanonicalRootAssertionError::OutOfBoundsTrustRange);
+    }
+
+    if lower > upper {
+        return Err(CanonicalRootAssertionError::ReversedTrustRange);
+    }
+
+    let midpoint = (lower as f64 + upper as f64) / 2.0;
+    let expected_tier = TrustTier::from_score(midpoint);
+    if expected_tier != root.trust_tier {
+        return Err(CanonicalRootAssertionError::TierDoesNotMatchRangeMidpoint);
+    }
+
+    Ok(())
 }
 
 /// Compare assertion-bearing fields of a credential update with its canonical
@@ -124,6 +180,9 @@ pub fn resolve_to_v1(
     valid_delete_count: usize,
     observed_at_micros: i64,
 ) -> Result<TrustResolutionV1, TrustResolutionRuntimeError> {
+    validate_canonical_root_assertion(root)
+        .map_err(TrustResolutionRuntimeError::MalformedCanonicalRoot)?;
+
     let observed_state = resolve_lineage_state(
         root,
         observed_updates,
@@ -158,6 +217,13 @@ pub fn resolve_subject_to_v1(
     let mut observed_active_count = 0usize;
 
     for (credential_index, lineage) in lineages.iter().enumerate() {
+        validate_canonical_root_assertion(lineage.root).map_err(|source| {
+            TrustResolutionRuntimeError::SubjectMalformedCanonicalRoot {
+                credential_index,
+                source,
+            }
+        })?;
+
         let state = resolve_lineage_state(
             lineage.root,
             lineage.observed_updates,
@@ -198,17 +264,40 @@ mod tests {
     };
     use trust_credential_integrity::TrustScoreRange;
 
+    fn range_for_tier(tier: &TrustTier) -> TrustScoreRange {
+        match tier {
+            TrustTier::Observer => TrustScoreRange {
+                lower: 0.10,
+                upper: 0.20,
+            },
+            TrustTier::Basic => TrustScoreRange {
+                lower: 0.30,
+                upper: 0.35,
+            },
+            TrustTier::Standard => TrustScoreRange {
+                lower: 0.40,
+                upper: 0.50,
+            },
+            TrustTier::Elevated => TrustScoreRange {
+                lower: 0.60,
+                upper: 0.70,
+            },
+            TrustTier::Guardian => TrustScoreRange {
+                lower: 0.80,
+                upper: 0.90,
+            },
+        }
+    }
+
     fn credential(id: &str, tier: TrustTier) -> TrustCredential {
+        let trust_score_range = range_for_tier(&tier);
         TrustCredential {
             id: id.to_string(),
             subject_did: "did:mycelix:subject".to_string(),
             issuer_did: format!("did:mycelix:issuer:{id}"),
             kvector_commitment: vec![7u8; 32],
             range_proof: vec![1, 2, 3, 4],
-            trust_score_range: TrustScoreRange {
-                lower: 0.8,
-                upper: 0.9,
-            },
+            trust_score_range,
             trust_tier: tier,
             issued_at: Timestamp::from_micros(100),
             expires_at: Some(Timestamp::from_micros(10_000)),
@@ -239,6 +328,76 @@ mod tests {
         for (local, wire) in pairs {
             assert_eq!(map_structural_tier(&local), wire);
         }
+    }
+
+    #[test]
+    fn valid_fixture_ranges_match_their_claimed_tiers() {
+        for tier in [
+            TrustTier::Observer,
+            TrustTier::Basic,
+            TrustTier::Standard,
+            TrustTier::Elevated,
+            TrustTier::Guardian,
+        ] {
+            let root = credential("fixture", tier);
+            assert_eq!(validate_canonical_root_assertion(&root), Ok(()));
+        }
+    }
+
+    #[test]
+    fn nan_root_range_fails_closed() {
+        let mut root = credential("nan", TrustTier::Guardian);
+        root.trust_score_range.lower = f32::NAN;
+        assert_eq!(
+            resolve_to_v1(&root, &[], 0, 1_000),
+            Err(TrustResolutionRuntimeError::MalformedCanonicalRoot(
+                CanonicalRootAssertionError::NonFiniteTrustRange
+            ))
+        );
+    }
+
+    #[test]
+    fn infinite_root_range_fails_closed() {
+        let mut root = credential("inf", TrustTier::Guardian);
+        root.trust_score_range.upper = f32::INFINITY;
+        assert_eq!(
+            validate_canonical_root_assertion(&root),
+            Err(CanonicalRootAssertionError::NonFiniteTrustRange)
+        );
+    }
+
+    #[test]
+    fn out_of_bounds_root_range_fails_closed() {
+        let mut root = credential("bounds", TrustTier::Guardian);
+        root.trust_score_range.upper = 1.01;
+        assert_eq!(
+            validate_canonical_root_assertion(&root),
+            Err(CanonicalRootAssertionError::OutOfBoundsTrustRange)
+        );
+    }
+
+    #[test]
+    fn reversed_root_range_fails_closed() {
+        let mut root = credential("reversed", TrustTier::Guardian);
+        root.trust_score_range.lower = 0.95;
+        root.trust_score_range.upper = 0.85;
+        assert_eq!(
+            validate_canonical_root_assertion(&root),
+            Err(CanonicalRootAssertionError::ReversedTrustRange)
+        );
+    }
+
+    #[test]
+    fn claimed_tier_must_equal_range_midpoint_tier() {
+        let mut root = credential("mismatch", TrustTier::Guardian);
+        root.trust_score_range = TrustScoreRange {
+            lower: 0.40,
+            upper: 0.50,
+        };
+        assert_eq!(
+            validate_canonical_root_assertion(&root),
+            Err(CanonicalRootAssertionError::TierDoesNotMatchRangeMidpoint)
+        );
     }
 
     #[test]
@@ -411,6 +570,33 @@ mod tests {
             Err(TrustResolutionRuntimeError::SubjectLineage {
                 credential_index: 1,
                 source: CredentialStateResolutionError::NonConformingUpdate { index: 0 },
+            })
+        );
+    }
+
+    #[test]
+    fn malformed_subject_root_identifies_credential_index() {
+        let standard = credential("standard", TrustTier::Standard);
+        let mut guardian = credential("guardian", TrustTier::Guardian);
+        guardian.trust_score_range.lower = f32::NAN;
+        let lineages = [
+            CredentialLineageInput {
+                root: &standard,
+                observed_updates: &[],
+                valid_delete_count: 1,
+            },
+            CredentialLineageInput {
+                root: &guardian,
+                observed_updates: &[],
+                valid_delete_count: 0,
+            },
+        ];
+
+        assert_eq!(
+            resolve_subject_to_v1(&lineages, 1_000),
+            Err(TrustResolutionRuntimeError::SubjectMalformedCanonicalRoot {
+                credential_index: 1,
+                source: CanonicalRootAssertionError::NonFiniteTrustRange,
             })
         );
     }
