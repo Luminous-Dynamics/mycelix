@@ -1,687 +1,576 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! DNA-bound constitutional genesis and append-only constitutional lineage.
+//! Constitution-rooted non-circular bootstrap authority for authority-state coverage.
 //!
-//! The core rule is deliberately simple:
+//! The operational coverage plane must not prove its own currentness. This pure
+//! layer roots only the control-plane policy classes in one exact, independently
+//! verified current constitutional statement plus one exact independently verified
+//! rulebook adoption of the root manifest.
 //!
-//! **The first constitution is not whoever writes first.**
-//!
-//! A Holochain DNA commits immutable properties into the DNA hash. Those
-//! properties define the exact semantic genesis constitution. A runtime may
-//! persist the matching genesis statement for discoverability, but the writer
-//! gains no special authority merely by publishing it.
-//!
-//! Later constitutional versions form an append-only lineage. Every transition
-//! binds the exact parent state, exact child state, exact amendment policy that
-//! governed the transition, the binding-vote result, threshold authorization,
-//! amendment payload, and a replay nonce.
-//!
-//! This crate performs no Holochain calls and no signature/proof verification.
-//! `TransitionVerificationEvidence` is an adapter boundary: hosts MUST create it
-//! only after independently verifying the referenced binding tally and threshold
-//! authorization. A deserialized value is evidence-shaped data, not authority by
-//! existence.
+//! No `VerifiedAuthorityFreshness` is accepted here. Probe challenges remain
+//! evidence collection, not authority. Operational authority subjects are forbidden.
 
+use mycelix_authority_freshness::AuthoritySubjectKind;
+use mycelix_authority_state_coverage::{
+    AuthorityCoveragePolicy, CoverageMode, POLICY_IDENTITY_PROFILE,
+};
+use mycelix_authority_state_coverage_context::{
+    CoverageTrustContextPolicy, CONTEXT_POLICY_PROFILE,
+};
+use mycelix_governance_constitution::{ConstitutionStatement, STATEMENT_PROFILE};
+use mycelix_institutional_core::Digest32;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-pub const PROTOCOL_VERSION: &str = "mycelix-governance-constitution-v0.1";
-pub const GENESIS_MANIFEST_PROFILE: &str =
-    "mycelix-governance-constitution-genesis-v1-blake3-framed";
-pub const STATEMENT_PROFILE: &str =
-    "mycelix-governance-constitution-statement-v1-blake3-framed";
-pub const TRANSITION_PROFILE: &str =
-    "mycelix-governance-constitution-transition-v1-blake3-framed";
+pub const PROTOCOL_VERSION: &str = "mycelix-authority-state-bootstrap-root-v0.1";
+pub const ROOT_MANIFEST_PROFILE: &str =
+    "mycelix-authority-state-bootstrap-root-manifest-v1-blake3-framed";
+pub const ROOT_QUALIFICATION_PROFILE: &str =
+    "mycelix-authority-state-bootstrap-root-qualification-v1-blake3-framed";
+pub const CURRENT_CONSTITUTION_RECEIPT_PROTOCOL: &str =
+    "mycelix-current-constitution-receipt-v0.1";
+pub const ROOT_ADOPTION_RECEIPT_PROTOCOL: &str =
+    "mycelix-authority-state-bootstrap-root-adoption-v0.1";
 
-const MAX_ID_BYTES: usize = 512;
+const DOMAIN_MANIFEST: &[u8] = b"mycelix/authority-state/bootstrap-root/manifest/v1";
+const DOMAIN_QUALIFICATION: &[u8] = b"mycelix/authority-state/bootstrap-root/qualification/v1";
+const MAX_REF_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
-const DOMAIN_GENESIS: &[u8] = b"mycelix/governance/constitution/genesis/v1";
-const DOMAIN_STATEMENT: &[u8] = b"mycelix/governance/constitution/statement/v1";
-const DOMAIN_TRANSITION: &[u8] = b"mycelix/governance/constitution/transition/v1";
+const MAX_DNA_HASH_BYTES: usize = 1024;
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-pub struct Digest32(pub [u8; 32]);
-
-impl Digest32 {
-    pub const ZERO: Self = Self([0; 32]);
-
-    pub fn is_zero(&self) -> bool {
-        self.0.iter().all(|byte| *byte == 0)
-    }
-
-    pub fn to_hex(self) -> String {
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        let mut out = String::with_capacity(64);
-        for byte in self.0 {
-            out.push(HEX[(byte >> 4) as usize] as char);
-            out.push(HEX[(byte & 0x0f) as usize] as char);
-        }
-        out
-    }
-}
-
-macro_rules! id_type {
-    ($name:ident, $field:literal) => {
-        #[derive(
-            Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
-        pub struct $name(pub String);
-
-        impl $name {
-            pub fn new(value: impl Into<String>) -> Result<Self, ConstitutionError> {
-                let value = value.into();
-                validate_text(&value, $field, MAX_ID_BYTES)?;
-                Ok(Self(value))
-            }
-
-            pub fn as_str(&self) -> &str {
-                &self.0
-            }
-        }
-    };
-}
-
-id_type!(NetworkId, "network_id");
-id_type!(InstitutionId, "institution_id");
-id_type!(ConstitutionId, "constitution_id");
-id_type!(RulebookId, "rulebook_id");
-id_type!(ProposalId, "proposal_id");
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProfiledDigest {
-    pub digest: Digest32,
-    pub profile: String,
-}
-
-impl ProfiledDigest {
-    pub fn validate(&self, field: &'static str) -> Result<(), ConstitutionError> {
-        require_digest(self.digest, field)?;
-        validate_profile(&self.profile, field)
-    }
-}
-
-/// Immutable network-level constitutional genesis configuration.
+/// Evidence-shaped receipt that one exact constitutional statement is current.
 ///
-/// A Holochain adapter should deserialize this from DNA properties. Because DNA
-/// properties are integrity modifiers, changing any field creates a different
-/// DNA hash/network. There is intentionally no privileged genesis writer field.
+/// A runtime adapter must construct this only after independently verifying the
+/// constitutional lineage/current-head result. Deserialization is not authority.
+/// `dna_hash` is carried forward for the separate deployment binding performed by
+/// the runtime-DNA layer; it is not folded into the substrate-neutral root identity.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConstitutionGenesisManifest {
+pub struct VerifiedCurrentConstitutionReceipt {
     pub protocol_version: String,
-    pub network_id: NetworkId,
-    pub institution_id: InstitutionId,
-    pub constitution_id: ConstitutionId,
-    pub rulebook_id: RulebookId,
-    pub rulebook_version: String,
-    pub rulebook: ProfiledDigest,
-    pub charter: ProfiledDigest,
-    pub parameters: ProfiledDigest,
-    pub amendment_policy: ProfiledDigest,
-    /// Exact binding-vote protocol/profile permitted to ratify amendments.
-    pub binding_vote_profile: String,
-    /// Exact threshold/institutional authorization profile required after tally.
-    pub threshold_authority_profile: String,
-    pub effective_from_ms: u64,
-}
-
-impl ConstitutionGenesisManifest {
-    pub fn validate(&self) -> Result<(), ConstitutionError> {
-        require_protocol(&self.protocol_version)?;
-        validate_text(self.network_id.as_str(), "genesis.network_id", MAX_ID_BYTES)?;
-        validate_text(
-            self.institution_id.as_str(),
-            "genesis.institution_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            self.constitution_id.as_str(),
-            "genesis.constitution_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            self.rulebook_id.as_str(),
-            "genesis.rulebook_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            &self.rulebook_version,
-            "genesis.rulebook_version",
-            MAX_PROFILE_BYTES,
-        )?;
-        self.rulebook.validate("genesis.rulebook")?;
-        self.charter.validate("genesis.charter")?;
-        self.parameters.validate("genesis.parameters")?;
-        self.amendment_policy.validate("genesis.amendment_policy")?;
-        validate_profile(
-            &self.binding_vote_profile,
-            "genesis.binding_vote_profile",
-        )?;
-        validate_profile(
-            &self.threshold_authority_profile,
-            "genesis.threshold_authority_profile",
-        )?;
-        if self.effective_from_ms == 0 {
-            return Err(ConstitutionError::ZeroTimestamp("genesis.effective_from_ms"));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ConstitutionError> {
-        self.validate()?;
-        let mut out = Vec::new();
-        put_domain(&mut out, DOMAIN_GENESIS);
-        put_str(&mut out, &self.protocol_version);
-        put_str(&mut out, self.network_id.as_str());
-        put_str(&mut out, self.institution_id.as_str());
-        put_str(&mut out, self.constitution_id.as_str());
-        put_str(&mut out, self.rulebook_id.as_str());
-        put_str(&mut out, &self.rulebook_version);
-        put_profiled_digest(&mut out, &self.rulebook);
-        put_profiled_digest(&mut out, &self.charter);
-        put_profiled_digest(&mut out, &self.parameters);
-        put_profiled_digest(&mut out, &self.amendment_policy);
-        put_str(&mut out, &self.binding_vote_profile);
-        put_str(&mut out, &self.threshold_authority_profile);
-        put_u64(&mut out, self.effective_from_ms);
-        Ok(out)
-    }
-
-    pub fn digest(&self) -> Result<Digest32, ConstitutionError> {
-        Ok(hash(&self.canonical_bytes()?))
-    }
-
-    pub fn genesis_statement(&self) -> Result<ConstitutionStatement, ConstitutionError> {
-        self.validate()?;
-        Ok(ConstitutionStatement {
-            protocol_version: PROTOCOL_VERSION.into(),
-            network_id: self.network_id.clone(),
-            institution_id: self.institution_id.clone(),
-            constitution_id: self.constitution_id.clone(),
-            version: 1,
-            parent_statement_digest: None,
-            rulebook_id: self.rulebook_id.clone(),
-            rulebook_version: self.rulebook_version.clone(),
-            rulebook: self.rulebook.clone(),
-            charter: self.charter.clone(),
-            parameters: self.parameters.clone(),
-            amendment_policy: self.amendment_policy.clone(),
-            binding_vote_profile: self.binding_vote_profile.clone(),
-            threshold_authority_profile: self.threshold_authority_profile.clone(),
-            effective_from_ms: self.effective_from_ms,
-        })
-    }
-
-    /// Verify that a persisted genesis statement is exactly the DNA-committed
-    /// semantic genesis statement. The publishing author is intentionally absent.
-    pub fn verify_genesis_statement(
-        &self,
-        statement: &ConstitutionStatement,
-    ) -> Result<(), ConstitutionError> {
-        let expected = self.genesis_statement()?;
-        if &expected != statement {
-            return Err(ConstitutionError::GenesisStatementMismatch);
-        }
-        Ok(())
-    }
-}
-
-/// Semantic constitutional state at one version.
-///
-/// Authorization receipts are deliberately outside this digest. This avoids a
-/// circular hash where a transition authorization commits the child statement
-/// while the child statement also commits that authorization.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConstitutionStatement {
-    pub protocol_version: String,
-    pub network_id: NetworkId,
-    pub institution_id: InstitutionId,
-    pub constitution_id: ConstitutionId,
-    pub version: u64,
-    pub parent_statement_digest: Option<Digest32>,
-    pub rulebook_id: RulebookId,
-    pub rulebook_version: String,
-    pub rulebook: ProfiledDigest,
-    pub charter: ProfiledDigest,
-    pub parameters: ProfiledDigest,
-    pub amendment_policy: ProfiledDigest,
-    pub binding_vote_profile: String,
-    pub threshold_authority_profile: String,
-    pub effective_from_ms: u64,
-}
-
-impl ConstitutionStatement {
-    pub fn validate(&self) -> Result<(), ConstitutionError> {
-        require_protocol(&self.protocol_version)?;
-        validate_text(self.network_id.as_str(), "statement.network_id", MAX_ID_BYTES)?;
-        validate_text(
-            self.institution_id.as_str(),
-            "statement.institution_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            self.constitution_id.as_str(),
-            "statement.constitution_id",
-            MAX_ID_BYTES,
-        )?;
-        if self.version == 0 {
-            return Err(ConstitutionError::ZeroVersion);
-        }
-        match (self.version, self.parent_statement_digest) {
-            (1, None) => {}
-            (1, Some(_)) => return Err(ConstitutionError::GenesisHasParent),
-            (_, None) => return Err(ConstitutionError::NonGenesisMissingParent),
-            (_, Some(parent)) => require_digest(parent, "statement.parent_statement_digest")?,
-        }
-        validate_text(
-            self.rulebook_id.as_str(),
-            "statement.rulebook_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            &self.rulebook_version,
-            "statement.rulebook_version",
-            MAX_PROFILE_BYTES,
-        )?;
-        self.rulebook.validate("statement.rulebook")?;
-        self.charter.validate("statement.charter")?;
-        self.parameters.validate("statement.parameters")?;
-        self.amendment_policy.validate("statement.amendment_policy")?;
-        validate_profile(
-            &self.binding_vote_profile,
-            "statement.binding_vote_profile",
-        )?;
-        validate_profile(
-            &self.threshold_authority_profile,
-            "statement.threshold_authority_profile",
-        )?;
-        if self.effective_from_ms == 0 {
-            return Err(ConstitutionError::ZeroTimestamp(
-                "statement.effective_from_ms",
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ConstitutionError> {
-        self.validate()?;
-        let mut out = Vec::new();
-        put_domain(&mut out, DOMAIN_STATEMENT);
-        put_str(&mut out, &self.protocol_version);
-        put_str(&mut out, self.network_id.as_str());
-        put_str(&mut out, self.institution_id.as_str());
-        put_str(&mut out, self.constitution_id.as_str());
-        put_u64(&mut out, self.version);
-        put_optional_digest(&mut out, self.parent_statement_digest);
-        put_str(&mut out, self.rulebook_id.as_str());
-        put_str(&mut out, &self.rulebook_version);
-        put_profiled_digest(&mut out, &self.rulebook);
-        put_profiled_digest(&mut out, &self.charter);
-        put_profiled_digest(&mut out, &self.parameters);
-        put_profiled_digest(&mut out, &self.amendment_policy);
-        put_str(&mut out, &self.binding_vote_profile);
-        put_str(&mut out, &self.threshold_authority_profile);
-        put_u64(&mut out, self.effective_from_ms);
-        Ok(out)
-    }
-
-    pub fn digest(&self) -> Result<Digest32, ConstitutionError> {
-        Ok(hash(&self.canonical_bytes()?))
-    }
-}
-
-/// Exact authorization statement for one parent -> child constitutional change.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConstitutionTransitionAuthorization {
-    pub protocol_version: String,
-    pub network_id: NetworkId,
-    pub institution_id: InstitutionId,
-    pub constitution_id: ConstitutionId,
-    pub from_statement_digest: Digest32,
-    pub to_statement_digest: Digest32,
-    /// Amendment policy in force on the parent statement.
-    pub amendment_policy_digest: Digest32,
-    pub amendment_policy_profile: String,
-    pub proposal_id: ProposalId,
-    pub binding_tally: ProfiledDigest,
-    pub threshold_authorization: ProfiledDigest,
-    pub amendment_payload: ProfiledDigest,
-    pub authorized_at_ms: u64,
-    /// Non-zero replay-domain value supplied by the authorization layer.
-    pub transition_nonce: Digest32,
-}
-
-impl ConstitutionTransitionAuthorization {
-    pub fn validate(&self) -> Result<(), ConstitutionError> {
-        require_protocol(&self.protocol_version)?;
-        validate_text(self.network_id.as_str(), "transition.network_id", MAX_ID_BYTES)?;
-        validate_text(
-            self.institution_id.as_str(),
-            "transition.institution_id",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            self.constitution_id.as_str(),
-            "transition.constitution_id",
-            MAX_ID_BYTES,
-        )?;
-        require_digest(
-            self.from_statement_digest,
-            "transition.from_statement_digest",
-        )?;
-        require_digest(self.to_statement_digest, "transition.to_statement_digest")?;
-        require_digest(
-            self.amendment_policy_digest,
-            "transition.amendment_policy_digest",
-        )?;
-        validate_profile(
-            &self.amendment_policy_profile,
-            "transition.amendment_policy_profile",
-        )?;
-        validate_text(self.proposal_id.as_str(), "transition.proposal_id", MAX_ID_BYTES)?;
-        self.binding_tally.validate("transition.binding_tally")?;
-        self.threshold_authorization
-            .validate("transition.threshold_authorization")?;
-        self.amendment_payload
-            .validate("transition.amendment_payload")?;
-        if self.authorized_at_ms == 0 {
-            return Err(ConstitutionError::ZeroTimestamp(
-                "transition.authorized_at_ms",
-            ));
-        }
-        require_digest(self.transition_nonce, "transition.transition_nonce")
-    }
-
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ConstitutionError> {
-        self.validate()?;
-        let mut out = Vec::new();
-        put_domain(&mut out, DOMAIN_TRANSITION);
-        put_str(&mut out, &self.protocol_version);
-        put_str(&mut out, self.network_id.as_str());
-        put_str(&mut out, self.institution_id.as_str());
-        put_str(&mut out, self.constitution_id.as_str());
-        put_digest(&mut out, self.from_statement_digest);
-        put_digest(&mut out, self.to_statement_digest);
-        put_digest(&mut out, self.amendment_policy_digest);
-        put_str(&mut out, &self.amendment_policy_profile);
-        put_str(&mut out, self.proposal_id.as_str());
-        put_profiled_digest(&mut out, &self.binding_tally);
-        put_profiled_digest(&mut out, &self.threshold_authorization);
-        put_profiled_digest(&mut out, &self.amendment_payload);
-        put_u64(&mut out, self.authorized_at_ms);
-        put_digest(&mut out, self.transition_nonce);
-        Ok(out)
-    }
-
-    pub fn digest(&self) -> Result<Digest32, ConstitutionError> {
-        Ok(hash(&self.canonical_bytes()?))
-    }
-}
-
-/// Adapter evidence that the exact transition authorization was externally
-/// verified. The proof references are intentionally opaque to this pure crate.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TransitionVerificationEvidence {
-    pub authorization_digest: Digest32,
-    pub binding_tally_verification_ref: String,
-    pub threshold_verification_ref: String,
+    pub statement: ConstitutionStatement,
+    pub statement_digest: Digest32,
+    pub statement_profile: String,
+    pub dna_hash: String,
+    pub verification_ref: String,
     pub verified_at_ms: u64,
+    pub valid_until_ms: u64,
 }
 
-impl TransitionVerificationEvidence {
-    pub fn validate_against(
-        &self,
-        authorization: &ConstitutionTransitionAuthorization,
-    ) -> Result<(), ConstitutionError> {
-        let expected = authorization.digest()?;
-        if self.authorization_digest != expected {
-            return Err(ConstitutionError::VerificationAuthorizationMismatch);
+impl VerifiedCurrentConstitutionReceipt {
+    pub fn validate_at(&self, now_ms: u64) -> Result<(), BootstrapRootError> {
+        if self.protocol_version != CURRENT_CONSTITUTION_RECEIPT_PROTOCOL {
+            return Err(BootstrapRootError::WrongCurrentConstitutionProtocol);
         }
-        validate_text(
-            &self.binding_tally_verification_ref,
-            "verification.binding_tally_verification_ref",
-            MAX_ID_BYTES,
-        )?;
-        validate_text(
-            &self.threshold_verification_ref,
-            "verification.threshold_verification_ref",
-            MAX_ID_BYTES,
-        )?;
-        if self.verified_at_ms < authorization.authorized_at_ms {
-            return Err(ConstitutionError::VerificationPredatesAuthorization);
+        self.statement
+            .validate()
+            .map_err(|_| BootstrapRootError::InvalidCurrentConstitution)?;
+        if self.statement_profile != STATEMENT_PROFILE {
+            return Err(BootstrapRootError::LegacyConstitutionRejected);
+        }
+        let recomputed = constitution_digest_to_core(
+            self.statement
+                .digest()
+                .map_err(|_| BootstrapRootError::InvalidCurrentConstitution)?,
+        );
+        if self.statement_digest.is_zero() || self.statement_digest != recomputed {
+            return Err(BootstrapRootError::CurrentConstitutionDigestMismatch);
+        }
+        validate_dna_hash(&self.dna_hash)?;
+        require_ref(&self.verification_ref)?;
+        if now_ms == 0
+            || self.verified_at_ms == 0
+            || self.verified_at_ms < self.statement.effective_from_ms
+            || self.verified_at_ms > now_ms
+            || self.valid_until_ms <= now_ms
+            || self.valid_until_ms < self.verified_at_ms
+        {
+            return Err(BootstrapRootError::CurrentConstitutionNotCurrent);
         }
         Ok(())
     }
 }
 
-/// One candidate child state plus the exact transition that authorized it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerifiedConstitutionTransition {
-    pub child: ConstitutionStatement,
-    pub authorization: ConstitutionTransitionAuthorization,
-    pub verification: TransitionVerificationEvidence,
-}
-
-impl VerifiedConstitutionTransition {
-    pub fn validate_from(
-        &self,
-        parent: &ConstitutionStatement,
-    ) -> Result<(), ConstitutionError> {
-        validate_transition(
-            parent,
-            &self.child,
-            &self.authorization,
-            &self.verification,
-        )
-    }
-}
-
-/// Verify all structural and exact-binding invariants for one constitutional
-/// transition. This still does not perform the cryptographic verification named
-/// by `verification`.
-pub fn validate_transition(
-    parent: &ConstitutionStatement,
-    child: &ConstitutionStatement,
-    authorization: &ConstitutionTransitionAuthorization,
-    verification: &TransitionVerificationEvidence,
-) -> Result<(), ConstitutionError> {
-    parent.validate()?;
-    child.validate()?;
-    authorization.validate()?;
-    verification.validate_against(authorization)?;
-
-    if child.version != parent.version.saturating_add(1) {
-        return Err(ConstitutionError::NonSequentialVersion);
-    }
-    let parent_digest = parent.digest()?;
-    let child_digest = child.digest()?;
-    if child.parent_statement_digest != Some(parent_digest) {
-        return Err(ConstitutionError::ChildParentMismatch);
-    }
-    if authorization.from_statement_digest != parent_digest {
-        return Err(ConstitutionError::AuthorizationParentMismatch);
-    }
-    if authorization.to_statement_digest != child_digest {
-        return Err(ConstitutionError::AuthorizationChildMismatch);
-    }
-    if parent.network_id != child.network_id
-        || parent.network_id != authorization.network_id
-    {
-        return Err(ConstitutionError::NetworkMismatch);
-    }
-    if parent.institution_id != child.institution_id
-        || parent.institution_id != authorization.institution_id
-    {
-        return Err(ConstitutionError::InstitutionMismatch);
-    }
-    if parent.constitution_id != child.constitution_id
-        || parent.constitution_id != authorization.constitution_id
-    {
-        return Err(ConstitutionError::ConstitutionMismatch);
-    }
-    if authorization.amendment_policy_digest != parent.amendment_policy.digest
-        || authorization.amendment_policy_profile != parent.amendment_policy.profile
-    {
-        return Err(ConstitutionError::AmendmentPolicyMismatch);
-    }
-    if authorization.binding_tally.profile != parent.binding_vote_profile {
-        return Err(ConstitutionError::BindingVoteProfileMismatch);
-    }
-    if authorization.threshold_authorization.profile != parent.threshold_authority_profile {
-        return Err(ConstitutionError::ThresholdAuthorityProfileMismatch);
-    }
-    if authorization.authorized_at_ms < parent.effective_from_ms {
-        return Err(ConstitutionError::AuthorizationPredatesParent);
-    }
-    if child.effective_from_ms < authorization.authorized_at_ms {
-        return Err(ConstitutionError::ChildEffectiveBeforeAuthorization);
-    }
-    Ok(())
-}
-
-/// Deterministically project one constitutional lineage from the DNA-committed
-/// genesis state and a set of host-verified transitions.
+/// Semantic constitution/rulebook-adopted bootstrap manifest.
 ///
-/// Duplicate byte-identical transitions are harmless. Two distinct valid child
-/// statements for the same current parent are treated as constitutional
-/// equivocation and fail closed; timestamp ordering never chooses a winner.
-pub fn project_verified_lineage(
-    manifest: &ConstitutionGenesisManifest,
-    transitions: &[VerifiedConstitutionTransition],
-) -> Result<ConstitutionStatement, ConstitutionError> {
-    let mut current = manifest.genesis_statement()?;
-    let mut consumed = BTreeSet::new();
-
-    loop {
-        let current_digest = current.digest()?;
-        let mut by_child: BTreeMap<Digest32, &VerifiedConstitutionTransition> = BTreeMap::new();
-
-        for (index, transition) in transitions.iter().enumerate() {
-            if consumed.contains(&index) {
-                continue;
-            }
-            if transition.authorization.from_statement_digest != current_digest {
-                continue;
-            }
-            transition.validate_from(&current)?;
-            let child_digest = transition.child.digest()?;
-            if let Some(existing) = by_child.get(&child_digest) {
-                if *existing != transition {
-                    return Err(ConstitutionError::DuplicateChildConflictingEvidence);
-                }
-            } else {
-                by_child.insert(child_digest, transition);
-            }
-        }
-
-        if by_child.is_empty() {
-            return Ok(current);
-        }
-        if by_child.len() > 1 {
-            return Err(ConstitutionError::AmbiguousConstitutionalFork);
-        }
-
-        let (_, selected) = by_child.into_iter().next().expect("checked non-empty");
-        current = selected.child.clone();
-
-        for (index, transition) in transitions.iter().enumerate() {
-            if transition.child == current && transition.authorization.from_statement_digest == current_digest {
-                consumed.insert(index);
-            }
-        }
-    }
+/// The exact root source identity and coverage semantics are committed indirectly
+/// but completely through `coverage_policy.identity_digest()`. Witness/trust
+/// semantics are committed through the exact context-policy identity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthorityStateBootstrapRootManifest {
+    pub protocol_version: String,
+    pub network_id: String,
+    pub institution_id: String,
+    pub constitution_id: String,
+    pub constitution_version: u64,
+    pub constitution_statement_digest: Digest32,
+    pub constitution_statement_profile: String,
+    pub rulebook_ref: String,
+    pub rulebook_version: String,
+    pub rulebook_digest: Digest32,
+    pub rulebook_profile: String,
+    pub control_plane_namespace: String,
+    pub coverage_policy: AuthorityCoveragePolicy,
+    pub coverage_context_policy: CoverageTrustContextPolicy,
+    pub root_epoch: u64,
+    pub effective_from_ms: u64,
+    pub valid_until_ms: u64,
+    pub adoption_authority_ref: String,
+    pub adoption_ref: String,
+    pub adoption_proof_ref: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ConstitutionError {
-    WrongProtocolVersion,
-    Empty(&'static str),
-    TooLong(&'static str),
-    InvalidProfile(&'static str),
-    ZeroDigest(&'static str),
-    ZeroTimestamp(&'static str),
-    ZeroVersion,
-    GenesisHasParent,
-    NonGenesisMissingParent,
-    GenesisStatementMismatch,
-    VerificationAuthorizationMismatch,
-    VerificationPredatesAuthorization,
-    NonSequentialVersion,
-    ChildParentMismatch,
-    AuthorizationParentMismatch,
-    AuthorizationChildMismatch,
-    NetworkMismatch,
-    InstitutionMismatch,
-    ConstitutionMismatch,
-    AmendmentPolicyMismatch,
-    BindingVoteProfileMismatch,
-    ThresholdAuthorityProfileMismatch,
-    AuthorizationPredatesParent,
-    ChildEffectiveBeforeAuthorization,
-    DuplicateChildConflictingEvidence,
-    AmbiguousConstitutionalFork,
-}
-
-impl fmt::Display for ConstitutionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::WrongProtocolVersion => write!(f, "wrong constitutional protocol version"),
-            Self::Empty(field) => write!(f, "{field} must not be empty"),
-            Self::TooLong(field) => write!(f, "{field} exceeds maximum length"),
-            Self::InvalidProfile(field) => write!(f, "{field} is not a canonical profile token"),
-            Self::ZeroDigest(field) => write!(f, "{field} must not be the zero digest"),
-            Self::ZeroTimestamp(field) => write!(f, "{field} must be non-zero"),
-            Self::ZeroVersion => write!(f, "constitution version must be non-zero"),
-            Self::GenesisHasParent => write!(f, "genesis constitution must not have a parent"),
-            Self::NonGenesisMissingParent => write!(f, "non-genesis constitution requires a parent"),
-            Self::GenesisStatementMismatch => write!(f, "persisted genesis differs from DNA-bound genesis"),
-            Self::VerificationAuthorizationMismatch => write!(f, "verification evidence targets another transition authorization"),
-            Self::VerificationPredatesAuthorization => write!(f, "verification predates transition authorization"),
-            Self::NonSequentialVersion => write!(f, "constitutional versions must increment by exactly one"),
-            Self::ChildParentMismatch => write!(f, "child constitution does not bind the exact parent statement"),
-            Self::AuthorizationParentMismatch => write!(f, "transition authorization targets another parent"),
-            Self::AuthorizationChildMismatch => write!(f, "transition authorization targets another child"),
-            Self::NetworkMismatch => write!(f, "constitutional transition crosses network identity"),
-            Self::InstitutionMismatch => write!(f, "constitutional transition crosses institution identity"),
-            Self::ConstitutionMismatch => write!(f, "constitutional transition crosses constitution identity"),
-            Self::AmendmentPolicyMismatch => write!(f, "transition was not governed by the parent's exact amendment policy"),
-            Self::BindingVoteProfileMismatch => write!(f, "transition uses a binding-vote profile not authorized by the parent"),
-            Self::ThresholdAuthorityProfileMismatch => write!(f, "transition uses an authority profile not authorized by the parent"),
-            Self::AuthorizationPredatesParent => write!(f, "transition authorization predates parent effectiveness"),
-            Self::ChildEffectiveBeforeAuthorization => write!(f, "child constitution becomes effective before authorization"),
-            Self::DuplicateChildConflictingEvidence => write!(f, "same constitutional child has conflicting authorization evidence"),
-            Self::AmbiguousConstitutionalFork => write!(f, "multiple verified constitutional children exist for one parent"),
+impl AuthorityStateBootstrapRootManifest {
+    pub fn validate(&self) -> Result<(), BootstrapRootError> {
+        if self.protocol_version != PROTOCOL_VERSION {
+            return Err(BootstrapRootError::WrongProtocolVersion);
         }
-    }
-}
+        for value in [
+            self.network_id.as_str(),
+            self.institution_id.as_str(),
+            self.constitution_id.as_str(),
+            self.rulebook_ref.as_str(),
+            self.rulebook_version.as_str(),
+            self.control_plane_namespace.as_str(),
+            self.adoption_authority_ref.as_str(),
+            self.adoption_ref.as_str(),
+            self.adoption_proof_ref.as_str(),
+        ] {
+            require_ref(value)?;
+        }
+        if self.constitution_version == 0 || self.root_epoch == 0 {
+            return Err(BootstrapRootError::InvalidEpoch);
+        }
+        require_digest(self.constitution_statement_digest)?;
+        require_profile(&self.constitution_statement_profile)?;
+        if self.constitution_statement_profile != STATEMENT_PROFILE {
+            return Err(BootstrapRootError::LegacyConstitutionRejected);
+        }
+        require_digest(self.rulebook_digest)?;
+        require_profile(&self.rulebook_profile)?;
+        if self.effective_from_ms == 0 || self.valid_until_ms <= self.effective_from_ms {
+            return Err(BootstrapRootError::InvalidRootLifetime);
+        }
 
-impl std::error::Error for ConstitutionError {}
+        self.coverage_policy
+            .validate()
+            .map_err(|_| BootstrapRootError::InvalidCoveragePolicy)?;
+        self.coverage_context_policy
+            .validate()
+            .map_err(|_| BootstrapRootError::InvalidContextPolicy)?;
 
-fn require_protocol(value: &str) -> Result<(), ConstitutionError> {
-    if value == PROTOCOL_VERSION {
+        validate_embedded_policy_contract(self)?;
         Ok(())
-    } else {
-        Err(ConstitutionError::WrongProtocolVersion)
+    }
+
+    pub fn identity_digest(&self) -> Result<Digest32, BootstrapRootError> {
+        self.validate()?;
+        let coverage_digest = self
+            .coverage_policy
+            .identity_digest()
+            .map_err(|_| BootstrapRootError::InvalidCoveragePolicy)?;
+        let context_digest = self
+            .coverage_context_policy
+            .identity_digest()
+            .map_err(|_| BootstrapRootError::InvalidContextPolicy)?;
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(DOMAIN_MANIFEST);
+        frame(&mut hasher, ROOT_MANIFEST_PROFILE.as_bytes());
+        frame(&mut hasher, self.protocol_version.as_bytes());
+        frame(&mut hasher, self.network_id.as_bytes());
+        frame(&mut hasher, self.institution_id.as_bytes());
+        frame(&mut hasher, self.constitution_id.as_bytes());
+        frame(&mut hasher, &self.constitution_version.to_le_bytes());
+        frame(&mut hasher, self.constitution_statement_profile.as_bytes());
+        frame(&mut hasher, &self.constitution_statement_digest.0);
+        frame(&mut hasher, self.rulebook_ref.as_bytes());
+        frame(&mut hasher, self.rulebook_version.as_bytes());
+        frame(&mut hasher, self.rulebook_profile.as_bytes());
+        frame(&mut hasher, &self.rulebook_digest.0);
+        frame(&mut hasher, self.control_plane_namespace.as_bytes());
+        frame(&mut hasher, POLICY_IDENTITY_PROFILE.as_bytes());
+        frame(&mut hasher, &coverage_digest.0);
+        frame(&mut hasher, CONTEXT_POLICY_PROFILE.as_bytes());
+        frame(&mut hasher, &context_digest.0);
+        frame(&mut hasher, &self.root_epoch.to_le_bytes());
+        frame(&mut hasher, &self.effective_from_ms.to_le_bytes());
+        frame(&mut hasher, &self.valid_until_ms.to_le_bytes());
+        frame(&mut hasher, self.adoption_authority_ref.as_bytes());
+        frame(&mut hasher, self.adoption_ref.as_bytes());
+        frame(&mut hasher, self.adoption_proof_ref.as_bytes());
+        Ok(Digest32(*hasher.finalize().as_bytes()))
     }
 }
 
-fn validate_text(
-    value: &str,
-    field: &'static str,
-    max_bytes: usize,
-) -> Result<(), ConstitutionError> {
-    if value.trim().is_empty() {
-        return Err(ConstitutionError::Empty(field));
+/// Evidence-shaped proof that the exact current rulebook adopted the exact root.
+///
+/// This receipt is intentionally deserializable. A runtime adapter must obtain it
+/// from a verifier independent of the root-manifest bytes being qualified.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedBootstrapRootAdoption {
+    pub protocol_version: String,
+    pub constitution_statement_digest: Digest32,
+    pub constitution_statement_profile: String,
+    pub rulebook_ref: String,
+    pub rulebook_version: String,
+    pub rulebook_digest: Digest32,
+    pub rulebook_profile: String,
+    pub root_manifest_digest: Digest32,
+    pub root_manifest_profile: String,
+    pub adoption_authority_ref: String,
+    pub adoption_ref: String,
+    pub adoption_proof_ref: String,
+    pub verified_adoption_proof_ref: String,
+    pub verification_ref: String,
+    pub verified_at_ms: u64,
+    pub valid_until_ms: u64,
+}
+
+impl VerifiedBootstrapRootAdoption {
+    pub fn validate_at(&self, now_ms: u64) -> Result<(), BootstrapRootError> {
+        if self.protocol_version != ROOT_ADOPTION_RECEIPT_PROTOCOL {
+            return Err(BootstrapRootError::WrongAdoptionProtocol);
+        }
+        for digest in [
+            self.constitution_statement_digest,
+            self.rulebook_digest,
+            self.root_manifest_digest,
+        ] {
+            require_digest(digest)?;
+        }
+        for profile in [
+            self.constitution_statement_profile.as_str(),
+            self.rulebook_profile.as_str(),
+            self.root_manifest_profile.as_str(),
+        ] {
+            require_profile(profile)?;
+        }
+        for value in [
+            self.rulebook_ref.as_str(),
+            self.rulebook_version.as_str(),
+            self.adoption_authority_ref.as_str(),
+            self.adoption_ref.as_str(),
+            self.adoption_proof_ref.as_str(),
+            self.verified_adoption_proof_ref.as_str(),
+            self.verification_ref.as_str(),
+        ] {
+            require_ref(value)?;
+        }
+        if self.adoption_proof_ref != self.verified_adoption_proof_ref {
+            return Err(BootstrapRootError::AdoptionProofMismatch);
+        }
+        if now_ms == 0
+            || self.verified_at_ms == 0
+            || self.verified_at_ms > now_ms
+            || self.valid_until_ms <= now_ms
+            || self.valid_until_ms < self.verified_at_ms
+        {
+            return Err(BootstrapRootError::AdoptionNotCurrent);
+        }
+        Ok(())
     }
-    if value.len() > max_bytes {
-        return Err(ConstitutionError::TooLong(field));
+}
+
+/// Non-deserializable positive bootstrap authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct QualifiedAuthorityStateBootstrapRoot {
+    manifest: AuthorityStateBootstrapRootManifest,
+    current_constitution_digest: Digest32,
+    coverage_policy_digest: Digest32,
+    context_policy_digest: Digest32,
+    qualification_digest: Digest32,
+    qualification_profile: String,
+    verification_ref: String,
+    verified_at_ms: u64,
+    valid_until_ms: u64,
+}
+
+impl QualifiedAuthorityStateBootstrapRoot {
+    pub fn manifest(&self) -> &AuthorityStateBootstrapRootManifest {
+        &self.manifest
+    }
+
+    pub fn current_constitution_digest(&self) -> Digest32 {
+        self.current_constitution_digest
+    }
+
+    pub fn coverage_policy_digest(&self) -> Digest32 {
+        self.coverage_policy_digest
+    }
+
+    pub fn context_policy_digest(&self) -> Digest32 {
+        self.context_policy_digest
+    }
+
+    pub fn qualification_digest(&self) -> Digest32 {
+        self.qualification_digest
+    }
+
+    pub fn qualification_profile(&self) -> &str {
+        &self.qualification_profile
+    }
+
+    pub fn verification_ref(&self) -> &str {
+        &self.verification_ref
+    }
+
+    pub fn verified_at_ms(&self) -> u64 {
+        self.verified_at_ms
+    }
+
+    pub fn valid_until_ms(&self) -> u64 {
+        self.valid_until_ms
+    }
+}
+
+/// Qualify one exact current constitution-rooted authority-state bootstrap root.
+pub fn qualify_bootstrap_root(
+    manifest: &AuthorityStateBootstrapRootManifest,
+    current_constitution: &VerifiedCurrentConstitutionReceipt,
+    adoption: &VerifiedBootstrapRootAdoption,
+    now_ms: u64,
+) -> Result<QualifiedAuthorityStateBootstrapRoot, BootstrapRootError> {
+    manifest.validate()?;
+    current_constitution.validate_at(now_ms)?;
+    adoption.validate_at(now_ms)?;
+
+    if now_ms < manifest.effective_from_ms || now_ms >= manifest.valid_until_ms {
+        return Err(BootstrapRootError::RootNotCurrent);
+    }
+    if !manifest.coverage_policy.is_active_at(now_ms)
+        || !manifest.coverage_context_policy.active_at(now_ms)
+    {
+        return Err(BootstrapRootError::RootPolicyNotCurrent);
+    }
+
+    let statement = &current_constitution.statement;
+    let statement_digest = constitution_digest_to_core(
+        statement
+            .digest()
+            .map_err(|_| BootstrapRootError::InvalidCurrentConstitution)?,
+    );
+    let statement_rulebook_digest = constitution_digest_to_core(statement.rulebook.digest);
+
+    if manifest.network_id != statement.network_id.as_str()
+        || manifest.institution_id != statement.institution_id.as_str()
+        || manifest.constitution_id != statement.constitution_id.as_str()
+        || manifest.constitution_version != statement.version
+        || manifest.constitution_statement_digest != statement_digest
+        || manifest.constitution_statement_digest != current_constitution.statement_digest
+        || manifest.constitution_statement_profile != current_constitution.statement_profile
+        || manifest.constitution_statement_profile != STATEMENT_PROFILE
+        || manifest.rulebook_ref != statement.rulebook_id.as_str()
+        || manifest.rulebook_version != statement.rulebook_version
+        || manifest.rulebook_digest != statement_rulebook_digest
+        || manifest.rulebook_profile != statement.rulebook.profile
+    {
+        return Err(BootstrapRootError::ManifestConstitutionMismatch);
+    }
+
+    let manifest_digest = manifest.identity_digest()?;
+    if adoption.constitution_statement_digest != statement_digest
+        || adoption.constitution_statement_profile != STATEMENT_PROFILE
+        || adoption.rulebook_ref != manifest.rulebook_ref
+        || adoption.rulebook_version != manifest.rulebook_version
+        || adoption.rulebook_digest != manifest.rulebook_digest
+        || adoption.rulebook_profile != manifest.rulebook_profile
+        || adoption.root_manifest_digest != manifest_digest
+        || adoption.root_manifest_profile != ROOT_MANIFEST_PROFILE
+        || adoption.adoption_authority_ref != manifest.adoption_authority_ref
+        || adoption.adoption_ref != manifest.adoption_ref
+        || adoption.adoption_proof_ref != manifest.adoption_proof_ref
+        || adoption.verified_adoption_proof_ref != manifest.adoption_proof_ref
+    {
+        return Err(BootstrapRootError::AdoptionBindingMismatch);
+    }
+
+    let coverage_policy_digest = manifest
+        .coverage_policy
+        .identity_digest()
+        .map_err(|_| BootstrapRootError::InvalidCoveragePolicy)?;
+    let context_policy_digest = manifest
+        .coverage_context_policy
+        .identity_digest()
+        .map_err(|_| BootstrapRootError::InvalidContextPolicy)?;
+
+    let verified_at_ms = current_constitution
+        .verified_at_ms
+        .max(adoption.verified_at_ms)
+        .max(manifest.effective_from_ms);
+    let valid_until_ms = current_constitution
+        .valid_until_ms
+        .min(adoption.valid_until_ms)
+        .min(manifest.valid_until_ms)
+        .min(manifest.coverage_policy.valid_until_ms)
+        .min(manifest.coverage_context_policy.valid_until_ms);
+    if verified_at_ms > now_ms || valid_until_ms <= now_ms {
+        return Err(BootstrapRootError::RootNotCurrent);
+    }
+
+    let qualification_digest = qualification_digest(
+        manifest_digest,
+        statement_digest,
+        coverage_policy_digest,
+        context_policy_digest,
+    );
+    let verification_ref = format!(
+        "authority-bootstrap-root:{ROOT_QUALIFICATION_PROFILE}:{}",
+        hex_digest(qualification_digest)
+    );
+
+    Ok(QualifiedAuthorityStateBootstrapRoot {
+        manifest: manifest.clone(),
+        current_constitution_digest: statement_digest,
+        coverage_policy_digest,
+        context_policy_digest,
+        qualification_digest,
+        qualification_profile: ROOT_QUALIFICATION_PROFILE.into(),
+        verification_ref,
+        verified_at_ms,
+        valid_until_ms,
+    })
+}
+
+fn validate_embedded_policy_contract(
+    manifest: &AuthorityStateBootstrapRootManifest,
+) -> Result<(), BootstrapRootError> {
+    let coverage = &manifest.coverage_policy;
+    let context = &manifest.coverage_context_policy;
+
+    if coverage.namespace != manifest.control_plane_namespace {
+        return Err(BootstrapRootError::ControlPlaneNamespaceMismatch);
+    }
+    if coverage.authority_ref != manifest.adoption_authority_ref
+        || context.authority_ref != manifest.adoption_authority_ref
+    {
+        return Err(BootstrapRootError::RootAuthorityMismatch);
+    }
+    if context.institution_ref != manifest.institution_id
+        || context.rulebook_ref != manifest.rulebook_ref
+    {
+        return Err(BootstrapRootError::InstitutionRulebookMismatch);
+    }
+
+    let coverage_digest = coverage
+        .identity_digest()
+        .map_err(|_| BootstrapRootError::InvalidCoveragePolicy)?;
+    if context.coverage_policy.digest != coverage_digest
+        || context.coverage_policy.profile != POLICY_IDENTITY_PROFILE
+    {
+        return Err(BootstrapRootError::ContextCoverageBindingMismatch);
+    }
+
+    if !coverage.is_active_at(manifest.effective_from_ms)
+        || !context.active_at(manifest.effective_from_ms)
+    {
+        return Err(BootstrapRootError::RootPolicyNotEffectiveAtEpoch);
+    }
+
+    validate_control_plane_subject_set(&coverage.allowed_subject_kinds, &coverage.mode)?;
+
+    match (
+        &coverage.mode,
+        &context.witness_trust_policy,
+        &context.witness_trust_verifier_ref,
+    ) {
+        (CoverageMode::DirectSource, None, None) => {}
+        (CoverageMode::DirectSource, _, _) => {
+            return Err(BootstrapRootError::UnexpectedWitnessTrustPolicy);
+        }
+        (CoverageMode::WitnessQuorum { .. }, Some(_), Some(_)) => {}
+        (CoverageMode::WitnessQuorum { .. }, _, _) => {
+            return Err(BootstrapRootError::MissingWitnessTrustPolicy);
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_control_plane_subject_set(
+    kinds: &[AuthoritySubjectKind],
+    mode: &CoverageMode,
+) -> Result<(), BootstrapRootError> {
+    let mut coverage = false;
+    let mut context = false;
+    let mut witness = false;
+
+    for kind in kinds {
+        match kind {
+            AuthoritySubjectKind::AuthorityCoveragePolicy => {
+                if coverage {
+                    return Err(BootstrapRootError::InvalidControlPlaneSubjectSet);
+                }
+                coverage = true;
+            }
+            AuthoritySubjectKind::CoverageTrustContextPolicy => {
+                if context {
+                    return Err(BootstrapRootError::InvalidControlPlaneSubjectSet);
+                }
+                context = true;
+            }
+            AuthoritySubjectKind::WitnessTrustPolicy => {
+                if witness {
+                    return Err(BootstrapRootError::InvalidControlPlaneSubjectSet);
+                }
+                witness = true;
+            }
+            _ => {
+                // operational subject kind is forbidden in the bootstrap root.
+                return Err(BootstrapRootError::OperationalSubjectInBootstrapRoot);
+            }
+        }
+    }
+
+    let requires_witness = matches!(mode, CoverageMode::WitnessQuorum { .. });
+    if !coverage || !context || witness != requires_witness {
+        return Err(BootstrapRootError::InvalidControlPlaneSubjectSet);
     }
     Ok(())
 }
 
-fn validate_profile(value: &str, field: &'static str) -> Result<(), ConstitutionError> {
+fn qualification_digest(
+    manifest_digest: Digest32,
+    statement_digest: Digest32,
+    coverage_policy_digest: Digest32,
+    context_policy_digest: Digest32,
+) -> Digest32 {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(DOMAIN_QUALIFICATION);
+    frame(&mut hasher, ROOT_QUALIFICATION_PROFILE.as_bytes());
+    frame(&mut hasher, ROOT_MANIFEST_PROFILE.as_bytes());
+    frame(&mut hasher, &manifest_digest.0);
+    frame(&mut hasher, STATEMENT_PROFILE.as_bytes());
+    frame(&mut hasher, &statement_digest.0);
+    frame(&mut hasher, POLICY_IDENTITY_PROFILE.as_bytes());
+    frame(&mut hasher, &coverage_policy_digest.0);
+    frame(&mut hasher, CONTEXT_POLICY_PROFILE.as_bytes());
+    frame(&mut hasher, &context_policy_digest.0);
+    Digest32(*hasher.finalize().as_bytes())
+}
+
+fn constitution_digest_to_core(
+    digest: mycelix_governance_constitution::Digest32,
+) -> Digest32 {
+    Digest32(digest.0)
+}
+
+fn require_digest(digest: Digest32) -> Result<(), BootstrapRootError> {
+    if digest.is_zero() {
+        Err(BootstrapRootError::ZeroDigest)
+    } else {
+        Ok(())
+    }
+}
+
+fn require_ref(value: &str) -> Result<(), BootstrapRootError> {
+    if value.trim().is_empty() || value.len() > MAX_REF_BYTES {
+        Err(BootstrapRootError::InvalidReference)
+    } else {
+        Ok(())
+    }
+}
+
+fn require_profile(value: &str) -> Result<(), BootstrapRootError> {
     let bytes = value.as_bytes();
     if bytes.is_empty()
         || bytes.len() > MAX_PROFILE_BYTES
@@ -691,275 +580,327 @@ fn validate_profile(value: &str, field: &'static str) -> Result<(), Constitution
                 || matches!(*byte, b'.' | b'_' | b'/' | b'-' | b':')
         })
     {
-        return Err(ConstitutionError::InvalidProfile(field));
-    }
-    Ok(())
-}
-
-fn require_digest(digest: Digest32, field: &'static str) -> Result<(), ConstitutionError> {
-    if digest.is_zero() {
-        Err(ConstitutionError::ZeroDigest(field))
+        Err(BootstrapRootError::InvalidProfile)
     } else {
         Ok(())
     }
 }
 
-fn hash(bytes: &[u8]) -> Digest32 {
-    Digest32(*blake3::hash(bytes).as_bytes())
-}
-
-fn put_domain(out: &mut Vec<u8>, domain: &[u8]) {
-    put_bytes(out, domain);
-}
-
-fn put_u64(out: &mut Vec<u8>, value: u64) {
-    out.extend_from_slice(&value.to_be_bytes());
-}
-
-fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
-    let len = u64::try_from(bytes.len()).expect("usize fits into u64 on supported targets");
-    put_u64(out, len);
-    out.extend_from_slice(bytes);
-}
-
-fn put_str(out: &mut Vec<u8>, value: &str) {
-    put_bytes(out, value.as_bytes());
-}
-
-fn put_digest(out: &mut Vec<u8>, digest: Digest32) {
-    out.extend_from_slice(&digest.0);
-}
-
-fn put_optional_digest(out: &mut Vec<u8>, digest: Option<Digest32>) {
-    match digest {
-        None => out.push(0),
-        Some(value) => {
-            out.push(1);
-            put_digest(out, value);
-        }
+fn validate_dna_hash(value: &str) -> Result<(), BootstrapRootError> {
+    let bytes = value.as_bytes();
+    if bytes.is_empty()
+        || bytes.len() > MAX_DNA_HASH_BYTES
+        || bytes.iter().any(|byte| byte.is_ascii_whitespace())
+    {
+        Err(BootstrapRootError::InvalidDnaHash)
+    } else {
+        Ok(())
     }
 }
 
-fn put_profiled_digest(out: &mut Vec<u8>, digest: &ProfiledDigest) {
-    put_str(out, &digest.profile);
-    put_digest(out, digest.digest);
+fn frame(hasher: &mut blake3::Hasher, bytes: &[u8]) {
+    hasher.update(&(bytes.len() as u64).to_le_bytes());
+    hasher.update(bytes);
 }
+
+fn hex_digest(digest: Digest32) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(64);
+    for byte in digest.0 {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BootstrapRootError {
+    WrongProtocolVersion,
+    WrongCurrentConstitutionProtocol,
+    WrongAdoptionProtocol,
+    InvalidReference,
+    InvalidProfile,
+    InvalidDnaHash,
+    ZeroDigest,
+    InvalidEpoch,
+    InvalidRootLifetime,
+    InvalidCurrentConstitution,
+    LegacyConstitutionRejected,
+    CurrentConstitutionDigestMismatch,
+    CurrentConstitutionNotCurrent,
+    InvalidCoveragePolicy,
+    InvalidContextPolicy,
+    ControlPlaneNamespaceMismatch,
+    RootAuthorityMismatch,
+    InstitutionRulebookMismatch,
+    ContextCoverageBindingMismatch,
+    RootPolicyNotEffectiveAtEpoch,
+    OperationalSubjectInBootstrapRoot,
+    InvalidControlPlaneSubjectSet,
+    UnexpectedWitnessTrustPolicy,
+    MissingWitnessTrustPolicy,
+    AdoptionProofMismatch,
+    AdoptionNotCurrent,
+    ManifestConstitutionMismatch,
+    AdoptionBindingMismatch,
+    RootPolicyNotCurrent,
+    RootNotCurrent,
+}
+
+impl fmt::Display for BootstrapRootError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let message = match self {
+            Self::WrongProtocolVersion => "wrong authority-state bootstrap-root protocol",
+            Self::WrongCurrentConstitutionProtocol => "wrong current-constitution receipt protocol",
+            Self::WrongAdoptionProtocol => "wrong bootstrap-root adoption receipt protocol",
+            Self::InvalidReference => "invalid bootstrap-root reference",
+            Self::InvalidProfile => "invalid bootstrap-root digest profile",
+            Self::InvalidDnaHash => "invalid current-constitution DNA hash",
+            Self::ZeroDigest => "bootstrap-root digest must not be zero",
+            Self::InvalidEpoch => "bootstrap-root constitution/root epoch must be non-zero",
+            Self::InvalidRootLifetime => "invalid bootstrap-root lifetime",
+            Self::InvalidCurrentConstitution => "invalid current constitutional statement",
+            Self::LegacyConstitutionRejected => "legacy/non-statement constitutional identity is rejected",
+            Self::CurrentConstitutionDigestMismatch => "current constitutional statement digest mismatch",
+            Self::CurrentConstitutionNotCurrent => "current constitutional statement receipt is stale or invalid",
+            Self::InvalidCoveragePolicy => "invalid bootstrap authority coverage policy",
+            Self::InvalidContextPolicy => "invalid bootstrap coverage trust-context policy",
+            Self::ControlPlaneNamespaceMismatch => "bootstrap coverage namespace is not the control-plane namespace",
+            Self::RootAuthorityMismatch => "embedded root policies do not share the exact adoption authority",
+            Self::InstitutionRulebookMismatch => "embedded root context belongs to another institution or rulebook",
+            Self::ContextCoverageBindingMismatch => "bootstrap context does not bind the exact coverage policy",
+            Self::RootPolicyNotEffectiveAtEpoch => "bootstrap policy was not active at the root effective epoch",
+            Self::OperationalSubjectInBootstrapRoot => "operational subject kind is forbidden in the bootstrap root",
+            Self::InvalidControlPlaneSubjectSet => "bootstrap root does not contain the exact required control-plane policy classes",
+            Self::UnexpectedWitnessTrustPolicy => "direct-source bootstrap root forbids witness trust policy",
+            Self::MissingWitnessTrustPolicy => "witness-quorum bootstrap root requires witness trust policy and verifier",
+            Self::AdoptionProofMismatch => "bootstrap-root adoption proof echo mismatch",
+            Self::AdoptionNotCurrent => "bootstrap-root adoption receipt is stale or invalid",
+            Self::ManifestConstitutionMismatch => "bootstrap manifest does not match the exact current constitutional statement/rulebook",
+            Self::AdoptionBindingMismatch => "root adoption does not bind the exact current constitution/rulebook/manifest",
+            Self::RootPolicyNotCurrent => "embedded bootstrap policy is no longer semantically current",
+            Self::RootNotCurrent => "qualified bootstrap root is outside its conservative live window",
+        };
+        write!(f, "{message}")
+    }
+}
+
+impl std::error::Error for BootstrapRootError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mycelix_authority_freshness::ProfiledDigest as FreshnessProfiledDigest;
+    use mycelix_authority_state_coverage::PROTOCOL_VERSION as COVERAGE_PROTOCOL;
+    use mycelix_authority_state_coverage_context::PROTOCOL_VERSION as CONTEXT_PROTOCOL;
+    use mycelix_governance_constitution::{
+        ConstitutionId, Digest32 as ConstitutionDigest32, InstitutionId, NetworkId,
+        ProfiledDigest as ConstitutionProfiledDigest, RulebookId,
+        PROTOCOL_VERSION as CONSTITUTION_PROTOCOL,
+    };
 
-    fn digest(byte: u8) -> Digest32 {
+    fn d(byte: u8) -> Digest32 {
         Digest32([byte; 32])
     }
 
-    fn pd(byte: u8, profile: &str) -> ProfiledDigest {
-        ProfiledDigest {
-            digest: digest(byte),
-            profile: profile.into(),
-        }
+    fn gd(byte: u8) -> ConstitutionDigest32 {
+        ConstitutionDigest32([byte; 32])
     }
 
-    fn manifest() -> ConstitutionGenesisManifest {
-        ConstitutionGenesisManifest {
-            protocol_version: PROTOCOL_VERSION.into(),
-            network_id: NetworkId::new("network:mycelix:test").unwrap(),
-            institution_id: InstitutionId::new("institution:mycelix:test").unwrap(),
-            constitution_id: ConstitutionId::new("constitution:mycelix:test").unwrap(),
-            rulebook_id: RulebookId::new("rulebook:constitution:v1").unwrap(),
-            rulebook_version: "1".into(),
-            rulebook: pd(1, "mycelix-rulebook-v1"),
-            charter: pd(2, "mycelix-charter-v1"),
-            parameters: pd(3, "mycelix-parameters-v1"),
-            amendment_policy: pd(4, "mycelix-amendment-policy-v1"),
-            binding_vote_profile: "mycelix-binding-vote-v2".into(),
-            threshold_authority_profile: "mycelix-threshold-authority-v1".into(),
+    fn constitution() -> ConstitutionStatement {
+        ConstitutionStatement {
+            protocol_version: CONSTITUTION_PROTOCOL.into(),
+            network_id: NetworkId::new("network:test").unwrap(),
+            institution_id: InstitutionId::new("institution:test").unwrap(),
+            constitution_id: ConstitutionId::new("constitution:test").unwrap(),
+            version: 2,
+            parent_statement_digest: Some(gd(1)),
+            rulebook_id: RulebookId::new("rulebook:test").unwrap(),
+            rulebook_version: "v2".into(),
+            rulebook: ConstitutionProfiledDigest {
+                digest: gd(2),
+                profile: "rulebook-v1-blake3".into(),
+            },
+            charter: ConstitutionProfiledDigest {
+                digest: gd(3),
+                profile: "charter-v1-blake3".into(),
+            },
+            parameters: ConstitutionProfiledDigest {
+                digest: gd(4),
+                profile: "parameters-v1-blake3".into(),
+            },
+            amendment_policy: ConstitutionProfiledDigest {
+                digest: gd(5),
+                profile: "amendment-v1-blake3".into(),
+            },
+            binding_vote_profile: "binding-vote-v1".into(),
+            threshold_authority_profile: "threshold-v1".into(),
             effective_from_ms: 1_000,
         }
     }
 
-    fn child(parent: &ConstitutionStatement, charter_byte: u8) -> ConstitutionStatement {
-        ConstitutionStatement {
+    fn policies() -> (AuthorityCoveragePolicy, CoverageTrustContextPolicy) {
+        let coverage = AuthorityCoveragePolicy {
+            protocol_version: COVERAGE_PROTOCOL.into(),
+            policy_id: "root-coverage:test".into(),
+            namespace: "authority-control:test".into(),
+            allowed_subject_kinds: vec![
+                AuthoritySubjectKind::AuthorityCoveragePolicy,
+                AuthoritySubjectKind::CoverageTrustContextPolicy,
+            ],
+            authoritative_source_ref: "authority-source:root".into(),
+            source_identity: FreshnessProfiledDigest {
+                digest: d(20),
+                profile: "source-key-v1".into(),
+            },
+            mode: CoverageMode::DirectSource,
+            max_source_age_ms: 500,
+            max_witness_age_ms: 0,
+            max_coverage_lease_ms: 500,
+            valid_from_ms: 900,
+            valid_until_ms: 9_000,
+            authority_ref: "rulebook-adoption:authority".into(),
+            policy_proof_ref: "proof:root-coverage".into(),
+        };
+        let coverage_digest = coverage.identity_digest().unwrap();
+        let context = CoverageTrustContextPolicy {
+            protocol_version: CONTEXT_PROTOCOL.into(),
+            context_policy_id: "root-context:test".into(),
+            institution_ref: "institution:test".into(),
+            jurisdiction_ref: None,
+            rulebook_ref: "rulebook:test".into(),
+            coverage_policy: FreshnessProfiledDigest {
+                digest: coverage_digest,
+                profile: POLICY_IDENTITY_PROFILE.into(),
+            },
+            witness_trust_policy: None,
+            witness_trust_verifier_ref: None,
+            max_challenge_lifetime_ms: 250,
+            valid_from_ms: 900,
+            valid_until_ms: 8_500,
+            authority_ref: "rulebook-adoption:authority".into(),
+            policy_proof_ref: "proof:root-context".into(),
+        };
+        (coverage, context)
+    }
+
+    fn manifest(statement: &ConstitutionStatement) -> AuthorityStateBootstrapRootManifest {
+        let (coverage_policy, coverage_context_policy) = policies();
+        AuthorityStateBootstrapRootManifest {
             protocol_version: PROTOCOL_VERSION.into(),
-            network_id: parent.network_id.clone(),
-            institution_id: parent.institution_id.clone(),
-            constitution_id: parent.constitution_id.clone(),
-            version: parent.version + 1,
-            parent_statement_digest: Some(parent.digest().unwrap()),
-            rulebook_id: parent.rulebook_id.clone(),
-            rulebook_version: parent.rulebook_version.clone(),
-            rulebook: parent.rulebook.clone(),
-            charter: pd(charter_byte, "mycelix-charter-v1"),
-            parameters: parent.parameters.clone(),
-            amendment_policy: parent.amendment_policy.clone(),
-            binding_vote_profile: parent.binding_vote_profile.clone(),
-            threshold_authority_profile: parent.threshold_authority_profile.clone(),
-            effective_from_ms: parent.effective_from_ms + 1_000,
+            network_id: statement.network_id.as_str().into(),
+            institution_id: statement.institution_id.as_str().into(),
+            constitution_id: statement.constitution_id.as_str().into(),
+            constitution_version: statement.version,
+            constitution_statement_digest: constitution_digest_to_core(statement.digest().unwrap()),
+            constitution_statement_profile: STATEMENT_PROFILE.into(),
+            rulebook_ref: statement.rulebook_id.as_str().into(),
+            rulebook_version: statement.rulebook_version.clone(),
+            rulebook_digest: constitution_digest_to_core(statement.rulebook.digest),
+            rulebook_profile: statement.rulebook.profile.clone(),
+            control_plane_namespace: "authority-control:test".into(),
+            coverage_policy,
+            coverage_context_policy,
+            root_epoch: 2,
+            effective_from_ms: 1_000,
+            valid_until_ms: 8_000,
+            adoption_authority_ref: "rulebook-adoption:authority".into(),
+            adoption_ref: "rulebook-adoption:root:2".into(),
+            adoption_proof_ref: "proof:root-adoption:2".into(),
         }
     }
 
-    fn transition(
-        parent: &ConstitutionStatement,
-        child: &ConstitutionStatement,
-        nonce_byte: u8,
-    ) -> VerifiedConstitutionTransition {
-        let authorization = ConstitutionTransitionAuthorization {
-            protocol_version: PROTOCOL_VERSION.into(),
-            network_id: parent.network_id.clone(),
-            institution_id: parent.institution_id.clone(),
-            constitution_id: parent.constitution_id.clone(),
-            from_statement_digest: parent.digest().unwrap(),
-            to_statement_digest: child.digest().unwrap(),
-            amendment_policy_digest: parent.amendment_policy.digest,
-            amendment_policy_profile: parent.amendment_policy.profile.clone(),
-            proposal_id: ProposalId::new(format!("MIP-{}", child.version)).unwrap(),
-            binding_tally: pd(20 + nonce_byte, &parent.binding_vote_profile),
-            threshold_authorization: pd(
-                40 + nonce_byte,
-                &parent.threshold_authority_profile,
-            ),
-            amendment_payload: pd(60 + nonce_byte, "mycelix-amendment-payload-v1"),
-            authorized_at_ms: child.effective_from_ms - 100,
-            transition_nonce: digest(80 + nonce_byte),
-        };
-        let verification = TransitionVerificationEvidence {
-            authorization_digest: authorization.digest().unwrap(),
-            binding_tally_verification_ref: format!("verify:tally:{nonce_byte}"),
-            threshold_verification_ref: format!("verify:threshold:{nonce_byte}"),
-            verified_at_ms: authorization.authorized_at_ms + 1,
-        };
-        VerifiedConstitutionTransition {
-            child: child.clone(),
-            authorization,
-            verification,
+    fn current(statement: &ConstitutionStatement) -> VerifiedCurrentConstitutionReceipt {
+        VerifiedCurrentConstitutionReceipt {
+            protocol_version: CURRENT_CONSTITUTION_RECEIPT_PROTOCOL.into(),
+            statement: statement.clone(),
+            statement_digest: constitution_digest_to_core(statement.digest().unwrap()),
+            statement_profile: STATEMENT_PROFILE.into(),
+            dna_hash: "uhC0k-test-dna".into(),
+            verification_ref: "constitution-current:2".into(),
+            verified_at_ms: 1_100,
+            valid_until_ms: 7_500,
+        }
+    }
+
+    fn adoption(
+        statement: &ConstitutionStatement,
+        manifest: &AuthorityStateBootstrapRootManifest,
+    ) -> VerifiedBootstrapRootAdoption {
+        VerifiedBootstrapRootAdoption {
+            protocol_version: ROOT_ADOPTION_RECEIPT_PROTOCOL.into(),
+            constitution_statement_digest: constitution_digest_to_core(statement.digest().unwrap()),
+            constitution_statement_profile: STATEMENT_PROFILE.into(),
+            rulebook_ref: manifest.rulebook_ref.clone(),
+            rulebook_version: manifest.rulebook_version.clone(),
+            rulebook_digest: manifest.rulebook_digest,
+            rulebook_profile: manifest.rulebook_profile.clone(),
+            root_manifest_digest: manifest.identity_digest().unwrap(),
+            root_manifest_profile: ROOT_MANIFEST_PROFILE.into(),
+            adoption_authority_ref: manifest.adoption_authority_ref.clone(),
+            adoption_ref: manifest.adoption_ref.clone(),
+            adoption_proof_ref: manifest.adoption_proof_ref.clone(),
+            verified_adoption_proof_ref: manifest.adoption_proof_ref.clone(),
+            verification_ref: "verify:root-adoption:2".into(),
+            verified_at_ms: 1_200,
+            valid_until_ms: 7_000,
         }
     }
 
     #[test]
-    fn dna_genesis_is_exact_not_first_writer() {
-        let manifest = manifest();
-        let statement = manifest.genesis_statement().unwrap();
-        manifest.verify_genesis_statement(&statement).unwrap();
+    fn exact_current_constitution_and_adoption_qualify() {
+        let statement = constitution();
+        let manifest = manifest(&statement);
+        let current = current(&statement);
+        let adoption = adoption(&statement, &manifest);
+        let qualified = qualify_bootstrap_root(&manifest, &current, &adoption, 2_000).unwrap();
+        assert_eq!(qualified.valid_until_ms(), 7_000);
+        assert_eq!(qualified.manifest(), &manifest);
+        assert_eq!(qualified.coverage_policy_digest(), manifest.coverage_policy.identity_digest().unwrap());
+    }
 
-        let mut forged = statement;
-        forged.charter = pd(99, "mycelix-charter-v1");
+    #[test]
+    fn constitutional_advance_invalidates_old_manifest() {
+        let old_statement = constitution();
+        let old_manifest = manifest(&old_statement);
+        let old_adoption = adoption(&old_statement, &old_manifest);
+
+        let mut new_statement = old_statement.clone();
+        new_statement.version = 3;
+        new_statement.parent_statement_digest = Some(old_statement.digest().unwrap());
+        new_statement.effective_from_ms = 1_500;
+        let current = current(&new_statement);
+
         assert_eq!(
-            manifest.verify_genesis_statement(&forged).unwrap_err(),
-            ConstitutionError::GenesisStatementMismatch
+            qualify_bootstrap_root(&old_manifest, &current, &old_adoption, 2_000).unwrap_err(),
+            BootstrapRootError::ManifestConstitutionMismatch
         );
     }
 
     #[test]
-    fn changing_any_genesis_commitment_changes_manifest_digest() {
-        let a = manifest();
-        let mut b = a.clone();
-        b.parameters = pd(44, "mycelix-parameters-v1");
-        assert_ne!(a.digest().unwrap(), b.digest().unwrap());
-    }
-
-    #[test]
-    fn transition_binds_exact_parent_child_and_policy() {
-        let parent = manifest().genesis_statement().unwrap();
-        let child = child(&parent, 9);
-        transition(&parent, &child, 1).validate_from(&parent).unwrap();
-
-        let mut wrong = transition(&parent, &child, 1);
-        wrong.authorization.amendment_policy_digest = digest(99);
-        wrong.verification.authorization_digest = wrong.authorization.digest().unwrap();
+    fn operational_subject_kind_is_forbidden() {
+        let statement = constitution();
+        let mut manifest = manifest(&statement);
+        manifest
+            .coverage_policy
+            .allowed_subject_kinds
+            .push(AuthoritySubjectKind::AuthorityGrant);
         assert_eq!(
-            wrong.validate_from(&parent).unwrap_err(),
-            ConstitutionError::AmendmentPolicyMismatch
+            manifest.validate().unwrap_err(),
+            BootstrapRootError::OperationalSubjectInBootstrapRoot
         );
     }
 
     #[test]
-    fn skipped_version_is_rejected() {
-        let parent = manifest().genesis_statement().unwrap();
-        let mut child = child(&parent, 9);
-        child.version = 3;
-        let t = transition(&parent, &child, 2);
+    fn changed_root_manifest_requires_new_adoption() {
+        let statement = constitution();
+        let mut manifest = manifest(&statement);
+        let current = current(&statement);
+        let adoption = adoption(&statement, &manifest);
+        manifest.root_epoch = 3;
         assert_eq!(
-            t.validate_from(&parent).unwrap_err(),
-            ConstitutionError::NonSequentialVersion
+            qualify_bootstrap_root(&manifest, &current, &adoption, 2_000).unwrap_err(),
+            BootstrapRootError::AdoptionBindingMismatch
         );
-    }
-
-    #[test]
-    fn wrong_binding_vote_profile_is_rejected() {
-        let parent = manifest().genesis_statement().unwrap();
-        let child = child(&parent, 9);
-        let mut t = transition(&parent, &child, 3);
-        t.authorization.binding_tally.profile = "legacy-phi-weighted-vote".into();
-        t.verification.authorization_digest = t.authorization.digest().unwrap();
-        assert_eq!(
-            t.validate_from(&parent).unwrap_err(),
-            ConstitutionError::BindingVoteProfileMismatch
-        );
-    }
-
-    #[test]
-    fn zero_transition_nonce_is_rejected() {
-        let parent = manifest().genesis_statement().unwrap();
-        let child = child(&parent, 9);
-        let mut t = transition(&parent, &child, 4);
-        t.authorization.transition_nonce = Digest32::ZERO;
-        assert!(matches!(
-            t.validate_from(&parent),
-            Err(ConstitutionError::ZeroDigest("transition.transition_nonce"))
-        ));
-    }
-
-    #[test]
-    fn verified_lineage_projects_deterministically() {
-        let manifest = manifest();
-        let v1 = manifest.genesis_statement().unwrap();
-        let v2 = child(&v1, 10);
-        let v3 = child(&v2, 11);
-        let t2 = transition(&v1, &v2, 5);
-        let t3 = transition(&v2, &v3, 6);
-
-        let projected_a = project_verified_lineage(&manifest, &[t2.clone(), t3.clone()]).unwrap();
-        let projected_b = project_verified_lineage(&manifest, &[t3, t2]).unwrap();
-        assert_eq!(projected_a, v3);
-        assert_eq!(projected_a, projected_b);
-    }
-
-    #[test]
-    fn verified_fork_fails_closed_instead_of_using_timestamp_order() {
-        let manifest = manifest();
-        let v1 = manifest.genesis_statement().unwrap();
-        let a = child(&v1, 10);
-        let b = child(&v1, 11);
-        let ta = transition(&v1, &a, 7);
-        let tb = transition(&v1, &b, 8);
-
-        assert_eq!(
-            project_verified_lineage(&manifest, &[ta, tb]).unwrap_err(),
-            ConstitutionError::AmbiguousConstitutionalFork
-        );
-    }
-
-    #[test]
-    fn authorization_evidence_cannot_be_replayed_for_another_child() {
-        let parent = manifest().genesis_statement().unwrap();
-        let child_a = child(&parent, 10);
-        let child_b = child(&parent, 11);
-        let a = transition(&parent, &child_a, 9);
-        let mut b = transition(&parent, &child_b, 10);
-        b.verification = a.verification;
-
-        assert_eq!(
-            b.validate_from(&parent).unwrap_err(),
-            ConstitutionError::VerificationAuthorizationMismatch
-        );
-    }
-
-    #[test]
-    fn serde_round_trip_preserves_canonical_digest() {
-        let manifest = manifest();
-        let json = serde_json::to_string(&manifest).unwrap();
-        let decoded: ConstitutionGenesisManifest = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded, manifest);
-        assert_eq!(decoded.digest().unwrap(), manifest.digest().unwrap());
     }
 }
