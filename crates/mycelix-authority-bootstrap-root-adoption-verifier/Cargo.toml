@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-authority-bootstrap-root-adoption-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact constitution/rulebook/root adoption proof qualifier for Mycelix authority bootstrap"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-governance-constitution = { path = "../mycelix-governance-constitution" }
+mycelix-authority-state-bootstrap-root = { path = "../mycelix-authority-state-bootstrap-root" }
+
+[dev-dependencies]
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }
