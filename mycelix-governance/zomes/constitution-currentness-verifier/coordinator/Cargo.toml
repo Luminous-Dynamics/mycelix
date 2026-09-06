@@ -1,0 +1,14 @@
+[package]
+name = "constitution_currentness_verifier"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed leased current-constitution verifier for DNA-bound genesis authority"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
