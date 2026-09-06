@@ -1,0 +1,145 @@
+name: Identity Attestation Request Resolution Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert runtime semantic boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/attestation-request-resolution-runtime'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if set(deps) != {
+              'mycelix-attestation-request-policy',
+              'trust_credential_integrity',
+          }:
+              raise SystemExit(
+                  f'ERROR: runtime dependencies drifted: {sorted(deps)}'
+              )
+          if deps['mycelix-attestation-request-policy'].get('path') != '../attestation-request-policy':
+              raise SystemExit('ERROR: runtime is not bound to the canonical lifecycle policy')
+          if deps['trust_credential_integrity'].get('path') != '../../zomes/trust_credential/integrity':
+              raise SystemExit('ERROR: runtime is not bound to canonical trust credential types')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'AttestationRequestLineageObservationV1',
+              'ObservedAttestationRequestStateV1',
+              'ObservedConflict { terminal_updates: usize }',
+              'HistoricalDeleteObserved { count: usize }',
+              'NonRootUpdateObserved { index: usize }',
+              'DuplicateRequestIdObserved',
+              'validate_attestation_request_root_v1',
+              'validate_unique_request_ids_v1',
+              'resolve_attestation_request_lineage_v1',
+              'validate_attestation_request_transition_v1(transition)',
+              'classify_attestation_request_actor_v1(',
+              'RootMinTrustScoreNonFinite',
+              'ObservedExpiredByTime',
+              'concurrent_terminal_siblings_are_conflict_even_when_status_matches',
+              'different_terminal_siblings_are_conflict_not_latest_wins',
+              'delete_is_unresolved_not_cancelled',
+              'nested_or_nonroot_update_is_unresolved',
+              'duplicate_request_ids_fail_subject_aggregation',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: request resolution runtime missing {needle!r}')
+
+          # This layer consumes already-gathered observations. Network traversal,
+          # chronology selection, and coordinator authority must not leak into it.
+          forbidden = [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'get_details(',
+              'get_links(',
+              'LinkQuery',
+              'GetOptions',
+              'ChainQueryFilter',
+              'query(',
+              'sys_time(',
+              'call(',
+              'latest',
+              'highest',
+              'sort_by',
+              'max_by',
+          ]
+          for needle in forbidden:
+              if needle in text:
+                  raise SystemExit(f'ERROR: runtime leaked network/winner semantics: {needle!r}')
+
+          # Historical deletes are not aliases for typed cancellation.
+          delete_pos = text.index('if input.observed_delete_count != 0')
+          delete_window = text[delete_pos:delete_pos + 450]
+          if 'HistoricalDeleteObserved' not in delete_window:
+              raise SystemExit('ERROR: observed deletes no longer fail closed')
+          if 'ObservedCancelled' in delete_window:
+              raise SystemExit('ERROR: historical delete was upgraded into cancellation')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/Cargo.toml \
+            -- --check
+
+      - name: Test canonical lifecycle policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test request resolution runtime
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/Cargo.toml
+
+      - name: Check request resolution runtime for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/Cargo.toml \
+            --target wasm32-unknown-unknown
