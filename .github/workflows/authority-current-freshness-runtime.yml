@@ -15,6 +15,7 @@ on:
     branches:
       - 'security/authority-current-freshness-provider-split-v0.1'
       - 'security/authority-current-freshness-runtime-contract-v0.1'
+      - 'security/authority-bootstrap-verifier-split-v0.1'
 
 permissions:
   contents: read
@@ -71,26 +72,28 @@ jobs:
           assert 'SourceHeadVerificationRequest { probe_action }' in src
           assert 'verify_probe(probe_action.clone(), expected_subject)' in src
 
+          assert 'CurrentConstitutionVerificationRequest' not in src
+
+          adoption_request = src.split('pub struct RootAdoptionVerificationRequest {', 1)[1].split('}', 1)[0]
+          assert 'pub manifest: AuthorityStateBootstrapRootManifest' in adoption_request
+          assert 'pub current_constitution_digest: Digest32' in adoption_request
+          assert 'pub current_constitution_profile: String' in adoption_request
+          assert 'VerifiedCurrentConstitutionReceipt' not in adoption_request
+
           required = [
+              'authority_state_bootstrap_root_manifest_provider',
+              'resolve_bootstrap_root_manifest',
+              'authority_current_constitution_verifier',
+              'verify_current_constitution',
+              'authority_bootstrap_root_adoption_verifier',
+              'verify_bootstrap_root_adoption',
               'qualify_bootstrap_root(',
               'qualify_control_plane_subject_freshness(',
               'qualify_operational_policy_context(',
               'qualify_operational_subject_freshness(',
-              'authority_state_evidence_plan_provider',
-              'plan_control_plane_probes',
-              'plan_operational_probe',
-              'authority_state_challenge',
-              'verify_issued_authority_state_probe',
-              'authority_state_source_head_verifier',
-              'verify_source_head',
-              'authority_state_witness_verifier',
-              'verify_witness_evidence',
-              'authority_state_transition_verifier',
-              'verify_transition_lineage',
-              'MAX_CONTROL_PLANE_PROBES',
-              'MAX_WITNESSES',
-              'MAX_TRUST_BINDINGS',
-              'MAX_TRANSITIONS',
+              'root_manifest_provider_grants_authority: false',
+              'current_constitution_verifier_separate: true',
+              'root_adoption_verifier_separate: true',
               'qualification_time_after_evidence: true',
               'evidence_plan_grants_authority: false',
               'latest_dht_record_authority: false',
@@ -102,20 +105,32 @@ jobs:
           for token in required:
               assert token in src, token
 
-          # Freeze causal qualification-time placement after evidence acquisition.
           root = src.split('fn resolve_root(', 1)[1].split('fn resolve_operational_policies', 1)[0]
-          assert root.index('let bundle: BootstrapRootCandidateBundle = call_local(') < root.index('let now = now_ms()?;') < root.index('qualify_bootstrap_root(')
+          manifest_call = root.index('let manifest: AuthorityStateBootstrapRootManifest = call_local(')
+          constitution_call = root.index('let current_constitution: VerifiedCurrentConstitutionReceipt = call_local(')
+          adoption_call = root.index('let adoption: VerifiedBootstrapRootAdoption = call_local(')
+          now_call = root.index('let now = now_ms()?;')
+          qualify_call = root.index('let root = qualify_bootstrap_root(')
+          assert manifest_call < constitution_call < adoption_call < now_call < qualify_call
 
-          control = src.split('fn resolve_control_plane_freshness(', 1)[1].split('/// Resolve current freshness', 1)[0]
+          constitution_block = root[constitution_call:root.index('let root_manifest_digest =', constitution_call)]
+          assert '"verify_current_constitution"' in constitution_block
+          assert '\n        (),\n' in constitution_block
+          for forbidden in ['manifest.', 'network_id', 'institution_id', 'constitution_id', 'version', 'digest']:
+              assert forbidden not in constitution_block, forbidden
+
+          control = src.split('fn resolve_control_plane_freshness(', 1)[1].split('#[hdk_extern]', 1)[0]
           assert control.index('let evidence = resolve_evidence(') < control.index('let now = now_ms()?;') < control.index('qualify_control_plane_subject_freshness(')
 
-          operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('/// Declarative only.', 1)[0]
+          operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
           assert operational.index('let policies = resolve_operational_policies(') < operational.index('let context_now = now_ms()?;') < operational.index('qualify_operational_policy_context(')
           assert operational.index('let evidence = resolve_evidence(') < operational.index('let current_now = now_ms()?;') < operational.index('qualify_operational_subject_freshness(')
           assert 'freshness.validate_at(current_now)' in operational
 
-          # One omnibus evidence-oracle provider must not reappear.
           for forbidden in [
+              'authority_state_bootstrap_root_provider',
+              'resolve_bootstrap_root_candidates',
+              'BootstrapRootCandidateBundle',
               'authority_control_plane_evidence_provider',
               'authority_operational_evidence_provider',
               'get_links(',
@@ -133,13 +148,15 @@ jobs:
 
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in cargo
           assert 'name: authority_current_freshness_verifier' not in dna
-          assert 'discovery and verification are different roles' in inv
-          assert 'source-head verification independently reconstructs probe validity' in inv
+          assert 'bootstrap manifest discovery is not bootstrap authority' in inv
+          assert 'current constitution is independently discovered and verified' in inv
+          assert 'receives `()`' in inv
+          assert 'root adoption is independently verified' in inv
+          assert 'no omnibus bootstrap oracle' in inv
           assert 'qualification time follows evidence production' in inv
-          assert 'witness/trust verification is independent' in inv
-          assert 'transition verification is independent' in inv
+          assert 'source-head verification independently reconstructs probe validity' in inv
           assert 'a valid transition prefix is not current authority' in inv
           assert 'deliberately unprovisioned' in inv
           assert 'no latest-record heuristics' in inv
-          print('PASS: current freshness preserves probe-action ABI and samples qualification time after evidence production')
+          print('PASS: bootstrap manifest cannot steer current constitutional domain/head before local #111 qualification')
           PY

@@ -2,17 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed runtime composition for current operational authority freshness.
 //!
-//! Provider roles are deliberately separated. An evidence-plan provider may select
-//! which probe to resolve, but it cannot attest probe validity, source-head truth,
-//! witness/trust truth, or transition truth. Those are independent verifier calls
-//! whose outputs are cross-bound again by #96/#91 and the higher pure kernels.
-//!
-//! The coordinator reconstructs positive authority locally through:
-//! constitution/root -> control-plane freshness -> operational policy context
-//! -> covered operational freshness.
-//!
-//! It never selects a latest DHT record, persists authority state, mints policy,
-//! interprets probe authorship as authority, or enables external effects.
+//! Discovery, constitutional currentness, root adoption, probe provenance,
+//! source authentication, witness/trust verification and transition verification
+//! are deliberately separate roles. Positive authority is reconstructed locally
+//! through the pure qualification kernels.
 
 use hdk::prelude::*;
 use mycelix_authority_control_plane_freshness::{
@@ -37,7 +30,9 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.1";
-const ROOT_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_provider";
+const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
+const CURRENT_CONSTITUTION_VERIFIER_ZOME: &str = "authority_current_constitution_verifier";
+const ROOT_ADOPTION_VERIFIER_ZOME: &str = "authority_bootstrap_root_adoption_verifier";
 const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_provider";
 const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
 const PROBE_VERIFIER_ZOME: &str = "authority_state_challenge";
@@ -49,11 +44,15 @@ const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
 
+/// Exact candidate manifest + independently verified current constitutional
+/// identity. The adoption verifier authenticates whether that exact root was
+/// adopted under that exact current statement; it does not receive a positive
+/// current-constitution receipt object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BootstrapRootCandidateBundle {
+pub struct RootAdoptionVerificationRequest {
     pub manifest: AuthorityStateBootstrapRootManifest,
-    pub current_constitution: VerifiedCurrentConstitutionReceipt,
-    pub adoption: VerifiedBootstrapRootAdoption,
+    pub current_constitution_digest: Digest32,
+    pub current_constitution_profile: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -140,6 +139,9 @@ pub struct VerifiedCurrentOperationalFreshnessReceipt {
 pub struct CurrentFreshnessRuntimeStatus {
     pub protocol: String,
     pub composition_only: bool,
+    pub root_manifest_provider_grants_authority: bool,
+    pub current_constitution_verifier_separate: bool,
+    pub root_adoption_verifier_separate: bool,
     pub evidence_plan_grants_authority: bool,
     pub latest_dht_record_authority: bool,
     pub provider_positive_object_authority: bool,
@@ -189,24 +191,68 @@ fn now_ms() -> ExternResult<u64> {
 
 fn resolve_root(
 ) -> ExternResult<mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot> {
-    let bundle: BootstrapRootCandidateBundle = call_local(
-        ROOT_PROVIDER_ZOME,
-        "resolve_bootstrap_root_candidates",
+    // Candidate location/semantics only. This role cannot manufacture either
+    // positive verifier receipt consumed by #111.
+    let manifest: AuthorityStateBootstrapRootManifest = call_local(
+        ROOT_MANIFEST_PROVIDER_ZOME,
+        "resolve_bootstrap_root_manifest",
         (),
     )?;
-    // Qualification time follows the provider evidence it judges.
-    let now = now_ms()?;
-    qualify_bootstrap_root(
-        &bundle.manifest,
-        &bundle.current_constitution,
-        &bundle.adoption,
-        now,
-    )
-    .map_err(|error| {
+    manifest.validate().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "bootstrap-root qualification denied: {error}"
+            "bootstrap-root manifest candidate is invalid: {error}"
         )))
-    })
+    })?;
+
+    // The current-constitution verifier is local and receives no manifest-derived
+    // selector at all. It must derive the live constitutional domain/head from its
+    // own trusted runtime/constitution context.
+    let current_constitution: VerifiedCurrentConstitutionReceipt = call_local(
+        CURRENT_CONSTITUTION_VERIFIER_ZOME,
+        "verify_current_constitution",
+        (),
+    )?;
+
+    let root_manifest_digest = manifest.identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute bootstrap-root manifest identity: {error}"
+        )))
+    })?;
+
+    // The adoption verifier sees the exact candidate root plus the current
+    // statement identity returned by the independent constitution verifier. It
+    // does not receive the positive current-constitution receipt itself.
+    let adoption: VerifiedBootstrapRootAdoption = call_local(
+        ROOT_ADOPTION_VERIFIER_ZOME,
+        "verify_bootstrap_root_adoption",
+        RootAdoptionVerificationRequest {
+            manifest: manifest.clone(),
+            current_constitution_digest: current_constitution.statement_digest,
+            current_constitution_profile: current_constitution.statement_profile.clone(),
+        },
+    )?;
+
+    // Qualification time follows every evidence-producing verifier call.
+    let now = now_ms()?;
+    let root = qualify_bootstrap_root(&manifest, &current_constitution, &adoption, now)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "bootstrap-root qualification denied: {error}"
+            )))
+        })?;
+
+    if root.manifest().identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot recompute qualified bootstrap-root manifest identity: {error}"
+        )))
+    })? != root_manifest_digest
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "qualified bootstrap-root manifest identity changed during composition".into(),
+        )));
+    }
+
+    Ok(root)
 }
 
 fn resolve_operational_policies(
@@ -242,9 +288,6 @@ fn resolve_evidence(
     probe_action: ActionHash,
     expected_subject: Option<&AuthoritySubjectRef>,
 ) -> ExternResult<ResolvedAuthorityEvidence> {
-    // This coordinator independently verifies the probe for its own #96/#115/#117
-    // composition, while #131 receives the same action hash and reconstructs its
-    // own positive challenge receipt before source-head authentication.
     let challenge = verify_probe(probe_action.clone(), expected_subject)?;
 
     let source_head: VerifiedAuthoritySourceHead = call_local(
@@ -321,8 +364,6 @@ fn resolve_control_plane_freshness(
     let mut qualified = Vec::with_capacity(plan.probe_actions.len());
     for probe_action in plan.probe_actions {
         let evidence = resolve_evidence(probe_action, None)?;
-        // Every control-plane qualification samples time after its source/witness/
-        // transition evidence has been produced.
         let now = now_ms()?;
         let value = qualify_control_plane_subject_freshness(
             root,
@@ -343,10 +384,6 @@ fn resolve_control_plane_freshness(
     Ok(qualified)
 }
 
-/// Resolve current freshness for one exact operational authority subject.
-///
-/// Provider roles are separated and all positive authority is reconstructed
-/// locally through the pure qualification kernels.
 #[hdk_extern]
 pub fn resolve_current_operational_freshness(
     subject: AuthoritySubjectRef,
@@ -361,7 +398,6 @@ pub fn resolve_current_operational_freshness(
     let policies = resolve_operational_policies(&subject)?;
     let control_plane = resolve_control_plane_freshness(&root, &subject)?;
 
-    // Policy-context qualification happens after policy/control-plane evidence.
     let context_now = now_ms()?;
     let context = qualify_operational_policy_context(
         &root,
@@ -388,7 +424,6 @@ pub fn resolve_current_operational_freshness(
     )?;
     let evidence = resolve_evidence(plan.probe_action, Some(&subject))?;
 
-    // Final currentness is judged at a time sampled after all operational evidence.
     let current_now = now_ms()?;
     let current = qualify_operational_subject_freshness(
         &context,
@@ -434,13 +469,14 @@ pub fn resolve_current_operational_freshness(
     })
 }
 
-/// Declarative only. Code presence is not operational authority and this zome is
-/// intentionally absent from the binding governance DNA in this tranche.
 #[hdk_extern]
 pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessRuntimeStatus> {
     Ok(CurrentFreshnessRuntimeStatus {
         protocol: RUNTIME_PROTOCOL.into(),
         composition_only: true,
+        root_manifest_provider_grants_authority: false,
+        current_constitution_verifier_separate: true,
+        root_adoption_verifier_separate: true,
         evidence_plan_grants_authority: false,
         latest_dht_record_authority: false,
         provider_positive_object_authority: false,
