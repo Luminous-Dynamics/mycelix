@@ -23,6 +23,7 @@ members = [
     "zomes/authority-current-freshness-verifier/coordinator",
     "zomes/authority-state-source-head-verifier/coordinator",
     "zomes/authority-state-witness-verifier/coordinator",
+    "zomes/authority-operational-policy-provider/coordinator",
     "zomes/constitution/integrity",
     "zomes/constitution/coordinator",
     "zomes/constitution-authority/integrity",
