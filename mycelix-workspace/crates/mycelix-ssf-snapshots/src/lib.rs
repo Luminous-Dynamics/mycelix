@@ -369,15 +369,50 @@ pub fn validate_policy_successor(
 
 /// Exact coherent snapshot heads from which a local federation decision
 /// context can be reconstructed.
+///
+/// Fields are intentionally private: callers cannot manufacture a supposedly
+/// coherent state head with a struct literal. The only public constructor is
+/// `assemble_federation_state_head`, which checks the three domains agree on
+/// the exact federation, epoch, authority root, and authority generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FederationStateHeadV1 {
-    pub context: FederationContextV1,
-    pub membership_head: SnapshotCommitment,
-    pub membership_generation: SnapshotGeneration,
-    pub revocation_head: SnapshotCommitment,
-    pub revocation_snapshot_generation: SnapshotGeneration,
-    pub policy_head: SnapshotCommitment,
-    pub policy_snapshot_generation: SnapshotGeneration,
+    context: FederationContextV1,
+    membership_head: SnapshotCommitment,
+    membership_generation: SnapshotGeneration,
+    revocation_head: SnapshotCommitment,
+    revocation_snapshot_generation: SnapshotGeneration,
+    policy_head: SnapshotCommitment,
+    policy_snapshot_generation: SnapshotGeneration,
+}
+
+impl FederationStateHeadV1 {
+    pub const fn context(&self) -> FederationContextV1 {
+        self.context
+    }
+
+    pub const fn membership_head(&self) -> SnapshotCommitment {
+        self.membership_head
+    }
+
+    pub const fn membership_generation(&self) -> SnapshotGeneration {
+        self.membership_generation
+    }
+
+    pub const fn revocation_head(&self) -> SnapshotCommitment {
+        self.revocation_head
+    }
+
+    pub const fn revocation_snapshot_generation(&self) -> SnapshotGeneration {
+        self.revocation_snapshot_generation
+    }
+
+    pub const fn policy_head(&self) -> SnapshotCommitment {
+        self.policy_head
+    }
+
+    pub const fn policy_snapshot_generation(&self) -> SnapshotGeneration {
+        self.policy_snapshot_generation
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -625,12 +660,15 @@ mod tests {
         let head = assemble_federation_state_head(&membership, &revocation, &policy)
             .expect("coherent snapshot set");
 
-        assert_eq!(head.context.federation_id, membership.lineage().federation_id());
-        assert_eq!(head.context.revocation_generation, RevocationGeneration::new(40));
-        assert_eq!(head.context.policy_digest, policy_digest);
-        assert_eq!(head.membership_head, membership.lineage().commitment());
-        assert_eq!(head.revocation_head, revocation.lineage().commitment());
-        assert_eq!(head.policy_head, policy.lineage().commitment());
+        assert_eq!(head.context().federation_id, membership.lineage().federation_id());
+        assert_eq!(
+            head.context().revocation_generation,
+            RevocationGeneration::new(40)
+        );
+        assert_eq!(head.context().policy_digest, policy_digest);
+        assert_eq!(head.membership_head(), membership.lineage().commitment());
+        assert_eq!(head.revocation_head(), revocation.lineage().commitment());
+        assert_eq!(head.policy_head(), policy.lineage().commitment());
     }
 
     #[test]
