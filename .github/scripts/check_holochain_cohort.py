@@ -35,6 +35,21 @@ def require_equal(failures: list[str], label: str, got, want) -> None:
         failures.append(f"{label}: observed {got!r}, expected {want!r}")
 
 
+def verify_manifest_binding(failures: list[str], kind: str, binding: dict) -> None:
+    path = ROOT / binding["path"]
+    manifest = load_toml(path)
+    deps = manifest.get("dependencies", {})
+    for name, want in binding.items():
+        if name in {"path", "reason"}:
+            continue
+        require_equal(
+            failures,
+            f"{kind}:{binding['path']}:{name}",
+            dep_version(deps.get(name)),
+            want,
+        )
+
+
 def main() -> None:
     contract = load_toml(WORKSPACE / "holochain-cohort.toml")
     root = load_toml(WORKSPACE / "Cargo.toml")
@@ -106,19 +121,17 @@ def main() -> None:
     if not require_alignment and state != "quarantined-drift":
         failures.append("disabling alignment is only permitted under explicit quarantined-drift state")
 
-    for quarantine in contract.get("quarantine", []):
-        path = ROOT / quarantine["path"]
-        manifest = load_toml(path)
-        deps = manifest.get("dependencies", {})
-        for name, want in quarantine.items():
-            if name in {"path", "reason"}:
-                continue
-            require_equal(
-                failures,
-                f"quarantine:{quarantine['path']}:{name}",
-                dep_version(deps.get(name)),
-                want,
-            )
+    quarantines = contract.get("quarantine", [])
+    aligned_surfaces = contract.get("aligned_surface", [])
+    if state == "aligned" and quarantines:
+        failures.append("aligned state cannot retain Holochain compatibility quarantines")
+    if state == "quarantined-drift" and aligned_surfaces:
+        failures.append("baseline quarantined-drift state cannot claim migrated aligned surfaces")
+
+    for binding in quarantines:
+        verify_manifest_binding(failures, "quarantine", binding)
+    for binding in aligned_surfaces:
+        verify_manifest_binding(failures, "aligned", binding)
 
     next_06 = contract["next_0_6"]
     if not re.fullmatch(r"[0-9a-f]{40}", next_06["holonix_rev"]):
@@ -136,6 +149,8 @@ def main() -> None:
         + ("aligned" if aligned else "QUARANTINED DRIFT")
         + f" (Rust Holochain {rust_holochain}, Nix Holochain {nix_holochain})"
     )
+    print(f"Explicit quarantines: {len(quarantines)}")
+    print(f"Explicit aligned surfaces: {len(aligned_surfaces)}")
     print(
         "Next coherent 0.6 cohort: "
         f"Holochain {next_06['holochain']}, HDK {next_06['hdk']}, HDI {next_06['hdi']}, "
