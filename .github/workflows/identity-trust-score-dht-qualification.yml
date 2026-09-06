@@ -83,6 +83,11 @@ jobs:
               'create_credential_infinite_range_is_rejected_by_dht_validation',
               'create_credential_guardian_claim_with_elevated_midpoint_is_rejected',
               'create_credential_underclaimed_tier_is_rejected',
+              'create_presentation_matching_disclosed_range_and_tier_is_valid',
+              'create_presentation_nan_disclosed_range_is_rejected_by_dht_validation',
+              'create_presentation_infinite_disclosed_range_is_rejected_by_dht_validation',
+              'create_presentation_disclosed_tier_range_mismatch_is_rejected',
+              'trust_tier_band_v1(&pres.disclosed_tier)',
           ]
           for needle in required:
               if needle not in text:
@@ -91,13 +96,36 @@ jobs:
           start = text.index('fn validate_create_credential(')
           end = text.index('/// Pure credential-update policy.', start)
           create_body = text[start:end]
-          forbidden = [
+          for needle in [
               'let tier_min = cred.trust_tier.min_score();',
               'if (cred.trust_score_range.upper as f64) < tier_min',
-          ]
-          for needle in forbidden:
+          ]:
               if needle in create_body:
                   raise SystemExit(f'ERROR: weak credential score rule remains: {needle}')
+
+          p_start = text.index('fn validate_create_presentation(')
+          p_end = text.index('#[cfg(test)]\nmod author_binding_tests', p_start)
+          presentation_body = text[p_start:p_end]
+          for needle in [
+              'range.lower < 0.0',
+              'range.upper > 1.0',
+              'range.lower > range.upper',
+          ]:
+              if needle in presentation_body:
+                  raise SystemExit(
+                      f'ERROR: weak presentation disclosed-range rule remains: {needle}'
+                  )
+
+          # This structural DHT hardening must not pretend presentation source
+          # binding/current-state/cryptographic verification is established.
+          lowered = presentation_body.lower()
+          for needle in [
+              'source_credential_verified',
+              'cryptographically_verified',
+              'proof_verified: true',
+          ]:
+              if needle in lowered:
+                  raise SystemExit(f'ERROR: unsupported presentation verification claim: {needle}')
           PY
 
       - uses: dtolnay/rust-toolchain@stable
