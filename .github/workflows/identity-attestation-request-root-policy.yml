@@ -1,0 +1,122 @@
+name: Identity Attestation Request Root Policy
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - '.github/workflows/identity-attestation-request-root-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - '.github/workflows/identity-attestation-request-root-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-root-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert canonical root-policy boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/attestation-request-root-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if set(deps) != {'mycelix-attestation-request-policy'}:
+              raise SystemExit(f'ERROR: root-policy dependency drift: {sorted(deps)}')
+          if deps['mycelix-attestation-request-policy'].get('path') != '../attestation-request-policy':
+              raise SystemExit('ERROR: root policy is not bound to canonical lifecycle vocabulary')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'REQUEST_ID_MAX_LEN_V1: usize = 256',
+              'DID_MAX_LEN_V1: usize = 256',
+              'PURPOSE_MAX_LEN_V1: usize = 2048',
+              'AttestationRequestRootAssertionV1',
+              'AttestationRequestRootAssertionErrorV1',
+              'validate_attestation_request_root_assertion_v1',
+              'root.component_count == 0',
+              'root.status != AttestationRequestStatusV1::Pending',
+              '!score.is_finite()',
+              'root.expires_at_micros <= root.created_at_micros',
+              'identifier_boundary_is_frozen',
+              'every_non_pending_creation_state_is_rejected',
+              'nonfinite_and_out_of_bounds_thresholds_fail_closed',
+              'validity_interval_is_strictly_positive',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: canonical request root theorem missing: {needle!r}')
+
+          forbidden = [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde',
+              'ActionHash',
+              'EntryHash',
+              'get_details(',
+              'get_links(',
+              'sys_time(',
+          ]
+          for needle in forbidden:
+              if needle in text:
+                  raise SystemExit(f'ERROR: adapter/network semantics leaked into root policy: {needle!r}')
+
+          # Duplicate-component/set semantics are explicitly deferred from V1.
+          for needle in ['HashSet', 'duplicate component', 'duplicate_component']:
+              if needle in text:
+                  raise SystemExit(f'ERROR: unqualified component-set semantics entered V1: {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml \
+            -- --check
+
+      - name: Test lifecycle dependency
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Check canonical root policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
