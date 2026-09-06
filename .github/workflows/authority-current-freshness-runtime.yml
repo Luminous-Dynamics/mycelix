@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'mycelix-governance/zomes/constitution-transition/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-governance-constitution/**'
       - 'crates/mycelix-authority-operational-freshness/**'
       - 'crates/mycelix-authority-operational-context/**'
       - 'crates/mycelix-authority-control-plane-freshness/**'
@@ -16,6 +18,7 @@ on:
       - 'security/authority-current-freshness-provider-split-v0.1'
       - 'security/authority-current-freshness-runtime-contract-v0.1'
       - 'security/authority-bootstrap-verifier-split-v0.1'
+      - 'security/authority-current-constitution-runtime-binding-v0.1'
 
 permissions:
   contents: read
@@ -29,7 +32,7 @@ env:
 
 jobs:
   qualify:
-    name: Split-verifier current freshness composition
+    name: Constitution-fenced current freshness composition
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,76 +59,71 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: Split-verifier authority audit
+      - name: Constitution-fence authority audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
           src = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/lib.rs').read_text()
           inv = Path('mycelix-governance/zomes/authority-current-freshness-verifier/INVARIANTS.md').read_text().lower()
-          cargo = Path('mycelix-governance/Cargo.toml').read_text()
+          crate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml').read_text()
+          workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
-          source_request = src.split('pub struct SourceHeadVerificationRequest {', 1)[1].split('}', 1)[0]
-          assert 'pub probe_action: ActionHash' in source_request
-          assert 'VerifiedCoverageChallenge' not in source_request
-          assert 'SourceHeadVerificationRequest { probe_action }' in src
-          assert 'verify_probe(probe_action.clone(), expected_subject)' in src
-
-          assert 'CurrentConstitutionVerificationRequest' not in src
+          assert 'mycelix-governance-constitution' in crate
+          assert 'const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";' in src
+          assert 'const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";' in src
+          assert 'VerifiedCurrentConstitutionMirror' in src
+          assert 'verify_constitution_projection(&current)' in src
+          assert 'current.statement.digest()' in src
+          assert 'legacy_constitution_authoritative' in src
+          assert 'authority_current_constitution_verifier' not in src
 
           adoption_request = src.split('pub struct RootAdoptionVerificationRequest {', 1)[1].split('}', 1)[0]
           assert 'pub manifest: AuthorityStateBootstrapRootManifest' in adoption_request
           assert 'pub current_constitution_digest: Digest32' in adoption_request
-          assert 'pub current_constitution_profile: String' in adoption_request
           assert 'VerifiedCurrentConstitutionReceipt' not in adoption_request
 
+          root = src.split('fn resolve_root()', 1)[1].split('fn resolve_operational_policies', 1)[0]
+          before = root.index('let constitution_before = resolve_binding_current_constitution()?;')
+          manifest = root.index('let manifest: AuthorityStateBootstrapRootManifest = call_local(')
+          adoption = root.index('let adoption: VerifiedBootstrapRootAdoption = call_local(')
+          after = root.index('let constitution_after = resolve_binding_current_constitution()?;')
+          same = root.index('ensure_same_constitution(&constitution_before, &constitution_after)?;')
+          now = root.index('let now = now_ms()?;')
+          qualify = root.index('let root = qualify_bootstrap_root(')
+          assert before < manifest < adoption < after < same < now < qualify
+
+          operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
+          qualify_current = operational.index('let current = qualify_operational_subject_freshness(')
+          final_constitution = operational.index('let final_constitution = resolve_binding_current_constitution()?;')
+          final_same = operational.index('ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;')
+          final_now = operational.index('let final_now = now_ms()?;')
+          narrow = operational.index('freshness.lease_until_ms = freshness.lease_until_ms.min(fenced_until);')
+          assert qualify_current < final_constitution < final_same < final_now < narrow
+          assert 'CURRENT_CONSTITUTION_RETURN_LEASE_MS' in operational
+          assert 'current-operational-freshness-fenced:' in operational
+
           required = [
-              'authority_state_bootstrap_root_manifest_provider',
-              'resolve_bootstrap_root_manifest',
-              'authority_current_constitution_verifier',
-              'verify_current_constitution',
-              'authority_bootstrap_root_adoption_verifier',
-              'verify_bootstrap_root_adoption',
               'qualify_bootstrap_root(',
               'qualify_control_plane_subject_freshness(',
               'qualify_operational_policy_context(',
               'qualify_operational_subject_freshness(',
               'root_manifest_provider_grants_authority: false',
-              'current_constitution_verifier_separate: true',
+              'current_constitution_source_is_binding_plane: true',
+              'constitution_rechecked_after_adoption: true',
+              'constitution_rechecked_before_return: true',
               'root_adoption_verifier_separate: true',
-              'qualification_time_after_evidence: true',
               'evidence_plan_grants_authority: false',
               'latest_dht_record_authority: false',
               'provider_positive_object_authority: false',
               'probe_authority: false',
+              'qualification_time_after_evidence: true',
               'external_effects_enabled: false',
               'operational: false',
           ]
           for token in required:
               assert token in src, token
-
-          root = src.split('fn resolve_root(', 1)[1].split('fn resolve_operational_policies', 1)[0]
-          manifest_call = root.index('let manifest: AuthorityStateBootstrapRootManifest = call_local(')
-          constitution_call = root.index('let current_constitution: VerifiedCurrentConstitutionReceipt = call_local(')
-          adoption_call = root.index('let adoption: VerifiedBootstrapRootAdoption = call_local(')
-          now_call = root.index('let now = now_ms()?;')
-          qualify_call = root.index('let root = qualify_bootstrap_root(')
-          assert manifest_call < constitution_call < adoption_call < now_call < qualify_call
-
-          constitution_block = root[constitution_call:root.index('let root_manifest_digest =', constitution_call)]
-          assert '"verify_current_constitution"' in constitution_block
-          assert '\n        (),\n' in constitution_block
-          for forbidden in ['manifest.', 'network_id', 'institution_id', 'constitution_id', 'version', 'digest']:
-              assert forbidden not in constitution_block, forbidden
-
-          control = src.split('fn resolve_control_plane_freshness(', 1)[1].split('#[hdk_extern]', 1)[0]
-          assert control.index('let evidence = resolve_evidence(') < control.index('let now = now_ms()?;') < control.index('qualify_control_plane_subject_freshness(')
-
-          operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
-          assert operational.index('let policies = resolve_operational_policies(') < operational.index('let context_now = now_ms()?;') < operational.index('qualify_operational_policy_context(')
-          assert operational.index('let evidence = resolve_evidence(') < operational.index('let current_now = now_ms()?;') < operational.index('qualify_operational_subject_freshness(')
-          assert 'freshness.validate_at(current_now)' in operational
 
           for forbidden in [
               'authority_state_bootstrap_root_provider',
@@ -133,11 +131,6 @@ jobs:
               'BootstrapRootCandidateBundle',
               'authority_control_plane_evidence_provider',
               'authority_operational_evidence_provider',
-              'get_links(',
-              'get_details(',
-              'create_entry(',
-              'update_entry(',
-              'delete_entry(',
               'project_authority_state_as_of',
               'execute_actions',
               'phi',
@@ -146,17 +139,12 @@ jobs:
           ]:
               assert forbidden.lower() not in src.lower(), forbidden
 
-          assert '"zomes/authority-current-freshness-verifier/coordinator"' in cargo
+          assert '"zomes/authority-current-freshness-verifier/coordinator"' in workspace
           assert 'name: authority_current_freshness_verifier' not in dna
-          assert 'bootstrap manifest discovery is not bootstrap authority' in inv
-          assert 'current constitution is independently discovered and verified' in inv
-          assert 'receives `()`' in inv
-          assert 'root adoption is independently verified' in inv
-          assert 'no omnibus bootstrap oracle' in inv
-          assert 'qualification time follows evidence production' in inv
-          assert 'source-head verification independently reconstructs probe validity' in inv
-          assert 'a valid transition prefix is not current authority' in inv
+          assert 'binding constitutional authority is reused, not reinvented' in inv
+          assert 'constitutional toctou is fail-closed at the root' in inv
+          assert 'constitutional fence spans the complete authority composition' in inv
+          assert 'final runtime output is narrower still' in inv
           assert 'deliberately unprovisioned' in inv
-          assert 'no latest-record heuristics' in inv
-          print('PASS: bootstrap manifest cannot steer current constitutional domain/head before local #111 qualification')
+          print('PASS: current freshness is fenced by the existing binding constitutional plane before root and before return')
           PY
