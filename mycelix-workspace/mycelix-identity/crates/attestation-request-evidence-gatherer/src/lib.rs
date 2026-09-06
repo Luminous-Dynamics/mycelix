@@ -20,11 +20,15 @@ use trust_credential_integrity::{AttestationRequest, LinkTypes};
 
 /// One fully gathered and semantically resolved request root.
 ///
+/// `canonical_root_record` is the immutable creation record and therefore still
+/// contains `Pending` in its embedded request entry. It is **not** a current-state
+/// record. Callers must use `state` for the observed lifecycle interpretation.
+///
 /// `state` remains observation-scoped; network strategy does not imply global
 /// completeness of the DHT at the instant of this call.
 pub struct ObservedAttestationRequestRecordV1 {
     pub root_action_hash: ActionHash,
-    pub root_record: Record,
+    pub canonical_root_record: Record,
     pub state: ObservedAttestationRequestStateV1,
 }
 
@@ -36,7 +40,7 @@ struct OwnedUpdateObservationV1 {
 
 struct GatheredRootV1 {
     root_action_hash: ActionHash,
-    root_record: Record,
+    canonical_root_record: Record,
     root_request: AttestationRequest,
     root_author_did: String,
     updates: Vec<OwnedUpdateObservationV1>,
@@ -190,7 +194,7 @@ fn gather_root(root_hash: ActionHash) -> ExternResult<GatheredRootV1> {
 
     Ok(GatheredRootV1 {
         root_action_hash: root_hash,
-        root_record: details.record,
+        canonical_root_record: details.record,
         root_request,
         root_author_did,
         updates,
@@ -257,7 +261,7 @@ pub fn resolve_subject_attestation_requests_v1(
 
         resolved.push(ObservedAttestationRequestRecordV1 {
             root_action_hash: root.root_action_hash,
-            root_record: root.root_record,
+            canonical_root_record: root.canonical_root_record,
             state,
         });
     }
