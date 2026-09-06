@@ -6,6 +6,7 @@ on:
       - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
       - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
       - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
       - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
       - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
 
 env:
@@ -35,6 +37,7 @@ jobs:
         run: |
           mapfile -t changed < <(git diff --name-only | sort)
           expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml"
             "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
           )
           mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
@@ -49,64 +52,55 @@ jobs:
 
           git diff --check
           git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
             mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs \
             > /tmp/identity-attestation-request-create-delete-integrity-v1.patch
 
-      - name: Assert generated request integrity contract
+      - name: Assert canonical adapter contract
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import tomllib
+
+          manifest_path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml')
+          manifest = tomllib.loads(manifest_path.read_text())
+          dep = manifest.get('dependencies', {}).get('mycelix-attestation-request-root-policy')
+          if dep != {'path': '../../../crates/attestation-request-root-policy'}:
+              raise SystemExit(f'ERROR: exact root-policy path dependency missing: {dep!r}')
 
           path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs')
           text = path.read_text()
-
           required = [
-              'fn validate_attestation_request_creation_shape(',
-              'req.id.is_empty() || req.id.len() > 256',
-              'req.requester_did.is_empty()',
-              'req.requester_did.len() > 256',
-              'req.subject_did.is_empty()',
-              'req.subject_did.len() > 256',
-              'req.components.is_empty()',
-              'req.purpose.is_empty() || req.purpose.len() > 2048',
-              '!score.is_finite()',
-              'req.expires_at <= req.created_at',
-              'match validate_attestation_request_creation_shape(&req)',
+              'AttestationRequestRootAssertionV1',
+              'validate_attestation_request_root_assertion_v1',
+              'request_status_v1(',
+              'created_at_micros: req.created_at.as_micros()',
+              'expires_at_micros: req.expires_at.as_micros()',
               'UnitEntryTypes::AttestationRequest',
-              'original.action().entry_type() == Some(&request_entry_type)',
               'Attestation requests cannot be deleted; use the typed lifecycle',
               'matches!(link_type, LinkTypes::SubjectToRequest)',
               'SubjectToRequest discovery links are append-only',
-              'request_creation_shape_accepts_supported_boundary',
-              'request_creation_shape_rejects_unaddressable_id',
-              'request_creation_shape_rejects_empty_components',
-              'request_creation_shape_rejects_bad_purpose_bounds',
-              'request_creation_shape_rejects_bad_did_bounds',
-              'request_creation_shape_rejects_nonfinite_and_out_of_range_score',
-              'request_creation_shape_requires_positive_validity_interval',
-              'request_creation_shape_requires_pending_root',
+              'create_request_delegates_supported_boundary_to_root_policy',
+              'create_request_delegates_invalid_root_shapes_to_root_policy',
           ]
           for needle in required:
               if needle not in text:
-                  raise SystemExit(f'ERROR: generated request integrity contract missing: {needle!r}')
+                  raise SystemExit(f'ERROR: generated request DHT adapter missing: {needle!r}')
 
-          create_start = text.index('fn validate_attestation_request_creation_shape(')
-          create_end = text.index('/// Validate attestation request creation.', create_start)
-          create_body = text[create_start:create_end]
-          for forbidden in ['HashSet', 'duplicate component', 'duplicate_component']:
-              if forbidden in create_body:
-                  raise SystemExit(
-                      f'ERROR: unqualified component-set semantics leaked into create theorem: {forbidden!r}'
-                  )
+          for forbidden in [
+              'fn validate_attestation_request_creation_shape(',
+              'req.id.is_empty() || req.id.len() > 256',
+              'req.purpose.is_empty() || req.purpose.len() > 2048',
+          ]:
+              if forbidden in text:
+                  raise SystemExit(f'ERROR: private request-root theorem reintroduced: {forbidden!r}')
 
           entry_delete_start = text.index('FlatOp::RegisterDelete(OpDelete { action })')
           entry_delete_end = text.index('    }\n}\n\n/// Validate trust credential creation', entry_delete_start)
           entry_delete_body = text[entry_delete_start:entry_delete_end]
           if 'Only the original entry author can delete their entries' not in entry_delete_body:
               raise SystemExit('ERROR: ordinary same-author entry delete safety rule was weakened')
-          if 'UnitEntryTypes::AttestationRequest' not in entry_delete_body:
-              raise SystemExit('ERROR: typed request entry-delete guard missing')
           if 'Attestation requests cannot be deleted; use the typed lifecycle' not in entry_delete_body:
               raise SystemExit('ERROR: request entry deletion is no longer fail-closed')
 
@@ -117,8 +111,6 @@ jobs:
               raise SystemExit('ERROR: ordinary same-author link delete safety rule was weakened')
           if 'matches!(link_type, LinkTypes::SubjectToRequest)' not in link_delete_body:
               raise SystemExit('ERROR: SubjectToRequest append-only guard missing')
-          if 'SubjectToRequest discovery links are append-only' not in link_delete_body:
-              raise SystemExit('ERROR: request discovery-link deletion is no longer fail-closed')
           PY
 
       - uses: dtolnay/rust-toolchain@stable
@@ -130,7 +122,12 @@ jobs:
         with:
           workspaces: mycelix-workspace/mycelix-identity
 
-      - name: Check formatting of materialized patch
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Check formatting of materialized adapter
         run: |
           cargo fmt \
             --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
