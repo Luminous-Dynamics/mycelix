@@ -61,6 +61,14 @@ jobs:
               )
 
           required = [
+              'validate_canonical_root_assertion',
+              'CanonicalRootAssertionError',
+              'NonFiniteTrustRange',
+              'TierDoesNotMatchRangeMidpoint',
+              'nan_root_range_fails_closed',
+              'infinite_root_range_fails_closed',
+              'claimed_tier_must_equal_range_midpoint_tier',
+              'malformed_subject_root_identifies_credential_index',
               'credential_assertion_equivalent',
               'observe_update',
               'map_structural_tier',
@@ -77,6 +85,11 @@ jobs:
           for needle in required:
               if needle not in text:
                   raise SystemExit(f'ERROR: required adapter contract missing: {needle}')
+
+          if '!lower.is_finite() || !upper.is_finite()' not in text:
+              raise SystemExit('ERROR: canonical root finite-range guard missing')
+          if 'TrustTier::from_score(midpoint)' not in text:
+              raise SystemExit('ERROR: canonical root midpoint-tier derivation missing')
 
           if 'StructuralTrustStateV1::ActiveTier(' in text:
               raise SystemExit(
