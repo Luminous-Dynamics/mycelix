@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-attestation-request-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Dependency-free lifecycle policy for Mycelix attestation requests"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
