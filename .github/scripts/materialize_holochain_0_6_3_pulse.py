@@ -173,17 +173,61 @@ def main() -> None:
             raise SystemExit(f"cohort contract expected text not found: {old!r}")
         text = text.replace(old, new)
 
-    marker = "# Known legacy islands."
-    if marker not in text:
-        raise SystemExit("cohort quarantine marker missing")
-    text = text.split(marker, 1)[0].rstrip() + "\n\n# No Pulse Holochain compatibility islands remain in this qualified candidate.\n"
     text = text.replace(
         'quarantine_reason = "Existing baseline drift: Cargo resolves Holochain 0.6.1/Kitsune2 0.4.1 while Holonix resolves Holochain 0.6.0/Kitsune2 0.3.2. The 0.6.3 migration tranche must remove this quarantine rather than silently preserving it."',
         'alignment_reason = "Canonical Rust, Pulse, and Holonix surfaces are bound to the coherent upstream 0.6.3 cohort."',
     )
+
+    marker = "# Known legacy islands."
+    if marker not in text:
+        raise SystemExit("cohort quarantine marker missing")
+    text = text.split(marker, 1)[0].rstrip()
+    text += """
+
+# Former compatibility islands remain explicitly bound after migration. They do
+# not disappear from the theorem merely because they joined the canonical cohort.
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml"
+reason = "Standalone hApp integrity crate migrated to the 0.6.3 cohort."
+hdi = "0.7.3"
+holochain_integrity_types = "0.6.3"
+holochain_zome_types = "0.6.3"
+holo_hash = "0.6.3"
+hdk_derive = "0.6.3"
+
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+reason = "Pulse backend API surface migrated to the 0.6.3 cohort."
+holochain_client = "0.8.3"
+holochain_types = "0.6.3"
+holochain_zome_types = "0.6.3"
+holochain_keystore = "0.6.3"
+
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml"
+reason = "Pulse CLI API surface migrated to the 0.6.3 cohort."
+holochain_client = "0.8.3"
+holochain_types = "0.6.3"
+holochain_conductor_api = "0.6.3"
+
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml"
+reason = "Simplified legacy DNA integrity surface migrated to HDI 0.7.3."
+hdi = "0.7.3"
+
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml"
+reason = "Simplified legacy DNA mail_messages coordinator migrated to HDK 0.6.3."
+hdk = "0.6.3"
+
+[[aligned_surface]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml"
+reason = "Simplified legacy DNA trust_filter coordinator migrated to HDK 0.6.3."
+hdk = "0.6.3"
+"""
     CONTRACT.write_text(text)
 
-    print("Materialized Holochain 0.6.3 Pulse candidate.")
+    print("Materialized Holochain 0.6.3 Pulse candidate with explicit aligned-surface bindings.")
 
 
 if __name__ == "__main__":
