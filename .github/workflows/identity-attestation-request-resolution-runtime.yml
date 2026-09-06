@@ -5,6 +5,7 @@ on:
     paths:
       - 'mycelix-workspace/mycelix-identity/Cargo.toml'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
       - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'mycelix-workspace/mycelix-identity/Cargo.toml'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
       - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
       - '.github/workflows/identity-attestation-request-resolution-runtime.yml'
@@ -42,21 +44,27 @@ jobs:
 
           manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
           deps = manifest.get('dependencies', {})
-          if set(deps) != {
+          expected = {
               'mycelix-attestation-request-policy',
+              'mycelix-attestation-request-root-policy',
               'trust_credential_integrity',
-          }:
-              raise SystemExit(
-                  f'ERROR: runtime dependencies drifted: {sorted(deps)}'
-              )
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: runtime dependencies drifted: {sorted(deps)}')
           if deps['mycelix-attestation-request-policy'].get('path') != '../attestation-request-policy':
-              raise SystemExit('ERROR: runtime is not bound to the canonical lifecycle policy')
+              raise SystemExit('ERROR: runtime is not bound to canonical lifecycle policy')
+          if deps['mycelix-attestation-request-root-policy'].get('path') != '../attestation-request-root-policy':
+              raise SystemExit('ERROR: runtime is not bound to canonical root policy')
           if deps['trust_credential_integrity'].get('path') != '../../zomes/trust_credential/integrity':
-              raise SystemExit('ERROR: runtime is not bound to canonical trust credential types')
+              raise SystemExit('ERROR: runtime is not bound to canonical request entry types')
 
           text = (root / member / 'src/lib.rs').read_text()
           required = [
               '#![forbid(unsafe_code)]',
+              'AttestationRequestRootAssertionV1',
+              'AttestationRequestRootAssertionErrorV1',
+              'validate_attestation_request_root_assertion_v1',
+              'RootPolicyRejected(AttestationRequestRootAssertionErrorV1)',
               'AttestationRequestLineageObservationV1',
               'ObservedAttestationRequestStateV1',
               'ObservedConflict { terminal_updates: usize }',
@@ -68,7 +76,7 @@ jobs:
               'resolve_attestation_request_lineage_v1',
               'validate_attestation_request_transition_v1(transition)',
               'classify_attestation_request_actor_v1(',
-              'RootMinTrustScoreNonFinite',
+              'historical_invalid_validity_interval_fails_closed_through_shared_policy',
               'ObservedExpiredByTime',
               'concurrent_terminal_siblings_are_conflict_even_when_status_matches',
               'different_terminal_siblings_are_conflict_not_latest_wins',
@@ -80,10 +88,25 @@ jobs:
               if needle not in text:
                   raise SystemExit(f'ERROR: request resolution runtime missing {needle!r}')
 
+          # Structural truth belongs to #185, not this adapter.
+          forbidden_private_root = [
+              'fn valid_did_shape(',
+              'RootIdMissing',
+              'RootRequesterDidInvalid',
+              'RootSubjectDidInvalid',
+              'RootSelfRequest',
+              'RootComponentsEmpty',
+              'RootPurposeInvalid',
+              'RootStatusNotPending',
+              'RootMinTrustScoreNonFinite',
+              'RootMinTrustScoreOutOfBounds',
+          ]
+          for needle in forbidden_private_root:
+              if needle in text:
+                  raise SystemExit(f'ERROR: private request-root theorem survived runtime: {needle!r}')
+
           # This layer consumes already-gathered observations. Network traversal,
           # chronology selection, and coordinator authority must not leak into it.
-          # Ban executable selection/traversal patterns rather than prose such as
-          # the regression name `...not_latest_wins`.
           forbidden = [
               'use hdk',
               'use hdi',
@@ -106,7 +129,6 @@ jobs:
               if needle in text:
                   raise SystemExit(f'ERROR: runtime leaked network/winner semantics: {needle!r}')
 
-          # Historical deletes are not aliases for typed cancellation.
           delete_pos = text.index('if input.observed_delete_count != 0')
           delete_window = text[delete_pos:delete_pos + 450]
           if 'HistoricalDeleteObserved' not in delete_window:
@@ -134,6 +156,11 @@ jobs:
         run: |
           cargo test \
             --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
 
       - name: Test request resolution runtime
         run: |
