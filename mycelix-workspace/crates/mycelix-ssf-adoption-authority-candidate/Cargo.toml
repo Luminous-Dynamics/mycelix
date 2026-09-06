@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-adoption-authority-candidate"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-snapshots = { path = "../mycelix-ssf-snapshots" }
+mycelix-ssf-local-adoption-policy = { path = "../mycelix-ssf-local-adoption-policy" }
