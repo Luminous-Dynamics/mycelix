@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
       - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
   push:
     branches: [main]
     paths:
       - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
       - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
       - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
 
@@ -24,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Materialize exact proposed product patch
-        run: python scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py
+        run: |
+          python scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py
+          python scripts/qualification/identity_attestation_request_discovery_link_v1.py
 
       - name: Assert generated product scope
         shell: bash
@@ -72,6 +76,8 @@ jobs:
               'UnitEntryTypes::AttestationRequest',
               'original.action().entry_type() == Some(&request_entry_type)',
               'Attestation requests cannot be deleted; use the typed lifecycle',
+              'matches!(link_type, LinkTypes::SubjectToRequest)',
+              'SubjectToRequest discovery links are append-only',
               'request_creation_shape_accepts_supported_boundary',
               'request_creation_shape_rejects_unaddressable_id',
               'request_creation_shape_rejects_empty_components',
@@ -94,15 +100,25 @@ jobs:
                       f'ERROR: unqualified component-set semantics leaked into create theorem: {forbidden!r}'
                   )
 
-          delete_start = text.index('FlatOp::RegisterDelete(OpDelete { action })')
-          delete_end = text.index('    }\n}\n\n/// Validate trust credential creation', delete_start)
-          delete_body = text[delete_start:delete_end]
-          if 'Only the original entry author can delete their entries' not in delete_body:
-              raise SystemExit('ERROR: ordinary same-author delete safety rule was weakened')
-          if 'UnitEntryTypes::AttestationRequest' not in delete_body:
-              raise SystemExit('ERROR: typed request delete guard missing')
-          if 'Attestation requests cannot be deleted; use the typed lifecycle' not in delete_body:
-              raise SystemExit('ERROR: request deletion is no longer fail-closed')
+          entry_delete_start = text.index('FlatOp::RegisterDelete(OpDelete { action })')
+          entry_delete_end = text.index('    }\n}\n\n/// Validate trust credential creation', entry_delete_start)
+          entry_delete_body = text[entry_delete_start:entry_delete_end]
+          if 'Only the original entry author can delete their entries' not in entry_delete_body:
+              raise SystemExit('ERROR: ordinary same-author entry delete safety rule was weakened')
+          if 'UnitEntryTypes::AttestationRequest' not in entry_delete_body:
+              raise SystemExit('ERROR: typed request entry-delete guard missing')
+          if 'Attestation requests cannot be deleted; use the typed lifecycle' not in entry_delete_body:
+              raise SystemExit('ERROR: request entry deletion is no longer fail-closed')
+
+          link_delete_start = text.index('FlatOp::RegisterDeleteLink {')
+          link_delete_end = text.index('FlatOp::StoreRecord', link_delete_start)
+          link_delete_body = text[link_delete_start:link_delete_end]
+          if 'Only the link creator can delete their links' not in link_delete_body:
+              raise SystemExit('ERROR: ordinary same-author link delete safety rule was weakened')
+          if 'matches!(link_type, LinkTypes::SubjectToRequest)' not in link_delete_body:
+              raise SystemExit('ERROR: SubjectToRequest append-only guard missing')
+          if 'SubjectToRequest discovery links are append-only' not in link_delete_body:
+              raise SystemExit('ERROR: request discovery-link deletion is no longer fail-closed')
           PY
 
       - uses: dtolnay/rust-toolchain@stable
