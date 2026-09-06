@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-durable-effect-capability-issuance"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-capability-time-effect-revalidation = { path = "../mycelix-ssf-capability-time-effect-revalidation" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-effect-admission-rebind = { path = "../mycelix-ssf-effect-admission-rebind" }
+mycelix-ssf-source-owned-operation-material = { path = "../mycelix-ssf-source-owned-operation-material" }
