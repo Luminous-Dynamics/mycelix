@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-kvector-proof-statement-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Backend-neutral cryptographic statement theorem for Identity V2 K-vector proofs"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-attestation-fulfillment-policy = { path = "../attestation-fulfillment-policy" }
+mycelix-trust-authority-policy = { path = "../trust-authority-policy" }
+sha2 = { workspace = true }
