@@ -64,7 +64,7 @@ jobs:
               )
           PY
 
-      - name: Assert V1 remains quarantine-only
+      - name: Assert V1 remains observation-scoped and quarantine-only
         shell: bash
         run: |
           python - <<'PY'
@@ -80,8 +80,19 @@ jobs:
               body = re.sub(r'^\s*///.*$', '', match.group(1), flags=re.M)
               return [part.strip() for part in body.split(',') if part.strip()]
 
+          structural = enum_variants('StructuralTrustStateV1')
           proof = enum_variants('ProofVerificationStateV1')
           authority = enum_variants('TrustAuthorityDispositionV1')
+
+          expected_structural = [
+              'NoActiveCredentialObserved',
+              'ObservedActiveTier(StructuralTrustTierV1)',
+          ]
+          if structural != expected_structural:
+              raise SystemExit(
+                  f'ERROR: V1 structural states lost observation scope: {structural!r}; '
+                  f'expected exactly {expected_structural!r}'
+              )
 
           if proof != ['NotEstablished']:
               raise SystemExit(

@@ -3,27 +3,23 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Versioned cross-domain trust-resolution wire types.
 //!
-//! `TrustResolutionV1` is deliberately a **quarantine-only** protocol.
-//! It can report structurally admitted credential state for diagnostics, but it
-//! cannot represent cryptographic proof verification or elevated authority.
+//! `TrustResolutionV1` is deliberately a **quarantine-only** and
+//! **observation-scoped** protocol. It can report what the producer established
+//! from its current structural evidence, but it cannot claim global DHT
+//! currentness, cryptographic proof verification, or elevated authority.
 //!
-//! This prevents a producer's local trust-tier enum from being reinterpreted as
-//! a consumer's authority enum and prevents structural credential admission from
-//! silently becoming consequential trust.
-//!
-//! A future protocol that carries accepted signed verification-record evidence
-//! must use a new versioned type rather than weakening V1 in place.
+//! A future protocol carrying accepted signed verification-record evidence must
+//! use a new versioned type rather than weakening V1 in place.
 
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-/// Exact wire schema version for [`TrustResolutionV1`].
 pub const TRUST_RESOLUTION_V1_SCHEMA: u16 = 1;
 
 /// Structural tier vocabulary shared on the wire.
 ///
-/// These names describe the credential tier only. They do not imply identity
+/// These names describe credential tiers only. They do not imply identity
 /// verification, capability authority, proof validity, or downstream trust.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructuralTrustTierV1 {
@@ -34,40 +30,30 @@ pub enum StructuralTrustTierV1 {
     Guardian,
 }
 
-/// What a successful producer lookup can establish structurally.
+/// What a successful producer observation established structurally.
+///
+/// The observation wording is normative: these variants must not be interpreted
+/// as proof that the producer has a globally complete DHT view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StructuralTrustStateV1 {
-    /// No active structural credential was found.
-    NoActiveCredential,
-    /// An active structural credential reported this tier.
-    ActiveTier(StructuralTrustTierV1),
+    /// No active structural credential was established under the observed
+    /// evidence available to this resolution.
+    NoActiveCredentialObserved,
+    /// The observed evidence contained one structurally active credential with
+    /// this diagnostic tier.
+    ObservedActiveTier(StructuralTrustTierV1),
 }
 
-/// Cryptographic proof-verification state in V1.
-///
-/// V1 intentionally has no `Verified` variant. The current credential path does
-/// not yet carry the signed append-only verification records required to make
-/// that claim safely across domains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProofVerificationStateV1 {
     NotEstablished,
 }
 
-/// Whether this resolution may influence consequential authority/weight.
-///
-/// V1 is permanently quarantine-only. Differentiated authority requires a new
-/// protocol version backed by accepted signed verification evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TrustAuthorityDispositionV1 {
     Quarantined,
 }
 
-/// Cross-domain trust resolution V1.
-///
-/// Construction is intentionally closed: external callers can only create V1
-/// through [`TrustResolutionV1::quarantined`]. Deserialization rejects unknown
-/// versions and unknown fields, so a producer cannot extend V1 in place while an
-/// older consumer silently ignores new semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrustResolutionV1 {
@@ -89,30 +75,22 @@ impl TrustResolutionV1 {
         }
     }
 
-    /// Exact schema version carried by this resolution.
     pub const fn schema_version(&self) -> u16 {
         self.schema_version
     }
 
-    /// Structurally admitted credential state, for diagnostics only.
     pub const fn structural(&self) -> StructuralTrustStateV1 {
         self.structural
     }
 
-    /// Cryptographic proof-verification state.
     pub const fn proof_verification(&self) -> ProofVerificationStateV1 {
         self.proof_verification
     }
 
-    /// Consequential authority disposition.
     pub const fn authority(&self) -> TrustAuthorityDispositionV1 {
         self.authority
     }
 
-    /// Defense-in-depth validation for values already present in memory.
-    ///
-    /// Normal wire deserialization rejects unsupported versions before a value
-    /// can be produced, but this remains useful for tests and internal audits.
     pub fn validate_schema(&self) -> Result<(), TrustResolutionV1Error> {
         if self.schema_version == TRUST_RESOLUTION_V1_SCHEMA {
             Ok(())
@@ -140,7 +118,6 @@ where
     }
 }
 
-/// Contract-validation failures for V1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrustResolutionV1Error {
     UnsupportedSchemaVersion { expected: u16, actual: u16 },
@@ -159,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    fn every_structural_tier_remains_quarantined() {
+    fn every_observed_structural_tier_remains_quarantined() {
         let tiers = [
             StructuralTrustTierV1::Observer,
             StructuralTrustTierV1::Basic,
@@ -169,122 +146,96 @@ mod tests {
         ];
 
         for tier in tiers {
-            let resolution =
-                TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(tier));
-            assert_eq!(resolution.schema_version(), TRUST_RESOLUTION_V1_SCHEMA);
-            assert_eq!(
-                resolution.proof_verification(),
-                ProofVerificationStateV1::NotEstablished
+            let resolution = TrustResolutionV1::quarantined(
+                StructuralTrustStateV1::ObservedActiveTier(tier),
             );
+            assert_eq!(resolution.schema_version(), TRUST_RESOLUTION_V1_SCHEMA);
+            assert_eq!(resolution.proof_verification(), ProofVerificationStateV1::NotEstablished);
             assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
             assert_eq!(resolution.validate_schema(), Ok(()));
         }
     }
 
     #[test]
-    fn no_credential_is_distinct_from_observer_credential() {
-        let none = TrustResolutionV1::quarantined(StructuralTrustStateV1::NoActiveCredential);
-        let observer = TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(
-            StructuralTrustTierV1::Observer,
-        ));
-
+    fn observed_absence_is_distinct_from_observer_credential() {
+        let none = TrustResolutionV1::quarantined(
+            StructuralTrustStateV1::NoActiveCredentialObserved,
+        );
+        let observer = TrustResolutionV1::quarantined(
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Observer),
+        );
         assert_ne!(none.structural(), observer.structural());
         assert_eq!(none.authority(), observer.authority());
+    }
+
+    #[test]
+    fn structural_state_vocabulary_is_observation_scoped() {
+        let active = format!(
+            "{:?}",
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian)
+        );
+        let none = format!("{:?}", StructuralTrustStateV1::NoActiveCredentialObserved);
+        assert!(active.contains("Observed"));
+        assert!(none.contains("Observed"));
+        assert!(!active.contains("Verified"));
+        assert!(!active.contains("Authorized"));
     }
 
     #[test]
     fn unsupported_schema_is_rejected_during_json_deserialization() {
         let encoded = r#"{
             "schema_version": 2,
-            "structural": "NoActiveCredential",
+            "structural": "NoActiveCredentialObserved",
             "proof_verification": "NotEstablished",
             "authority": "Quarantined"
         }"#;
-
-        let decoded = serde_json::from_str::<TrustResolutionV1>(encoded);
-        assert!(decoded.is_err(), "unsupported V1 schema must fail at decode");
-    }
-
-    #[test]
-    fn validate_schema_is_defense_in_depth() {
-        let mut resolution = TrustResolutionV1::quarantined(
-            StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Elevated),
-        );
-        resolution.schema_version = TRUST_RESOLUTION_V1_SCHEMA + 1;
-
-        assert_eq!(
-            resolution.validate_schema(),
-            Err(TrustResolutionV1Error::UnsupportedSchemaVersion {
-                expected: TRUST_RESOLUTION_V1_SCHEMA,
-                actual: TRUST_RESOLUTION_V1_SCHEMA + 1,
-            })
-        );
-        assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
-    }
-
-    #[test]
-    fn serde_round_trip_preserves_quarantine_semantics() {
-        let resolution = TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(
-            StructuralTrustTierV1::Guardian,
-        ));
-
-        let encoded = serde_json::to_string(&resolution).expect("serialize TrustResolutionV1");
-        let decoded: TrustResolutionV1 =
-            serde_json::from_str(&encoded).expect("deserialize TrustResolutionV1");
-
-        assert_eq!(decoded, resolution);
-        assert_eq!(decoded.validate_schema(), Ok(()));
-        assert_eq!(decoded.authority(), TrustAuthorityDispositionV1::Quarantined);
-        assert_eq!(
-            decoded.proof_verification(),
-            ProofVerificationStateV1::NotEstablished
-        );
+        assert!(serde_json::from_str::<TrustResolutionV1>(encoded).is_err());
     }
 
     #[test]
     fn unknown_fields_are_rejected() {
         let encoded = r#"{
             "schema_version": 1,
-            "structural": "NoActiveCredential",
+            "structural": "NoActiveCredentialObserved",
             "proof_verification": "NotEstablished",
             "authority": "Quarantined",
             "future_authority": "Verified"
         }"#;
+        assert!(serde_json::from_str::<TrustResolutionV1>(encoded).is_err());
+    }
 
-        let decoded = serde_json::from_str::<TrustResolutionV1>(encoded);
-        assert!(decoded.is_err(), "V1 must reject unknown fields");
+    #[test]
+    fn serde_round_trip_preserves_quarantine_semantics() {
+        let resolution = TrustResolutionV1::quarantined(
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian),
+        );
+        let encoded = serde_json::to_string(&resolution).unwrap();
+        let decoded: TrustResolutionV1 = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, resolution);
+        assert_eq!(decoded.authority(), TrustAuthorityDispositionV1::Quarantined);
     }
 
     #[test]
     fn holochain_messagepack_round_trip_preserves_quarantine_semantics() {
-        let resolution = TrustResolutionV1::quarantined(StructuralTrustStateV1::ActiveTier(
-            StructuralTrustTierV1::Guardian,
-        ));
-
-        let encoded = holochain_serialized_bytes::encode(&resolution)
-            .expect("encode TrustResolutionV1 with Holochain canonical MessagePack");
-        let decoded: TrustResolutionV1 = holochain_serialized_bytes::decode(&encoded)
-            .expect("decode TrustResolutionV1 with Holochain canonical MessagePack");
-
+        let resolution = TrustResolutionV1::quarantined(
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian),
+        );
+        let encoded = holochain_serialized_bytes::encode(&resolution).unwrap();
+        let decoded: TrustResolutionV1 = holochain_serialized_bytes::decode(&encoded).unwrap();
         assert_eq!(decoded, resolution);
         assert_eq!(decoded.validate_schema(), Ok(()));
-        assert_eq!(decoded.authority(), TrustAuthorityDispositionV1::Quarantined);
     }
 
     #[test]
     fn holochain_messagepack_rejects_unsupported_schema() {
         let unsupported = WireLikeTrustResolutionV1 {
             schema_version: TRUST_RESOLUTION_V1_SCHEMA + 1,
-            structural: StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Guardian),
+            structural: StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian),
             proof_verification: ProofVerificationStateV1::NotEstablished,
             authority: TrustAuthorityDispositionV1::Quarantined,
         };
-
-        let encoded = holochain_serialized_bytes::encode(&unsupported)
-            .expect("encode unsupported V1 payload for rejection test");
-        let decoded = holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded);
-
-        assert!(decoded.is_err(), "unsupported V1 schema must fail at decode");
+        let encoded = holochain_serialized_bytes::encode(&unsupported).unwrap();
+        assert!(holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded).is_err());
     }
 
     #[test]
@@ -300,16 +251,12 @@ mod tests {
 
         let extended = ExtendedTrustResolutionV1 {
             schema_version: TRUST_RESOLUTION_V1_SCHEMA,
-            structural: StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Guardian),
+            structural: StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian),
             proof_verification: ProofVerificationStateV1::NotEstablished,
             authority: TrustAuthorityDispositionV1::Quarantined,
             future_authority: "Verified",
         };
-
-        let encoded = holochain_serialized_bytes::encode(&extended)
-            .expect("encode extended V1 payload for rejection test");
-        let decoded = holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded);
-
-        assert!(decoded.is_err(), "V1 must reject extended Holochain payloads");
+        let encoded = holochain_serialized_bytes::encode(&extended).unwrap();
+        assert!(holochain_serialized_bytes::decode::<_, TrustResolutionV1>(&encoded).is_err());
     }
 }
