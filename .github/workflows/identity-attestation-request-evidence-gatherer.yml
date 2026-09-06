@@ -1,0 +1,159 @@
+name: Identity Attestation Request Evidence Gatherer
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-evidence-gatherer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-evidence-gatherer.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-evidence-gatherer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert mechanical network boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/attestation-request-evidence-gatherer'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'hdk',
+              'holo_hash',
+              'mycelix-attestation-request-resolution-runtime',
+              'trust_credential_integrity',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: gatherer dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-attestation-request-resolution-runtime'].get('path') != '../attestation-request-resolution-runtime':
+              raise SystemExit('ERROR: gatherer is not bound to canonical resolution runtime')
+          if deps['trust_credential_integrity'].get('path') != '../../zomes/trust_credential/integrity':
+              raise SystemExit('ERROR: gatherer is not bound to canonical request entry/link types')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'get_links_details(query, GetStrategy::Network)',
+              'Historical SubjectToRequest discovery-link deletion observed',
+              'action.target_address.clone()',
+              'target.into_action_hash()',
+              'get_details(action_hash.clone(), GetOptions::network())',
+              'ValidationStatus::Valid',
+              'Action::Create(_)',
+              'unique_action_hashes(&details.deletes)',
+              'unique_action_hashes(&details.updates)',
+              'update_details.updates.is_empty()',
+              'update_details.deletes.is_empty()',
+              'let update_record = update_details.record;',
+              'same validated RecordDetails observation',
+              'update_action.original_action_address',
+              'validate_unique_request_ids_v1(&root_requests)',
+              'resolve_attestation_request_lineage_v1(',
+              'sys_time()?.as_micros()',
+              'ObservedAttestationRequestRecordV1',
+              'pub use mycelix_attestation_request_resolution_runtime::ObservedAttestationRequestStateV1;',
+              'pub canonical_root_record: Record',
+              'contains `Pending` in its embedded request entry',
+              'Callers must use `state`',
+              'resolve_subject_attestation_requests_v1',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: evidence gatherer contract missing: {needle!r}')
+
+          # Traversal may gather, deduplicate and delegate. It may not redefine
+          # root/lifecycle state or select winners.
+          forbidden = [
+              'AttestationStatus::',
+              'AttestationRequestTransitionV1',
+              'validate_attestation_request_transition_v1',
+              'AttestationRequestRootAssertionV1',
+              'validate_attestation_request_root_assertion_v1',
+              'ChainQueryFilter',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
+              'min_score()',
+              'pub root_record: Record',
+              'get(update_hash.clone(), GetOptions::network())',
+          ]
+          for needle in forbidden:
+              if needle in text:
+                  raise SystemExit(f'ERROR: policy/winner/evidence-coherence ambiguity leaked into evidence gatherer: {needle!r}')
+
+          # The gatherer must not rely on active-link-only discovery, because that
+          # could hide historical SubjectToRequest link deletion evidence.
+          if 'get_links(' in text:
+              raise SystemExit('ERROR: active-link-only request discovery reintroduced')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/Cargo.toml \
+            -- --check
+
+      - name: Test canonical lifecycle policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Test canonical request resolution runtime
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/Cargo.toml
+
+      - name: Test evidence gatherer
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/Cargo.toml
+
+      - name: Check evidence gatherer for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-gatherer/Cargo.toml \
+            --target wasm32-unknown-unknown

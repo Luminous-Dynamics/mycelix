@@ -9,6 +9,8 @@ members = [
     "crates/attestation-request-root-policy",
     # Fail-closed observed attestation request state adapter
     "crates/attestation-request-resolution-runtime",
+    # Network-aware mechanical request evidence gatherer
+    "crates/attestation-request-evidence-gatherer",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure

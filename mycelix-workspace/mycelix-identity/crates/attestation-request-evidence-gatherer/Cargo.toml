@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-attestation-request-evidence-gatherer"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Network-aware evidence gatherer for observed Mycelix attestation request state"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+holo_hash = { workspace = true }
+mycelix-attestation-request-resolution-runtime = { path = "../attestation-request-resolution-runtime" }
+trust_credential_integrity = { path = "../../zomes/trust_credential/integrity" }
