@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-effect-admission-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-durable-effect-admission = { path = "../mycelix-ssf-durable-effect-admission" }
+mycelix-ssf-execution-surface-admission = { path = "../mycelix-ssf-execution-surface-admission" }
+mycelix-ssf-historical-effect-admission-reconciliation = { path = "../mycelix-ssf-historical-effect-admission-reconciliation" }
