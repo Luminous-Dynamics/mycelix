@@ -3,11 +3,15 @@
 //! Fail-closed runtime composition for current operational authority freshness.
 //!
 //! The binding constitutional head comes from the existing constitution-transition
-//! authority plane. Root adoption, probe provenance, source authentication,
-//! witness/trust verification and transition verification remain separate roles.
-//! Positive authority is reconstructed locally through the pure kernels.
+//! authority plane. Root-adoption proof authentication, probe provenance, source
+//! authentication, witness/trust verification and transition verification remain
+//! separate roles. Positive authority is reconstructed locally through pure kernels.
 
 use hdk::prelude::*;
+use mycelix_authority_bootstrap_root_adoption_verifier::{
+    build_adoption_claim, qualify_bootstrap_root_adoption, BootstrapRootAdoptionClaim,
+    VerifiedBootstrapRootAdoptionProof, ADOPTION_CLAIM_PROFILE,
+};
 use mycelix_authority_control_plane_freshness::{
     qualify_control_plane_subject_freshness, QualifiedControlPlaneSubjectFreshness,
 };
@@ -16,8 +20,7 @@ use mycelix_authority_operational_context::qualify_operational_policy_context;
 use mycelix_authority_operational_freshness::qualify_operational_subject_freshness;
 use mycelix_authority_state_bootstrap_root::{
     qualify_bootstrap_root, AuthorityStateBootstrapRootManifest,
-    VerifiedBootstrapRootAdoption, VerifiedCurrentConstitutionReceipt,
-    CURRENT_CONSTITUTION_RECEIPT_PROTOCOL,
+    VerifiedCurrentConstitutionReceipt, CURRENT_CONSTITUTION_RECEIPT_PROTOCOL,
 };
 use mycelix_authority_state_coverage::{
     VerifiedAuthorityCoveragePolicy, VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead,
@@ -37,7 +40,9 @@ const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
-const ROOT_ADOPTION_VERIFIER_ZOME: &str = "authority_bootstrap_root_adoption_verifier";
+const ROOT_ADOPTION_PROOF_VERIFIER_ZOME: &str =
+    "authority_bootstrap_root_adoption_proof_verifier";
+const ROOT_ADOPTION_PROOF_VERIFIER_FUNCTION: &str = "verify_bootstrap_root_adoption_proof";
 const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_provider";
 const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
 const PROBE_VERIFIER_ZOME: &str = "authority_state_challenge";
@@ -48,16 +53,9 @@ const MAX_CONTROL_PLANE_PROBES: usize = 3;
 const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
-/// Long enough to complete one bounded composition, but never an indefinite
-/// constitutional-currentness assertion.
 const CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS: u64 = 30_000;
-/// Positive output is reusable only briefly after the final constitutional fence.
 const CURRENT_CONSTITUTION_RETURN_LEASE_MS: u64 = 5_000;
 
-/// Mirror of `constitution_transition::VerifiedCurrentConstitution`.
-///
-/// This is evidence-shaped transport data. The authoritative semantics come from
-/// the fixed local zome/function plus local digest/legacy checks below.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct VerifiedCurrentConstitutionMirror {
     dna_hash: String,
@@ -68,13 +66,13 @@ struct VerifiedCurrentConstitutionMirror {
     legacy_constitution_authoritative: bool,
 }
 
-/// Exact candidate manifest + independently projected current constitutional
-/// identity. Adoption verification remains a separate role.
+/// The proof-verifier receives the exact semantic adoption claim constructed
+/// locally. It may authenticate that claim/proof, but cannot return #111 authority.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RootAdoptionVerificationRequest {
-    pub manifest: AuthorityStateBootstrapRootManifest,
-    pub current_constitution_digest: Digest32,
-    pub current_constitution_profile: String,
+pub struct RootAdoptionProofVerificationRequest {
+    pub claim: BootstrapRootAdoptionClaim,
+    pub claim_digest: Digest32,
+    pub claim_profile: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -168,7 +166,8 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub current_constitution_source_is_binding_plane: bool,
     pub constitution_rechecked_after_adoption: bool,
     pub constitution_rechecked_before_return: bool,
-    pub root_adoption_verifier_separate: bool,
+    pub root_adoption_proof_verifier_separate: bool,
+    pub root_adoption_constructed_locally: bool,
     pub evidence_plan_grants_authority: bool,
     pub latest_dht_record_authority: bool,
     pub provider_positive_object_authority: bool,
@@ -305,8 +304,6 @@ fn current_constitution_receipt(
 }
 
 fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
-    // First constitutional fence: this is the actual binding constitutional plane
-    // from #57, not a new abstract verifier receipt.
     let constitution_before = resolve_binding_current_constitution()?;
 
     let manifest: AuthorityStateBootstrapRootManifest = call_local(
@@ -325,24 +322,51 @@ fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
         )))
     })?;
 
-    let adoption: VerifiedBootstrapRootAdoption = call_local(
-        ROOT_ADOPTION_VERIFIER_ZOME,
-        "verify_bootstrap_root_adoption",
-        RootAdoptionVerificationRequest {
-            manifest: manifest.clone(),
-            current_constitution_digest: constitution_digest_to_core(
-                constitution_before.statement_digest,
-            ),
-            current_constitution_profile: STATEMENT_PROFILE.into(),
+    // #148 reconstructs the semantic adoption claim from the exact current
+    // constitution + candidate root. The proof verifier authenticates only this
+    // exact claim/proof instance and cannot emit the #111 adoption receipt.
+    let adoption_claim = build_adoption_claim(&manifest, &constitution_before.statement)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "bootstrap-root adoption claim denied: {error}"
+            )))
+        })?;
+    let adoption_claim_digest = adoption_claim.identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute bootstrap-root adoption claim identity: {error}"
+        )))
+    })?;
+    let adoption_proof: VerifiedBootstrapRootAdoptionProof = call_local(
+        ROOT_ADOPTION_PROOF_VERIFIER_ZOME,
+        ROOT_ADOPTION_PROOF_VERIFIER_FUNCTION,
+        RootAdoptionProofVerificationRequest {
+            claim: adoption_claim,
+            claim_digest: adoption_claim_digest,
+            claim_profile: ADOPTION_CLAIM_PROFILE.into(),
         },
     )?;
 
-    // Re-project after adoption verification. A constitutional transition racing
-    // the adoption check invalidates the whole root qualification attempt.
     let constitution_after = resolve_binding_current_constitution()?;
     ensure_same_constitution(&constitution_before, &constitution_after)?;
 
     let now = now_ms()?;
+    let qualified_adoption = qualify_bootstrap_root_adoption(
+        &manifest,
+        &constitution_after.statement,
+        &adoption_proof,
+        now,
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "bootstrap-root adoption qualification denied: {error}"
+        )))
+    })?;
+    if qualified_adoption.claim_digest() != adoption_claim_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "qualified bootstrap-root adoption claim changed during composition".into(),
+        )));
+    }
+    let adoption = qualified_adoption.to_verified_adoption();
     let constitution_receipt = current_constitution_receipt(&constitution_after, now)?;
     let root = qualify_bootstrap_root(&manifest, &constitution_receipt, &adoption, now)
         .map_err(|error| {
@@ -561,9 +585,6 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    // Final constitutional fence spans the whole composition, not just root
-    // adoption. Any constitutional advancement during policy/source/witness/
-    // transition work denies the request.
     let final_constitution = resolve_binding_current_constitution()?;
     ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;
     let final_now = now_ms()?;
@@ -622,7 +643,8 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         current_constitution_source_is_binding_plane: true,
         constitution_rechecked_after_adoption: true,
         constitution_rechecked_before_return: true,
-        root_adoption_verifier_separate: true,
+        root_adoption_proof_verifier_separate: true,
+        root_adoption_constructed_locally: true,
         evidence_plan_grants_authority: false,
         latest_dht_record_authority: false,
         provider_positive_object_authority: false,
