@@ -59,3 +59,18 @@ holochain_client = "0.8.1"
 holochain_types = "0.5"
 holochain_zome_types = "0.5"
 holochain_keystore = "0.5"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml"
+reason = "Legacy simplified Pulse DNA integrity crate is an isolated workspace still pinned to HDI 0.7.0."
+hdi = "0.7.0"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml"
+reason = "Legacy simplified Pulse DNA mail_messages coordinator is an isolated workspace still pinned to HDK 0.6.0."
+hdk = "0.6.0"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml"
+reason = "Legacy simplified Pulse DNA trust_filter coordinator is an isolated workspace still pinned to HDK 0.6.0."
+hdk = "0.6.0"
