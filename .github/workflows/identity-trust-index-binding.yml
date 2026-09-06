@@ -1,0 +1,75 @@
+name: Identity Trust Index Binding
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-trust-index-binding.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-trust-index-binding.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  trust-index-binding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert trust indexes are DHT-bound
+        shell: bash
+        run: |
+          FILE=mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/link_binding.rs
+          MANIFEST=mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml
+
+          grep -Fq 'holo_hash = { workspace = true }' "$MANIFEST"
+          grep -Fq 'Trust index links must target canonical creation actions' "$FILE"
+          grep -Fq 'Trust index link author must match target record author' "$FILE"
+          grep -Fq 'holo_hash::blake2b_256' "$FILE"
+
+          for variant in \
+            SubjectToCredential \
+            IssuerToCredential \
+            TierToCredential \
+            SubjectToRequest \
+            CredentialToPresentation
+          do
+            grep -Fq "LinkTypes::$variant" "$FILE"
+          done
+
+          for domain in 'subject:' 'issuer:' 'tier:' 'requests:' 'credential:'
+          do
+            grep -Fq "$domain" "$FILE"
+          done
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check integrity formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            -- --check
+
+      - name: Test trust credential integrity
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --lib
+
+      - name: Check trust credential integrity for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
