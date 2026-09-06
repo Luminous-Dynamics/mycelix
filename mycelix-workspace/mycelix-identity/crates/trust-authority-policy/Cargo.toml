@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-trust-authority-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Dependency-free fixed-point K-vector trust authority theorem"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
