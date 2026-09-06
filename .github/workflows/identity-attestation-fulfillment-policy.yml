@@ -1,0 +1,175 @@
+name: Identity Attestation Fulfillment Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - '.github/workflows/identity-attestation-fulfillment-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - '.github/workflows/identity-attestation-fulfillment-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-fulfillment-policy-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert fulfillment theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/attestation-fulfillment-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-attestation-request-root-policy',
+              'mycelix-trust-authority-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: fulfillment policy dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-attestation-request-root-policy'].get('path') != '../attestation-request-root-policy':
+              raise SystemExit('ERROR: fulfillment policy is not bound to canonical request-root policy')
+          if deps['mycelix-trust-authority-policy'].get('path') != '../trust-authority-policy':
+              raise SystemExit('ERROR: fulfillment policy is not bound to canonical trust-authority policy')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: fulfillment policy must use workspace-qualified SHA-256')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'REQUEST_ROOT_RAW39_LEN_V2: usize = 39',
+              'K_VECTOR_COMMITMENT_LEN_V2: usize = 32',
+              'FULFILLMENT_ID_LEN_V2: usize = 32',
+              'mycelix:identity:attestation-fulfillment:v2\\0',
+              'AttestationFulfillmentStatementV2',
+              'pub trust_score_lower_scaled: u64',
+              'pub trust_score_upper_scaled: u64',
+              'validate_score_range_v2(',
+              'guaranteed_attestation_fulfillment_tier_v2',
+              'guaranteed_trust_tier_v2(',
+              'statement.trust_score_lower_scaled.to_be_bytes()',
+              'statement.trust_score_upper_scaled.to_be_bytes()',
+              'QualifiedAttestationProofVerificationV2',
+              'qualify_attestation_proof_verification_v2',
+              'summarize_attestation_fulfillment_observations_v2',
+              'distinct_ids.contains(&fulfillment_id)',
+              'ObservedAttestationFulfillmentSetV2::Converged',
+              'ObservedAttestationFulfillmentSetV2::Conflict',
+              'deterministic_vector_is_frozen',
+              '0x22, 0xa6, 0xf3, 0xa7',
+              'fulfillment_delegates_guaranteed_tier_to_authority_theorem',
+              'different_qualified_proof_encodings_for_same_statement_converge',
+              'proof_token_cannot_be_reused_for_different_proof_encoding',
+              'distinct_qualified_statements_for_one_root_are_conflict_not_latest_wins',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: fulfillment theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'f32',
+              'f64',
+              'canonical_f32',
+              'trust_score_non_finite',
+              'trustscorenonfinite',
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde::',
+              'sys_time(',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: float/Holochain/winner semantics leaked into pure fulfillment policy: {forbidden!r}')
+
+          if 'pub proof_verified: bool' in text:
+              raise SystemExit('ERROR: naked proof verification boolean re-entered aggregation API')
+
+          derive_start = text.index('pub fn derive_attestation_fulfillment_id_v2(')
+          derive_end = text.index('fn validate_claim_and_id_v2(', derive_start)
+          derive_body = text[derive_start:derive_end]
+          for forbidden in [
+              'range_proof',
+              'signature_validated',
+              'policy_accepted',
+              'policy_current',
+              'verification_record_sha256',
+              'sys_time(',
+              'ActionHash',
+          ]:
+              if forbidden in derive_body:
+                  raise SystemExit(
+                      f'ERROR: non-semantic proof/attempt material leaked into fulfillment identity: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/Cargo.toml \
+            -- --check
+
+      - name: Test canonical request lifecycle policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Test canonical request-root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Test fixed-point trust-authority theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml
+
+      - name: Test fulfillment policy V2
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/Cargo.toml
+
+      - name: Check fulfillment policy V2 for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
