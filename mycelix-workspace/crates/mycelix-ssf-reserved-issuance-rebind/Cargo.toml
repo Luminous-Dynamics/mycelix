@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-reserved-issuance-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-persisted-registration-rebind = { path = "../mycelix-ssf-persisted-registration-rebind" }
+mycelix-ssf-single-use-issuance-reservation = { path = "../mycelix-ssf-single-use-issuance-reservation" }
+mycelix-ssf-historical-issuance-reservation-reconciliation = { path = "../mycelix-ssf-historical-issuance-reservation-reconciliation" }
