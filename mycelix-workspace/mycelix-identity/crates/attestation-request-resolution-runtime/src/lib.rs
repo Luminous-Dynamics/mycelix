@@ -15,9 +15,13 @@
 #![forbid(unsafe_code)]
 
 use mycelix_attestation_request_policy::{
-    AttestationRequestAssertionEqualityV1, AttestationRequestStatusV1,
-    AttestationRequestTransitionErrorV1, AttestationRequestTransitionV1,
-    classify_attestation_request_actor_v1, validate_attestation_request_transition_v1,
+    AttestationRequestAssertionEqualityV1, AttestationRequestTransitionErrorV1,
+    AttestationRequestTransitionV1, classify_attestation_request_actor_v1,
+    validate_attestation_request_transition_v1,
+};
+use mycelix_attestation_request_root_policy::{
+    AttestationRequestRootAssertionErrorV1, AttestationRequestRootAssertionV1,
+    AttestationRequestStatusV1, validate_attestation_request_root_assertion_v1,
 };
 use trust_credential_integrity::{AttestationRequest, AttestationStatus};
 
@@ -65,17 +69,9 @@ pub enum ObservedAttestationRequestStateV1 {
 /// Fail-closed defects in historical/request observation evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttestationRequestResolutionErrorV1 {
-    RootIdMissing,
     RootAuthorMismatch,
-    RootRequesterDidInvalid,
-    RootSubjectDidInvalid,
     RootSubjectMismatch,
-    RootSelfRequest,
-    RootComponentsEmpty,
-    RootPurposeInvalid,
-    RootStatusNotPending,
-    RootMinTrustScoreNonFinite,
-    RootMinTrustScoreOutOfBounds,
+    RootPolicyRejected(AttestationRequestRootAssertionErrorV1),
     HistoricalDeleteObserved { count: usize },
     NonRootUpdateObserved { index: usize },
     UpdatePolicyRejected {
@@ -87,10 +83,6 @@ pub enum AttestationRequestResolutionErrorV1 {
         first_index: usize,
         second_index: usize,
     },
-}
-
-fn valid_did_shape(did: &str) -> bool {
-    !did.is_empty() && did.len() <= 256 && did.starts_with("did:")
 }
 
 fn status_v1(status: &AttestationStatus) -> AttestationRequestStatusV1 {
@@ -121,47 +113,35 @@ fn assertion_equality_v1(
 }
 
 /// Re-audit a canonical request creation root before any observed state is used.
+///
+/// Structural truth is delegated to the canonical root-policy crate. This adapter
+/// owns only root-action author binding and subject-index binding.
 pub fn validate_attestation_request_root_v1(
     root: &AttestationRequest,
     root_author_did: &str,
     expected_subject_did: &str,
 ) -> Result<(), AttestationRequestResolutionErrorV1> {
-    if root.id.is_empty() {
-        return Err(AttestationRequestResolutionErrorV1::RootIdMissing);
-    }
     if root.requester_did != root_author_did {
         return Err(AttestationRequestResolutionErrorV1::RootAuthorMismatch);
-    }
-    if !valid_did_shape(&root.requester_did) {
-        return Err(AttestationRequestResolutionErrorV1::RootRequesterDidInvalid);
-    }
-    if !valid_did_shape(&root.subject_did) {
-        return Err(AttestationRequestResolutionErrorV1::RootSubjectDidInvalid);
     }
     if root.subject_did != expected_subject_did {
         return Err(AttestationRequestResolutionErrorV1::RootSubjectMismatch);
     }
-    if root.requester_did == root.subject_did {
-        return Err(AttestationRequestResolutionErrorV1::RootSelfRequest);
-    }
-    if root.components.is_empty() {
-        return Err(AttestationRequestResolutionErrorV1::RootComponentsEmpty);
-    }
-    if root.purpose.is_empty() || root.purpose.len() > 2048 {
-        return Err(AttestationRequestResolutionErrorV1::RootPurposeInvalid);
-    }
-    if root.status != AttestationStatus::Pending {
-        return Err(AttestationRequestResolutionErrorV1::RootStatusNotPending);
-    }
-    if let Some(score) = root.min_trust_score {
-        if !score.is_finite() {
-            return Err(AttestationRequestResolutionErrorV1::RootMinTrustScoreNonFinite);
-        }
-        if !(0.0..=1.0).contains(&score) {
-            return Err(AttestationRequestResolutionErrorV1::RootMinTrustScoreOutOfBounds);
-        }
-    }
-    Ok(())
+
+    let assertion = AttestationRequestRootAssertionV1 {
+        id: &root.id,
+        requester_did: &root.requester_did,
+        subject_did: &root.subject_did,
+        component_count: root.components.len(),
+        purpose: &root.purpose,
+        min_trust_score: root.min_trust_score,
+        status: status_v1(&root.status),
+        created_at_micros: root.created_at.as_micros(),
+        expires_at_micros: root.expires_at.as_micros(),
+    };
+
+    validate_attestation_request_root_assertion_v1(assertion)
+        .map_err(AttestationRequestResolutionErrorV1::RootPolicyRejected)
 }
 
 /// Fail closed when two distinct canonical roots expose the same free-form request
@@ -335,56 +315,74 @@ mod tests {
     }
 
     #[test]
-    fn malformed_root_shape_fails_closed() {
+    fn malformed_root_shape_fails_closed_through_shared_policy() {
         let mut request = root();
         request.components.clear();
         assert_eq!(
             validate_attestation_request_root_v1(&request, REQUESTER, SUBJECT),
-            Err(AttestationRequestResolutionErrorV1::RootComponentsEmpty)
+            Err(AttestationRequestResolutionErrorV1::RootPolicyRejected(
+                AttestationRequestRootAssertionErrorV1::ComponentsEmpty,
+            ))
         );
 
         let mut request = root();
         request.purpose.clear();
         assert_eq!(
             validate_attestation_request_root_v1(&request, REQUESTER, SUBJECT),
-            Err(AttestationRequestResolutionErrorV1::RootPurposeInvalid)
+            Err(AttestationRequestResolutionErrorV1::RootPolicyRejected(
+                AttestationRequestRootAssertionErrorV1::PurposeInvalid,
+            ))
         );
 
         let mut request = root();
         request.status = AttestationStatus::Fulfilled;
         assert_eq!(
             validate_attestation_request_root_v1(&request, REQUESTER, SUBJECT),
-            Err(AttestationRequestResolutionErrorV1::RootStatusNotPending)
+            Err(AttestationRequestResolutionErrorV1::RootPolicyRejected(
+                AttestationRequestRootAssertionErrorV1::RootStatusNotPending,
+            ))
         );
     }
 
     #[test]
-    fn historical_nonfinite_and_out_of_bounds_thresholds_fail_closed() {
+    fn historical_nonfinite_and_out_of_bounds_thresholds_fail_closed_through_shared_policy() {
         for (score, expected) in [
             (
                 f32::NAN,
-                AttestationRequestResolutionErrorV1::RootMinTrustScoreNonFinite,
+                AttestationRequestRootAssertionErrorV1::MinTrustScoreNonFinite,
             ),
             (
                 f32::INFINITY,
-                AttestationRequestResolutionErrorV1::RootMinTrustScoreNonFinite,
+                AttestationRequestRootAssertionErrorV1::MinTrustScoreNonFinite,
             ),
             (
                 -0.01,
-                AttestationRequestResolutionErrorV1::RootMinTrustScoreOutOfBounds,
+                AttestationRequestRootAssertionErrorV1::MinTrustScoreOutOfBounds,
             ),
             (
                 1.01,
-                AttestationRequestResolutionErrorV1::RootMinTrustScoreOutOfBounds,
+                AttestationRequestRootAssertionErrorV1::MinTrustScoreOutOfBounds,
             ),
         ] {
             let mut request = root();
             request.min_trust_score = Some(score);
             assert_eq!(
                 validate_attestation_request_root_v1(&request, REQUESTER, SUBJECT),
-                Err(expected)
+                Err(AttestationRequestResolutionErrorV1::RootPolicyRejected(expected))
             );
         }
+    }
+
+    #[test]
+    fn historical_invalid_validity_interval_fails_closed_through_shared_policy() {
+        let mut request = root();
+        request.expires_at = request.created_at;
+        assert_eq!(
+            validate_attestation_request_root_v1(&request, REQUESTER, SUBJECT),
+            Err(AttestationRequestResolutionErrorV1::RootPolicyRejected(
+                AttestationRequestRootAssertionErrorV1::InvalidValidityInterval,
+            ))
+        );
     }
 
     #[test]
