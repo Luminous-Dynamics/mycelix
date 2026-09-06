@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-source-owned-operation-material"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-capability-time-effect-revalidation = { path = "../mycelix-ssf-capability-time-effect-revalidation" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-execution-surface-admission = { path = "../mycelix-ssf-execution-surface-admission" }
