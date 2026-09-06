@@ -1,0 +1,113 @@
+name: Pulse Holochain Qualification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/**'
+      - 'mycelix-workspace/Cargo.toml'
+      - 'mycelix-workspace/Cargo.lock'
+      - 'mycelix-workspace/flake.nix'
+      - 'mycelix-workspace/flake.lock'
+      - 'mycelix-workspace/holochain-cohort.toml'
+      - 'nix/modules/holochain-base.nix'
+      - '.github/scripts/check_holochain_cohort.py'
+      - '.github/workflows/pulse-holochain.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-pulse/**'
+      - 'mycelix-workspace/Cargo.toml'
+      - 'mycelix-workspace/Cargo.lock'
+      - 'mycelix-workspace/flake.nix'
+      - 'mycelix-workspace/flake.lock'
+      - 'mycelix-workspace/holochain-cohort.toml'
+      - 'nix/modules/holochain-base.nix'
+      - '.github/scripts/check_holochain_cohort.py'
+      - '.github/workflows/pulse-holochain.yml'
+
+concurrency:
+  group: pulse-holochain-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: '-D warnings'
+
+jobs:
+  pulse-zomes:
+    name: Pulse zomes (fmt, clippy, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-pulse/holochain
+      - name: Check formatting
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Unit tests
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: cargo test --workspace --lib
+      - name: WASM checks
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: cargo check --workspace --target wasm32-unknown-unknown
+
+  pulse-backend:
+    name: Pulse backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+      HOLOCHAIN_STUB_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-pulse/happ/backend-rs
+      - name: Backend tests
+        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        run: cargo test
+
+  pulse-cohort:
+    name: Holochain compatibility contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Rust, Nix, Pulse, and quarantine bindings
+        run: python3 .github/scripts/check_holochain_cohort.py
+
+  pulse-ci-pass:
+    name: Pulse qualification gate
+    if: always()
+    needs: [pulse-zomes, pulse-backend, pulse-cohort]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every Pulse qualification job
+        run: |
+          for result in \
+            '${{ needs.pulse-zomes.result }}' \
+            '${{ needs.pulse-backend.result }}' \
+            '${{ needs.pulse-cohort.result }}'; do
+            if [ "$result" != 'success' ]; then
+              echo "Pulse qualification result: $result"
+              exit 1
+            fi
+          done
+          echo 'Pulse Holochain qualification passed.'

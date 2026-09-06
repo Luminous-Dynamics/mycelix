@@ -1,0 +1,76 @@
+schema = 1
+state = "quarantined-drift"
+
+# Canonical Rust dependency cohort used by active Mycelix Holochain code.
+[rust]
+holochain = "0.6.1"
+hdk = "0.6.1"
+hdi = "0.7.1"
+holochain_client = "0.8.1"
+holochain_types = "0.6.1"
+holochain_zome_types = "0.6.1"
+holochain_integrity_types = "0.6.1"
+holochain_state = "0.6.1"
+holochain_p2p = "0.6.1"
+holochain_keystore = "0.6.1"
+holochain_sqlite = "0.6.1"
+holo_hash = "0.6.1"
+holochain_serialized_bytes = "0.0.57"
+holochain_wasmer_host = "0.0.102"
+kitsune2 = "0.4.1"
+lair_keystore = "0.6.3"
+
+# Resolved Nix/Holonix runtime cohort at the baseline captured by this file.
+# This is deliberately explicit because it does NOT currently match [rust].
+[nix]
+holonix_rev = "d21b35431e425e615bc05da790987380a84b8280"
+holochain_ref = "holochain-0.6.0"
+kitsune2_ref = "v0.3.2"
+lair_keystore_ref = "v0.6.3"
+
+[policy]
+require_rust_nix_alignment = false
+quarantine_reason = "Existing baseline drift: Cargo resolves Holochain 0.6.1/Kitsune2 0.4.1 while Holonix resolves Holochain 0.6.0/Kitsune2 0.3.2. The 0.6.3 migration tranche must remove this quarantine rather than silently preserving it."
+
+# Exact coherent stepping-stone selected for the next migration tranche.
+[next_0_6]
+holonix_rev = "21d3a9f3eb1d7a533fc816ab53825f3ef35b0007"
+holochain = "0.6.3"
+hdk = "0.6.3"
+hdi = "0.7.3"
+holochain_client = "0.8.3"
+kitsune2 = "0.4.1"
+lair_keystore = "0.6.3"
+
+# Known legacy islands. Their exact drift is frozen so upgrades cannot silently
+# change only one side of an ABI/API boundary. Each quarantine must be removed
+# by a dedicated migration that proves the island joins the canonical cohort.
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml"
+reason = "Pulse CLI mixes holochain_client 0.8.1 with holochain_types/conductor_api 0.5 and must be migrated as its own compatibility boundary."
+holochain_client = "0.8.1"
+holochain_types = "0.5"
+holochain_conductor_api = "0.5"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+reason = "Pulse backend mixes holochain_client 0.8.1 with holochain_types/zome_types/keystore 0.5; stub-mode tests do not prove conductor API compatibility."
+holochain_client = "0.8.1"
+holochain_types = "0.5"
+holochain_zome_types = "0.5"
+holochain_keystore = "0.5"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml"
+reason = "Legacy simplified Pulse DNA integrity crate is an isolated workspace still pinned to HDI 0.7.0."
+hdi = "0.7.0"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml"
+reason = "Legacy simplified Pulse DNA mail_messages coordinator is an isolated workspace still pinned to HDK 0.6.0."
+hdk = "0.6.0"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml"
+reason = "Legacy simplified Pulse DNA trust_filter coordinator is an isolated workspace still pinned to HDK 0.6.0."
+hdk = "0.6.0"
