@@ -1,0 +1,111 @@
+name: Identity Trust Resolution Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-trust-protocol/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-resolution-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-trust-protocol/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-resolution-runtime.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  trust-resolution-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert fail-closed adapter contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          runtime_deps = set(manifest.get('dependencies', {}))
+          expected = {
+              'mycelix-trust-current-state-policy',
+              'mycelix-trust-protocol',
+              'trust_credential_integrity',
+          }
+          if runtime_deps != expected:
+              raise SystemExit(
+                  f'ERROR: runtime adapter dependencies changed: {sorted(runtime_deps)!r}; '
+                  f'expected exactly {sorted(expected)!r}'
+              )
+
+          text = (root / 'src/lib.rs').read_text()
+
+          constructors = re.findall(r'TrustResolutionV1::([A-Za-z_][A-Za-z0-9_]*)', text)
+          unexpected = sorted(set(constructors) - {'quarantined'})
+          if unexpected:
+              raise SystemExit(
+                  f'ERROR: runtime adapter constructs TrustResolutionV1 outside quarantine path: {unexpected!r}'
+              )
+
+          required = [
+              'credential_assertion_equivalent',
+              'observe_update',
+              'map_structural_tier',
+              'resolve_observed_credential_state',
+              'historical_tier_mutation_fails_closed',
+              'historical_proof_mutation_fails_closed',
+              'observed_guardian_remains_not_established_and_quarantined',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: required adapter contract missing: {needle}')
+
+          for tier in ['Observer', 'Basic', 'Standard', 'Elevated', 'Guardian']:
+              if f'TrustTier::{tier} => StructuralTrustTierV1::{tier}' not in text:
+                  raise SystemExit(f'ERROR: explicit tier mapping missing for {tier}')
+
+          forbidden_runtime_deps = {'hdk', 'mycelix-zkp-core', 'pyo3'}
+          leaked = runtime_deps & forbidden_runtime_deps
+          if leaked:
+              raise SystemExit(f'ERROR: forbidden authority/verifier dependencies in adapter: {sorted(leaked)!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime/Cargo.toml \
+            -- --check
+
+      - name: Test trust resolution runtime adapter
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime/Cargo.toml \
+            --lib
+
+      - name: Check trust resolution runtime adapter for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-resolution-runtime/Cargo.toml \
+            --target wasm32-unknown-unknown
