@@ -1,0 +1,166 @@
+name: Identity Attestation Request Evidence HDK
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-hdk/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-evidence-hdk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-hdk/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+      - '.github/workflows/identity-attestation-request-evidence-hdk.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-evidence-producer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert mechanical evidence boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/attestation-request-evidence-hdk'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          members = workspace.get('workspace', {}).get('members', [])
+          if member not in members:
+              raise SystemExit(f'ERROR: {member} is not an explicit workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'hdk',
+              'holo_hash',
+              'mycelix-attestation-request-root-policy',
+              'mycelix-attestation-request-resolution-runtime',
+              'trust_credential_integrity',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: evidence producer dependency drift: {sorted(deps)}')
+          if deps['mycelix-attestation-request-root-policy'].get('path') != '../attestation-request-root-policy':
+              raise SystemExit('ERROR: evidence producer is not bound to canonical root policy')
+          if deps['mycelix-attestation-request-resolution-runtime'].get('path') != '../attestation-request-resolution-runtime':
+              raise SystemExit('ERROR: evidence producer is not bound to canonical resolver')
+          if deps['trust_credential_integrity'].get('path') != '../../zomes/trust_credential/integrity':
+              raise SystemExit('ERROR: evidence producer is not bound to canonical request/link types')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'ObservedAttestationRequestEvidenceV1',
+              'root_action_hash: ActionHash',
+              'HistoricalSubjectDiscoveryDeleteObserved',
+              'RootValidationNotValid',
+              'UpdateValidationNotValid',
+              'NestedUpdateObserved',
+              'NestedDeleteObserved',
+              'subject_request_anchor_v1',
+              'format!("requests:{subject_did}")',
+              'LinkTypes::SubjectToRequest',
+              'get_links_details(query, GetStrategy::Network)',
+              'get_details(hash.clone(), GetOptions::network())',
+              'ValidationStatus::Valid',
+              'Action::CreateLink(create)',
+              'Action::Create(create)',
+              'UnitEntryTypes::AttestationRequest',
+              'Action::Update(update)',
+              'original_action_address != root_action_hash',
+              'validate_unique_request_ids_v1(&roots)',
+              'resolve_attestation_request_lineage_v1(',
+              'parent_is_canonical_root: true',
+              'sys_time()?.as_micros()',
+              'subject_input_uses_shared_did_bound',
+              'request_anchor_is_deterministic_and_subject_bound',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: mechanical request evidence contract missing: {needle!r}')
+
+          # The producer may gather evidence, but must never become a second
+          # lifecycle/state oracle or chronology winner.
+          forbidden = [
+              'ChainQueryFilter',
+              'query(',
+              'get_links(',
+              'GetStrategy::Local',
+              'GetOptions::local()',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
+              'AttestationStatus::Fulfilled => Observed',
+              'AttestationStatus::Declined => Observed',
+              'AttestationStatus::Cancelled => Observed',
+              'AttestationStatus::Expired => Observed',
+              'HistoricalSubjectDiscoveryDeleteObserved =>',
+          ]
+          for needle in forbidden:
+              if needle in text:
+                  raise SystemExit(f'ERROR: state/winner/local-only semantics leaked into producer: {needle!r}')
+
+          # All network-observed root/update records must be validation-audited.
+          if text.count('ValidationStatus::Valid') < 2:
+              raise SystemExit('ERROR: both root and update validation status must be checked')
+
+          # The producer must retain canonical root identity in its output.
+          output_start = text.index('pub struct ObservedAttestationRequestEvidenceV1')
+          output_end = text.index('/// Fail-closed defects', output_start)
+          output = text[output_start:output_end]
+          if 'root_action_hash: ActionHash' not in output:
+              raise SystemExit('ERROR: canonical root action hash was dropped from evidence output')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-hdk/Cargo.toml \
+            -- --check
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Test observed-state resolver
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-resolution-runtime/Cargo.toml
+
+      - name: Test request evidence producer
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-hdk/Cargo.toml
+
+      - name: Check request evidence producer for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-evidence-hdk/Cargo.toml \
+            --target wasm32-unknown-unknown
