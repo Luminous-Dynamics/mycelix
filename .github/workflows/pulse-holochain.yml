@@ -9,7 +9,9 @@ on:
       - 'mycelix-workspace/Cargo.lock'
       - 'mycelix-workspace/flake.nix'
       - 'mycelix-workspace/flake.lock'
+      - 'mycelix-workspace/holochain-cohort.toml'
       - 'nix/modules/holochain-base.nix'
+      - '.github/scripts/check_holochain_cohort.py'
       - '.github/workflows/pulse-holochain.yml'
   pull_request:
     branches: [main]
@@ -19,7 +21,9 @@ on:
       - 'mycelix-workspace/Cargo.lock'
       - 'mycelix-workspace/flake.nix'
       - 'mycelix-workspace/flake.lock'
+      - 'mycelix-workspace/holochain-cohort.toml'
       - 'nix/modules/holochain-base.nix'
+      - '.github/scripts/check_holochain_cohort.py'
       - '.github/workflows/pulse-holochain.yml'
 
 concurrency:
@@ -82,54 +86,12 @@ jobs:
         run: cargo test
 
   pulse-cohort:
-    name: Pulse Holochain cohort consistency
+    name: Holochain compatibility contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Pulse pins match the canonical workspace cohort
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import tomllib
-
-          root = tomllib.loads(Path('mycelix-workspace/Cargo.toml').read_text())
-          canonical = root['workspace']['dependencies']
-
-          expected = {
-              'hdk': canonical['hdk'],
-              'hdi': canonical['hdi'],
-              'holochain_integrity_types': canonical['holochain_integrity_types'],
-              'holo_hash': canonical['holo_hash'],
-          }
-
-          pulse = tomllib.loads(Path('mycelix-workspace/mycelix-pulse/holochain/Cargo.toml').read_text())
-          pulse_deps = pulse['workspace']['dependencies']
-
-          tests = tomllib.loads(Path('mycelix-workspace/mycelix-pulse/tests/Cargo.toml').read_text())
-          test_deps = tests['dev-dependencies']
-
-          def version(value):
-              if isinstance(value, str):
-                  return value
-              return value.get('version')
-
-          failures = []
-          for name, want in expected.items():
-              got = version(pulse_deps.get(name))
-              if got != version(want):
-                  failures.append(f'pulse holochain {name}: {got!r} != canonical {version(want)!r}')
-
-          for name in ('holochain', 'holochain_types', 'holo_hash', 'hdi'):
-              got = version(test_deps.get(name))
-              want = version(canonical[name])
-              if got != want:
-                  failures.append(f'pulse tests {name}: {got!r} != canonical {want!r}')
-
-          if failures:
-              raise SystemExit('\n'.join(failures))
-
-          print('Pulse Holochain Rust pins match the canonical workspace cohort.')
-          PY
+      - name: Verify Rust, Nix, Pulse, and quarantine bindings
+        run: python3 .github/scripts/check_holochain_cohort.py
 
   pulse-ci-pass:
     name: Pulse qualification gate
