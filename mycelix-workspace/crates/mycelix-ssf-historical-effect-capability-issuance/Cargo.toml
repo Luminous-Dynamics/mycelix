@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-ssf-historical-effect-capability-issuance"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-durable-effect-capability-issuance = { path = "../mycelix-ssf-durable-effect-capability-issuance" }
