@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - 'security/authority-source-head-runtime-v0.1'
+      - 'security/authority-source-head-projection-horizon-v0.1'
 
 permissions:
   contents: read
@@ -78,8 +79,10 @@ jobs:
               'challenge.challenge.identity_digest()',
               'caller_supplied_verified_challenge_accepted: false',
               'probe_reverified_locally: true',
+              'verified_challenge_exposed_to_responder: false',
               'source_response_is_candidate_only: true',
               'proof_verifier_separate: true',
+              'validity_horizon_widening_allowed: false',
               'institutional_source_trust_decided_here: false',
               'completeness_decided_here: false',
               'external_effects_enabled: false',
@@ -93,7 +96,14 @@ jobs:
           proof_call = src.index('let proof: VerifiedSourceHeadProof = call_local(')
           now_call = src.index('let now = now_ms()?;')
           qualify_call = src.index('let qualified = qualify_source_head_authentication')
-          assert probe_call < responder_call < proof_call < now_call < qualify_call
+          horizon_call = src.index('let effective_valid_until_ms = qualified.valid_until_ms();')
+          projection_call = src.index('let projected = qualified.to_verified_source_head();')
+          guard_call = src.index('if projected.attestation.expires_at_ms > effective_valid_until_ms')
+          assert probe_call < responder_call < proof_call < now_call < qualify_call < horizon_call < projection_call < guard_call
+
+          responder_block = src[responder_call:proof_call]
+          assert 'challenge.challenge.clone(),' in responder_block
+          assert '\n        challenge.clone(),\n' not in responder_block
 
           forbidden = [
               'AuthorityCoveragePolicy',
@@ -111,11 +121,13 @@ jobs:
           assert '"zomes/authority-state-source-head-verifier/coordinator"' in cargo
           assert 'name: authority_state_source_head_verifier' not in dna
           assert 'caller input is a probe reference, not positive verification' in inv
+          assert 'positive challenge verification is not exposed to the responder' in inv
+          assert 'validity horizons are monotone under projection' in inv
           assert 'qualification time follows evidence production' in inv
           assert 'responder output is candidate data' in inv
           assert 'cryptographic proof verification is separate' in inv
           assert 'authentication is not institutional trust' in inv
           assert 'authentication is not completeness' in inv
           assert 'deliberately unprovisioned' in inv
-          print('PASS: source-head runtime reconstructs probe verification and samples qualification time after evidence production')
+          print('PASS: source-head runtime preserves probe provenance separation and forbids validity-horizon widening')
           PY
