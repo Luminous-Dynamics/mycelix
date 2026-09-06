@@ -9,6 +9,8 @@ members = [
     "crates/attestation-request-root-policy",
     # Network-observation adapter for attestation request CRUD state
     "crates/attestation-request-resolution-runtime",
+    # Mechanical HDK evidence producer for network-observed request lineages
+    "crates/attestation-request-evidence-hdk",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
