@@ -94,7 +94,6 @@ jobs:
               'AttestationRequestRootAssertionV1',
               'validate_attestation_request_root_assertion_v1',
               'ChainQueryFilter',
-              'query(',
               '.sort_by(',
               '.sort_by_key(',
               '.max_by(',
