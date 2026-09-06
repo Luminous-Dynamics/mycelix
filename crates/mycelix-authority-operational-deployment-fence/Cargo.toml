@@ -14,4 +14,5 @@ serde = { version = "1", features = ["derive"] }
 mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
 mycelix-authority-operational-freshness = { path = "../mycelix-authority-operational-freshness" }
+mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }
 mycelix-governance-constitution = { path = "../mycelix-governance-constitution" }

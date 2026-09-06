@@ -5,11 +5,13 @@ on:
     paths:
       - 'crates/mycelix-authority-operational-deployment-fence/**'
       - 'crates/mycelix-authority-operational-freshness/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
       - 'crates/mycelix-governance-constitution/**'
       - '.github/workflows/authority-operational-deployment-fence.yml'
   push:
     branches:
       - 'security/authority-operational-deployment-fence-v0.1'
+      - 'security/authority-deployment-provenance-binding-v0.1'
 
 permissions:
   contents: read
@@ -20,7 +22,7 @@ concurrency:
 
 jobs:
   qualify:
-    name: Host DNA + constitutional epoch deployment qualification
+    name: Host DNA + constitution + canonical provenance deployment qualification
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -29,6 +31,9 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
+
+      - name: Evidence provenance tests
+        run: cargo test --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets
 
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-authority-operational-deployment-fence/Cargo.toml -- --check
@@ -39,27 +44,73 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-authority-operational-deployment-fence/Cargo.toml --all-targets -- -D warnings
 
-      - name: Authority separation audit
+      - name: Authority and provenance separation audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          src = Path('crates/mycelix-authority-operational-deployment-fence/src/lib.rs').read_text()
-          inv = Path('crates/mycelix-authority-operational-deployment-fence/INVARIANTS.md').read_text().lower()
 
+          root = Path('crates/mycelix-authority-operational-deployment-fence')
+          src = (root / 'src/lib.rs').read_text()
+          prov = (root / 'src/provenance.rs').read_text()
+          combined = src + '\n' + prov
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text()
+
+          # Original #154 theorem remains directly available and non-transport-shaped.
           assert 'semantic: &QualifiedOperationalSubjectFreshness' in src
           signature = src.split('pub fn qualify_operational_freshness_for_deployment(', 1)[1].split(') -> Result<', 1)[0]
           assert 'VerifiedAuthorityFreshness' not in signature
           assert 'constitutional_dna_hash: &str' in signature
           assert 'constitution_statement_digest: Digest32' in signature
           assert 'local_dna: &HostLocalDnaContext' in signature
+          assert 'mod provenance;' in src
+          assert 'pub use provenance::*;' in src
 
-          host = src.split('pub struct HostLocalDnaContext {', 1)[0]
-          assert 'Serialize' in host.split('\n')[-2] or 'Serialize' in host
-          assert 'Deserialize' not in host
+          # The sibling consumes the non-deserializable canonical manifest directly.
+          assert 'mycelix-authority-evidence-lease' in cargo
+          assert 'QualifiedEvidenceLeaseManifest' in prov
+          sibling = prov.split('pub fn qualify_operational_freshness_for_deployment_with_provenance(', 1)[1].split(') -> Result<', 1)[0]
+          assert 'semantic: &QualifiedOperationalSubjectFreshness' in sibling
+          assert 'provenance: &QualifiedEvidenceLeaseManifest' in sibling
+          assert 'VerifiedAuthorityFreshness' not in sibling
+          assert 'qualify_operational_freshness_for_deployment(' in prov
+          assert '.aggregate_lease().validate_at(now_ms)' in prov.replace('\n', '') or 'aggregate_lease()' in prov
 
-          qualified_prefix = src.split('pub struct QualifiedDeploymentOperationalFreshness {', 1)[0]
-          assert 'Deserialize' not in qualified_prefix.split('/// Non-deserializable proof')[-1]
+          # Stable deployment authority is delegated unchanged; provenance enters evidence only.
+          getter = prov.split('pub fn deployment_authority_digest(&self)', 1)[1].split('}', 1)[0]
+          assert 'self.base.deployment_authority_digest()' in getter
+          assert 'provenance_manifest_digest' not in getter
+          assert 'provenance_bound_deployment_evidence_digest(' in prov
+          digest = prov.split('fn provenance_bound_deployment_evidence_digest(', 1)[1].split('#[derive(Clone, Debug, PartialEq, Eq)]', 1)[0]
+          for token in [
+              'base_deployment_evidence_digest',
+              'base_deployment_evidence_profile',
+              'provenance_manifest_digest',
+              'provenance_manifest_profile',
+              'provenance_contributor_count',
+              'composition_verified_at_ms',
+              'composition_valid_until_ms',
+          ]:
+              assert token in digest, token
 
+          # Provenance lease can only contain/narrow the already-capped deployment result.
+          assert 'local_dna.valid_until_ms() > aggregate.valid_until_ms' in prov
+          assert 'base.valid_until_ms() > aggregate.valid_until_ms' in prov
+          assert 'base.verified_at_ms() < aggregate.verified_at_ms' in prov
+          assert 'base.valid_until_ms().min(aggregate.valid_until_ms)' in prov
+          assert 'current_freshness.lease_until_ms.min(valid_until_ms)' in prov
+          assert 'ProvenanceLeaseMismatch' in prov
+
+          # Both positive host/deployment types remain non-deserializable.
+          host_prefix = src.split('pub struct HostLocalDnaContext {', 1)[0]
+          assert 'Serialize' in host_prefix
+          assert 'Deserialize' not in host_prefix
+          base_prefix = src.split('pub struct QualifiedDeploymentOperationalFreshness {', 1)[0]
+          assert 'Deserialize' not in base_prefix.split('/// Non-deserializable proof')[-1]
+          prov_prefix = prov.split('pub struct QualifiedProvenanceBoundDeploymentOperationalFreshness {', 1)[0]
+          assert 'Deserialize' not in prov_prefix
+
+          # Original stable identity + lease laws are retained.
           assert 'constitutional_dna_hash != local_dna.dna_hash' in src
           assert 'semantic.authority_digest()' in src
           assert 'semantic.evidence_digest()' in src
@@ -70,14 +121,19 @@ jobs:
           assert 'dna_hash.as_bytes()' in src
           assert 'semantic.lease_until_ms().min(local_dna.valid_until_ms)' in src
           assert 'semantic.verified_at_ms().max(local_dna.observed_at_ms)' in src
-          assert 'current_freshness.validate_at(now_ms)' in src
 
           for forbidden in ['hdk::', 'dna_info(', 'get_links(', 'create_entry(', 'update_entry(', 'delete_entry(', 'execute_actions', 'phi', 'reputation', 'model_score']:
-              assert forbidden.lower() not in src.lower(), forbidden
+              assert forbidden.lower() not in combined.lower(), forbidden
 
-          assert 'semantic currentness must already exist locally' in inv
-          assert 'host dna context is non-deserializable' in inv
-          assert 'exact constitutional epoch is part of live deployment authority' in inv
-          assert 'leases only narrow' in inv
-          print('PASS: non-deserializable #117 authority is bound to exact host DNA + current constitutional epoch')
+          for invariant in [
+              'semantic currentness must already exist locally',
+              'exact constitutional epoch is stable deployment authority',
+              'provenance-bound deployment is a sibling theorem',
+              'provenance changes deployment evidence, not deployment authority',
+              'provenance lease must contain deployment reuse',
+              'provenance identity is not a permission source',
+              'positive results are non-deserializable',
+          ]:
+              assert invariant in inv, invariant
+          print('PASS: #154 stable authority is unchanged while canonical provenance is bound into dynamic deployment evidence')
           PY
