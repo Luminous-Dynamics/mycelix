@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-ssf-historical-authority-lease-reconciliation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-authority-lease-issuance = { path = "../mycelix-ssf-authority-lease-issuance" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
