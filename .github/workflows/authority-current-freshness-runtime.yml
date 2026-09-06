@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'mycelix-governance/zomes/authority-state-source-head-verifier/**'
+      - 'mycelix-governance/zomes/authority-state-witness-verifier/**'
+      - 'mycelix-governance/zomes/authority-operational-policy-leased-provider/**'
       - 'mycelix-governance/zomes/constitution-transition/**'
       - 'mycelix-governance/zomes/constitution-authority/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
       - 'crates/mycelix-governance-constitution/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
       - 'crates/mycelix-authority-bootstrap-root-adoption-verifier/**'
       - 'crates/mycelix-authority-operational-deployment-fence/**'
       - 'crates/mycelix-authority-state-transition-verifier/**'
@@ -27,6 +31,7 @@ on:
       - 'security/authority-bootstrap-root-adoption-runtime-v0.1'
       - 'security/authority-current-freshness-host-dna-v0.1'
       - 'security/authority-transition-runtime-split-v0.1'
+      - 'security/authority-current-freshness-evidence-lease-v0.1'
 
 permissions:
   contents: read
@@ -40,7 +45,7 @@ env:
 
 jobs:
   qualify:
-    name: Split-transition deployment-bound current freshness
+    name: Lease-complete deployment-bound current freshness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -50,6 +55,9 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
+
+      - name: Evidence-lease algebra tests
+        run: cargo test --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets
 
       - name: Adoption pure-kernel tests
         run: cargo test --manifest-path crates/mycelix-authority-bootstrap-root-adoption-verifier/Cargo.toml --all-targets
@@ -62,7 +70,9 @@ jobs:
 
       - name: Format
         working-directory: mycelix-governance
-        run: cargo fmt --package authority_current_freshness_verifier -- --check
+        run: |
+          cargo fmt --package authority_current_freshness_verifier -- --check
+          rustfmt --edition 2024 --check zomes/authority-current-freshness-verifier/coordinator/src/v04/*.rs
 
       - name: Native check
         working-directory: mycelix-governance
@@ -76,56 +86,85 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: Transition trust-domain audit
+      - name: End-to-end evidence-lease audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          src = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/lib.rs').read_text()
+          root = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src')
+          lib = (root / 'lib.rs').read_text()
+          src = '\n'.join((root / 'v04' / name).read_text() for name in [
+              'types.rs', 'root.rs', 'evidence.rs', 'runtime.rs'
+          ])
           inv = Path('mycelix-governance/zomes/authority-current-freshness-verifier/INVARIANTS.md').read_text().lower()
           crate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml').read_text()
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
-          assert 'mycelix-authority-state-transition-verifier' in crate
-          assert 'qualify_authority_state_transition(' in src
-          assert 'VerifiedTransitionRecordProof' in src
-          assert 'VerifiedTransitionAuthorityProof' in src
-          assert 'authority_state_transition_candidate_provider' in src
-          assert 'authority_state_transition_record_proof_verifier' in src
-          assert 'authority_state_transition_authority_proof_verifier' in src
-          assert '"authority_state_transition_verifier"' not in src
-          assert '"verify_transition_lineage"' not in src
-          assert 'TransitionVerificationRequest' not in src
+          for name in ['types.rs', 'root.rs', 'evidence.rs', 'runtime.rs']:
+              assert f'include!("v04/{name}");' in lib
 
-          discovery = src.split('pub struct TransitionCandidateDiscoveryRequest {', 1)[1].split('}', 1)[0]
-          assert 'pub subject: AuthoritySubjectRef' in discovery
-          assert 'pub authoritative_source_ref: String' in discovery
-          assert 'pub head_generation: u64' in discovery
-          assert 'pub head_transition_digest: Digest32' in discovery
-          assert 'VerifiedAuthorityStateTransition' not in discovery
+          assert 'mycelix-authority-evidence-lease' in crate
+          assert 'use mycelix_authority_evidence_lease::{EvidenceLease, LeasedEvidence};' in src
+          assert 'const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_leased_provider";' in src
+          assert '"resolve_operational_policy_candidates_leased"' in src
+          assert '"verify_source_head_leased"' in src
+          assert '"verify_witness_evidence_leased"' in src
+          assert '"resolve_operational_policy_candidates",' not in src
+          assert '"verify_source_head",' not in src
+          assert '"verify_witness_evidence",' not in src
 
-          record_request = src.split('pub struct TransitionRecordProofVerificationRequest {', 1)[1].split('}', 1)[0]
-          authority_request = src.split('pub struct TransitionAuthorityProofVerificationRequest {', 1)[1].split('}', 1)[0]
-          assert 'pub transition: AuthorityStateTransition' in record_request
-          assert 'pub transition: AuthorityStateTransition' in authority_request
+          assert 'LeasedEvidence<OperationalPolicyCandidateBundle>' in src
+          assert 'LeasedEvidence<VerifiedAuthoritySourceHead>' in src
+          assert 'LeasedEvidence<VerifiedWitnessEvidenceBundle>' in src
+          assert 'struct ResolvedTransitionLineage {' in src
+          assert 'qualified.valid_until_ms()' in src
+          assert 'qualified.verified_at_ms()' in src
+          assert 'transition lease intersection denied' in src
+          assert 'control-plane probe lease intersection denied' in src
+          assert 'root/policy/control-plane lease intersection denied' in src
+          assert 'control-plane/policy/operational evidence lease intersection denied' in src
+          assert 'dynamic evidence/semantic authority lease intersection denied' in src
+          assert '.cap_valid_until(requested_deployment_until, final_now)' in src
+          assert 'final_evidence_lease.valid_until_ms,' in src
+          assert 'deployment.valid_until_ms() > final_evidence_lease.valid_until_ms' in src
+          assert 'freshness.lease_until_ms > final_evidence_lease.valid_until_ms' in src
+
+          receipt = src.split('pub struct VerifiedCurrentOperationalFreshnessReceipt {', 1)[1].split('}', 1)[0]
+          assert 'composition_evidence_lease_protocol' in receipt
+          assert 'composition_evidence_verified_at_ms' in receipt
+          assert 'composition_evidence_valid_until_ms' in receipt
 
           lineage = src.split('fn resolve_transition_lineage(', 1)[1].split('fn resolve_evidence(', 1)[0]
           discover = lineage.index('let candidates: Vec<AuthorityStateTransition> = call_local(')
           record = lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(')
           authority = lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(')
-          now = lineage.index('let now = now_ms()?;')
           qualify = lineage.index('let qualified = qualify_authority_state_transition(')
-          assert discover < record < authority < now < qualify
+          lease = lineage.index('let transition_lease = EvidenceLease::new(')
+          assert discover < record < authority < qualify < lease
           assert '&attestation.authoritative_source_ref' in lineage
-          assert 'transition.generation > attestation.head_generation' in lineage
-          assert 'verified.push(qualified.to_verified_transition())' in lineage
+
+          evidence = src.split('fn resolve_evidence(', 1)[1].split('fn resolve_control_plane_freshness(', 1)[0]
+          source = evidence.index('let source: LeasedEvidence<VerifiedAuthoritySourceHead> = call_local(')
+          witness = evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(')
+          transitions = evidence.index('let lineage = resolve_transition_lineage(&source.evidence)?;')
+          join = evidence.index('let source_witness_lease = intersect_leases(')
+          assert source < witness < transitions < join
+          assert 'source.evidence.attestation.challenge_digest != challenge_digest' in evidence
 
           operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
+          assert 'let root_lease = EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), context_now)' in operational
           assert 'let host_dna_hash = dna_info()?.hash.to_string();' in operational
           assert 'qualify_operational_freshness_for_deployment(' in operational
+          assert operational.index('composition_lease.validate_at(final_now)') < operational.index('HostLocalDnaContext::from_host_observation(')
 
           required = [
+              'leased_source_head_consumed: true',
+              'leased_witness_evidence_consumed: true',
+              'leased_operational_policy_consumed: true',
+              'transition_leases_intersected: true',
+              'global_evidence_lease_enforced: true',
+              'deployment_lease_capped_by_global_evidence: true',
               'transition_discovery_grants_authority: false',
               'transition_record_proof_verifier_separate: true',
               'transition_authority_proof_verifier_separate: true',
@@ -158,10 +197,13 @@ jobs:
 
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in workspace
           assert 'name: authority_current_freshness_verifier' not in dna
-          assert 'transition discovery is not transition truth' in inv
-          assert 'transition record proof and institutional authority proof are separate' in inv
-          assert 'transition authoritative source comes from the source head' in inv
-          assert 'complete lineage remains #91' in inv
+          assert 'dynamic evidence lease is not authority identity' in inv
+          assert 'leased source-head evidence is mandatory' in inv
+          assert 'leased witness evidence is mandatory' in inv
+          assert 'transition proof domains remain separate and their leases are explicit' in inv
+          assert 'operational policy proof leases remain separate from generation currentness' in inv
+          assert 'global evidence lease is closed before #117' in inv
+          assert 'deployment is capped by the global evidence lease' in inv
           assert 'deliberately unprovisioned' in inv
-          print('PASS: transition discovery, record proof, institutional authorization and source identity are separately bound')
+          print('PASS: every dynamic verifier horizon survives composition and caps final deployment authority')
           PY
