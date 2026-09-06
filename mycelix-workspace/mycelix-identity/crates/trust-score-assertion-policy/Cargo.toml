@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-trust-score-assertion-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Dependency-free structural trust score range and tier assertion policy"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
