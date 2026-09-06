@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-persisted-registration-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-adoption-authority-candidate = { path = "../mycelix-ssf-adoption-authority-candidate" }
+mycelix-ssf-adoption-authority-registration = { path = "../mycelix-ssf-adoption-authority-registration" }
+mycelix-ssf-historical-registration-reconciliation = { path = "../mycelix-ssf-historical-registration-reconciliation" }
