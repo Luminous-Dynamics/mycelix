@@ -14,6 +14,9 @@ use mycelix_institutional_core::Digest32;
 use serde::Serialize;
 use std::fmt;
 
+mod provenance;
+pub use provenance::*;
+
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-operational-deployment-fence-v0.1";
 pub const HOST_DNA_CONTEXT_PROTOCOL: &str = "mycelix-host-local-dna-context-v0.1";
 pub const HOST_DNA_SOURCE_REF: &str = "hdk:dna_info:local-cell";
@@ -380,30 +383,50 @@ mod tests {
 
     #[test]
     fn host_context_rejects_invalid_window() {
-        assert!(HostLocalDnaContext::from_host_observation("uhC0kExample".into(), 100, 100).is_err());
-        assert!(HostLocalDnaContext::from_host_observation("uhC0kExample".into(), 100, 101).is_ok());
+        assert!(
+            HostLocalDnaContext::from_host_observation("uhC0kExample".into(), 100, 100)
+                .is_err()
+        );
+        assert!(
+            HostLocalDnaContext::from_host_observation("uhC0kExample".into(), 100, 101)
+                .is_ok()
+        );
     }
 
     #[test]
     fn deployment_identity_changes_with_dna() {
-        let a = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA");
-        let b = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kB");
+        let a = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA",
+        );
+        let b = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kB",
+        );
         assert_ne!(a, b);
     }
 
     #[test]
     fn deployment_identity_changes_with_constitution() {
-        let a = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA");
-        let b = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(5), "uhC0kA");
+        let a = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA",
+        );
+        let b = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(5), "uhC0kA",
+        );
         assert_ne!(a, b);
     }
 
     #[test]
     fn host_reobservation_changes_evidence_not_stable_authority() {
-        let authority = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA");
-        let authority_again = deployment_authority_digest(d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA");
-        let first = HostLocalDnaContext::from_host_observation("uhC0kA".into(), 100, 200).unwrap();
-        let second = HostLocalDnaContext::from_host_observation("uhC0kA".into(), 110, 210).unwrap();
+        let authority = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA",
+        );
+        let authority_again = deployment_authority_digest(
+            d(1), "semantic", d(2), "root", d(3), "context", d(4), "uhC0kA",
+        );
+        let first =
+            HostLocalDnaContext::from_host_observation("uhC0kA".into(), 100, 200).unwrap();
+        let second =
+            HostLocalDnaContext::from_host_observation("uhC0kA".into(), 110, 210).unwrap();
         let evidence_a = deployment_evidence_digest(authority, d(9), "evidence", &first);
         let evidence_b = deployment_evidence_digest(authority, d(9), "evidence", &second);
         assert_ne!(evidence_a, evidence_b);
