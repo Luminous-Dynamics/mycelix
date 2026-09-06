@@ -43,15 +43,17 @@ A plan/source/witness/transition provider cannot manufacture private-entropy pro
 
 Probe authorship remains provenance only.
 
-## 4. Source-head verification is independent
+## 4. Source-head verification independently reconstructs probe validity
 
-The exact verified challenge is sent to:
+The source-head verifier receives the exact `probe_action: ActionHash`, not this coordinator's serialized positive `VerifiedCoverageChallenge`.
 
-`authority_state_source_head_verifier::verify_source_head`.
+`authority_state_source_head_verifier::verify_source_head` must independently call #114 and reconstruct its own positive challenge receipt before authenticating a source response.
 
-That provider may establish only the exact source-head receipt. It does not select policy, verify witnesses, qualify transition authority, or create current freshness.
+This coordinator also verifies the same probe action for its own #96/#115/#117 composition. The two receipts may have different dynamic verification timestamps, but their immutable `CoverageChallenge` identity must be the same because both derive from the same probe action.
 
-The later #96/#91 path MUST independently cross-bind the source head to the challenge, policy and transition endpoint.
+A provider-supplied positive challenge receipt MUST NOT cross this source-head boundary as authority.
+
+The later #96/#91 path independently cross-binds the source head to this coordinator's challenge, policy and transition endpoint.
 
 ## 5. Witness/trust verification is independent
 
@@ -87,7 +89,22 @@ The coordinator calls `qualify_bootstrap_root` itself.
 
 Old constitution/root evidence, decode failure, provider outage, mismatched adoption, or expired root denies.
 
-## 8. Operational policy semantics and policy currentness are separate
+## 8. Qualification time follows evidence production
+
+Every pure qualifier MUST receive a clock sample taken after the evidence-producing calls whose timestamps it judges.
+
+Concretely:
+
+- bootstrap-root provider call → root qualification time → `qualify_bootstrap_root`;
+- control-plane probe/source/witness/transition verification → control-plane qualification time → `qualify_control_plane_subject_freshness`;
+- policy provider + qualified control-plane set → context qualification time → `qualify_operational_policy_context`; and
+- operational probe/source/witness/transition verification → current qualification time → `qualify_operational_subject_freshness`.
+
+A single timestamp captured before asynchronous provider/verifier work MUST NOT be reused for later qualification. Doing so can make newly generated `verified_at_ms`, `responded_at_ms`, or observation timestamps appear to come from the future and spuriously fail closed.
+
+This is causal correctness, not clock tolerance.
+
+## 9. Operational policy semantics and policy currentness are separate
 
 The policy provider returns semantic `VerifiedAuthorityCoveragePolicy` and `VerifiedCoverageTrustContextPolicy` receipts.
 
@@ -97,7 +114,7 @@ The plan provider may nominate at most three control-plane probes. Each is indep
 
 Missing, extra, revoked, superseded, stale, wrong-root, or wrong-namespace policy evidence denies.
 
-## 9. Covered namespace and registry namespace remain distinct
+## 10. Covered namespace and registry namespace remain distinct
 
 The runtime MUST NOT derive policy currentness from the operational policy's covered namespace.
 
@@ -106,7 +123,7 @@ That distinction belongs to #116:
 - `coverage_policy.namespace` controls which target subjects may be covered;
 - `root.control_plane_namespace` controls where policy objects' own authority state lives.
 
-## 10. No latest-record heuristics
+## 11. No latest-record heuristics
 
 The runtime MUST NOT infer currentness from:
 
@@ -120,7 +137,7 @@ The runtime MUST NOT infer currentness from:
 
 There is no generic DHT current-record lookup in this coordinator.
 
-## 11. Stable authority and evidence provenance remain separate
+## 12. Stable authority and evidence provenance remain separate
 
 The runtime preserves #117:
 
@@ -131,7 +148,7 @@ A new probe may refresh evidence without changing authority identity when the ex
 
 Any policy-currentness or authority-generation change changes the stable authority digest.
 
-## 12. Fail closed on every provider boundary
+## 13. Fail closed on every provider boundary
 
 Missing zome/function, non-OK call response, decode failure, malformed evidence, failed pure qualification, stale lease, mismatched subject, impossible evidence fan-in, or unavailable independent verifier MUST deny.
 
@@ -139,7 +156,7 @@ Provider availability is not inferred from code presence.
 
 `current_freshness_runtime_status` performs no synthetic provider probe and reports `operational = false`.
 
-## 13. Verifier receipts remain explicit trust boundaries
+## 14. Verifier receipts remain explicit trust boundaries
 
 This tranche composes evidence; it does not implement every cryptographic verifier.
 
@@ -149,7 +166,7 @@ Cross-field pure qualification prevents substitution/rebinding, but does not rep
 
 No one source/witness/transition aggregator is permitted to stand in for all three roles.
 
-## 14. Historical/live separation
+## 15. Historical/live separation
 
 Only current projection paths may contribute to this runtime.
 
@@ -157,7 +174,7 @@ Historical/as-of authority evidence cannot become a live `VerifiedAuthorityFresh
 
 Later revocation blocks new authority while preserving historical audit truth.
 
-## 15. Deliberately unprovisioned
+## 16. Deliberately unprovisioned
 
 The coordinator remains in the Rust workspace only for native/Clippy/WASM qualification.
 
@@ -165,19 +182,21 @@ The coordinator remains in the Rust workspace only for native/Clippy/WASM qualif
 
 The root/policy/source/witness/transition providers are not yet production-qualified, so the binding governance DNA must not expose the runtime.
 
-## 16. No external-effect authority
+## 17. No external-effect authority
 
 This coordinator cannot create grants, mutate authority transitions, sign governance actions, create lifecycle claims, execute actions, or authorize an external effect.
 
 Phi, consciousness, reputation, stake, Guardian status and Symthaea output are not currentness authority.
 
-## 17. Required qualification before provisioning
+## 18. Required qualification before provisioning
 
 At minimum:
 
 - rustfmt;
 - native `cargo check` / warnings-denied Clippy;
 - WASM build;
+- source-head request ABI proof: probe action only, no serialized positive challenge;
+- qualification-time ordering audit at root/control-plane/context/operational boundaries;
 - hidden-later-revocation denial;
 - truncated transition prefix denial;
 - source-head mismatch denial;

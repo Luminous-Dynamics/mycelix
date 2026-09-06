@@ -88,7 +88,8 @@ pub struct OperationalProbePlan {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceHeadVerificationRequest {
-    pub challenge: VerifiedCoverageChallenge,
+    /// #131 reconstructs positive challenge verification itself from this probe.
+    pub probe_action: ActionHash,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -143,6 +144,7 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub latest_dht_record_authority: bool,
     pub provider_positive_object_authority: bool,
     pub probe_authority: bool,
+    pub qualification_time_after_evidence: bool,
     pub external_effects_enabled: bool,
     pub operational: bool,
 }
@@ -186,13 +188,14 @@ fn now_ms() -> ExternResult<u64> {
 }
 
 fn resolve_root(
-    now: u64,
 ) -> ExternResult<mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot> {
     let bundle: BootstrapRootCandidateBundle = call_local(
         ROOT_PROVIDER_ZOME,
         "resolve_bootstrap_root_candidates",
         (),
     )?;
+    // Qualification time follows the provider evidence it judges.
+    let now = now_ms()?;
     qualify_bootstrap_root(
         &bundle.manifest,
         &bundle.current_constitution,
@@ -239,14 +242,15 @@ fn resolve_evidence(
     probe_action: ActionHash,
     expected_subject: Option<&AuthoritySubjectRef>,
 ) -> ExternResult<ResolvedAuthorityEvidence> {
-    let challenge = verify_probe(probe_action, expected_subject)?;
+    // This coordinator independently verifies the probe for its own #96/#115/#117
+    // composition, while #131 receives the same action hash and reconstructs its
+    // own positive challenge receipt before source-head authentication.
+    let challenge = verify_probe(probe_action.clone(), expected_subject)?;
 
     let source_head: VerifiedAuthoritySourceHead = call_local(
         SOURCE_HEAD_VERIFIER_ZOME,
         "verify_source_head",
-        SourceHeadVerificationRequest {
-            challenge: challenge.clone(),
-        },
+        SourceHeadVerificationRequest { probe_action },
     )?;
 
     let witness_bundle: VerifiedWitnessEvidenceBundle = call_local(
@@ -294,7 +298,6 @@ fn resolve_evidence(
 fn resolve_control_plane_freshness(
     root: &mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot,
     target_subject: &AuthoritySubjectRef,
-    now: u64,
 ) -> ExternResult<Vec<QualifiedControlPlaneSubjectFreshness>> {
     let plan: ControlPlaneProbePlan = call_local(
         EVIDENCE_PLAN_ZOME,
@@ -313,6 +316,9 @@ fn resolve_control_plane_freshness(
     let mut qualified = Vec::with_capacity(plan.probe_actions.len());
     for probe_action in plan.probe_actions {
         let evidence = resolve_evidence(probe_action, None)?;
+        // Every control-plane qualification samples time after its source/witness/
+        // transition evidence has been produced.
+        let now = now_ms()?;
         let value = qualify_control_plane_subject_freshness(
             root,
             &evidence.challenge,
@@ -345,19 +351,20 @@ pub fn resolve_current_operational_freshness(
             "invalid operational authority subject: {error}"
         )))
     })?;
-    let now = now_ms()?;
 
-    let root = resolve_root(now)?;
+    let root = resolve_root()?;
     let policies = resolve_operational_policies(&subject)?;
-    let control_plane = resolve_control_plane_freshness(&root, &subject, now)?;
+    let control_plane = resolve_control_plane_freshness(&root, &subject)?;
 
+    // Policy-context qualification happens after policy/control-plane evidence.
+    let context_now = now_ms()?;
     let context = qualify_operational_policy_context(
         &root,
         &subject,
         &policies.context,
         &policies.coverage,
         &control_plane,
-        now,
+        context_now,
     )
     .map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -376,6 +383,8 @@ pub fn resolve_current_operational_freshness(
     )?;
     let evidence = resolve_evidence(plan.probe_action, Some(&subject))?;
 
+    // Final currentness is judged at a time sampled after all operational evidence.
+    let current_now = now_ms()?;
     let current = qualify_operational_subject_freshness(
         &context,
         &evidence.challenge,
@@ -383,7 +392,7 @@ pub fn resolve_current_operational_freshness(
         &evidence.witnesses,
         &evidence.trust_bindings,
         &evidence.transitions,
-        now,
+        current_now,
     )
     .map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -392,7 +401,7 @@ pub fn resolve_current_operational_freshness(
     })?;
 
     let freshness = current.to_verified_freshness();
-    freshness.validate_at(now).map_err(|error| {
+    freshness.validate_at(current_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "qualified operational freshness is not currently usable: {error}"
         )))
@@ -431,6 +440,7 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         latest_dht_record_authority: false,
         provider_positive_object_authority: false,
         probe_authority: false,
+        qualification_time_after_evidence: true,
         external_effects_enabled: false,
         operational: false,
     })
