@@ -1,0 +1,111 @@
+name: Authority Current Freshness Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-operational-freshness/**'
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-control-plane-freshness/**'
+      - 'crates/mycelix-authority-state-bootstrap-root/**'
+      - '.github/workflows/authority-current-freshness-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-current-freshness-runtime-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-current-freshness-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Fail-closed current freshness composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_current_freshness_verifier -- --check
+
+      - name: Native check
+        working-directory: mycelix-governance
+        run: cargo check --package authority_current_freshness_verifier --all-targets
+
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_current_freshness_verifier --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
+
+      - name: Current-freshness authority audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/lib.rs').read_text()
+          inv = Path('mycelix-governance/zomes/authority-current-freshness-verifier/INVARIANTS.md').read_text().lower()
+          cargo = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          required = [
+              'qualify_bootstrap_root(',
+              'qualify_control_plane_subject_freshness(',
+              'qualify_operational_policy_context(',
+              'qualify_operational_subject_freshness(',
+              'verify_issued_authority_state_probe',
+              'pub probe_action: ActionHash',
+              'MAX_CONTROL_PLANE_BUNDLES',
+              'MAX_WITNESSES',
+              'MAX_TRANSITIONS',
+              'latest_dht_record_authority: false',
+              'provider_positive_object_authority: false',
+              'probe_authority: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]
+          for token in required:
+              assert token in src, token
+
+          forbidden = [
+              'pub challenge: VerifiedCoverageChallenge',
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'project_authority_state_as_of',
+              'execute_actions',
+              'phi',
+              'reputation',
+              'model_score',
+          ]
+          lowered = src.lower()
+          for token in forbidden:
+              assert token.lower() not in lowered, token
+
+          assert '"zomes/authority-current-freshness-verifier/coordinator"' in cargo
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'no serialized positive-authority shortcut' in inv
+          assert 'probe verification is a separate boundary' in inv
+          assert 'a valid transition prefix is not current authority' in inv
+          assert 'deliberately unprovisioned' in inv
+          assert 'no latest-record heuristics' in inv
+          print('PASS: current freshness runtime reconstructs authority locally, verifies probes separately, and remains unprovisioned')
+          PY
