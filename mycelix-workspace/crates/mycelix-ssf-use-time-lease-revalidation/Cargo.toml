@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-use-time-lease-revalidation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-authorization = { path = "../mycelix-ssf-authorization" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-issued-authority-lease-rebind = { path = "../mycelix-ssf-issued-authority-lease-rebind" }
+mycelix-ssf-local-adoption-readiness = { path = "../mycelix-ssf-local-adoption-readiness" }
+mycelix-ssf-snapshots = { path = "../mycelix-ssf-snapshots" }
