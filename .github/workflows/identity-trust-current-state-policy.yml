@@ -1,0 +1,78 @@
+name: Identity Trust Current-State Policy
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-current-state-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-current-state-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  trust-current-state-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert fail-closed current-state vocabulary
+        shell: bash
+        run: |
+          FILE=mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/src/lib.rs
+          MANIFEST=mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml
+
+          grep -Fq 'ObservedStructurallyActive' "$FILE"
+          grep -Fq 'NonConformingUpdate' "$FILE"
+          grep -Fq 'CredentialStateEvidence::Unavailable' "$FILE"
+          grep -Fq 'assertion_equivalent_to_root' "$FILE"
+          grep -Fq 'historical_non_revocation_update_never_becomes_active' "$FILE"
+          grep -Fq 'assertion_mutating_historical_update_never_becomes_active' "$FILE"
+
+          if grep -Eq 'enum ObservedCredentialState[^}]*(Verified|Authorized|Current)' "$FILE"; then
+            echo 'ERROR: structural current-state policy must not encode verification/authority' >&2
+            exit 1
+          fi
+
+          # Runtime crate is intentionally dependency-free.
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml').read_text()
+          tail = text.split('[dependencies]', 1)[1]
+          if tail.strip():
+              raise SystemExit('ERROR: trust current-state policy must remain dependency-free')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            -- --check
+
+      - name: Test current-state policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            --lib
+
+      - name: Check current-state policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
