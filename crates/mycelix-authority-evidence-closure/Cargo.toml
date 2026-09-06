@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-authority-evidence-closure"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Complete control-plane plus target proof provenance for deployment-bound Mycelix authority"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-authority-state-bootstrap-root = { path = "../mycelix-authority-state-bootstrap-root" }
+mycelix-authority-control-plane-freshness = { path = "../mycelix-authority-control-plane-freshness" }
+mycelix-authority-current-operational = { path = "../mycelix-authority-current-operational" }
+mycelix-authority-runtime-dna-binding = { path = "../mycelix-authority-runtime-dna-binding" }
