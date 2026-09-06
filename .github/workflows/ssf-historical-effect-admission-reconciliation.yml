@@ -1,0 +1,49 @@
+name: SSF Historical Effect Admission Reconciliation
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-durable-effect-admission/**'
+      - '.github/workflows/ssf-historical-effect-admission-reconciliation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-durable-effect-admission/**'
+      - '.github/workflows/ssf-historical-effect-admission-reconciliation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml -- --check
+
+      - name: Native check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml --all-targets
+
+      - name: no_std WASM check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml --lib --target wasm32-unknown-unknown
+
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/Cargo.toml --no-deps
