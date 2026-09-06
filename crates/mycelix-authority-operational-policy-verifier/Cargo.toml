@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-authority-operational-policy-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Split record-authenticity and institutional-adoption qualification for Mycelix operational authority policies"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-authority-state-coverage = { path = "../mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../mycelix-authority-state-coverage-context" }
