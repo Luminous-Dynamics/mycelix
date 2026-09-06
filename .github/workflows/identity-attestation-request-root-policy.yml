@@ -48,6 +48,7 @@ jobs:
           text = (root / member / 'src/lib.rs').read_text()
           required = [
               '#![forbid(unsafe_code)]',
+              'pub use mycelix_attestation_request_policy::AttestationRequestStatusV1;',
               'REQUEST_ID_MAX_LEN_V1: usize = 256',
               'DID_MAX_LEN_V1: usize = 256',
               'PURPOSE_MAX_LEN_V1: usize = 2048',
