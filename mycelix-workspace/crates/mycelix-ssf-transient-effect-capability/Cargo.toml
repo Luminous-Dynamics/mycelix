@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-transient-effect-capability"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-durable-effect-capability-issuance = { path = "../mycelix-ssf-durable-effect-capability-issuance" }
+mycelix-ssf-execution-surface-admission = { path = "../mycelix-ssf-execution-surface-admission" }
+mycelix-ssf-final-effect-capability-revalidation = { path = "../mycelix-ssf-final-effect-capability-revalidation" }
+mycelix-ssf-source-owned-operation-material = { path = "../mycelix-ssf-source-owned-operation-material" }
