@@ -1,0 +1,157 @@
+name: Identity Attestation Request Create Delete Integrity Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
+      - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
+      - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-request-create-delete-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact proposed product patch
+        run: |
+          python scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py
+          python scripts/qualification/identity_attestation_request_discovery_link_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs \
+            > /tmp/identity-attestation-request-create-delete-integrity-v1.patch
+
+      - name: Assert generated request integrity contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs')
+          text = path.read_text()
+
+          required = [
+              'fn validate_attestation_request_creation_shape(',
+              'req.id.is_empty() || req.id.len() > 256',
+              'req.requester_did.is_empty()',
+              'req.requester_did.len() > 256',
+              'req.subject_did.is_empty()',
+              'req.subject_did.len() > 256',
+              'req.components.is_empty()',
+              'req.purpose.is_empty() || req.purpose.len() > 2048',
+              '!score.is_finite()',
+              'req.expires_at <= req.created_at',
+              'match validate_attestation_request_creation_shape(&req)',
+              'UnitEntryTypes::AttestationRequest',
+              'original.action().entry_type() == Some(&request_entry_type)',
+              'Attestation requests cannot be deleted; use the typed lifecycle',
+              'matches!(link_type, LinkTypes::SubjectToRequest)',
+              'SubjectToRequest discovery links are append-only',
+              'request_creation_shape_accepts_supported_boundary',
+              'request_creation_shape_rejects_unaddressable_id',
+              'request_creation_shape_rejects_empty_components',
+              'request_creation_shape_rejects_bad_purpose_bounds',
+              'request_creation_shape_rejects_bad_did_bounds',
+              'request_creation_shape_rejects_nonfinite_and_out_of_range_score',
+              'request_creation_shape_requires_positive_validity_interval',
+              'request_creation_shape_requires_pending_root',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generated request integrity contract missing: {needle!r}')
+
+          create_start = text.index('fn validate_attestation_request_creation_shape(')
+          create_end = text.index('/// Validate attestation request creation.', create_start)
+          create_body = text[create_start:create_end]
+          for forbidden in ['HashSet', 'duplicate component', 'duplicate_component']:
+              if forbidden in create_body:
+                  raise SystemExit(
+                      f'ERROR: unqualified component-set semantics leaked into create theorem: {forbidden!r}'
+                  )
+
+          entry_delete_start = text.index('FlatOp::RegisterDelete(OpDelete { action })')
+          entry_delete_end = text.index('    }\n}\n\n/// Validate trust credential creation', entry_delete_start)
+          entry_delete_body = text[entry_delete_start:entry_delete_end]
+          if 'Only the original entry author can delete their entries' not in entry_delete_body:
+              raise SystemExit('ERROR: ordinary same-author entry delete safety rule was weakened')
+          if 'UnitEntryTypes::AttestationRequest' not in entry_delete_body:
+              raise SystemExit('ERROR: typed request entry-delete guard missing')
+          if 'Attestation requests cannot be deleted; use the typed lifecycle' not in entry_delete_body:
+              raise SystemExit('ERROR: request entry deletion is no longer fail-closed')
+
+          link_delete_start = text.index('FlatOp::RegisterDeleteLink {')
+          link_delete_end = text.index('FlatOp::StoreRecord', link_delete_start)
+          link_delete_body = text[link_delete_start:link_delete_end]
+          if 'Only the link creator can delete their links' not in link_delete_body:
+              raise SystemExit('ERROR: ordinary same-author link delete safety rule was weakened')
+          if 'matches!(link_type, LinkTypes::SubjectToRequest)' not in link_delete_body:
+              raise SystemExit('ERROR: SubjectToRequest append-only guard missing')
+          if 'SubjectToRequest discovery links are append-only' not in link_delete_body:
+              raise SystemExit('ERROR: request discovery-link deletion is no longer fail-closed')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of materialized patch
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            -- --check
+
+      - name: Test materialized integrity zome
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --lib
+
+      - name: Check materialized integrity zome for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-attestation-request-create-delete-integrity-v1-patch
+          path: /tmp/identity-attestation-request-create-delete-integrity-v1.patch
+          if-no-files-found: error
