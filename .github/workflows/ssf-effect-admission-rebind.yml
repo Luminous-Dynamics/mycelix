@@ -1,0 +1,44 @@
+name: SSF Effect Admission Rebind
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-durable-effect-admission/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/**'
+      - '.github/workflows/ssf-effect-admission-rebind.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-durable-effect-admission/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-historical-effect-admission-reconciliation/**'
+      - '.github/workflows/ssf-effect-admission-rebind.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rebind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml -- --check
+      - name: Native check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml --all-targets
+      - name: no_std WASM check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml --lib --target wasm32-unknown-unknown
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml --all-targets -- -D warnings
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path mycelix-workspace/crates/mycelix-ssf-effect-admission-rebind/Cargo.toml --no-deps
