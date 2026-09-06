@@ -11,6 +11,8 @@ members = [
     "crates/attestation-fulfillment-policy",
     # Dependency-free fixed-point K-vector authority theorem
     "crates/trust-authority-policy",
+    # Backend-neutral K-vector proof statement theorem
+    "crates/kvector-proof-statement-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
