@@ -161,7 +161,7 @@ pub enum SuccessorError {
     FederationMismatch,
     EpochMismatch,
     AuthorityRootMismatch,
-    AuthorityGenerationRegressed,
+    AuthorityGenerationChanged,
     GenerationOverflow,
     GenerationNotNext,
     PredecessorMismatch,
@@ -170,9 +170,10 @@ pub enum SuccessorError {
 
 /// Validate one exact direct successor in a snapshot lineage.
 ///
-/// Root rotation and federation-epoch transition are intentionally outside
-/// this operation and require a future explicit transition contract. They may
-/// not be smuggled through an ordinary snapshot successor.
+/// Root rotation, federation-epoch transition, and authority-generation
+/// transition are intentionally outside this operation and require a future
+/// explicit transition contract. They may not be smuggled through an ordinary
+/// snapshot successor.
 pub fn validate_direct_successor(
     previous: &SnapshotLineageV1,
     next: &SnapshotLineageV1,
@@ -186,8 +187,8 @@ pub fn validate_direct_successor(
     if previous.authority_root != next.authority_root {
         return Err(SuccessorError::AuthorityRootMismatch);
     }
-    if next.authority_generation < previous.authority_generation {
-        return Err(SuccessorError::AuthorityGenerationRegressed);
+    if next.authority_generation != previous.authority_generation {
+        return Err(SuccessorError::AuthorityGenerationChanged);
     }
 
     let expected_generation = previous
@@ -533,13 +534,13 @@ mod tests {
     }
 
     #[test]
-    fn authority_generation_cannot_regress() {
+    fn authority_generation_cannot_change_inside_snapshot_successor() {
         let previous = lineage(0, None, 10);
         let next = SnapshotLineageV1::new(
             previous.federation_id(),
             previous.federation_epoch(),
             previous.authority_root(),
-            AuthorityGeneration::new(10),
+            AuthorityGeneration::new(12),
             SnapshotGeneration::new(1),
             Some(previous.commitment()),
             SnapshotCommitment::from_bytes(bytes(11)),
@@ -549,7 +550,7 @@ mod tests {
 
         assert_eq!(
             validate_direct_successor(&previous, &next),
-            Err(SuccessorError::AuthorityGenerationRegressed)
+            Err(SuccessorError::AuthorityGenerationChanged)
         );
     }
 
