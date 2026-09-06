@@ -257,30 +257,43 @@ pub fn resolve_current_operational_freshness(
     })?;
     let constitution_statement_digest =
         constitution_digest_to_core(final_constitution.statement_digest);
-    let deployment = qualify_operational_freshness_for_deployment(
+    let deployment = qualify_operational_freshness_for_deployment_with_provenance(
         &current,
         &final_constitution.dna_hash,
         constitution_statement_digest,
         &host_context,
+        &provenance,
         final_now,
     )
     .map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "deployment-bound operational freshness denied: {error}"
+            "provenance-bound deployment freshness denied: {error}"
         )))
     })?;
     if deployment.valid_until_ms() > final_evidence_lease.valid_until_ms
         || deployment.verified_at_ms() < final_evidence_lease.verified_at_ms
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "deployment qualification widened or predates the final evidence lease".into(),
+            "provenance-bound deployment widened or predates the final evidence lease".into(),
+        )));
+    }
+    if deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())
+        || deployment.provenance_manifest_profile() != provenance.manifest_profile()
+        || deployment.provenance_contributor_count() != provenance.contributor_count()
+        || deployment.composition_evidence_verified_at_ms()
+            != provenance.aggregate_lease().verified_at_ms
+        || deployment.composition_evidence_valid_until_ms()
+            != provenance.aggregate_lease().valid_until_ms
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "provenance-bound deployment result does not echo the exact canonical manifest".into(),
         )));
     }
 
     let freshness = deployment.to_verified_freshness();
     freshness.validate_at(final_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "deployment-bound freshness is not reusable: {error}"
+            "provenance-bound deployment freshness is not reusable: {error}"
         )))
     })?;
     if freshness.lease_until_ms > final_evidence_lease.valid_until_ms {
@@ -300,13 +313,13 @@ pub fn resolve_current_operational_freshness(
         authority_profile: current.authority_profile().into(),
         evidence_digest: current.evidence_digest(),
         evidence_profile: current.evidence_profile().into(),
-        composition_evidence_manifest_digest: Digest32(provenance.manifest_digest()),
-        composition_evidence_manifest_profile: provenance.manifest_profile().into(),
-        composition_evidence_contributor_count: provenance.contributor_count(),
+        composition_evidence_manifest_digest: deployment.provenance_manifest_digest(),
+        composition_evidence_manifest_profile: deployment.provenance_manifest_profile().into(),
+        composition_evidence_contributor_count: deployment.provenance_contributor_count(),
         composition_evidence_lease_protocol: mycelix_authority_evidence_lease::PROTOCOL_VERSION
             .into(),
-        composition_evidence_verified_at_ms: provenance.aggregate_lease().verified_at_ms,
-        composition_evidence_valid_until_ms: provenance.aggregate_lease().valid_until_ms,
+        composition_evidence_verified_at_ms: deployment.composition_evidence_verified_at_ms(),
+        composition_evidence_valid_until_ms: deployment.composition_evidence_valid_until_ms(),
         local_dna_hash: deployment.dna_hash().into(),
         constitution_statement_digest: deployment.constitution_statement_digest(),
         constitution_statement_profile: deployment.constitution_statement_profile().into(),
@@ -345,6 +358,7 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         provenance_required_role_cardinality_closed: true,
         provenance_manifest_qualified_locally: true,
         provenance_manifest_matches_global_lease: true,
+        provenance_bound_into_deployment_evidence: true,
         deployment_lease_capped_by_global_evidence: true,
         host_local_dna_derived: true,
         constitutional_dna_cross_checked: true,

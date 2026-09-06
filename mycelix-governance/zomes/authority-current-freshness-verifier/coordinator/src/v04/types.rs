@@ -17,7 +17,7 @@ use mycelix_authority_evidence_lease::{
 use mycelix_authority_freshness::{AuthoritySubjectRef, VerifiedAuthorityFreshness};
 use mycelix_authority_operational_context::qualify_operational_policy_context;
 use mycelix_authority_operational_deployment_fence::{
-    qualify_operational_freshness_for_deployment, HostLocalDnaContext,
+    qualify_operational_freshness_for_deployment_with_provenance, HostLocalDnaContext,
 };
 use mycelix_authority_operational_freshness::qualify_operational_subject_freshness;
 use mycelix_authority_state_bootstrap_root::{
@@ -46,7 +46,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.5";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.6";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -239,6 +239,7 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub provenance_required_role_cardinality_closed: bool,
     pub provenance_manifest_qualified_locally: bool,
     pub provenance_manifest_matches_global_lease: bool,
+    pub provenance_bound_into_deployment_evidence: bool,
     pub deployment_lease_capped_by_global_evidence: bool,
     pub host_local_dna_derived: bool,
     pub constitutional_dna_cross_checked: bool,

@@ -33,6 +33,7 @@ on:
       - 'security/authority-transition-runtime-split-v0.1'
       - 'security/authority-current-freshness-evidence-lease-v0.1'
       - 'security/authority-current-freshness-lease-provenance-v0.1'
+      - 'security/authority-current-freshness-provenance-deployment-v0.1'
 
 permissions:
   contents: read
@@ -46,7 +47,7 @@ env:
 
 jobs:
   qualify:
-    name: Provenance-closed deployment-bound current freshness
+    name: Provenance-bound deployment current freshness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,7 +64,7 @@ jobs:
       - name: Adoption pure-kernel tests
         run: cargo test --manifest-path crates/mycelix-authority-bootstrap-root-adoption-verifier/Cargo.toml --all-targets
 
-      - name: Deployment-fence pure-kernel tests
+      - name: Deployment-fence and provenance-binding tests
         run: cargo test --manifest-path crates/mycelix-authority-operational-deployment-fence/Cargo.toml --all-targets
 
       - name: Transition-verifier pure-kernel tests
@@ -87,7 +88,7 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: End-to-end lease provenance audit
+      - name: End-to-end provenance-bound deployment audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -114,6 +115,7 @@ jobs:
               'LeasedEvidence<OperationalPolicyCandidateBundle>',
               'LeasedEvidence<VerifiedAuthoritySourceHead>',
               'LeasedEvidence<VerifiedWitnessEvidenceBundle>',
+              'qualify_operational_freshness_for_deployment_with_provenance',
           ]:
               assert token in src, token
 
@@ -125,33 +127,24 @@ jobs:
           assert '"verify_source_head",' not in src
           assert '"verify_witness_evidence",' not in src
 
-          # Per-transition proof leases are independently derived after both verifier calls.
           lineage = src.split('fn resolve_transition_lineage(', 1)[1].split('fn resolve_evidence(', 1)[0]
-          discover = lineage.index('let candidates: Vec<AuthorityStateTransition> = call_local(')
-          record = lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(')
-          authority = lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(')
-          qualify = lineage.index('let qualified = qualify_authority_state_transition(')
-          lease = lineage.index('let transition_lease = EvidenceLease::new(')
-          contribution = lineage.index('EvidenceLeaseRole::AuthorityStateTransition')
-          assert discover < record < authority < qualify < lease < contribution
+          assert lineage.index('let candidates: Vec<AuthorityStateTransition> = call_local(') < lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(')
+          assert lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(') < lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(')
+          assert lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(') < lineage.index('let qualified = qualify_authority_state_transition(')
+          assert lineage.index('let qualified = qualify_authority_state_transition(') < lineage.index('let transition_lease = EvidenceLease::new(')
+          assert 'EvidenceLeaseRole::AuthorityStateTransition' in lineage
           assert '&attestation.authoritative_source_ref' in lineage
 
-          # Source/witness leased surfaces are locally cross-bound before provenance admission.
           evidence = src.split('fn resolve_evidence(', 1)[1].split('fn resolve_control_plane_freshness(', 1)[0]
-          source = evidence.index('let source: LeasedEvidence<VerifiedAuthoritySourceHead> = call_local(')
-          witness = evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(')
-          transitions = evidence.index('let lineage = resolve_transition_lineage(&source.evidence)?;')
-          join = evidence.index('let source_witness_lease = intersect_leases(')
-          assert source < witness < transitions < join
+          assert evidence.index('let source: LeasedEvidence<VerifiedAuthoritySourceHead> = call_local(') < evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(')
+          assert evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(') < evidence.index('let lineage = resolve_transition_lineage(&source.evidence)?;')
           assert 'source.evidence.attestation.challenge_digest != challenge_digest' in evidence
           assert 'witness.evidence.witnesses.len() != witness.evidence.trust_bindings.len()' in evidence
           assert 'trust_binding.binding.witness_observation_digest != observation_digest' in evidence
           assert 'witness_receipt.verified_at_ms != trust_binding.verified_at_ms' in evidence
-          assert 'EvidenceLeaseRole::SourceHead' in evidence
-          assert 'EvidenceLeaseRole::WitnessObservation' in evidence
-          assert 'EvidenceLeaseRole::WitnessTrustBinding' in evidence
+          for role in ['SourceHead', 'WitnessObservation', 'WitnessTrustBinding']:
+              assert f'EvidenceLeaseRole::{role}' in evidence
 
-          # Control-plane subtree provenance is exact-counted from qualified probes.
           control = src.split('fn resolve_control_plane_freshness(', 1)[1].split('#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]', 1)[0]
           assert 'let mut witness_count = 0usize;' in control
           assert 'let mut transition_count = 0usize;' in control
@@ -159,13 +152,8 @@ jobs:
           assert 'probe_count: qualified.len()' in control
 
           operational = src.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
-          for role in [
-              'EvidenceLeaseRole::BootstrapRoot',
-              'EvidenceLeaseRole::OperationalCoveragePolicy',
-              'EvidenceLeaseRole::OperationalContextPolicy',
-              'EvidenceLeaseRole::OperationalFreshness',
-          ]:
-              assert role in operational, role
+          for role in ['BootstrapRoot', 'OperationalCoveragePolicy', 'OperationalContextPolicy', 'OperationalFreshness']:
+              assert f'EvidenceLeaseRole::{role}' in operational
           assert 'let expected = ProvenanceCounts {' in operational
           assert 'source_head: control_plane.probe_count + 1' in operational
           assert 'witness_observation: control_plane.witness_count + evidence.witnesses.len()' in operational
@@ -175,9 +163,26 @@ jobs:
           assert 'provenance.aggregate_lease() != &composition_lease' in operational
           assert '.cap_valid_until(requested_deployment_until, final_now)' in operational
           assert 'HostLocalDnaContext::from_host_observation(' in operational
-          assert 'qualify_operational_freshness_for_deployment(' in operational
-          assert 'composition_evidence_manifest_digest: Digest32(provenance.manifest_digest())' in operational
-          assert 'composition_evidence_contributor_count: provenance.contributor_count()' in operational
+
+          # Final deployment path must use the provenance-aware sibling, never the old function.
+          assert 'qualify_operational_freshness_for_deployment_with_provenance(' in operational
+          assert 'qualify_operational_freshness_for_deployment(' not in operational
+          call = operational.split('let deployment = qualify_operational_freshness_for_deployment_with_provenance(', 1)[1].split(')', 1)[0]
+          assert '&provenance' in call
+          assert 'deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())' in operational
+          assert 'deployment.provenance_manifest_profile() != provenance.manifest_profile()' in operational
+          assert 'deployment.provenance_contributor_count() != provenance.contributor_count()' in operational
+          assert 'deployment.composition_evidence_verified_at_ms()' in operational
+          assert 'deployment.composition_evidence_valid_until_ms()' in operational
+
+          # Serialized manifest + deployment evidence all come from the same non-deserializable result.
+          assert 'composition_evidence_manifest_digest: deployment.provenance_manifest_digest()' in operational
+          assert 'composition_evidence_manifest_profile: deployment.provenance_manifest_profile().into()' in operational
+          assert 'composition_evidence_contributor_count: deployment.provenance_contributor_count()' in operational
+          assert 'composition_evidence_verified_at_ms: deployment.composition_evidence_verified_at_ms()' in operational
+          assert 'composition_evidence_valid_until_ms: deployment.composition_evidence_valid_until_ms()' in operational
+          assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
+          assert 'deployment_evidence_profile: deployment.deployment_evidence_profile().into()' in operational
 
           closed = src.split('fn qualify_closed_provenance(', 1)[1].split('#[hdk_extern]\npub fn resolve_current_operational_freshness', 1)[0]
           assert 'observed != expected' in closed
@@ -205,6 +210,7 @@ jobs:
               'provenance_required_role_cardinality_closed: true',
               'provenance_manifest_qualified_locally: true',
               'provenance_manifest_matches_global_lease: true',
+              'provenance_bound_into_deployment_evidence: true',
               'deployment_lease_capped_by_global_evidence: true',
               'host_local_dna_derived: true',
               'constitutional_dna_cross_checked: true',
@@ -239,10 +245,11 @@ jobs:
               'provenance contributor set is constructed locally',
               'required role/cardinality closure is exact',
               'canonical provenance manifest must reproduce the global lease',
-              'manifest identity is audit evidence, not semantic authority',
+              'provenance must be bound into dynamic deployment evidence',
+              'runtime cross-checks the provenance-bound deployment echo',
               'deployment is capped by the global evidence lease',
               'deliberately unprovisioned',
           ]:
               assert invariant in inv, invariant
-          print('PASS: exact provenance closure reproduces the global lease and caps deployment authority')
+          print('PASS: canonical provenance is closed, bound into deployment evidence, and never widens stable authority')
           PY
