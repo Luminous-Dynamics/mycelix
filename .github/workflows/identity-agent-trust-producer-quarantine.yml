@@ -1,0 +1,126 @@
+name: Identity Agent Trust Producer Quarantine Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_agent_trust_level_requarantine_v1.py'
+      - '.github/workflows/identity-agent-trust-producer-quarantine.yml'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_agent_trust_level_requarantine_v1.py'
+      - '.github/workflows/identity-agent-trust-producer-quarantine.yml'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-producer-quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact producer quarantine patch
+        run: python scripts/qualification/identity_agent_trust_level_requarantine_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs"
+          )
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs \
+            > /tmp/identity-agent-trust-level-requarantine-v1.patch
+
+      - name: Assert producer quarantine contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/src/lib.rs')
+          text = path.read_text()
+
+          required = [
+              'fn quarantined_legacy_agent_trust_level() -> TrustTier',
+              'Ok(quarantined_legacy_agent_trust_level())',
+              'legacy_agent_trust_level_is_producer_quarantined',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: required producer quarantine contract missing: {needle}')
+
+          start = text.index('pub fn get_agent_trust_level(')
+          end = text.index('/// Pure verification logic', start)
+          endpoint = text[start:end]
+          forbidden = [
+              'get_links(',
+              'highest_tier',
+              'min_score()',
+              'SubjectToCredential',
+              'TrustTier::Basic',
+              'TrustTier::Standard',
+              'TrustTier::Elevated',
+              'TrustTier::Guardian',
+          ]
+          for needle in forbidden:
+              if needle in endpoint:
+                  raise SystemExit(
+                      f'ERROR: legacy trust producer still exposes differentiated authority path: {needle}'
+                  )
+
+          helper_start = text.index('fn quarantined_legacy_agent_trust_level()')
+          helper_end = text.index('#[hdk_extern]', helper_start)
+          helper = text[helper_start:helper_end]
+          if 'TrustTier::Observer' not in helper:
+              raise SystemExit('ERROR: producer quarantine no longer returns Observer')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of materialized patch
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test materialized coordinator
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --lib
+
+      - name: Check materialized coordinator for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-agent-trust-level-requarantine-v1-patch
+          path: /tmp/identity-agent-trust-level-requarantine-v1.patch
+          if-no-files-found: error
