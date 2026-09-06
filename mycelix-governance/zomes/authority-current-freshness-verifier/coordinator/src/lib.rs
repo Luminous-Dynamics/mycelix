@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed runtime composition for current operational authority freshness.
 //!
-//! Discovery, constitutional currentness, root adoption, probe provenance,
-//! source authentication, witness/trust verification and transition verification
-//! are deliberately separate roles. Positive authority is reconstructed locally
-//! through the pure qualification kernels.
+//! The binding constitutional head comes from the existing constitution-transition
+//! authority plane. Root adoption, probe provenance, source authentication,
+//! witness/trust verification and transition verification remain separate roles.
+//! Positive authority is reconstructed locally through the pure kernels.
 
 use hdk::prelude::*;
 use mycelix_authority_control_plane_freshness::{
@@ -17,6 +17,7 @@ use mycelix_authority_operational_freshness::qualify_operational_subject_freshne
 use mycelix_authority_state_bootstrap_root::{
     qualify_bootstrap_root, AuthorityStateBootstrapRootManifest,
     VerifiedBootstrapRootAdoption, VerifiedCurrentConstitutionReceipt,
+    CURRENT_CONSTITUTION_RECEIPT_PROTOCOL,
 };
 use mycelix_authority_state_coverage::{
     VerifiedAuthorityCoveragePolicy, VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead,
@@ -25,13 +26,17 @@ use mycelix_authority_state_coverage_context::{
     VerifiedCoverageChallenge, VerifiedCoverageTrustContextPolicy, VerifiedWitnessTrustBinding,
 };
 use mycelix_authority_state_source::VerifiedAuthorityStateTransition;
+use mycelix_governance_constitution::{
+    ConstitutionStatement, Digest32 as ConstitutionDigest32, STATEMENT_PROFILE,
+};
 use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.1";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
-const CURRENT_CONSTITUTION_VERIFIER_ZOME: &str = "authority_current_constitution_verifier";
+const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
+const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
 const ROOT_ADOPTION_VERIFIER_ZOME: &str = "authority_bootstrap_root_adoption_verifier";
 const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_provider";
 const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
@@ -43,11 +48,28 @@ const MAX_CONTROL_PLANE_PROBES: usize = 3;
 const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
+/// Long enough to complete one bounded composition, but never an indefinite
+/// constitutional-currentness assertion.
+const CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS: u64 = 30_000;
+/// Positive output is reusable only briefly after the final constitutional fence.
+const CURRENT_CONSTITUTION_RETURN_LEASE_MS: u64 = 5_000;
 
-/// Exact candidate manifest + independently verified current constitutional
-/// identity. The adoption verifier authenticates whether that exact root was
-/// adopted under that exact current statement; it does not receive a positive
-/// current-constitution receipt object.
+/// Mirror of `constitution_transition::VerifiedCurrentConstitution`.
+///
+/// This is evidence-shaped transport data. The authoritative semantics come from
+/// the fixed local zome/function plus local digest/legacy checks below.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct VerifiedCurrentConstitutionMirror {
+    dna_hash: String,
+    statement: ConstitutionStatement,
+    statement_digest: ConstitutionDigest32,
+    verified_transition_count: u64,
+    candidate_count: u64,
+    legacy_constitution_authoritative: bool,
+}
+
+/// Exact candidate manifest + independently projected current constitutional
+/// identity. Adoption verification remains a separate role.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RootAdoptionVerificationRequest {
     pub manifest: AuthorityStateBootstrapRootManifest,
@@ -61,7 +83,6 @@ pub struct OperationalPolicyCandidateBundle {
     pub context: VerifiedCoverageTrustContextPolicy,
 }
 
-/// Discovery only. The plan provider chooses probe references but attests no truth.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ControlPlaneProbePlanRequest {
     pub target_subject: AuthoritySubjectRef,
@@ -87,7 +108,6 @@ pub struct OperationalProbePlan {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceHeadVerificationRequest {
-    /// #131 reconstructs positive challenge verification itself from this probe.
     pub probe_action: ActionHash,
 }
 
@@ -117,6 +137,11 @@ struct ResolvedAuthorityEvidence {
     transitions: Vec<VerifiedAuthorityStateTransition>,
 }
 
+struct ResolvedBootstrapRoot {
+    root: mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot,
+    constitution: VerifiedCurrentConstitutionMirror,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub protocol: String,
@@ -140,7 +165,9 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub protocol: String,
     pub composition_only: bool,
     pub root_manifest_provider_grants_authority: bool,
-    pub current_constitution_verifier_separate: bool,
+    pub current_constitution_source_is_binding_plane: bool,
+    pub constitution_rechecked_after_adoption: bool,
+    pub constitution_rechecked_before_return: bool,
     pub root_adoption_verifier_separate: bool,
     pub evidence_plan_grants_authority: bool,
     pub latest_dht_record_authority: bool,
@@ -189,10 +216,99 @@ fn now_ms() -> ExternResult<u64> {
     Ok(micros as u64 / 1_000)
 }
 
-fn resolve_root(
-) -> ExternResult<mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot> {
-    // Candidate location/semantics only. This role cannot manufacture either
-    // positive verifier receipt consumed by #111.
+fn constitution_digest_to_core(digest: ConstitutionDigest32) -> Digest32 {
+    Digest32(digest.0)
+}
+
+fn verify_constitution_projection(
+    current: &VerifiedCurrentConstitutionMirror,
+) -> ExternResult<()> {
+    if current.legacy_constitution_authoritative {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "binding constitution plane reported legacy constitution authority".into(),
+        )));
+    }
+    if current.dna_hash.trim().is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "binding constitution plane returned empty DNA identity".into(),
+        )));
+    }
+    current.statement.validate().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "binding constitution plane returned invalid statement: {error}"
+        )))
+    })?;
+    let recomputed = current.statement.digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot digest binding current constitution: {error}"
+        )))
+    })?;
+    if recomputed != current.statement_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "binding constitution plane returned mismatched statement digest".into(),
+        )));
+    }
+    Ok(())
+}
+
+fn resolve_binding_current_constitution() -> ExternResult<VerifiedCurrentConstitutionMirror> {
+    let current: VerifiedCurrentConstitutionMirror = call_local(
+        CONSTITUTION_TRANSITION_ZOME,
+        CURRENT_CONSTITUTION_FUNCTION,
+        (),
+    )?;
+    verify_constitution_projection(&current)?;
+    Ok(current)
+}
+
+fn ensure_same_constitution(
+    expected: &VerifiedCurrentConstitutionMirror,
+    observed: &VerifiedCurrentConstitutionMirror,
+) -> ExternResult<()> {
+    if expected.dna_hash != observed.dna_hash
+        || expected.statement_digest != observed.statement_digest
+        || expected.statement != observed.statement
+        || expected.verified_transition_count != observed.verified_transition_count
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "binding constitutional head changed during current-authority composition".into(),
+        )));
+    }
+    Ok(())
+}
+
+fn current_constitution_receipt(
+    current: &VerifiedCurrentConstitutionMirror,
+    now: u64,
+) -> ExternResult<VerifiedCurrentConstitutionReceipt> {
+    let statement_digest = constitution_digest_to_core(current.statement_digest);
+    let valid_until_ms = now
+        .checked_add(CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "current-constitution composition lease overflow".into(),
+            ))
+        })?;
+    Ok(VerifiedCurrentConstitutionReceipt {
+        protocol_version: CURRENT_CONSTITUTION_RECEIPT_PROTOCOL.into(),
+        statement: current.statement.clone(),
+        statement_digest,
+        statement_profile: STATEMENT_PROFILE.into(),
+        dna_hash: current.dna_hash.clone(),
+        verification_ref: format!(
+            "constitution-transition-current:{STATEMENT_PROFILE}:{}",
+            digest_hex(statement_digest)
+        ),
+        verified_at_ms: now,
+        valid_until_ms,
+    })
+}
+
+fn resolve_root() -> ExternResult<ResolvedBootstrapRoot> {
+    // First constitutional fence: this is the actual binding constitutional plane
+    // from #57, not a new abstract verifier receipt.
+    let constitution_before = resolve_binding_current_constitution()?;
+
     let manifest: AuthorityStateBootstrapRootManifest = call_local(
         ROOT_MANIFEST_PROVIDER_ZOME,
         "resolve_bootstrap_root_manifest",
@@ -203,38 +319,32 @@ fn resolve_root(
             "bootstrap-root manifest candidate is invalid: {error}"
         )))
     })?;
-
-    // The current-constitution verifier is local and receives no manifest-derived
-    // selector at all. It must derive the live constitutional domain/head from its
-    // own trusted runtime/constitution context.
-    let current_constitution: VerifiedCurrentConstitutionReceipt = call_local(
-        CURRENT_CONSTITUTION_VERIFIER_ZOME,
-        "verify_current_constitution",
-        (),
-    )?;
-
     let root_manifest_digest = manifest.identity_digest().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "cannot compute bootstrap-root manifest identity: {error}"
         )))
     })?;
 
-    // The adoption verifier sees the exact candidate root plus the current
-    // statement identity returned by the independent constitution verifier. It
-    // does not receive the positive current-constitution receipt itself.
     let adoption: VerifiedBootstrapRootAdoption = call_local(
         ROOT_ADOPTION_VERIFIER_ZOME,
         "verify_bootstrap_root_adoption",
         RootAdoptionVerificationRequest {
             manifest: manifest.clone(),
-            current_constitution_digest: current_constitution.statement_digest,
-            current_constitution_profile: current_constitution.statement_profile.clone(),
+            current_constitution_digest: constitution_digest_to_core(
+                constitution_before.statement_digest,
+            ),
+            current_constitution_profile: STATEMENT_PROFILE.into(),
         },
     )?;
 
-    // Qualification time follows every evidence-producing verifier call.
+    // Re-project after adoption verification. A constitutional transition racing
+    // the adoption check invalidates the whole root qualification attempt.
+    let constitution_after = resolve_binding_current_constitution()?;
+    ensure_same_constitution(&constitution_before, &constitution_after)?;
+
     let now = now_ms()?;
-    let root = qualify_bootstrap_root(&manifest, &current_constitution, &adoption, now)
+    let constitution_receipt = current_constitution_receipt(&constitution_after, now)?;
+    let root = qualify_bootstrap_root(&manifest, &constitution_receipt, &adoption, now)
         .map_err(|error| {
             wasm_error!(WasmErrorInner::Guest(format!(
                 "bootstrap-root qualification denied: {error}"
@@ -252,7 +362,10 @@ fn resolve_root(
         )));
     }
 
-    Ok(root)
+    Ok(ResolvedBootstrapRoot {
+        root,
+        constitution: constitution_after,
+    })
 }
 
 fn resolve_operational_policies(
@@ -394,13 +507,14 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    let root = resolve_root()?;
+    let resolved_root = resolve_root()?;
+    let root = &resolved_root.root;
     let policies = resolve_operational_policies(&subject)?;
-    let control_plane = resolve_control_plane_freshness(&root, &subject)?;
+    let control_plane = resolve_control_plane_freshness(root, &subject)?;
 
     let context_now = now_ms()?;
     let context = qualify_operational_policy_context(
-        &root,
+        root,
         &subject,
         &policies.context,
         &policies.coverage,
@@ -440,10 +554,44 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    let freshness = current.to_verified_freshness();
+    let mut freshness = current.to_verified_freshness();
     freshness.validate_at(current_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "qualified operational freshness is not currently usable: {error}"
+        )))
+    })?;
+
+    // Final constitutional fence spans the whole composition, not just root
+    // adoption. Any constitutional advancement during policy/source/witness/
+    // transition work denies the request.
+    let final_constitution = resolve_binding_current_constitution()?;
+    ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;
+    let final_now = now_ms()?;
+    freshness.validate_at(final_now).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "qualified freshness expired before final constitutional fence: {error}"
+        )))
+    })?;
+
+    let fenced_until = final_now
+        .checked_add(CURRENT_CONSTITUTION_RETURN_LEASE_MS)
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "final constitutional fence lease overflow".into(),
+            ))
+        })?;
+    let final_verification_ref = format!(
+        "current-operational-freshness-fenced:{}:{}:{}",
+        current.authority_profile(),
+        digest_hex(current.authority_digest()),
+        digest_hex(constitution_digest_to_core(final_constitution.statement_digest))
+    );
+    freshness.verification_ref = final_verification_ref.clone();
+    freshness.verified_at_ms = freshness.verified_at_ms.max(final_now);
+    freshness.lease_until_ms = freshness.lease_until_ms.min(fenced_until);
+    freshness.validate_at(final_now).map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "constitution-fenced freshness is not reusable: {error}"
         )))
     })?;
 
@@ -458,11 +606,7 @@ pub fn resolve_current_operational_freshness(
         authority_profile: current.authority_profile().into(),
         evidence_digest: current.evidence_digest(),
         evidence_profile: current.evidence_profile().into(),
-        verification_ref: format!(
-            "current-operational-freshness:{}:{}",
-            current.authority_profile(),
-            digest_hex(current.authority_digest())
-        ),
+        verification_ref: final_verification_ref,
         verified_at_ms: freshness.verified_at_ms,
         lease_until_ms: freshness.lease_until_ms,
         current_freshness: freshness,
@@ -475,7 +619,9 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         protocol: RUNTIME_PROTOCOL.into(),
         composition_only: true,
         root_manifest_provider_grants_authority: false,
-        current_constitution_verifier_separate: true,
+        current_constitution_source_is_binding_plane: true,
+        constitution_rechecked_after_adoption: true,
+        constitution_rechecked_before_return: true,
         root_adoption_verifier_separate: true,
         evidence_plan_grants_authority: false,
         latest_dht_record_authority: false,

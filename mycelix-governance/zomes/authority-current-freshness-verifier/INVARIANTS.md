@@ -2,146 +2,124 @@
 
 Status: **implemented composition candidate; deliberately unprovisioned in the binding governance DNA**
 
-This runtime answers one question:
+## 1. Binding constitutional authority is reused, not reinvented
 
-> Does one exact operational authority subject have a current, covered, generation-bound freshness state under the exact current constitution-rooted policy plane?
+Current constitutional truth comes only from the existing local:
 
-It does not own policy, constitution, root adoption, state transitions, source truth, witness truth, probe entropy, lifecycle claims, or external effects.
+`constitution_transition::get_verified_current_constitution(())`.
 
-## 1. Positive authority is reconstructed locally
+That runtime reconstructs DNA genesis, re-verifies reachable constitutional transition candidates against binding-tally and threshold-verifier boundaries, enforces nonce/fork rules and runs the verified constitutional lineage projector.
 
-Cross-zome roles may return evidence-shaped data or role-specific verification receipts only.
+This coordinator MUST NOT introduce or trust a parallel `authority_current_constitution_verifier` service.
 
-The coordinator reconstructs positive authority through #111 → #115 → #116 → #117. No provider may return a deserialized `Qualified*` value and have it treated as authority by existence.
+The returned wire object is locally rechecked for exact statement digest consistency and `legacy_constitution_authoritative = false` before it can become #111 evidence.
 
 ## 2. Bootstrap manifest discovery is not bootstrap authority
 
-`authority_state_bootstrap_root_manifest_provider` may return one semantic `AuthorityStateBootstrapRootManifest` candidate only.
+`authority_state_bootstrap_root_manifest_provider` returns one `AuthorityStateBootstrapRootManifest` candidate only.
 
-It MUST NOT return `VerifiedCurrentConstitutionReceipt`, `VerifiedBootstrapRootAdoption`, or `QualifiedAuthorityStateBootstrapRoot`.
+It cannot supply current constitutional truth, root-adoption verification, or a qualified bootstrap root.
 
 `root_manifest_provider_grants_authority = false`.
 
-## 3. Current constitution is independently discovered and verified
+## 3. Root adoption remains separate
 
-`authority_current_constitution_verifier::verify_current_constitution` receives `()`.
+`authority_bootstrap_root_adoption_verifier` receives the exact candidate manifest plus the exact current statement digest/profile returned by the binding constitutional plane.
 
-It receives **no selector derived from the candidate manifest**: no network ID, institution ID, constitution ID, desired version, statement digest, rulebook digest, or positive root/adoption receipt.
+It does not receive `VerifiedCurrentConstitutionReceipt` as positive authority.
 
-The verifier must derive the applicable local constitutional domain and current head from its own trusted runtime/constitution context and return `VerifiedCurrentConstitutionReceipt`.
+#111 locally recomputes the exact statement, rulebook, manifest and adoption bindings.
 
-Therefore the manifest provider cannot steer either which constitutional domain or which constitutional version is treated as current.
+## 4. Constitutional TOCTOU is fail-closed at the root
 
-The returned current statement is later compared against the candidate manifest only inside local #111 qualification.
+Root qualification requires:
 
-## 4. Root adoption is independently verified
+`binding constitution BEFORE → manifest → adoption verifier → binding constitution AFTER`.
 
-`authority_bootstrap_root_adoption_verifier` receives the exact candidate root manifest plus the current constitutional statement digest/profile returned by the independent constitution verifier.
+The BEFORE and AFTER projections must have identical:
 
-It MUST NOT receive the surrounding `VerifiedCurrentConstitutionReceipt` as positive authority.
+- DNA hash;
+- exact `ConstitutionStatement`;
+- statement digest; and
+- verified transition count.
 
-It returns only `VerifiedBootstrapRootAdoption` for that exact tuple. #111 then independently recomputes and cross-binds the manifest, current statement, rulebook and adoption evidence.
+If constitutional authority changes while root adoption is being checked, root qualification denies.
 
-The root-adoption verifier does not decide constitutional currentness; the current-constitution verifier does not decide root adoption.
+Only after the second projection is stable does the coordinator sample qualification time and construct a short-lived `VerifiedCurrentConstitutionReceipt` for local #111 qualification.
 
-## 5. No omnibus bootstrap oracle
+## 5. The constitutional fence spans the complete authority composition
 
-The old `authority_state_bootstrap_root_provider::resolve_bootstrap_root_candidates` bundle is forbidden.
+After #115/#116/#117 and all source/witness/transition evidence have been qualified, the coordinator calls `constitution_transition::get_verified_current_constitution(())` a third time immediately before returning positive freshness.
 
-No single role may supply all three of root manifest, current-constitution verification and root-adoption verification.
+That final projection must equal the root's constitutional projection. Any constitutional advancement during policy or operational evidence collection denies.
 
-A positive bootstrap root requires the candidate role, both independent verifiers and local #111 qualification.
+The exported `VerifiedAuthorityFreshness` is then narrowed to at most `CURRENT_CONSTITUTION_RETURN_LEASE_MS` after this final fence and its dynamic verification reference commits the exact constitutional statement digest.
 
-## 6. Discovery and operational verification are different roles
+Thus a long root/provider lease cannot silently widen constitutional-currentness reuse.
 
-`authority_state_evidence_plan_provider` is discovery-only. Evidence-plan selection grants no authority.
+## 6. Constitutional verification leases are bounded
 
-## 7. Probe verification is independent
+The locally projected #111 current-constitution receipt is bounded to `CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS`; it is not an indefinite assertion of currentness.
 
-Every planned probe action is sent to `authority_state_challenge::verify_issued_authority_state_probe`. Probe authorship remains provenance only.
+The final runtime output is narrower still: at most `CURRENT_CONSTITUTION_RETURN_LEASE_MS` after the final constitutional projection.
 
-## 8. Source-head verification independently reconstructs probe validity
+A composer may shorten a lease but never lengthen one.
 
-The source-head verifier receives the exact `probe_action: ActionHash`, not this coordinator's serialized positive `VerifiedCoverageChallenge`, and independently invokes #114 before source authentication.
+## 7. Positive authority is reconstructed locally
 
-## 9. Witness/trust verification is independent
+The coordinator reconstructs positive authority through #111 → #115 → #116 → #117.
 
-The exact verified challenge + exact verified source head are sent to `authority_state_witness_verifier::verify_witness_evidence`.
+No provider may serialize a `Qualified*` object and have it trusted by existence.
 
-Its output is bounded to at most 64 witnesses and 64 trust bindings. #96 still owns exact trust-policy/verifier binding and independence checks.
+## 8. Probe/source/witness/transition roles remain independent
 
-## 10. Transition verification is independent
+The evidence-plan provider chooses probe references only. #114 verifies probe provenance. #131 independently reconstructs probe verification for source authentication. Witness/trust and transition verification remain separate zome boundaries.
 
-The exact target subject + exact verified source head are sent to `authority_state_transition_verifier::verify_transition_lineage`.
+A valid transition prefix is not current authority; #91 still requires exact endpoint equality with the independently covered head.
 
-Its output is bounded to 1–256 transitions. #91 still requires a contiguous, fork-free, parent-digest-linked chain ending at the independently covered head.
+## 9. Qualification time follows evidence production
 
-A valid transition prefix is not current authority.
+Each pure qualifier receives a host-clock sample after the evidence-producing calls whose timestamps it judges.
 
-## 11. Qualification time follows evidence production
+The root clock is sampled only after the post-adoption constitutional projection. Final output time is sampled only after the final constitutional projection.
 
-For the root, causal ordering is:
+## 10. No currentness-by-observation shortcut
 
-`manifest candidate → zero-input current-constitution verification → root-adoption verification → root qualification time → #111`.
+Highest observed generation, newest timestamp, DHT arrival order, absence of a later record, cached local state, author identity, reputation, Phi or model output cannot establish current authority.
 
-Control-plane/context/operational qualification retains the evidence-before-clock ordering from #133.
+The constitutional plane may inspect its append-only candidates, but authoritative constitutional truth comes from its verified lineage projector—not a latest-record heuristic.
 
-A timestamp captured before asynchronous verifier work MUST NOT be reused for later qualification.
+## 11. Fail closed on every role boundary
 
-## 12. Operational policy semantics and policy currentness are separate
+Missing constitution/probe/source/witness/transition/adoption verifier, non-OK call, decode failure, malformed receipt, stale lease, changed constitutional head, ambiguous lineage, or failed pure qualification denies.
 
-The policy provider returns semantic policy receipts. Currentness of those exact policy objects comes only from #115 proofs rooted in #111.
+## 12. Historical/live separation
 
-Missing, extra, revoked, superseded, stale, wrong-root, or wrong-namespace policy evidence denies.
+Historical constitutional or authority-state evidence cannot be converted into a live freshness receipt.
 
-## 13. Covered namespace and registry namespace remain distinct
-
-`coverage_policy.namespace` controls which operational subjects may be covered. `root.control_plane_namespace` controls where policy objects' own authority state lives.
-
-## 14. No latest-record heuristics
-
-The runtime MUST NOT infer currentness from highest observed generation, newest timestamp, DHT arrival order, absence of a later record, cached local state, first/last link order, reputation, Phi, or model output.
-
-## 15. Stable authority and evidence provenance remain separate
-
-The runtime preserves #117's stable `authority_digest/profile` and fresh `evidence_digest/profile` distinction.
-
-## 16. Fail closed on every role boundary
-
-Missing zome/function, non-OK call response, decode failure, malformed evidence, failed pure qualification, stale lease, mismatched subject, impossible evidence fan-in, or unavailable independent verifier MUST deny.
-
-`operational = false` remains declarative.
-
-## 17. Historical/live separation
-
-Only current projection paths may contribute to this runtime. Historical/as-of evidence cannot become a live freshness receipt.
-
-## 18. Deliberately unprovisioned
+## 13. Deliberately unprovisioned
 
 `authority_current_freshness_verifier` remains absent from `mycelix-governance/dna/dna.yaml`.
 
-The manifest/current-constitution/root-adoption/policy/source/witness/transition roles are not production-qualified here.
+No external effect is enabled and `operational = false` remains explicit.
 
-## 19. No external-effect authority
-
-This coordinator cannot create grants, mutate authority transitions, sign governance actions, create lifecycle claims, execute actions, or authorize an external effect.
-
-## 20. Required qualification before provisioning
+## 14. Required qualification before provisioning
 
 At minimum:
 
 - rustfmt, native check, warnings-denied Clippy and WASM build;
-- proof that current-constitution verification is zero-input and receives no manifest-derived selector;
-- proof that the adoption verifier does not receive `VerifiedCurrentConstitutionReceipt`;
-- proof that the old omnibus bootstrap provider cannot reappear;
-- root verifier ordering audit;
-- source-head request ABI proof: probe action only;
-- qualification-time ordering audit at all layers;
+- exact dependency on `mycelix-governance-constitution`;
+- exact call to `constitution_transition::get_verified_current_constitution(())`;
+- no abstract current-constitution verifier service;
+- recomputed constitutional statement digest validation;
+- legacy constitutional authority rejection;
+- root before/after constitutional fence ordering;
+- final whole-composition constitutional fence ordering;
+- final freshness lease narrowing;
 - old-constitution replay and wrong-adoption denial;
-- hidden-later-revocation and truncated-transition denial;
-- source/policy/verifier substitution and outage denial;
-- direct-source and witness-quorum paths;
-- proof that no latest-DHT heuristic exists; and
-- multi-agent Sweettests showing stale/partitioned evidence cannot produce live execution authority.
+- verifier outage and constitutional-race denial;
+- source/policy/transition substitution denial;
+- direct-source and witness-quorum paths; and
+- multi-agent Sweettests for concurrent constitutional advancement during adoption and operational evidence collection.
 
 No external effects are enabled.
