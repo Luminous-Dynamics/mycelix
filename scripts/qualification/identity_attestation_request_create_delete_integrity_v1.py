@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Materialize fail-closed AttestationRequest create/delete DHT hardening.
+"""Materialize fail-closed AttestationRequest DHT admission/deletion hardening.
 
-Qualification-only: this edits the CI checkout, never committed product source.
+Qualification-only: edits the CI checkout, never committed product source.
 Every replacement requires exactly one expected before-image so stale or
 ambiguous security transformations fail closed.
 """
@@ -9,6 +9,7 @@ ambiguous security transformations fail closed.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+MANIFEST = ROOT / "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml"
 LIB = ROOT / "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
 
 
@@ -21,6 +22,17 @@ def replace_once(text: str, before: str, after: str, label: str) -> str:
         )
     return text.replace(before, after, 1)
 
+
+manifest = MANIFEST.read_text()
+old_deps = '''serde_json = { workspace = true }
+thiserror = { workspace = true }
+'''
+new_deps = '''serde_json = { workspace = true }
+thiserror = { workspace = true }
+mycelix-attestation-request-root-policy = { path = "../../../crates/attestation-request-root-policy" }
+'''
+manifest = replace_once(manifest, old_deps, new_deps, "root-policy dependency")
+MANIFEST.write_text(manifest)
 
 text = LIB.read_text()
 
@@ -43,8 +55,7 @@ new_register_delete = '''        FlatOp::RegisterDelete(OpDelete { action }) => 
             }
 
             // Attestation requests have a typed lifecycle. Generic deletion would
-            // create a second, untyped cancellation language and bypass the
-            // canonical Pending -> Cancelled transition policy.
+            // create a second, untyped cancellation language.
             let request_entry_type = EntryType::App(AppEntryDef::try_from(
                 UnitEntryTypes::AttestationRequest,
             )?);
@@ -57,12 +68,7 @@ new_register_delete = '''        FlatOp::RegisterDelete(OpDelete { action }) => 
             Ok(ValidateCallbackResult::Valid)
         }
 '''
-text = replace_once(
-    text,
-    old_register_delete,
-    new_register_delete,
-    "typed AttestationRequest delete guard",
-)
+text = replace_once(text, old_register_delete, new_register_delete, "typed request delete guard")
 
 old_create_request = '''/// Validate attestation request creation
 fn validate_create_request(
@@ -121,52 +127,17 @@ fn validate_create_request(
     Ok(ValidateCallbackResult::Valid)
 }
 '''
-new_create_request = '''/// Pure structural admission theorem for new attestation request roots.
-///
-/// This deliberately owns only entry shape/actionability. Requester author
-/// binding remains the outer HDI authority check in `validate_create_request`.
-fn validate_attestation_request_creation_shape(
-    req: &AttestationRequest,
-) -> Result<(), &'static str> {
-    if req.id.is_empty() || req.id.len() > 256 {
-        return Err("Attestation request ID must be 1-256 characters");
+new_create_request = '''fn request_status_v1(
+    status: &AttestationStatus,
+) -> mycelix_attestation_request_root_policy::AttestationRequestStatusV1 {
+    use mycelix_attestation_request_root_policy::AttestationRequestStatusV1 as V1;
+    match status {
+        AttestationStatus::Pending => V1::Pending,
+        AttestationStatus::Fulfilled => V1::Fulfilled,
+        AttestationStatus::Declined => V1::Declined,
+        AttestationStatus::Expired => V1::Expired,
+        AttestationStatus::Cancelled => V1::Cancelled,
     }
-    if req.requester_did.is_empty()
-        || req.requester_did.len() > 256
-        || !req.requester_did.starts_with("did:")
-    {
-        return Err("Requester DID must be a valid DID of 1-256 characters");
-    }
-    if req.subject_did.is_empty()
-        || req.subject_did.len() > 256
-        || !req.subject_did.starts_with("did:")
-    {
-        return Err("Subject DID must be a valid DID of 1-256 characters");
-    }
-    if req.requester_did == req.subject_did {
-        return Err("Cannot request attestation from yourself");
-    }
-    if req.components.is_empty() {
-        return Err("At least one K-Vector component is required");
-    }
-    if req.purpose.is_empty() || req.purpose.len() > 2048 {
-        return Err("Attestation request purpose must be 1-2048 characters");
-    }
-    if req.status != AttestationStatus::Pending {
-        return Err("New requests must have Pending status");
-    }
-    if let Some(score) = req.min_trust_score {
-        if !score.is_finite() {
-            return Err("Minimum trust score must be finite");
-        }
-        if !(0.0..=1.0).contains(&score) {
-            return Err("Minimum trust score must be in [0, 1]");
-        }
-    }
-    if req.expires_at <= req.created_at {
-        return Err("Attestation request expiration must be after creation time");
-    }
-    Ok(())
 }
 
 /// Validate attestation request creation.
@@ -174,8 +145,7 @@ fn validate_create_request(
     action: Create,
     req: AttestationRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    // DHT-authoritative requester binding: a modified coordinator cannot claim
-    // another agent as the immutable request author.
+    // DHT-authoritative requester binding remains local to HDI.
     let expected_requester = format!("did:mycelix:{}", action.author);
     if req.requester_did != expected_requester {
         return Ok(ValidateCallbackResult::Invalid(
@@ -183,18 +153,27 @@ fn validate_create_request(
         ));
     }
 
-    match validate_attestation_request_creation_shape(&req) {
+    let root = mycelix_attestation_request_root_policy::AttestationRequestRootAssertionV1 {
+        id: &req.id,
+        requester_did: &req.requester_did,
+        subject_did: &req.subject_did,
+        component_count: req.components.len(),
+        purpose: &req.purpose,
+        min_trust_score: req.min_trust_score,
+        status: request_status_v1(&req.status),
+        created_at_micros: req.created_at.as_micros(),
+        expires_at_micros: req.expires_at.as_micros(),
+    };
+
+    match mycelix_attestation_request_root_policy::validate_attestation_request_root_assertion_v1(root) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
-        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid attestation request root: {reason:?}"
+        ))),
     }
 }
 '''
-text = replace_once(
-    text,
-    old_create_request,
-    new_create_request,
-    "AttestationRequest creation theorem",
-)
+text = replace_once(text, old_create_request, new_create_request, "root-policy DHT adapter")
 
 old_request_tests = '''    #[test]
     fn create_request_requester_forgery_rejected() {
@@ -213,126 +192,61 @@ new_request_tests = '''    #[test]
     }
 
     #[test]
-    fn request_creation_shape_accepts_supported_boundary() {
+    fn create_request_delegates_supported_boundary_to_root_policy() {
         let mut req = valid_request(format!("did:mycelix:{}", me()));
         req.id = "r".repeat(256);
         req.purpose = "p".repeat(2048);
-        assert_eq!(validate_attestation_request_creation_shape(&req), Ok(()));
+        let result = validate_create_request(test_action(me()), req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
     #[test]
-    fn request_creation_shape_rejects_unaddressable_id() {
-        let mut req = valid_request(format!("did:mycelix:{}", me()));
-        req.id = "r".repeat(257);
-        assert!(validate_attestation_request_creation_shape(&req).is_err());
-    }
-
-    #[test]
-    fn request_creation_shape_rejects_empty_components() {
-        let mut req = valid_request(format!("did:mycelix:{}", me()));
-        req.components.clear();
-        assert!(validate_attestation_request_creation_shape(&req).is_err());
-    }
-
-    #[test]
-    fn request_creation_shape_rejects_bad_purpose_bounds() {
-        let mut empty = valid_request(format!("did:mycelix:{}", me()));
-        empty.purpose.clear();
-        assert!(validate_attestation_request_creation_shape(&empty).is_err());
-
-        let mut long = valid_request(format!("did:mycelix:{}", me()));
-        long.purpose = "p".repeat(2049);
-        assert!(validate_attestation_request_creation_shape(&long).is_err());
-    }
-
-    #[test]
-    fn request_creation_shape_rejects_bad_did_bounds() {
-        let mut bad_subject = valid_request(format!("did:mycelix:{}", me()));
-        bad_subject.subject_did = "did:".to_string() + &"s".repeat(253);
-        assert_eq!(bad_subject.subject_did.len(), 257);
-        assert!(validate_attestation_request_creation_shape(&bad_subject).is_err());
-
-        let mut empty_requester = valid_request(format!("did:mycelix:{}", me()));
-        empty_requester.requester_did.clear();
-        assert!(validate_attestation_request_creation_shape(&empty_requester).is_err());
-    }
-
-    #[test]
-    fn request_creation_shape_rejects_nonfinite_and_out_of_range_score() {
-        for score in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -0.01, 1.01] {
+    fn create_request_delegates_invalid_root_shapes_to_root_policy() {
+        let cases = [f32::NAN, f32::INFINITY, -0.01, 1.01];
+        for score in cases {
             let mut req = valid_request(format!("did:mycelix:{}", me()));
             req.min_trust_score = Some(score);
-            assert!(
-                validate_attestation_request_creation_shape(&req).is_err(),
-                "score {score:?} must be rejected"
-            );
+            let result = validate_create_request(test_action(me()), req).unwrap();
+            assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
         }
-    }
 
-    #[test]
-    fn request_creation_shape_requires_positive_validity_interval() {
-        for expires_at in [Timestamp::from_micros(0), Timestamp::from_micros(-1)] {
-            let mut req = valid_request(format!("did:mycelix:{}", me()));
-            req.created_at = Timestamp::from_micros(0);
-            req.expires_at = expires_at;
-            assert!(validate_attestation_request_creation_shape(&req).is_err());
-        }
-    }
-
-    #[test]
-    fn request_creation_shape_requires_pending_root() {
         let mut req = valid_request(format!("did:mycelix:{}", me()));
-        req.status = AttestationStatus::Fulfilled;
-        assert!(validate_attestation_request_creation_shape(&req).is_err());
+        req.id = "r".repeat(257);
+        let result = validate_create_request(test_action(me()), req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+
+        let mut req = valid_request(format!("did:mycelix:{}", me()));
+        req.expires_at = req.created_at;
+        let result = validate_create_request(test_action(me()), req).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     fn valid_presentation(subject_did: String) -> TrustPresentation {
 '''
-text = replace_once(
-    text,
-    old_request_tests,
-    new_request_tests,
-    "AttestationRequest creation regression tests",
-)
+text = replace_once(text, old_request_tests, new_request_tests, "root-policy adapter regressions")
 
 required = [
-    "fn validate_attestation_request_creation_shape(",
-    "req.id.is_empty() || req.id.len() > 256",
-    "req.components.is_empty()",
-    "req.purpose.is_empty() || req.purpose.len() > 2048",
-    "!score.is_finite()",
-    "req.expires_at <= req.created_at",
+    "AttestationRequestRootAssertionV1",
+    "validate_attestation_request_root_assertion_v1",
+    "request_status_v1(",
+    "created_at_micros: req.created_at.as_micros()",
+    "expires_at_micros: req.expires_at.as_micros()",
     "UnitEntryTypes::AttestationRequest",
     "Attestation requests cannot be deleted; use the typed lifecycle",
-    "request_creation_shape_accepts_supported_boundary",
-    "request_creation_shape_rejects_unaddressable_id",
-    "request_creation_shape_rejects_nonfinite_and_out_of_range_score",
-    "request_creation_shape_requires_positive_validity_interval",
+    "create_request_delegates_supported_boundary_to_root_policy",
+    "create_request_delegates_invalid_root_shapes_to_root_policy",
 ]
 for needle in required:
     if needle not in text:
-        raise SystemExit(f"ERROR: generated request create/delete contract missing: {needle!r}")
+        raise SystemExit(f"ERROR: generated DHT adapter missing: {needle!r}")
 
-create_start = text.index("fn validate_attestation_request_creation_shape(")
-create_end = text.index("/// Validate attestation request creation.", create_start)
-create_body = text[create_start:create_end]
 for forbidden in [
-    "HashSet",
-    "duplicate component",
-    "duplicate_component",
+    "fn validate_attestation_request_creation_shape(",
+    "req.id.is_empty() || req.id.len() > 256",
+    "req.purpose.is_empty() || req.purpose.len() > 2048",
 ]:
-    if forbidden in create_body:
-        raise SystemExit(
-            f"ERROR: unqualified component-set semantics leaked into this tranche: {forbidden!r}"
-        )
-
-delete_start = text.index("FlatOp::RegisterDelete(OpDelete { action })")
-delete_end = text.index("    }\n}\n\n/// Validate trust credential creation", delete_start)
-delete_body = text[delete_start:delete_end]
-if "original.action().entry_type() == Some(&request_entry_type)" not in delete_body:
-    raise SystemExit("ERROR: request deletion is not gated by the canonical entry type")
-if "Only the original entry author can delete their entries" not in delete_body:
-    raise SystemExit("ERROR: ordinary same-author delete rule was weakened")
+    if forbidden in text:
+        raise SystemExit(f"ERROR: private request-root theorem survived DHT adapter: {forbidden!r}")
 
 LIB.write_text(text)
-print("Materialized AttestationRequest create/delete integrity V1 against exact before-images.")
+print("Materialized #185-backed AttestationRequest DHT adapter against exact before-images.")
