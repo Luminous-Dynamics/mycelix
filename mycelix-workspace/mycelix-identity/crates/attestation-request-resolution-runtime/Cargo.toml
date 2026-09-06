@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-attestation-request-resolution-runtime"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed observed-state adapter for Mycelix attestation request lineages"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-attestation-request-policy = { path = "../attestation-request-policy" }
+mycelix-attestation-request-root-policy = { path = "../attestation-request-root-policy" }
+trust_credential_integrity = { path = "../../zomes/trust_credential/integrity" }
+
+[dev-dependencies]
+holochain_zome_types = { workspace = true }
