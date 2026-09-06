@@ -10,7 +10,7 @@
 
 #![forbid(unsafe_code)]
 
-use mycelix_attestation_request_policy::AttestationRequestStatusV1;
+pub use mycelix_attestation_request_policy::AttestationRequestStatusV1;
 
 /// Current V1 textual request identifier bound used by legacy response APIs.
 ///
