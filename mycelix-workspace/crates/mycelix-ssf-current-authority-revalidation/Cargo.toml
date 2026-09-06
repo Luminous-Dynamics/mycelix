@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ssf-current-authority-revalidation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-authorization = { path = "../mycelix-ssf-authorization" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-local-adoption-readiness = { path = "../mycelix-ssf-local-adoption-readiness" }
+mycelix-ssf-reserved-issuance-rebind = { path = "../mycelix-ssf-reserved-issuance-rebind" }
+mycelix-ssf-snapshots = { path = "../mycelix-ssf-snapshots" }
