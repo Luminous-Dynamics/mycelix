@@ -1,0 +1,170 @@
+name: Identity Trust Score DHT Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_trust_score_dht_v1.py'
+      - '.github/workflows/identity-trust-score-dht-qualification.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_trust_score_dht_v1.py'
+      - '.github/workflows/identity-trust-score-dht-qualification.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-dht-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact proposed product patch
+        run: python scripts/qualification/identity_trust_score_dht_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml"
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs \
+            > /tmp/identity-trust-score-dht-v1.patch
+
+      - name: Assert generated security contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          manifest_path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml')
+          source_path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs')
+          manifest = tomllib.loads(manifest_path.read_text())
+          deps = manifest.get('dependencies', {})
+          expected_path = '../../../crates/trust-score-assertion-policy'
+          dep = deps.get('mycelix-trust-score-assertion-policy')
+          if not isinstance(dep, dict) or dep.get('path') != expected_path:
+              raise SystemExit(
+                  f'ERROR: integrity zome is not bound to canonical score policy at {expected_path!r}'
+              )
+
+          text = source_path.read_text()
+          required = [
+              'validate_score_assertion_v1(',
+              'fn trust_tier_band_v1',
+              'TrustTier::Observer => TrustTierBandV1::Observer',
+              'TrustTier::Basic => TrustTierBandV1::Basic',
+              'TrustTier::Standard => TrustTierBandV1::Standard',
+              'TrustTier::Elevated => TrustTierBandV1::Elevated',
+              'TrustTier::Guardian => TrustTierBandV1::Guardian',
+              'create_credential_nan_range_is_rejected_by_dht_validation',
+              'create_credential_infinite_range_is_rejected_by_dht_validation',
+              'create_credential_guardian_claim_with_elevated_midpoint_is_rejected',
+              'create_credential_underclaimed_tier_is_rejected',
+              'create_presentation_matching_disclosed_range_and_tier_is_valid',
+              'create_presentation_nan_disclosed_range_is_rejected_by_dht_validation',
+              'create_presentation_infinite_disclosed_range_is_rejected_by_dht_validation',
+              'create_presentation_disclosed_tier_range_mismatch_is_rejected',
+              'trust_tier_band_v1(&pres.disclosed_tier)',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generated DHT hardening contract missing: {needle}')
+
+          start = text.index('fn validate_create_credential(')
+          end = text.index('/// Pure credential-update policy.', start)
+          create_body = text[start:end]
+          for needle in [
+              'let tier_min = cred.trust_tier.min_score();',
+              'if (cred.trust_score_range.upper as f64) < tier_min',
+          ]:
+              if needle in create_body:
+                  raise SystemExit(f'ERROR: weak credential score rule remains: {needle}')
+
+          p_start = text.index('fn validate_create_presentation(')
+          p_end = text.index('#[cfg(test)]\nmod author_binding_tests', p_start)
+          presentation_body = text[p_start:p_end]
+          for needle in [
+              'range.lower < 0.0',
+              'range.upper > 1.0',
+              'range.lower > range.upper',
+          ]:
+              if needle in presentation_body:
+                  raise SystemExit(
+                      f'ERROR: weak presentation disclosed-range rule remains: {needle}'
+                  )
+
+          # This structural DHT hardening must not pretend presentation source
+          # binding/current-state/cryptographic verification is established.
+          lowered = presentation_body.lower()
+          for needle in [
+              'source_credential_verified',
+              'cryptographically_verified',
+              'proof_verified: true',
+          ]:
+              if needle in lowered:
+                  raise SystemExit(f'ERROR: unsupported presentation verification claim: {needle}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting of materialized patch
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            -- --check
+
+      - name: Test canonical score policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/Cargo.toml \
+            --lib
+
+      - name: Test materialized integrity zome
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --lib
+
+      - name: Check materialized integrity zome for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-trust-score-dht-v1-patch
+          path: /tmp/identity-trust-score-dht-v1.patch
+          if-no-files-found: error
