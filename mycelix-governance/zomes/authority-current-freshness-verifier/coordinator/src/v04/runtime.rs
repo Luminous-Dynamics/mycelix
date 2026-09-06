@@ -61,7 +61,7 @@ fn qualify_closed_provenance(
 #[hdk_extern]
 pub fn resolve_current_operational_freshness(
     subject: AuthoritySubjectRef,
-) -> ExternResult<VerifiedCurrentOperationalFreshnessReceipt> {
+) -> ExternResult<CurrentOperationalFreshnessAuditReceipt> {
     subject.validate().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "invalid operational authority subject: {error}"
@@ -302,7 +302,7 @@ pub fn resolve_current_operational_freshness(
         )));
     }
 
-    Ok(VerifiedCurrentOperationalFreshnessReceipt {
+    Ok(CurrentOperationalFreshnessAuditReceipt {
         protocol: RUNTIME_PROTOCOL.into(),
         subject,
         bootstrap_root_digest: current.root_qualification_digest(),
@@ -360,6 +360,9 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         provenance_manifest_matches_global_lease: true,
         provenance_bound_into_deployment_evidence: true,
         deployment_lease_capped_by_global_evidence: true,
+        wire_receipt_transport_only: true,
+        caller_supplied_positive_currentness_accepted: false,
+        wire_receipt_grants_execution_authority: false,
         host_local_dna_derived: true,
         constitutional_dna_cross_checked: true,
         deployment_authority_constructed_locally: true,

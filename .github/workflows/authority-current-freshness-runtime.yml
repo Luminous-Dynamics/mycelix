@@ -34,6 +34,7 @@ on:
       - 'security/authority-current-freshness-evidence-lease-v0.1'
       - 'security/authority-current-freshness-lease-provenance-v0.1'
       - 'security/authority-current-freshness-provenance-deployment-v0.1'
+      - 'security/authority-currentness-wire-boundary-v0.1'
 
 permissions:
   contents: read
@@ -164,7 +165,6 @@ jobs:
           assert '.cap_valid_until(requested_deployment_until, final_now)' in operational
           assert 'HostLocalDnaContext::from_host_observation(' in operational
 
-          # Final deployment path must use the provenance-aware sibling, never the old function.
           assert 'qualify_operational_freshness_for_deployment_with_provenance(' in operational
           assert 'qualify_operational_freshness_for_deployment(' not in operational
           call = operational.split('let deployment = qualify_operational_freshness_for_deployment_with_provenance(', 1)[1].split(')', 1)[0]
@@ -175,7 +175,6 @@ jobs:
           assert 'deployment.composition_evidence_verified_at_ms()' in operational
           assert 'deployment.composition_evidence_valid_until_ms()' in operational
 
-          # Serialized manifest + deployment evidence all come from the same non-deserializable result.
           assert 'composition_evidence_manifest_digest: deployment.provenance_manifest_digest()' in operational
           assert 'composition_evidence_manifest_profile: deployment.provenance_manifest_profile().into()' in operational
           assert 'composition_evidence_contributor_count: deployment.provenance_contributor_count()' in operational
@@ -189,7 +188,7 @@ jobs:
           assert 'observed.total() != contributions.len()' in closed
           assert 'qualify_evidence_lease_manifest(contributions, now)' in closed
 
-          receipt = src.split('pub struct VerifiedCurrentOperationalFreshnessReceipt {', 1)[1].split('}', 1)[0]
+          receipt = src.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
           for field in [
               'composition_evidence_manifest_digest',
               'composition_evidence_manifest_profile',
@@ -212,6 +211,9 @@ jobs:
               'provenance_manifest_matches_global_lease: true',
               'provenance_bound_into_deployment_evidence: true',
               'deployment_lease_capped_by_global_evidence: true',
+              'wire_receipt_transport_only: true',
+              'caller_supplied_positive_currentness_accepted: false',
+              'wire_receipt_grants_execution_authority: false',
               'host_local_dna_derived: true',
               'constitutional_dna_cross_checked: true',
               'deployment_authority_constructed_locally: true',
@@ -251,5 +253,5 @@ jobs:
               'deliberately unprovisioned',
           ]:
               assert invariant in inv, invariant
-          print('PASS: canonical provenance is closed, bound into deployment evidence, and never widens stable authority')
+          print('PASS: canonical provenance is closed, bound into deployment evidence, and wire output remains audit-only')
           PY
