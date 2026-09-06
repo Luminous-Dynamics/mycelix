@@ -36,6 +36,7 @@ on:
       - 'security/authority-current-freshness-provenance-deployment-v0.1'
       - 'security/authority-currentness-wire-boundary-v0.1'
       - 'security/authority-root-provenance-v0.2'
+      - 'security/authority-deployment-constitution-context-v0.1'
 
 permissions:
   contents: read
@@ -49,7 +50,7 @@ env:
 
 jobs:
   qualify:
-    name: Root-explicit provenance-bound current freshness
+    name: Constitution + provenance bound current freshness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -66,7 +67,7 @@ jobs:
       - name: Adoption pure-kernel tests
         run: cargo test --manifest-path crates/mycelix-authority-bootstrap-root-adoption-verifier/Cargo.toml --all-targets
 
-      - name: Deployment-fence and provenance-binding tests
+      - name: Deployment-fence qualification tests
         run: cargo test --manifest-path crates/mycelix-authority-operational-deployment-fence/Cargo.toml --all-targets
 
       - name: Transition-verifier pure-kernel tests
@@ -90,169 +91,171 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: End-to-end root provenance deployment audit
+      - name: End-to-end constitution and provenance deployment audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          root = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src')
-          lib = (root / 'lib.rs').read_text()
-          parts = {name: (root / 'v04' / name).read_text() for name in [
+          source_root = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src')
+          parts = {name: (source_root / 'v04' / name).read_text() for name in [
               'types.rs', 'root.rs', 'evidence.rs', 'runtime.rs'
           ]}
+          lib = (source_root / 'lib.rs').read_text()
           src = '\n'.join(parts.values())
           root_src = parts['root.rs']
           runtime = parts['runtime.rs']
+          types = parts['types.rs']
           inv = Path('mycelix-governance/zomes/authority-current-freshness-verifier/INVARIANTS.md').read_text().lower()
-          crate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml').read_text()
-          lease_src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          lease_src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
+          fence = Path('crates/mycelix-authority-operational-deployment-fence/src/constitution.rs').read_text()
 
           for name in ['types.rs', 'root.rs', 'evidence.rs', 'runtime.rs']:
               assert f'include!("v04/{name}");' in lib
 
-          assert 'mycelix-authority-evidence-lease' in crate
+          # Versioned canonical currentness provenance remains explicit.
           assert 'mycelix-authority-evidence-lease-v0.2' in lease_src
           assert 'mycelix-authority-evidence-lease-manifest-v2-blake3-framed' in lease_src
-          for role in ['CurrentConstitution', 'BootstrapRootAdoption']:
-              assert role in lease_src, role
+          assert 'EvidenceLeaseRole::CurrentConstitution' in root_src
+          assert 'EvidenceLeaseRole::BootstrapRootAdoption' in root_src
+          assert 'EvidenceLeaseRole::BootstrapRoot' in root_src
+          assert 'if root_containment != root_lease' in root_src
+          assert 'contributions.extend(resolved_root.contributions.iter().cloned())' in runtime
+          for token in ['current_constitution: 1', 'bootstrap_root_adoption: 1', 'bootstrap_root: 1']:
+              assert token in runtime, token
+          assert 'let provenance = qualify_closed_provenance(&contributions, expected, provenance_now)?;' in runtime
+          assert 'provenance.aggregate_lease() != &composition_lease' in runtime
 
+          # Leased source/witness/policy and independent transition proof domains remain mandatory.
           for token in [
-              'qualify_evidence_lease_manifest',
-              'EvidenceLeaseContribution',
-              'EvidenceLeaseRole',
-              'QualifiedEvidenceLeaseManifest',
-              'LeasedEvidence<OperationalPolicyCandidateBundle>',
-              'LeasedEvidence<VerifiedAuthoritySourceHead>',
-              'LeasedEvidence<VerifiedWitnessEvidenceBundle>',
-              'qualify_operational_freshness_for_deployment_with_provenance',
+              '"resolve_operational_policy_candidates_leased"',
+              '"verify_source_head_leased"',
+              '"verify_witness_evidence_leased"',
+              'let record_proof: VerifiedTransitionRecordProof = call_local(',
+              'let authority_proof: VerifiedTransitionAuthorityProof = call_local(',
+              'let qualified = qualify_authority_state_transition(',
+              'EvidenceLeaseRole::AuthorityStateTransition',
+              'EvidenceLeaseRole::ControlPlaneFreshness',
           ]:
               assert token in src, token
+          for forbidden_endpoint in [
+              '"resolve_operational_policy_candidates",',
+              '"verify_source_head",',
+              '"verify_witness_evidence",',
+          ]:
+              assert forbidden_endpoint not in src, forbidden_endpoint
 
-          # Root provenance is constructed only after the exact constitution/adoption/root theorem succeeds.
-          resolve_root = root_src.split('fn resolve_root()', 1)[1].split('fn resolve_operational_policies(', 1)[0]
-          proof = resolve_root.index('let adoption_proof: VerifiedBootstrapRootAdoptionProof = call_local(')
-          after = resolve_root.index('let constitution_after = resolve_binding_current_constitution()?;')
-          q_adoption = resolve_root.index('let qualified_adoption = qualify_bootstrap_root_adoption(')
-          receipt = resolve_root.index('let constitution_receipt = current_constitution_receipt(')
-          q_root = resolve_root.index('let root = qualify_bootstrap_root(')
-          constitution_lease = resolve_root.index('let constitution_lease = EvidenceLease::new(')
-          contributions = resolve_root.index('let contributions = vec![')
-          assert proof < after < q_adoption < receipt < q_root < constitution_lease < contributions
-          assert 'let adoption_lease = EvidenceLease::new(adoption.verified_at_ms, adoption.valid_until_ms, now)' in resolve_root
-          assert 'let root_lease = EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), now)' in resolve_root
-          assert 'let root_inputs_lease = intersect_leases(' in resolve_root
-          assert 'if root_containment != root_lease' in resolve_root
-          for role in ['CurrentConstitution', 'BootstrapRootAdoption', 'BootstrapRoot']:
-              assert f'EvidenceLeaseRole::{role}' in resolve_root, role
-          assert 'qualified_adoption.evidence_digest()' in resolve_root
-          assert 'qualified_adoption.evidence_profile()' in resolve_root
-          assert 'lease: root_lease' in resolve_root
-          assert 'contributions,' in resolve_root
-
-          assert 'const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_leased_provider";' in src
-          assert '"resolve_operational_policy_candidates_leased"' in src
-          assert '"verify_source_head_leased"' in src
-          assert '"verify_witness_evidence_leased"' in src
-          assert '"resolve_operational_policy_candidates",' not in src
-          assert '"verify_source_head",' not in src
-          assert '"verify_witness_evidence",' not in src
-
-          lineage = src.split('fn resolve_transition_lineage(', 1)[1].split('fn resolve_evidence(', 1)[0]
-          assert lineage.index('let candidates: Vec<AuthorityStateTransition> = call_local(') < lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(')
-          assert lineage.index('let record_proof: VerifiedTransitionRecordProof = call_local(') < lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(')
-          assert lineage.index('let authority_proof: VerifiedTransitionAuthorityProof = call_local(') < lineage.index('let qualified = qualify_authority_state_transition(')
-          assert lineage.index('let qualified = qualify_authority_state_transition(') < lineage.index('let transition_lease = EvidenceLease::new(')
-          assert 'EvidenceLeaseRole::AuthorityStateTransition' in lineage
-          assert '&attestation.authoritative_source_ref' in lineage
-
-          evidence = src.split('fn resolve_evidence(', 1)[1].split('fn resolve_control_plane_freshness(', 1)[0]
-          assert evidence.index('let source: LeasedEvidence<VerifiedAuthoritySourceHead> = call_local(') < evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(')
-          assert evidence.index('let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(') < evidence.index('let lineage = resolve_transition_lineage(&source.evidence)?;')
-          assert 'source.evidence.attestation.challenge_digest != challenge_digest' in evidence
-          assert 'witness.evidence.witnesses.len() != witness.evidence.trust_bindings.len()' in evidence
-          assert 'trust_binding.binding.witness_observation_digest != observation_digest' in evidence
-          assert 'witness_receipt.verified_at_ms != trust_binding.verified_at_ms' in evidence
-          for role in ['SourceHead', 'WitnessObservation', 'WitnessTrustBinding']:
-              assert f'EvidenceLeaseRole::{role}' in evidence
-
-          control = src.split('fn resolve_control_plane_freshness(', 1)[1].split('#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]', 1)[0]
-          assert 'let mut witness_count = 0usize;' in control
-          assert 'let mut transition_count = 0usize;' in control
-          assert 'EvidenceLeaseRole::ControlPlaneFreshness' in control
-          assert 'probe_count: qualified.len()' in control
-
+          # #192 closes before the final external constitutional authority read.
           operational = runtime.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
-          assert 'resolved_root.lease' in operational
-          assert 'EvidenceLease::new(root.verified_at_ms(), root.valid_until_ms(), context_now)' not in operational
-          assert 'contributions.extend(resolved_root.contributions.iter().cloned())' in operational
-          assert 'current_constitution: 1' in operational
-          assert 'bootstrap_root_adoption: 1' in operational
-          assert 'bootstrap_root: 1' in operational
-          assert 'source_head: control_plane.probe_count + 1' in operational
-          assert 'witness_observation: control_plane.witness_count + evidence.witnesses.len()' in operational
-          assert 'authority_state_transition: control_plane.transition_count + evidence.transitions.len()' in operational
-          assert 'control_plane_freshness: control_plane.probe_count' in operational
-          assert 'let provenance = qualify_closed_provenance(&contributions, expected, final_now)?;' in operational
-          assert 'provenance.aggregate_lease() != &composition_lease' in operational
-          assert '.cap_valid_until(requested_deployment_until, final_now)' in operational
-          assert 'HostLocalDnaContext::from_host_observation(' in operational
+          provenance_time = operational.index('let provenance_now = now_ms()?;')
+          provenance = operational.index('let provenance = qualify_closed_provenance(&contributions, expected, provenance_now)?;')
+          final_read = operational.index('let final_constitution = resolve_binding_current_constitution()?;')
+          same = operational.index('ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;')
+          constitution_time = operational.index('let constitution_now = now_ms()?;')
+          final_receipt = operational.index('let final_constitution_receipt =')
+          final_context = operational.index('let final_constitution_context =')
+          host = operational.index('let host_dna_hash = dna_info()?.hash.to_string();')
+          deployment_time = operational.index('let deployment_now = now_ms()?;')
+          host_context = operational.index('let host_context = HostLocalDnaContext::from_host_observation(')
+          deployment = operational.index('let deployment = qualify_operational_freshness_for_deployment_with_constitution_and_provenance(')
+          assert provenance_time < provenance < final_read < same < constitution_time < final_receipt < final_context < host < deployment_time < host_context < deployment
+          context_call = operational.split('let final_constitution_context =', 1)[1].split('.map_err', 1)[0]
+          assert 'qualify_binding_constitution_context' in context_call
+          assert '&final_constitution_receipt' in context_call
+          assert 'root' in context_call
+          assert 'constitution_now' in context_call
+          assert 'root.current_constitution_digest()' not in context_call
+          assert '.min(final_constitution_context.valid_until_ms())' in operational
+          assert '.cap_valid_until(requested_deployment_until, deployment_now)' in operational
+          assert 'canonical provenance expired after final constitution recheck' in operational
 
-          assert 'qualify_operational_freshness_for_deployment_with_provenance(' in operational
+          # Active deployment boundary takes only non-deserializable positive contexts.
+          assert 'qualify_operational_freshness_for_deployment_with_constitution_and_provenance(' in operational
+          assert 'qualify_operational_freshness_for_deployment_with_provenance(' not in operational
           assert 'qualify_operational_freshness_for_deployment(' not in operational
-          call = operational.split('let deployment = qualify_operational_freshness_for_deployment_with_provenance(', 1)[1].split(')', 1)[0]
+          call = operational.split('let deployment = qualify_operational_freshness_for_deployment_with_constitution_and_provenance(', 1)[1].split(')', 1)[0]
+          assert '&current' in call
+          assert '&final_constitution_context' in call
+          assert '&host_context' in call
           assert '&provenance' in call
-          assert 'deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())' in operational
-          assert 'deployment.provenance_manifest_profile() != provenance.manifest_profile()' in operational
-          assert 'deployment.provenance_contributor_count() != provenance.contributor_count()' in operational
+          assert 'deployment_now' in call
+          assert 'final_constitution.dna_hash' not in call
+          assert 'constitution_statement_digest' not in call
 
-          assert 'composition_evidence_manifest_digest: deployment.provenance_manifest_digest()' in operational
-          assert 'composition_evidence_manifest_profile: deployment.provenance_manifest_profile().into()' in operational
-          assert 'composition_evidence_contributor_count: deployment.provenance_contributor_count()' in operational
-          assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
-          assert 'deployment_evidence_profile: deployment.deployment_evidence_profile().into()' in operational
+          # Pure context qualifier also consumes the non-deserializable #111 root, not a primitive digest.
+          context_sig = fence.split('pub fn qualify_binding_constitution_context(', 1)[1].split(') -> Result<', 1)[0]
+          assert 'current: &VerifiedCurrentConstitutionReceipt' in context_sig
+          assert 'rooted: &QualifiedAuthorityStateBootstrapRoot' in context_sig
+          assert 'expected_statement_digest' not in context_sig
+          assert 'rooted.qualification_digest()' in fence
+          assert 'rooted.current_constitution_digest()' in fence
+          assert 'rooted.manifest().constitution_statement_digest' in fence
 
-          closed = runtime.split('fn qualify_closed_provenance(', 1)[1].split('#[hdk_extern]\npub fn resolve_current_operational_freshness', 1)[0]
-          assert 'observed != expected' in closed
-          assert 'observed.total() != contributions.len()' in closed
-          assert 'qualify_evidence_lease_manifest(contributions, now)' in closed
+          # The active sibling likewise exposes no plain constitutional primitives and binds the same root.
+          active_sig = fence.split('pub fn qualify_operational_freshness_for_deployment_with_constitution_and_provenance(', 1)[1].split(') -> Result<', 1)[0]
+          assert 'constitution: &QualifiedBindingConstitutionContext' in active_sig
+          assert 'constitutional_dna_hash' not in active_sig
+          assert 'constitution_statement_digest' not in active_sig
+          assert 'semantic.root_qualification_digest() != constitution.root_qualification_digest()' in fence
+          assert 'semantic.root_qualification_profile() != constitution.root_qualification_profile()' in fence
 
-          receipt_block = src.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
+          # Both evidence phases are echoed exactly before wire projection.
+          for token in [
+              'deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())',
+              'deployment.provenance_manifest_profile() != provenance.manifest_profile()',
+              'deployment.provenance_contributor_count() != provenance.contributor_count()',
+              'deployment.binding_constitution_context_digest()',
+              'final_constitution_context.context_digest()',
+              'deployment.binding_constitution_context_profile()',
+              'final_constitution_context.context_profile()',
+              'deployment.binding_constitution_verification_ref()',
+              'final_constitution_context.verification_ref()',
+              'deployment.binding_constitution_verified_at_ms()',
+              'deployment.binding_constitution_valid_until_ms()',
+          ]:
+              assert token in operational, token
+
+          # Wire audit receipt exposes the two evidence phases separately from stable authority.
+          receipt = types.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
           for field in [
               'composition_evidence_manifest_digest',
               'composition_evidence_manifest_profile',
               'composition_evidence_contributor_count',
-              'composition_evidence_lease_protocol',
               'composition_evidence_verified_at_ms',
               'composition_evidence_valid_until_ms',
+              'binding_constitution_context_digest',
+              'binding_constitution_context_profile',
+              'binding_constitution_verification_ref',
+              'binding_constitution_verified_at_ms',
+              'binding_constitution_valid_until_ms',
+              'deployment_authority_digest',
+              'deployment_evidence_digest',
           ]:
-              assert field in receipt_block, field
+              assert field in receipt, field
+          assert 'binding_constitution_context_digest: deployment.binding_constitution_context_digest()' in operational
+          assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
 
+          # Status freezes the new trust boundary and all previous containment properties.
           required = [
-              'current_constitution_provenance_explicit: true',
               'root_adoption_provenance_explicit: true',
               'root_provenance_lease_constructed_at_root_boundary: true',
+              'final_constitution_context_qualified_locally: true',
+              'plain_constitution_primitives_accepted_by_active_deployment_path: false',
+              'final_constitution_evidence_bound_into_deployment_evidence: true',
               'leased_source_head_consumed: true',
               'leased_witness_evidence_consumed: true',
               'leased_operational_policy_consumed: true',
               'transition_leases_intersected: true',
               'global_evidence_lease_enforced: true',
-              'provenance_contributor_set_constructed_locally: true',
               'provenance_required_role_cardinality_closed: true',
-              'provenance_manifest_qualified_locally: true',
               'provenance_manifest_matches_global_lease: true',
               'provenance_bound_into_deployment_evidence: true',
               'deployment_lease_capped_by_global_evidence: true',
               'wire_receipt_transport_only: true',
               'caller_supplied_positive_currentness_accepted: false',
               'wire_receipt_grants_execution_authority: false',
-              'host_local_dna_derived: true',
               'constitutional_dna_cross_checked: true',
-              'deployment_authority_constructed_locally: true',
-              'semantic_only_output: false',
-              'latest_dht_record_authority: false',
-              'provider_positive_object_authority: false',
               'external_effects_enabled: false',
               'operational: false',
           ]
@@ -264,7 +267,6 @@ jobs:
               'qualify_current_authority_for_local_dna',
               'authority_state_bootstrap_root_provider',
               'resolve_bootstrap_root_candidates',
-              'authority_current_constitution_verifier',
               'project_authority_state_as_of',
               'execute_actions',
               'phi',
@@ -277,14 +279,14 @@ jobs:
           assert 'name: authority_current_freshness_verifier' not in dna
           for invariant in [
               'root establishment provenance is explicit',
-              'dynamic evidence lease is not authority identity',
-              'provenance contributor set is constructed locally',
-              'required role/cardinality closure is exact',
-              'canonical provenance manifest must reproduce the global lease',
-              'provenance must be bound into dynamic deployment evidence',
+              'final constitutional re-observation is a separate deployment phase',
+              'active deployment path accepts no plain constitutional primitives',
+              'final constitution evidence is bound into dynamic deployment evidence',
+              'final constitutional evidence can only narrow reuse',
+              'runtime cross-checks both evidence phases',
               'wire receipt is transport/audit only',
               'deliberately unprovisioned',
           ]:
               assert invariant in inv, invariant
-          print('PASS: root constitution/adoption/root provenance is explicit, closed, lease-equal and deployment-bound')
+          print('PASS: #192 closes before the final constitution fence; qualified root and constitution context are cross-bound before deployment')
           PY

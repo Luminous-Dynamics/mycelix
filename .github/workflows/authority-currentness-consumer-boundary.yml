@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - 'security/authority-currentness-wire-boundary-v0.1'
+      - 'security/authority-deployment-constitution-context-v0.1'
 
 permissions:
   contents: read
@@ -37,7 +38,6 @@ jobs:
           lower = contract.lower()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
-          # Serializable output is explicitly named as audit/transport, not a positive authority type.
           assert 'pub struct CurrentOperationalFreshnessAuditReceipt {' in types
           assert 'VerifiedCurrentOperationalFreshnessReceipt' not in types
           assert 'ExternResult<CurrentOperationalFreshnessAuditReceipt>' in runtime
@@ -49,23 +49,42 @@ jobs:
           assert 'AuditReceipt' not in signature
           assert 'VerifiedAuthorityFreshness' not in signature
 
-          # Runtime status makes the wire semantics machine-auditable.
+          # Both dynamic evidence phases and the final binding key are visible for audit.
+          receipt = types.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
+          for field in [
+              'composition_evidence_manifest_digest',
+              'composition_evidence_manifest_profile',
+              'binding_constitution_context_digest',
+              'binding_constitution_context_profile',
+              'binding_constitution_verification_ref',
+              'binding_constitution_verified_at_ms',
+              'binding_constitution_valid_until_ms',
+              'deployment_authority_digest',
+              'deployment_evidence_digest',
+              'deployment_evidence_profile',
+              'lease_until_ms',
+          ]:
+              assert field in receipt, field
+
           for token in [
               'wire_receipt_transport_only: true',
               'caller_supplied_positive_currentness_accepted: false',
               'wire_receipt_grants_execution_authority: false',
+              'final_constitution_context_qualified_locally: true',
+              'final_constitution_evidence_bound_into_deployment_evidence: true',
               'external_effects_enabled: false',
               'operational: false',
           ]:
               assert token in runtime, token
 
-          # Contract freezes the future consumer-origin rule.
           for token in [
               'the wire object is audit/transport data',
               'positive currentness origin is a local verifier call',
               'caller-supplied positive currentness is forbidden',
               'consumer request surfaces are target/action oriented',
-              'exact subject and deployment binding is mandatory',
+              'exact subject and stable deployment binding is mandatory',
+              'two dynamic evidence phases are visible',
+              'final deployment evidence is the dynamic binding key',
               'lease is checked at the consuming boundary',
               'currentness is necessary but not effect authority',
               'final pre-effect admission must re-resolve currentness',
@@ -81,18 +100,17 @@ jobs:
               assert forbidden_positive_input in contract
 
           assert 'directly calling the designated local currentness verifier' in contract
-          assert 'forged caller-supplied audit receipts are ignored/denied' in contract
+          assert 'final deployment-evidence identity' in lower
+          assert '#192 manifest alone as sufficient deployment proof' in contract
+          assert 'forged caller-supplied audit receipts are ignored' in lower
 
-          # No execution/effect surface is introduced by this tranche.
           for forbidden in [
               'execute_claimed_',
               'perform_external_effect',
               'automatic_external_effects_enabled = true',
-              'name: authority_current_freshness_verifier',
           ]:
               assert forbidden not in runtime
-              if forbidden.startswith('name:'):
-                  assert forbidden not in dna
+          assert 'name: authority_current_freshness_verifier' not in dna
 
-          print('PASS: currentness wire output is transport-only and future live consumers must source it from the local verifier')
+          print('PASS: transport-only currentness exposes distinct evidence phases while live consumers bind the final deployment evidence from a direct local verifier call')
           PY
