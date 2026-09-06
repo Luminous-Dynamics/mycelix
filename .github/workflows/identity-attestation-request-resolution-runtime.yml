@@ -82,6 +82,8 @@ jobs:
 
           # This layer consumes already-gathered observations. Network traversal,
           # chronology selection, and coordinator authority must not leak into it.
+          # Ban executable selection/traversal patterns rather than prose such as
+          # the regression name `...not_latest_wins`.
           forbidden = [
               'use hdk',
               'use hdi',
@@ -95,10 +97,10 @@ jobs:
               'query(',
               'sys_time(',
               'call(',
-              'latest',
-              'highest',
-              'sort_by',
-              'max_by',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
           ]
           for needle in forbidden:
               if needle in text:
