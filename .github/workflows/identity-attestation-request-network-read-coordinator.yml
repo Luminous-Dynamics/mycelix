@@ -65,6 +65,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import subprocess
           import tomllib
 
           root = Path('mycelix-workspace/mycelix-identity')
@@ -125,6 +126,36 @@ jobs:
           # never be inspected as though its embedded Pending entry were current.
           if 'canonical_root_record.entry()' in body or 'canonical_root_record.action()' in body:
               raise SystemExit('ERROR: coordinator is interpreting canonical root provenance as current state')
+
+          # This is a read-only tranche. Prove the two request mutation externs
+          # remain byte-for-byte identical to exact HEAD after materialization.
+          baseline = subprocess.check_output(
+              ['git', 'show', f'HEAD:{source_path.as_posix()}'],
+              text=True,
+          )
+
+          def region(source: str, start_marker: str, end_marker: str) -> str:
+              region_start = source.index(start_marker)
+              region_end = source.index(end_marker, region_start)
+              return source[region_start:region_end]
+
+          protected_regions = [
+              (
+                  'fulfill_attestation',
+                  'pub fn fulfill_attestation(input: FulfillAttestationInput)',
+                  '/// Input for fulfilling an attestation',
+              ),
+              (
+                  'decline_attestation',
+                  'pub fn decline_attestation(input: DeclineAttestationInput)',
+                  '/// Input for declining an attestation',
+              ),
+          ]
+          for label, start_marker, end_marker in protected_regions:
+              if region(baseline, start_marker, end_marker) != region(text, start_marker, end_marker):
+                  raise SystemExit(
+                      f'ERROR: read-only coordinator candidate changed protected {label} write path'
+                  )
           PY
 
       - uses: dtolnay/rust-toolchain@stable
