@@ -79,6 +79,9 @@ jobs:
               'resolve_attestation_request_lineage_v1(',
               'sys_time()?.as_micros()',
               'ObservedAttestationRequestRecordV1',
+              'pub canonical_root_record: Record',
+              'contains `Pending` in its embedded request entry',
+              'Callers must use `state`',
               'resolve_subject_attestation_requests_v1',
           ]
           for needle in required:
@@ -99,10 +102,11 @@ jobs:
               '.max_by(',
               '.max_by_key(',
               'min_score()',
+              'pub root_record: Record',
           ]
           for needle in forbidden:
               if needle in text:
-                  raise SystemExit(f'ERROR: policy/winner semantics leaked into evidence gatherer: {needle!r}')
+                  raise SystemExit(f'ERROR: policy/winner/current-state ambiguity leaked into evidence gatherer: {needle!r}')
 
           # The gatherer must not rely on active-link-only discovery, because that
           # could hide historical SubjectToRequest link deletion evidence.
