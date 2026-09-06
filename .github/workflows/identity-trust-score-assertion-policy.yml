@@ -1,0 +1,116 @@
+name: Identity Trust Score Assertion Policy
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-score-assertion-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-score-assertion-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  score-assertion-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert narrow structural theorem
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = set(manifest.get('dependencies', {}))
+          if deps:
+              raise SystemExit(
+                  f'ERROR: structural score policy must remain dependency-free, found {sorted(deps)!r}'
+              )
+
+          text = (root / 'src/lib.rs').read_text()
+          required = [
+              '!lower.is_finite()',
+              '!upper.is_finite()',
+              'validate_score_range_v1',
+              'validate_score_assertion_v1',
+              '(lower as f64 + upper as f64) / 2.0',
+              'fn from_admitted_score',
+              'ClaimedTierDoesNotMatchMidpoint',
+              'nan_lower_is_rejected',
+              'nan_upper_is_rejected',
+              'positive_and_negative_infinity_are_rejected',
+              'out_of_bounds_ranges_are_rejected',
+              'reversed_range_is_rejected',
+              'overclaimed_guardian_tier_is_rejected',
+              'underclaimed_basic_tier_is_rejected',
+              'exact_single_point_thresholds_match_frozen_v1_derivation',
+              'two_bound_midpoints_at_thresholds_match_coordinator_derivation',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: required structural trust assertion contract missing: {needle}')
+
+          forbidden_api = [
+              'pub fn from_score',
+              'pub fn from_admitted_score',
+              'pub const fn min_score',
+          ]
+          for needle in forbidden_api:
+              if needle in text:
+                  raise SystemExit(
+                      f'ERROR: raw tier-classification bypass became public: {needle}'
+                  )
+
+          lower_text = text.lower()
+          forbidden_concerns = [
+              'hdk::',
+              'hdi::',
+              'serde::',
+              'mycelix_zkp',
+              'trustresolution',
+              'proofverificationstate',
+          ]
+          for needle in forbidden_concerns:
+              if needle in lower_text:
+                  raise SystemExit(
+                      f'ERROR: structural score policy leaked non-structural concern: {needle}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/Cargo.toml \
+            -- --check
+
+      - name: Test structural trust score policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/Cargo.toml \
+            --lib
+
+      - name: Check structural trust score policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-score-assertion-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
