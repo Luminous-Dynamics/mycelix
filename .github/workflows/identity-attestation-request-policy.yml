@@ -1,0 +1,117 @@
+name: Identity Attestation Request Policy
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - '.github/workflows/identity-attestation-request-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-policy/**'
+      - '.github/workflows/identity-attestation-request-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert dependency-free policy boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          member = 'crates/attestation-request-policy'
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest_path = root / member / 'Cargo.toml'
+          manifest = tomllib.loads(manifest_path.read_text())
+          if manifest.get('package', {}).get('name') != 'mycelix-attestation-request-policy':
+              raise SystemExit('ERROR: unexpected attestation request policy package name')
+          if manifest.get('dependencies', {}) != {}:
+              raise SystemExit('ERROR: attestation request lifecycle theorem must remain dependency-free')
+
+          source = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'AttestationRequestAssertionEqualityV1',
+              'AttestationRequestImmutableFieldV1',
+              'classify_attestation_request_actor_v1',
+              'validate_attestation_request_transition_v1',
+              'OriginalNotPending',
+              'SameStateUpdate',
+              'SubjectRequired',
+              'RequesterRequired',
+              'RequesterOrSubjectRequired',
+              'ExpiredTooEarly',
+          ]
+          for needle in required:
+              if needle not in source:
+                  raise SystemExit(f'ERROR: canonical lifecycle policy missing {needle!r}')
+
+          forbidden = [
+              'use hdi',
+              'use hdk',
+              'Timestamp',
+              'AgentPubKey',
+              'ActionHash',
+              'serde::',
+              'wasm_error!',
+          ]
+          for needle in forbidden:
+              if needle in source:
+                  raise SystemExit(f'ERROR: dependency-free lifecycle theorem leaked adapter type/API: {needle!r}')
+
+          witness_fields = [
+              'pub id: bool',
+              'pub requester_did: bool',
+              'pub subject_did: bool',
+              'pub components: bool',
+              'pub min_trust_score: bool',
+              'pub min_tier: bool',
+              'pub purpose: bool',
+              'pub expires_at: bool',
+              'pub created_at: bool',
+          ]
+          for needle in witness_fields:
+              if needle not in source:
+                  raise SystemExit(f'ERROR: immutable assertion equality witness missing {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml \
+            -- --check
+
+      - name: Test lifecycle theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml
+
+      - name: Check policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
