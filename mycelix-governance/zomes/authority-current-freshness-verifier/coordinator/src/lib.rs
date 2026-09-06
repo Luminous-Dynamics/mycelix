@@ -3,8 +3,10 @@
 //! Fail-closed runtime composition for deployment-bound current operational authority.
 //!
 //! Positive semantic authority is reconstructed locally through #148/#111/#115/#116/#117.
-//! Only after that non-deserializable proof exists do we bind it to the exact local
-//! host DNA and exact final binding constitutional statement.
+//! Transition discovery, immutable-record proof verification and institutional
+//! transition-authority verification are separate roles. Only after all semantic
+//! currentness succeeds do we bind the result to the exact host DNA and final
+//! binding constitutional statement.
 
 use hdk::prelude::*;
 use mycelix_authority_bootstrap_root_adoption_verifier::{
@@ -30,7 +32,13 @@ use mycelix_authority_state_coverage::{
 use mycelix_authority_state_coverage_context::{
     VerifiedCoverageChallenge, VerifiedCoverageTrustContextPolicy, VerifiedWitnessTrustBinding,
 };
-use mycelix_authority_state_source::VerifiedAuthorityStateTransition;
+use mycelix_authority_state_source::{
+    AuthorityStateTransition, VerifiedAuthorityStateTransition, TRANSITION_IDENTITY_PROFILE,
+};
+use mycelix_authority_state_transition_verifier::{
+    qualify_authority_state_transition, VerifiedTransitionAuthorityProof,
+    VerifiedTransitionRecordProof,
+};
 use mycelix_governance_constitution::{
     ConstitutionStatement, Digest32 as ConstitutionDigest32, STATEMENT_PROFILE,
 };
@@ -38,7 +46,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.2";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.3";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -50,7 +58,11 @@ const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
 const PROBE_VERIFIER_ZOME: &str = "authority_state_challenge";
 const SOURCE_HEAD_VERIFIER_ZOME: &str = "authority_state_source_head_verifier";
 const WITNESS_VERIFIER_ZOME: &str = "authority_state_witness_verifier";
-const TRANSITION_VERIFIER_ZOME: &str = "authority_state_transition_verifier";
+const TRANSITION_CANDIDATE_PROVIDER_ZOME: &str = "authority_state_transition_candidate_provider";
+const TRANSITION_RECORD_PROOF_VERIFIER_ZOME: &str =
+    "authority_state_transition_record_proof_verifier";
+const TRANSITION_AUTHORITY_PROOF_VERIFIER_ZOME: &str =
+    "authority_state_transition_authority_proof_verifier";
 const MAX_CONTROL_PLANE_PROBES: usize = 3;
 const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
@@ -121,10 +133,28 @@ pub struct VerifiedWitnessEvidenceBundle {
     pub trust_bindings: Vec<VerifiedWitnessTrustBinding>,
 }
 
+/// Discovery only. The provider may locate candidate transition bytes through the
+/// exact independently authenticated source-head boundary, but cannot certify them.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransitionVerificationRequest {
+pub struct TransitionCandidateDiscoveryRequest {
     pub subject: AuthoritySubjectRef,
-    pub source_head: VerifiedAuthoritySourceHead,
+    pub authoritative_source_ref: String,
+    pub head_generation: u64,
+    pub head_transition_digest: Digest32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransitionRecordProofVerificationRequest {
+    pub transition: AuthorityStateTransition,
+    pub transition_digest: Digest32,
+    pub transition_profile: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransitionAuthorityProofVerificationRequest {
+    pub transition: AuthorityStateTransition,
+    pub transition_digest: Digest32,
+    pub transition_profile: String,
 }
 
 struct ResolvedAuthorityEvidence {
@@ -141,8 +171,6 @@ struct ResolvedBootstrapRoot {
 }
 
 /// Wire projection only after local semantic + deployment qualification.
-/// `authority_*` / `evidence_*` preserve #117's substrate-neutral identities;
-/// `deployment_*` are the identities live consumers must use.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub protocol: String,
@@ -178,6 +206,10 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub constitution_rechecked_before_return: bool,
     pub root_adoption_proof_verifier_separate: bool,
     pub root_adoption_constructed_locally: bool,
+    pub transition_discovery_grants_authority: bool,
+    pub transition_record_proof_verifier_separate: bool,
+    pub transition_authority_proof_verifier_separate: bool,
+    pub transition_source_bound_from_source_head: bool,
     pub host_local_dna_derived: bool,
     pub constitutional_dna_cross_checked: bool,
     pub deployment_authority_constructed_locally: bool,
@@ -432,6 +464,90 @@ fn verify_probe(
     Ok(challenge)
 }
 
+fn resolve_transition_lineage(
+    source_head: &VerifiedAuthoritySourceHead,
+) -> ExternResult<Vec<VerifiedAuthorityStateTransition>> {
+    let attestation = &source_head.attestation;
+    let candidates: Vec<AuthorityStateTransition> = call_local(
+        TRANSITION_CANDIDATE_PROVIDER_ZOME,
+        "discover_transition_candidates",
+        TransitionCandidateDiscoveryRequest {
+            subject: attestation.subject.clone(),
+            authoritative_source_ref: attestation.authoritative_source_ref.clone(),
+            head_generation: attestation.head_generation,
+            head_transition_digest: attestation.head_transition_digest,
+        },
+    )?;
+    if candidates.is_empty() || candidates.len() > MAX_TRANSITIONS {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "authority-state transition candidate count must be 1-{MAX_TRANSITIONS}"
+        ))));
+    }
+
+    let mut verified = Vec::with_capacity(candidates.len());
+    for transition in candidates {
+        transition.validate().map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "invalid authority-state transition candidate: {error}"
+            )))
+        })?;
+        if transition.subject != attestation.subject {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "transition candidate belongs to another authority subject".into(),
+            )));
+        }
+        if transition.generation > attestation.head_generation {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "transition candidate exceeds independently authenticated source head generation"
+                    .into(),
+            )));
+        }
+        let transition_digest = transition.identity_digest().map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "cannot compute authority-state transition identity: {error}"
+            )))
+        })?;
+
+        let record_proof: VerifiedTransitionRecordProof = call_local(
+            TRANSITION_RECORD_PROOF_VERIFIER_ZOME,
+            "verify_transition_record_proof",
+            TransitionRecordProofVerificationRequest {
+                transition: transition.clone(),
+                transition_digest,
+                transition_profile: TRANSITION_IDENTITY_PROFILE.into(),
+            },
+        )?;
+        let authority_proof: VerifiedTransitionAuthorityProof = call_local(
+            TRANSITION_AUTHORITY_PROOF_VERIFIER_ZOME,
+            "verify_transition_authority_proof",
+            TransitionAuthorityProofVerificationRequest {
+                transition: transition.clone(),
+                transition_digest,
+                transition_profile: TRANSITION_IDENTITY_PROFILE.into(),
+            },
+        )?;
+
+        // Qualification time follows both proof-verifier calls. The authoritative
+        // source identity comes from the independently authenticated source head,
+        // never from candidate discovery or either proof verifier.
+        let now = now_ms()?;
+        let qualified = qualify_authority_state_transition(
+            &transition,
+            &record_proof,
+            &authority_proof,
+            &attestation.authoritative_source_ref,
+            now,
+        )
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "authority-state transition qualification denied: {error}"
+            )))
+        })?;
+        verified.push(qualified.to_verified_transition());
+    }
+    Ok(verified)
+}
+
 fn resolve_evidence(
     probe_action: ActionHash,
     expected_subject: Option<&AuthoritySubjectRef>,
@@ -463,19 +579,7 @@ fn resolve_evidence(
         ))));
     }
 
-    let transitions: Vec<VerifiedAuthorityStateTransition> = call_local(
-        TRANSITION_VERIFIER_ZOME,
-        "verify_transition_lineage",
-        TransitionVerificationRequest {
-            subject: challenge.challenge.subject.clone(),
-            source_head: source_head.clone(),
-        },
-    )?;
-    if transitions.is_empty() || transitions.len() > MAX_TRANSITIONS {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "authority-state transition count must be 1-{MAX_TRANSITIONS}"
-        ))));
-    }
+    let transitions = resolve_transition_lineage(&source_head)?;
 
     Ok(ResolvedAuthorityEvidence {
         challenge,
@@ -594,14 +698,9 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    // Host DNA is obtained independently of the constitutional receipt. The
-    // constitutional plane uses the same canonical DnaHash string encoding, but
-    // equality is still checked only inside the pure deployment fence.
     let host_dna_hash = dna_info()?.hash.to_string();
     let host_dna_observed_at = now_ms()?;
 
-    // Re-project constitutional truth after the host-DNA observation. Any
-    // advancement during the entire semantic composition or host lookup denies.
     let final_constitution = resolve_binding_current_constitution()?;
     ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;
     let final_now = now_ms()?;
@@ -681,6 +780,10 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         constitution_rechecked_before_return: true,
         root_adoption_proof_verifier_separate: true,
         root_adoption_constructed_locally: true,
+        transition_discovery_grants_authority: false,
+        transition_record_proof_verifier_separate: true,
+        transition_authority_proof_verifier_separate: true,
+        transition_source_bound_from_source_head: true,
         host_local_dna_derived: true,
         constitutional_dna_cross_checked: true,
         deployment_authority_constructed_locally: true,
