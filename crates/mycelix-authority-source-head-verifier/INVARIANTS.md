@@ -65,16 +65,20 @@ Source refusal or partition fails closed; the verifier must not synthesize a hea
 
 ## 5. Causal time ordering is mandatory
 
-Before this tranche is review-ready, implementation and tests MUST enforce:
+Implementation and tests MUST enforce:
 
 1. challenge verification is no earlier than challenge issuance;
-2. source response is no earlier than challenge issuance;
+2. source response is no earlier than challenge verification;
 3. source response occurs before challenge expiry;
 4. cryptographic source-proof verification is no earlier than source response;
 5. all reusable proof/attestation/challenge windows remain live at qualification time; and
 6. resulting validity is the conservative minimum of challenge, source-response, and proof-verifier horizons.
 
-This is a pre-PR blocker, not an optional follow-up.
+Thus the exact causal chain is:
+
+`challenge issued ≤ challenge verified ≤ source responded ≤ source proof verified ≤ qualification now`.
+
+A response timestamp between issuance and challenge verification is not accepted merely because it references the right challenge digest. Positive challenge verification must causally precede the source response being qualified.
 
 ## 6. Stable semantic identity vs dynamic verifier time
 
@@ -117,7 +121,8 @@ Before opening/merging the tranche, tests must cover at least:
 - changed attestation bytes deny;
 - wrong source identity denies;
 - wrong source proof ref denies;
-- source response before challenge denies;
+- source response before challenge issuance denies;
+- source response before challenge verification denies;
 - proof verification before source response denies;
 - challenge verification before issuance denies;
 - expired challenge/source/proof denies; and
