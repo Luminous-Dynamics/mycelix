@@ -8,10 +8,13 @@ on:
       - 'crates/mycelix-authority-freshness/**'
       - 'crates/mycelix-authority-state-coverage/**'
       - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-control-plane-freshness/**'
+      - 'crates/mycelix-authority-operational-context/**'
       - '.github/workflows/authority-state-bootstrap-root.yml'
   push:
     branches:
       - 'security/authority-state-bootstrap-root-v0.1'
+      - 'security/authority-bootstrap-root-implementation-repair-v0.1'
 
 permissions:
   contents: read
@@ -44,10 +47,16 @@ jobs:
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-authority-state-bootstrap-root/Cargo.toml --all-targets -- -D warnings
 
-      - name: Downstream control-plane compatibility
+      - name: Direct downstream compatibility
         run: |
-          cargo check --manifest-path crates/mycelix-authority-state-coverage/Cargo.toml --all-targets
-          cargo check --manifest-path crates/mycelix-authority-state-coverage-context/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-control-plane-freshness/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-operational-context/Cargo.toml --all-targets
+          if [ -f crates/mycelix-authority-current-operational/Cargo.toml ]; then
+            cargo check --manifest-path crates/mycelix-authority-current-operational/Cargo.toml --all-targets
+          fi
+          if [ -f crates/mycelix-authority-runtime-dna-binding/Cargo.toml ]; then
+            cargo check --manifest-path crates/mycelix-authority-runtime-dna-binding/Cargo.toml --all-targets
+          fi
 
       - name: Bootstrap authority audit
         run: |
@@ -61,6 +70,8 @@ jobs:
               'VerifiedCurrentConstitutionReceipt',
               'VerifiedBootstrapRootAdoption',
               'QualifiedAuthorityStateBootstrapRoot',
+              'AuthorityStateBootstrapRootManifest',
+              'qualify_bootstrap_root(',
               'AuthoritySubjectKind::AuthorityCoveragePolicy',
               'AuthoritySubjectKind::CoverageTrustContextPolicy',
               'AuthoritySubjectKind::WitnessTrustPolicy',
@@ -68,12 +79,19 @@ jobs:
               'ManifestConstitutionMismatch',
               'LegacyConstitutionRejected',
               'STATEMENT_PROFILE',
+              'manifest.coverage_policy.identity_digest()',
+              'manifest.coverage_context_policy.identity_digest()',
+              '.min(manifest.coverage_policy.valid_until_ms)',
+              '.min(manifest.coverage_context_policy.valid_until_ms)',
           ]
           for token in required:
               assert token in src, token
 
-          # The root must not recursively depend on the current-freshness plane.
+          # This crate must be the bootstrap root, not a copied constitutional-lineage module.
           for forbidden in [
+              'pub struct Digest32',
+              'ConstitutionGenesisManifest',
+              'project_verified_lineage',
               'VerifiedAuthorityFreshness',
               'qualify_current_freshness(',
               '#[hdk_extern]',
@@ -87,7 +105,9 @@ jobs:
 
           assert 'challenge -> current coverage policy -> challenge' in inv
           assert 'probe challenges are evidence, not authority' in inv
-          assert 'operational subject kind is forbidden' in src
-          assert 'historical root evidence cannot satisfy a new live challenge' in inv
-          print('PASS: bootstrap currentness comes from constitution/root adoption, not recursive freshness')
+          assert 'operational authority classes are forbidden' in inv
+          assert 'positive result is non-deserializable' in inv
+          assert 'implementation-integrity repair' in inv
+          assert 'one generic root provider must not be able to fabricate both receipts' in inv
+          print('PASS: bootstrap crate is the constitution/root-adoption qualifier, not a duplicated constitution module')
           PY

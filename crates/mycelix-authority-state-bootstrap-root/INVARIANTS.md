@@ -1,8 +1,10 @@
-# Authority-State Bootstrap Root v0.1 — Invariants
+# Authority-State Bootstrap Root v0.1 — Normative Invariants
 
-## Purpose
+Status: **pure qualification implementation repaired; runtime verifier boundaries still unprovisioned**
 
-The operational authority-state coverage plane cannot be allowed to prove its own currentness.
+## 1. Purpose
+
+The operational authority-state coverage plane cannot prove its own currentness.
 
 A runtime dependency of:
 
@@ -10,26 +12,26 @@ A runtime dependency of:
 
 is a trust-bootstrap cycle, not a valid security architecture.
 
-This crate introduces one deliberately narrow root whose current authority comes from the already-qualified DNA-bound constitutional plane.
+This crate introduces one deliberately narrow root whose live semantic authority comes from the already-qualified constitutional plane plus exact rulebook adoption of one exact root manifest.
 
-## Root of currentness
+## 2. Root of currentness
 
 A positive `QualifiedAuthorityStateBootstrapRoot` requires all of the following:
 
 1. an exact `AuthorityStateBootstrapRootManifest`;
-2. an independently verified **current** `ConstitutionStatement` from the DNA-bound constitution/transition plane;
-3. exact recomputation of the constitutional statement digest;
-4. exact network, institution, constitution version, rulebook ID/version/digest/profile agreement;
-5. independently verified rulebook adoption of the exact root-manifest digest/profile; and
-6. a current verification window for both constitution and root adoption.
+2. an independently verified **current** `ConstitutionStatement` receipt;
+3. exact recomputation of the constitutional statement digest under `STATEMENT_PROFILE`;
+4. exact network, institution, constitution ID/version, rulebook ID/version/digest/profile agreement;
+5. independently verified rulebook adoption of the exact root-manifest digest/profile, adoption reference and proof reference; and
+6. a current conservative verification window for both constitution and root adoption.
 
-No authority-freshness receipt is an input to bootstrap-root qualification.
+No `VerifiedAuthorityFreshness` receipt is an input to bootstrap-root qualification.
 
 Therefore the bootstrap root does not recursively ask the operational freshness plane whether the bootstrap root is current.
 
-## Constitutional epoch binding
+## 3. Constitutional epoch binding
 
-The root manifest commits the exact current constitutional statement digest and version.
+The root manifest commits the exact current constitutional statement digest/profile and version.
 
 If the constitution advances from N to N+1, the previous root does not remain current merely because:
 
@@ -42,13 +44,13 @@ The new current statement must independently adopt the applicable root.
 
 Historical verification may retain the old root/constitution evidence. It cannot convert that old root into live current authority.
 
-## Narrow control-plane scope
+## 4. Narrow control-plane scope
 
-The bootstrap coverage policy may cover only:
+The bootstrap coverage policy must cover exactly:
 
 - `AuthorityCoveragePolicy` (subject code 7);
 - `CoverageTrustContextPolicy` (subject code 8); and
-- `WitnessTrustPolicy` (subject code 9) when witness quorum is used.
+- `WitnessTrustPolicy` (subject code 9) exactly when witness quorum is used.
 
 Operational authority classes are forbidden from the bootstrap root, including:
 
@@ -63,67 +65,70 @@ This prevents the constitutional bootstrap layer from becoming a universal super
 
 Once control-plane policy currentness is established, those current operational policies may qualify ordinary authority subjects through the normal #91/#94/#96/#74 path.
 
-## Embedded root policy semantics
+## 5. Embedded root policy semantics
 
 The exact root `AuthorityCoveragePolicy` and exact root `CoverageTrustContextPolicy` are identity-bearing parts of the root manifest.
 
-The context policy must bind the exact embedded coverage-policy digest/profile.
+The coverage policy commits the exact logical authoritative source reference and exact source verification identity/profile. The context policy binds the exact embedded coverage-policy digest/profile.
 
 Both policies must:
 
-- use the root control-plane namespace;
+- use the root control-plane namespace where applicable;
 - be semantically valid at the root effective epoch;
-- remain semantically active at current qualification time; and
-- name the same root adoption authority as the manifest.
+- remain semantically active at current qualification time;
+- name the same root adoption authority as the manifest; and
+- belong to the exact manifest institution/rulebook context.
 
 DirectSource forbids a witness-trust root.
 
-WitnessQuorum requires an exact witness-trust policy and verifier and requires `WitnessTrustPolicy` to be included in the root control-plane subject set.
+WitnessQuorum requires an exact witness-trust policy and verifier and requires `WitnessTrustPolicy` in the root control-plane subject set.
 
-## Probe challenges are evidence, not authority
-
-A future bootstrap probe challenge is a read-only evidence-collection primitive.
-
-Generating unpredictable challenge entropy does **not** grant:
-
-- governance capability;
-- execution authority;
-- voting authority;
-- mutation authority; or
-- permission for an external effect.
-
-Challenge generation may be operationally capability/rate-limit protected, but institutional `AuthorityGrant` freshness must not be a prerequisite for generating the probe needed to discover freshness.
-
-The challenge becomes useful only when later source/witness coverage and root qualification prove that its referenced trust context is acceptable.
-
-## Adoption evidence is an adapter boundary
+## 6. Adoption evidence is an adapter boundary
 
 `VerifiedBootstrapRootAdoption` is evidence-shaped host input, not proof by deserialization.
 
 A runtime adapter must construct it only after independently verifying that the exact current rulebook adopted:
 
 - the exact root manifest digest/profile;
-- under the exact current constitutional statement;
-- with the exact adoption reference and proof reference.
+- under the exact current constitutional statement digest/profile;
+- under the exact rulebook ID/version/digest/profile;
+- with the exact adoption authority, adoption reference and proof reference.
 
-Provider outage, decode failure, stale evidence, wrong statement, wrong rulebook, wrong root digest, or mismatched adoption reference must deny.
+Provider outage, decode failure, stale evidence, wrong statement, wrong rulebook, wrong root digest, or mismatched adoption reference/proof must deny.
 
-## Identity vs dynamic verification
+## 7. Current constitution evidence is an adapter boundary
 
-The stable root-manifest identity commits semantic authority.
+`VerifiedCurrentConstitutionReceipt` is also evidence-shaped host input, not proof by deserialization.
 
-The qualified-root identity commits:
+It carries the exact `ConstitutionStatement`, its recomputed statement digest/profile, a verification reference and bounded live window. It also carries the deployment `dna_hash` for the separate runtime-DNA binding layer.
 
-- exact root manifest;
-- exact current constitutional statement;
-- exact root coverage policy; and
-- exact root coverage-context policy.
+The semantic bootstrap-root digest deliberately does not absorb `dna_hash`; #123-style deployment binding remains a separate necessary condition before a Holochain runtime treats semantic authority as live in one concrete DNA.
 
-Dynamic verification timestamps and lease horizons are not semantic root identity. Re-verifying the exact same root under the exact same constitutional epoch may refresh those metadata without inventing a different root.
+A runtime MUST obtain the current-constitution receipt from an independent constitution/current-head verifier. A generic root provider must not be allowed to invent this positive receipt merely because its fields deserialize.
 
-A constitutional or semantic root change does change authority identity.
+## 8. Validity is monotone
 
-## No currentness-by-observation shortcut
+The qualified root's `valid_until_ms` is the minimum of:
+
+- current-constitution receipt horizon;
+- root-adoption verifier horizon;
+- manifest lifetime;
+- embedded coverage-policy lifetime; and
+- embedded context-policy lifetime.
+
+Its `verified_at_ms` is the maximum of current-constitution verification, root-adoption verification and root effective time.
+
+No projection or composer may widen those horizons.
+
+## 9. Probe challenges are evidence, not authority
+
+A bootstrap probe challenge is a read-only evidence-collection primitive.
+
+Generating unpredictable challenge entropy does **not** grant governance capability, execution authority, voting authority, mutation authority, or permission for an external effect.
+
+Challenge generation may be operationally capability/rate-limit protected, but institutional `AuthorityGrant` freshness must not be a prerequisite for generating the probe needed to discover freshness.
+
+## 10. No currentness-by-observation shortcut
 
 This layer does not permit:
 
@@ -139,13 +144,19 @@ to establish bootstrap currentness.
 
 The root comes from the current constitution plus exact rulebook adoption only.
 
-## Historical/live separation
+## 11. Historical/live separation
 
 Later constitutional change or control-plane policy revocation must stop new live authority while preserving historical auditability.
 
 Historical root evidence cannot satisfy a new live challenge and cannot be converted into a current freshness receipt.
 
-## Containment
+## 12. Positive result is non-deserializable
+
+`QualifiedAuthorityStateBootstrapRoot` derives `Serialize` but not `Deserialize`.
+
+Runtime adapters may transport candidate manifest/constitution/adoption evidence, but must call `qualify_bootstrap_root` locally before obtaining the positive result.
+
+## 13. Containment
 
 This crate is pure Rust.
 
@@ -153,15 +164,18 @@ It performs no Holochain calls, persistence, source queries, DHT reads, challeng
 
 No production DNA is changed by this tranche.
 
-## Pre-production blockers
+## 14. Implementation-integrity repair
 
-Before the authority-state runtime is provisioned:
+The originally opened #111 branch accidentally committed the constitutional lineage implementation into this crate path even though its Cargo metadata, invariants and workflow described the bootstrap-root API.
 
-1. probe challenge semantics in #99 must be separated from institutional authority;
-2. #103/#105 must stop requiring current issuer-grant freshness merely to mint a freshness probe;
-3. a runtime provider must verify the current constitution and exact root-manifest adoption;
-4. root-covered control-plane freshness must be proven before operational policy use;
-5. source refusal/partition must remain fail-closed; and
-6. adversarial bootstrap-cycle, old-root replay, constitutional-advance, hidden-revocation and historical/live tests must pass.
+The active stack must contain the actual bootstrap implementation and MUST NOT contain a second `ConstitutionGenesisManifest`, `project_verified_lineage`, or local `Digest32` definition in this crate.
 
-Related: #109, #105, #103, #100, #99, #98, #96, #94, #91, #74, #73.
+The bootstrap workflow statically freezes that distinction in addition to compiling the direct downstream #115/#116 consumers.
+
+## 15. Remaining runtime blocker
+
+The pure kernel can cross-check evidence but cannot cryptographically establish that a deserialized current-constitution/adoption receipt came from the correct verifier.
+
+Before provisioning, the runtime must split current-constitution verification and root-adoption verification into independent role-specific boundaries. One generic root provider must not be able to fabricate both receipts and thereby become the bootstrap oracle.
+
+No external effects are enabled.

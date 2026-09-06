@@ -299,12 +299,17 @@ fn resolve_control_plane_freshness(
     root: &mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot,
     target_subject: &AuthoritySubjectRef,
 ) -> ExternResult<Vec<QualifiedControlPlaneSubjectFreshness>> {
+    let root_manifest_digest = root.manifest().identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute qualified bootstrap-root manifest identity: {error}"
+        )))
+    })?;
     let plan: ControlPlaneProbePlan = call_local(
         EVIDENCE_PLAN_ZOME,
         "plan_control_plane_probes",
         ControlPlaneProbePlanRequest {
             target_subject: target_subject.clone(),
-            root_manifest_digest: root.root_manifest_digest(),
+            root_manifest_digest,
         },
     )?;
     if plan.probe_actions.is_empty() || plan.probe_actions.len() > MAX_CONTROL_PLANE_PROBES {
