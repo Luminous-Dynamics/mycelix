@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-ssf-single-use-issuance-reservation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-persisted-registration-rebind = { path = "../mycelix-ssf-persisted-registration-rebind" }
