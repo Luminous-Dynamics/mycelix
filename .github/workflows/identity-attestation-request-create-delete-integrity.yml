@@ -1,0 +1,154 @@
+name: Identity Attestation Request Create Delete Integrity Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
+      - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py'
+      - 'scripts/qualification/identity_attestation_request_discovery_link_v1.py'
+      - '.github/workflows/identity-attestation-request-create-delete-integrity.yml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-request-create-delete-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize exact proposed product patch
+        run: |
+          python scripts/qualification/identity_attestation_request_create_delete_integrity_v1.py
+          python scripts/qualification/identity_attestation_request_discovery_link_v1.py
+
+      - name: Assert generated product scope
+        shell: bash
+        run: |
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml"
+            "mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs"
+          )
+          mapfile -t expected < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            printf 'ERROR: generated product scope drifted.\nExpected:\n'
+            printf '  %s\n' "${expected[@]}"
+            printf 'Actual:\n'
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          git diff --check
+          git diff --binary -- \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs \
+            > /tmp/identity-attestation-request-create-delete-integrity-v1.patch
+
+      - name: Assert canonical adapter contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          manifest_path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml')
+          manifest = tomllib.loads(manifest_path.read_text())
+          dep = manifest.get('dependencies', {}).get('mycelix-attestation-request-root-policy')
+          if dep != {'path': '../../../crates/attestation-request-root-policy'}:
+              raise SystemExit(f'ERROR: exact root-policy path dependency missing: {dep!r}')
+
+          path = Path('mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/src/lib.rs')
+          text = path.read_text()
+          required = [
+              'AttestationRequestRootAssertionV1',
+              'validate_attestation_request_root_assertion_v1',
+              'request_status_v1(',
+              'created_at_micros: req.created_at.as_micros()',
+              'expires_at_micros: req.expires_at.as_micros()',
+              'UnitEntryTypes::AttestationRequest',
+              'Attestation requests cannot be deleted; use the typed lifecycle',
+              'matches!(link_type, LinkTypes::SubjectToRequest)',
+              'SubjectToRequest discovery links are append-only',
+              'create_request_delegates_supported_boundary_to_root_policy',
+              'create_request_delegates_invalid_root_shapes_to_root_policy',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generated request DHT adapter missing: {needle!r}')
+
+          for forbidden in [
+              'fn validate_attestation_request_creation_shape(',
+              'req.id.is_empty() || req.id.len() > 256',
+              'req.purpose.is_empty() || req.purpose.len() > 2048',
+          ]:
+              if forbidden in text:
+                  raise SystemExit(f'ERROR: private request-root theorem reintroduced: {forbidden!r}')
+
+          entry_delete_start = text.index('FlatOp::RegisterDelete(OpDelete { action })')
+          entry_delete_end = text.index('    }\n}\n\n/// Validate trust credential creation', entry_delete_start)
+          entry_delete_body = text[entry_delete_start:entry_delete_end]
+          if 'Only the original entry author can delete their entries' not in entry_delete_body:
+              raise SystemExit('ERROR: ordinary same-author entry delete safety rule was weakened')
+          if 'Attestation requests cannot be deleted; use the typed lifecycle' not in entry_delete_body:
+              raise SystemExit('ERROR: request entry deletion is no longer fail-closed')
+
+          link_delete_start = text.index('FlatOp::RegisterDeleteLink {')
+          link_delete_end = text.index('FlatOp::StoreRecord', link_delete_start)
+          link_delete_body = text[link_delete_start:link_delete_end]
+          if 'Only the link creator can delete their links' not in link_delete_body:
+              raise SystemExit('ERROR: ordinary same-author link delete safety rule was weakened')
+          if 'matches!(link_type, LinkTypes::SubjectToRequest)' not in link_delete_body:
+              raise SystemExit('ERROR: SubjectToRequest append-only guard missing')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Test canonical root policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-request-root-policy/Cargo.toml
+
+      - name: Check formatting of materialized adapter
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            -- --check
+
+      - name: Test materialized integrity zome
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --lib
+
+      - name: Check materialized integrity zome for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/trust_credential/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Upload qualified patch candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-attestation-request-create-delete-integrity-v1-patch
+          path: /tmp/identity-attestation-request-create-delete-integrity-v1.patch
+          if-no-files-found: error
