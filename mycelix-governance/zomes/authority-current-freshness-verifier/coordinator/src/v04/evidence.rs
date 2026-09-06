@@ -19,6 +19,7 @@ fn resolve_transition_lineage(
     }
 
     let mut verified = Vec::with_capacity(candidates.len());
+    let mut contributions = Vec::with_capacity(candidates.len());
     let mut aggregate_lease: Option<EvidenceLease> = None;
     for transition in candidates {
         transition.validate().map_err(|error| {
@@ -62,8 +63,6 @@ fn resolve_transition_lineage(
             },
         )?;
 
-        // Qualification time follows both proof-verifier calls. The authoritative
-        // source identity comes from the independently authenticated source head.
         let now = now_ms()?;
         let qualified = qualify_authority_state_transition(
             &transition,
@@ -90,9 +89,17 @@ fn resolve_transition_lineage(
                 now,
                 "transition lease intersection denied",
             )?,
-            None => transition_lease,
+            None => transition_lease.clone(),
         });
-        verified.push(qualified.to_verified_transition());
+        let projected = qualified.to_verified_transition();
+        contributions.push(contribution(
+            EvidenceLeaseRole::AuthorityStateTransition,
+            transition_digest,
+            TRANSITION_IDENTITY_PROFILE,
+            &projected.verification_ref,
+            transition_lease,
+        ));
+        verified.push(projected);
     }
 
     let final_now = now_ms()?;
@@ -106,6 +113,7 @@ fn resolve_transition_lineage(
     Ok(ResolvedTransitionLineage {
         transitions: verified,
         lease,
+        contributions,
     })
 }
 
@@ -132,6 +140,11 @@ fn resolve_evidence(
             "leased source head does not bind the coordinator's exact verified challenge".into(),
         )));
     }
+    let source_digest = source.evidence.attestation.identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute leased source-head identity: {error}"
+        )))
+    })?;
 
     let witness: LeasedEvidence<VerifiedWitnessEvidenceBundle> = call_local(
         WITNESS_VERIFIER_ZOME,
@@ -151,6 +164,11 @@ fn resolve_evidence(
             "authority-state trust-binding count exceeds {MAX_TRUST_BINDINGS}"
         ))));
     }
+    if witness.evidence.witnesses.len() != witness.evidence.trust_bindings.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "leased witness bundle has unequal witness/trust-binding cardinality".into(),
+        )));
+    }
 
     let lineage = resolve_transition_lineage(&source.evidence)?;
     let final_now = now_ms()?;
@@ -167,6 +185,66 @@ fn resolve_evidence(
         "source/witness/transition evidence lease intersection denied",
     )?;
 
+    let mut contributions = Vec::with_capacity(
+        1 + witness.evidence.witnesses.len() * 2 + lineage.contributions.len(),
+    );
+    contributions.push(contribution(
+        EvidenceLeaseRole::SourceHead,
+        source_digest,
+        SOURCE_HEAD_IDENTITY_PROFILE,
+        &source.evidence.verification_ref,
+        source.lease.clone(),
+    ));
+
+    for (witness_receipt, trust_binding) in witness
+        .evidence
+        .witnesses
+        .iter()
+        .zip(witness.evidence.trust_bindings.iter())
+    {
+        let observation_digest = witness_receipt
+            .observation
+            .identity_digest()
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "cannot compute witness observation provenance identity: {error}"
+                )))
+            })?;
+        if trust_binding.binding.witness_observation_digest != observation_digest
+            || witness_receipt.verified_at_ms != trust_binding.verified_at_ms
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "witness/trust-binding provenance pair does not describe one qualification".into(),
+            )));
+        }
+        let binding_digest = trust_binding.binding.identity_digest().map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "cannot compute witness trust-binding provenance identity: {error}"
+            )))
+        })?;
+        let witness_lease = EvidenceLease::new(
+            trust_binding.verified_at_ms,
+            trust_binding.valid_until_ms,
+            final_now,
+        )
+        .map_err(|error| lease_error("witness provenance lease denied", error))?;
+        contributions.push(contribution(
+            EvidenceLeaseRole::WitnessObservation,
+            observation_digest,
+            WITNESS_IDENTITY_PROFILE,
+            &witness_receipt.verification_ref,
+            witness_lease.clone(),
+        ));
+        contributions.push(contribution(
+            EvidenceLeaseRole::WitnessTrustBinding,
+            binding_digest,
+            WITNESS_TRUST_BINDING_PROFILE,
+            &trust_binding.verification_ref,
+            witness_lease,
+        ));
+    }
+    contributions.extend(lineage.contributions);
+
     Ok(ResolvedAuthorityEvidence {
         challenge,
         source_head: source.evidence,
@@ -174,6 +252,7 @@ fn resolve_evidence(
         trust_bindings: witness.evidence.trust_bindings,
         transitions: lineage.transitions,
         lease,
+        contributions,
     })
 }
 
@@ -201,9 +280,18 @@ fn resolve_control_plane_freshness(
     }
 
     let mut qualified = Vec::with_capacity(plan.probe_actions.len());
+    let mut contributions = Vec::new();
     let mut aggregate_lease: Option<EvidenceLease> = None;
+    let mut witness_count = 0usize;
+    let mut transition_count = 0usize;
     for probe_action in plan.probe_actions {
         let evidence = resolve_evidence(probe_action, None)?;
+        witness_count = witness_count
+            .checked_add(evidence.witnesses.len())
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("control-plane witness count overflow".into())))?;
+        transition_count = transition_count
+            .checked_add(evidence.transitions.len())
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("control-plane transition count overflow".into())))?;
         let now = now_ms()?;
         let value = qualify_control_plane_subject_freshness(
             root,
@@ -239,8 +327,16 @@ fn resolve_control_plane_freshness(
                 now,
                 "control-plane probe lease intersection denied",
             )?,
-            None => probe_lease,
+            None => probe_lease.clone(),
         });
+        contributions.extend(evidence.contributions);
+        contributions.push(contribution(
+            EvidenceLeaseRole::ControlPlaneFreshness,
+            value.qualification_digest(),
+            value.qualification_profile(),
+            &freshness.verification_ref,
+            probe_lease,
+        ));
         qualified.push(value);
     }
 
@@ -256,5 +352,12 @@ fn resolve_control_plane_freshness(
             error,
         )
     })?;
-    Ok(ResolvedControlPlaneFreshness { qualified, lease })
+    Ok(ResolvedControlPlaneFreshness {
+        probe_count: qualified.len(),
+        qualified,
+        lease,
+        contributions,
+        witness_count,
+        transition_count,
+    })
 }
