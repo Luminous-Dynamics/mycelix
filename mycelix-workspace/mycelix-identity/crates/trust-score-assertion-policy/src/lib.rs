@@ -25,19 +25,12 @@ pub enum TrustTierBandV1 {
 }
 
 impl TrustTierBandV1 {
-    /// Minimum score associated with this tier.
-    pub const fn min_score(self) -> f64 {
-        match self {
-            Self::Observer => 0.0,
-            Self::Basic => 0.3,
-            Self::Standard => 0.4,
-            Self::Elevated => 0.6,
-            Self::Guardian => 0.8,
-        }
-    }
-
-    /// Derive the structural tier from one score using the frozen V1 thresholds.
-    pub fn from_score(score: f64) -> Self {
+    /// Internal tier derivation for a score already admitted by the range theorem.
+    ///
+    /// This is deliberately private. Callers must use [`validate_score_range_v1`]
+    /// rather than classifying arbitrary floats directly; otherwise values such
+    /// as NaN could bypass the finite-range admission theorem.
+    fn from_admitted_score(score: f64) -> Self {
         if score >= 0.8 {
             Self::Guardian
         } else if score >= 0.6 {
@@ -82,7 +75,7 @@ pub fn validate_score_range_v1(
     }
 
     let midpoint = (lower as f64 + upper as f64) / 2.0;
-    Ok(TrustTierBandV1::from_score(midpoint))
+    Ok(TrustTierBandV1::from_admitted_score(midpoint))
 }
 
 /// Validate a score range and require the claimed tier to equal the canonical
@@ -200,11 +193,27 @@ mod tests {
     }
 
     #[test]
-    fn tier_derivation_is_monotone_across_representative_scores() {
-        let scores = [0.0_f64, 0.29, 0.3, 0.39, 0.4, 0.59, 0.6, 0.79, 0.8, 1.0];
+    fn two_bound_midpoints_at_thresholds_match_coordinator_derivation() {
+        let cases = [
+            (0.29_f32, 0.31_f32, TrustTierBandV1::Basic),
+            (0.39_f32, 0.41_f32, TrustTierBandV1::Standard),
+            (0.59_f32, 0.61_f32, TrustTierBandV1::Elevated),
+            (0.79_f32, 0.81_f32, TrustTierBandV1::Guardian),
+        ];
+
+        for (lower, upper, tier) in cases {
+            assert_eq!(validate_score_range_v1(lower, upper), Ok(tier));
+        }
+    }
+
+    #[test]
+    fn tier_derivation_is_monotone_across_admitted_single_point_ranges() {
+        let scores = [
+            0.0_f32, 0.29, 0.3, 0.39, 0.4, 0.59, 0.6, 0.79, 0.8, 1.0,
+        ];
         let mut previous = TrustTierBandV1::Observer;
         for score in scores {
-            let current = TrustTierBandV1::from_score(score);
+            let current = validate_score_range_v1(score, score).unwrap();
             assert!(current >= previous);
             previous = current;
         }
