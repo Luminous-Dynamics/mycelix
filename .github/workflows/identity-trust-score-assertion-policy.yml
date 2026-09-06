@@ -45,6 +45,7 @@ jobs:
               'validate_score_range_v1',
               'validate_score_assertion_v1',
               '(lower as f64 + upper as f64) / 2.0',
+              'fn from_admitted_score',
               'ClaimedTierDoesNotMatchMidpoint',
               'nan_lower_is_rejected',
               'nan_upper_is_rejected',
@@ -54,17 +55,36 @@ jobs:
               'overclaimed_guardian_tier_is_rejected',
               'underclaimed_basic_tier_is_rejected',
               'exact_single_point_thresholds_match_frozen_v1_derivation',
+              'two_bound_midpoints_at_thresholds_match_coordinator_derivation',
           ]
           for needle in required:
               if needle not in text:
                   raise SystemExit(f'ERROR: required structural trust assertion contract missing: {needle}')
 
-          forbidden = ['hdk', 'hdi', 'serde', 'zkp', 'authority', 'verified']
-          lower = text.lower()
-          for needle in forbidden:
-              if needle in lower and needle not in {'authority', 'verified'}:
+          forbidden_api = [
+              'pub fn from_score',
+              'pub fn from_admitted_score',
+              'pub const fn min_score',
+          ]
+          for needle in forbidden_api:
+              if needle in text:
                   raise SystemExit(
-                      f'ERROR: structural score policy leaked non-structural dependency/concern: {needle}'
+                      f'ERROR: raw tier-classification bypass became public: {needle}'
+                  )
+
+          lower_text = text.lower()
+          forbidden_concerns = [
+              'hdk::',
+              'hdi::',
+              'serde::',
+              'mycelix_zkp',
+              'trustresolution',
+              'proofverificationstate',
+          ]
+          for needle in forbidden_concerns:
+              if needle in lower_text:
+                  raise SystemExit(
+                      f'ERROR: structural score policy leaked non-structural concern: {needle}'
                   )
           PY
 
