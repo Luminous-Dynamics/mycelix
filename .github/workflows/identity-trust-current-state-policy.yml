@@ -1,0 +1,97 @@
+name: Identity Trust Current-State Policy
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-current-state-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/**'
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - '.github/workflows/identity-trust-current-state-policy.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  trust-current-state-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert fail-closed current-state contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import tomllib
+
+          source = Path('mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/src/lib.rs').read_text()
+          manifest = tomllib.loads(
+              Path('mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml').read_text()
+          )
+
+          required = [
+              'ObservedStructurallyActive',
+              'NonConformingUpdate',
+              'CredentialStateEvidence::Unavailable',
+              'assertion_equivalent_to_root',
+              'historical_non_revocation_update_never_becomes_active',
+              'assertion_mutating_historical_update_never_becomes_active',
+          ]
+          missing = [token for token in required if token not in source]
+          if missing:
+              raise SystemExit(f'ERROR: current-state contract tokens missing: {missing}')
+
+          match = re.search(
+              r'pub enum ObservedCredentialState\s*\{(.*?)\n\}',
+              source,
+              re.S,
+          )
+          if not match:
+              raise SystemExit('ERROR: could not locate ObservedCredentialState enum')
+          enum_body = match.group(1)
+          for forbidden in ('Verified', 'Authorized', 'Current'):
+              if forbidden in enum_body:
+                  raise SystemExit(
+                      f'ERROR: structural current-state enum must not encode {forbidden}'
+                  )
+
+          deps = manifest.get('dependencies', {})
+          if deps:
+              raise SystemExit(
+                  f'ERROR: trust current-state policy must remain dependency-free: {deps}'
+              )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            -- --check
+
+      - name: Test current-state policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            --lib
+
+      - name: Check current-state policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-current-state-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

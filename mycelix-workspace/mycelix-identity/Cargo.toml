@@ -7,6 +7,8 @@ members = [
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
     "crates/eidas-zkp",
+    # Pure fail-closed trust current-state policy
+    "crates/trust-current-state-policy",
     # Zomes
     "zomes/did_registry/integrity",
     "zomes/did_registry/coordinator",

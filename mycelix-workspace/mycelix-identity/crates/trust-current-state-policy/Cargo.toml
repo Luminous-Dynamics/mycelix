@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-trust-current-state-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed credential current-state collapse policy for Mycelix Identity"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
