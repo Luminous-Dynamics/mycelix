@@ -1,6 +1,6 @@
-# Authority Current Freshness Verifier Runtime v0.5 — Normative Invariants
+# Authority Current Freshness Verifier Runtime v0.6 — Normative Invariants
 
-Status: **implemented provenance-closed composition candidate; deliberately unprovisioned in the binding governance DNA**
+Status: **implemented provenance-bound deployment composition candidate; deliberately unprovisioned in the binding governance DNA**
 
 ## 1. Binding constitutional authority is reused
 
@@ -14,7 +14,7 @@ The root-manifest provider returns candidate semantics only. The runtime builds 
 
 `EvidenceLease` and `QualifiedEvidenceLeaseManifest` constrain reuse and record provenance only. They MUST NOT establish institutional permission, semantic currentness, source trust/completeness, quorum, execution authority, or permission for an external effect.
 
-Refreshing a proof may change lease/provenance evidence while the same semantic #117 authority identity remains unchanged.
+Refreshing a proof may change lease/provenance/deployment-evidence identity while the same semantic #117 and stable deployment authority identities remain unchanged.
 
 ## 4. Leased source-head evidence is mandatory
 
@@ -103,17 +103,41 @@ The final `OperationalFreshness` contribution carries the complete pre-deploymen
 
 ## 13. Manifest identity is audit evidence, not semantic authority
 
-The wire receipt exposes:
-
-- manifest digest/profile;
-- contributor count; and
-- the manifest aggregate lease.
-
 Changing contributor identity/reference/role/horizon or adding/removing a contributor changes manifest identity subject to the hash assumption. Input ordering has no meaning.
 
-The manifest digest MUST NOT be substituted for #117 semantic authority identity or #154 deployment authority identity.
+The manifest digest MUST NOT be substituted for #117 semantic authority identity or stable deployment authority identity.
 
-## 14. Deployment is capped by the global evidence lease
+## 14. Provenance must be bound into dynamic deployment evidence
+
+The runtime MUST call only:
+
+`qualify_operational_freshness_for_deployment_with_provenance`
+
+for its final deployment qualification.
+
+It MUST NOT call the older provenance-unaware deployment theorem on this path.
+
+The exact non-deserializable #192 manifest is passed into the sibling #201 theorem. #201 preserves the existing stable deployment-authority digest/profile while deriving a dynamic deployment-evidence digest that commits the exact manifest digest/profile/count and aggregate horizon.
+
+Therefore:
+
+`same semantic authority + same constitution + same host DNA + different canonical provenance`
+
+means:
+
+`same stable deployment authority + different deployment evidence`.
+
+`provenance_bound_into_deployment_evidence = true`.
+
+## 15. Runtime cross-checks the provenance-bound deployment echo
+
+After #201 returns, the coordinator MUST compare the returned manifest digest/profile/count and aggregate verification/validity times with the exact local `QualifiedEvidenceLeaseManifest` it supplied.
+
+Mismatch denies before serialization.
+
+The final wire receipt obtains all manifest fields, deployment-evidence digest/profile, verification reference and deployment lease from the provenance-bound non-deserializable result—not by recombining sidecar fields after qualification.
+
+## 16. Deployment is capped by the global evidence lease
 
 After host `dna_info()` and the final binding-constitution recheck, the canonical manifest aggregate must still be live.
 
@@ -121,34 +145,34 @@ The five-second deployment window is only an additional requested cap:
 
 `host_context.valid_until = min(manifest.aggregate.valid_until, final_now + 5 seconds)`.
 
-#154 then independently intersects host context with #117 semantic freshness. Deployment/wire freshness may never outlive the resulting capped evidence horizon.
+#201 internally runs #154 and then binds #192 provenance into dynamic deployment evidence. Deployment/wire freshness may never outlive the resulting capped evidence horizon.
 
-## 15. Host DNA remains independent deployment evidence
+## 17. Host DNA remains independent deployment evidence
 
 The coordinator derives local DNA only through `dna_info()?.hash.to_string()` and compares it with the binding constitutional plane. Host DNA is not read from a provider-controlled receipt.
 
-Semantic authority identity and deployment authority identity remain separate.
+Semantic authority identity, stable deployment authority identity and dynamic deployment evidence identity remain separate.
 
-## 16. No latest-record heuristic
+## 18. No latest-record heuristic
 
 Highest generation, newest timestamp, arrival order, absence of a later DHT record, author identity, reputation, Phi or model output cannot establish current authority.
 
-Discovery is location only; proof verification, institutional authorization, completeness, currentness and deployment remain separate facts.
+Discovery is location only; proof verification, institutional authorization, completeness, currentness, provenance and deployment remain separate facts.
 
-## 17. Fail closed
+## 19. Fail closed
 
-Missing/failed constitution, adoption, policy, probe, source, witness, transition, host-DNA or proof boundary; malformed/expired lease; changed constitutional head; provenance role/cardinality mismatch; duplicate provenance contribution; provenance/global-lease mismatch; failed pure qualification; or deployment horizon widening MUST deny.
+Missing/failed constitution, adoption, policy, probe, source, witness, transition, host-DNA or proof boundary; malformed/expired lease; changed constitutional head; provenance role/cardinality mismatch; duplicate provenance contribution; provenance/global-lease mismatch; provenance-bound deployment echo mismatch; failed pure qualification; or deployment horizon widening MUST deny.
 
-## 18. Deliberately unprovisioned
+## 20. Deliberately unprovisioned
 
 The current-freshness verifier and new leased/proof roles remain absent from `dna.yaml`. No external effect is enabled and `operational = false` remains explicit.
 
-## 19. Required qualification before provisioning
+## 21. Required qualification before provisioning
 
 At minimum:
 
 - native/Clippy/WASM qualification;
-- #148/#154/#159/#181/#192 pure tests;
+- #148/#154/#159/#181/#192/#201 pure tests;
 - leased source/witness/policy endpoint integration;
 - transition proof-domain separation;
 - truncated/forked/reordered/omitted lineage denial;
@@ -156,5 +180,8 @@ At minimum:
 - provenance omission/extra-role/duplicate-contribution denial;
 - canonical manifest order-independence;
 - manifest aggregate equals independently computed global lease;
+- provenance-bound deployment echo substitution denial;
+- stable deployment authority unchanged by provenance refresh;
+- deployment evidence changes when canonical provenance changes;
 - constitutional race and host-DNA mismatch denial; and
 - adversarial multi-agent tests proving stale or incomplete evidence cannot produce deployment-bound live authority.
