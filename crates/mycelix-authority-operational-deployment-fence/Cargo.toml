@@ -15,4 +15,5 @@ mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
 mycelix-authority-operational-freshness = { path = "../mycelix-authority-operational-freshness" }
 mycelix-authority-evidence-lease = { path = "../mycelix-authority-evidence-lease" }
+mycelix-authority-state-bootstrap-root = { path = "../mycelix-authority-state-bootstrap-root" }
 mycelix-governance-constitution = { path = "../mycelix-governance-constitution" }

@@ -17,7 +17,9 @@ use mycelix_authority_evidence_lease::{
 use mycelix_authority_freshness::{AuthoritySubjectRef, VerifiedAuthorityFreshness};
 use mycelix_authority_operational_context::qualify_operational_policy_context;
 use mycelix_authority_operational_deployment_fence::{
-    qualify_operational_freshness_for_deployment_with_provenance, HostLocalDnaContext,
+    qualify_binding_constitution_context,
+    qualify_operational_freshness_for_deployment_with_constitution_and_provenance,
+    HostLocalDnaContext,
 };
 use mycelix_authority_operational_freshness::qualify_operational_subject_freshness;
 use mycelix_authority_state_bootstrap_root::{
@@ -46,7 +48,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.8";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.9";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -207,6 +209,11 @@ pub struct CurrentOperationalFreshnessAuditReceipt {
     pub composition_evidence_lease_protocol: String,
     pub composition_evidence_verified_at_ms: u64,
     pub composition_evidence_valid_until_ms: u64,
+    pub binding_constitution_context_digest: Digest32,
+    pub binding_constitution_context_profile: String,
+    pub binding_constitution_verification_ref: String,
+    pub binding_constitution_verified_at_ms: u64,
+    pub binding_constitution_valid_until_ms: u64,
     pub local_dna_hash: String,
     pub constitution_statement_digest: Digest32,
     pub constitution_statement_profile: String,
@@ -233,6 +240,9 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub current_constitution_provenance_explicit: bool,
     pub root_adoption_provenance_explicit: bool,
     pub root_provenance_lease_constructed_at_root_boundary: bool,
+    pub final_constitution_context_qualified_locally: bool,
+    pub plain_constitution_primitives_accepted_by_active_deployment_path: bool,
+    pub final_constitution_evidence_bound_into_deployment_evidence: bool,
     pub transition_discovery_grants_authority: bool,
     pub transition_record_proof_verifier_separate: bool,
     pub transition_authority_proof_verifier_separate: bool,

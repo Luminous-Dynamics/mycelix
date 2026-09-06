@@ -14,7 +14,9 @@ use mycelix_institutional_core::Digest32;
 use serde::Serialize;
 use std::fmt;
 
+mod constitution;
 mod provenance;
+pub use constitution::*;
 pub use provenance::*;
 
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-operational-deployment-fence-v0.1";
