@@ -1,0 +1,121 @@
+name: Authority Source Head Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-state-source-head-verifier/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-authority-source-head-verifier/**'
+      - '.github/workflows/authority-source-head-runtime.yml'
+  push:
+    branches:
+      - 'security/authority-source-head-runtime-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-source-head-runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Probe/responder/proof source-head runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package authority_state_source_head_verifier -- --check
+
+      - name: Native check
+        working-directory: mycelix-governance
+        run: cargo check --package authority_state_source_head_verifier --all-targets
+
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package authority_state_source_head_verifier --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package authority_state_source_head_verifier
+
+      - name: Source-head runtime audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('mycelix-governance/zomes/authority-state-source-head-verifier/coordinator/src/lib.rs').read_text()
+          inv = Path('mycelix-governance/zomes/authority-state-source-head-verifier/INVARIANTS.md').read_text().lower()
+          cargo = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          request_block = src.split('pub struct VerifySourceHeadRequest {', 1)[1].split('}', 1)[0]
+          assert 'pub probe_action: ActionHash' in request_block
+          assert 'VerifiedCoverageChallenge' not in request_block
+          assert 'pub challenge: VerifiedCoverageChallenge' not in src
+          assert 'request.challenge' not in src
+
+          required = [
+              'authority_state_challenge',
+              'verify_issued_authority_state_probe',
+              'authority_state_source_responder',
+              'resolve_source_head_attestation',
+              'authority_source_proof_verifier',
+              'verify_source_head_proof',
+              'qualify_source_head_authentication(',
+              'attestation.identity_digest()',
+              'challenge.challenge.identity_digest()',
+              'caller_supplied_verified_challenge_accepted: false',
+              'probe_reverified_locally: true',
+              'source_response_is_candidate_only: true',
+              'proof_verifier_separate: true',
+              'institutional_source_trust_decided_here: false',
+              'completeness_decided_here: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]
+          for token in required:
+              assert token in src, token
+
+          probe_call = src.index('let challenge: VerifiedCoverageChallenge = call_local(')
+          responder_call = src.index('let attestation: AuthoritySourceHeadAttestation = call_local(')
+          proof_call = src.index('let proof: VerifiedSourceHeadProof = call_local(')
+          now_call = src.index('let now = now_ms()?;')
+          qualify_call = src.index('let qualified = qualify_source_head_authentication')
+          assert probe_call < responder_call < proof_call < now_call < qualify_call
+
+          forbidden = [
+              'AuthorityCoveragePolicy',
+              'qualify_authority_state_coverage(',
+              'VerifiedAuthoritySourceHead {',
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'project_current_authority_state(',
+              'execute_actions',
+          ]
+          for token in forbidden:
+              assert token not in src, token
+
+          assert '"zomes/authority-state-source-head-verifier/coordinator"' in cargo
+          assert 'name: authority_state_source_head_verifier' not in dna
+          assert 'caller input is a probe reference, not positive verification' in inv
+          assert 'qualification time follows evidence production' in inv
+          assert 'responder output is candidate data' in inv
+          assert 'cryptographic proof verification is separate' in inv
+          assert 'authentication is not institutional trust' in inv
+          assert 'authentication is not completeness' in inv
+          assert 'deliberately unprovisioned' in inv
+          print('PASS: source-head runtime reconstructs probe verification and samples qualification time after evidence production')
+          PY
