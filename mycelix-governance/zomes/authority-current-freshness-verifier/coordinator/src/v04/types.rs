@@ -46,7 +46,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.6";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.7";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -185,8 +185,10 @@ struct ResolvedBootstrapRoot {
     constitution: VerifiedCurrentConstitutionMirror,
 }
 
+/// Serializable cross-zome/API projection for audit, diagnostics and local-provider
+/// consumption. Deserialization is never positive authority by itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct VerifiedCurrentOperationalFreshnessReceipt {
+pub struct CurrentOperationalFreshnessAuditReceipt {
     pub protocol: String,
     pub subject: AuthoritySubjectRef,
     pub bootstrap_root_digest: Digest32,
@@ -241,6 +243,9 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub provenance_manifest_matches_global_lease: bool,
     pub provenance_bound_into_deployment_evidence: bool,
     pub deployment_lease_capped_by_global_evidence: bool,
+    pub wire_receipt_transport_only: bool,
+    pub caller_supplied_positive_currentness_accepted: bool,
+    pub wire_receipt_grants_execution_authority: bool,
     pub host_local_dna_derived: bool,
     pub constitutional_dna_cross_checked: bool,
     pub deployment_authority_constructed_locally: bool,

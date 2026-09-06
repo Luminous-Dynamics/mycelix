@@ -1,0 +1,98 @@
+name: Authority Currentness Consumer Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-currentness-consumer-boundary.yml'
+  push:
+    branches:
+      - 'security/authority-currentness-wire-boundary-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-currentness-consumer-boundary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Transport receipt never becomes execution authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Audit currentness consumer handoff
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('mycelix-governance/zomes/authority-current-freshness-verifier')
+          types = (root / 'coordinator/src/v04/types.rs').read_text()
+          runtime = (root / 'coordinator/src/v04/runtime.rs').read_text()
+          contract = (root / 'CONSUMER_HANDOFF.md').read_text()
+          lower = contract.lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Serializable output is explicitly named as audit/transport, not a positive authority type.
+          assert 'pub struct CurrentOperationalFreshnessAuditReceipt {' in types
+          assert 'VerifiedCurrentOperationalFreshnessReceipt' not in types
+          assert 'ExternResult<CurrentOperationalFreshnessAuditReceipt>' in runtime
+          assert 'Ok(CurrentOperationalFreshnessAuditReceipt {' in runtime
+
+          # External currentness request is target-only; no positive receipt enters the verifier.
+          signature = runtime.split('pub fn resolve_current_operational_freshness(', 1)[1].split(') -> ExternResult<', 1)[0]
+          assert 'subject: AuthoritySubjectRef' in signature
+          assert 'AuditReceipt' not in signature
+          assert 'VerifiedAuthorityFreshness' not in signature
+
+          # Runtime status makes the wire semantics machine-auditable.
+          for token in [
+              'wire_receipt_transport_only: true',
+              'caller_supplied_positive_currentness_accepted: false',
+              'wire_receipt_grants_execution_authority: false',
+              'external_effects_enabled: false',
+              'operational: false',
+          ]:
+              assert token in runtime, token
+
+          # Contract freezes the future consumer-origin rule.
+          for token in [
+              'the wire object is audit/transport data',
+              'positive currentness origin is a local verifier call',
+              'caller-supplied positive currentness is forbidden',
+              'consumer request surfaces are target/action oriented',
+              'exact subject and deployment binding is mandatory',
+              'lease is checked at the consuming boundary',
+              'currentness is necessary but not effect authority',
+              'final pre-effect admission must re-resolve currentness',
+              'historical verification is separate',
+          ]:
+              assert token in lower, token
+
+          for forbidden_positive_input in [
+              'CurrentOperationalFreshnessAuditReceipt',
+              'VerifiedCurrentOperationalFreshnessReceipt',
+              'VerifiedAuthorityFreshness',
+          ]:
+              assert forbidden_positive_input in contract
+
+          assert 'directly calling the designated local currentness verifier' in contract
+          assert 'forged caller-supplied audit receipts are ignored/denied' in contract
+
+          # No execution/effect surface is introduced by this tranche.
+          for forbidden in [
+              'execute_claimed_',
+              'perform_external_effect',
+              'automatic_external_effects_enabled = true',
+              'name: authority_current_freshness_verifier',
+          ]:
+              assert forbidden not in runtime
+              if forbidden.startswith('name:'):
+                  assert forbidden not in dna
+
+          print('PASS: currentness wire output is transport-only and future live consumers must source it from the local verifier')
+          PY
