@@ -1,12 +1,6 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Fail-closed runtime composition for deployment-bound current operational authority.
-//
-// Positive semantic authority is reconstructed locally through #148/#111/#115/#116/#117.
-// Independent verifier horizons are carried separately as monotone evidence leases and
-// intersected across control-plane, policy, source, witness and transition composition.
-// Only after semantic currentness succeeds do we bind the result to the exact host DNA,
-// final binding constitutional statement and the global minimum evidence horizon.
 
 use hdk::prelude::*;
 use mycelix_authority_bootstrap_root_adoption_verifier::{
@@ -16,7 +10,10 @@ use mycelix_authority_bootstrap_root_adoption_verifier::{
 use mycelix_authority_control_plane_freshness::{
     qualify_control_plane_subject_freshness, QualifiedControlPlaneSubjectFreshness,
 };
-use mycelix_authority_evidence_lease::{EvidenceLease, LeasedEvidence};
+use mycelix_authority_evidence_lease::{
+    qualify_evidence_lease_manifest, EvidenceLease, EvidenceLeaseContribution,
+    EvidenceLeaseRole, LeasedEvidence, QualifiedEvidenceLeaseManifest,
+};
 use mycelix_authority_freshness::{AuthoritySubjectRef, VerifiedAuthorityFreshness};
 use mycelix_authority_operational_context::qualify_operational_policy_context;
 use mycelix_authority_operational_deployment_fence::{
@@ -29,9 +26,11 @@ use mycelix_authority_state_bootstrap_root::{
 };
 use mycelix_authority_state_coverage::{
     VerifiedAuthorityCoveragePolicy, VerifiedAuthorityHeadWitness, VerifiedAuthoritySourceHead,
+    POLICY_IDENTITY_PROFILE, SOURCE_HEAD_IDENTITY_PROFILE, WITNESS_IDENTITY_PROFILE,
 };
 use mycelix_authority_state_coverage_context::{
     VerifiedCoverageChallenge, VerifiedCoverageTrustContextPolicy, VerifiedWitnessTrustBinding,
+    CONTEXT_POLICY_PROFILE, WITNESS_TRUST_BINDING_PROFILE,
 };
 use mycelix_authority_state_source::{
     AuthorityStateTransition, VerifiedAuthorityStateTransition, TRANSITION_IDENTITY_PROFILE,
@@ -47,7 +46,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.4";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.5";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -134,8 +133,6 @@ pub struct VerifiedWitnessEvidenceBundle {
     pub trust_bindings: Vec<VerifiedWitnessTrustBinding>,
 }
 
-/// Discovery only. The provider may locate candidate transition bytes through the
-/// exact independently authenticated source-head boundary, but cannot certify them.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransitionCandidateDiscoveryRequest {
     pub subject: AuthoritySubjectRef,
@@ -161,6 +158,7 @@ pub struct TransitionAuthorityProofVerificationRequest {
 struct ResolvedTransitionLineage {
     transitions: Vec<VerifiedAuthorityStateTransition>,
     lease: EvidenceLease,
+    contributions: Vec<EvidenceLeaseContribution>,
 }
 
 struct ResolvedAuthorityEvidence {
@@ -170,11 +168,16 @@ struct ResolvedAuthorityEvidence {
     trust_bindings: Vec<VerifiedWitnessTrustBinding>,
     transitions: Vec<VerifiedAuthorityStateTransition>,
     lease: EvidenceLease,
+    contributions: Vec<EvidenceLeaseContribution>,
 }
 
 struct ResolvedControlPlaneFreshness {
     qualified: Vec<QualifiedControlPlaneSubjectFreshness>,
     lease: EvidenceLease,
+    contributions: Vec<EvidenceLeaseContribution>,
+    probe_count: usize,
+    witness_count: usize,
+    transition_count: usize,
 }
 
 struct ResolvedBootstrapRoot {
@@ -182,7 +185,6 @@ struct ResolvedBootstrapRoot {
     constitution: VerifiedCurrentConstitutionMirror,
 }
 
-/// Wire projection only after local semantic + deployment qualification.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub protocol: String,
@@ -195,6 +197,9 @@ pub struct VerifiedCurrentOperationalFreshnessReceipt {
     pub authority_profile: String,
     pub evidence_digest: Digest32,
     pub evidence_profile: String,
+    pub composition_evidence_manifest_digest: Digest32,
+    pub composition_evidence_manifest_profile: String,
+    pub composition_evidence_contributor_count: u32,
     pub composition_evidence_lease_protocol: String,
     pub composition_evidence_verified_at_ms: u64,
     pub composition_evidence_valid_until_ms: u64,
@@ -230,6 +235,10 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub leased_operational_policy_consumed: bool,
     pub transition_leases_intersected: bool,
     pub global_evidence_lease_enforced: bool,
+    pub provenance_contributor_set_constructed_locally: bool,
+    pub provenance_required_role_cardinality_closed: bool,
+    pub provenance_manifest_qualified_locally: bool,
+    pub provenance_manifest_matches_global_lease: bool,
     pub deployment_lease_capped_by_global_evidence: bool,
     pub host_local_dna_derived: bool,
     pub constitutional_dna_cross_checked: bool,

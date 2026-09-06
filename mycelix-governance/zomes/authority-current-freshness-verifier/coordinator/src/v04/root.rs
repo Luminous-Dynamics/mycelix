@@ -50,6 +50,22 @@ fn intersect_leases(
         .map_err(|error| lease_error(context, error))
 }
 
+fn contribution(
+    role: EvidenceLeaseRole,
+    evidence_digest: Digest32,
+    evidence_profile: &str,
+    evidence_ref: &str,
+    lease: EvidenceLease,
+) -> EvidenceLeaseContribution {
+    EvidenceLeaseContribution {
+        role,
+        evidence_digest: evidence_digest.0,
+        evidence_profile: evidence_profile.into(),
+        evidence_ref: evidence_ref.into(),
+        lease,
+    }
+}
+
 fn constitution_digest_to_core(digest: ConstitutionDigest32) -> Digest32 {
     Digest32(digest.0)
 }

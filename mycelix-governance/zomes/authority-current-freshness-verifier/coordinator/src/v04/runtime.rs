@@ -1,3 +1,63 @@
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ProvenanceCounts {
+    bootstrap_root: usize,
+    operational_coverage_policy: usize,
+    operational_context_policy: usize,
+    source_head: usize,
+    witness_observation: usize,
+    witness_trust_binding: usize,
+    authority_state_transition: usize,
+    control_plane_freshness: usize,
+    operational_freshness: usize,
+}
+
+impl ProvenanceCounts {
+    fn observe(&mut self, role: EvidenceLeaseRole) {
+        match role {
+            EvidenceLeaseRole::BootstrapRoot => self.bootstrap_root += 1,
+            EvidenceLeaseRole::OperationalCoveragePolicy => self.operational_coverage_policy += 1,
+            EvidenceLeaseRole::OperationalContextPolicy => self.operational_context_policy += 1,
+            EvidenceLeaseRole::SourceHead => self.source_head += 1,
+            EvidenceLeaseRole::WitnessObservation => self.witness_observation += 1,
+            EvidenceLeaseRole::WitnessTrustBinding => self.witness_trust_binding += 1,
+            EvidenceLeaseRole::AuthorityStateTransition => self.authority_state_transition += 1,
+            EvidenceLeaseRole::ControlPlaneFreshness => self.control_plane_freshness += 1,
+            EvidenceLeaseRole::OperationalFreshness => self.operational_freshness += 1,
+        }
+    }
+
+    fn total(self) -> usize {
+        self.bootstrap_root
+            + self.operational_coverage_policy
+            + self.operational_context_policy
+            + self.source_head
+            + self.witness_observation
+            + self.witness_trust_binding
+            + self.authority_state_transition
+            + self.control_plane_freshness
+            + self.operational_freshness
+    }
+}
+
+fn qualify_closed_provenance(
+    contributions: &[EvidenceLeaseContribution],
+    expected: ProvenanceCounts,
+    now: u64,
+) -> ExternResult<QualifiedEvidenceLeaseManifest> {
+    let mut observed = ProvenanceCounts::default();
+    for contribution in contributions {
+        observed.observe(contribution.role);
+    }
+    if observed != expected || observed.total() != contributions.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "evidence provenance role/cardinality closure denied: observed {observed:?}, expected {expected:?}"
+        ))));
+    }
+    qualify_evidence_lease_manifest(contributions, now).map_err(|error| {
+        lease_error("canonical evidence provenance manifest qualification denied", error)
+    })
+}
+
 #[hdk_extern]
 pub fn resolve_current_operational_freshness(
     subject: AuthoritySubjectRef,
@@ -97,6 +157,62 @@ pub fn resolve_current_operational_freshness(
         "dynamic evidence/semantic authority lease intersection denied",
     )?;
 
+    let coverage_digest = policies.evidence.coverage.policy.identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute operational coverage-policy provenance identity: {error}"
+        )))
+    })?;
+    let context_digest = policies.evidence.context.policy.identity_digest().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "cannot compute operational context-policy provenance identity: {error}"
+        )))
+    })?;
+    let mut contributions = Vec::with_capacity(
+        4 + control_plane.contributions.len() + evidence.contributions.len(),
+    );
+    contributions.push(contribution(
+        EvidenceLeaseRole::BootstrapRoot,
+        root.qualification_digest(),
+        root.qualification_profile(),
+        root.verification_ref(),
+        root_lease,
+    ));
+    contributions.push(contribution(
+        EvidenceLeaseRole::OperationalCoveragePolicy,
+        coverage_digest,
+        POLICY_IDENTITY_PROFILE,
+        &policies.evidence.coverage.verification_ref,
+        policies.lease.clone(),
+    ));
+    contributions.push(contribution(
+        EvidenceLeaseRole::OperationalContextPolicy,
+        context_digest,
+        CONTEXT_POLICY_PROFILE,
+        &policies.evidence.context.verification_ref,
+        policies.lease.clone(),
+    ));
+    contributions.extend(control_plane.contributions);
+    contributions.extend(evidence.contributions);
+    contributions.push(contribution(
+        EvidenceLeaseRole::OperationalFreshness,
+        current.evidence_digest(),
+        current.evidence_profile(),
+        &semantic_freshness.verification_ref,
+        composition_lease.clone(),
+    ));
+
+    let expected = ProvenanceCounts {
+        bootstrap_root: 1,
+        operational_coverage_policy: 1,
+        operational_context_policy: 1,
+        source_head: control_plane.probe_count + 1,
+        witness_observation: control_plane.witness_count + evidence.witnesses.len(),
+        witness_trust_binding: control_plane.witness_count + evidence.trust_bindings.len(),
+        authority_state_transition: control_plane.transition_count + evidence.transitions.len(),
+        control_plane_freshness: control_plane.probe_count,
+        operational_freshness: 1,
+    };
+
     let host_dna_hash = dna_info()?.hash.to_string();
     let host_dna_observed_at = now_ms()?;
 
@@ -110,6 +226,14 @@ pub fn resolve_current_operational_freshness(
         )
     })?;
 
+    let provenance = qualify_closed_provenance(&contributions, expected, final_now)?;
+    if provenance.aggregate_lease() != &composition_lease {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "canonical provenance manifest aggregate does not equal the computed global evidence lease"
+                .into(),
+        )));
+    }
+
     let requested_deployment_until = final_now
         .checked_add(DEPLOYMENT_RETURN_LEASE_MS)
         .ok_or_else(|| {
@@ -117,7 +241,8 @@ pub fn resolve_current_operational_freshness(
                 "deployment-fence lease overflow".into(),
             ))
         })?;
-    let final_evidence_lease = composition_lease
+    let final_evidence_lease = provenance
+        .aggregate_lease()
         .cap_valid_until(requested_deployment_until, final_now)
         .map_err(|error| lease_error("final evidence lease cap denied", error))?;
     let host_context = HostLocalDnaContext::from_host_observation(
@@ -148,7 +273,7 @@ pub fn resolve_current_operational_freshness(
         || deployment.verified_at_ms() < final_evidence_lease.verified_at_ms
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "deployment qualification widened or predates the global evidence lease".into(),
+            "deployment qualification widened or predates the final evidence lease".into(),
         )));
     }
 
@@ -160,7 +285,7 @@ pub fn resolve_current_operational_freshness(
     })?;
     if freshness.lease_until_ms > final_evidence_lease.valid_until_ms {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "wire freshness lease exceeds the global evidence horizon".into(),
+            "wire freshness lease exceeds the final evidence horizon".into(),
         )));
     }
 
@@ -175,10 +300,13 @@ pub fn resolve_current_operational_freshness(
         authority_profile: current.authority_profile().into(),
         evidence_digest: current.evidence_digest(),
         evidence_profile: current.evidence_profile().into(),
+        composition_evidence_manifest_digest: Digest32(provenance.manifest_digest()),
+        composition_evidence_manifest_profile: provenance.manifest_profile().into(),
+        composition_evidence_contributor_count: provenance.contributor_count(),
         composition_evidence_lease_protocol: mycelix_authority_evidence_lease::PROTOCOL_VERSION
             .into(),
-        composition_evidence_verified_at_ms: final_evidence_lease.verified_at_ms,
-        composition_evidence_valid_until_ms: final_evidence_lease.valid_until_ms,
+        composition_evidence_verified_at_ms: provenance.aggregate_lease().verified_at_ms,
+        composition_evidence_valid_until_ms: provenance.aggregate_lease().valid_until_ms,
         local_dna_hash: deployment.dna_hash().into(),
         constitution_statement_digest: deployment.constitution_statement_digest(),
         constitution_statement_profile: deployment.constitution_statement_profile().into(),
@@ -213,6 +341,10 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         leased_operational_policy_consumed: true,
         transition_leases_intersected: true,
         global_evidence_lease_enforced: true,
+        provenance_contributor_set_constructed_locally: true,
+        provenance_required_role_cardinality_closed: true,
+        provenance_manifest_qualified_locally: true,
+        provenance_manifest_matches_global_lease: true,
         deployment_lease_capped_by_global_evidence: true,
         host_local_dna_derived: true,
         constitutional_dna_cross_checked: true,
