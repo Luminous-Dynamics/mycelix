@@ -138,6 +138,7 @@ impl RecoveryTransitionClaimV1 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryTransitionError {
+    UnsupportedSchemaVersion,
     RecoveryConstitutionMismatch,
     RecoveryFederationMismatch,
     FederationChanged,
@@ -190,6 +191,9 @@ pub fn validate_recovery_transition_shape(
     expected: ExpectedRecoveryConstitutionV1,
     claim: RecoveryTransitionClaimV1,
 ) -> Result<ShapeValidatedRecoveryTransitionV1, RecoveryTransitionError> {
+    if claim.schema_version != SSF_SCHEMA_V1 {
+        return Err(RecoveryTransitionError::UnsupportedSchemaVersion);
+    }
     if claim.recovery_constitution != expected.commitment {
         return Err(RecoveryTransitionError::RecoveryConstitutionMismatch);
     }
@@ -397,6 +401,16 @@ mod tests {
         assert_eq!(
             validated.claim().transition_commitment,
             RecoveryTransitionCommitment::from_bytes(bytes(62))
+        );
+    }
+
+    #[test]
+    fn unsupported_schema_version_is_rejected_before_recovery_semantics() {
+        let mut claim = valid_claim();
+        claim.schema_version = SSF_SCHEMA_V1 + 1;
+        assert_eq!(
+            validate_recovery_transition_shape(expected_recovery(), claim),
+            Err(RecoveryTransitionError::UnsupportedSchemaVersion)
         );
     }
 
