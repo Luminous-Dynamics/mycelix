@@ -42,13 +42,20 @@ holochain_client = "0.8.3"
 kitsune2 = "0.4.1"
 lair_keystore = "0.6.3"
 
-# Known legacy island. It is excluded from the active workspace because its
-# client is 0.6-generation while conductor-api/types are still 0.5-generation.
-# Keeping the exact drift here makes accidental changes visible until a dedicated
-# CLI migration removes the quarantine.
+# Known legacy islands. Their exact drift is frozen so upgrades cannot silently
+# change only one side of an ABI/API boundary. Each quarantine must be removed
+# by a dedicated migration that proves the island joins the canonical cohort.
 [[quarantine]]
 path = "mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml"
 reason = "Pulse CLI mixes holochain_client 0.8.1 with holochain_types/conductor_api 0.5 and must be migrated as its own compatibility boundary."
 holochain_client = "0.8.1"
 holochain_types = "0.5"
 holochain_conductor_api = "0.5"
+
+[[quarantine]]
+path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+reason = "Pulse backend mixes holochain_client 0.8.1 with holochain_types/zome_types/keystore 0.5; stub-mode tests do not prove conductor API compatibility."
+holochain_client = "0.8.1"
+holochain_types = "0.5"
+holochain_zome_types = "0.5"
+holochain_keystore = "0.5"
