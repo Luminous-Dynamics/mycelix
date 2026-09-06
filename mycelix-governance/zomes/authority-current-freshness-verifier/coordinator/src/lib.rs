@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Fail-closed runtime composition for current operational authority freshness.
 //!
-//! Providers return evidence-shaped candidates only. This coordinator reconstructs
-//! every positive authority layer locally through the pure kernels:
+//! Provider roles are deliberately separated. An evidence-plan provider may select
+//! which probe to resolve, but it cannot attest probe validity, source-head truth,
+//! witness/trust truth, or transition truth. Those are independent verifier calls
+//! whose outputs are cross-bound again by #96/#91 and the higher pure kernels.
 //!
+//! The coordinator reconstructs positive authority locally through:
 //! constitution/root -> control-plane freshness -> operational policy context
 //! -> covered operational freshness.
 //!
@@ -36,11 +39,14 @@ use serde::{Deserialize, Serialize};
 const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.1";
 const ROOT_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_provider";
 const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_provider";
+const EVIDENCE_PLAN_ZOME: &str = "authority_state_evidence_plan_provider";
 const PROBE_VERIFIER_ZOME: &str = "authority_state_challenge";
-const CONTROL_PLANE_EVIDENCE_ZOME: &str = "authority_control_plane_evidence_provider";
-const OPERATIONAL_EVIDENCE_ZOME: &str = "authority_operational_evidence_provider";
-const MAX_CONTROL_PLANE_BUNDLES: usize = 3;
+const SOURCE_HEAD_VERIFIER_ZOME: &str = "authority_state_source_head_verifier";
+const WITNESS_VERIFIER_ZOME: &str = "authority_state_witness_verifier";
+const TRANSITION_VERIFIER_ZOME: &str = "authority_state_transition_verifier";
+const MAX_CONTROL_PLANE_PROBES: usize = 3;
 const MAX_WITNESSES: usize = 64;
+const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -56,31 +62,59 @@ pub struct OperationalPolicyCandidateBundle {
     pub context: VerifiedCoverageTrustContextPolicy,
 }
 
-/// Evidence-shaped bundle for exactly one authority subject.
-///
-/// The generic provider supplies the probe action reference, never a preverified
-/// `VerifiedCoverageChallenge`. The dedicated #114 probe runtime must reconstruct
-/// that receipt from the private entropy provenance before the pure #96 path runs.
+/// Discovery only. The plan provider chooses probe references but attests no truth.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AuthorityStateEvidenceBundle {
-    pub probe_action: ActionHash,
-    pub source_head: VerifiedAuthoritySourceHead,
-    pub witnesses: Vec<VerifiedAuthorityHeadWitness>,
-    pub trust_bindings: Vec<VerifiedWitnessTrustBinding>,
-    pub transitions: Vec<VerifiedAuthorityStateTransition>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ControlPlaneEvidenceRequest {
+pub struct ControlPlaneProbePlanRequest {
     pub target_subject: AuthoritySubjectRef,
     pub root_manifest_digest: Digest32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OperationalEvidenceRequest {
+pub struct ControlPlaneProbePlan {
+    pub probe_actions: Vec<ActionHash>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OperationalProbePlanRequest {
     pub target_subject: AuthoritySubjectRef,
     pub context_policy_digest: Digest32,
     pub coverage_policy_digest: Digest32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OperationalProbePlan {
+    pub probe_action: ActionHash,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceHeadVerificationRequest {
+    pub challenge: VerifiedCoverageChallenge,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WitnessVerificationRequest {
+    pub challenge: VerifiedCoverageChallenge,
+    pub source_head: VerifiedAuthoritySourceHead,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VerifiedWitnessEvidenceBundle {
+    pub witnesses: Vec<VerifiedAuthorityHeadWitness>,
+    pub trust_bindings: Vec<VerifiedWitnessTrustBinding>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransitionVerificationRequest {
+    pub subject: AuthoritySubjectRef,
+    pub source_head: VerifiedAuthoritySourceHead,
+}
+
+struct ResolvedAuthorityEvidence {
+    challenge: VerifiedCoverageChallenge,
+    source_head: VerifiedAuthoritySourceHead,
+    witnesses: Vec<VerifiedAuthorityHeadWitness>,
+    trust_bindings: Vec<VerifiedWitnessTrustBinding>,
+    transitions: Vec<VerifiedAuthorityStateTransition>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -105,6 +139,7 @@ pub struct VerifiedCurrentOperationalFreshnessReceipt {
 pub struct CurrentFreshnessRuntimeStatus {
     pub protocol: String,
     pub composition_only: bool,
+    pub evidence_plan_grants_authority: bool,
     pub latest_dht_record_authority: bool,
     pub provider_positive_object_authority: bool,
     pub probe_authority: bool,
@@ -150,39 +185,6 @@ fn now_ms() -> ExternResult<u64> {
     Ok(micros as u64 / 1_000)
 }
 
-fn validate_evidence_shape(bundle: &AuthorityStateEvidenceBundle) -> ExternResult<()> {
-    if bundle.witnesses.len() > MAX_WITNESSES {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "authority-state witness count exceeds {MAX_WITNESSES}"
-        ))));
-    }
-    if bundle.transitions.is_empty() || bundle.transitions.len() > MAX_TRANSITIONS {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "authority-state transition count must be 1-{MAX_TRANSITIONS}"
-        ))));
-    }
-    Ok(())
-}
-
-fn verify_probe(
-    probe_action: ActionHash,
-    expected_subject: Option<&AuthoritySubjectRef>,
-) -> ExternResult<VerifiedCoverageChallenge> {
-    let challenge: VerifiedCoverageChallenge = call_local(
-        PROBE_VERIFIER_ZOME,
-        "verify_issued_authority_state_probe",
-        probe_action,
-    )?;
-    if let Some(subject) = expected_subject {
-        if &challenge.challenge.subject != subject {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "verified authority-state probe belongs to another subject".into(),
-            )));
-        }
-    }
-    Ok(challenge)
-}
-
 fn resolve_root(
     now: u64,
 ) -> ExternResult<mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot> {
@@ -214,36 +216,110 @@ fn resolve_operational_policies(
     )
 }
 
+fn verify_probe(
+    probe_action: ActionHash,
+    expected_subject: Option<&AuthoritySubjectRef>,
+) -> ExternResult<VerifiedCoverageChallenge> {
+    let challenge: VerifiedCoverageChallenge = call_local(
+        PROBE_VERIFIER_ZOME,
+        "verify_issued_authority_state_probe",
+        probe_action,
+    )?;
+    if let Some(subject) = expected_subject {
+        if &challenge.challenge.subject != subject {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "verified authority-state probe belongs to another subject".into(),
+            )));
+        }
+    }
+    Ok(challenge)
+}
+
+fn resolve_evidence(
+    probe_action: ActionHash,
+    expected_subject: Option<&AuthoritySubjectRef>,
+) -> ExternResult<ResolvedAuthorityEvidence> {
+    let challenge = verify_probe(probe_action, expected_subject)?;
+
+    let source_head: VerifiedAuthoritySourceHead = call_local(
+        SOURCE_HEAD_VERIFIER_ZOME,
+        "verify_source_head",
+        SourceHeadVerificationRequest {
+            challenge: challenge.clone(),
+        },
+    )?;
+
+    let witness_bundle: VerifiedWitnessEvidenceBundle = call_local(
+        WITNESS_VERIFIER_ZOME,
+        "verify_witness_evidence",
+        WitnessVerificationRequest {
+            challenge: challenge.clone(),
+            source_head: source_head.clone(),
+        },
+    )?;
+    if witness_bundle.witnesses.len() > MAX_WITNESSES {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "authority-state witness count exceeds {MAX_WITNESSES}"
+        ))));
+    }
+    if witness_bundle.trust_bindings.len() > MAX_TRUST_BINDINGS {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "authority-state trust-binding count exceeds {MAX_TRUST_BINDINGS}"
+        ))));
+    }
+
+    let transitions: Vec<VerifiedAuthorityStateTransition> = call_local(
+        TRANSITION_VERIFIER_ZOME,
+        "verify_transition_lineage",
+        TransitionVerificationRequest {
+            subject: challenge.challenge.subject.clone(),
+            source_head: source_head.clone(),
+        },
+    )?;
+    if transitions.is_empty() || transitions.len() > MAX_TRANSITIONS {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "authority-state transition count must be 1-{MAX_TRANSITIONS}"
+        ))));
+    }
+
+    Ok(ResolvedAuthorityEvidence {
+        challenge,
+        source_head,
+        witnesses: witness_bundle.witnesses,
+        trust_bindings: witness_bundle.trust_bindings,
+        transitions,
+    })
+}
+
 fn resolve_control_plane_freshness(
     root: &mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot,
     target_subject: &AuthoritySubjectRef,
     now: u64,
 ) -> ExternResult<Vec<QualifiedControlPlaneSubjectFreshness>> {
-    let bundles: Vec<AuthorityStateEvidenceBundle> = call_local(
-        CONTROL_PLANE_EVIDENCE_ZOME,
-        "resolve_control_plane_evidence",
-        ControlPlaneEvidenceRequest {
+    let plan: ControlPlaneProbePlan = call_local(
+        EVIDENCE_PLAN_ZOME,
+        "plan_control_plane_probes",
+        ControlPlaneProbePlanRequest {
             target_subject: target_subject.clone(),
             root_manifest_digest: root.root_manifest_digest(),
         },
     )?;
-    if bundles.is_empty() || bundles.len() > MAX_CONTROL_PLANE_BUNDLES {
+    if plan.probe_actions.is_empty() || plan.probe_actions.len() > MAX_CONTROL_PLANE_PROBES {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "control-plane evidence bundle count must be 1-{MAX_CONTROL_PLANE_BUNDLES}"
+            "control-plane probe count must be 1-{MAX_CONTROL_PLANE_PROBES}"
         ))));
     }
 
-    let mut qualified = Vec::with_capacity(bundles.len());
-    for bundle in bundles {
-        validate_evidence_shape(&bundle)?;
-        let challenge = verify_probe(bundle.probe_action, None)?;
+    let mut qualified = Vec::with_capacity(plan.probe_actions.len());
+    for probe_action in plan.probe_actions {
+        let evidence = resolve_evidence(probe_action, None)?;
         let value = qualify_control_plane_subject_freshness(
             root,
-            &challenge,
-            &bundle.source_head,
-            &bundle.witnesses,
-            &bundle.trust_bindings,
-            &bundle.transitions,
+            &evidence.challenge,
+            &evidence.source_head,
+            &evidence.witnesses,
+            &evidence.trust_bindings,
+            &evidence.transitions,
             now,
         )
         .map_err(|error| {
@@ -258,8 +334,8 @@ fn resolve_control_plane_freshness(
 
 /// Resolve current freshness for one exact operational authority subject.
 ///
-/// Every provider response is candidate evidence. Positive authority is created
-/// only by local calls to the pure qualification kernels.
+/// Provider roles are separated and all positive authority is reconstructed
+/// locally through the pure qualification kernels.
 #[hdk_extern]
 pub fn resolve_current_operational_freshness(
     subject: AuthoritySubjectRef,
@@ -289,25 +365,24 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    let target_bundle: AuthorityStateEvidenceBundle = call_local(
-        OPERATIONAL_EVIDENCE_ZOME,
-        "resolve_operational_subject_evidence",
-        OperationalEvidenceRequest {
+    let plan: OperationalProbePlan = call_local(
+        EVIDENCE_PLAN_ZOME,
+        "plan_operational_probe",
+        OperationalProbePlanRequest {
             target_subject: subject.clone(),
             context_policy_digest: context.context_policy_digest(),
             coverage_policy_digest: context.coverage_policy_digest(),
         },
     )?;
-    validate_evidence_shape(&target_bundle)?;
-    let challenge = verify_probe(target_bundle.probe_action, Some(&subject))?;
+    let evidence = resolve_evidence(plan.probe_action, Some(&subject))?;
 
     let current = qualify_operational_subject_freshness(
         &context,
-        &challenge,
-        &target_bundle.source_head,
-        &target_bundle.witnesses,
-        &target_bundle.trust_bindings,
-        &target_bundle.transitions,
+        &evidence.challenge,
+        &evidence.source_head,
+        &evidence.witnesses,
+        &evidence.trust_bindings,
+        &evidence.transitions,
         now,
     )
     .map_err(|error| {
@@ -352,6 +427,7 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
     Ok(CurrentFreshnessRuntimeStatus {
         protocol: RUNTIME_PROTOCOL.into(),
         composition_only: true,
+        evidence_plan_grants_authority: false,
         latest_dht_record_authority: false,
         provider_positive_object_authority: false,
         probe_authority: false,
