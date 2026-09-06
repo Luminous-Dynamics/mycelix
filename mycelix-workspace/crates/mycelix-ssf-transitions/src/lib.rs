@@ -61,7 +61,7 @@ pub enum EpochTransitionKind {
     ConstitutionalUpgrade,
 }
 
-/// Immutable, addressed claim that one exact federation state transitions to
+/// Untrusted, addressed claim that one exact federation state transitions to
 /// one exact next-epoch federation state.
 ///
 /// `authorization_commitment` remains evidence, not authority by itself. A
@@ -101,6 +101,7 @@ impl EpochTransitionCertificateV1 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EpochTransitionError {
+    UnsupportedSchemaVersion,
     FederationChanged,
     EpochOverflow,
     EpochNotNext,
@@ -122,14 +123,49 @@ pub enum EpochTransitionError {
     ConstitutionalUpgradeDidNotChangePolicy,
 }
 
-/// Validate the pure structural theorem for an epoch transition.
+/// Opaque evidence that one exact transition claim passed the v1 structural
+/// transition theorem.
 ///
-/// This does not prove the transition is authorized. It proves only that the
-/// claim has the exact non-ambiguous shape required before an authorization
-/// adapter may consider it.
-pub fn validate_epoch_transition_shape(
+/// This is still not authority. A downstream authority adapter must consume
+/// this exact token together with independently verified cryptographic/quorum
+/// authorization evidence. The token prevents a boolean "checked earlier"
+/// convention from substituting for the exact claim that was checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShapeValidatedEpochTransitionV1 {
+    certificate: EpochTransitionCertificateV1,
+}
+
+impl ShapeValidatedEpochTransitionV1 {
+    /// Borrow the exact unmodified claim whose structural shape was checked.
+    pub const fn certificate(&self) -> &EpochTransitionCertificateV1 {
+        &self.certificate
+    }
+
+    pub const fn source(&self) -> FederationStateHeadV1 {
+        self.certificate.source
+    }
+
+    pub const fn target(&self) -> FederationStateHeadV1 {
+        self.certificate.target
+    }
+
+    pub const fn transition_commitment(&self) -> TransitionCommitment {
+        self.certificate.certificate_commitment
+    }
+}
+
+/// Internal structural theorem for an epoch transition.
+///
+/// This does not prove the transition is authorized. Public higher-assurance
+/// integrations should call `shape_validate_epoch_transition`, which returns
+/// an opaque token retaining the exact checked claim.
+fn validate_epoch_transition_shape(
     certificate: &EpochTransitionCertificateV1,
 ) -> Result<(), EpochTransitionError> {
+    if certificate.schema_version != SSF_SCHEMA_V1 {
+        return Err(EpochTransitionError::UnsupportedSchemaVersion);
+    }
+
     let source = certificate.source;
     let target = certificate.target;
     let source_context = source.context();
@@ -216,6 +252,15 @@ pub fn validate_epoch_transition_shape(
     Ok(())
 }
 
+/// Consume/copy one untrusted transition claim and retain the exact checked
+/// claim inside an opaque non-authority evidence token.
+pub fn shape_validate_epoch_transition(
+    certificate: EpochTransitionCertificateV1,
+) -> Result<ShapeValidatedEpochTransitionV1, EpochTransitionError> {
+    validate_epoch_transition_shape(&certificate)?;
+    Ok(ShapeValidatedEpochTransitionV1 { certificate })
+}
+
 /// Compact transition anchor suitable for later reconciliation evidence.
 ///
 /// Both complete endpoint state heads are retained so equal logical epoch
@@ -234,6 +279,12 @@ impl From<&EpochTransitionCertificateV1> for EpochTransitionAnchorV1 {
             target: value.target,
             transition: value.certificate_commitment,
         }
+    }
+}
+
+impl From<&ShapeValidatedEpochTransitionV1> for EpochTransitionAnchorV1 {
+    fn from(value: &ShapeValidatedEpochTransitionV1) -> Self {
+        Self::from(value.certificate())
     }
 }
 
@@ -352,6 +403,26 @@ mod tests {
             TransitionAuthorizationCommitment::from_bytes(bytes(61)),
             TransitionCommitment::from_bytes(bytes(62)),
         )
+    }
+
+    #[test]
+    fn public_shape_validation_retains_the_exact_checked_claim() {
+        let cert = certificate(EpochTransitionKind::ScheduledEpochAdvance);
+        let validated = shape_validate_epoch_transition(cert).expect("valid transition shape");
+        assert_eq!(validated.certificate(), &cert);
+        assert_eq!(validated.source(), cert.source);
+        assert_eq!(validated.target(), cert.target);
+        assert_eq!(validated.transition_commitment(), cert.certificate_commitment);
+    }
+
+    #[test]
+    fn unsupported_schema_version_fails_before_transition_semantics() {
+        let mut cert = certificate(EpochTransitionKind::ScheduledEpochAdvance);
+        cert.schema_version = SSF_SCHEMA_V1 + 1;
+        assert_eq!(
+            shape_validate_epoch_transition(cert),
+            Err(EpochTransitionError::UnsupportedSchemaVersion)
+        );
     }
 
     #[test]
@@ -661,7 +732,8 @@ mod tests {
     #[test]
     fn transition_anchor_retains_both_exact_state_heads() {
         let cert = certificate(EpochTransitionKind::ScheduledEpochAdvance);
-        let anchor = EpochTransitionAnchorV1::from(&cert);
+        let validated = shape_validate_epoch_transition(cert).expect("valid transition shape");
+        let anchor = EpochTransitionAnchorV1::from(&validated);
         assert_eq!(anchor.source, cert.source);
         assert_eq!(anchor.target, cert.target);
         assert_eq!(anchor.transition, cert.certificate_commitment);
