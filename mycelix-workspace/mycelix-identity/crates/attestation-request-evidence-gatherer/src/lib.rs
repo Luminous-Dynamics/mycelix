@@ -158,9 +158,10 @@ fn gather_root(root_hash: ActionHash) -> ExternResult<GatheredRootV1> {
             )));
         }
 
-        let update_record = get(update_hash.clone(), GetOptions::network())?.ok_or_else(|| {
-            guest_error(format!("Valid request update record unavailable for {update_hash}"))
-        })?;
+        // Consume the record from the same validated RecordDetails observation.
+        // A second network get would split metadata validation from the payload
+        // we actually interpret and add an unnecessary read boundary.
+        let update_record = update_details.record;
         let update_action = match update_record.action() {
             Action::Update(update) => update,
             _ => {
