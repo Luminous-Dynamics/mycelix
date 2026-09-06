@@ -1,0 +1,17 @@
+[package]
+name = "authority_state_source_head_verifier"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Fail-closed challenge-bound source-head verifier adapter"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+mycelix-authority-state-coverage = { path = "../../../../crates/mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../../../../crates/mycelix-authority-state-coverage-context" }
+mycelix-authority-source-head-verifier = { path = "../../../../crates/mycelix-authority-source-head-verifier" }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
