@@ -1,0 +1,97 @@
+name: Trust Resolution Schema
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-trust-protocol/**'
+      - '.github/workflows/trust-resolution-schema.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-trust-protocol/**'
+      - '.github/workflows/trust-resolution-schema.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-trust-protocol
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
+            -- --check
+
+      - name: Test schema
+        run: |
+          cargo test \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
+            --lib
+
+      - name: Check schema for wasm32
+        run: |
+          cargo check \
+            --manifest-path crates/mycelix-trust-protocol/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Assert protocol crate stays narrow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          manifest = tomllib.loads(Path('crates/mycelix-trust-protocol/Cargo.toml').read_text())
+          deps = set(manifest.get('dependencies', {}))
+          if deps != {'serde'}:
+              raise SystemExit(
+                  f'ERROR: trust protocol runtime dependencies changed: {sorted(deps)!r}; '
+                  'keep this wire crate serde-only unless separately reviewed'
+              )
+          PY
+
+      - name: Assert V1 remains quarantine-only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('crates/mycelix-trust-protocol/src/lib.rs').read_text()
+
+          def enum_variants(name: str) -> list[str]:
+              match = re.search(rf'pub enum {name}\s*\{{(.*?)\n\}}', text, re.S)
+              if not match:
+                  raise SystemExit(f'ERROR: could not find enum {name}')
+              body = re.sub(r'^\s*///.*$', '', match.group(1), flags=re.M)
+              return [part.strip() for part in body.split(',') if part.strip()]
+
+          proof = enum_variants('ProofVerificationStateV1')
+          authority = enum_variants('TrustAuthorityDispositionV1')
+
+          if proof != ['NotEstablished']:
+              raise SystemExit(
+                  f'ERROR: V1 proof states changed from quarantine-only: {proof!r}; '
+                  'create a new protocol version instead'
+              )
+
+          if authority != ['Quarantined']:
+              raise SystemExit(
+                  f'ERROR: V1 authority states changed from quarantine-only: {authority!r}; '
+                  'create a new protocol version instead'
+              )
+          PY
