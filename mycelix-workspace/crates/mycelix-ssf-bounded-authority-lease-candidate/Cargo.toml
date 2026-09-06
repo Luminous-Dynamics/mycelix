@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ssf-bounded-authority-lease-candidate"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-adoption-authority-candidate = { path = "../mycelix-ssf-adoption-authority-candidate" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-local-adoption-policy = { path = "../mycelix-ssf-local-adoption-policy" }
+mycelix-ssf-snapshots = { path = "../mycelix-ssf-snapshots" }
