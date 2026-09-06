@@ -1,0 +1,190 @@
+name: Holochain 0.6.3 Pulse Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
+      - '.github/scripts/check_holochain_cohort.py'
+      - '.github/workflows/holochain-0-6-3-pulse-qualification.yml'
+      - 'mycelix-workspace/holochain-cohort.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: holochain-0-6-3-pulse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Materialize and qualify exact 0.6.3 candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Materialize candidate
+        id: materialize
+        run: python3 .github/scripts/materialize_holochain_0_6_3_pulse.py
+
+      - name: Regenerate Holonix lock with Nix
+        id: nix_lock
+        working-directory: mycelix-workspace
+        run: nix flake lock --update-input holonix
+
+      - name: Verify aligned compatibility contract
+        id: contract
+        run: python3 .github/scripts/check_holochain_cohort.py
+
+      - name: Verify Nix runtime cohort
+        id: nix_runtime
+        continue-on-error: true
+        working-directory: mycelix-workspace
+        run: |
+          nix develop .#holochain --command bash -lc '
+            set -euo pipefail
+            holochain --version
+            hc --version
+          '
+
+      - name: Qualify active Pulse zome workspace
+        id: pulse_zomes
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --workspace
+          cargo check --workspace --target wasm32-unknown-unknown
+          cargo test --workspace --lib
+
+      - name: Qualify standalone hApp integrity crate
+        id: happ_integrity
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/integrity
+        run: |
+          set -euo pipefail
+          cargo check --target wasm32-unknown-unknown
+          cargo test --lib
+
+      - name: Qualify Pulse backend API migration
+        id: backend
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        env:
+          JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+          HOLOCHAIN_STUB_MODE: 'true'
+        run: |
+          set -euo pipefail
+          cargo check
+          cargo test
+
+      - name: Qualify Pulse CLI API migration
+        id: cli
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/cli
+        run: |
+          set -euo pipefail
+          cargo check
+          cargo test
+
+      - name: Qualify simplified legacy DNA integrity
+        id: simple_integrity
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Qualify simplified legacy DNA mail_messages
+        id: simple_messages
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Qualify simplified legacy DNA trust_filter
+        id: simple_trust
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Compile SweetConductor security harness
+        id: sweettest
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/tests
+        run: cargo test --test sweettest_mail_security --no-run
+
+      - name: Validate generated patch
+        if: always()
+        id: patch
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --binary > holochain-0.6.3-pulse-candidate.patch
+          test -s holochain-0.6.3-pulse-candidate.patch
+          git status --short > holochain-0.6.3-pulse-status.txt
+          echo 'Generated candidate files:'
+          cat holochain-0.6.3-pulse-status.txt
+
+      - name: Preserve exact candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: holochain-0.6.3-pulse-candidate-${{ github.sha }}
+          path: |
+            holochain-0.6.3-pulse-candidate.patch
+            holochain-0.6.3-pulse-status.txt
+            mycelix-workspace/flake.lock
+            mycelix-workspace/holochain-cohort.toml
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Qualification gate
+        if: always()
+        run: |
+          set -euo pipefail
+          failed=0
+          check() {
+            name="$1"
+            outcome="$2"
+            printf '%-24s %s\n' "$name" "$outcome"
+            if [ "$outcome" != success ]; then
+              failed=1
+            fi
+          }
+          check materialize '${{ steps.materialize.outcome }}'
+          check nix_lock '${{ steps.nix_lock.outcome }}'
+          check contract '${{ steps.contract.outcome }}'
+          check nix_runtime '${{ steps.nix_runtime.outcome }}'
+          check pulse_zomes '${{ steps.pulse_zomes.outcome }}'
+          check happ_integrity '${{ steps.happ_integrity.outcome }}'
+          check backend '${{ steps.backend.outcome }}'
+          check cli '${{ steps.cli.outcome }}'
+          check simple_integrity '${{ steps.simple_integrity.outcome }}'
+          check simple_messages '${{ steps.simple_messages.outcome }}'
+          check simple_trust '${{ steps.simple_trust.outcome }}'
+          check sweettest '${{ steps.sweettest.outcome }}'
+          check patch '${{ steps.patch.outcome }}'
+          if [ "$failed" -ne 0 ]; then
+            echo 'Holochain 0.6.3 Pulse candidate is NOT QUALIFIED.'
+            exit 1
+          fi
+          echo 'Holochain 0.6.3 Pulse candidate QUALIFIED.'
