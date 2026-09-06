@@ -1,0 +1,92 @@
+name: Authority Current Runtime Contract
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-evidence-closure/RUNTIME_ADAPTER_CONTRACT.md'
+      - 'crates/mycelix-authority-evidence-closure/**'
+      - 'crates/mycelix-authority-runtime-dna-binding/**'
+      - '.github/workflows/authority-current-runtime-contract.yml'
+  push:
+    branches:
+      - 'security/authority-current-runtime-contract-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-current-runtime-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Fail-closed runtime authority contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Audit runtime contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/mycelix-authority-evidence-closure/RUNTIME_ADAPTER_CONTRACT.md')
+          text = path.read_text()
+          lower = text.lower()
+
+          required = [
+              'external request surface is target-only',
+              'dna_info()?.hash',
+              'current time comes from the host',
+              'current constitution is an explicit verifier boundary',
+              'bootstrap manifest and adoption are explicit verifier boundaries',
+              'operational semantic policy evidence is independent of currentness',
+              'required control-plane subjects are deterministic',
+              'probe issuance is evidence collection, not authority',
+              'source-head verification is mandatory',
+              'witness/trust evidence is mode-specific and independently verified',
+              'transition evidence is independently verified and complete',
+              'positive construction occurs only through #126',
+              'semantic current-authority digest/profile',
+              'deployment-bound current-authority digest/profile',
+              'complete dynamic evidence digest/profile',
+              'provider failure is denial',
+              'status endpoints are non-authoritative',
+              'no production provisioning yet',
+              'no effect authority',
+          ]
+          for token in required:
+              assert token in lower, token
+
+          # Caller must not be authoritative for any currentness/control-plane fact.
+          for token in [
+              'the caller must not authoritatively provide:',
+              'expected/local dna hash',
+              'current time',
+              'source head/generation',
+              'transition set/current state',
+          ]:
+              assert token in lower, token
+
+          # Explicitly reject the anti-patterns this contract exists to prevent.
+          for token in [
+              'local dht query',
+              'highest observed generation',
+              'absence of a newer record',
+              'historical receipt replay denies',
+              'provider outage/decode failure denies',
+          ]:
+              assert token in lower, token
+
+          # This is intentionally contract-only. No verifier zome is introduced by
+          # this PR before upstream qualification and provider implementations exist.
+          changed_runtime_roots = [
+              Path('mycelix-governance/zomes/authority-current-freshness-verifier'),
+              Path('mycelix-governance/zomes/authority_current_freshness_verifier'),
+          ]
+          for runtime_root in changed_runtime_roots:
+              assert not runtime_root.exists(), f'unqualified runtime implementation exists: {runtime_root}'
+
+          print('PASS: runtime verifier contract derives host DNA/time, composes explicit providers, requalifies through #126, and remains unprovisioned')
+          PY
