@@ -359,12 +359,29 @@ pub fn validate_revocation_successor(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicySuccessorError {
+    Lineage(SuccessorError),
+    ActivePolicyChanged,
+}
+
 /// Validate a direct policy-state transition.
+///
+/// The active policy digest is constitutional authority and therefore cannot
+/// change inside an ordinary snapshot successor. A policy change requires an
+/// explicit constitutional epoch transition.
 pub fn validate_policy_successor(
     previous: &PolicySnapshotV1,
     next: &PolicySnapshotV1,
-) -> Result<(), SuccessorError> {
+) -> Result<(), PolicySuccessorError> {
     validate_direct_successor(previous.lineage(), next.lineage())
+        .map_err(PolicySuccessorError::Lineage)?;
+
+    if next.active_policy != previous.active_policy {
+        return Err(PolicySuccessorError::ActivePolicyChanged);
+    }
+
+    Ok(())
 }
 
 /// Exact coherent snapshot heads from which a local federation decision
@@ -644,6 +661,25 @@ mod tests {
         assert_eq!(
             validate_revocation_successor(&previous, &next),
             Err(RevocationSuccessorError::RevocationGenerationNotNext)
+        );
+    }
+
+    #[test]
+    fn ordinary_policy_successor_cannot_change_active_policy() {
+        let previous_lineage = lineage(0, None, 10);
+        let next_lineage = lineage(1, Some(previous_lineage.commitment()), 11);
+        let previous = PolicySnapshotV1::from_lineage(
+            previous_lineage,
+            PolicyDigest::from_bytes(bytes(70)),
+        );
+        let next = PolicySnapshotV1::from_lineage(
+            next_lineage,
+            PolicyDigest::from_bytes(bytes(71)),
+        );
+
+        assert_eq!(
+            validate_policy_successor(&previous, &next),
+            Err(PolicySuccessorError::ActivePolicyChanged)
         );
     }
 
