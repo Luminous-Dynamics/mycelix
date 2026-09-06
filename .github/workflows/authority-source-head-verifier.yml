@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - 'security/authority-source-head-verifier-v0.1'
+      - 'security/authority-source-head-causal-order-v0.1'
 
 permissions:
   contents: read
@@ -66,9 +67,11 @@ jobs:
               'proof.source_proof_ref != attestation.source_proof_ref',
               'receipt.verified_at_ms < receipt.challenge.issued_at_ms',
               'attestation.responded_at_ms < challenge_receipt.challenge.issued_at_ms',
+              'attestation.responded_at_ms < challenge_receipt.verified_at_ms',
               'proof.verified_at_ms < attestation.responded_at_ms',
               '.min(attestation.expires_at_ms)',
               '.min(proof.valid_until_ms)',
+              'fn source_response_before_challenge_verification_denies()',
           ]
           for token in required:
               assert token in src, token
@@ -95,6 +98,7 @@ jobs:
           assert 'authentication is not completeness' in inv
           assert 'source refusal or partition fails closed' in inv
           assert 'causal time ordering is mandatory' in inv
+          assert 'challenge issued ≤ challenge verified ≤ source responded ≤ source proof verified ≤ qualification now' in inv
           assert 'non-deserializable positive result' in inv
-          print('PASS: source-head verifier authenticates exact challenge/source identity without claiming policy trust or completeness')
+          print('PASS: source-head verifier proves challenge verification causally precedes source response')
           PY

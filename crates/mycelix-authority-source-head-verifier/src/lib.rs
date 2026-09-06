@@ -160,6 +160,7 @@ pub fn qualify_source_head_authentication(
 
     // Causal order is part of verification, not advisory metadata.
     if attestation.responded_at_ms < challenge_receipt.challenge.issued_at_ms
+        || attestation.responded_at_ms < challenge_receipt.verified_at_ms
         || attestation.responded_at_ms >= challenge_receipt.challenge.expires_at_ms
         || proof.verified_at_ms < attestation.responded_at_ms
         || now_ms >= attestation.expires_at_ms
@@ -437,6 +438,18 @@ mod tests {
         let challenge = challenge();
         let mut attestation = attestation(&challenge);
         attestation.responded_at_ms = 90;
+        let proof = proof(&challenge, &attestation);
+        assert_eq!(
+            qualify_source_head_authentication(&challenge, &attestation, &proof, 200).unwrap_err(),
+            SourceHeadVerifierError::AttestationOutsideChallengeWindow
+        );
+    }
+
+    #[test]
+    fn source_response_before_challenge_verification_denies() {
+        let mut challenge = challenge();
+        challenge.verified_at_ms = 125;
+        let attestation = attestation(&challenge);
         let proof = proof(&challenge, &attestation);
         assert_eq!(
             qualify_source_head_authentication(&challenge, &attestation, &proof, 200).unwrap_err(),
