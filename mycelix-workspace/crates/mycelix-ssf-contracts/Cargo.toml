@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-ssf-contracts"
+version = "0.1.0"
+edition = "2024"
+authors = ["Tristan Stoltz / Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/luminous-dynamics/mycelix"
+description = "Dependency-free normative contracts for Mycelix Solar-System Federation security"
+
+[dependencies]
