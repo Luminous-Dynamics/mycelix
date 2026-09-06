@@ -71,9 +71,10 @@ jobs:
               'Action::Create(_)',
               'unique_action_hashes(&details.deletes)',
               'unique_action_hashes(&details.updates)',
-              'get(update_hash.clone(), GetOptions::network())',
               'update_details.updates.is_empty()',
               'update_details.deletes.is_empty()',
+              'let update_record = update_details.record;',
+              'same validated RecordDetails observation',
               'update_action.original_action_address',
               'validate_unique_request_ids_v1(&root_requests)',
               'resolve_attestation_request_lineage_v1(',
@@ -104,10 +105,11 @@ jobs:
               '.max_by_key(',
               'min_score()',
               'pub root_record: Record',
+              'get(update_hash.clone(), GetOptions::network())',
           ]
           for needle in forbidden:
               if needle in text:
-                  raise SystemExit(f'ERROR: policy/winner/current-state ambiguity leaked into evidence gatherer: {needle!r}')
+                  raise SystemExit(f'ERROR: policy/winner/evidence-coherence ambiguity leaked into evidence gatherer: {needle!r}')
 
           # The gatherer must not rely on active-link-only discovery, because that
           # could hide historical SubjectToRequest link deletion evidence.
