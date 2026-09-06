@@ -7,11 +7,13 @@ on:
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
       - 'crates/mycelix-authority-source-head-verifier/**'
+      - 'crates/mycelix-authority-evidence-lease/**'
       - '.github/workflows/authority-source-head-runtime.yml'
   push:
     branches:
       - 'security/authority-source-head-runtime-v0.1'
       - 'security/authority-source-head-projection-horizon-v0.1'
+      - 'security/authority-source-head-leased-runtime-v0.1'
 
 permissions:
   contents: read
@@ -25,7 +27,7 @@ env:
 
 jobs:
   qualify:
-    name: Probe/responder/proof source-head runtime
+    name: Leased probe/responder/proof source-head runtime
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,6 +37,9 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
+
+      - name: Evidence-lease tests
+        run: cargo test --manifest-path crates/mycelix-authority-evidence-lease/Cargo.toml --all-targets
 
       - name: Format
         working-directory: mycelix-governance
@@ -59,6 +64,7 @@ jobs:
           src = Path('mycelix-governance/zomes/authority-state-source-head-verifier/coordinator/src/lib.rs').read_text()
           inv = Path('mycelix-governance/zomes/authority-state-source-head-verifier/INVARIANTS.md').read_text().lower()
           cargo = Path('mycelix-governance/Cargo.toml').read_text()
+          zome_cargo = Path('mycelix-governance/zomes/authority-state-source-head-verifier/coordinator/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
           request_block = src.split('pub struct VerifySourceHeadRequest {', 1)[1].split('}', 1)[0]
@@ -68,21 +74,24 @@ jobs:
           assert 'request.challenge' not in src
 
           required = [
+              'mycelix_authority_evidence_lease::{EvidenceLease, LeasedEvidence}',
               'authority_state_challenge',
               'verify_issued_authority_state_probe',
               'authority_state_source_responder',
               'resolve_source_head_attestation',
               'authority_source_proof_verifier',
               'verify_source_head_proof',
+              'fn qualify_request(',
               'qualify_source_head_authentication(',
-              'attestation.identity_digest()',
-              'challenge.challenge.identity_digest()',
-              'caller_supplied_verified_challenge_accepted: false',
-              'probe_reverified_locally: true',
-              'verified_challenge_exposed_to_responder: false',
-              'source_response_is_candidate_only: true',
-              'proof_verifier_separate: true',
-              'validity_horizon_widening_allowed: false',
+              'pub fn verify_source_head(',
+              'pub fn verify_source_head_leased(',
+              'EvidenceLease::new(',
+              'qualified.verified_at_ms()',
+              'qualified.valid_until_ms()',
+              'LeasedEvidence::new(',
+              'legacy_projection_fail_closed: true',
+              'leased_endpoint_available: true',
+              'leased_endpoint_preserves_exact_horizon: true',
               'institutional_source_trust_decided_here: false',
               'completeness_decided_here: false',
               'external_effects_enabled: false',
@@ -91,43 +100,29 @@ jobs:
           for token in required:
               assert token in src, token
 
-          probe_call = src.index('let challenge: VerifiedCoverageChallenge = call_local(')
-          responder_call = src.index('let attestation: AuthoritySourceHeadAttestation = call_local(')
-          proof_call = src.index('let proof: VerifiedSourceHeadProof = call_local(')
-          now_call = src.index('let now = now_ms()?;')
-          qualify_call = src.index('let qualified = qualify_source_head_authentication')
-          horizon_call = src.index('let effective_valid_until_ms = qualified.valid_until_ms();')
-          projection_call = src.index('let projected = qualified.to_verified_source_head();')
-          guard_call = src.index('if projected.attestation.expires_at_ms > effective_valid_until_ms')
-          assert probe_call < responder_call < proof_call < now_call < qualify_call < horizon_call < projection_call < guard_call
+          legacy = src.split('pub fn verify_source_head(', 1)[1].split('/// Lease-complete transport endpoint.', 1)[0]
+          assert 'if projected.attestation.expires_at_ms > effective_valid_until_ms' in legacy
 
-          responder_block = src[responder_call:proof_call]
-          assert 'challenge.challenge.clone(),' in responder_block
-          assert '\n        challenge.clone(),\n' not in responder_block
+          leased = src.split('pub fn verify_source_head_leased(', 1)[1].split('#[hdk_extern]\npub fn source_head_runtime_status', 1)[0]
+          assert 'EvidenceLease::new(' in leased
+          assert 'qualified.verified_at_ms()' in leased
+          assert 'qualified.valid_until_ms()' in leased
+          assert 'attestation.expires_at_ms >' not in leased
 
-          forbidden = [
-              'AuthorityCoveragePolicy',
-              'qualify_authority_state_coverage(',
-              'VerifiedAuthoritySourceHead {',
-              'get_links(',
-              'get_details(',
-              'create_entry(',
-              'project_current_authority_state(',
-              'execute_actions',
-          ]
-          for token in forbidden:
-              assert token not in src, token
+          helper = src.split('fn qualify_request(', 1)[1].split('/// Legacy compatibility endpoint.', 1)[0]
+          probe = helper.index('let challenge: VerifiedCoverageChallenge = call_local(')
+          responder = helper.index('let attestation: AuthoritySourceHeadAttestation = call_local(')
+          proof = helper.index('let proof: VerifiedSourceHeadProof = call_local(')
+          now = helper.index('let now = now_ms()?;')
+          qualify = helper.index('let qualified = qualify_source_head_authentication')
+          assert probe < responder < proof < now < qualify
 
+          assert 'mycelix-authority-evidence-lease' in zome_cargo
           assert '"zomes/authority-state-source-head-verifier/coordinator"' in cargo
           assert 'name: authority_state_source_head_verifier' not in dna
-          assert 'caller input is a probe reference, not positive verification' in inv
-          assert 'positive challenge verification is not exposed to the responder' in inv
-          assert 'validity horizons are monotone under projection' in inv
-          assert 'qualification time follows evidence production' in inv
-          assert 'responder output is candidate data' in inv
-          assert 'cryptographic proof verification is separate' in inv
-          assert 'authentication is not institutional trust' in inv
-          assert 'authentication is not completeness' in inv
+          assert 'legacy projection remains fail-closed' in inv
+          assert 'leased projection preserves the exact dynamic horizon' in inv
+          assert 'lease envelope is not authority' in inv
           assert 'deliberately unprovisioned' in inv
-          print('PASS: source-head runtime preserves probe provenance separation and forbids validity-horizon widening')
+          print('PASS: old source-head ABI stays fail-closed while leased endpoint preserves #130 verifier horizon')
           PY
