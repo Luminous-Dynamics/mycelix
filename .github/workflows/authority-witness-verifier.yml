@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - 'security/authority-witness-proof-split-v0.1'
+      - 'security/authority-witness-leased-runtime-v0.1'
 
 permissions:
   contents: read
@@ -23,7 +24,7 @@ env:
 
 jobs:
   qualify:
-    name: Split witness observation and trust classification
+    name: Split witness proofs with explicit dynamic horizon
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -64,11 +65,11 @@ jobs:
               'context.identity_digest()',
               'challenge.identity_digest()',
               'source_receipt.attestation.identity_digest()',
-              'observation.expires_at_ms > proof_horizon',
+              '.min(observation_proof.valid_until_ms)',
+              '.min(classification_proof.valid_until_ms)',
               'WitnessTrustBinding {',
               'verified_trust_verifier_ref',
-              'to_verified_witness',
-              'to_verified_trust_binding',
+              'pub fn valid_until_ms(&self) -> u64',
           ]
           for token in required:
               assert token in src, token
@@ -82,6 +83,7 @@ jobs:
           assert 'observation_proof_ref' not in classification
           assert 'source_head_digest' not in classification
           assert 'challenge_digest' not in classification
+          assert 'LossyWitnessProjection' not in src
 
           for forbidden in [
               'hdk::',
@@ -98,9 +100,9 @@ jobs:
               assert forbidden.lower() not in src.lower(), forbidden
 
           assert 'observation authentication is not trust classification' in inv
-          assert 'compatibility projection cannot widen verifier leases' in inv
+          assert 'qualification preserves the true verifier horizon' in inv
           assert '#96 trust binding is constructed locally' in inv
           assert 'quorum remains #94/#96' in inv
           assert 'positive result is non-deserializable' in inv
-          print('PASS: witness observation authentication and institutional trust classification are separately verified')
+          print('PASS: witness qualification preserves short verifier leases for lease-complete transport')
           PY
