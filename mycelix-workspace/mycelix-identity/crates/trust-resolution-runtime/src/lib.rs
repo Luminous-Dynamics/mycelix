@@ -7,17 +7,10 @@
 //! records and the cross-domain `TrustResolutionV1` protocol. It deliberately
 //! does not perform network I/O or cryptographic proof verification.
 //!
-//! A coordinator/runtime caller is responsible only for gathering the canonical
-//! credential root, every observed update record, valid delete count, and
-//! authoritative Holochain observation time. This crate then:
-//!
-//! 1. compares every update against the canonical root assertion;
-//! 2. delegates CRUD/expiry collapse to the fail-closed current-state policy;
-//! 3. maps Identity-local trust tiers explicitly into the shared wire tier;
-//! 4. emits only `TrustResolutionV1::quarantined(...)`.
-//!
-//! No function in this crate can produce verified proof state or elevated
-//! consequential authority.
+//! A coordinator/runtime caller gathers canonical credential roots, every
+//! observed update record, delete counts, and authoritative Holochain observation
+//! time. This crate then owns assertion equivalence, historical-update collapse,
+//! tier mapping, subject-level ambiguity handling, and quarantine-only V1 output.
 
 #![forbid(unsafe_code)]
 
@@ -30,12 +23,17 @@ use mycelix_trust_protocol::{
 };
 use trust_credential_integrity::{TrustCredential, TrustTier};
 
-/// Adapter failures are fail-closed. Callers must not convert these into
-/// `NoActiveCredential`, because unavailable or nonconforming lineage evidence is
-/// not equivalent to proving that no active credential exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrustResolutionRuntimeError {
     CurrentState(CredentialStateResolutionError),
+    SubjectLineage {
+        credential_index: usize,
+        source: CredentialStateResolutionError,
+    },
+    /// V1 cannot truthfully select one structural tier when more than one
+    /// credential root is observed active and no qualified issuer/supersession
+    /// policy exists to choose among them.
+    AmbiguousObservedActiveCredentials { count: usize },
 }
 
 impl From<CredentialStateResolutionError> for TrustResolutionRuntimeError {
@@ -44,13 +42,21 @@ impl From<CredentialStateResolutionError> for TrustResolutionRuntimeError {
     }
 }
 
-/// Compare the assertion-bearing fields of a credential update with its
-/// canonical creation root.
+/// One canonical credential root and the entry bodies of every update observed
+/// for that root by the network traversal layer.
+#[derive(Debug, Clone, Copy)]
+pub struct CredentialLineageInput<'a> {
+    pub root: &'a TrustCredential,
+    pub observed_updates: &'a [TrustCredential],
+    pub valid_delete_count: usize,
+}
+
+/// Compare assertion-bearing fields of a credential update with its canonical
+/// creation root.
 ///
-/// Revocation metadata (`revoked`, `revocation_reason`, `revoked_at`) is
-/// intentionally excluded: those are the only fields permitted to change by the
-/// revocation-only integrity contract. Everything that contributes to the
-/// credential assertion remains immutable.
+/// Revocation metadata (`revoked`, `revocation_reason`, `revoked_at`) is the only
+/// intentionally excluded state. Every field contributing to the credential
+/// assertion itself must remain equivalent.
 pub fn credential_assertion_equivalent(
     root: &TrustCredential,
     candidate: &TrustCredential,
@@ -67,8 +73,6 @@ pub fn credential_assertion_equivalent(
         && candidate.supersedes == root.supersedes
 }
 
-/// Convert one fetched update record into the pure policy observation required
-/// for historical/current-lineage collapse.
 pub fn observe_update(
     root: &TrustCredential,
     updated: &TrustCredential,
@@ -80,9 +84,7 @@ pub fn observe_update(
 }
 
 /// Explicitly map Identity's local structural tier into the shared V1 wire tier.
-///
-/// This function is intentionally exhaustive so adding a new Identity tier
-/// cannot silently reuse an unrelated consumer enum representation.
+/// This is intentionally exhaustive; there is no ordinal/serde reinterpretation.
 pub const fn map_structural_tier(tier: &TrustTier) -> StructuralTrustTierV1 {
     match tier {
         TrustTier::Observer => StructuralTrustTierV1::Observer,
@@ -93,38 +95,93 @@ pub const fn map_structural_tier(tier: &TrustTier) -> StructuralTrustTierV1 {
     }
 }
 
-/// Collapse fetched credential lineage records into the permanently quarantined
-/// V1 cross-domain protocol.
-///
-/// `observed_updates` must contain the actual credential entry body for every
-/// update reported by network-aware `RecordDetails`. Supplying only update counts
-/// is insufficient because historical updates may predate the revocation-only
-/// integrity contract.
+fn resolve_lineage_state(
+    root: &TrustCredential,
+    observed_updates: &[TrustCredential],
+    valid_delete_count: usize,
+    observed_at_micros: i64,
+) -> Result<ObservedCredentialState, CredentialStateResolutionError> {
+    let update_observations: Vec<_> = observed_updates
+        .iter()
+        .map(|updated| observe_update(root, updated))
+        .collect();
+
+    resolve_observed_credential_state(CredentialStateEvidence::Resolved(
+        CredentialLineageObservation {
+            updates: &update_observations,
+            valid_delete_count,
+            expires_at_micros: root.expires_at.as_ref().map(|ts| ts.as_micros()),
+            observed_at_micros,
+        },
+    ))
+}
+
+/// Resolve one canonical credential lineage into observation-scoped,
+/// permanently-quarantined V1 semantics.
 pub fn resolve_to_v1(
     root: &TrustCredential,
     observed_updates: &[TrustCredential],
     valid_delete_count: usize,
     observed_at_micros: i64,
 ) -> Result<TrustResolutionV1, TrustResolutionRuntimeError> {
-    let update_observations: Vec<_> = observed_updates
-        .iter()
-        .map(|updated| observe_update(root, updated))
-        .collect();
-
-    let evidence = CredentialStateEvidence::Resolved(CredentialLineageObservation {
-        updates: &update_observations,
+    let observed_state = resolve_lineage_state(
+        root,
+        observed_updates,
         valid_delete_count,
-        expires_at_micros: root.expires_at.as_ref().map(|ts| ts.as_micros()),
         observed_at_micros,
-    });
+    )?;
 
-    let observed_state = resolve_observed_credential_state(evidence)?;
     let structural = match observed_state {
         ObservedCredentialState::ObservedStructurallyActive => {
-            StructuralTrustStateV1::ActiveTier(map_structural_tier(&root.trust_tier))
+            StructuralTrustStateV1::ObservedActiveTier(map_structural_tier(&root.trust_tier))
         }
         ObservedCredentialState::NoActiveCredential(_) => {
-            StructuralTrustStateV1::NoActiveCredential
+            StructuralTrustStateV1::NoActiveCredentialObserved
+        }
+    };
+
+    Ok(TrustResolutionV1::quarantined(structural))
+}
+
+/// Resolve all canonical credential roots observed for one subject.
+///
+/// V1 intentionally does not contain an issuer-selection or credential-priority
+/// policy. Therefore this function refuses to choose the highest tier when more
+/// than one root is observed structurally active. A future qualified policy may
+/// introduce explicit issuer/supersession semantics in a separately reviewed
+/// protocol version or adapter policy.
+pub fn resolve_subject_to_v1(
+    lineages: &[CredentialLineageInput<'_>],
+    observed_at_micros: i64,
+) -> Result<TrustResolutionV1, TrustResolutionRuntimeError> {
+    let mut observed_active_tier: Option<StructuralTrustTierV1> = None;
+    let mut observed_active_count = 0usize;
+
+    for (credential_index, lineage) in lineages.iter().enumerate() {
+        let state = resolve_lineage_state(
+            lineage.root,
+            lineage.observed_updates,
+            lineage.valid_delete_count,
+            observed_at_micros,
+        )
+        .map_err(|source| TrustResolutionRuntimeError::SubjectLineage {
+            credential_index,
+            source,
+        })?;
+
+        if state == ObservedCredentialState::ObservedStructurallyActive {
+            observed_active_count += 1;
+            observed_active_tier = Some(map_structural_tier(&lineage.root.trust_tier));
+        }
+    }
+
+    let structural = match (observed_active_count, observed_active_tier) {
+        (0, _) => StructuralTrustStateV1::NoActiveCredentialObserved,
+        (1, Some(tier)) => StructuralTrustStateV1::ObservedActiveTier(tier),
+        (count, _) => {
+            return Err(
+                TrustResolutionRuntimeError::AmbiguousObservedActiveCredentials { count },
+            )
         }
     };
 
@@ -141,11 +198,11 @@ mod tests {
     };
     use trust_credential_integrity::TrustScoreRange;
 
-    fn credential(tier: TrustTier) -> TrustCredential {
+    fn credential(id: &str, tier: TrustTier) -> TrustCredential {
         TrustCredential {
-            id: "cred-1".to_string(),
+            id: id.to_string(),
             subject_did: "did:mycelix:subject".to_string(),
-            issuer_did: "did:mycelix:issuer".to_string(),
+            issuer_did: format!("did:mycelix:issuer:{id}"),
             kvector_commitment: vec![7u8; 32],
             range_proof: vec![1, 2, 3, 4],
             trust_score_range: TrustScoreRange {
@@ -158,7 +215,7 @@ mod tests {
             revoked: false,
             revocation_reason: None,
             revoked_at: None,
-            supersedes: Some("cred-0".to_string()),
+            supersedes: None,
         }
     }
 
@@ -179,7 +236,6 @@ mod tests {
             (TrustTier::Elevated, StructuralTrustTierV1::Elevated),
             (TrustTier::Guardian, StructuralTrustTierV1::Guardian),
         ];
-
         for (local, wire) in pairs {
             assert_eq!(map_structural_tier(&local), wire);
         }
@@ -187,12 +243,11 @@ mod tests {
 
     #[test]
     fn observed_guardian_remains_not_established_and_quarantined() {
-        let root = credential(TrustTier::Guardian);
+        let root = credential("guardian", TrustTier::Guardian);
         let resolution = resolve_to_v1(&root, &[], 0, 1_000).unwrap();
-
         assert_eq!(
             resolution.structural(),
-            StructuralTrustStateV1::ActiveTier(StructuralTrustTierV1::Guardian)
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Guardian)
         );
         assert_eq!(
             resolution.proof_verification(),
@@ -202,35 +257,41 @@ mod tests {
     }
 
     #[test]
-    fn conforming_revocation_maps_to_no_active_credential() {
-        let root = credential(TrustTier::Elevated);
+    fn conforming_revocation_maps_to_observed_no_active_credential() {
+        let root = credential("elevated", TrustTier::Elevated);
         let revoked = revoked_from(&root);
         let resolution = resolve_to_v1(&root, &[revoked], 0, 1_000).unwrap();
-
-        assert_eq!(resolution.structural(), StructuralTrustStateV1::NoActiveCredential);
-        assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
+        assert_eq!(
+            resolution.structural(),
+            StructuralTrustStateV1::NoActiveCredentialObserved
+        );
     }
 
     #[test]
-    fn delete_maps_to_no_active_credential() {
-        let root = credential(TrustTier::Standard);
+    fn delete_maps_to_observed_no_active_credential() {
+        let root = credential("standard", TrustTier::Standard);
         let resolution = resolve_to_v1(&root, &[], 1, 1_000).unwrap();
-        assert_eq!(resolution.structural(), StructuralTrustStateV1::NoActiveCredential);
+        assert_eq!(
+            resolution.structural(),
+            StructuralTrustStateV1::NoActiveCredentialObserved
+        );
     }
 
     #[test]
-    fn expiration_maps_to_no_active_credential_at_exact_boundary() {
-        let root = credential(TrustTier::Standard);
+    fn expiration_maps_to_observed_no_active_credential_at_exact_boundary() {
+        let root = credential("standard", TrustTier::Standard);
         let resolution = resolve_to_v1(&root, &[], 0, 10_000).unwrap();
-        assert_eq!(resolution.structural(), StructuralTrustStateV1::NoActiveCredential);
+        assert_eq!(
+            resolution.structural(),
+            StructuralTrustStateV1::NoActiveCredentialObserved
+        );
     }
 
     #[test]
     fn historical_tier_mutation_fails_closed() {
-        let root = credential(TrustTier::Standard);
+        let root = credential("standard", TrustTier::Standard);
         let mut legacy = revoked_from(&root);
         legacy.trust_tier = TrustTier::Guardian;
-
         assert_eq!(
             resolve_to_v1(&root, &[legacy], 0, 1_000),
             Err(TrustResolutionRuntimeError::CurrentState(
@@ -241,10 +302,9 @@ mod tests {
 
     #[test]
     fn historical_proof_mutation_fails_closed() {
-        let root = credential(TrustTier::Standard);
+        let root = credential("standard", TrustTier::Standard);
         let mut legacy = revoked_from(&root);
         legacy.range_proof.push(9);
-
         assert_eq!(
             resolve_to_v1(&root, &[legacy], 0, 1_000),
             Err(TrustResolutionRuntimeError::CurrentState(
@@ -255,8 +315,103 @@ mod tests {
 
     #[test]
     fn revocation_metadata_is_the_only_permitted_update_difference() {
-        let root = credential(TrustTier::Standard);
+        let root = credential("standard", TrustTier::Standard);
         let revoked = revoked_from(&root);
         assert!(credential_assertion_equivalent(&root, &revoked));
+    }
+
+    #[test]
+    fn two_observed_active_credentials_are_ambiguous_not_highest_wins() {
+        let standard = credential("standard", TrustTier::Standard);
+        let guardian = credential("guardian", TrustTier::Guardian);
+        let lineages = [
+            CredentialLineageInput {
+                root: &standard,
+                observed_updates: &[],
+                valid_delete_count: 0,
+            },
+            CredentialLineageInput {
+                root: &guardian,
+                observed_updates: &[],
+                valid_delete_count: 0,
+            },
+        ];
+
+        assert_eq!(
+            resolve_subject_to_v1(&lineages, 1_000),
+            Err(TrustResolutionRuntimeError::AmbiguousObservedActiveCredentials {
+                count: 2
+            })
+        );
+    }
+
+    #[test]
+    fn one_active_and_one_revoked_reports_only_the_observed_active_tier() {
+        let standard = credential("standard", TrustTier::Standard);
+        let guardian = credential("guardian", TrustTier::Guardian);
+        let revoked_guardian = revoked_from(&guardian);
+        let lineages = [
+            CredentialLineageInput {
+                root: &standard,
+                observed_updates: &[],
+                valid_delete_count: 0,
+            },
+            CredentialLineageInput {
+                root: &guardian,
+                observed_updates: core::slice::from_ref(&revoked_guardian),
+                valid_delete_count: 0,
+            },
+        ];
+
+        let resolution = resolve_subject_to_v1(&lineages, 1_000).unwrap();
+        assert_eq!(
+            resolution.structural(),
+            StructuralTrustStateV1::ObservedActiveTier(StructuralTrustTierV1::Standard)
+        );
+        assert_eq!(resolution.authority(), TrustAuthorityDispositionV1::Quarantined);
+    }
+
+    #[test]
+    fn no_observed_active_roots_reports_observation_scoped_absence() {
+        let standard = credential("standard", TrustTier::Standard);
+        let revoked = revoked_from(&standard);
+        let lineages = [CredentialLineageInput {
+            root: &standard,
+            observed_updates: core::slice::from_ref(&revoked),
+            valid_delete_count: 0,
+        }];
+        let resolution = resolve_subject_to_v1(&lineages, 1_000).unwrap();
+        assert_eq!(
+            resolution.structural(),
+            StructuralTrustStateV1::NoActiveCredentialObserved
+        );
+    }
+
+    #[test]
+    fn malformed_subject_lineage_identifies_credential_index() {
+        let standard = credential("standard", TrustTier::Standard);
+        let guardian = credential("guardian", TrustTier::Guardian);
+        let mut malformed_guardian = revoked_from(&guardian);
+        malformed_guardian.range_proof.push(9);
+        let lineages = [
+            CredentialLineageInput {
+                root: &standard,
+                observed_updates: &[],
+                valid_delete_count: 1,
+            },
+            CredentialLineageInput {
+                root: &guardian,
+                observed_updates: core::slice::from_ref(&malformed_guardian),
+                valid_delete_count: 0,
+            },
+        ];
+
+        assert_eq!(
+            resolve_subject_to_v1(&lineages, 1_000),
+            Err(TrustResolutionRuntimeError::SubjectLineage {
+                credential_index: 1,
+                source: CredentialStateResolutionError::NonConformingUpdate { index: 0 },
+            })
+        );
     }
 }
