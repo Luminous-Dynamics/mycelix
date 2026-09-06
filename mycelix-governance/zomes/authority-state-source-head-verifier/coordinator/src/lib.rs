@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Workspace-only source-head verification adapter.
 //!
-//! Source response acquisition and cryptographic proof verification are separate
-//! boundaries. This coordinator then runs the pure source-head authentication
+//! The caller supplies only a probe action hash. This coordinator reconstructs
+//! the positive challenge receipt through the private-entropy probe verifier,
+//! then keeps source response acquisition and cryptographic proof verification
+//! as separate boundaries before running the pure source-head authentication
 //! kernel. It does not decide institutional source trust or completeness.
 
 use hdk::prelude::*;
@@ -20,12 +22,16 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 const RUNTIME_PROTOCOL: &str = "mycelix-authority-source-head-runtime-v0.1";
+const PROBE_VERIFIER_ZOME: &str = "authority_state_challenge";
+const PROBE_VERIFIER_FUNCTION: &str = "verify_issued_authority_state_probe";
 const SOURCE_RESPONDER_ZOME: &str = "authority_state_source_responder";
 const SOURCE_PROOF_VERIFIER_ZOME: &str = "authority_source_proof_verifier";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifySourceHeadRequest {
-    pub challenge: VerifiedCoverageChallenge,
+    /// Reference to one locally issued probe. Positive challenge verification is
+    /// reconstructed inside this runtime; callers cannot submit a verified receipt.
+    pub probe_action: ActionHash,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,6 +45,8 @@ pub struct VerifySourceProofRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceHeadRuntimeStatus {
     pub protocol: String,
+    pub caller_supplied_verified_challenge_accepted: bool,
+    pub probe_reverified_locally: bool,
     pub source_response_is_candidate_only: bool,
     pub proof_verifier_separate: bool,
     pub institutional_source_trust_decided_here: bool,
@@ -85,22 +93,30 @@ fn now_ms() -> ExternResult<u64> {
     Ok(micros as u64 / 1_000)
 }
 
-/// Verify one exact source-head response under one exact already-verified probe.
+/// Verify one exact source-head response under one exact locally reverified probe.
 ///
-/// The responder returns candidate bytes only. A separate proof verifier must
-/// authenticate those exact bytes/source identity before the pure qualifier can
-/// project the existing `VerifiedAuthoritySourceHead` ABI.
+/// Caller input is only the probe action hash. The private-entropy verifier must
+/// first reconstruct `VerifiedCoverageChallenge`. The responder then returns
+/// candidate bytes only, a separate proof verifier authenticates those exact
+/// bytes/source identity, and finally the pure qualifier projects the existing
+/// `VerifiedAuthoritySourceHead` ABI.
 #[hdk_extern]
 pub fn verify_source_head(
     request: VerifySourceHeadRequest,
 ) -> ExternResult<VerifiedAuthoritySourceHead> {
     let now = now_ms()?;
-    request.challenge.challenge.validate().map_err(|error| {
+
+    let challenge: VerifiedCoverageChallenge = call_local(
+        PROBE_VERIFIER_ZOME,
+        PROBE_VERIFIER_FUNCTION,
+        request.probe_action,
+    )?;
+    challenge.challenge.validate().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "invalid source-head challenge: {error}"
+            "locally reverified source-head challenge is invalid: {error}"
         )))
     })?;
-    let challenge_digest = request.challenge.challenge.identity_digest().map_err(|error| {
+    let challenge_digest = challenge.challenge.identity_digest().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "cannot compute source-head challenge identity: {error}"
         )))
@@ -109,7 +125,7 @@ pub fn verify_source_head(
     let attestation: AuthoritySourceHeadAttestation = call_local(
         SOURCE_RESPONDER_ZOME,
         "resolve_source_head_attestation",
-        request.challenge.clone(),
+        challenge.clone(),
     )?;
     let attestation_digest = attestation.identity_digest().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -128,27 +144,25 @@ pub fn verify_source_head(
         },
     )?;
 
-    let qualified = qualify_source_head_authentication(
-        &request.challenge,
-        &attestation,
-        &proof,
-        now,
-    )
-    .map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "source-head authentication denied: {error}"
-        )))
-    })?;
+    let qualified = qualify_source_head_authentication(&challenge, &attestation, &proof, now)
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "source-head authentication denied: {error}"
+            )))
+        })?;
 
     Ok(qualified.to_verified_source_head())
 }
 
-/// Declarative only. The responder and proof-verifier roles are intentionally
-/// unprovisioned and this zome is absent from the binding DNA in this tranche.
+/// Declarative only. The probe verifier, responder and proof-verifier roles are
+/// intentionally unprovisioned and this zome is absent from the binding DNA in
+/// this tranche.
 #[hdk_extern]
 pub fn source_head_runtime_status(_: ()) -> ExternResult<SourceHeadRuntimeStatus> {
     Ok(SourceHeadRuntimeStatus {
         protocol: RUNTIME_PROTOCOL.into(),
+        caller_supplied_verified_challenge_accepted: false,
+        probe_reverified_locally: true,
         source_response_is_candidate_only: true,
         proof_verifier_separate: true,
         institutional_source_trust_decided_here: false,
