@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-trust-resolution-runtime"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Identity adapter from observed trust credential state to fail-closed TrustResolutionV1"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-trust-current-state-policy = { path = "../trust-current-state-policy" }
+mycelix-trust-protocol = { path = "../../../../crates/mycelix-trust-protocol" }
+trust_credential_integrity = { path = "../../zomes/trust_credential/integrity" }
