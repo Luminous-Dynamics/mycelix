@@ -5,6 +5,8 @@ exclude = ["tests", "cli", "crates/identity-leptos-types", "apps"]
 members = [
     # Dependency-free attestation request lifecycle theorem
     "crates/attestation-request-policy",
+    # Network-observation adapter for attestation request CRUD state
+    "crates/attestation-request-resolution-runtime",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
