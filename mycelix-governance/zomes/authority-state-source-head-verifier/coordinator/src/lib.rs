@@ -47,8 +47,10 @@ pub struct SourceHeadRuntimeStatus {
     pub protocol: String,
     pub caller_supplied_verified_challenge_accepted: bool,
     pub probe_reverified_locally: bool,
+    pub verified_challenge_exposed_to_responder: bool,
     pub source_response_is_candidate_only: bool,
     pub proof_verifier_separate: bool,
+    pub validity_horizon_widening_allowed: bool,
     pub institutional_source_trust_decided_here: bool,
     pub completeness_decided_here: bool,
     pub external_effects_enabled: bool,
@@ -96,10 +98,10 @@ fn now_ms() -> ExternResult<u64> {
 /// Verify one exact source-head response under one exact locally reverified probe.
 ///
 /// Caller input is only the probe action hash. The private-entropy verifier must
-/// first reconstruct `VerifiedCoverageChallenge`. The responder then returns
-/// candidate bytes only, a separate proof verifier authenticates those exact
-/// bytes/source identity, and finally the pure qualifier projects the existing
-/// `VerifiedAuthoritySourceHead` ABI.
+/// first reconstruct `VerifiedCoverageChallenge`. The source responder receives
+/// only the underlying `CoverageChallenge`, never the positive verification receipt.
+/// It returns candidate bytes only; a separate proof verifier authenticates those
+/// exact bytes/source identity before the pure qualifier runs.
 #[hdk_extern]
 pub fn verify_source_head(
     request: VerifySourceHeadRequest,
@@ -120,10 +122,12 @@ pub fn verify_source_head(
         )))
     })?;
 
+    // The responder needs the challenge semantics in order to answer it, but it
+    // receives no positive proof that this runtime accepted the probe provenance.
     let attestation: AuthoritySourceHeadAttestation = call_local(
         SOURCE_RESPONDER_ZOME,
         "resolve_source_head_attestation",
-        challenge.clone(),
+        challenge.challenge.clone(),
     )?;
     let attestation_digest = attestation.identity_digest().map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -153,7 +157,21 @@ pub fn verify_source_head(
             )))
         })?;
 
-    Ok(qualified.to_verified_source_head())
+    // `QualifiedSourceHeadAuthentication` carries the exact minimum of challenge,
+    // attestation and cryptographic-verifier horizons. The legacy
+    // `VerifiedAuthoritySourceHead` ABI carries only the attestation expiry. Never
+    // discard a tighter horizon and thereby widen reusable authority. Until the
+    // downstream ABI grows an explicit verifier horizon, deny any lossy projection.
+    let effective_valid_until_ms = qualified.valid_until_ms();
+    let projected = qualified.to_verified_source_head();
+    if projected.attestation.expires_at_ms > effective_valid_until_ms {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "source-head projection would widen validity from {effective_valid_until_ms} to {}; refusing lossy authority projection",
+            projected.attestation.expires_at_ms
+        ))));
+    }
+
+    Ok(projected)
 }
 
 /// Declarative only. The probe verifier, responder and proof-verifier roles are
@@ -165,8 +183,10 @@ pub fn source_head_runtime_status(_: ()) -> ExternResult<SourceHeadRuntimeStatus
         protocol: RUNTIME_PROTOCOL.into(),
         caller_supplied_verified_challenge_accepted: false,
         probe_reverified_locally: true,
+        verified_challenge_exposed_to_responder: false,
         source_response_is_candidate_only: true,
         proof_verifier_separate: true,
+        validity_horizon_widening_allowed: false,
         institutional_source_trust_decided_here: false,
         completeness_decided_here: false,
         external_effects_enabled: false,
