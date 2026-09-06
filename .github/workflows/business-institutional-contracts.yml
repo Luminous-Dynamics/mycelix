@@ -1,0 +1,101 @@
+name: Business Institutional Contracts
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/crates/mycelix-business-core/**"
+      - "mycelix-workspace/docs/business/**"
+      - ".github/workflows/business-institutional-contracts.yml"
+      - "mycelix-workspace/rust-toolchain.toml"
+      - "mycelix-workspace/Cargo.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Pure institutional contract qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        # actions/checkout v4 resolved 2026-09-06.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install pinned Rust toolchain
+        # dtolnay/rust-toolchain master resolved 2026-09-06; the action code and
+        # requested compiler are both pinned so reruns cannot silently drift.
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Verify dependency-free contract boundary
+        working-directory: mycelix-workspace
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          manifest = pathlib.Path("crates/mycelix-business-core/Cargo.toml")
+          data = tomllib.loads(manifest.read_text())
+          deps = data.get("dependencies", {})
+          if deps:
+              raise SystemExit(f"runtime dependencies are forbidden in v0.1: {sorted(deps)}")
+
+          package = data.get("package", {})
+          if package.get("name") != "mycelix-business-core":
+              raise SystemExit("unexpected package identity")
+          PY
+
+      - name: Verify pure semantic containment
+        working-directory: mycelix-workspace
+        run: |
+          src="crates/mycelix-business-core/src/lib.rs"
+
+          forbidden='hdk|hdi|tokio|reqwest|sqlx|rusqlite|serde|serde_json|chrono|SystemTime|std::fs|std::net|std::process|unsafe[[:space:]]*\{'
+          if grep -En "$forbidden" "$src"; then
+            echo "forbidden runtime/effect concern leaked into the pure institutional contract crate"
+            exit 1
+          fi
+
+          grep -q 'OutcomeUnknown' "$src"
+          grep -q 'ProvenNotApplied' "$src"
+          grep -q 'LogicalIntentRef' "$src"
+          grep -q 'AttemptRef' "$src"
+          grep -q 'SourceEventRef' "$src"
+          grep -q 'ObligationDisposition' "$src"
+          grep -q 'PowerGrantState' "$src"
+          grep -q 'ObservationState' "$src"
+          grep -q 'ClosureClass' "$src"
+          grep -q 'ShapeValidatedClosureClaimV1' "$src"
+          grep -q 'SemanticChange' "$src"
+
+      - name: Workspace metadata
+        working-directory: mycelix-workspace
+        run: cargo metadata --manifest-path crates/mycelix-business-core/Cargo.toml --no-deps --format-version 1 >/dev/null
+
+      - name: Rustfmt
+        working-directory: mycelix-workspace
+        run: cargo fmt --manifest-path crates/mycelix-business-core/Cargo.toml -- --check
+
+      - name: Native tests
+        working-directory: mycelix-workspace
+        run: cargo test --manifest-path crates/mycelix-business-core/Cargo.toml
+
+      - name: Clippy
+        working-directory: mycelix-workspace
+        run: cargo clippy --manifest-path crates/mycelix-business-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: wasm32 no-std check
+        working-directory: mycelix-workspace
+        run: cargo check --manifest-path crates/mycelix-business-core/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Rustdoc warnings denied
+        working-directory: mycelix-workspace
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path crates/mycelix-business-core/Cargo.toml --no-deps
