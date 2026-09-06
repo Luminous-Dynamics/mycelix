@@ -79,6 +79,7 @@ jobs:
               'resolve_attestation_request_lineage_v1(',
               'sys_time()?.as_micros()',
               'ObservedAttestationRequestRecordV1',
+              'pub use mycelix_attestation_request_resolution_runtime::ObservedAttestationRequestStateV1;',
               'pub canonical_root_record: Record',
               'contains `Pending` in its embedded request entry',
               'Callers must use `state`',
