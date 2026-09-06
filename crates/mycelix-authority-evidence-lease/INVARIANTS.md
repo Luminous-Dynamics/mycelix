@@ -1,4 +1,4 @@
-# Authority Evidence Lease v0.1 — Normative Invariants
+# Authority Evidence Lease v0.2 — Normative Invariants
 
 Status: **pure dynamic-evidence lease + provenance primitive; no authority source**
 
@@ -94,6 +94,23 @@ A manifest accepts at most 1024 contributions and requires non-empty, bounded pr
 
 This is a deterministic audit structure, not an unbounded provider-controlled log.
 
-## 14. Containment
+## 14. Closed role vocabulary is protocol-versioned
+
+`EvidenceLeaseRole` is a closed semantic vocabulary. Extending that vocabulary changes the meaning of acceptable provenance and therefore MUST advance the evidence-lease protocol/manifest profile rather than silently reusing an older profile.
+
+v0.2 retains v0.1 role codes 1-9 unchanged and appends:
+
+- `CurrentConstitution = 10`; and
+- `BootstrapRootAdoption = 11`.
+
+Historical role codes MUST NOT be renumbered. The v0.2 contribution and manifest domain separators/profile names are distinct from v0.1 so an expanded contributor vocabulary cannot masquerade as an old canonical manifest.
+
+## 15. Root establishment facts remain separable
+
+`CurrentConstitution`, `BootstrapRootAdoption`, and `BootstrapRoot` are distinct provenance roles.
+
+A consuming runtime may require all three when its authority theorem actually depended on an independently observed current constitution, a separately verified root-adoption proof, and the final qualified bootstrap root. The root role MUST NOT erase those lower-level dynamic evidence facts when they are available.
+
+## 16. Containment
 
 Pure Rust only. No HDK/DHT calls, persistence, randomness, discovery, policy selection, currentness, reputation, model score, lifecycle mutation, or external effects.

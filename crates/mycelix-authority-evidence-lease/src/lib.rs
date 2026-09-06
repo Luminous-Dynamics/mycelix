@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 
-pub const PROTOCOL_VERSION: &str = "mycelix-authority-evidence-lease-v0.1";
+pub const PROTOCOL_VERSION: &str = "mycelix-authority-evidence-lease-v0.2";
 pub const MANIFEST_PROFILE: &str =
-    "mycelix-authority-evidence-lease-manifest-v1-blake3-framed";
+    "mycelix-authority-evidence-lease-manifest-v2-blake3-framed";
 
-const DOMAIN_CONTRIBUTION: &[u8] = b"mycelix/authority/evidence-lease/contribution/v1";
-const DOMAIN_MANIFEST: &[u8] = b"mycelix/authority/evidence-lease/manifest/v1";
+const DOMAIN_CONTRIBUTION: &[u8] = b"mycelix/authority/evidence-lease/contribution/v2";
+const DOMAIN_MANIFEST: &[u8] = b"mycelix/authority/evidence-lease/manifest/v2";
 const MAX_PROFILE_BYTES: usize = 128;
 const MAX_REF_BYTES: usize = 2048;
 const MAX_CONTRIBUTIONS: usize = 1024;
@@ -135,6 +135,9 @@ impl<T> LeasedEvidence<T> {
 /// Closed role vocabulary for authority-runtime lease provenance. Roles identify
 /// why a dependency constrains reuse; they do not decide whether that dependency
 /// is semantically or institutionally authoritative.
+///
+/// Codes 1-9 are retained from v0.1. New roles append codes rather than
+/// renumbering historical meanings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EvidenceLeaseRole {
     BootstrapRoot,
@@ -146,6 +149,8 @@ pub enum EvidenceLeaseRole {
     AuthorityStateTransition,
     ControlPlaneFreshness,
     OperationalFreshness,
+    CurrentConstitution,
+    BootstrapRootAdoption,
 }
 
 impl EvidenceLeaseRole {
@@ -160,6 +165,8 @@ impl EvidenceLeaseRole {
             Self::AuthorityStateTransition => 7,
             Self::ControlPlaneFreshness => 8,
             Self::OperationalFreshness => 9,
+            Self::CurrentConstitution => 10,
+            Self::BootstrapRootAdoption => 11,
         }
     }
 }
@@ -427,6 +434,28 @@ mod tests {
         assert_eq!(left.aggregate_lease().verified_at_ms, 150);
         assert_eq!(left.aggregate_lease().valid_until_ms, 700);
         assert_eq!(left.contributor_count(), 2);
+    }
+
+    #[test]
+    fn root_subroles_are_distinct_provenance() {
+        let constitution = contribution(
+            EvidenceLeaseRole::CurrentConstitution,
+            1,
+            "constitution:1",
+            120,
+            900,
+        );
+        let adoption = contribution(
+            EvidenceLeaseRole::BootstrapRootAdoption,
+            1,
+            "constitution:1",
+            120,
+            900,
+        );
+        assert_ne!(
+            constitution.identity_digest().unwrap(),
+            adoption.identity_digest().unwrap()
+        );
     }
 
     #[test]

@@ -46,7 +46,7 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.7";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.8";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
 const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
 const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
@@ -183,6 +183,8 @@ struct ResolvedControlPlaneFreshness {
 struct ResolvedBootstrapRoot {
     root: mycelix_authority_state_bootstrap_root::QualifiedAuthorityStateBootstrapRoot,
     constitution: VerifiedCurrentConstitutionMirror,
+    lease: EvidenceLease,
+    contributions: Vec<EvidenceLeaseContribution>,
 }
 
 /// Serializable cross-zome/API projection for audit, diagnostics and local-provider
@@ -228,6 +230,9 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub constitution_rechecked_before_return: bool,
     pub root_adoption_proof_verifier_separate: bool,
     pub root_adoption_constructed_locally: bool,
+    pub current_constitution_provenance_explicit: bool,
+    pub root_adoption_provenance_explicit: bool,
+    pub root_provenance_lease_constructed_at_root_boundary: bool,
     pub transition_discovery_grants_authority: bool,
     pub transition_record_proof_verifier_separate: bool,
     pub transition_authority_proof_verifier_separate: bool,
