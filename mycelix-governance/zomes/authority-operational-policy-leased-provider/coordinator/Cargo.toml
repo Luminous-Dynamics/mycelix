@@ -1,0 +1,20 @@
+[package]
+name = "authority_operational_policy_leased_provider"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Lease-complete split operational policy verification composer"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+serde = { workspace = true }
+mycelix-institutional-core = { path = "../../../../crates/mycelix-institutional-core" }
+mycelix-authority-evidence-lease = { path = "../../../../crates/mycelix-authority-evidence-lease" }
+mycelix-authority-freshness = { path = "../../../../crates/mycelix-authority-freshness" }
+mycelix-authority-operational-policy-verifier = { path = "../../../../crates/mycelix-authority-operational-policy-verifier" }
+mycelix-authority-operational-policy-leased-verifier = { path = "../../../../crates/mycelix-authority-operational-policy-leased-verifier" }
+mycelix-authority-state-coverage = { path = "../../../../crates/mycelix-authority-state-coverage" }
+mycelix-authority-state-coverage-context = { path = "../../../../crates/mycelix-authority-state-coverage-context" }
