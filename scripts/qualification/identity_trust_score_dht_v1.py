@@ -41,9 +41,8 @@ text = replace_once(
     text,
     "use hdi::prelude::*;\n",
     "use hdi::prelude::*;\n"
-    "use mycelix_trust_score_assertion_policy::{\n"
-    "    TrustTierBandV1, validate_score_assertion_v1,\n"
-    "};\n",
+    "use mycelix_trust_score_assertion_policy::TrustTierBandV1;\n"
+    "use mycelix_trust_score_assertion_policy::validate_score_assertion_v1;\n",
     "policy import",
 )
 
