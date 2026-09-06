@@ -1,0 +1,51 @@
+name: SSF Bounded Authority Lease Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-adoption-authority-candidate/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-current-authority-revalidation/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/**'
+      - '.github/workflows/ssf-bounded-authority-lease-candidate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-adoption-authority-candidate/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-current-authority-revalidation/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/**'
+      - '.github/workflows/ssf-bounded-authority-lease-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml -- --check
+
+      - name: Native check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml --all-targets
+
+      - name: no_std WASM check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml --lib --target wasm32-unknown-unknown
+
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml
+
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path mycelix-workspace/crates/mycelix-ssf-bounded-authority-lease-candidate/Cargo.toml --no-deps
