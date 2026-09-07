@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-authority-coordinator-deployment-composer"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure exact composition of current coordinator release and observed Holochain deployment"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }
+mycelix-authority-coordinator-release-currentness = { path = "../mycelix-authority-coordinator-release-currentness" }
