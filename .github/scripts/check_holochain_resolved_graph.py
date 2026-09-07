@@ -4,9 +4,8 @@
 Top-level manifest equality is necessary but insufficient: Cargo can resolve multiple
 versions of the same protocol family and still compile. This checker resolves every
 migration surface, records the concrete Cargo workspace/lockfile that produced that
-graph, and rejects mixed protocol generations. Upstream crates that version
-independently (for example holochain_chc) are classified explicitly rather than by
-prefix guessing.
+graph, and rejects mixed protocol generations using the shared fail-closed release
+family classifier.
 """
 
 from __future__ import annotations
@@ -16,6 +15,8 @@ import json
 from pathlib import Path
 import subprocess
 import tomllib
+
+from holochain_release_family import UnclassifiedFamilyPackage, expected_family_version
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "mycelix-workspace"
@@ -31,73 +32,9 @@ SURFACES = {
     "pulse-simple-trust": WORKSPACE / "mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml",
 }
 
-# These crates follow the main Holochain release line in 0.6.x. Keep this
-# closed-world rather than accepting arbitrary holochain_* prefixes: a newly
-# observed package must have its upstream release relationship classified.
-# SweetConductor enables holochain/sweettest -> test_utils, which legitimately
-# pulls the two test-WASM crates below; upstream publishes both at 0.6.3.
-HOLOCHAIN_RELEASE_COUPLED = {
-    "holochain",
-    "holochain_cascade",
-    "holochain_conductor_api",
-    "holochain_conductor_config",
-    "holochain_integrity_types",
-    "holochain_keystore",
-    "holochain_metrics",
-    "holochain_nonce",
-    "holochain_p2p",
-    "holochain_secure_primitive",
-    "holochain_sqlite",
-    "holochain_state",
-    "holochain_state_types",
-    "holochain_test_wasm_common",
-    "holochain_timestamp",
-    "holochain_trace",
-    "holochain_types",
-    "holochain_util",
-    "holochain_wasm_test_utils",
-    "holochain_websocket",
-    "holochain_zome_types",
-}
-
-
-class UnclassifiedFamilyPackage(ValueError):
-    pass
-
 
 def load_contract() -> dict:
     return tomllib.loads((WORKSPACE / "holochain-cohort.toml").read_text())
-
-
-def expected_version(name: str, contract: dict) -> str | None:
-    rust = contract["rust"]
-    target = contract["next_0_6"]
-
-    if name == "hdi":
-        return rust["hdi"]
-    if name in {"hdk", "hdk_derive"}:
-        return rust["hdk"]
-    if name == "holochain_client":
-        return rust["holochain_client"]
-    if name == "holo_hash":
-        return rust["holo_hash"]
-    if name in {"holochain_serialized_bytes", "holochain_serialized_bytes_derive"}:
-        return rust["holochain_serialized_bytes"]
-    if name.startswith("holochain_wasmer_"):
-        return rust["holochain_wasmer_host"]
-    if name == "holochain_chc":
-        return target["holochain_chc"]
-    if name in HOLOCHAIN_RELEASE_COUPLED:
-        return rust["holochain"]
-    if name.startswith("holochain_"):
-        raise UnclassifiedFamilyPackage(
-            f"unclassified Holochain-family package {name!r}; classify its upstream version line explicitly"
-        )
-    if name == "kitsune2" or name.startswith("kitsune2_"):
-        return rust["kitsune2"]
-    if name == "lair_keystore" or name.startswith("lair_keystore_"):
-        return rust["lair_keystore"]
-    return None
 
 
 def relative_repo_path(path: Path) -> str:
@@ -171,7 +108,7 @@ def main() -> None:
         for package in metadata.get("packages", []):
             name = package["name"]
             try:
-                expected = expected_version(name, contract)
+                expected = expected_family_version(name, contract)
             except UnclassifiedFamilyPackage as exc:
                 failures.append(f"{surface}:{exc}")
                 continue
