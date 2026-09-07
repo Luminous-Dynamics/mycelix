@@ -1,0 +1,279 @@
+name: Holochain 0.6.3 Root Fanout Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/inventory_holochain_root_fanout.py'
+      - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
+      - '.github/scripts/check_holochain_cohort.py'
+      - '.github/workflows/holochain-0-6-3-root-fanout-qualification.yml'
+      - 'mycelix-workspace/Cargo.toml'
+      - 'mycelix-workspace/holochain-cohort.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: holochain-0-6-3-root-fanout-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  EXPECTED_PARENT_BRANCH: test/holochain-0.6.3-pulse-qualification
+
+jobs:
+  qualify-root-fanout:
+    name: Qualify canonical root Holochain fanout
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Bind exact qualification head
+        id: head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Bind current parent branch, PR base, and ancestry
+        id: parent
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
+          live_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
+          expected_parent="${EVENT_BASE_SHA:-$live_parent}"
+          echo "Live parent branch head: $live_parent"
+          echo "Event/expected parent head: $expected_parent"
+          test "$live_parent" = "$expected_parent"
+          git merge-base --is-ancestor "$expected_parent" HEAD
+          echo "sha=$expected_parent" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare evidence directory
+        run: mkdir -p "$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+
+      - name: Install Nix
+        id: install_nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Install pinned Rust toolchain
+        id: install_rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+
+      - name: Materialize shared 0.6.3 candidate
+        id: materialize
+        continue-on-error: true
+        run: python3 .github/scripts/materialize_holochain_0_6_3_pulse.py
+
+      - name: Regenerate Holonix lock
+        id: nix_lock
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace
+        run: nix flake lock --update-input holonix
+
+      - name: Verify shared aligned cohort contract
+        id: contract
+        if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
+        continue-on-error: true
+        run: python3 .github/scripts/check_holochain_cohort.py
+
+      - name: Generate canonical root Cargo lock
+        id: root_lock
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path mycelix-workspace/Cargo.toml
+          test -s mycelix-workspace/Cargo.lock
+          sha256sum mycelix-workspace/Cargo.lock \
+            > "$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence/root-cargo-lock.sha256"
+
+      - name: Inventory canonical root Holochain fanout
+        id: inventory
+        if: steps.root_lock.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          python3 .github/scripts/inventory_holochain_root_fanout.py \
+            --output "$evidence/root-holochain-fanout.json" \
+            --manifest-list "$evidence/affected-manifests.txt" \
+            --wasm-manifest-list "$evidence/wasm-manifests.txt"
+          test -s "$evidence/root-holochain-fanout.json"
+          test -s "$evidence/affected-manifests.txt"
+
+      - name: Check every affected root workspace member on host
+        id: host_checks
+        if: steps.inventory.outcome == 'success'
+        continue-on-error: true
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/holochain-root-fanout-target
+        run: |
+          set -uo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          results="$evidence/host-check-results.tsv"
+          : > "$results"
+          failed=0
+          while IFS= read -r manifest; do
+            [ -n "$manifest" ] || continue
+            echo "=== host check: $manifest ==="
+            if cargo check --locked --manifest-path "$manifest"; then
+              printf '%s\tsuccess\n' "$manifest" >> "$results"
+            else
+              printf '%s\tfailure\n' "$manifest" >> "$results"
+              failed=1
+            fi
+          done < "$evidence/affected-manifests.txt"
+          test -s "$results" || failed=1
+          exit "$failed"
+
+      - name: Check every affected guest zome for wasm32
+        id: wasm_checks
+        if: steps.inventory.outcome == 'success'
+        continue-on-error: true
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/holochain-root-fanout-target
+        run: |
+          set -uo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          results="$evidence/wasm-check-results.tsv"
+          : > "$results"
+          failed=0
+          while IFS= read -r manifest; do
+            [ -n "$manifest" ] || continue
+            echo "=== wasm32 check: $manifest ==="
+            if cargo check --locked --target wasm32-unknown-unknown --manifest-path "$manifest"; then
+              printf '%s\tsuccess\n' "$manifest" >> "$results"
+            else
+              printf '%s\tfailure\n' "$manifest" >> "$results"
+              failed=1
+            fi
+          done < "$evidence/wasm-manifests.txt"
+          # An empty WASM list is allowed only if the inventory itself reports zero.
+          python3 - "$evidence/root-holochain-fanout.json" "$results" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          inventory = json.loads(Path(sys.argv[1]).read_text())
+          results = Path(sys.argv[2]).read_text().splitlines()
+          expected = inventory["wasm_affected_member_count"]
+          if len(results) != expected:
+              raise SystemExit(f"WASM result cardinality {len(results)} != inventory {expected}")
+          PY
+          exit "$failed"
+
+      - name: Prove root lock stayed frozen during qualification
+        id: lock_frozen
+        if: steps.root_lock.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          sha256sum --check \
+            "$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence/root-cargo-lock.sha256"
+
+      - name: Seal fanout evidence
+        id: seal
+        if: always()
+        env:
+          QUALIFIED_HEAD_SHA: ${{ steps.head.outputs.sha }}
+          QUALIFIED_PARENT_SHA: ${{ steps.parent.outputs.sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          test -s "$evidence/root-holochain-fanout.json"
+          test -s "$evidence/host-check-results.tsv"
+          test -f "$evidence/wasm-check-results.tsv"
+          test -s mycelix-workspace/Cargo.lock
+
+          {
+            echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
+            echo "qualified_parent_sha=$QUALIFIED_PARENT_SHA"
+            echo "qualified_parent_branch=$EXPECTED_PARENT_BRANCH"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event_name=${GITHUB_EVENT_NAME}"
+            echo "product_materialization_authorized=false"
+            echo "authorization_reason=root_fanout_requires_successful_exact-head_gate"
+          } > "$evidence/qualification-metadata.txt"
+
+          sha256sum \
+            mycelix-workspace/Cargo.lock \
+            "$evidence/root-holochain-fanout.json" \
+            "$evidence/affected-manifests.txt" \
+            "$evidence/wasm-manifests.txt" \
+            "$evidence/host-check-results.tsv" \
+            "$evidence/wasm-check-results.tsv" \
+            > "$evidence/qualification-sha256.txt"
+
+      - name: Preserve root fanout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: holochain-0.6.3-root-fanout-${{ steps.head.outputs.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-holochain-fanout.json
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/affected-manifests.txt
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/wasm-manifests.txt
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/host-check-results.tsv
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/wasm-check-results.tsv
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-cargo-lock.sha256
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/qualification-metadata.txt
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/qualification-sha256.txt
+            mycelix-workspace/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Root fanout qualification gate
+        if: always()
+        run: |
+          set -euo pipefail
+          failed=0
+          check() {
+            name="$1"
+            outcome="$2"
+            printf '%-24s %s\n' "$name" "$outcome"
+            if [ "$outcome" != success ]; then
+              failed=1
+            fi
+          }
+          check checkout '${{ steps.checkout.outcome }}'
+          check head '${{ steps.head.outcome }}'
+          check parent '${{ steps.parent.outcome }}'
+          check install_nix '${{ steps.install_nix.outcome }}'
+          check install_rust '${{ steps.install_rust.outcome }}'
+          check materialize '${{ steps.materialize.outcome }}'
+          check nix_lock '${{ steps.nix_lock.outcome }}'
+          check contract '${{ steps.contract.outcome }}'
+          check root_lock '${{ steps.root_lock.outcome }}'
+          check inventory '${{ steps.inventory.outcome }}'
+          check host_checks '${{ steps.host_checks.outcome }}'
+          check wasm_checks '${{ steps.wasm_checks.outcome }}'
+          check lock_frozen '${{ steps.lock_frozen.outcome }}'
+          check seal '${{ steps.seal.outcome }}'
+          if [ "$failed" -ne 0 ]; then
+            echo 'Canonical root Holochain 0.6.3 fanout is NOT QUALIFIED.'
+            exit 1
+          fi
+          echo 'Canonical root Holochain 0.6.3 fanout QUALIFIED.'
