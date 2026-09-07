@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mycelix-workspace/crates/mycelix-business-core/**'
+      - 'mycelix-workspace/crates/mycelix-business-qualification/**'
       - '.github/workflows/business-core-qualification.yml'
   workflow_dispatch:
 
@@ -39,7 +40,8 @@ jobs:
           root = pathlib.Path('mycelix-workspace')
           workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']
           toolchain = tomllib.loads((root / 'rust-toolchain.toml').read_text())['toolchain']
-          crate = 'crates/mycelix-business-core'
+          core = 'crates/mycelix-business-core'
+          qualification = 'crates/mycelix-business-qualification'
 
           assert toolchain['channel'] == '1.96.0', (
               'business qualification workflow must be updated atomically with '
@@ -49,37 +51,75 @@ jobs:
           members = workspace.get('members', [])
           excludes = workspace.get('exclude', [])
 
-          assert any(fnmatch.fnmatch(crate, pattern) for pattern in members), (
-              f'{crate} is not covered by a workspace member pattern'
-          )
-          assert not any(fnmatch.fnmatch(crate, pattern) for pattern in excludes), (
-              f'{crate} is unexpectedly excluded from the workspace'
-          )
+          for crate in (core, qualification):
+              assert any(fnmatch.fnmatch(crate, pattern) for pattern in members), (
+                  f'{crate} is not covered by a workspace member pattern'
+              )
+              assert not any(fnmatch.fnmatch(crate, pattern) for pattern in excludes), (
+                  f'{crate} is unexpectedly excluded from the workspace'
+              )
 
-          manifest = tomllib.loads((root / crate / 'Cargo.toml').read_text())
-          assert not manifest.get('dependencies'), 'v0.1 core must have zero runtime dependencies'
-          assert not manifest.get('dev-dependencies'), 'v0.1 core must have zero dev dependencies'
-          assert not manifest.get('build-dependencies'), 'v0.1 core must have zero build dependencies'
+          core_manifest = tomllib.loads((root / core / 'Cargo.toml').read_text())
+          assert not core_manifest.get('dependencies'), 'v0.1 core must have zero runtime dependencies'
+          assert not core_manifest.get('dev-dependencies'), 'v0.1 core must have zero dev dependencies'
+          assert not core_manifest.get('build-dependencies'), 'v0.1 core must have zero build dependencies'
+
+          qualification_manifest = tomllib.loads((root / qualification / 'Cargo.toml').read_text())
+          dependencies = qualification_manifest.get('dependencies', {})
+          assert set(dependencies) == {'mycelix-business-core'}, (
+              'qualification algebra may depend only on mycelix-business-core'
+          )
+          assert dependencies['mycelix-business-core'].get('path') == '../mycelix-business-core', (
+              'qualification algebra must use the exact sibling core path dependency'
+          )
+          assert not qualification_manifest.get('dev-dependencies'), (
+              'qualification algebra must have zero dev dependencies'
+          )
+          assert not qualification_manifest.get('build-dependencies'), (
+              'qualification algebra must have zero build dependencies'
+          )
           PY
 
       - name: Verify no ambient runtime authority surface
         run: |
-          crate='mycelix-workspace/crates/mycelix-business-core/src'
-          if grep -R -n -E 'std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$crate"; then
-            echo 'business core gained ambient clock/environment/network/filesystem/process authority' >&2
-            exit 1
-          fi
+          for crate in \
+            mycelix-workspace/crates/mycelix-business-core/src \
+            mycelix-workspace/crates/mycelix-business-qualification/src
+          do
+            if grep -R -n -E 'std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$crate"; then
+              echo "$crate gained ambient clock/environment/network/filesystem/process authority" >&2
+              exit 1
+            fi
+          done
 
-      - name: Isolate transport-neutral crate
+      - name: Isolate transport-neutral core
         run: |
           rm -rf /tmp/mycelix-business-core
           cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-core
 
-      - name: rustfmt
+      - name: rustfmt core
         run: cargo fmt --manifest-path /tmp/mycelix-business-core/Cargo.toml --all -- --check
 
-      - name: unit, integration, and compile-fail qualification
+      - name: unit, integration, and compile-fail core qualification
         run: cargo test --manifest-path /tmp/mycelix-business-core/Cargo.toml
 
-      - name: clippy
+      - name: clippy core
         run: cargo clippy --manifest-path /tmp/mycelix-business-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Isolate closure qualification algebra with exact core dependency
+        run: |
+          rm -rf /tmp/mycelix-business-qualification-suite
+          mkdir -p /tmp/mycelix-business-qualification-suite
+          cp -R mycelix-workspace/crates/mycelix-business-core \
+            /tmp/mycelix-business-qualification-suite/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-qualification \
+            /tmp/mycelix-business-qualification-suite/mycelix-business-qualification
+
+      - name: rustfmt closure qualification algebra
+        run: cargo fmt --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml --all -- --check
+
+      - name: closure qualification algebra tests offline
+        run: cargo test --offline --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml
+
+      - name: clippy closure qualification algebra offline
+        run: cargo clippy --offline --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml --all-targets -- -D warnings
