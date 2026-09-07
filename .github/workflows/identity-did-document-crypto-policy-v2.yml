@@ -1,0 +1,131 @@
+name: Identity DID Document Crypto Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - '.github/workflows/identity-did-document-crypto-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - '.github/workflows/identity-did-document-crypto-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-document-crypto-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert DID document crypto-admission boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/did-document-crypto-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if set(deps) != {'mycelix-crypto'}:
+              raise SystemExit(f'ERROR: DID document crypto runtime dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: DID document crypto theorem must use workspace mycelix-crypto')
+
+          dev_deps = manifest.get('dev-dependencies', {})
+          if set(dev_deps) != {'bs58'} or dev_deps['bs58'].get('workspace') is not True:
+              raise SystemExit(f'ERROR: DID document crypto dev dependencies drifted: {sorted(dev_deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'MAX_VERIFICATION_METHODS_V2',
+              'MAX_AUTHENTICATION_REFERENCES_V2',
+              'MAX_KEY_AGREEMENT_REFERENCES_V2',
+              'canonical_did_method_id_v2',
+              'validate_did_document_crypto_v2',
+              'DuplicateCanonicalMethodId',
+              'ExplicitAlgorithmRequired',
+              'AlgorithmRoleUnsupported',
+              'MethodTypeAlgorithmMismatch',
+              'PublicKeyMultibaseNotCanonical',
+              'decoded.to_multibase() != method.public_key_multibase',
+              'DecodedKeyAlgorithmMismatch',
+              'DecodedKeyLengthMismatch',
+              'AuthenticationMethodMissing',
+              'AuthenticationAlgorithmInvalid',
+              'KeyAgreementMethodMissing',
+              'KeyAgreementAlgorithmInvalid',
+              'legacy_raw_ed25519_multibase_is_rejected',
+              'fragment_and_full_method_duplicate_fails_closed',
+              'authentication_must_reference_signature_method',
+              'key_agreement_must_reference_kem_method',
+              'symmetric_algorithms_cannot_be_did_public_methods',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: DID document crypto theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_links(',
+              'get_links_details',
+              'get_details(',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_verified',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence:',
+              'max_by_key',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: runtime/network/signature/policy authority leaked into DID document crypto theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml \
+            -- --check
+
+      - name: Test DID document crypto theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml
+
+      - name: Check DID document crypto theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

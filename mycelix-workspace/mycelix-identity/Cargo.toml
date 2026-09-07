@@ -23,6 +23,8 @@ members = [
     "crates/verifier-key-method-policy",
     # Branch-aware observed DID verifier-key lineage theorem
     "crates/did-verifier-lineage-policy",
+    # Strict cryptographic admission theorem for DID documents
+    "crates/did-document-crypto-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
