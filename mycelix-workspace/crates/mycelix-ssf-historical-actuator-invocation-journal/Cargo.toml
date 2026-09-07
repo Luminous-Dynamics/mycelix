@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-historical-actuator-invocation-journal"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-durable-actuator-invocation-attempt = { path = "../mycelix-ssf-durable-actuator-invocation-attempt" }
+mycelix-ssf-durable-effect-capability-claim = { path = "../mycelix-ssf-durable-effect-capability-claim" }
+mycelix-ssf-replay-aware-invocation-journal = { path = "../mycelix-ssf-replay-aware-invocation-journal" }
