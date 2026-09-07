@@ -1,0 +1,134 @@
+name: Authority Coordinator Native Attestor
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-native-attestor/**'
+      - 'crates/mycelix-authority-coordinator-deployment/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-native-attestor.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-native-attestor-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-native-attestor-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Loopback Admin API coordinator observation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Pure coordinator deployment tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-deployment/Cargo.toml --all-targets
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml -- --check
+
+      - name: Native check
+        run: cargo check --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml --all-targets
+
+      - name: Native tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml --all-targets
+
+      - name: Native clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml --all-targets -- -D warnings
+
+      - name: Native attestor trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-native-attestor')
+          src = (root / 'src/lib.rs').read_text()
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          gate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'holochain_client = "=0.8.1"' in cargo
+          assert 'mycelix-authority-coordinator-deployment' in cargo
+          assert 'hdk' not in cargo.lower()
+
+          for token in [
+              'pub struct LocalAdminEndpoint',
+              '!socket_addr.ip().is_loopback()',
+              'socket_addr.port() == 0',
+              'pub async fn observe_local_coordinator_deployment(',
+              'AdminWebsocket::connect(',
+              'Some(ATTESTOR_ORIGIN.to_string())',
+              '.get_dna_definition(cell_id.clone())',
+              'dna_def.coordinator_zomes',
+              '.get_wasm_zome_hash(zome_name)',
+              'wasm_hash.get_raw_39().to_vec()',
+              'cell_id.dna_hash().get_raw_39().to_vec()',
+              'cell_id.agent_pubkey().get_raw_39().to_vec()',
+              'system_time_ms()?',
+              '.checked_add(MAX_OBSERVATION_REUSE_MS)',
+              'observation.validate(observed_at_ms)',
+          ]:
+              assert token in src, token
+
+          # Evidence production precedes the observation timestamp.
+          live = src.split('pub async fn observe_local_coordinator_deployment(', 1)[1].split('fn build_observation(', 1)[0]
+          get_def = live.index('.get_dna_definition(cell_id.clone())')
+          extract = live.index('.get_wasm_zome_hash(zome_name)')
+          now = live.index('let observed_at_ms = system_time_ms()?;')
+          build = live.index('build_observation(')
+          assert get_def < extract < now < build
+
+          # The public observer cannot accept caller-selected time, validity or release policy.
+          signature = src.split('pub async fn observe_local_coordinator_deployment(', 1)[1].split(') -> Result<', 1)[0]
+          assert 'endpoint: LocalAdminEndpoint' in signature
+          assert 'cell_id: CellId' in signature
+          assert 'observed_at' not in signature
+          assert 'valid_until' not in signature
+          assert 'RequiredCoordinatorDeployment' not in signature
+          assert 'MatchedCoordinatorDeployment' not in signature
+
+          # Observation provenance and release matching are separate domains.
+          assert 'RequiredCoordinatorDeployment' not in src
+          assert 'match_required_coordinator_deployment' not in src
+          assert 'MatchedCoordinatorDeployment' not in src
+          assert 'AppWebsocket' not in src
+          assert 'call_zome' not in src
+          assert 'execute_actions' not in src
+
+          for invariant in [
+              'this trust domain is native, not zome/wasm',
+              'the live api creates its own admin connection',
+              'admin endpoint is loopback-only',
+              'exact cellid is preserved',
+              'complete installed coordinator set is returned',
+              'observation time follows evidence production',
+              'observation and approved release policy remain separate',
+              'local admin api use does not prove conductor integrity',
+              'coordinator-update race remains open',
+              'no provisioning/effect authority',
+          ]:
+              assert invariant in inv, invariant
+
+          # The provisioning gate remains intentionally unsatisfied.
+          assert 'native observer candidate implemented' in gate
+          assert 'authenticated release requirement' in gate
+          assert 'update-race / atomicity policy' in gate
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: native observer directly queries a loopback Holochain Admin endpoint for the complete exact CellId coordinator set without absorbing release-policy or effect authority')
+          PY
