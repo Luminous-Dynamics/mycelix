@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Inventory the complete root-workspace impact of canonical Holochain pin changes.
 
-The direct seeds are root workspace members that inherit tracked Holochain-family
-requirements from [workspace.dependencies]. The actual blast radius is larger: any
-root workspace member whose *locked resolved dependency closure* reaches one of those
-seeds can observe API/type changes caused by the canonical pin move.
+The direct seeds are root workspace members that inherit one of the exact canonical
+Holochain-family pins changed by the 0.6.3 materializer. The actual blast radius is
+larger: any root workspace member whose *locked resolved dependency closure* reaches
+one of those seeds can observe API/type changes caused by the canonical pin move.
 
 This script therefore records both direct and transitive impact, using Cargo's real
 workspace membership and resolve graph rather than directory heuristics.
@@ -25,6 +25,26 @@ ROOT_MANIFEST = WORKSPACE / "Cargo.toml"
 CONTRACT = WORKSPACE / "holochain-cohort.toml"
 
 DEPENDENCY_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
+
+# Keep this exactly aligned with the canonical-root replacements performed by
+# materialize_holochain_0_6_3_pulse.py. Unchanged family members (for example
+# serialized-bytes, Kitsune2, or Lair) are not direct seeds merely because they
+# are part of the compatibility contract; they are still observed downstream by
+# the resolved-graph theorem.
+ROOT_PIN_CHANGES = {
+    "hdk",
+    "hdi",
+    "holochain",
+    "holochain_client",
+    "holochain_types",
+    "holochain_zome_types",
+    "holo_hash",
+    "holochain_integrity_types",
+    "holochain_state",
+    "holochain_p2p",
+    "holochain_keystore",
+    "holochain_sqlite",
+}
 
 
 def load_toml(path: Path) -> dict:
@@ -134,7 +154,13 @@ def main() -> None:
         raise SystemExit("root fanout inventory requires the materialized aligned candidate")
 
     rust = contract.get("rust", {})
-    tracked = set(rust)
+    missing_contract_members = sorted(ROOT_PIN_CHANGES - set(rust))
+    if missing_contract_members:
+        raise SystemExit(
+            "changed root pins missing from cohort contract:\n- "
+            + "\n- ".join(missing_contract_members)
+        )
+
     metadata = cargo_metadata()
     member_ids = set(metadata.get("workspace_members", []))
     packages = {package["id"]: package for package in metadata.get("packages", [])}
@@ -162,7 +188,7 @@ def main() -> None:
 
         relative, manifest_string = normalized_manifest(package["manifest_path"])
         manifest = load_toml(Path(package["manifest_path"]))
-        inherited = manifest_inherited_dependencies(manifest, tracked)
+        inherited = manifest_inherited_dependencies(manifest, ROOT_PIN_CHANGES)
         if inherited:
             direct_ids.add(package_id)
 
@@ -175,12 +201,12 @@ def main() -> None:
             "domain": domain_for(relative),
             "pulse": relative.parts[0] == "mycelix-pulse" if relative.parts else False,
             "crate_types": sorted(crate_types) if isinstance(crate_types, list) else [],
-            "inherited_dependencies": inherited,
+            "inherited_changed_dependencies": inherited,
         }
 
     if not direct_ids:
         raise SystemExit(
-            "root fanout inventory found no direct workspace members inheriting tracked Holochain dependencies"
+            "root fanout inventory found no direct workspace members inheriting changed Holochain pins"
         )
 
     direct_manifest_by_id = {
@@ -241,7 +267,9 @@ def main() -> None:
         "root_manifest": "mycelix-workspace/Cargo.toml",
         "contract_state": contract["state"],
         "scope_model": "locked-resolved-reverse-impact-closure",
-        "tracked_workspace_dependencies": {name: rust[name] for name in sorted(tracked)},
+        "changed_root_workspace_dependencies": {
+            name: rust[name] for name in sorted(ROOT_PIN_CHANGES)
+        },
         "workspace_member_count": len(member_ids),
         "direct_affected_member_count": len(direct),
         "transitive_affected_member_count": len(transitive),
