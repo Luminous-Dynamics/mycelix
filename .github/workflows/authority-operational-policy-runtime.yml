@@ -58,7 +58,7 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_operational_policy_provider
 
-      - name: Existing current-freshness caller compatibility
+      - name: Current-freshness caller compatibility
         working-directory: mycelix-governance
         run: cargo check --package authority_current_freshness_verifier --all-targets
 
@@ -69,7 +69,10 @@ jobs:
 
           src = Path('mycelix-governance/zomes/authority-operational-policy-provider/coordinator/src/lib.rs').read_text()
           inv = Path('mycelix-governance/zomes/authority-operational-policy-provider/INVARIANTS.md').read_text().lower()
-          current = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src/lib.rs').read_text()
+          current_root = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/src')
+          current_types = (current_root / 'v04/types.rs').read_text()
+          current_runtime = (current_root / 'v04/root.rs').read_text()
+          current = current_types + '\n' + current_runtime
           cargo = Path('mycelix-governance/zomes/authority-operational-policy-provider/coordinator/Cargo.toml').read_text()
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
@@ -84,11 +87,17 @@ jobs:
           public = src.split('pub struct OperationalPolicyCandidateBundle {', 1)[1].split('}', 1)[0]
           assert 'pub coverage: VerifiedAuthorityCoveragePolicy' in public
           assert 'pub context: VerifiedCoverageTrustContextPolicy' in public
-          caller = current.split('pub struct OperationalPolicyCandidateBundle {', 1)[1].split('}', 1)[0]
+
+          # The active v0.4 currentness runtime has moved to the leased provider.
+          # This older provider remains qualified independently but is not positive
+          # current-freshness input merely because its historical ABI still exists.
+          caller = current_types.split('pub struct OperationalPolicyCandidateBundle {', 1)[1].split('}', 1)[0]
           assert 'pub coverage: VerifiedAuthorityCoveragePolicy' in caller
           assert 'pub context: VerifiedCoverageTrustContextPolicy' in caller
-          assert '"authority_operational_policy_provider"' in current
-          assert '"resolve_operational_policy_candidates"' in current
+          assert 'const POLICY_PROVIDER_ZOME: &str = "authority_operational_policy_leased_provider";' in current_types
+          assert '"resolve_operational_policy_candidates_leased"' in current_runtime
+          assert '"authority_operational_policy_provider"' not in current
+          assert '"resolve_operational_policy_candidates",' not in current
 
           candidates = src.split('pub struct OperationalPolicySemanticCandidates {', 1)[1].split('}', 1)[0]
           assert 'pub coverage: AuthorityCoveragePolicy' in candidates
@@ -148,5 +157,5 @@ jobs:
           assert 'institutional adoption proof is separate' in inv
           assert 'currentness remains #115/#116' in inv
           assert 'deliberately unprovisioned' in inv
-          print('PASS: operational policy discovery, record authenticity, adoption and currentness remain separate')
+          print('PASS: legacy policy discovery remains non-authoritative and current freshness consumes only the leased policy provider')
           PY

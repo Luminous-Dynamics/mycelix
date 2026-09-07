@@ -9,7 +9,7 @@ description = "Fail-closed leased current-constitution verifier for DNA-bound ge
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-blake3 = "1"
 hdk = { workspace = true }
 serde = { workspace = true }
 mycelix-governance-constitution = { path = "../../../../crates/mycelix-governance-constitution" }
+mycelix-governance-constitution-currentness = { path = "../../../../crates/mycelix-governance-constitution-currentness" }
