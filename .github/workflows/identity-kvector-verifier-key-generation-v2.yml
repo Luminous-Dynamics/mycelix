@@ -1,0 +1,137 @@
+name: Identity K-Vector Verifier Key Generation V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - '.github/workflows/identity-kvector-verifier-key-generation-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - '.github/workflows/identity-kvector-verifier-key-generation-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-verifier-key-generation-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact verifier-key generation boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-verifier-key-generation-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if set(deps) != {'mycelix-crypto', 'sha2'}:
+              raise SystemExit(f'ERROR: key-generation dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: key-generation theorem must use workspace mycelix-crypto')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: key-generation theorem must use workspace SHA-256')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'mycelix:identity:kvector-verifier-key-generation:v2\\0',
+              'KVectorVerifierKeyGenerationV2',
+              'KVectorVerifierKeyHistoricalUseV2',
+              'validate_kvector_verifier_key_generation_v2',
+              'derive_kvector_verifier_key_generation_digest_v2',
+              'validate_kvector_verifier_key_historical_use_v2',
+              'generation.key_generation.to_be_bytes()',
+              'generation.public_key_bytes',
+              'generation.algorithm.as_u16().to_be_bytes()',
+              'generation.valid_from_micros.to_be_bytes()',
+              'generation.valid_until_micros.to_be_bytes()',
+              'historical_use.verified_at_micros < generation.valid_from_micros',
+              'historical_use.verified_at_micros >= generation.valid_until_micros',
+              'VerifierKeyIdNotCanonical',
+              'exact_generation_digest_vector_is_frozen',
+              '0x8f, 0xb1, 0xbf, 0x0f',
+              'public_key_bytes_and_generation_both_change_identity',
+              'historical_use_requires_exact_identity_algorithm_and_time',
+              'signature_scheme_strings_are_not_part_of_this_theorem',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: key-generation theorem missing: {needle!r}')
+
+          for forbidden_scheme in [
+              '"ed25519-v1"',
+              '"hybrid-ed25519-mldsa65-v1"',
+              '"hybrid-ed25519-ml-dsa-65-v1"',
+              'signature_scheme_id:',
+          ]:
+              # Test assertions may contain the literals as evidence that they are absent;
+              # executable/theorem code before #[cfg(test)] may not.
+              theorem = text[:text.index('#[cfg(test)]')]
+              if forbidden_scheme in theorem:
+                  raise SystemExit(f'ERROR: signature-scheme naming leaked into key-generation theorem: {forbidden_scheme!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'sys_time(',
+              'std::time',
+              'rand::',
+              '.verify(',
+              'signature_validated',
+              'policy_current',
+              'policy_accepted',
+              'currentverifierkey',
+              'qualifiedverifierkey',
+              'trustedverifierkey',
+              'revocationresolver',
+              '.max_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/currentness/authenticity leaked into key-generation theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/Cargo.toml \
+            -- --check
+
+      - name: Test verifier-key generation theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/Cargo.toml
+
+      - name: Check verifier-key generation theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

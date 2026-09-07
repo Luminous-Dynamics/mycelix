@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-kvector-verifier-key-generation-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact verifier-key generation identity theorem for Identity V2 K-vector verification"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+sha2 = { workspace = true }
