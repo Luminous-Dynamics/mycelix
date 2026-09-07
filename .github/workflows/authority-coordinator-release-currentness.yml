@@ -1,0 +1,117 @@
+name: Authority Coordinator Release Currentness
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-currentness/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-currentness.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-currentness-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-currentness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Exact current head + exact status-at-head
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-currentness/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-currentness/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-currentness/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-currentness')
+          src = (root / 'src/lib.rs').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'hdk' not in cargo
+          assert 'holochain_client' not in cargo
+          assert 'pub struct VerifiedCurrentReleaseRegistryHeadProof {' in src
+          assert 'pub struct VerifiedCoordinatorReleaseStatusAtHeadProof {' in src
+          assert 'pub struct QualifiedCurrentCoordinatorRelease {' in src
+          positive_prefix = src.split('pub struct QualifiedCurrentCoordinatorRelease {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in positive_prefix)
+
+          for token in [
+              'REGISTRY_HEAD_PROFILE',
+              'STATUS_RECORD_PROFILE',
+              'WrongManifestProfile',
+              'WrongRegistryHeadProfile',
+              'WrongStatusRecordProfile',
+              'self.registry_head_profile != REGISTRY_HEAD_PROFILE',
+              'self.manifest_profile != MANIFEST_PROFILE',
+              'self.status_record_profile != STATUS_RECORD_PROFILE',
+              'CoordinatorReleaseStatus::Active',
+              'CoordinatorReleaseStatus::Withdrawn',
+              'CoordinatorReleaseStatus::Superseded',
+              'StatusForAnotherRegistryHead',
+              'ReleaseNotActive',
+              'status_proof.registry_generation != current_head.registry_generation',
+              'status_proof.registry_head_digest != current_head.registry_head_digest',
+              'status_proof.registry_head_profile != current_head.registry_head_profile',
+              'status_proof.manifest_digest != release.manifest_digest()',
+              '.max(current_head.verified_at_ms)',
+              '.min(current_head.valid_until_ms)',
+              '.min(status_proof.valid_until_ms)',
+              'fixed_wire_profiles_are_mandatory',
+          ]:
+              assert token in src, token
+
+          # No currentness by local "latest"/absence heuristic and no conductor matching here.
+          for forbidden in [
+              'get_links(',
+              'get_details(',
+              'latest_release',
+              'absence_of_later',
+              'AdminWebsocket',
+              'ObservedCoordinatorDeployment',
+              'match_required_coordinator_deployment',
+              'perform_external_effect',
+          ]:
+              assert forbidden not in src, forbidden
+
+          for invariant in [
+              'signed authenticity is not currentness',
+              'current registry head and release status are separate facts',
+              'v0.1 wire semantics are exact, not profile-selectable',
+              'status proof must bind the exact independently verified head',
+              'only active qualifies',
+              'release-policy identity must agree end to end',
+              'positive current release is non-deserializable',
+              'head/status verifier provenance remains separate',
+              'registry completeness is a verifier theorem',
+              'current release still is not installed deployment',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: release currentness requires fixed v0.1 wire profiles, exact independent current head and exact Active status at that head; alternate-profile/old/withdrawn/superseded evidence denies')
+          PY

@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-authority-coordinator-release-currentness"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure currentness and withdrawal theorem for authenticated Mycelix coordinator releases"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-release = { path = "../mycelix-authority-coordinator-release" }
