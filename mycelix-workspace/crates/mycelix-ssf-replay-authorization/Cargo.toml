@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-replay-authorization"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-durable-effect-outcome-history = { path = "../mycelix-ssf-durable-effect-outcome-history" }
+mycelix-ssf-effect-outcome-head-entry = { path = "../mycelix-ssf-effect-outcome-head-entry" }
+mycelix-ssf-pre-invocation-actuator-qualification = { path = "../mycelix-ssf-pre-invocation-actuator-qualification" }
