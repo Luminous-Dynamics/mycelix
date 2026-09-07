@@ -95,20 +95,15 @@ pub struct RecordSnapshotInput {
     pub source: Option<String>,
 }
 
-/// Verify consciousness gate for a governance action
+/// Verify consciousness gate for a governance action.
 ///
-/// Checks if the agent's current Φ meets the threshold for the requested action type.
-/// Returns a gate verification record that can be referenced by governance actions.
+/// Caller-provided ZKP containers are currently refused at this authority
+/// boundary because the zome cannot yet establish cryptographic proof validity
+/// and trusted verifier policy from the supplied object alone. Structural
+/// validity is not authorization-grade verification.
 ///
-/// ## Verification paths
-///
-/// 1. **ZKP attestation** (preferred): If the agent has submitted a
-///    `ConsciousnessAttestation` with valid STARK proof bytes, the gate
-///    checks the proven tier against the required threshold.  This path
-///    allows Guardian-tier access with cryptographic proof.
-/// 2. **Plaintext snapshot** (legacy): Falls back to the self-reported
-///    `ConsciousnessSnapshot.consciousness_level` comparison.  Capped at
-///    Steward tier for unsigned snapshots.
+/// The legacy plaintext snapshot path remains unchanged by this narrow security
+/// repair; its governance semantics are tracked separately.
 #[hdk_extern]
 pub fn verify_consciousness_gate(input: VerifyGateInput) -> ExternResult<GateVerificationResult> {
     let now = sys_time()?;
@@ -118,7 +113,9 @@ pub fn verify_consciousness_gate(input: VerifyGateInput) -> ExternResult<GateVer
     // Use dynamic (configurable) threshold
     let dynamic_threshold = get_dynamic_consciousness_gate(&input.action_type)?;
 
-    // --- Path 1: Check for ZKP ConsciousnessAttestation ---
+    // --- Path 1: caller-provided ZKP ConsciousnessAttestation ---
+    // This path deliberately fails closed until proof verification and verifier
+    // trust are established at the governance authority boundary.
     if let Some(attestation_result) =
         try_verify_zkp_attestation(&input.attestation, &agent_did, dynamic_threshold, now)?
     {
@@ -278,9 +275,11 @@ pub fn verify_consciousness_gate(input: VerifyGateInput) -> ExternResult<GateVer
 pub struct VerifyGateInput {
     pub action_type: GovernanceActionType,
     pub action_id: Option<String>,
-    /// Optional ZKP consciousness attestation.  When present, the gate
-    /// verifies the attestation's structural integrity and checks the
-    /// proven tier instead of relying on plaintext snapshot comparison.
+    /// Optional ZKP consciousness attestation.
+    ///
+    /// Until the governance zome can verify the proof and establish a trusted
+    /// verifier policy, providing this field fails closed rather than granting
+    /// authority from structural validity or a caller-claimed tier.
     #[serde(default)]
     pub attestation: Option<mycelix_bridge_common::consciousness_zkp::ConsciousnessAttestation>,
 }
@@ -299,15 +298,16 @@ pub struct GateVerificationResult {
 // ZKP ATTESTATION VERIFICATION
 // =============================================================================
 
-/// Verify a caller-provided ZKP consciousness attestation.
+/// Reject a caller-provided ZKP consciousness attestation unless the governance
+/// boundary can actually verify the proof and its verifier trust policy.
 ///
-/// Validates structure (proof_bytes non-empty, valid tier, non-zero
-/// commitment, not expired) and checks whether the proven tier meets
-/// the required threshold.
+/// `ConsciousnessAttestation::validate_structure()` only validates the container,
+/// and `is_verified()` currently only reports whether optional verifier fields are
+/// present. Neither operation proves the STARK nor establishes signer trust.
 ///
-/// Returns `Some((passed, consciousness_level, snapshot_id))` if the
-/// attestation is present, `None` if no attestation was provided
-/// (caller should fall back to plaintext snapshot).
+/// Returns `None` only when no ZKP attestation was supplied so the independent
+/// legacy snapshot path may continue. A supplied but unverified ZKP fails closed
+/// and MUST NOT downgrade to a weaker interpretation of the same proof claim.
 fn try_verify_zkp_attestation(
     attestation: &Option<mycelix_bridge_common::consciousness_zkp::ConsciousnessAttestation>,
     agent_did: &str,
@@ -319,41 +319,27 @@ fn try_verify_zkp_attestation(
         None => return Ok(None),
     };
 
-    // Structural validation (size, commitment, tier range)
-    if let Err(e) = attestation.validate_structure() {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid attestation structure: {}",
+    // Retain cheap structural/freshness checks for diagnostics and DoS bounds,
+    // but never confuse them with proof verification.
+    attestation.validate_structure().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid consciousness attestation structure: {}",
             e
-        ))));
-    }
-
-    // Expiry check
+        )))
+    })?;
     let now_secs = now.as_micros() as u64 / 1_000_000;
-    if attestation.is_expired(now_secs) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Consciousness attestation has expired".into()
-        )));
-    }
+    attestation.validate_with_freshness(now_secs).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid consciousness attestation freshness: {}",
+            e
+        )))
+    })?;
 
-    // Map tier (0-4) to consciousness level using the attestation's
-    // minimum threshold for that tier.
-    let consciousness_level = attestation.min_threshold();
-    let snapshot_id = format!(
-        "attestation:{}:tier{}:{}",
-        agent_did, attestation.tier, attestation.generated_at
-    );
-
-    // Log verification status.  Off-chain verified attestations
-    // (with verifier_signature) provide the strongest guarantee.
-    if !attestation.is_verified() {
-        debug!(
-            "Attestation for {} has valid structure but no off-chain verification (tier {})",
-            agent_did, attestation.tier
-        );
-    }
-
-    let passed = consciousness_level >= required_threshold;
-    Ok(Some((passed, consciousness_level, snapshot_id)))
+    Err(wasm_error!(WasmErrorInner::Guest(format!(
+        "Consciousness ZKP for {} cannot authorize governance at threshold {:.2}: \
+         proof validity and trusted verifier policy are not established at this boundary",
+        agent_did, required_threshold
+    ))))
 }
 
 /// Assess value alignment of a proposal
