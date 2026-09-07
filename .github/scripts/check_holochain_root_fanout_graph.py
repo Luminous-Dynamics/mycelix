@@ -5,7 +5,7 @@ The fanout inventory contains the complete candidate-diff-seeded reverse-impact 
 direct members that inherit actually changed canonical pins plus transitive workspace
 consumers whose locked resolved closure reaches those direct seeds. This checker
 traverses every affected member's locked dependency closure and rejects mixed protocol-
-family generations that compilation alone could otherwise tolerate.
+family generations and same-version source substitutions.
 """
 
 from __future__ import annotations
@@ -17,7 +17,11 @@ from pathlib import Path
 import subprocess
 import tomllib
 
-from holochain_release_family import UnclassifiedFamilyPackage, expected_family_version
+from holochain_release_family import (
+    FamilySourceMismatch,
+    UnclassifiedFamilyPackage,
+    qualified_family_package,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "mycelix-workspace"
@@ -151,7 +155,8 @@ def main() -> None:
             continue
 
         reachable = closure(package_id, nodes)
-        observed: dict[str, set[str]] = {}
+        observed_versions: dict[str, set[str]] = {}
+        observed_sources: dict[str, set[str]] = {}
         for reachable_id in reachable:
             package = packages.get(reachable_id)
             if package is None:
@@ -159,20 +164,28 @@ def main() -> None:
                 continue
             name = package["name"]
             try:
-                expected = expected_family_version(name, contract)
-            except UnclassifiedFamilyPackage as exc:
+                expectation = qualified_family_package(package, contract)
+            except (UnclassifiedFamilyPackage, FamilySourceMismatch) as exc:
                 failures.append(f"{manifest}:{exc}")
                 continue
-            if expected is None:
+            if expectation is None:
                 continue
+
+            expected_version, expected_source = expectation
             version = package["version"]
-            observed.setdefault(name, set()).add(version)
-            if version != expected:
+            source = package.get("source")
+            observed_versions.setdefault(name, set()).add(version)
+            observed_sources.setdefault(name, set()).add(str(source))
+            if version != expected_version:
                 failures.append(
-                    f"{manifest}:{name}: resolved {version}, expected cohort {expected}"
+                    f"{manifest}:{name}: resolved {version}, expected cohort {expected_version}"
+                )
+            if source != expected_source:
+                failures.append(
+                    f"{manifest}:{name}: resolved source {source!r}, expected {expected_source!r}"
                 )
 
-        if not observed:
+        if not observed_versions:
             failures.append(f"{manifest}: dependency closure contains no tracked Holochain-family package")
 
         evidence[manifest] = {
@@ -184,7 +197,10 @@ def main() -> None:
             "wasm_surface": item["wasm_surface"],
             "closure_package_count": len(reachable),
             "tracked_packages": {
-                name: sorted(versions) for name, versions in sorted(observed.items())
+                name: sorted(versions) for name, versions in sorted(observed_versions.items())
+            },
+            "tracked_sources": {
+                name: sorted(sources) for name, sources in sorted(observed_sources.items())
             },
         }
 
@@ -202,7 +218,10 @@ def main() -> None:
             + "\n- ".join(failures)
         )
 
-    print("Every direct and transitive root impact member resolves only the qualified Holochain-family cohort.")
+    print(
+        "Every direct and transitive root impact member resolves only the qualified "
+        "Holochain-family cohort with crates.io source provenance."
+    )
 
 
 if __name__ == "__main__":
