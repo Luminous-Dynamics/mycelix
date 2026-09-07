@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-effect-outcome-head-entry"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-durable-actuator-invocation-attempt = { path = "../mycelix-ssf-durable-actuator-invocation-attempt" }
+mycelix-ssf-durable-effect-outcome-history = { path = "../mycelix-ssf-durable-effect-outcome-history" }
