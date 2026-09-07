@@ -3,8 +3,9 @@
 
 Top-level manifest equality is necessary but insufficient: Cargo can resolve multiple
 versions of the same protocol family and still compile. This checker runs metadata for
-each migration surface and rejects any tracked Holochain/Kitsune2/Lair package whose
-resolved version falls outside the materialized cohort contract.
+each migration surface and rejects mixed protocol generations while treating upstream
+crates that version independently (for example holochain_chc) explicitly rather than
+assuming every `holochain_*` package shares the main Holochain version.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
-import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,17 +30,47 @@ SURFACES = {
     "pulse-simple-trust": WORKSPACE / "mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml",
 }
 
+# These crates are released on the main Holochain 0.6.x version line. Keep this
+# list closed-world: encountering a new `holochain_*` package is a qualification
+# failure until its release/version relationship is explicitly classified.
+HOLOCHAIN_RELEASE_COUPLED = {
+    "holochain",
+    "holochain_cascade",
+    "holochain_conductor_api",
+    "holochain_conductor_config",
+    "holochain_integrity_types",
+    "holochain_keystore",
+    "holochain_metrics",
+    "holochain_nonce",
+    "holochain_p2p",
+    "holochain_secure_primitive",
+    "holochain_sqlite",
+    "holochain_state",
+    "holochain_state_types",
+    "holochain_timestamp",
+    "holochain_trace",
+    "holochain_types",
+    "holochain_util",
+    "holochain_websocket",
+    "holochain_zome_types",
+}
+
+
+class UnclassifiedFamilyPackage(ValueError):
+    pass
+
 
 def load_contract() -> dict:
     return tomllib.loads((WORKSPACE / "holochain-cohort.toml").read_text())
 
 
-def expected_version(name: str, rust: dict[str, str]) -> str | None:
+def expected_version(name: str, contract: dict) -> str | None:
+    rust = contract["rust"]
+    target = contract["next_0_6"]
+
     if name == "hdi":
         return rust["hdi"]
-    if name == "hdk":
-        return rust["hdk"]
-    if name == "hdk_derive":
+    if name in {"hdk", "hdk_derive"}:
         return rust["hdk"]
     if name == "holochain_client":
         return rust["holochain_client"]
@@ -50,8 +80,14 @@ def expected_version(name: str, rust: dict[str, str]) -> str | None:
         return rust["holochain_serialized_bytes"]
     if name.startswith("holochain_wasmer_"):
         return rust["holochain_wasmer_host"]
-    if name == "holochain" or name.startswith("holochain_"):
+    if name == "holochain_chc":
+        return target["holochain_chc"]
+    if name in HOLOCHAIN_RELEASE_COUPLED:
         return rust["holochain"]
+    if name.startswith("holochain_"):
+        raise UnclassifiedFamilyPackage(
+            f"unclassified Holochain-family package {name!r}; classify its upstream version line explicitly"
+        )
     if name == "kitsune2" or name.startswith("kitsune2_"):
         return rust["kitsune2"]
     if name == "lair_keystore" or name.startswith("lair_keystore_"):
@@ -95,7 +131,6 @@ def main() -> None:
     if not contract["policy"].get("require_rust_nix_alignment"):
         raise SystemExit("aligned candidate must require Rust/Nix alignment")
 
-    rust = contract["rust"]
     failures: list[str] = []
     evidence: dict[str, dict[str, list[str]]] = {}
 
@@ -113,7 +148,11 @@ def main() -> None:
         observed: dict[str, set[str]] = {}
         for package in metadata.get("packages", []):
             name = package["name"]
-            expected = expected_version(name, rust)
+            try:
+                expected = expected_version(name, contract)
+            except UnclassifiedFamilyPackage as exc:
+                failures.append(f"{surface}:{exc}")
+                continue
             if expected is None:
                 continue
             version = package["version"]
