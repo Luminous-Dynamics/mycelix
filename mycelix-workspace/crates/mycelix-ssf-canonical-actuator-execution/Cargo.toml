@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-canonical-actuator-execution"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-actuator-invocation-activation = { path = "../mycelix-ssf-actuator-invocation-activation" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-final-actuator-invocation-readiness = { path = "../mycelix-ssf-final-actuator-invocation-readiness" }
+mycelix-ssf-historical-actuator-invocation-activation = { path = "../mycelix-ssf-historical-actuator-invocation-activation" }
+mycelix-ssf-historical-actuator-invocation-journal = { path = "../mycelix-ssf-historical-actuator-invocation-journal" }
