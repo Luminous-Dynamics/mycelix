@@ -2,10 +2,11 @@
 """Verify resolved Cargo graphs contain only the qualified Holochain cohort.
 
 Top-level manifest equality is necessary but insufficient: Cargo can resolve multiple
-versions of the same protocol family and still compile. This checker runs metadata for
-each migration surface and rejects mixed protocol generations while treating upstream
-crates that version independently (for example holochain_chc) explicitly rather than
-assuming every `holochain_*` package shares the main Holochain version.
+versions of the same protocol family and still compile. This checker resolves every
+migration surface, records the concrete Cargo workspace/lockfile that produced that
+graph, and rejects mixed protocol generations. Upstream crates that version
+independently (for example holochain_chc) are classified explicitly rather than by
+prefix guessing.
 """
 
 from __future__ import annotations
@@ -30,9 +31,6 @@ SURFACES = {
     "pulse-simple-trust": WORKSPACE / "mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml",
 }
 
-# These crates are released on the main Holochain 0.6.x version line. Keep this
-# list closed-world: encountering a new `holochain_*` package is a qualification
-# failure until its release/version relationship is explicitly classified.
 HOLOCHAIN_RELEASE_COUPLED = {
     "holochain",
     "holochain_cascade",
@@ -95,6 +93,14 @@ def expected_version(name: str, contract: dict) -> str | None:
     return None
 
 
+def relative_repo_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT.resolve()))
+    except ValueError as exc:
+        raise RuntimeError(f"resolved Cargo path escaped repository: {resolved}") from exc
+
+
 def cargo_metadata(manifest: Path) -> dict:
     proc = subprocess.run(
         [
@@ -132,7 +138,7 @@ def main() -> None:
         raise SystemExit("aligned candidate must require Rust/Nix alignment")
 
     failures: list[str] = []
-    evidence: dict[str, dict[str, list[str]]] = {}
+    surfaces_evidence: dict[str, dict] = {}
 
     for surface, manifest in SURFACES.items():
         if not manifest.is_file():
@@ -141,9 +147,18 @@ def main() -> None:
 
         try:
             metadata = cargo_metadata(manifest)
-        except (RuntimeError, json.JSONDecodeError) as exc:
+            workspace_root = Path(metadata["workspace_root"])
+            lockfile = workspace_root / "Cargo.lock"
+            workspace_root_rel = relative_repo_path(workspace_root)
+            lockfile_rel = relative_repo_path(lockfile)
+        except (RuntimeError, KeyError, json.JSONDecodeError) as exc:
             failures.append(f"{surface}: {exc}")
             continue
+
+        if not lockfile.is_file() or lockfile.stat().st_size == 0:
+            failures.append(
+                f"{surface}: resolved graph has no concrete non-empty lockfile at {lockfile_rel}"
+            )
 
         observed: dict[str, set[str]] = {}
         for package in metadata.get("packages", []):
@@ -165,24 +180,44 @@ def main() -> None:
         if not observed:
             failures.append(f"{surface}: resolved graph contained no tracked Holochain-family package")
 
-        evidence[surface] = {
-            name: sorted(versions) for name, versions in sorted(observed.items())
+        surfaces_evidence[surface] = {
+            "manifest": str(manifest.relative_to(ROOT)),
+            "workspace_root": workspace_root_rel,
+            "lockfile": lockfile_rel,
+            "tracked_packages": {
+                name: sorted(versions) for name, versions in sorted(observed.items())
+            },
         }
+
+    unique_locks = sorted(
+        {item["lockfile"] for item in surfaces_evidence.values() if item.get("lockfile")}
+    )
+    evidence = {
+        "schema": 2,
+        "surface_count": len(surfaces_evidence),
+        "unique_lockfile_count": len(unique_locks),
+        "lockfiles": unique_locks,
+        "surfaces": surfaces_evidence,
+    }
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
 
-    for surface, packages in evidence.items():
+    for surface, item in surfaces_evidence.items():
         summary = ", ".join(
-            f"{name}={'/'.join(versions)}" for name, versions in packages.items()
+            f"{name}={'/'.join(versions)}"
+            for name, versions in item["tracked_packages"].items()
         )
-        print(f"{surface}: {summary}")
+        print(f"{surface}: lock={item['lockfile']}; {summary}")
 
     if failures:
         raise SystemExit("Resolved Holochain graph qualification failed:\n- " + "\n- ".join(failures))
 
-    print(f"Resolved Holochain cohort graphs OK across {len(evidence)} Pulse surfaces.")
+    print(
+        f"Resolved Holochain cohort graphs OK across {len(surfaces_evidence)} Pulse surfaces "
+        f"using {len(unique_locks)} concrete Cargo lockfiles."
+    )
 
 
 if __name__ == "__main__":
