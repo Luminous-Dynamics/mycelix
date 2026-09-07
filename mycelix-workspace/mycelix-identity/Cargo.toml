@@ -17,6 +17,8 @@ members = [
     "crates/kvector-verification-record-policy",
     # Backend-neutral verifier-policy body theorem
     "crates/kvector-verifier-policy-body",
+    # Algorithm/byte-shape binding for verifier signatures
+    "crates/kvector-signature-material-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
