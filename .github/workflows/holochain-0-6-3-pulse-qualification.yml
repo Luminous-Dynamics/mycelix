@@ -23,7 +23,7 @@ env:
 
 jobs:
   qualify:
-    name: Materialize and qualify exact 0.6.3 candidate
+    name: Materialize and qualify exact 0.6.3 Pulse canary
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -63,6 +63,9 @@ jobs:
           git merge-base --is-ancestor "$expected_parent" HEAD
           echo "sha=$expected_parent" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare evidence directory
+        run: mkdir -p "$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+
       - name: Install Nix
         id: install_nix
         uses: cachix/install-nix-action@v31
@@ -78,7 +81,7 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
-      - name: Materialize candidate
+      - name: Materialize integrated canary
         id: materialize
         continue-on-error: true
         run: python3 .github/scripts/materialize_holochain_0_6_3_pulse.py
@@ -101,8 +104,65 @@ jobs:
         if: steps.materialize.outcome == 'success'
         continue-on-error: true
         run: |
+          set -euo pipefail
           python3 .github/scripts/check_holochain_resolved_graph.py \
             --output "$RUNNER_TEMP/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json"
+
+      - name: Freeze Cargo locks from resolved graph census
+        id: pulse_locks
+        if: steps.resolved_graph.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          python3 - "$evidence/resolved-holochain-graphs.json" \
+            "$evidence/pulse-cargo-locks.sha256" \
+            "$evidence/pulse-cargo-locks.txt" <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import sys
+
+          root = Path.cwd().resolve()
+          graph_path = Path(sys.argv[1])
+          hash_path = Path(sys.argv[2])
+          list_path = Path(sys.argv[3])
+          evidence = json.loads(graph_path.read_text())
+
+          if evidence.get('schema') != 2:
+              raise SystemExit(f"unexpected resolved graph evidence schema: {evidence.get('schema')!r}")
+          if evidence.get('surface_count') != 8:
+              raise SystemExit(f"expected 8 Pulse surfaces, got {evidence.get('surface_count')!r}")
+
+          lockfiles = evidence.get('lockfiles', [])
+          if not lockfiles:
+              raise SystemExit('resolved graph census reported no Cargo lockfiles')
+          if len(lockfiles) != evidence.get('unique_lockfile_count'):
+              raise SystemExit('resolved graph unique_lockfile_count mismatch')
+
+          hash_lines = []
+          normalized = []
+          for raw in lockfiles:
+              rel = Path(raw)
+              if rel.is_absolute() or '..' in rel.parts:
+                  raise SystemExit(f"unsafe lockfile path in graph evidence: {raw!r}")
+              path = (root / rel).resolve()
+              try:
+                  path.relative_to(root)
+              except ValueError as exc:
+                  raise SystemExit(f"lockfile escaped repository: {raw!r}") from exc
+              if not path.is_file() or path.stat().st_size == 0:
+                  raise SystemExit(f"missing/non-empty resolved lockfile: {raw}")
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              normalized.append(str(rel))
+              hash_lines.append(f"{digest}  {rel}")
+
+          list_path.write_text('\n'.join(normalized) + '\n')
+          hash_path.write_text('\n'.join(hash_lines) + '\n')
+          print(f"Frozen {len(normalized)} Cargo lockfiles from resolved graph census.")
+          PY
+          test -s "$evidence/pulse-cargo-locks.sha256"
+          test -s "$evidence/pulse-cargo-locks.txt"
 
       - name: Verify Nix runtime cohort
         id: nix_runtime
@@ -118,29 +178,29 @@ jobs:
 
       - name: Qualify active Pulse zome workspace
         id: pulse_zomes
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/holochain
         run: |
           set -euo pipefail
           cargo fmt --all -- --check
-          cargo check --workspace
-          cargo check --workspace --target wasm32-unknown-unknown
-          cargo test --workspace --lib
+          cargo check --locked --workspace
+          cargo check --locked --workspace --target wasm32-unknown-unknown
+          cargo test --locked --workspace --lib
 
       - name: Qualify standalone hApp integrity crate
         id: happ_integrity
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/integrity
         run: |
           set -euo pipefail
-          cargo check --target wasm32-unknown-unknown
-          cargo test --lib
+          cargo check --locked --target wasm32-unknown-unknown
+          cargo test --locked --lib
 
       - name: Qualify Pulse backend API migration
         id: backend
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
         env:
@@ -148,48 +208,48 @@ jobs:
           HOLOCHAIN_STUB_MODE: 'true'
         run: |
           set -euo pipefail
-          cargo check
-          cargo test
+          cargo check --locked
+          cargo test --locked
 
       - name: Qualify Pulse CLI API migration
         id: cli
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/cli
         run: |
           set -euo pipefail
-          cargo check
-          cargo test
+          cargo check --locked
+          cargo test --locked
 
       - name: Qualify simplified legacy DNA integrity
         id: simple_integrity
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity
-        run: cargo check --target wasm32-unknown-unknown
+        run: cargo check --locked --target wasm32-unknown-unknown
 
       - name: Qualify simplified legacy DNA mail_messages
         id: simple_messages
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages
-        run: cargo check --target wasm32-unknown-unknown
+        run: cargo check --locked --target wasm32-unknown-unknown
 
       - name: Qualify simplified legacy DNA trust_filter
         id: simple_trust
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter
-        run: cargo check --target wasm32-unknown-unknown
+        run: cargo check --locked --target wasm32-unknown-unknown
 
       - name: Compile SweetConductor security harness
         id: sweettest
-        if: steps.materialize.outcome == 'success'
+        if: steps.pulse_locks.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/tests
-        run: cargo test --test sweettest_mail_security --no-run
+        run: cargo test --locked --test sweettest_mail_security --no-run
 
-      - name: Validate and seal generated patch
+      - name: Validate and seal generated canary
         if: always()
         id: patch
         env:
@@ -199,6 +259,11 @@ jobs:
           set -euo pipefail
           evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
           mkdir -p "$evidence_dir"
+
+          test -s "$evidence_dir/resolved-holochain-graphs.json"
+          test -s "$evidence_dir/pulse-cargo-locks.sha256"
+          test -s "$evidence_dir/pulse-cargo-locks.txt"
+          sha256sum --check "$evidence_dir/pulse-cargo-locks.sha256"
 
           mapfile -t untracked < <(git ls-files --others --exclude-standard)
           if [ "${#untracked[@]}" -gt 0 ]; then
@@ -243,18 +308,17 @@ jobs:
           unexpected = sorted(changed - required - optional_locks)
           if missing or unexpected:
               if missing:
-                  print('Missing required candidate changes:')
+                  print('Missing required canary changes:')
                   print('\n'.join(f'  {p}' for p in missing))
               if unexpected:
-                  print('Unexpected candidate changes:')
+                  print('Unexpected canary changes:')
                   print('\n'.join(f'  {p}' for p in unexpected))
               raise SystemExit(1)
-          print(f'Closed candidate file set OK: {len(changed)} changed files')
+          print(f'Closed canary file set OK: {len(changed)} changed files')
           PY
 
-          test -s "$evidence_dir/resolved-holochain-graphs.json"
-          git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
-          test -s "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
+          git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
+          test -s "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
           git status --short > "$evidence_dir/holochain-0.6.3-pulse-status.txt"
 
           {
@@ -264,28 +328,34 @@ jobs:
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event_name=${GITHUB_EVENT_NAME}"
+            echo "product_materialization_authorized=false"
+            echo "authorization_reason=requires_root_fanout_qualification_and_separate_product_pr"
           } > "$evidence_dir/qualification-metadata.txt"
 
           sha256sum \
-            "$evidence_dir/holochain-0.6.3-pulse-candidate.patch" \
+            "$evidence_dir/holochain-0.6.3-pulse-canary.patch" \
             "$evidence_dir/resolved-holochain-graphs.json" \
+            "$evidence_dir/pulse-cargo-locks.sha256" \
+            "$evidence_dir/pulse-cargo-locks.txt" \
             mycelix-workspace/flake.lock \
             mycelix-workspace/holochain-cohort.toml \
             > "$evidence_dir/qualification-sha256.txt"
 
-          echo 'Generated candidate files:'
+          echo 'Generated canary files:'
           cat "$evidence_dir/changed-files.txt"
 
-      - name: Preserve exact candidate evidence
+      - name: Preserve exact canary evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: holochain-0.6.3-pulse-candidate-${{ steps.head.outputs.sha || github.sha }}
+          name: holochain-0.6.3-pulse-canary-${{ steps.head.outputs.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-candidate.patch
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-canary.patch
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-status.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/changed-files.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.sha256
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-metadata.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-sha256.txt
             mycelix-workspace/flake.lock
@@ -315,6 +385,7 @@ jobs:
           check nix_lock '${{ steps.nix_lock.outcome }}'
           check contract '${{ steps.contract.outcome }}'
           check resolved_graph '${{ steps.resolved_graph.outcome }}'
+          check pulse_locks '${{ steps.pulse_locks.outcome }}'
           check nix_runtime '${{ steps.nix_runtime.outcome }}'
           check pulse_zomes '${{ steps.pulse_zomes.outcome }}'
           check happ_integrity '${{ steps.happ_integrity.outcome }}'
@@ -326,7 +397,7 @@ jobs:
           check sweettest '${{ steps.sweettest.outcome }}'
           check patch '${{ steps.patch.outcome }}'
           if [ "$failed" -ne 0 ]; then
-            echo 'Holochain 0.6.3 Pulse candidate is NOT QUALIFIED.'
+            echo 'Holochain 0.6.3 Pulse canary is NOT QUALIFIED.'
             exit 1
           fi
-          echo 'Holochain 0.6.3 Pulse candidate QUALIFIED.'
+          echo 'Holochain 0.6.3 Pulse canary QUALIFIED; product materialization still requires root fanout qualification.'
