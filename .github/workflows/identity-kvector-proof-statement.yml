@@ -1,0 +1,176 @@
+name: Identity K-Vector Proof Statement V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - '.github/workflows/identity-kvector-proof-statement.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/trust-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - '.github/workflows/identity-kvector-proof-statement.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-kvector-proof-statement-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert proof statement theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-proof-statement-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-attestation-fulfillment-policy',
+              'mycelix-trust-authority-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: proof-statement dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-attestation-fulfillment-policy'].get('path') != '../attestation-fulfillment-policy':
+              raise SystemExit('ERROR: proof statement is not bound to canonical fulfillment theorem')
+          if deps['mycelix-trust-authority-policy'].get('path') != '../trust-authority-policy':
+              raise SystemExit('ERROR: proof statement is not bound to canonical authority theorem')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: proof statement must use workspace-qualified SHA-256')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'K_VECTOR_BLINDING_LEN_V2: usize = 32',
+              'K_VECTOR_PROOF_STATEMENT_DIGEST_LEN_V2: usize = 32',
+              'mycelix:identity:kvector-commitment:v2\\0',
+              'mycelix:identity:kvector-proof-statement:v2\\0',
+              'sha256-blinded-model-bound-v2',
+              'KVectorProofWitnessV2',
+              'KVectorProofPublicStatementV2',
+              'derive_kvector_commitment_v2',
+              'derive_kvector_proof_public_statement_v2',
+              'derive_kvector_proof_statement_digest_v2',
+              'evaluate_kvector_proof_relation_v2',
+              'validate_kvector_witness_score_range_v2(',
+              'weighted_trust_numerator_v2(',
+              'K_VECTOR_DIMENSIONS_V2',
+              'TRUST_SCORE_SCALE_V2',
+              'K_VECTOR_WEIGHTS_PERCENT_V2',
+              'K_VECTOR_WEIGHT_SUM_V2',
+              'BlindingAllZero',
+              'CommitmentMismatch',
+              'commitment_vector_is_frozen',
+              '0x83, 0x44, 0xa1, 0x26',
+              'public_statement_and_digest_vectors_are_frozen',
+              '0x92, 0x64, 0x7e, 0xe2',
+              'commitment_binds_every_component_and_blinding',
+              'relation_rejects_commitment_and_range_mismatch',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: K-vector proof statement theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'f32',
+              'f64',
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde::',
+              'mycelix_zkp_core',
+              'mycelix-zkp-core',
+              'proofbackend',
+              'publicinputs',
+              'sys_time(',
+              'std::time',
+              'rand::',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: float/runtime/backend semantics leaked into proof statement: {forbidden!r}')
+
+          # Commitment must bind model parameters, all components and blinding.
+          commitment_start = text.index('pub fn derive_kvector_commitment_v2(')
+          commitment_end = text.index('pub fn derive_kvector_proof_public_statement_v2(', commitment_start)
+          commitment_body = text[commitment_start:commitment_end]
+          for needle in [
+              'K_VECTOR_DIMENSIONS_V2',
+              'TRUST_SCORE_SCALE_V2',
+              'K_VECTOR_WEIGHT_SUM_V2',
+              'K_VECTOR_WEIGHTS_PERCENT_V2',
+              'witness.components_scaled',
+              'witness.blinding',
+          ]:
+              if needle not in commitment_body:
+                  raise SystemExit(f'ERROR: commitment transcript lost binding: {needle!r}')
+
+          relation_start = text.index('pub fn evaluate_kvector_proof_relation_v2(')
+          relation_end = text.index('#[cfg(test)]', relation_start)
+          relation = text[relation_start:relation_end]
+          for needle in [
+              'derive_kvector_proof_public_statement_v2',
+              'validate_kvector_witness_score_range_v2',
+              'derive_kvector_commitment_v2',
+              'CommitmentMismatch',
+              'derive_kvector_proof_statement_digest_v2',
+          ]:
+              if needle not in relation:
+                  raise SystemExit(f'ERROR: proof relation lost required theorem edge: {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/Cargo.toml \
+            -- --check
+
+      - name: Test trust authority theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml
+
+      - name: Test fulfillment theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/Cargo.toml
+
+      - name: Test K-vector proof statement theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/Cargo.toml
+
+      - name: Check proof statement theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
