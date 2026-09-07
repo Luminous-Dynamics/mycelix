@@ -7,6 +7,7 @@ on:
       - '.github/scripts/check_holochain_cohort.py'
       - '.github/scripts/check_holochain_resolved_graph.py'
       - '.github/scripts/holochain_release_family.py'
+      - '.github/scripts/capture_holochain_execution_capsule.py'
       - '.github/workflows/holochain-0-6-3-pulse-qualification.yml'
       - 'mycelix-workspace/holochain-cohort.toml'
   workflow_dispatch:
@@ -58,7 +59,6 @@ jobs:
             "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
           live_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
           expected_parent="${EVENT_BASE_SHA:-$live_parent}"
-
           echo "Live parent branch head: $live_parent"
           echo "Event/expected parent head: $expected_parent"
           test "$live_parent" = "$expected_parent"
@@ -83,42 +83,24 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
-      - name: Capture qualification execution capsule
+      - name: Capture canonical qualification execution lineage
         id: execution_capsule
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
-          {
-            echo "schema=1"
-            echo "runner_label=ubuntu-24.04"
-            echo "runner_os=${RUNNER_OS:-unknown}"
-            echo "runner_arch=${RUNNER_ARCH:-unknown}"
-            echo "image_os=${ImageOS:-unknown}"
-            echo "image_version=${ImageVersion:-unknown}"
-            echo "workflow_ref=${GITHUB_WORKFLOW_REF:-unknown}"
-            echo "workflow_sha=${GITHUB_WORKFLOW_SHA:-unknown}"
-            echo "checkout_action_sha=11d5960a326750d5838078e36cf38b85af677262"
-            echo "install_nix_action_sha=13d8dd58da0234aa297dedd986986ccb8e7f3e24"
-            echo "rust_toolchain_action_sha=6bed0761d98439e5a578e2877258200ad565ba87"
-            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
-            echo "nix_installer_version=2.35.2"
-            echo "nix_installer_url=https://releases.nixos.org/nix/nix-2.35.2/install"
-            echo "[uname]"
-            uname -a
-            echo "[os-release]"
-            cat /etc/os-release
-            echo "[git]"
-            git --version
-            echo "[python]"
-            python3 --version
-            echo "[rustc]"
-            rustc -vV
-            echo "[cargo]"
-            cargo --version
-            echo "[nix]"
-            nix --version
-          } > "$evidence/execution-capsule.txt"
-          test -s "$evidence/execution-capsule.txt"
+          python3 .github/scripts/capture_holochain_execution_capsule.py \
+            --output "$evidence/execution-capsule.json" \
+            --lineage-output "$evidence/execution-lineage.sha256" \
+            --runner-label ubuntu-24.04 \
+            --expected-rust 1.96.0 \
+            --expected-nix 2.35.2 \
+            --nix-installer-url https://releases.nixos.org/nix/nix-2.35.2/install \
+            --action checkout=11d5960a326750d5838078e36cf38b85af677262 \
+            --action install_nix=13d8dd58da0234aa297dedd986986ccb8e7f3e24 \
+            --action rust_toolchain=6bed0761d98439e5a578e2877258200ad565ba87 \
+            --action upload_artifact=ea165f8d65b6e75b540449e92b4886f43607fa02
+          test -s "$evidence/execution-capsule.json"
+          test "$(wc -c < "$evidence/execution-lineage.sha256")" -eq 65
 
       - name: Materialize integrated canary
         id: materialize
@@ -299,7 +281,8 @@ jobs:
           evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
           mkdir -p "$evidence_dir"
 
-          test -s "$evidence_dir/execution-capsule.txt"
+          test -s "$evidence_dir/execution-capsule.json"
+          test -s "$evidence_dir/execution-lineage.sha256"
           test -s "$evidence_dir/resolved-holochain-graphs.json"
           test -s "$evidence_dir/pulse-cargo-locks.sha256"
           test -s "$evidence_dir/pulse-cargo-locks.txt"
@@ -360,6 +343,7 @@ jobs:
           git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
           test -s "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
           git status --short > "$evidence_dir/holochain-0.6.3-pulse-status.txt"
+          environment_lineage_sha256="$(cat "$evidence_dir/execution-lineage.sha256")"
 
           {
             echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
@@ -368,13 +352,15 @@ jobs:
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event_name=${GITHUB_EVENT_NAME}"
+            echo "environment_lineage_sha256=$environment_lineage_sha256"
             echo "product_materialization_authorized=false"
             echo "authorization_reason=requires_root_fanout_qualification_and_separate_product_pr"
           } > "$evidence_dir/qualification-metadata.txt"
 
           sha256sum \
             "$evidence_dir/holochain-0.6.3-pulse-canary.patch" \
-            "$evidence_dir/execution-capsule.txt" \
+            "$evidence_dir/execution-capsule.json" \
+            "$evidence_dir/execution-lineage.sha256" \
             "$evidence_dir/resolved-holochain-graphs.json" \
             "$evidence_dir/pulse-cargo-locks.sha256" \
             "$evidence_dir/pulse-cargo-locks.txt" \
@@ -394,7 +380,8 @@ jobs:
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-canary.patch
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-status.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/changed-files.txt
-            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/execution-capsule.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/execution-capsule.json
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/execution-lineage.sha256
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.sha256
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.txt
