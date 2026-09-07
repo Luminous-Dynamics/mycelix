@@ -86,15 +86,12 @@ def main() -> None:
     rust = contract["rust"]
     canonical = root["workspace"]["dependencies"]
 
-    # Root workspace is the canonical Rust version authority for this cohort.
     for name, want in rust.items():
         if name not in canonical:
             failures.append(f"workspace dependency missing canonical Holochain member {name!r}")
             continue
         require_equal(failures, f"workspace.{name}", dep_version(canonical[name]), want)
 
-    # Active Pulse zomes must track the canonical cohort, including helper and
-    # serialization crates that previously were outside the verifier's surface.
     pulse_deps = pulse["workspace"]["dependencies"]
     require_dep_map(
         failures,
@@ -111,7 +108,6 @@ def main() -> None:
         },
     )
 
-    # SweetConductor is its own workspace and therefore needs an explicit bind.
     test_deps = pulse_tests["dev-dependencies"]
     require_dep_map(
         failures,
@@ -125,8 +121,6 @@ def main() -> None:
         },
     )
 
-    # This standalone hApp integrity crate is intentionally outside the active
-    # Pulse workspace but is expected to remain on the canonical generation.
     happ_deps = happ_integrity["dependencies"]
     require_dep_map(
         failures,
@@ -224,6 +218,7 @@ def main() -> None:
         "hdk",
         "hdi",
         "holochain_client",
+        "holochain_chc",
         "kitsune2",
         "lair_keystore",
     ):
@@ -244,7 +239,7 @@ def main() -> None:
     print(
         "Next coherent 0.6 cohort: "
         f"Holochain {next_06['holochain']}, HDK {next_06['hdk']}, HDI {next_06['hdi']}, "
-        f"client {next_06['holochain_client']}"
+        f"client {next_06['holochain_client']}, CHC {next_06['holochain_chc']}"
     )
 
 
