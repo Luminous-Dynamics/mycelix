@@ -1,0 +1,173 @@
+name: Identity K-Vector Verifier Policy Body V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - '.github/workflows/identity-kvector-verifier-policy-body.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - '.github/workflows/identity-kvector-verifier-policy-body.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-verifier-policy-body-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert static policy-body theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-verifier-policy-body'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-kvector-proof-statement-policy',
+              'mycelix-kvector-verification-record-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: verifier-policy dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-kvector-proof-statement-policy'].get('path') != '../kvector-proof-statement-policy':
+              raise SystemExit('ERROR: policy body is not bound to canonical #225 theorem')
+          if deps['mycelix-kvector-verification-record-policy'].get('path') != '../kvector-verification-record-policy':
+              raise SystemExit('ERROR: policy body is not bound to canonical #235 record theorem')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: policy body must use workspace-qualified SHA-256')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'mycelix:identity:kvector-verifier-policy:v2\\0',
+              'KVectorVerifierPolicyBodyV2',
+              'derive_kvector_verifier_policy_digest_v2',
+              'validate_kvector_verification_record_against_policy_body_v2',
+              'K_VECTOR_PROOF_STATEMENT_DOMAIN_V2',
+              'policy.backend_id.as_bytes()',
+              'policy.circuit_id.as_bytes()',
+              'policy.circuit_version.as_bytes()',
+              'policy.verifier_did.as_bytes()',
+              'policy.verifier_key_id.as_bytes()',
+              'policy.signature_scheme_id.as_bytes()',
+              'record.verification_policy_sha256 != digest.as_slice()',
+              'record.valid_until_micros > policy.valid_until_micros',
+              'record_lifetime > policy.max_record_lifetime_micros',
+              'policy_digest_vector_is_frozen',
+              '0x6c, 0x2d, 0x3f, 0x00',
+              'exact_record_tuple_matches_policy_body',
+              'policy_digest_and_static_tuple_mismatch_fail_closed',
+              'record_validity_must_fit_inside_policy',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: verifier-policy theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'f32',
+              'f64',
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde::',
+              'mycelix_crypto',
+              'mycelix-crypto',
+              'signature_validated',
+              'signature_verified',
+              'policy_current',
+              'policy_accepted',
+              'is_current',
+              'is_verified',
+              'sys_time(',
+              'std::time',
+              'get_details(',
+              'get_links(',
+              'max_by(',
+              'max_by_key(',
+              'sort_by(',
+              'sort_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: authority/currentness/crypto/runtime semantics leaked into policy-body theorem: {forbidden!r}'
+                  )
+
+          digest_start = text.index('pub fn derive_kvector_verifier_policy_digest_v2(')
+          digest_end = text.index('pub fn validate_kvector_verification_record_against_policy_body_v2(', digest_start)
+          digest_body = text[digest_start:digest_end]
+          for needle in [
+              'policy.policy_id.as_bytes()',
+              'policy.policy_version.as_bytes()',
+              'policy.backend_id.as_bytes()',
+              'policy.circuit_id.as_bytes()',
+              'policy.circuit_version.as_bytes()',
+              'policy.verifier_did.as_bytes()',
+              'policy.verifier_key_id.as_bytes()',
+              'policy.signature_scheme_id.as_bytes()',
+              'K_VECTOR_PROOF_STATEMENT_DOMAIN_V2',
+              'policy.valid_from_micros.to_be_bytes()',
+              'policy.valid_until_micros.to_be_bytes()',
+              'policy.max_record_lifetime_micros.to_be_bytes()',
+          ]:
+              if needle not in digest_body:
+                  raise SystemExit(f'ERROR: policy digest lost binding: {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/Cargo.toml \
+            -- --check
+
+      - name: Test proof-statement theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/Cargo.toml
+
+      - name: Test verification-record theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml
+
+      - name: Test verifier-policy body theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/Cargo.toml
+
+      - name: Check verifier-policy body theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/Cargo.toml \
+            --target wasm32-unknown-unknown
