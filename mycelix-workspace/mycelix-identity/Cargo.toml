@@ -21,6 +21,8 @@ members = [
     "crates/kvector-signature-material-policy",
     # Strict DID verification-method theorem for policy-selected verifier keys
     "crates/verifier-key-method-policy",
+    # Branch-aware observed DID verifier-key lineage theorem
+    "crates/did-verifier-lineage-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure

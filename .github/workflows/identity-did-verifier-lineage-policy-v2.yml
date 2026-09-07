@@ -1,0 +1,140 @@
+name: Identity DID Verifier Lineage Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/**'
+      - '.github/workflows/identity-did-verifier-lineage-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/**'
+      - '.github/workflows/identity-did-verifier-lineage-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-verifier-lineage-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert DID lineage theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/did-verifier-lineage-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-kvector-verifier-policy-body',
+              'mycelix-verifier-key-method-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: DID lineage dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-kvector-verifier-policy-body'].get('path') != '../kvector-verifier-policy-body':
+              raise SystemExit('ERROR: DID lineage theorem is not bound to canonical #248 policy body')
+          if deps['mycelix-verifier-key-method-policy'].get('path') != '../verifier-key-method-policy':
+              raise SystemExit('ERROR: DID lineage theorem is not bound to canonical #260 structural key theorem')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'MAX_OBSERVED_DID_HISTORY_ACTIONS_V2',
+              'ObservedDidDocumentV2',
+              'ObservedDidDeactivationV2',
+              'ObservedVerifierKeyV2',
+              'resolve_observed_verifier_key_v2',
+              'CreationRootMissing',
+              'MultipleCreationRoots',
+              'UpdateParentMissing',
+              'UpdateVersionNotIncreasing',
+              'BranchingHistory',
+              'DisconnectedHistory',
+              'DidDeactivated',
+              'resolve_policy_verifier_key_from_document_v2',
+              'child_of.insert(parent_action_id, index).is_some()',
+              'visited.len() != history.len()',
+              'competing_children_fail_closed_even_with_different_versions',
+              'missing_direct_parent_fails_closed',
+              'any_valid_deactivation_observation_fails_qualification',
+              'oversized_history_requires_a_future_checkpoint_theorem',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: DID lineage theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_links(',
+              'get_links_details',
+              'get_details(',
+              'max_by_key',
+              'sys_time(',
+              'std::time',
+              'hybrid_sig::verify',
+              'ed25519_dalek',
+              'ml_dsa::',
+              '.verify(',
+              'signature_verified',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence:',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: network/chronology/signature/policy authority leaked into DID lineage theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/Cargo.toml \
+            -- --check
+
+      - name: Test verifier-key-method theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/Cargo.toml
+
+      - name: Test DID verifier lineage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/Cargo.toml
+
+      - name: Check DID verifier lineage theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
