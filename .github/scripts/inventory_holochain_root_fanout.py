@@ -13,7 +13,6 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
-import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -95,10 +94,18 @@ def domain_for(relative_manifest: Path) -> str:
     return parts[0] if parts else "."
 
 
+def is_wasm_surface(manifest: dict, inherited: list[dict[str, str]]) -> bool:
+    lib = manifest.get("lib", {})
+    crate_types = lib.get("crate-type", []) if isinstance(lib, dict) else []
+    guest_api = any(item["package"] in {"hdk", "hdi"} for item in inherited)
+    return "cdylib" in crate_types and guest_api
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--manifest-list", type=Path)
+    parser.add_argument("--wasm-manifest-list", type=Path)
     args = parser.parse_args()
 
     contract = load_toml(CONTRACT)
@@ -137,12 +144,14 @@ def main() -> None:
                 "manifest": str(Path("mycelix-workspace") / relative),
                 "domain": domain_for(relative),
                 "pulse": relative.parts[0] == "mycelix-pulse" if relative.parts else False,
+                "wasm_surface": is_wasm_surface(manifest, inherited),
                 "inherited_dependencies": inherited,
             }
         )
 
     affected.sort(key=lambda item: (item["domain"], item["manifest"], item["package"]))
     non_pulse = [item for item in affected if not item["pulse"]]
+    wasm = [item for item in affected if item["wasm_surface"]]
     domains = sorted({item["domain"] for item in affected})
     non_pulse_domains = sorted({item["domain"] for item in non_pulse})
 
@@ -164,6 +173,7 @@ def main() -> None:
         "workspace_member_count": len(member_ids),
         "affected_member_count": len(affected),
         "non_pulse_affected_member_count": len(non_pulse),
+        "wasm_affected_member_count": len(wasm),
         "affected_domains": domains,
         "non_pulse_affected_domains": non_pulse_domains,
         "affected_members": affected,
@@ -178,10 +188,16 @@ def main() -> None:
             "".join(item["manifest"] + "\n" for item in affected)
         )
 
+    if args.wasm_manifest_list:
+        args.wasm_manifest_list.parent.mkdir(parents=True, exist_ok=True)
+        args.wasm_manifest_list.write_text(
+            "".join(item["manifest"] + "\n" for item in wasm)
+        )
+
     print(
         f"Root Holochain fanout: {len(affected)} affected workspace members across "
         f"{len(domains)} domains; {len(non_pulse)} members across "
-        f"{len(non_pulse_domains)} non-Pulse domains."
+        f"{len(non_pulse_domains)} non-Pulse domains; {len(wasm)} WASM surfaces."
     )
     for domain in non_pulse_domains:
         count = sum(1 for item in non_pulse if item["domain"] == domain)
