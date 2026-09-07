@@ -1,6 +1,6 @@
-# Current Operational Freshness — Consumer Handoff Contract v0.2
+# Current Operational Freshness — Consumer Handoff Contract v0.3
 
-Status: **normative consumer boundary; current-freshness runtime remains unprovisioned and external effects remain disabled**
+Status: **normative consumer boundary for v0.11 audit receipts; current-freshness runtime remains unprovisioned and external effects remain disabled**
 
 This contract defines how another local runtime component may consume `authority_current_freshness_verifier` output without turning a serializable receipt into an authority oracle.
 
@@ -8,7 +8,7 @@ This contract defines how another local runtime component may consume `authority
 
 The externally serializable response is `CurrentOperationalFreshnessAuditReceipt`.
 
-It carries semantic authority identity, stable deployment identity, dynamic deployment evidence, currentness-composition provenance, final binding-constitution evidence and the final narrowed lease.
+It carries semantic authority identity, stable deployment identity, final dynamic deployment evidence, canonical #192 composition provenance, final full-currentness constitution context, explicit final constitutional-currentness evidence identity and the final narrowed lease.
 
 Deserializing, copying, replaying or receiving this object from a caller does **not** create positive current authority.
 
@@ -35,8 +35,10 @@ A caller-controlled live-admission request MUST NOT use any of these as positive
 - `VerifiedAuthorityFreshness`;
 - caller-asserted semantic/deployment authority identities;
 - caller-asserted deployment-evidence identity;
-- caller-asserted #192 provenance manifest identity;
-- caller-asserted binding-constitution context identity/reference/window; or
+- caller-asserted #192 provenance identity;
+- caller-asserted full binding-constitution/currentness context identity;
+- caller-asserted `binding_constitution_currentness_evidence_digest/profile`;
+- caller-asserted constitutional verification reference/window; or
 - caller-asserted currentness/deployment lease.
 
 Informational copies may be logged or correlated, but they are ignored for positive authority and independently re-resolved.
@@ -55,33 +57,40 @@ Where the consumer has a proposal/action/executor/effect-safety domain, that dom
 
 ## 6. Two dynamic evidence phases are visible
 
-The receipt exposes two related but causally distinct evidence phases.
+The receipt exposes two causally distinct evidence phases.
 
 ### Currentness composition provenance
 
-`composition_evidence_manifest_*` describes the canonical #192 evidence set that established #117 currentness.
+`composition_evidence_manifest_*` describes the canonical #192 evidence set that established #117 currentness. Its `CurrentConstitution` contribution already records the currentness observation used during root/currentness composition.
 
-### Final deployment-constitution evidence
+### Final deployment currentness evidence
 
-`binding_constitution_*` describes the later final binding-constitution observation that fenced deployment after #117/#192 composition.
+The later final constitutional re-observation happens only after #192 is closed. v0.11 exposes both:
+
+- `binding_constitution_context_*` — the non-deserializable full-currentness/root-bound deployment context projected for audit; and
+- `binding_constitution_currentness_evidence_digest/profile` — the exact shared currentness observation identity consumed by that final context.
 
 These fields are audit evidence. Neither phase alone is an execution grant.
 
-A consumer MUST NOT treat the #192 manifest alone as sufficient deployment proof because the final constitutional re-observation happens after that manifest is qualified.
+A consumer MUST NOT treat the #192 manifest alone as sufficient deployment proof because the final constitutional-currentness observation happens later.
 
 ## 7. Final deployment evidence is the dynamic binding key
 
 For live reuse/caching, the authoritative dynamic evidence key exported by this verifier is the final `deployment_evidence_digest/profile` plus its final verification reference/window.
 
-That dynamic identity commits the canonical #192 provenance through #201 and the final binding-constitution context through the later deployment theorem.
+That dynamic identity commits:
 
-A consumer may retain the component evidence fields for audit/cross-checking, but it MUST NOT reconstruct or substitute its own dynamic deployment-evidence identity from sidecar fields.
+1. canonical #192 provenance through #201;
+2. the rooted #217 compatibility context; and
+3. v0.11's explicit final constitutional-currentness evidence through the v0.4 deployment sibling.
+
+A consumer may retain component evidence fields for audit/cross-checking, but it MUST NOT reconstruct or substitute its own dynamic deployment-evidence identity from sidecar fields.
 
 ## 8. Lease is checked at the consuming boundary
 
 The consumer MUST obtain its own current host time after the local verifier call and require the returned final deployment/currentness lease to remain live at admission time.
 
-The final lease is already bounded by currentness evidence, final constitutional evidence, host DNA context and the deployment return cap. The consumer may shorten it further but never extend it.
+The final lease is already bounded by composition evidence, final constitutional currentness, host DNA context and the deployment return cap. The consumer may shorten it further but never extend it.
 
 ## 9. Caching never changes origin semantics
 
@@ -93,7 +102,7 @@ At minimum a cache key must bind:
 - exact stable deployment authority identity; and
 - exact final dynamic deployment-evidence identity.
 
-The final deployment-evidence identity already commits #192 composition provenance and final binding-constitution evidence. Storing those component identities separately is recommended for forensic audit but does not replace the final evidence key.
+The final deployment-evidence identity already commits #192 composition provenance and final full-currentness deployment evidence. Storing component identities separately is recommended for forensic audit but does not replace the final evidence key.
 
 A cache must contain only receipts originally obtained from the designated local verifier and may never extend their lease.
 
@@ -115,7 +124,7 @@ Stored receipts may support historical/as-of audit of what a verifier reported. 
 
 ## 13. Failure semantics
 
-Any missing verifier, call/decode failure, subject/domain mismatch, malformed evidence identity/reference/profile, future verification time, expired final lease, wrong DNA/stable deployment identity, missing/contradictory currentness or final-constitution evidence, or inability to bind the response to the consumer domain means **DENY / unavailable**.
+Any missing verifier, call/decode failure, subject/domain mismatch, malformed evidence identity/reference/profile, final-currentness echo mismatch, future verification time, expired final lease, wrong DNA/stable deployment identity, missing/contradictory composition/final-currentness evidence, or inability to bind the response to the consumer domain means **DENY / unavailable**.
 
 There is no reputation, Phi, model-score, Guardian, creator, role or best-effort fallback.
 
@@ -123,4 +132,4 @@ There is no reputation, Phi, model-score, Guardian, creator, role or best-effort
 
 `authority_current_freshness_verifier` remains absent from binding `dna.yaml`. No effect-capable consumer is provisioned here and no external effects are enabled.
 
-Before provisioning any effect consumer, adversarial tests must prove forged caller-supplied audit receipts are ignored, the consumer performs the direct local verifier call itself, the final lease is rechecked, and #192 sidecar provenance cannot substitute for final deployment evidence.
+Before provisioning any effect consumer, adversarial tests must prove forged caller-supplied audit receipts are ignored, the consumer performs the direct local verifier call itself, the final lease is rechecked, and neither #192 sidecar provenance nor final-currentness sidecar fields can substitute for final deployment evidence.

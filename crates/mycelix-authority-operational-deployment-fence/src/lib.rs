@@ -15,8 +15,10 @@ use serde::Serialize;
 use std::fmt;
 
 mod constitution;
+mod currentness;
 mod provenance;
 pub use constitution::*;
+pub use currentness::*;
 pub use provenance::*;
 
 pub const PROTOCOL_VERSION: &str = "mycelix-authority-operational-deployment-fence-v0.1";

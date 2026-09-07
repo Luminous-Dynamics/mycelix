@@ -1,12 +1,13 @@
-# Operational Deployment Fence v0.3 — Normative Invariants
+# Operational Deployment Fence v0.4 — Normative Invariants
 
-Status: **pure qualification kernels; no runtime provisioning and no external effects**
+Status: **pure qualification kernels; explicit final constitutional-currentness evidence; no runtime provisioning and no external effects**
 
-This layer now answers three deliberately separate questions:
+This layer answers four deliberately separate questions:
 
 1. Is one locally qualified #117 operational-currentness proof live in this exact host DNA and constitutional epoch?
-2. Is that deployment backed by one exact canonical currentness-evidence provenance manifest?
-3. Did the final deployment decision use one exact, live, locally qualified binding-constitution re-observation cross-bound to the exact qualified bootstrap root rather than caller-supplied constitutional primitives?
+2. Is that deployment backed by one exact canonical #192 currentness-evidence provenance manifest?
+3. Did the final deployment decision use one exact, live, locally qualified binding-constitution re-observation cross-bound to the exact qualified bootstrap root?
+4. Does final dynamic deployment evidence commit the explicit shared constitutional-currentness evidence identity, rather than preserving it only indirectly through a verification-reference string?
 
 None of these theorems grants permission for an external effect.
 
@@ -18,7 +19,7 @@ No deployment theorem accepts transportable `VerifiedAuthorityFreshness`, provid
 
 ## 2. Host DNA and constitutional evidence remain independent
 
-Host DNA comes from the local runtime/cell. Constitutional DNA comes from independently verified constitutional evidence.
+Host DNA comes from the local runtime/cell. Constitutional DNA comes from independently verified constitutional currentness evidence.
 
 Stable deployment authority requires exact equality between those identities, but neither source may substitute for the other.
 
@@ -28,143 +29,167 @@ Stable deployment authority requires exact equality between those identities, bu
 
 `qualify_operational_freshness_for_deployment` remains available with its historical primitive constitutional inputs.
 
-It is retained as the compatibility theorem underlying stronger siblings. The active current-freshness runtime MUST NOT call it directly.
+It is retained only as the compatibility theorem underlying stronger siblings. The active current-freshness runtime MUST NOT call it directly.
 
 Stable `deployment_authority_digest/profile` continues to commit exact #117 semantic authority, bootstrap root, operational context, constitutional statement and host DNA.
 
 ## 4. Provenance-bound deployment remains a sibling theorem
 
-`qualify_operational_freshness_for_deployment_with_provenance` consumes the non-deserializable canonical evidence-lease manifest and delegates stable authority to #154.
+`qualify_operational_freshness_for_deployment_with_provenance` consumes the non-deserializable canonical #192 evidence-lease manifest and delegates stable authority to #154.
 
 Canonical composition provenance changes dynamic deployment evidence only, never stable deployment authority.
 
-## 5. Final binding constitution context is non-deserializable
+## 5. #217 binding-constitution context remains a compatibility theorem
 
-`QualifiedBindingConstitutionContext` derives `Serialize` but not `Deserialize`.
+`QualifiedBindingConstitutionContext` remains non-deserializable and is qualified from:
 
-It may be produced only by `qualify_binding_constitution_context` from:
-
-- one exact live `VerifiedCurrentConstitutionReceipt`; and
+- one live `VerifiedCurrentConstitutionReceipt`; and
 - the exact non-deserializable `QualifiedAuthorityStateBootstrapRoot` already used by the currentness stack.
 
-No caller-supplied expected statement digest is accepted by this qualifier.
+It cross-binds statement/DNA/timing/reference to the exact #111 root and remains the reviewed compatibility theorem beneath the v0.4 sibling.
 
-Qualification requires:
+The active v0.11 runtime MUST NOT project its final shared constitutional-currentness object into this older receipt before choosing the final deployment evidence identity.
 
-- the current-constitution receipt validates at `now_ms`;
-- exact statement digest equality with `rooted.current_constitution_digest()`;
-- exact statement digest/profile equality with the qualified root manifest;
-- exact root qualification profile `ROOT_QUALIFICATION_PROFILE`;
-- non-zero root qualification identity;
-- canonical `STATEMENT_PROFILE`;
-- valid DNA identity;
-- non-empty verification reference; and
-- a live bounded verification window.
+## 6. Full currentness context is non-deserializable
 
-Its context digest commits the exact DNA, statement digest/profile, root qualification digest/profile, verification reference and verification/validity times.
+`QualifiedCurrentnessBindingConstitutionContext` derives `Serialize` but not `Deserialize`.
 
-## 6. Final constitution context is bound to the exact qualified bootstrap root
+It may be produced only by `qualify_currentness_binding_constitution_context` from:
 
-The binding constitution context is not merely “the same constitutional statement.” It commits the exact #111 root qualification identity that was used to build currentness.
+- the canonical shared `LeasedVerifiedCurrentConstitution`; and
+- the exact non-deserializable #111 `QualifiedAuthorityStateBootstrapRoot`.
 
-The active deployment theorem additionally requires:
+Qualification first calls the shared currentness contract's `validate_at(now_ms)`, then internally derives the older receipt only to run the reviewed #217 compatibility qualifier.
 
-`semantic.root_qualification_digest/profile == constitution_context.root_qualification_digest/profile`.
+The caller cannot supply a plain expected statement digest, currentness digest, verification reference, lease basis, DNA hash, or compatibility context.
 
-A final constitution context qualified against one root cannot be reused with #117 currentness qualified under another root, even if both roots happen to commit the same constitutional statement.
+## 7. Explicit currentness evidence survives the final fence
 
-## 7. Final constitutional re-observation is deployment evidence, not #192 composition provenance
+The full currentness context commits:
 
-The #192 manifest describes dynamic evidence used to establish #117 currentness.
+- the exact #217 compatibility-context digest/profile; and
+- the exact shared `currentness_evidence_digest/profile`.
 
-The final constitutional re-observation happens after exact #192 closure, specifically to fence deployment against a constitutional change during composition. It therefore remains a separate deployment-evidence context rather than being retroactively inserted into the #192 currentness manifest.
+The shared currentness evidence digest already commits exact DNA, statement epoch, lease basis and observation window.
 
-This separation preserves causal meaning:
+Therefore a refreshed currentness observation under unchanged constitutional semantics/root changes the full currentness-context identity even though stable deployment authority does not change.
 
-`currentness evidence -> #117 -> #192 closure -> final constitution fence -> deployment evidence`.
+## 8. Root equality remains mandatory
 
-## 8. Active theorem accepts no plain constitutional primitives
+The shared currentness object is internally projected to the historical receipt only after shared validation. #217 then requires exact equality with the #111 root:
 
-`qualify_operational_freshness_for_deployment_with_constitution_and_provenance` accepts:
+`current statement/root epoch == rooted.current_constitution_digest + rooted.qualification_digest/profile`.
+
+The later deployment theorem also requires #117 semantic currentness to name that same root.
+
+Thus `same constitutional statement != same qualified root`.
+
+## 9. Composition provenance and final currentness evidence remain causally separate
+
+The #192 manifest describes evidence used to establish #117 currentness.
+
+The final shared constitutional-currentness re-observation happens after exact #192 closure, specifically to fence deployment against a constitutional change during composition.
+
+It is therefore not retroactively inserted into #192.
+
+The causal chain remains:
+
+`composition evidence -> #117 -> #192 closure -> final currentness re-observation -> host DNA -> deployment evidence`.
+
+## 10. Active v0.4 theorem accepts no plain constitutional primitives
+
+`qualify_operational_freshness_for_deployment_with_currentness_and_provenance` accepts only:
 
 - `&QualifiedOperationalSubjectFreshness`;
-- `&QualifiedBindingConstitutionContext`;
+- `&QualifiedCurrentnessBindingConstitutionContext`;
 - `&HostLocalDnaContext`;
 - `&QualifiedEvidenceLeaseManifest`; and
 - `now_ms`.
 
-It does NOT accept a plain constitutional DNA hash or statement digest from its caller.
+It does NOT accept caller-selectable constitutional DNA, statement digest, currentness digest, currentness reference, or lease fields.
 
-Those primitive values are projected internally from the non-deserializable constitutional context only when invoking the older compatibility theorem.
+## 11. Stable deployment authority remains unchanged
 
-## 9. Stable deployment authority remains unchanged
+`QualifiedCurrentnessBoundProvenanceDeploymentOperationalFreshness::deployment_authority_digest/profile` delegates to the #217 result, which delegates through #201 to #154.
 
-`QualifiedConstitutionBoundProvenanceDeploymentOperationalFreshness::deployment_authority_digest/profile` delegates through the provenance sibling to the original #154 result.
+The explicit currentness context/digest does not enter that getter or stable authority hash domain.
 
-Therefore refreshing only the final binding-constitution observation while statement + root + DNA remain identical MUST NOT mint a new stable deployment authority identity.
+Therefore refreshing only constitutional currentness evidence while semantic statement + root + DNA remain identical MUST preserve stable deployment authority.
 
-## 10. Final constitutional observation changes dynamic deployment evidence
+## 12. Explicit currentness changes dynamic deployment evidence
 
-The final dynamic deployment-evidence digest commits:
+The v0.4 dynamic deployment-evidence digest commits:
 
-- the exact provenance-bound deployment-evidence digest/profile; and
-- the exact binding-constitution context digest/profile.
+- the exact #217 constitution/provenance deployment-evidence digest/profile; and
+- the exact full-currentness constitution-context digest/profile.
 
-The context digest itself commits the rooted #111 identity, verification reference and exact observation horizon.
+That context digest explicitly commits the canonical currentness-evidence digest/profile.
 
-Thus the same stable authority with a refreshed final constitutional observation produces new dynamic evidence identity.
+Thus the same stable authority with a refreshed final currentness observation produces a different dynamic deployment-evidence identity.
 
-## 11. Constitution evidence can only narrow deployment reuse
+## 13. Currentness evidence can only narrow deployment reuse
 
-The qualified binding-constitution context must be live.
+The full currentness context must be live.
 
-The host context MUST NOT outlive it. The final result is narrowed to:
+The host context MUST NOT outlive it. The v0.4 result remains narrowed to the minimum of the #217 deployment horizon and the full currentness context horizon.
 
-`verified_at = max(provenance-bound deployment, final constitution observation)`
+No currentness observation may widen deployment reuse or predate the final evidence lease.
 
-`valid_until = min(provenance-bound deployment, final constitution observation)`.
-
-No constitutional observation may widen deployment reuse.
-
-## 12. Provenance lease containment remains mandatory
+## 14. Provenance lease containment remains mandatory
 
 The canonical #192 aggregate must remain live and contain the host/base deployment reuse window as required by the provenance sibling.
 
-Final binding-constitution evidence is an additional later fence, not a replacement for composition-provenance containment.
+Final currentness evidence is an additional later fence, not a replacement for composition-provenance containment.
 
-## 13. All positive deployment contexts/results are non-deserializable
+## 15. Audit output exposes explicit final currentness identity
+
+The v0.11 runtime receipt exports, separately:
+
+- #192 composition-provenance identity/timing;
+- full final binding-constitution context identity/timing;
+- final `binding_constitution_currentness_evidence_digest/profile`;
+- stable deployment authority identity; and
+- final dynamic deployment-evidence identity.
+
+The runtime MUST cross-check those fields against the final non-deserializable deployment object before serialization.
+
+## 16. All positive deployment contexts/results are non-deserializable
 
 The following derive `Serialize` but not `Deserialize`:
 
 - `HostLocalDnaContext`;
 - `QualifiedDeploymentOperationalFreshness`;
 - `QualifiedProvenanceBoundDeploymentOperationalFreshness`;
-- `QualifiedBindingConstitutionContext`; and
-- `QualifiedConstitutionBoundProvenanceDeploymentOperationalFreshness`.
+- `QualifiedBindingConstitutionContext`;
+- `QualifiedConstitutionBoundProvenanceDeploymentOperationalFreshness`;
+- `QualifiedCurrentnessBindingConstitutionContext`; and
+- `QualifiedCurrentnessBoundProvenanceDeploymentOperationalFreshness`.
 
-Another runtime/cell must reconstruct currentness, canonical provenance, host DNA and final constitutional context locally.
+Another runtime/cell must reconstruct currentness, canonical provenance, host DNA and final constitutional currentness locally.
 
-## 14. Pure separation
+## 17. Pure separation
 
 This crate contains no HDK/Holochain calls, DHT lookup, persistence, discovery, signature service, lifecycle mutation, execution action, reputation, Phi, stake, Guardian override or model-score authority.
 
-The runtime owns host/constitution retrieval. This crate only qualifies relationships among already-provided evidence and non-deserializable positive objects.
+The runtime owns host/constitution retrieval. This crate only qualifies relationships among evidence and non-deserializable positive objects already obtained through the appropriate trust boundaries.
 
-## 15. Runtime acceptance target
+## 18. Runtime acceptance target
 
 The active current-freshness runtime must, in order:
 
 1. locally construct #117 currentness;
 2. close and qualify the exact #192 composition-provenance manifest and require aggregate equality;
-3. re-read the binding constitution and confirm the rooted epoch did not change;
-4. construct a fresh `VerifiedCurrentConstitutionReceipt` from that final read;
-5. locally qualify `QualifiedBindingConstitutionContext` against the exact non-deserializable #111 root;
-6. obtain host DNA locally;
-7. choose a fresh deployment qualification time after constitution + host observation;
-8. revalidate the canonical #192 aggregate at that later time;
-9. cap host reuse by the canonical provenance aggregate, final constitution horizon and deployment return cap;
-10. construct non-deserializable `HostLocalDnaContext`;
-11. call only `qualify_operational_freshness_for_deployment_with_constitution_and_provenance` on the active path; and
-12. export constitution/provenance/deployment audit evidence only from that final non-deserializable result.
+3. re-read the canonical shared leased binding constitution and confirm the rooted epoch did not change;
+4. call `qualify_currentness_binding_constitution_context` directly on that full shared object plus the exact #111 root;
+5. obtain host DNA locally;
+6. choose a fresh deployment qualification time after constitution + host observation;
+7. revalidate the canonical #192 aggregate at that later time;
+8. cap host reuse by the canonical provenance aggregate, final currentness horizon and deployment return cap;
+9. construct non-deserializable `HostLocalDnaContext`;
+10. call only `qualify_operational_freshness_for_deployment_with_currentness_and_provenance` on the active path;
+11. require the result to echo the exact full currentness-context digest/profile, currentness-evidence digest/profile, verification reference and horizon; and
+12. export audit evidence only from that final non-deserializable result.
+
+The final active path MUST NOT call `current_constitution_receipt` between the final shared currentness read and deployment qualification.
 
 No external effect is authorized by deployment qualification alone.

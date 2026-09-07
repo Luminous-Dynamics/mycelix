@@ -10,6 +10,7 @@ on:
     branches:
       - 'security/authority-currentness-wire-boundary-v0.1'
       - 'security/authority-deployment-constitution-context-v0.1'
+      - 'security/deployment-currentness-evidence-context-v0.1'
 
 permissions:
   contents: read
@@ -20,7 +21,7 @@ concurrency:
 
 jobs:
   contract:
-    name: Transport receipt never becomes execution authority
+    name: v0.11 transport receipt never becomes execution authority
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,24 +39,27 @@ jobs:
           lower = contract.lower()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
+          assert 'mycelix-authority-current-freshness-verifier-v0.11' in types
           assert 'pub struct CurrentOperationalFreshnessAuditReceipt {' in types
           assert 'VerifiedCurrentOperationalFreshnessReceipt' not in types
           assert 'ExternResult<CurrentOperationalFreshnessAuditReceipt>' in runtime
           assert 'Ok(CurrentOperationalFreshnessAuditReceipt {' in runtime
 
-          # External currentness request is target-only; no positive receipt enters the verifier.
+          # External request remains target-only; positive receipts never enter the verifier.
           signature = runtime.split('pub fn resolve_current_operational_freshness(', 1)[1].split(') -> ExternResult<', 1)[0]
           assert 'subject: AuthoritySubjectRef' in signature
           assert 'AuditReceipt' not in signature
           assert 'VerifiedAuthorityFreshness' not in signature
 
-          # Both dynamic evidence phases and the final binding key are visible for audit.
+          # Composition evidence and later final-currentness evidence are separately visible.
           receipt = types.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
           for field in [
               'composition_evidence_manifest_digest',
               'composition_evidence_manifest_profile',
               'binding_constitution_context_digest',
               'binding_constitution_context_profile',
+              'binding_constitution_currentness_evidence_digest',
+              'binding_constitution_currentness_evidence_profile',
               'binding_constitution_verification_ref',
               'binding_constitution_verified_at_ms',
               'binding_constitution_valid_until_ms',
@@ -71,11 +75,18 @@ jobs:
               'caller_supplied_positive_currentness_accepted: false',
               'wire_receipt_grants_execution_authority: false',
               'final_constitution_context_qualified_locally: true',
+              'final_constitution_currentness_evidence_explicit: true',
               'final_constitution_evidence_bound_into_deployment_evidence: true',
               'external_effects_enabled: false',
               'operational: false',
           ]:
               assert token in runtime, token
+
+          # The final dynamic binding key is sourced from the final non-deserializable theorem.
+          assert 'binding_constitution_currentness_evidence_digest: deployment' in runtime
+          assert 'binding_constitution_currentness_evidence_profile: deployment' in runtime
+          assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in runtime
+          assert 'deployment_evidence_profile: deployment.deployment_evidence_profile().into()' in runtime
 
           for token in [
               'the wire object is audit/transport data',
@@ -92,12 +103,13 @@ jobs:
           ]:
               assert token in lower, token
 
-          for forbidden_positive_input in [
+          for positive_name in [
               'CurrentOperationalFreshnessAuditReceipt',
               'VerifiedCurrentOperationalFreshnessReceipt',
               'VerifiedAuthorityFreshness',
+              'binding_constitution_currentness_evidence_digest/profile',
           ]:
-              assert forbidden_positive_input in contract
+              assert positive_name in contract, positive_name
 
           assert 'directly calling the designated local currentness verifier' in contract
           assert 'final deployment-evidence identity' in lower
@@ -112,5 +124,5 @@ jobs:
               assert forbidden not in runtime
           assert 'name: authority_current_freshness_verifier' not in dna
 
-          print('PASS: transport-only currentness exposes distinct evidence phases while live consumers bind the final deployment evidence from a direct local verifier call')
+          print('PASS: v0.11 receipt exposes composition plus explicit final currentness evidence while live authority still originates only from a direct local verifier call')
           PY

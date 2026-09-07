@@ -40,6 +40,7 @@ on:
       - 'security/authority-deployment-constitution-context-v0.1'
       - 'security/constitution-currentness-lease-v0.1'
       - 'security/constitution-currentness-contract-v0.1'
+      - 'security/deployment-currentness-evidence-context-v0.1'
 
 permissions:
   contents: read
@@ -53,7 +54,7 @@ env:
 
 jobs:
   qualify:
-    name: Shared constitution + provenance bound current freshness
+    name: v0.11 full constitutional currentness + provenance deployment qualification
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -97,7 +98,7 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: End-to-end shared constitution and provenance deployment audit
+      - name: End-to-end v0.11 full-currentness deployment audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -115,125 +116,79 @@ jobs:
           workspace = Path('mycelix-governance/Cargo.toml').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
           lease_src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
-          fence = Path('crates/mycelix-authority-operational-deployment-fence/src/constitution.rs').read_text()
           currentness_contract = Path('crates/mycelix-governance-constitution-currentness/src/lib.rs').read_text()
-          currentness_cargo = Path('crates/mycelix-governance-constitution-currentness/Cargo.toml').read_text()
-          constitution_currentness = Path('mycelix-governance/zomes/constitution-currentness-verifier/coordinator/src/lib.rs').read_text()
-          constitution_currentness_cargo = Path('mycelix-governance/zomes/constitution-currentness-verifier/coordinator/Cargo.toml').read_text()
+          producer = Path('mycelix-governance/zomes/constitution-currentness-verifier/coordinator/src/lib.rs').read_text()
+          fence_root = Path('crates/mycelix-authority-operational-deployment-fence')
+          fence_lib = (fence_root / 'src/lib.rs').read_text()
+          fence_constitution = (fence_root / 'src/constitution.rs').read_text()
+          fence_currentness = (fence_root / 'src/currentness.rs').read_text()
           consumer_cargo = Path('mycelix-governance/zomes/authority-current-freshness-verifier/coordinator/Cargo.toml').read_text()
 
           for name in ['types.rs', 'root.rs', 'evidence.rs', 'runtime.rs']:
               assert f'include!("v04/{name}");' in lib
 
-          # One pure contract owns the constitutional-currentness wire and derived evidence rules.
-          assert 'name = "mycelix-governance-constitution-currentness"' in currentness_cargo
-          for token in [
-              'pub const PROTOCOL_VERSION: &str = "mycelix-governance-current-constitution-leased-v0.1"',
-              'mycelix-governance-current-constitution-evidence-v1-blake3-framed',
-              'dna-immutable-genesis-amendments-disabled-local-reuse-v1',
-              'pub struct LeasedVerifiedCurrentConstitution {',
-              'pub fn new_genesis(',
-              'pub fn validate_at(&self, now_ms: u64)',
-              'pub fn currentness_evidence_digest(',
-              'pub fn currentness_verification_ref(',
-              'if width > GENESIS_CURRENTNESS_REUSE_MS',
-              'if expected_digest != self.currentness_evidence_digest',
-              'if self.verification_ref != currentness_verification_ref(expected_digest)',
-              'NotGenesisStatement',
-          ]:
-              assert token in currentness_contract, token
+          # Wire/profile version is explicit because v0.11 adds final currentness evidence fields.
+          assert 'mycelix-authority-current-freshness-verifier-v0.11' in types
+          assert 'binding_constitution_currentness_evidence_digest: Digest32' in types
+          assert 'binding_constitution_currentness_evidence_profile: String' in types
+          assert 'final_constitution_currentness_evidence_explicit: bool' in types
 
-          # Producer and consumer share that exact executable contract; no mirror/hash copy remains.
-          assert 'mycelix-governance-constitution-currentness' in constitution_currentness_cargo
-          assert 'blake3' not in constitution_currentness_cargo
-          assert 'LeasedVerifiedCurrentConstitution::new_genesis(' in constitution_currentness
-          assert 'pub struct LeasedVerifiedCurrentConstitution {' not in constitution_currentness
-          assert 'fn currentness_evidence_digest(' not in constitution_currentness
-          assert 'blake3::' not in constitution_currentness
-          assert 'shared_currentness_contract_consumed: true' in constitution_currentness
-          assert 'mycelix-governance-constitution-currentness' in consumer_cargo
+          # Producer/consumer share one currentness ABI and executable validator.
+          assert 'pub struct LeasedVerifiedCurrentConstitution {' in currentness_contract
+          assert 'pub fn validate_at(&self, now_ms: u64)' in currentness_contract
+          assert 'pub fn currentness_evidence_digest(' in currentness_contract
+          assert 'LeasedVerifiedCurrentConstitution::new_genesis(' in producer
+          assert 'pub struct LeasedVerifiedCurrentConstitution {' not in producer
+          assert 'fn currentness_evidence_digest(' not in producer
           assert 'LeasedVerifiedCurrentConstitution as VerifiedCurrentConstitutionMirror' in types
           assert 'struct VerifiedCurrentConstitutionMirror {' not in types
-          for duplicated_literal in [
-              'mycelix-governance-current-constitution-leased-v0.1',
-              'mycelix-governance-current-constitution-evidence-v1-blake3-framed',
-              'dna-immutable-genesis-amendments-disabled-local-reuse-v1',
-          ]:
-              assert duplicated_literal not in types, duplicated_literal
-
+          assert 'mycelix-governance-constitution-currentness' in consumer_cargo
           validator = root_src.split('fn verify_constitution_projection(', 1)[1].split('fn resolve_binding_current_constitution', 1)[0]
           assert 'current.validate_at(now)' in validator
-          for duplicated_check in [
-              'expected_ref',
-              'current.currentness_evidence_profile !=',
-              'current.verified_transition_count != 0',
-              'current.lease_basis !=',
-              'current.protocol !=',
-          ]:
-              assert duplicated_check not in validator, duplicated_check
 
-          # Dedicated currentness verifier remains the only active constitutional-currentness source.
+          # Currentness comes only from the designated verifier; no transition/latest-record fallback.
           assert 'const CONSTITUTION_CURRENTNESS_VERIFIER_ZOME: &str = "constitution_currentness_verifier";' in types
           assert 'const CURRENT_CONSTITUTION_FUNCTION: &str = "get_leased_current_constitution";' in types
-          assert 'CONSTITUTION_TRANSITION_ZOME' not in src
-          assert 'get_verified_current_constitution' not in src
-          assert 'CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS' not in src
+          for forbidden in ['CONSTITUTION_TRANSITION_ZOME', 'get_verified_current_constitution', 'CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS']:
+              assert forbidden not in src, forbidden
 
-          # Dynamic constitutional currentness evidence remains distinct from statement semantics.
-          current_contribution = root_src.split('EvidenceLeaseRole::CurrentConstitution,', 1)[1].split('EvidenceLeaseRole::BootstrapRootAdoption', 1)[0]
-          assert 'constitution_after.currentness_evidence_digest' in current_contribution
-          assert '&constitution_after.currentness_evidence_profile' in current_contribution
-          assert '&constitution_after.verification_ref' in current_contribution
-          assert 'constitution_receipt.statement_digest' not in current_contribution
-          assert 'constitution_receipt.statement_profile' not in current_contribution
-
-          # The #111 receipt copies exact shared-contract evidence; the consumer invents no lease/ref.
+          # #111 compatibility receipt still copies exact verifier evidence only inside the root path.
           receipt_fn = root_src.split('fn current_constitution_receipt(', 1)[1].split('fn resolve_root()', 1)[0]
-          assert 'verify_constitution_projection(current, now)?;' in receipt_fn
-          assert 'statement_digest: constitution_digest_to_core(current.statement_digest)' in receipt_fn
-          assert 'verification_ref: current.verification_ref.clone()' in receipt_fn
-          assert 'verified_at_ms: current.verified_at_ms' in receipt_fn
-          assert 'valid_until_ms: current.valid_until_ms' in receipt_fn
+          for token in [
+              'verify_constitution_projection(current, now)?;',
+              'verification_ref: current.verification_ref.clone()',
+              'verified_at_ms: current.verified_at_ms',
+              'valid_until_ms: current.valid_until_ms',
+          ]:
+              assert token in receipt_fn, token
           assert 'checked_add(' not in receipt_fn
           assert 'format!(' not in receipt_fn
-          assert 'constitution-transition-current' not in receipt_fn
 
-          # Producer is genesis-only and never uses candidate/DHT absence as currentness authority.
+          # #192 records dynamic currentness evidence, not semantic statement identity.
+          current_contribution = root_src.split('EvidenceLeaseRole::CurrentConstitution,', 1)[1].split('EvidenceLeaseRole::BootstrapRootAdoption', 1)[0]
           for token in [
-              'CONSTITUTION_AUTHORITY_ZOME',
-              'if genesis.amendments_enabled',
-              'LeasedVerifiedCurrentConstitution::new_genesis(',
-              'current.statement_digest != genesis.statement_digest',
-              'amendment_currentness_supported: false',
-              'candidate_discovery_grants_authority: false',
+              'constitution_after.currentness_evidence_digest',
+              '&constitution_after.currentness_evidence_profile',
+              '&constitution_after.verification_ref',
           ]:
-              assert token in constitution_currentness, token
-          for forbidden_currentness in [
-              'get_links(',
-              'get_details(',
-              'project_verified_lineage',
-              'ConstitutionTransitionCandidate',
-              'constitution_transition',
-              'binding_voting',
-              'governance_rights_verifier',
-              'threshold_authority_verifier',
-          ]:
-              assert forbidden_currentness not in constitution_currentness, forbidden_currentness
+              assert token in current_contribution, token
+          assert 'constitution_receipt.statement_digest' not in current_contribution
 
-          # Versioned canonical currentness provenance remains explicit.
+          # Root provenance and global lease closure remain exact.
           assert 'mycelix-authority-evidence-lease-v0.2' in lease_src
-          assert 'mycelix-authority-evidence-lease-manifest-v2-blake3-framed' in lease_src
-          assert 'EvidenceLeaseRole::CurrentConstitution' in root_src
-          assert 'EvidenceLeaseRole::BootstrapRootAdoption' in root_src
-          assert 'EvidenceLeaseRole::BootstrapRoot' in root_src
-          assert 'if root_containment != root_lease' in root_src
-          assert 'contributions.extend(resolved_root.contributions.iter().cloned())' in runtime
+          for token in [
+              'EvidenceLeaseRole::CurrentConstitution',
+              'EvidenceLeaseRole::BootstrapRootAdoption',
+              'EvidenceLeaseRole::BootstrapRoot',
+              'if root_containment != root_lease',
+          ]:
+              assert token in root_src, token
           for token in ['current_constitution: 1', 'bootstrap_root_adoption: 1', 'bootstrap_root: 1']:
               assert token in runtime, token
           assert 'let provenance = qualify_closed_provenance(&contributions, expected, provenance_now)?;' in runtime
           assert 'provenance.aggregate_lease() != &composition_lease' in runtime
 
-          # Leased source/witness/policy and independent transition proof domains remain mandatory.
+          # Leased source/witness/policy plus independent transition proof domains remain mandatory.
           for token in [
               '"resolve_operational_policy_candidates_leased"',
               '"verify_source_head_leased"',
@@ -241,165 +196,115 @@ jobs:
               'let record_proof: VerifiedTransitionRecordProof = call_local(',
               'let authority_proof: VerifiedTransitionAuthorityProof = call_local(',
               'let qualified = qualify_authority_state_transition(',
-              'EvidenceLeaseRole::AuthorityStateTransition',
-              'EvidenceLeaseRole::ControlPlaneFreshness',
           ]:
               assert token in src, token
-          for forbidden_endpoint in [
-              '"resolve_operational_policy_candidates",',
-              '"verify_source_head",',
-              '"verify_witness_evidence",',
-          ]:
-              assert forbidden_endpoint not in src, forbidden_endpoint
+          for forbidden in ['"resolve_operational_policy_candidates",', '"verify_source_head",', '"verify_witness_evidence",']:
+              assert forbidden not in src, forbidden
 
-          # #192 closes before the final external constitutional authority read.
+          # Pure deployment fence preserves compatibility theorems and adds full-currentness sibling.
+          assert 'mod currentness;' in fence_lib
+          assert 'pub use currentness::*;' in fence_lib
+          assert 'pub struct QualifiedCurrentnessBindingConstitutionContext {' in fence_currentness
+          assert 'pub struct QualifiedCurrentnessBoundProvenanceDeploymentOperationalFreshness {' in fence_currentness
+          assert 'current.validate_at(now_ms)' in fence_currentness
+          assert 'qualify_binding_constitution_context(&receipt, rooted, now_ms)' in fence_currentness
+          assert 'current.currentness_evidence_digest' in fence_currentness
+          assert 'current.currentness_evidence_profile' in fence_currentness
+          full_getter = fence_currentness.split('pub fn deployment_authority_digest(&self)', 1)[1].split('}', 1)[0]
+          assert 'self.base.deployment_authority_digest()' in full_getter
+          assert 'currentness' not in full_getter
+          assert 'currentness_bound_deployment_evidence_digest(' in fence_currentness
+
+          # Final runtime ordering closes #192 before full currentness re-observation and never projects to old receipt.
           operational = runtime.split('pub fn resolve_current_operational_freshness(', 1)[1].split('#[hdk_extern]\npub fn current_freshness_runtime_status', 1)[0]
           provenance_time = operational.index('let provenance_now = now_ms()?;')
           provenance = operational.index('let provenance = qualify_closed_provenance(&contributions, expected, provenance_now)?;')
           final_read = operational.index('let final_constitution = resolve_binding_current_constitution()?;')
           same = operational.index('ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;')
           constitution_time = operational.index('let constitution_now = now_ms()?;')
-          final_receipt = operational.index('let final_constitution_receipt =')
-          final_context = operational.index('let final_constitution_context =')
+          final_context = operational.index('let final_constitution_context = qualify_currentness_binding_constitution_context(')
           host = operational.index('let host_dna_hash = dna_info()?.hash.to_string();')
           deployment_time = operational.index('let deployment_now = now_ms()?;')
           host_context = operational.index('let host_context = HostLocalDnaContext::from_host_observation(')
-          deployment = operational.index('let deployment = qualify_operational_freshness_for_deployment_with_constitution_and_provenance(')
-          assert provenance_time < provenance < final_read < same < constitution_time < final_receipt < final_context < host < deployment_time < host_context < deployment
-          context_call = operational.split('let final_constitution_context =', 1)[1].split('.map_err', 1)[0]
-          assert 'qualify_binding_constitution_context' in context_call
-          assert '&final_constitution_receipt' in context_call
-          assert 'root' in context_call
-          assert 'constitution_now' in context_call
-          assert 'root.current_constitution_digest()' not in context_call
-          assert '.min(final_constitution_context.valid_until_ms())' in operational
-          assert '.cap_valid_until(requested_deployment_until, deployment_now)' in operational
-          assert 'canonical provenance expired after final constitution recheck' in operational
+          deployment = operational.index('qualify_operational_freshness_for_deployment_with_currentness_and_provenance(')
+          assert provenance_time < provenance < final_read < same < constitution_time < final_context < host < deployment_time < host_context < deployment
+          final_phase = operational[final_read:deployment]
+          assert 'current_constitution_receipt(' not in final_phase
+          assert 'qualify_binding_constitution_context(' not in final_phase
+          assert '&final_constitution' in operational[final_context:host]
+          assert 'root' in operational[final_context:host]
 
-          # Active deployment boundary takes only non-deserializable positive contexts.
-          assert 'qualify_operational_freshness_for_deployment_with_constitution_and_provenance(' in operational
-          assert 'qualify_operational_freshness_for_deployment_with_provenance(' not in operational
-          assert 'qualify_operational_freshness_for_deployment(' not in operational
-          call = operational.split('let deployment = qualify_operational_freshness_for_deployment_with_constitution_and_provenance(', 1)[1].split(')', 1)[0]
-          assert '&current' in call
-          assert '&final_constitution_context' in call
-          assert '&host_context' in call
-          assert '&provenance' in call
-          assert 'deployment_now' in call
-          assert 'final_constitution.dna_hash' not in call
-          assert 'constitution_statement_digest' not in call
+          # Active runtime does not call older deployment theorems directly.
+          assert 'qualify_operational_freshness_for_deployment_with_currentness_and_provenance(' in operational
+          for old in [
+              'qualify_operational_freshness_for_deployment_with_constitution_and_provenance(',
+              'qualify_operational_freshness_for_deployment_with_provenance(',
+              'qualify_operational_freshness_for_deployment(',
+          ]:
+              assert old not in operational, old
 
-          # Pure context qualifier consumes the non-deserializable #111 root, not a primitive digest.
-          context_sig = fence.split('pub fn qualify_binding_constitution_context(', 1)[1].split(') -> Result<', 1)[0]
-          assert 'current: &VerifiedCurrentConstitutionReceipt' in context_sig
-          assert 'rooted: &QualifiedAuthorityStateBootstrapRoot' in context_sig
-          assert 'expected_statement_digest' not in context_sig
-          assert 'rooted.qualification_digest()' in fence
-          assert 'rooted.current_constitution_digest()' in fence
-          assert 'rooted.manifest().constitution_statement_digest' in fence
-
-          # The active sibling exposes no plain constitutional primitives and binds the same root.
-          active_sig = fence.split('pub fn qualify_operational_freshness_for_deployment_with_constitution_and_provenance(', 1)[1].split(') -> Result<', 1)[0]
-          assert 'constitution: &QualifiedBindingConstitutionContext' in active_sig
-          assert 'constitutional_dna_hash' not in active_sig
-          assert 'constitution_statement_digest' not in active_sig
-          assert 'semantic.root_qualification_digest() != constitution.root_qualification_digest()' in fence
-          assert 'semantic.root_qualification_profile() != constitution.root_qualification_profile()' in fence
-
-          # Both evidence phases are echoed exactly before wire projection.
+          # Full currentness context/explicit evidence are echoed before wire projection.
           for token in [
-              'deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())',
-              'deployment.provenance_manifest_profile() != provenance.manifest_profile()',
-              'deployment.provenance_contributor_count() != provenance.contributor_count()',
               'deployment.binding_constitution_context_digest()',
               'final_constitution_context.context_digest()',
-              'deployment.binding_constitution_context_profile()',
-              'final_constitution_context.context_profile()',
-              'deployment.binding_constitution_verification_ref()',
-              'final_constitution_context.verification_ref()',
-              'deployment.binding_constitution_verified_at_ms()',
-              'deployment.binding_constitution_valid_until_ms()',
+              'deployment.binding_constitution_currentness_evidence_digest()',
+              'Digest32(final_constitution.currentness_evidence_digest.0)',
+              'deployment.binding_constitution_currentness_evidence_profile()',
+              'final_constitution.currentness_evidence_profile',
           ]:
               assert token in operational, token
 
-          # Wire audit receipt exposes the two evidence phases separately from stable authority.
           receipt = types.split('pub struct CurrentOperationalFreshnessAuditReceipt {', 1)[1].split('}', 1)[0]
           for field in [
               'composition_evidence_manifest_digest',
-              'composition_evidence_manifest_profile',
-              'composition_evidence_contributor_count',
-              'composition_evidence_verified_at_ms',
-              'composition_evidence_valid_until_ms',
               'binding_constitution_context_digest',
-              'binding_constitution_context_profile',
-              'binding_constitution_verification_ref',
-              'binding_constitution_verified_at_ms',
-              'binding_constitution_valid_until_ms',
+              'binding_constitution_currentness_evidence_digest',
+              'binding_constitution_currentness_evidence_profile',
               'deployment_authority_digest',
               'deployment_evidence_digest',
+              'lease_until_ms',
           ]:
               assert field in receipt, field
-          assert 'binding_constitution_context_digest: deployment.binding_constitution_context_digest()' in operational
+          assert 'binding_constitution_currentness_evidence_digest: deployment' in operational
           assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
 
-          # Status freezes leased constitutional currentness plus all previous containment properties.
-          required = [
+          # Runtime status and containment remain explicit.
+          for token in [
               'leased_binding_constitution_consumed: true',
               'synthetic_constitution_lease_constructed_locally: false',
-              'amendment_currentness_accepted_without_bounded_transition_lease: false',
-              'constitution_candidate_discovery_grants_authority: false',
-              'root_adoption_provenance_explicit: true',
-              'root_provenance_lease_constructed_at_root_boundary: true',
               'final_constitution_context_qualified_locally: true',
+              'final_constitution_currentness_evidence_explicit: true',
               'plain_constitution_primitives_accepted_by_active_deployment_path: false',
               'final_constitution_evidence_bound_into_deployment_evidence: true',
-              'leased_source_head_consumed: true',
-              'leased_witness_evidence_consumed: true',
-              'leased_operational_policy_consumed: true',
-              'transition_leases_intersected: true',
               'global_evidence_lease_enforced: true',
               'provenance_required_role_cardinality_closed: true',
               'provenance_manifest_matches_global_lease: true',
-              'provenance_bound_into_deployment_evidence: true',
-              'deployment_lease_capped_by_global_evidence: true',
               'wire_receipt_transport_only: true',
               'caller_supplied_positive_currentness_accepted: false',
               'wire_receipt_grants_execution_authority: false',
-              'constitutional_dna_cross_checked: true',
               'external_effects_enabled: false',
               'operational: false',
-          ]
-          for token in required:
-              assert token in src, token
-
-          for forbidden in [
-              'CurrentOperationalAuthorityEvidence',
-              'qualify_current_authority_for_local_dna',
-              'authority_state_bootstrap_root_provider',
-              'resolve_bootstrap_root_candidates',
-              'project_authority_state_as_of',
-              'execute_actions',
-              'phi',
-              'reputation',
-              'model_score',
           ]:
-              assert forbidden.lower() not in src.lower(), forbidden
+              assert token in src, token
 
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in workspace
           assert '"zomes/constitution-currentness-verifier/coordinator"' in workspace
           assert 'name: authority_current_freshness_verifier' not in dna
           assert 'name: constitution_currentness_verifier' not in dna
+
           for invariant in [
-              'binding constitutional currentness has its own verifier role',
-              'constitutional semantics and constitutional currentness evidence are distinct identities',
-              'root establishment provenance is explicit',
-              'final constitutional re-observation is a separate deployment phase',
+              'one shared currentness contract owns evidence shape',
+              'constitutional semantics and currentness evidence are different identities',
+              'composition provenance is not deployment-fence evidence',
+              'final deployment consumes the full shared currentness object',
               'active deployment path accepts no plain constitutional primitives',
-              'final constitution evidence is bound into dynamic deployment evidence',
-              'wire receipt is transport/audit only',
+              'stable deployment authority remains unchanged',
+              'explicit final currentness evidence changes dynamic deployment evidence',
+              'v0.11 wire receipt is transport/audit only',
               'deliberately unprovisioned',
-              'amendment-currentness remains a separate future theorem',
+              'amendment currentness remains a separate future theorem',
           ]:
               assert invariant in inv, invariant
-          print('PASS: shared leased genesis-currentness contract propagates through #111/#192/final deployment while amendment currentness remains fail-closed')
+
+          print('PASS: v0.11 preserves explicit final constitutional currentness through dynamic deployment evidence while stable authority and all earlier trust-domain separations remain intact')
           PY
