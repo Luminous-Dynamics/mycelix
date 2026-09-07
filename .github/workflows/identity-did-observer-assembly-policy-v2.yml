@@ -1,0 +1,180 @@
+name: Identity DID Observer Assembly Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - '.github/workflows/identity-did-observer-assembly-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - '.github/workflows/identity-did-observer-assembly-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-observer-assembly-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert DID observer assembly boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/did-observer-assembly-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-agent-activity-coverage-policy',
+              'mycelix-did-document-crypto-policy',
+              'mycelix-did-verifier-lineage-policy',
+              'mycelix-kvector-verifier-policy-body',
+              'mycelix-verifier-key-method-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: observer assembly dependencies drifted: {sorted(deps)}')
+
+          expected_paths = {
+              'mycelix-agent-activity-coverage-policy': '../agent-activity-coverage-policy',
+              'mycelix-did-document-crypto-policy': '../did-document-crypto-policy',
+              'mycelix-did-verifier-lineage-policy': '../did-verifier-lineage-policy',
+              'mycelix-kvector-verifier-policy-body': '../kvector-verifier-policy-body',
+              'mycelix-verifier-key-method-policy': '../verifier-key-method-policy',
+          }
+          for name, path in expected_paths.items():
+              if deps[name].get('path') != path:
+                  raise SystemExit(f'ERROR: {name} path drifted from canonical theorem: {deps[name]}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'FetchedDidSecurityRecordV2',
+              'FetchedDidDocumentActionKindV2',
+              'QualifiedDidObserverAssemblyV2',
+              'assemble_observed_verifier_key_v2',
+              'qualify_agent_activity_coverage_v2',
+              'qualified_activity.matching_valid_actions()',
+              'qualified_activity.contains_action(seq, action_id)',
+              'FetchedRecordNotInQualifiedActivity',
+              'DuplicateFetchedRecord',
+              'QualifiedActivityRecordMissing',
+              'validate_did_document_crypto_v2',
+              'DidVerificationMethodAdmissionViewV2',
+              'DidVerificationMethodViewV2',
+              'resolve_observed_verifier_key_v2',
+              'FetchedDidDocumentActionKindV2::Update { original_action_id }',
+              'exact_qualified_activity_and_records_compose_to_observed_key',
+              'substituted_fetched_action_fails_before_lineage',
+              'missing_exact_fetch_fails_closed',
+              'deactivation_in_qualified_activity_cannot_be_omitted',
+              'malformed_document_fails_crypto_admission_before_lineage',
+              'fetched_update_parentage_is_lineage_authority',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: observer assembly theorem missing: {needle!r}')
+
+          # The composite success type is verifier-owned; callers may inspect but not mint it.
+          for public_field in [
+              'pub coverage_head_action_seq:',
+              'pub coverage_head_action_id:',
+              'pub observed_verifier_key:',
+          ]:
+              if public_field in text:
+                  raise SystemExit(
+                      f'ERROR: observer assembly capability exposes forgeable public field: {public_field!r}'
+                  )
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'get_links_details',
+              'get_details(',
+              'resolve_did(',
+              'get_did_document(',
+              'max_by_key',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_verified',
+              'policy_current',
+              'policy_accepted',
+              'global_consensus:',
+              'positive_evidence:',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: HDK/network/chronology/crypto/currentness authority leaked into observer assembly theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/Cargo.toml \
+            -- --check
+
+      - name: Test upstream activity coverage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml
+
+      - name: Test upstream DID document crypto theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml
+
+      - name: Test upstream DID lineage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-verifier-lineage-policy/Cargo.toml
+
+      - name: Test DID observer assembly theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/Cargo.toml
+
+      - name: Check DID observer assembly theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

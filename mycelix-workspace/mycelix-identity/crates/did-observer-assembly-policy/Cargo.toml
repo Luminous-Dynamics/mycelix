@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-did-observer-assembly-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure evidence assembly theorem binding agent activity to exact DID records and verifier lineage"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-agent-activity-coverage-policy = { path = "../agent-activity-coverage-policy" }
+mycelix-did-document-crypto-policy = { path = "../did-document-crypto-policy" }
+mycelix-did-verifier-lineage-policy = { path = "../did-verifier-lineage-policy" }
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
+mycelix-verifier-key-method-policy = { path = "../verifier-key-method-policy" }
