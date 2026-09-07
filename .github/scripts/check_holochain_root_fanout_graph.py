@@ -26,6 +26,9 @@ WORKSPACE = ROOT / "mycelix-workspace"
 ROOT_MANIFEST = WORKSPACE / "Cargo.toml"
 CONTRACT = WORKSPACE / "holochain-cohort.toml"
 
+# Release-coupled Holochain crates observed in the 0.6.3 family. The two test-WASM
+# crates are pulled by holochain/sweettest -> test_utils and are both published at
+# 0.6.3 upstream. Unknown holochain_* names still fail closed below.
 HOLOCHAIN_RELEASE_COUPLED = {
     "holochain",
     "holochain_cascade",
@@ -40,10 +43,12 @@ HOLOCHAIN_RELEASE_COUPLED = {
     "holochain_sqlite",
     "holochain_state",
     "holochain_state_types",
+    "holochain_test_wasm_common",
     "holochain_timestamp",
     "holochain_trace",
     "holochain_types",
     "holochain_util",
+    "holochain_wasm_test_utils",
     "holochain_websocket",
     "holochain_zome_types",
 }
