@@ -236,19 +236,22 @@ pub fn resolve_current_operational_freshness(
         )));
     }
 
-    // Only after #192 is closed do we re-observe the binding constitution.
+    // Only after #192 is closed do we re-observe the binding constitution. The
+    // final deployment fence consumes the full shared currentness object rather
+    // than projecting its explicit evidence identity into the older #111 receipt.
     let final_constitution = resolve_binding_current_constitution()?;
     ensure_same_constitution(&resolved_root.constitution, &final_constitution)?;
     let constitution_now = now_ms()?;
-    let final_constitution_receipt =
-        current_constitution_receipt(&final_constitution, constitution_now)?;
-    let final_constitution_context =
-        qualify_binding_constitution_context(&final_constitution_receipt, root, constitution_now)
-            .map_err(|error| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "final binding constitution context denied: {error}"
-                )))
-            })?;
+    let final_constitution_context = qualify_currentness_binding_constitution_context(
+        &final_constitution,
+        root,
+        constitution_now,
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "final binding constitution currentness context denied: {error}"
+        )))
+    })?;
 
     // Host DNA is a local deployment fact, not an authority-plane source. Observe
     // it after the final constitution fence, then choose a fresh qualification
@@ -290,24 +293,24 @@ pub fn resolve_current_operational_freshness(
         )))
     })?;
 
-    let deployment = qualify_operational_freshness_for_deployment_with_constitution_and_provenance(
-        &current,
-        &final_constitution_context,
-        &host_context,
-        &provenance,
-        deployment_now,
-    )
-    .map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "constitution/provenance-bound deployment freshness denied: {error}"
-        )))
-    })?;
+    let deployment =
+        qualify_operational_freshness_for_deployment_with_currentness_and_provenance(
+            &current,
+            &final_constitution_context,
+            &host_context,
+            &provenance,
+            deployment_now,
+        )
+        .map_err(|error| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "currentness/constitution/provenance-bound deployment freshness denied: {error}"
+            )))
+        })?;
     if deployment.valid_until_ms() > final_evidence_lease.valid_until_ms
         || deployment.verified_at_ms() < final_evidence_lease.verified_at_ms
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "constitution/provenance-bound deployment widened or predates the final evidence lease"
-                .into(),
+            "currentness-bound deployment widened or predates the final evidence lease".into(),
         )));
     }
     if deployment.provenance_manifest_digest() != Digest32(provenance.manifest_digest())
@@ -332,16 +335,21 @@ pub fn resolve_current_operational_freshness(
             != final_constitution_context.verified_at_ms()
         || deployment.binding_constitution_valid_until_ms()
             != final_constitution_context.valid_until_ms()
+        || deployment.binding_constitution_currentness_evidence_digest()
+            != Digest32(final_constitution.currentness_evidence_digest.0)
+        || deployment.binding_constitution_currentness_evidence_profile()
+            != final_constitution.currentness_evidence_profile
     {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "deployment result does not echo the exact final binding constitution context".into(),
+            "deployment result does not echo the exact final constitutional currentness evidence"
+                .into(),
         )));
     }
 
     let freshness = deployment.to_verified_freshness();
     freshness.validate_at(deployment_now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "constitution/provenance-bound deployment freshness is not reusable: {error}"
+            "currentness-bound deployment freshness is not reusable: {error}"
         )))
     })?;
     if freshness.lease_until_ms > final_evidence_lease.valid_until_ms {
@@ -371,6 +379,11 @@ pub fn resolve_current_operational_freshness(
         binding_constitution_context_digest: deployment.binding_constitution_context_digest(),
         binding_constitution_context_profile: deployment
             .binding_constitution_context_profile()
+            .into(),
+        binding_constitution_currentness_evidence_digest: deployment
+            .binding_constitution_currentness_evidence_digest(),
+        binding_constitution_currentness_evidence_profile: deployment
+            .binding_constitution_currentness_evidence_profile()
             .into(),
         binding_constitution_verification_ref: deployment
             .binding_constitution_verification_ref()
@@ -410,6 +423,7 @@ pub fn current_freshness_runtime_status(_: ()) -> ExternResult<CurrentFreshnessR
         root_adoption_provenance_explicit: true,
         root_provenance_lease_constructed_at_root_boundary: true,
         final_constitution_context_qualified_locally: true,
+        final_constitution_currentness_evidence_explicit: true,
         plain_constitution_primitives_accepted_by_active_deployment_path: false,
         final_constitution_evidence_bound_into_deployment_evidence: true,
         transition_discovery_grants_authority: false,
