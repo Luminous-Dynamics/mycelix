@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-did-document-crypto-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Strict cryptographic admission theorem for Identity V2 DID documents"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+
+[dev-dependencies]
+bs58 = { workspace = true }
