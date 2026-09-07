@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Verify every root-workspace fanout member resolves only the qualified cohort.
+"""Verify every root-workspace impact member resolves only the qualified cohort.
 
-The root fanout inventory identifies workspace members whose direct Holochain-family
-requirements are inherited from [workspace.dependencies]. This checker traverses each
-such member's *locked resolved dependency closure* and rejects mixed protocol-family
-generations that compilation alone could otherwise tolerate.
+The fanout inventory now contains the complete reverse-impact closure: direct members
+that inherit changed canonical pins plus transitive workspace consumers whose locked
+resolved closure reaches those direct seeds. This checker traverses every affected
+member's locked dependency closure and rejects mixed protocol-family generations that
+compilation alone could otherwise tolerate.
 
 Upstream crates are classified by their actual release/version relationship. In
 particular, holochain_chc versions independently from the main Holochain crate family;
@@ -143,6 +144,12 @@ def main() -> None:
     args = parser.parse_args()
 
     inventory = json.loads(args.inventory.read_text())
+    failures: list[str] = []
+    if inventory.get("schema") != 2:
+        failures.append(f"inventory schema {inventory.get('schema')!r} != 2")
+    if inventory.get("scope_model") != "locked-resolved-reverse-impact-closure":
+        failures.append(f"unexpected inventory scope model {inventory.get('scope_model')!r}")
+
     contract = load_contract()
     if contract.get("state") != "aligned":
         raise SystemExit("root resolved-graph qualification requires aligned candidate state")
@@ -158,15 +165,43 @@ def main() -> None:
     for package_id, package in packages.items():
         by_manifest[normalize_manifest(package["manifest_path"])] = package_id
 
-    failures: list[str] = []
     evidence: dict[str, dict] = {}
 
     affected = inventory.get("affected_members", [])
     if len(affected) != inventory.get("affected_member_count"):
         failures.append("inventory affected_member_count does not match affected_members length")
 
+    direct_count = sum(1 for item in affected if item.get("impact_kind") == "direct")
+    transitive_count = sum(1 for item in affected if item.get("impact_kind") == "transitive")
+    invalid_kinds = sorted(
+        {item.get("impact_kind") for item in affected}
+        - {"direct", "transitive"}
+    )
+    if invalid_kinds:
+        failures.append(f"invalid impact kinds in inventory: {invalid_kinds!r}")
+    if direct_count != inventory.get("direct_affected_member_count"):
+        failures.append("inventory direct_affected_member_count mismatch")
+    if transitive_count != inventory.get("transitive_affected_member_count"):
+        failures.append("inventory transitive_affected_member_count mismatch")
+    if direct_count + transitive_count != len(affected):
+        failures.append("inventory direct + transitive counts do not close over affected members")
+
+    seen_manifests: set[str] = set()
     for item in affected:
         manifest = item["manifest"]
+        if manifest in seen_manifests:
+            failures.append(f"duplicate affected manifest: {manifest}")
+            continue
+        seen_manifests.add(manifest)
+
+        seeds = item.get("direct_seed_manifests", [])
+        if not isinstance(seeds, list) or not seeds:
+            failures.append(f"{manifest}: no direct seed provenance")
+        if item.get("impact_kind") == "direct" and manifest not in seeds:
+            failures.append(f"{manifest}: direct member does not cite itself as a direct seed")
+        if item.get("impact_kind") == "transitive" and manifest in seeds:
+            failures.append(f"{manifest}: transitive member incorrectly cites itself as a direct seed")
+
         package_id = by_manifest.get(manifest)
         if package_id is None:
             failures.append(f"{manifest}: affected member missing from locked cargo metadata")
@@ -201,6 +236,8 @@ def main() -> None:
             "package": item["package"],
             "domain": item["domain"],
             "pulse": item["pulse"],
+            "impact_kind": item["impact_kind"],
+            "direct_seed_manifests": seeds,
             "wasm_surface": item["wasm_surface"],
             "closure_package_count": len(reachable),
             "tracked_packages": {
@@ -222,7 +259,7 @@ def main() -> None:
             + "\n- ".join(failures)
         )
 
-    print("Every affected root member resolves only the qualified Holochain-family cohort.")
+    print("Every direct and transitive root impact member resolves only the qualified Holochain-family cohort.")
 
 
 if __name__ == "__main__":
