@@ -13,21 +13,14 @@ use mycelix_governance_constitution::{
     ConstitutionGenesisManifest, ConstitutionStatement, Digest32, GENESIS_MANIFEST_PROFILE,
     STATEMENT_PROFILE,
 };
+use mycelix_governance_constitution_currentness::{
+    LeasedVerifiedCurrentConstitution, GENESIS_CURRENTNESS_REUSE_MS, PROTOCOL_VERSION,
+};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: &str = "mycelix-governance-current-constitution-leased-v0.1";
-pub const CURRENTNESS_EVIDENCE_PROFILE: &str =
-    "mycelix-governance-current-constitution-evidence-v1-blake3-framed";
-pub const GENESIS_CURRENTNESS_LEASE_BASIS: &str =
-    "dna-immutable-genesis-amendments-disabled-local-reuse-v1";
-pub const GENESIS_CURRENTNESS_REUSE_MS: u64 = 30_000;
-
 const CONSTITUTION_AUTHORITY_ZOME: &str = "constitution_authority";
 const CONSTITUTION_GENESIS_FUNCTION: &str = "get_verified_constitution_genesis";
-const DOMAIN_CURRENTNESS_EVIDENCE: &[u8] =
-    b"mycelix/governance/current-constitution-evidence/v1";
-const MAX_DNA_HASH_BYTES: usize = 1024;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifiedConstitutionGenesisMirror {
@@ -40,35 +33,13 @@ struct VerifiedConstitutionGenesisMirror {
     amendments_enabled: bool,
 }
 
-/// Transport projection of one bounded current-constitution verification.
-///
-/// This is evidence for local consumers, not authority merely because it can be
-/// deserialized. Consumers must call this designated verifier directly.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct LeasedVerifiedCurrentConstitution {
-    pub protocol: String,
-    pub dna_hash: String,
-    pub statement: ConstitutionStatement,
-    pub statement_digest: Digest32,
-    pub currentness_evidence_digest: Digest32,
-    pub currentness_evidence_profile: String,
-    pub verified_transition_count: u64,
-    pub legacy_constitution_authoritative: bool,
-    pub lease_basis: String,
-    pub verification_ref: String,
-    pub verified_at_ms: u64,
-    pub valid_until_ms: u64,
-    pub genesis_currentness_by_amendments_disabled: bool,
-    pub transition_currentness_supported: bool,
-    pub candidate_discovery_used_for_positive_currentness: bool,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ConstitutionCurrentnessVerifierStatus {
     pub protocol: String,
     pub genesis_currentness_supported: bool,
     pub amendment_currentness_supported: bool,
     pub currentness_evidence_identity_explicit: bool,
+    pub shared_currentness_contract_consumed: bool,
     pub candidate_discovery_grants_authority: bool,
     pub absence_of_transition_record_grants_authority: bool,
     pub unbounded_transition_verifier_receipts_accepted: bool,
@@ -101,19 +72,6 @@ where
             "cannot decode {zome}::{function} response: {error}"
         )))
     })
-}
-
-fn validate_dna_hash(value: &str) -> ExternResult<()> {
-    let bytes = value.as_bytes();
-    if bytes.is_empty()
-        || bytes.len() > MAX_DNA_HASH_BYTES
-        || bytes.iter().any(|byte| byte.is_ascii_whitespace())
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "constitution authority returned invalid DNA identity".into(),
-        )));
-    }
-    Ok(())
 }
 
 fn manifest_from_genesis(
@@ -153,7 +111,6 @@ fn resolve_verified_genesis() -> ExternResult<VerifiedConstitutionGenesisMirror>
         CONSTITUTION_GENESIS_FUNCTION,
         (),
     )?;
-    validate_dna_hash(&genesis.dna_hash)?;
     if genesis.amendments_enabled {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "amendments are enabled but bounded amendment currentness is not implemented; fail closed"
@@ -206,30 +163,6 @@ fn now_ms() -> ExternResult<u64> {
     Ok(micros as u64 / 1_000)
 }
 
-fn currentness_evidence_digest(
-    dna_hash: &str,
-    statement_digest: Digest32,
-    lease_basis: &str,
-    verified_at_ms: u64,
-    valid_until_ms: u64,
-) -> Digest32 {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(DOMAIN_CURRENTNESS_EVIDENCE);
-    frame(&mut hasher, CURRENTNESS_EVIDENCE_PROFILE.as_bytes());
-    frame(&mut hasher, dna_hash.as_bytes());
-    frame(&mut hasher, STATEMENT_PROFILE.as_bytes());
-    frame(&mut hasher, &statement_digest.0);
-    frame(&mut hasher, lease_basis.as_bytes());
-    frame(&mut hasher, &verified_at_ms.to_le_bytes());
-    frame(&mut hasher, &valid_until_ms.to_le_bytes());
-    Digest32(*hasher.finalize().as_bytes())
-}
-
-fn frame(hasher: &mut blake3::Hasher, bytes: &[u8]) {
-    hasher.update(&(bytes.len() as u64).to_le_bytes());
-    hasher.update(bytes);
-}
-
 #[hdk_extern]
 pub fn get_leased_current_constitution(_: ()) -> ExternResult<LeasedVerifiedCurrentConstitution> {
     let genesis = resolve_verified_genesis()?;
@@ -241,35 +174,24 @@ pub fn get_leased_current_constitution(_: ()) -> ExternResult<LeasedVerifiedCurr
                 "genesis currentness reuse window overflow".into(),
             ))
         })?;
-    let currentness_evidence_digest = currentness_evidence_digest(
-        &genesis.dna_hash,
-        genesis.statement_digest,
-        GENESIS_CURRENTNESS_LEASE_BASIS,
+    let current = LeasedVerifiedCurrentConstitution::new_genesis(
+        genesis.dna_hash,
+        genesis.statement,
         verified_at_ms,
         valid_until_ms,
-    );
-    let verification_ref = format!(
-        "constitution-currentness-evidence:{CURRENTNESS_EVIDENCE_PROFILE}:{}",
-        currentness_evidence_digest.to_hex()
-    );
-
-    Ok(LeasedVerifiedCurrentConstitution {
-        protocol: PROTOCOL_VERSION.into(),
-        dna_hash: genesis.dna_hash,
-        statement: genesis.statement,
-        statement_digest: genesis.statement_digest,
-        currentness_evidence_digest,
-        currentness_evidence_profile: CURRENTNESS_EVIDENCE_PROFILE.into(),
-        verified_transition_count: 0,
-        legacy_constitution_authoritative: false,
-        lease_basis: GENESIS_CURRENTNESS_LEASE_BASIS.into(),
-        verification_ref,
-        verified_at_ms,
-        valid_until_ms,
-        genesis_currentness_by_amendments_disabled: true,
-        transition_currentness_supported: false,
-        candidate_discovery_used_for_positive_currentness: false,
-    })
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "shared constitutional-currentness contract denied genesis evidence: {error}"
+        )))
+    })?;
+    if current.statement_digest != genesis.statement_digest {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "shared constitutional-currentness contract changed the authoritative statement identity"
+                .into(),
+        )));
+    }
+    Ok(current)
 }
 
 #[hdk_extern]
@@ -281,56 +203,10 @@ pub fn constitution_currentness_verifier_status(
         genesis_currentness_supported: true,
         amendment_currentness_supported: false,
         currentness_evidence_identity_explicit: true,
+        shared_currentness_contract_consumed: true,
         candidate_discovery_grants_authority: false,
         absence_of_transition_record_grants_authority: false,
         unbounded_transition_verifier_receipts_accepted: false,
         local_reuse_cap_is_authority_expiry: false,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn d(byte: u8) -> Digest32 {
-        Digest32([byte; 32])
-    }
-
-    #[test]
-    fn currentness_observation_window_changes_evidence_identity() {
-        let first = currentness_evidence_digest(
-            "uhC0kExample",
-            d(1),
-            GENESIS_CURRENTNESS_LEASE_BASIS,
-            100,
-            200,
-        );
-        let second = currentness_evidence_digest(
-            "uhC0kExample",
-            d(1),
-            GENESIS_CURRENTNESS_LEASE_BASIS,
-            110,
-            210,
-        );
-        assert_ne!(first, second);
-    }
-
-    #[test]
-    fn dna_identity_changes_currentness_evidence_identity() {
-        let first = currentness_evidence_digest(
-            "uhC0kA",
-            d(1),
-            GENESIS_CURRENTNESS_LEASE_BASIS,
-            100,
-            200,
-        );
-        let second = currentness_evidence_digest(
-            "uhC0kB",
-            d(1),
-            GENESIS_CURRENTNESS_LEASE_BASIS,
-            100,
-            200,
-        );
-        assert_ne!(first, second);
-    }
 }

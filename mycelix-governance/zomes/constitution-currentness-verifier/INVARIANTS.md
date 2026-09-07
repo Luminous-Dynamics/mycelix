@@ -82,9 +82,25 @@ This separation lets canonical #192 provenance identify the exact currentness ob
 
 `currentness_evidence_identity_explicit = true`.
 
-## 7. Exact transport projection
+## 7. The shared pure currentness contract is canonical
 
-`LeasedVerifiedCurrentConstitution` carries:
+The wire ABI, protocol/profile constants, lease basis, currentness-evidence digest algorithm, verification-reference derivation, genesis-only mode checks and lease-width checks are defined only by `mycelix-governance-constitution-currentness`.
+
+The Holochain verifier MUST NOT maintain a second local `LeasedVerifiedCurrentConstitution` definition or duplicate the currentness digest algorithm. It establishes the external provenance fact — DNA-bound genesis with amendments disabled — and then calls the shared pure constructor.
+
+A direct local consumer MUST decode the shared transport type itself and call the shared `validate_at(now)` routine before using the evidence in #111, #192 or deployment composition.
+
+This creates three deliberately different facts:
+
+`designated verifier provenance != valid evidence shape != positive downstream authority`.
+
+The pure contract can prove evidence shape but cannot prove that bytes came from the designated local verifier. Conversely, a local verifier call does not excuse a consumer from recomputing the shared evidence contract after deserialization.
+
+`shared_currentness_contract_consumed = true`.
+
+## 8. Exact transport projection
+
+`LeasedVerifiedCurrentConstitution` carries, in protocol-stable order:
 
 - protocol;
 - exact DNA hash;
@@ -98,23 +114,25 @@ This separation lets canonical #192 provenance identify the exact currentness ob
 - explicit genesis-currentness mode; and
 - explicit denial of transition/candidate currentness authority.
 
+The shared validator recomputes the statement digest, currentness evidence digest, verification reference, mode flags and lease width. It also rejects any non-genesis constitutional statement under this profile.
+
 The transport object is deserializable evidence for direct local consumers. Deserializing caller-supplied bytes does not create authority; consumers must invoke the designated local verifier.
 
-## 8. No latest-record heuristic
+## 9. No latest-record heuristic
 
 Highest version, newest timestamp, last DHT arrival, candidate absence, author identity, reputation, stake, Phi, model output or local record ordering cannot establish constitutional currentness.
 
-## 9. Failure semantics
+## 10. Failure semantics
 
-Missing constitution authority, decode failure, malformed DNA identity, invalid statement, digest/profile mismatch, manifest mismatch, positive amendment mode, time overflow or any internal inconsistency denies.
+Missing constitution authority, decode failure, malformed DNA identity, invalid/non-genesis statement, statement/evidence digest mismatch, profile/reference mismatch, widened/stale/future lease, manifest mismatch, positive amendment mode or any internal inconsistency denies.
 
 There is no fallback to legacy mutable constitution state or transition candidate discovery.
 
-## 10. Containment
+## 11. Containment
 
 This verifier performs no writes, lifecycle changes, execution actions or external effects. It is deliberately narrower than the transition coordinator and must remain absent from binding `dna.yaml` until its consuming currentness stack is qualified/provisioned together.
 
-## 11. Amendment enablement gate
+## 12. Amendment enablement gate
 
 Before `amendment_currentness_supported` may become true, qualification must prove at minimum:
 

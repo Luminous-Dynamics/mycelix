@@ -74,71 +74,11 @@ fn verify_constitution_projection(
     current: &VerifiedCurrentConstitutionMirror,
     now: u64,
 ) -> ExternResult<()> {
-    if current.protocol != LEASED_CURRENT_CONSTITUTION_PROTOCOL {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned wrong leased-currentness protocol".into(),
-        )));
-    }
-    if current.legacy_constitution_authoritative {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier reported legacy constitution authority".into(),
-        )));
-    }
-    if current.dna_hash.trim().is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned empty DNA identity".into(),
-        )));
-    }
-    current.statement.validate().map_err(|error| {
+    current.validate_at(now).map_err(|error| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "binding constitution verifier returned invalid statement: {error}"
+            "shared constitutional-currentness contract rejected verifier evidence: {error}"
         )))
-    })?;
-    let recomputed = current.statement.digest().map_err(|error| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "cannot digest leased binding constitution: {error}"
-        )))
-    })?;
-    if recomputed != current.statement_digest {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned mismatched statement digest".into(),
-        )));
-    }
-    let currentness_digest = constitution_digest_to_core(current.currentness_evidence_digest);
-    let expected_ref = format!(
-        "constitution-currentness-evidence:{CURRENT_CONSTITUTION_EVIDENCE_PROFILE}:{}",
-        current.currentness_evidence_digest.to_hex()
-    );
-    if current.currentness_evidence_profile != CURRENT_CONSTITUTION_EVIDENCE_PROFILE
-        || currentness_digest.is_zero()
-        || current.verification_ref != expected_ref
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned invalid currentness evidence identity".into(),
-        )));
-    }
-    if current.verified_transition_count != 0
-        || !current.genesis_currentness_by_amendments_disabled
-        || current.transition_currentness_supported
-        || current.candidate_discovery_used_for_positive_currentness
-        || current.lease_basis != GENESIS_CURRENTNESS_LEASE_BASIS
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned unsupported amendment/candidate currentness mode"
-                .into(),
-        )));
-    }
-    if now == 0
-        || current.verified_at_ms == 0
-        || current.verified_at_ms > now
-        || current.valid_until_ms <= now
-        || current.valid_until_ms <= current.verified_at_ms
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "binding constitution verifier returned invalid or stale lease".into(),
-        )));
-    }
-    Ok(())
+    })
 }
 
 fn resolve_binding_current_constitution() -> ExternResult<VerifiedCurrentConstitutionMirror> {
