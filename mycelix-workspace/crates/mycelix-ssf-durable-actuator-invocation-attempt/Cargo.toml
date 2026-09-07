@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-durable-actuator-invocation-attempt"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-durable-effect-capability-claim = { path = "../mycelix-ssf-durable-effect-capability-claim" }
