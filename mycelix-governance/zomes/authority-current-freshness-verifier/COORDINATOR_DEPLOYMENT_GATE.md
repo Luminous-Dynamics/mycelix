@@ -1,6 +1,6 @@
-# Current Freshness — Coordinator Deployment Gate v0.5
+# Current Freshness — Coordinator Deployment Gate v0.6
 
-Status: **native observer candidate + signed-release authentication + pure release-currentness + pure exact deployment composition implemented; live provenance/update-race/effect admission still incomplete**
+Status: **native observer candidate + signed-release authentication + pure release-currentness + exact deployment composition + pure pre/post stability fence implemented; live provenance/atomic effect admission still incomplete**
 
 ## Why this gate exists
 
@@ -26,9 +26,7 @@ The observer does not accept an approved release requirement or perform release/
 
 Its manifest commits exact DNA identity, the complete approved coordinator name + `WasmHash` closure, DNA bundle/source/lock/toolchain/build-recipe/SBOM digests, source/build references and exact release-policy identity.
 
-The release remains DNA/code scoped. It does not choose an installation-specific cell agent.
-
-The pure theorem still does **not** prove its signature-proof receipt originated from the designated cryptographic verifier.
+The release remains DNA/code scoped and does not choose an installation-specific cell agent.
 
 ## Pure release currentness / withdrawal theorem implemented
 
@@ -40,33 +38,65 @@ Its lease is no wider than authenticated-release, current-head or status-proof v
 
 ## Pure exact target/release/observation composition implemented
 
-`mycelix-authority-coordinator-deployment-composer` now joins three separate facts:
+`mycelix-authority-coordinator-deployment-composer` joins three distinct inputs:
 
 1. `TargetCellSelection` — exact DNA hash + exact target agent + selection reference;
 2. `QualifiedCurrentCoordinatorRelease` — exact currently Active approved DNA/code release; and
 3. `ObservedCoordinatorDeployment` — exact observed installed coordinator set for one CellId.
 
-The composer first requires target DNA == release DNA, specializes the current release to the independently supplied target agent, then calls #262 `match_required_coordinator_deployment` for exact whole-set equality.
+The composer requires target DNA == release DNA, specializes the release to the independently supplied target agent, then delegates whole-set equality to #262.
 
-The positive `QualifiedCoordinatorDeploymentComposition` is non-deserializable and commits current-release identity, target-selection identity, specialized requirement identity, #262 match identity and the minimum release/observation evidence window.
+The non-deserializable positive composition commits current-release identity, target-selection identity, exact requirement identity, #262 match identity and the minimum release/observation lease.
 
-This theorem proves equality/composition only. It does **not** prove target-selection provenance, conductor-observation provenance or release/head/status verifier provenance.
+## Pure pre/post coordinator stability fence implemented
+
+`mycelix-authority-coordinator-stability-fence` now adds a second exact observation around one named admission attempt.
+
+Positive fencing requires:
+
+```text
+pre QualifiedCoordinatorDeploymentComposition
+        +
+CoordinatorAdmissionSubject(subject digest/profile + per-attempt nonce/ref)
+        +
+strictly later post ObservedCoordinatorDeployment
+        ↓
+reconstruct exact same release/target requirement
+        ↓
+#262 exact post whole-set match
+        ↓
+QualifiedCoordinatorStabilityFence
+```
+
+The post observation must be strictly later than the pre observation and must occur inside the pre-composition evidence window. The pre composition must still be live at qualification.
+
+The reconstructed requirement identity and post CellId must equal the pre composition's exact requirement/target. Missing, substituted, duplicate or unexpected coordinator code continues to deny through #262.
+
+The fence identity commits the pre composition, post match, exact admission subject/attempt nonce and final evidence window.
+
+Changing the admission attempt nonce changes fence identity so one stability interval is not anonymous reusable evidence for unrelated admission attempts.
+
+## Stability is still not atomicity
+
+Two matching exact observations establish **no detected coordinator deployment change across that observed interval** under their evidence assumptions.
+
+They do **not** prove that `UpdateCoordinators` cannot run immediately after the post observation. The pure fence provides no conductor mutex, generation lock, transaction or OS-level update exclusion.
+
+The future native admission path must establish that pre/post observations genuinely bracket the admission work, own the admission nonce, and define what happens if coordinator update can race after the final observation.
+
+## Live provenance remains separate
+
+None of the pure composition/fence theorems prove that:
+
+- target selection came from trusted host/application policy;
+- conductor observations came from the #264 native observer;
+- release signature proof came from the designated cryptographic verifier;
+- registry-head/status proofs came from their designated live verifiers; or
+- the admission subject/nonce came from the native effect-admission orchestrator.
 
 Therefore:
 
-`target selection != approved current release != observed deployment != provenance`.
-
-## Exact installed set, not required-subset matching
-
-The conductor-observed installed coordinator set must equal the current authenticated approved release set exactly by zome name + `WasmHash` under the exact selected CellId.
-
-Missing, substituted, duplicate or any **unexpected coordinator** denies through #262.
-
-## Observation freshness is bounded but not atomicity
-
-One conductor observation may be reused for at most five seconds. That is not proof that `UpdateCoordinators` cannot occur inside the window.
-
-A future effect path must re-observe at admission and qualify an explicit **update-race / atomicity policy** so coordinator code cannot change between attestation and effect admission without denial/restart.
+`target selection != current approved release != observed deployment != stability interval != live provenance != atomic effect admission`.
 
 ## Consumer rule
 
@@ -75,28 +105,28 @@ A future lifecycle/effect consumer needs all of these independently:
 1. fresh v0.11 operational currentness from a direct local verifier call;
 2. exact stable/dynamic deployment evidence + lease;
 3. independently established exact target CellId selection;
-4. direct native coordinator observation for that exact target CellId;
-5. authenticated coordinator release semantics;
-6. independently proven release-signature verifier provenance;
-7. independently proven current release-registry head/completeness;
-8. independently proven exact release status at that head;
-9. exact target/current-release/observation composition through the pure composer + #262;
-10. qualified coordinator-update race / atomicity policy; and
-11. later lifecycle/executor/effect-safety authority.
+4. authenticated/current coordinator release from designated live verifier roles;
+5. native pre coordinator observation for that exact CellId;
+6. exact target/current-release/pre-observation composition through #290/#262;
+7. native post coordinator observation for the same exact CellId;
+8. subject/attempt-bound stability fencing through the stability theorem;
+9. an explicit native policy for coordinator-update races after the final observation;
+10. later lifecycle/executor/effect-safety authority; and
+11. an effect path whose actual execution cannot be replaced by caller-supplied serialized positive receipts.
 
-Caller-supplied target, coordinator, head, status or signature-proof bytes cannot substitute for the independent live provenance boundaries.
+Caller-supplied target, coordinator, head, status, signature, stability or admission-subject bytes cannot substitute for the independent live provenance/orchestration boundaries.
 
 ## Provisioning state
 
-The pure composition theorem still does not satisfy this gate.
+The pure stability theorem still does not satisfy this gate.
 
-Until the native observer is runtime-qualified against a real conductor, target-selection provenance is qualified, release-signature verifier provenance is qualified, registry-head completeness/currentness is independently qualified, exact status-at-head provenance is qualified, the live composer obtains those facts from their designated origins, and update-race semantics are bound to effect admission:
+Until the native observer is runtime-qualified against a real conductor, target-selection provenance is qualified, release-signature/head/status verifier provenance is qualified, a native orchestrator obtains and brackets the pre/post observations around one admission attempt, coordinator-update race semantics are qualified, and the final lifecycle/effect path consumes only in-process positive results:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no effect-capable consumer may interpret current deployment evidence as coordinator-code-attested authority; and
+- no effect-capable consumer may interpret current deployment evidence as coordinator-code-attested atomic authority; and
 - external effects remain disabled.
 
 ## Qualification required to satisfy the gate
 
-Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; independent release-signature verifier; current registry-head verifier/completeness theorem; exact status-at-head verifier; live provenance-preserving composition; before/after or equivalent coordinator-update race fencing; binding matched coordinator deployment into final effect admission; and adversarial forged/wrong-cell/stale/over-wide/missing/substituted/extra/forged-release/old-head/withdrawn/superseded/target-substitution/local-endpoint-impersonation/race tests.
+Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; independent release-signature verifier; current registry-head verifier/completeness theorem; exact status-at-head verifier; live provenance-preserving composition; native pre/post admission orchestration; an explicit post-observation update-race/atomicity policy; binding the subject-specific stability result into final lifecycle/effect admission; and adversarial forged/wrong-cell/stale/over-wide/missing/substituted/extra/forged-release/old-head/withdrawn/superseded/target-substitution/replayed-attempt/local-endpoint-impersonation/update-race tests.
