@@ -31,6 +31,11 @@ SURFACES = {
     "pulse-simple-trust": WORKSPACE / "mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml",
 }
 
+# These crates follow the main Holochain release line in 0.6.x. Keep this
+# closed-world rather than accepting arbitrary holochain_* prefixes: a newly
+# observed package must have its upstream release relationship classified.
+# SweetConductor enables holochain/sweettest -> test_utils, which legitimately
+# pulls the two test-WASM crates below; upstream publishes both at 0.6.3.
 HOLOCHAIN_RELEASE_COUPLED = {
     "holochain",
     "holochain_cascade",
@@ -45,10 +50,12 @@ HOLOCHAIN_RELEASE_COUPLED = {
     "holochain_sqlite",
     "holochain_state",
     "holochain_state_types",
+    "holochain_test_wasm_common",
     "holochain_timestamp",
     "holochain_trace",
     "holochain_types",
     "holochain_util",
+    "holochain_wasm_test_utils",
     "holochain_websocket",
     "holochain_zome_types",
 }
