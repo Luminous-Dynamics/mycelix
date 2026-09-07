@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-authority-coordinator-native-attestor"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Native loopback Holochain conductor observer for Mycelix coordinator deployment evidence"
+
+[dependencies]
+holochain_client = "=0.8.1"
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }
