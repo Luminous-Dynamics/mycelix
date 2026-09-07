@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-kvector-verifier-key-record-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Verifier-key record assertion theorem for Identity V2 K-vector verification evidence"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { path = "../mycelix-crypto", default-features = false, features = ["wasm"] }
+sha2 = { workspace = true }
