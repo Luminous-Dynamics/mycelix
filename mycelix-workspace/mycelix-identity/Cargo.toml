@@ -19,6 +19,8 @@ members = [
     "crates/kvector-verifier-policy-body",
     # Algorithm/byte-shape binding for verifier signatures
     "crates/kvector-signature-material-policy",
+    # Strict DID verification-method theorem for policy-selected verifier keys
+    "crates/verifier-key-method-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
