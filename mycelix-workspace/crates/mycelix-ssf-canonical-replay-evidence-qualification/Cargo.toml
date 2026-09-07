@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ssf-canonical-replay-evidence-qualification"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-actuator-execution = { path = "../mycelix-ssf-canonical-actuator-execution" }
+mycelix-ssf-canonical-effect-outcome-history = { path = "../mycelix-ssf-canonical-effect-outcome-history" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
