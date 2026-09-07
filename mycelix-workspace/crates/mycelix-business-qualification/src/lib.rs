@@ -21,12 +21,13 @@ use mycelix_business_core::{
     SemanticProfileId, WorkflowClosureReceipt, WorkflowRef,
 };
 
-/// One exact boundary result that can ground a leaf of a closure dependency DAG.
+/// One exact boundary result that can ground a node of a closure dependency DAG.
 ///
-/// The enum is intentionally narrow. These are the boundary kinds independently
-/// observed in GP-002, GP-003, and GP-006. New variants should be added only when
-/// another Golden Path demonstrates that a distinct cut-level reference kind is
-/// materially required.
+/// Boundary results may appear at leaves or at reachable internal nodes. An
+/// accepted domain result can itself depend on another accepted result without
+/// ceasing to be an exact cross-domain boundary. The enum is intentionally
+/// narrow: these are the reference kinds independently required by GP-002,
+/// GP-003, and GP-006.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QualifiedBoundaryRef {
     /// Exact domain-owned record/version/profile result in the qualification cut.
@@ -35,12 +36,13 @@ pub enum QualifiedBoundaryRef {
     Reconciliation(DomainReconciliationRef),
 }
 
-/// Closure dependency DAG with enough structure to bind graph leaves to exact
-/// qualified boundary results.
+/// Closure dependency DAG with enough structure to ground consequential nodes in
+/// exact qualified boundary results.
 ///
 /// Cycle validation is delegated to `mycelix-business-core::DependencyGraph`.
-/// This wrapper adds reachability/leaf structure needed to prove that the graph
-/// actually describes the closure basis rather than being unrelated metadata.
+/// This wrapper adds reachability/grounding structure needed to prove that the
+/// graph actually describes the closure basis rather than being unrelated
+/// metadata.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClosureDependencyGraph {
     edges: BTreeMap<DerivationNodeRef, BTreeSet<DerivationNodeRef>>,
@@ -106,7 +108,9 @@ impl ClosureDependencyGraph {
         Some(reachable)
     }
 
-    /// Reachable leaf nodes whose proof must be grounded by exact boundary refs.
+    /// Reachable leaf nodes. Every one must be grounded by exact boundary
+    /// provenance, but exact boundary results may additionally ground reachable
+    /// internal nodes.
     #[must_use]
     pub fn reachable_leaves_from(
         &self,
@@ -255,10 +259,24 @@ impl ClosureQualificationProfile {
             .reachable_leaves_from(&self.root_node)
             .expect("root presence checked above");
         let bound_nodes = basis.boundary_results.keys().cloned().collect::<BTreeSet<_>>();
-        if leaves != bound_nodes {
-            return Err(ClosureQualificationError::BoundaryLeafMismatch {
-                graph_leaves: leaves,
-                bound_nodes,
+
+        let ungrounded_leaves = leaves
+            .difference(&bound_nodes)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if !ungrounded_leaves.is_empty() {
+            return Err(ClosureQualificationError::UngroundedBoundaryLeaves {
+                leaves: ungrounded_leaves,
+            });
+        }
+
+        let unreachable_boundaries = bound_nodes
+            .difference(&reachable)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if !unreachable_boundaries.is_empty() {
+            return Err(ClosureQualificationError::UnreachableBoundaryNodes {
+                nodes: unreachable_boundaries,
             });
         }
 
@@ -341,9 +359,11 @@ pub enum ClosureQualificationError {
         reachable: usize,
         total: usize,
     },
-    BoundaryLeafMismatch {
-        graph_leaves: BTreeSet<DerivationNodeRef>,
-        bound_nodes: BTreeSet<DerivationNodeRef>,
+    UngroundedBoundaryLeaves {
+        leaves: BTreeSet<DerivationNodeRef>,
+    },
+    UnreachableBoundaryNodes {
+        nodes: BTreeSet<DerivationNodeRef>,
     },
     BoundaryInputMissing {
         node: DerivationNodeRef,
@@ -385,12 +405,13 @@ impl fmt::Display for ClosureQualificationError {
                 f,
                 "closure dependency graph rooted at {root} reaches {reachable} of {total} nodes"
             ),
-            Self::BoundaryLeafMismatch {
-                graph_leaves,
-                bound_nodes,
-            } => write!(
+            Self::UngroundedBoundaryLeaves { leaves } => write!(
                 f,
-                "closure graph leaves {graph_leaves:?} do not exactly match bound boundary nodes {bound_nodes:?}"
+                "closure dependency graph has reachable leaf nodes without exact boundary provenance: {leaves:?}"
+            ),
+            Self::UnreachableBoundaryNodes { nodes } => write!(
+                f,
+                "closure basis binds exact boundary results to nodes that are not reachable from the closure root: {nodes:?}"
             ),
             Self::BoundaryInputMissing { node, input } => write!(
                 f,

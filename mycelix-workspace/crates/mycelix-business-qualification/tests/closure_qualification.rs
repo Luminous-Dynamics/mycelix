@@ -331,16 +331,52 @@ fn every_reachable_leaf_must_have_exact_boundary_provenance() {
             WorkflowRef::new("workflow:service-sale:1").unwrap(),
             basis,
         ),
-        Err(ClosureQualificationError::BoundaryLeafMismatch { .. })
+        Err(ClosureQualificationError::UngroundedBoundaryLeaves { .. })
     ));
 }
 
 #[test]
-fn boundary_mapping_cannot_point_to_non_leaf_internal_node() {
+fn reachable_internal_node_may_carry_exact_boundary_provenance() {
     let mut basis = service_sale_basis();
+    let accepted_invoice = input(
+        "commerce",
+        "invoice:service-sale-1",
+        "commerce.invoice-projection",
+    );
+    assert!(basis
+        .qualification_cut
+        .insert_input(accepted_invoice.clone())
+        .unwrap());
+
+    let root = node("business:service-sale-closure");
+    let invoice = node("commerce:invoice-projection");
+    let agreement = node("commerce:service-agreement");
+    basis
+        .dependency_graph
+        .add_dependency(root, invoice.clone());
+    basis
+        .dependency_graph
+        .add_dependency(invoice.clone(), agreement);
+    basis
+        .boundary_results
+        .insert(invoice, QualifiedBoundaryRef::Input(accepted_invoice));
+
+    satisfied_profile()
+        .qualify(
+            WorkflowRef::new("workflow:service-sale:1").unwrap(),
+            basis,
+        )
+        .expect("accepted invoice may be both a boundary result and an internal dependency node");
+}
+
+#[test]
+fn boundary_mapping_must_point_to_a_reachable_graph_node() {
+    let mut basis = service_sale_basis();
+    let extra = input("commerce", "extra:1", "commerce.extra");
+    assert!(basis.qualification_cut.insert_input(extra.clone()).unwrap());
     basis.boundary_results.insert(
-        node("business:service-sale-closure"),
-        QualifiedBoundaryRef::Input(input("commerce", "extra:1", "commerce.extra")),
+        node("commerce:not-in-proof-graph"),
+        QualifiedBoundaryRef::Input(extra),
     );
 
     assert!(matches!(
@@ -348,7 +384,7 @@ fn boundary_mapping_cannot_point_to_non_leaf_internal_node() {
             WorkflowRef::new("workflow:service-sale:1").unwrap(),
             basis,
         ),
-        Err(ClosureQualificationError::BoundaryLeafMismatch { .. })
+        Err(ClosureQualificationError::UnreachableBoundaryNodes { .. })
     ));
 }
 

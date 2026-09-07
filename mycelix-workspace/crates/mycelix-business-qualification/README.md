@@ -47,7 +47,7 @@ The exact basis carries:
 
 - the immutable `QualificationCut`;
 - one explicit closure dependency DAG;
-- exact factual boundary results bound to DAG leaves;
+- exact factual boundary results bound to reachable DAG nodes;
 - exact obligation requirements and disposition provenance;
 - exact exception provenance;
 - exact compensation provenance.
@@ -60,7 +60,7 @@ A closure policy/profile is not allowed to float free of evidence merely because
 
 The generic layer does **not** decide that the source substantively corresponds to the named policy/profile/class. That interpretation remains owning-domain authority, exactly as with authorization, disposition, compensation, and exception bindings.
 
-The policy source is intentionally not treated as a factual DAG leaf:
+The policy source is intentionally not treated as a factual DAG boundary:
 
 ```text
 policy/profile source
@@ -83,12 +83,16 @@ all graph nodes are reachable from the closure root
 
 and
 
-reachable graph leaves
-    ==
-exact nodes carrying qualified factual boundary results
+every reachable leaf has exact qualified boundary provenance
+
+and
+
+every node carrying an exact qualified boundary result is reachable from the closure root
 ```
 
-A leaf can currently be grounded by only the boundary kinds independently required by GP-002, GP-003, and GP-006:
+A qualified boundary may be either a leaf or a reachable internal node. This matters because an accepted result may itself depend on another accepted result without ceasing to be a valid cross-domain boundary. For example, an accepted Commerce invoice may depend on an accepted agreement, and an accepted Accounting event may depend on Finance/work results.
+
+The currently supported boundary kinds are only those independently required by GP-002, GP-003, and GP-006:
 
 - `QualifiedInputRef`;
 - `DomainReconciliationRef`.
@@ -97,7 +101,7 @@ Do **not** add another `QualifiedBoundaryRef` variant merely because a domain ex
 
 ## Proof compression
 
-A boundary leaf may itself represent a qualified result over a deeper private proof graph.
+A boundary result may itself represent a qualified result over a deeper private proof graph, whether it appears at a leaf or a reachable internal node.
 
 Example:
 
@@ -106,7 +110,7 @@ Accounting internal event/policy/adjustment/reconciliation graph
         ↓
 exact Accounting-qualified period-close result
         ↓
-Business month-end orchestration DAG leaf
+Business month-end orchestration DAG boundary
 ```
 
 Business does not need to flatten or dereference the Accounting proof graph to compose the result. This preserves authority boundaries, reduces disclosure, and prevents Business from becoming a universal evidence warehouse.
