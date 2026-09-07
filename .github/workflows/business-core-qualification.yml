@@ -1,0 +1,85 @@
+name: Business Core Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-business-core/**'
+      - '.github/workflows/business-core-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Qualification evidence is meaningful only for the current PR head. Repeated
+# hardening pushes must not leave obsolete exact-head runs consuming the queue.
+concurrency:
+  group: business-core-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Rust institutional contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Match mycelix-workspace/rust-toolchain.toml exactly. Floating `stable`
+      # would make two green exact-head runs mean different compiler evidence.
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify workspace discovery, toolchain, and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import fnmatch
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']
+          toolchain = tomllib.loads((root / 'rust-toolchain.toml').read_text())['toolchain']
+          crate = 'crates/mycelix-business-core'
+
+          assert toolchain['channel'] == '1.96.0', (
+              'business qualification workflow must be updated atomically with '
+              'the repository Rust toolchain pin'
+          )
+
+          members = workspace.get('members', [])
+          excludes = workspace.get('exclude', [])
+
+          assert any(fnmatch.fnmatch(crate, pattern) for pattern in members), (
+              f'{crate} is not covered by a workspace member pattern'
+          )
+          assert not any(fnmatch.fnmatch(crate, pattern) for pattern in excludes), (
+              f'{crate} is unexpectedly excluded from the workspace'
+          )
+
+          manifest = tomllib.loads((root / crate / 'Cargo.toml').read_text())
+          assert not manifest.get('dependencies'), 'v0.1 core must have zero runtime dependencies'
+          assert not manifest.get('dev-dependencies'), 'v0.1 core must have zero dev dependencies'
+          assert not manifest.get('build-dependencies'), 'v0.1 core must have zero build dependencies'
+          PY
+
+      - name: Verify no ambient runtime authority surface
+        run: |
+          crate='mycelix-workspace/crates/mycelix-business-core/src'
+          if grep -R -n -E 'std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$crate"; then
+            echo 'business core gained ambient clock/environment/network/filesystem/process authority' >&2
+            exit 1
+          fi
+
+      - name: Isolate transport-neutral crate
+        run: |
+          rm -rf /tmp/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-core
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path /tmp/mycelix-business-core/Cargo.toml --all -- --check
+
+      - name: unit, integration, and compile-fail qualification
+        run: cargo test --manifest-path /tmp/mycelix-business-core/Cargo.toml
+
+      - name: clippy
+        run: cargo clippy --manifest-path /tmp/mycelix-business-core/Cargo.toml --all-targets -- -D warnings
