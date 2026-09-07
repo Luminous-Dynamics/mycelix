@@ -4,18 +4,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_business_core::{
-    ClosureClass, ClosureError, ClosurePolicyRef, ClosureRequirements, DerivationNodeRef,
-    DomainObligationRef, DomainReconciliationRef, DomainRef, DomainScopedRef,
-    ObligationDisposition, ObligationDispositionBinding, ObligationRef, OrganizationContextRef,
-    QualificationCut, QualifiedInputRef, ReconciliationRef, RecordRef, SemanticProfileId,
-    TimestampMs, ValidityEnd, ValidityWindow, WorkflowRef,
+    ClosureClass, ClosureError, ClosurePolicyRef, DerivationNodeRef, DomainObligationRef,
+    DomainReconciliationRef, DomainRef, DomainScopedRef, ObligationDisposition,
+    ObligationDispositionBinding, ObligationRef, OrganizationContextRef, QualificationCut,
+    QualifiedInputRef, ReconciliationRef, RecordRef, SemanticProfileId, TimestampMs, ValidityEnd,
+    ValidityWindow, WorkflowRef,
 };
 use mycelix_business_qualification::{
     ClosureDependencyGraph, ClosureQualificationBasis, ClosureQualificationError,
-    ClosureQualificationProfile, QualifiedBoundaryRef,
+    ClosureQualificationProfile, QualifiedBoundaryRef, QualifiedBoundaryRequirement,
 };
 
-fn profile(name: &str, version: u32) -> SemanticProfileId {
+fn semantic(name: &str, version: u32) -> SemanticProfileId {
     SemanticProfileId::new(name, version).expect("valid semantic profile")
 }
 
@@ -27,12 +27,17 @@ fn node(name: &str) -> DerivationNodeRef {
     DerivationNodeRef::new(name).expect("valid derivation node")
 }
 
-fn input(domain_name: &str, record_name: &str, semantic: &str) -> QualifiedInputRef {
+fn input(
+    domain_name: &str,
+    record_name: &str,
+    semantic_name: &str,
+    semantic_version: u32,
+) -> QualifiedInputRef {
     QualifiedInputRef {
         domain: domain(domain_name),
         record: RecordRef::new(record_name).expect("valid record"),
         version: 1,
-        semantic_profile: profile(semantic, 1),
+        semantic_profile: semantic(semantic_name, semantic_version),
         generation: None,
         validity: ValidityWindow::new(
             TimestampMs::new(0),
@@ -56,420 +61,718 @@ fn reconciliation(domain_name: &str, local_id: &str) -> DomainReconciliationRef 
     )
 }
 
-fn service_sale_policy_source() -> QualifiedInputRef {
-    input(
-        "governance",
-        "closure-policy:service-sale:v1",
-        "governance.closure-policy-active",
-    )
+#[derive(Clone)]
+struct ServiceFixture {
+    policy_source: QualifiedInputRef,
+    agreement: QualifiedInputRef,
+    invoice: QualifiedInputRef,
+    work_disposition: QualifiedInputRef,
+    payment_disposition: QualifiedInputRef,
+    accounting: QualifiedInputRef,
+    reconciliation: DomainReconciliationRef,
+    payment_obligation: DomainObligationRef,
+    work_obligation: DomainObligationRef,
 }
 
-fn satisfied_profile() -> ClosureQualificationProfile {
-    ClosureQualificationProfile::new(
-        OrganizationContextRef::new("org:acme").unwrap(),
-        profile("business.service-sale.qualification", 1),
-        ClosurePolicyRef::new("closure:service-sale").unwrap(),
-        profile("business.service-sale.close", 1),
-        ClosureClass::Satisfied,
-        service_sale_policy_source(),
-        node("business:service-sale-closure"),
-    )
+impl ServiceFixture {
+    fn new() -> Self {
+        Self {
+            policy_source: input(
+                "governance",
+                "closure-policy:service-sale:v1",
+                "governance.closure-policy-active",
+                1,
+            ),
+            agreement: input(
+                "commerce",
+                "service-agreement:1",
+                "commerce.agreement",
+                1,
+            ),
+            invoice: input(
+                "commerce",
+                "invoice:1",
+                "commerce.invoice-projection",
+                1,
+            ),
+            work_disposition: input(
+                "service-work",
+                "work-disposition:1",
+                "service-work.obligation-disposition",
+                1,
+            ),
+            payment_disposition: input(
+                "finance",
+                "payment-disposition:1",
+                "finance.obligation-disposition",
+                1,
+            ),
+            accounting: input(
+                "accounting",
+                "economic-event:service-sale-1",
+                "accounting.accepted-economic-event",
+                1,
+            ),
+            reconciliation: reconciliation("finance", "reconciliation:invoice-1"),
+            payment_obligation: obligation("finance", "payment:invoice-1"),
+            work_obligation: obligation("service-work", "work:agreement-1"),
+        }
+    }
+
+    fn graph(&self) -> ClosureDependencyGraph {
+        let root = node("business:service-sale-closure");
+        let agreement = node("commerce:accepted-agreement");
+        let invoice = node("commerce:accepted-invoice");
+        let work = node("service-work:work-disposition");
+        let payment = node("finance:payment-disposition");
+        let accounting = node("accounting:accepted-economic-event");
+        let reconciliation = node("finance:reconciliation");
+
+        let mut graph = ClosureDependencyGraph::default();
+        graph.add_dependency(root.clone(), invoice.clone());
+        graph.add_dependency(invoice, agreement);
+        graph.add_dependency(root.clone(), work);
+        graph.add_dependency(root.clone(), payment);
+        graph.add_dependency(root, accounting.clone());
+        graph.add_dependency(accounting, reconciliation);
+        graph
+    }
+
+    fn requirements(&self) -> BTreeMap<DerivationNodeRef, QualifiedBoundaryRequirement> {
+        BTreeMap::from([
+            (
+                node("commerce:accepted-agreement"),
+                QualifiedBoundaryRequirement::input(
+                    domain("commerce"),
+                    semantic("commerce.agreement", 1),
+                ),
+            ),
+            (
+                node("commerce:accepted-invoice"),
+                QualifiedBoundaryRequirement::input(
+                    domain("commerce"),
+                    semantic("commerce.invoice-projection", 1),
+                ),
+            ),
+            (
+                node("service-work:work-disposition"),
+                QualifiedBoundaryRequirement::input(
+                    domain("service-work"),
+                    semantic("service-work.obligation-disposition", 1),
+                ),
+            ),
+            (
+                node("finance:payment-disposition"),
+                QualifiedBoundaryRequirement::input(
+                    domain("finance"),
+                    semantic("finance.obligation-disposition", 1),
+                ),
+            ),
+            (
+                node("accounting:accepted-economic-event"),
+                QualifiedBoundaryRequirement::input(
+                    domain("accounting"),
+                    semantic("accounting.accepted-economic-event", 1),
+                ),
+            ),
+            (
+                node("finance:reconciliation"),
+                QualifiedBoundaryRequirement::reconciliation(domain("finance")),
+            ),
+        ])
+    }
+
+    fn obligation_roles(&self) -> BTreeMap<DerivationNodeRef, DomainRef> {
+        BTreeMap::from([
+            (node("finance:payment-disposition"), domain("finance")),
+            (
+                node("service-work:work-disposition"),
+                domain("service-work"),
+            ),
+        ])
+    }
+
+    fn profile(&self) -> ClosureQualificationProfile {
+        ClosureQualificationProfile::new(
+            OrganizationContextRef::new("org:acme").unwrap(),
+            semantic("business.service-sale.qualification", 1),
+            ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+            semantic("business.service-sale.close", 1),
+            ClosureClass::Satisfied,
+            self.policy_source.clone(),
+            node("business:service-sale-closure"),
+            self.graph(),
+            self.requirements(),
+            self.obligation_roles(),
+        )
+    }
+
+    fn cut(&self) -> QualificationCut {
+        let mut cut = QualificationCut::new(
+            OrganizationContextRef::new("org:acme").unwrap(),
+            semantic("business.service-sale.qualification", 1),
+            TimestampMs::new(80),
+        );
+
+        for exact in [
+            self.policy_source.clone(),
+            self.agreement.clone(),
+            self.invoice.clone(),
+            self.work_disposition.clone(),
+            self.payment_disposition.clone(),
+            self.accounting.clone(),
+        ] {
+            assert!(cut.insert_input(exact).unwrap());
+        }
+        assert!(cut.insert_reconciliation(self.reconciliation.clone()));
+        cut
+    }
+
+    fn basis(&self) -> ClosureQualificationBasis {
+        let cut = self.cut();
+        let dispositions = vec![
+            ObligationDispositionBinding::bind(
+                self.payment_obligation.clone(),
+                ObligationDisposition::Satisfied,
+                self.payment_disposition.clone(),
+                &cut,
+            )
+            .unwrap(),
+            ObligationDispositionBinding::bind(
+                self.work_obligation.clone(),
+                ObligationDisposition::Satisfied,
+                self.work_disposition.clone(),
+                &cut,
+            )
+            .unwrap(),
+        ];
+
+        ClosureQualificationBasis {
+            qualification_cut: cut,
+            boundary_results: BTreeMap::from([
+                (
+                    node("commerce:accepted-agreement"),
+                    QualifiedBoundaryRef::Input(self.agreement.clone()),
+                ),
+                (
+                    node("commerce:accepted-invoice"),
+                    QualifiedBoundaryRef::Input(self.invoice.clone()),
+                ),
+                (
+                    node("service-work:work-disposition"),
+                    QualifiedBoundaryRef::Input(self.work_disposition.clone()),
+                ),
+                (
+                    node("finance:payment-disposition"),
+                    QualifiedBoundaryRef::Input(self.payment_disposition.clone()),
+                ),
+                (
+                    node("accounting:accepted-economic-event"),
+                    QualifiedBoundaryRef::Input(self.accounting.clone()),
+                ),
+                (
+                    node("finance:reconciliation"),
+                    QualifiedBoundaryRef::Reconciliation(self.reconciliation.clone()),
+                ),
+            ]),
+            obligations: BTreeMap::from([
+                (
+                    node("finance:payment-disposition"),
+                    self.payment_obligation.clone(),
+                ),
+                (
+                    node("service-work:work-disposition"),
+                    self.work_obligation.clone(),
+                ),
+            ]),
+            disposition_bindings: dispositions,
+            exception_bindings: Vec::new(),
+            compensating_intents: BTreeSet::new(),
+        }
+    }
 }
 
-fn service_sale_basis() -> ClosureQualificationBasis {
-    let agreement = input("commerce", "service-agreement:1", "commerce.agreement");
-    let work_disposition_source = input(
-        "service-work",
-        "work-disposition:1",
-        "service-work.obligation-disposition",
-    );
-    let payment_disposition_source = input(
-        "finance",
-        "payment-disposition:1",
-        "finance.obligation-disposition",
-    );
-    let accounting = input(
-        "accounting",
-        "economic-event:service-sale-1",
-        "accounting.accepted-economic-event",
-    );
-    let policy_source = service_sale_policy_source();
-    let finance_reconciliation = reconciliation("finance", "reconciliation:invoice-1");
-    let payment_obligation = obligation("finance", "payment:invoice-1");
-    let work_obligation = obligation("service-work", "work:agreement-1");
-
-    let mut cut = QualificationCut::new(
-        OrganizationContextRef::new("org:acme").unwrap(),
-        profile("business.service-sale.qualification", 1),
-        TimestampMs::new(80),
-    );
-    for exact in [
-        agreement.clone(),
-        work_disposition_source.clone(),
-        payment_disposition_source.clone(),
-        accounting.clone(),
-        policy_source,
-    ] {
-        assert!(cut.insert_input(exact).unwrap());
-    }
-    assert!(cut.insert_reconciliation(finance_reconciliation.clone()));
-
-    let dispositions = vec![
-        ObligationDispositionBinding::bind(
-            payment_obligation.clone(),
-            ObligationDisposition::Satisfied,
-            payment_disposition_source.clone(),
-            &cut,
-        )
-        .unwrap(),
-        ObligationDispositionBinding::bind(
-            work_obligation.clone(),
-            ObligationDisposition::Satisfied,
-            work_disposition_source.clone(),
-            &cut,
-        )
-        .unwrap(),
-    ];
-
-    let root = node("business:service-sale-closure");
-    let agreement_node = node("commerce:service-agreement");
-    let work_node = node("service-work:work-disposition");
-    let payment_node = node("finance:payment-disposition");
-    let reconciliation_node = node("finance:reconciliation");
-    let accounting_node = node("accounting:accepted-economic-event");
-
-    let mut graph = ClosureDependencyGraph::default();
-    for leaf in [
-        agreement_node.clone(),
-        work_node.clone(),
-        payment_node.clone(),
-        reconciliation_node.clone(),
-        accounting_node.clone(),
-    ] {
-        graph.add_dependency(root.clone(), leaf);
-    }
-
-    let boundary_results = BTreeMap::from([
-        (agreement_node, QualifiedBoundaryRef::Input(agreement)),
-        (
-            work_node,
-            QualifiedBoundaryRef::Input(work_disposition_source),
-        ),
-        (
-            payment_node,
-            QualifiedBoundaryRef::Input(payment_disposition_source),
-        ),
-        (
-            reconciliation_node,
-            QualifiedBoundaryRef::Reconciliation(finance_reconciliation),
-        ),
-        (accounting_node, QualifiedBoundaryRef::Input(accounting)),
-    ]);
-
-    ClosureQualificationBasis {
-        qualification_cut: cut,
-        dependency_graph: graph,
-        boundary_results,
-        closure_requirements: ClosureRequirements::new(BTreeSet::from([
-            payment_obligation,
-            work_obligation,
-        ])),
-        disposition_bindings: dispositions,
-        exception_bindings: Vec::new(),
-        compensating_intents: BTreeSet::new(),
-    }
+fn workflow() -> WorkflowRef {
+    WorkflowRef::new("workflow:service-sale:1").unwrap()
 }
 
 #[test]
 fn reusable_profile_qualifies_exact_service_sale_basis() {
-    let receipt = satisfied_profile()
-        .qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            service_sale_basis(),
-        )
-        .expect("exact structural basis qualifies");
-
+    let fixture = ServiceFixture::new();
+    let receipt = fixture.profile().qualify(workflow(), fixture.basis()).unwrap();
     assert_eq!(receipt.class(), ClosureClass::Satisfied);
     assert_eq!(receipt.obligations().len(), 2);
 }
 
 #[test]
-fn policy_profile_source_is_required_in_the_exact_cut() {
-    let basis = service_sale_basis();
-    let absent_policy_source = input(
-        "governance",
-        "closure-policy:service-sale:v2",
-        "governance.closure-policy-active",
-    );
-    let profile = ClosureQualificationProfile::new(
-        OrganizationContextRef::new("org:acme").unwrap(),
-        profile("business.service-sale.qualification", 1),
-        ClosurePolicyRef::new("closure:service-sale").unwrap(),
-        profile("business.service-sale.close", 1),
-        ClosureClass::Satisfied,
-        absent_policy_source,
-        node("business:service-sale-closure"),
-    );
-
-    assert!(matches!(
-        profile.qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
-        Err(ClosureQualificationError::PolicySourceMissingFromCut { .. })
-    ));
-}
-
-#[test]
-fn policy_source_is_semantic_authority_input_not_a_factual_dag_leaf() {
-    let profile = satisfied_profile();
-    let basis = service_sale_basis();
-
-    assert!(basis
-        .qualification_cut
-        .inputs()
-        .contains(profile.policy_source()));
-    assert!(basis
-        .boundary_results
-        .values()
-        .all(|boundary| boundary != &QualifiedBoundaryRef::Input(profile.policy_source().clone())));
-
-    profile
-        .qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        )
-        .expect("policy source may govern the DAG without masquerading as a factual leaf");
-}
-
-#[test]
 fn profile_prevents_cross_organization_replay() {
-    let mut basis = service_sale_basis();
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
     basis.qualification_cut.organization_context = OrganizationContextRef::new("org:other").unwrap();
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
         Err(ClosureQualificationError::WrongOrganization { .. })
     ));
 }
 
 #[test]
-fn profile_prevents_semantic_profile_substitution() {
-    let mut basis = service_sale_basis();
-    basis.qualification_cut.semantic_profile = profile("business.service-sale.qualification", 2);
+fn profile_prevents_qualification_profile_substitution() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    basis.qualification_cut.semantic_profile = semantic("business.service-sale.qualification", 2);
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
         Err(ClosureQualificationError::WrongQualificationProfile { .. })
     ));
 }
 
 #[test]
-fn cycle_is_rejected_before_receipt_construction() {
-    let mut basis = service_sale_basis();
-    let root = node("business:service-sale-closure");
-    let agreement = node("commerce:service-agreement");
-    basis
-        .dependency_graph
-        .add_dependency(agreement, root.clone());
+fn policy_profile_source_is_required_in_exact_cut() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let mut replacement_cut = QualificationCut::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        TimestampMs::new(80),
+    );
+    for exact in [
+        fixture.agreement.clone(),
+        fixture.invoice.clone(),
+        fixture.work_disposition.clone(),
+        fixture.payment_disposition.clone(),
+        fixture.accounting.clone(),
+    ] {
+        assert!(replacement_cut.insert_input(exact).unwrap());
+    }
+    assert!(replacement_cut.insert_reconciliation(fixture.reconciliation.clone()));
+    basis.qualification_cut = replacement_cut;
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::PolicySourceMissingFromCut { .. })
+    ));
+}
+
+#[test]
+fn profile_rejects_dependency_cycle() {
+    let fixture = ServiceFixture::new();
+    let mut graph = fixture.graph();
+    graph.add_dependency(
+        node("commerce:accepted-agreement"),
+        node("business:service-sale-closure"),
+    );
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        graph,
+        fixture.requirements(),
+        fixture.obligation_roles(),
+    );
+
+    assert!(matches!(
+        profile.qualify(workflow(), fixture.basis()),
         Err(ClosureQualificationError::Dependency(_))
     ));
 }
 
 #[test]
-fn missing_root_is_rejected() {
-    let mut basis = service_sale_basis();
-    basis.dependency_graph = ClosureDependencyGraph::default();
+fn profile_rejects_missing_root() {
+    let fixture = ServiceFixture::new();
+    let mut graph = ClosureDependencyGraph::default();
+    graph.add_node(node("commerce:accepted-agreement"));
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        graph,
+        fixture.requirements(),
+        fixture.obligation_roles(),
+    );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        profile.qualify(workflow(), fixture.basis()),
         Err(ClosureQualificationError::MissingRootNode { .. })
     ));
 }
 
 #[test]
-fn disconnected_decorative_graph_is_rejected() {
-    let mut basis = service_sale_basis();
-    basis
-        .dependency_graph
-        .add_node(node("unrelated:decorative-node"));
+fn profile_rejects_disconnected_decorative_nodes() {
+    let fixture = ServiceFixture::new();
+    let mut graph = fixture.graph();
+    graph.add_node(node("unrelated:decorative-node"));
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        graph,
+        fixture.requirements(),
+        fixture.obligation_roles(),
+    );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        profile.qualify(workflow(), fixture.basis()),
         Err(ClosureQualificationError::DisconnectedDependencyGraph { .. })
     ));
 }
 
 #[test]
-fn every_reachable_leaf_must_have_exact_boundary_provenance() {
-    let mut basis = service_sale_basis();
-    basis.dependency_graph.add_dependency(
+fn profile_cannot_leave_reachable_leaf_without_required_boundary_role() {
+    let fixture = ServiceFixture::new();
+    let mut graph = fixture.graph();
+    graph.add_dependency(
         node("business:service-sale-closure"),
-        node("commerce:unbound-document"),
+        node("commerce:required-but-ungrounded"),
+    );
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        graph,
+        fixture.requirements(),
+        fixture.obligation_roles(),
     );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
-        Err(ClosureQualificationError::UngroundedBoundaryLeaves { .. })
+        profile.qualify(workflow(), fixture.basis()),
+        Err(ClosureQualificationError::ProfileUngroundedLeaves { .. })
     ));
 }
 
 #[test]
-fn reachable_internal_node_may_carry_exact_boundary_provenance() {
-    let mut basis = service_sale_basis();
-    let accepted_invoice = input(
-        "commerce",
-        "invoice:service-sale-1",
-        "commerce.invoice-projection",
+fn profile_boundary_role_must_be_reachable_from_closure_root() {
+    let fixture = ServiceFixture::new();
+    let mut requirements = fixture.requirements();
+    requirements.insert(
+        node("commerce:not-in-proof"),
+        QualifiedBoundaryRequirement::input(
+            domain("commerce"),
+            semantic("commerce.agreement", 1),
+        ),
     );
-    assert!(basis
-        .qualification_cut
-        .insert_input(accepted_invoice.clone())
-        .unwrap());
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        fixture.graph(),
+        requirements,
+        fixture.obligation_roles(),
+    );
 
-    let root = node("business:service-sale-closure");
-    let invoice = node("commerce:invoice-projection");
-    let agreement = node("commerce:service-agreement");
-    basis
-        .dependency_graph
-        .add_dependency(root, invoice.clone());
-    basis
-        .dependency_graph
-        .add_dependency(invoice.clone(), agreement);
-    basis
-        .boundary_results
-        .insert(invoice, QualifiedBoundaryRef::Input(accepted_invoice));
-
-    satisfied_profile()
-        .qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        )
-        .expect("accepted invoice may be both a boundary result and an internal dependency node");
+    assert!(matches!(
+        profile.qualify(workflow(), fixture.basis()),
+        Err(ClosureQualificationError::ProfileUnreachableBoundaryNodes { .. })
+    ));
 }
 
 #[test]
-fn boundary_mapping_must_point_to_a_reachable_graph_node() {
-    let mut basis = service_sale_basis();
-    let extra = input("commerce", "extra:1", "commerce.extra");
+fn profile_obligation_role_must_also_be_boundary_role() {
+    let fixture = ServiceFixture::new();
+    let mut obligation_roles = fixture.obligation_roles();
+    obligation_roles.insert(node("finance:not-a-boundary-role"), domain("finance"));
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        fixture.graph(),
+        fixture.requirements(),
+        obligation_roles,
+    );
+
+    assert!(matches!(
+        profile.qualify(workflow(), fixture.basis()),
+        Err(ClosureQualificationError::ProfileObligationRoleMissingBoundary { .. })
+    ));
+}
+
+#[test]
+fn profile_obligation_domain_must_match_boundary_domain() {
+    let fixture = ServiceFixture::new();
+    let mut obligation_roles = fixture.obligation_roles();
+    obligation_roles.insert(
+        node("finance:payment-disposition"),
+        domain("commerce"),
+    );
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale:satisfied").unwrap(),
+        semantic("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        fixture.policy_source.clone(),
+        node("business:service-sale-closure"),
+        fixture.graph(),
+        fixture.requirements(),
+        obligation_roles,
+    );
+
+    assert!(matches!(
+        profile.qualify(workflow(), fixture.basis()),
+        Err(ClosureQualificationError::ProfileObligationRoleDomainMismatch { .. })
+    ));
+}
+
+#[test]
+fn basis_cannot_omit_internal_required_boundary_role() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    basis
+        .boundary_results
+        .remove(&node("commerce:accepted-invoice"));
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::BoundaryRoleSetMismatch { .. })
+    ));
+}
+
+#[test]
+fn basis_cannot_inject_extra_boundary_role() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let extra = input("commerce", "extra:1", "commerce.extra", 1);
     assert!(basis.qualification_cut.insert_input(extra.clone()).unwrap());
     basis.boundary_results.insert(
-        node("commerce:not-in-proof-graph"),
+        node("commerce:extra"),
         QualifiedBoundaryRef::Input(extra),
     );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
-        Err(ClosureQualificationError::UnreachableBoundaryNodes { .. })
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::BoundaryRoleSetMismatch { .. })
     ));
 }
 
 #[test]
-fn boundary_input_must_exist_in_exact_cut() {
-    let mut basis = service_sale_basis();
-    let agreement_node = node("commerce:service-agreement");
+fn boundary_role_rejects_cross_domain_substitution() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let wrong = input(
+        "commerce",
+        "economic-event:not-accounting",
+        "accounting.accepted-economic-event",
+        1,
+    );
+    assert!(basis.qualification_cut.insert_input(wrong.clone()).unwrap());
     basis.boundary_results.insert(
-        agreement_node,
+        node("accounting:accepted-economic-event"),
+        QualifiedBoundaryRef::Input(wrong),
+    );
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::BoundaryRequirementMismatch { .. })
+    ));
+}
+
+#[test]
+fn boundary_role_rejects_semantic_profile_substitution() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let wrong = input(
+        "accounting",
+        "economic-event:service-sale-1:v2-semantics",
+        "accounting.accepted-economic-event",
+        2,
+    );
+    assert!(basis.qualification_cut.insert_input(wrong.clone()).unwrap());
+    basis.boundary_results.insert(
+        node("accounting:accepted-economic-event"),
+        QualifiedBoundaryRef::Input(wrong),
+    );
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::BoundaryRequirementMismatch { .. })
+    ));
+}
+
+#[test]
+fn exact_boundary_input_must_be_present_in_cut() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    basis.boundary_results.insert(
+        node("commerce:accepted-agreement"),
         QualifiedBoundaryRef::Input(input(
             "commerce",
             "service-agreement:other",
             "commerce.agreement",
+            1,
         )),
     );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
         Err(ClosureQualificationError::BoundaryInputMissing { .. })
     ));
 }
 
 #[test]
-fn reconciliation_leaf_must_exist_in_exact_cut() {
-    let mut basis = service_sale_basis();
-    let reconciliation_node = node("finance:reconciliation");
+fn exact_reconciliation_must_be_present_in_cut() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
     basis.boundary_results.insert(
-        reconciliation_node,
-        QualifiedBoundaryRef::Reconciliation(reconciliation("finance", "reconciliation:other")),
+        node("finance:reconciliation"),
+        QualifiedBoundaryRef::Reconciliation(reconciliation(
+            "finance",
+            "reconciliation:other",
+        )),
     );
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
         Err(ClosureQualificationError::BoundaryReconciliationMissing { .. })
     ));
 }
 
 #[test]
-fn closure_class_is_part_of_reusable_profile_not_caller_selected_basis() {
-    let mut basis = service_sale_basis();
-    let payment_source = basis
-        .qualification_cut
-        .inputs()
-        .iter()
-        .find(|item| item.record.as_str() == "payment-disposition:1")
-        .expect("payment disposition input")
-        .clone();
-    let payment_obligation = obligation("finance", "payment:invoice-1");
-    let work_source = basis
-        .qualification_cut
-        .inputs()
-        .iter()
-        .find(|item| item.record.as_str() == "work-disposition:1")
-        .expect("work disposition input")
-        .clone();
-    let work_obligation = obligation("service-work", "work:agreement-1");
+fn basis_cannot_omit_policy_required_obligation_role() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    basis
+        .obligations
+        .remove(&node("finance:payment-disposition"));
 
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::ObligationRoleSetMismatch { .. })
+    ));
+}
+
+#[test]
+fn basis_cannot_omit_policy_required_disposition_binding() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    basis.disposition_bindings.retain(|binding| {
+        binding.obligation() != &fixture.payment_obligation
+    });
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::ObligationDispositionSetMismatch { .. })
+    ));
+}
+
+#[test]
+fn exact_obligation_domain_must_match_profile_role() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let wrong_obligation = obligation("supply-chain", "payment:not-finance");
+    let wrong_source = input(
+        "supply-chain",
+        "payment-disposition:not-finance",
+        "supply-chain.obligation-disposition",
+        1,
+    );
+    assert!(basis
+        .qualification_cut
+        .insert_input(wrong_source.clone())
+        .unwrap());
+    basis.obligations.insert(
+        node("finance:payment-disposition"),
+        wrong_obligation.clone(),
+    );
+    basis.disposition_bindings.retain(|binding| {
+        binding.obligation() != &fixture.payment_obligation
+    });
+    basis.disposition_bindings.push(
+        ObligationDispositionBinding::bind(
+            wrong_obligation,
+            ObligationDisposition::Satisfied,
+            wrong_source,
+            &basis.qualification_cut,
+        )
+        .unwrap(),
+    );
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::ObligationRoleDomainMismatch { .. })
+    ));
+}
+
+#[test]
+fn disposition_source_must_equal_exact_boundary_source_for_role() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
+    let alternate = input(
+        "finance",
+        "payment-disposition:alternate",
+        "finance.obligation-disposition",
+        1,
+    );
+    assert!(basis
+        .qualification_cut
+        .insert_input(alternate.clone())
+        .unwrap());
+    basis.disposition_bindings.retain(|binding| {
+        binding.obligation() != &fixture.payment_obligation
+    });
+    basis.disposition_bindings.push(
+        ObligationDispositionBinding::bind(
+            fixture.payment_obligation.clone(),
+            ObligationDisposition::Satisfied,
+            alternate,
+            &basis.qualification_cut,
+        )
+        .unwrap(),
+    );
+
+    assert!(matches!(
+        fixture.profile().qualify(workflow(), basis),
+        Err(ClosureQualificationError::ObligationDispositionBoundaryMismatch { .. })
+    ));
+}
+
+#[test]
+fn satisfied_profile_cannot_strengthen_terminated_dispositions() {
+    let fixture = ServiceFixture::new();
+    let mut basis = fixture.basis();
     basis.disposition_bindings = vec![
         ObligationDispositionBinding::bind(
-            payment_obligation,
+            fixture.payment_obligation.clone(),
             ObligationDisposition::Terminated,
-            payment_source,
+            fixture.payment_disposition.clone(),
             &basis.qualification_cut,
         )
         .unwrap(),
         ObligationDispositionBinding::bind(
-            work_obligation,
+            fixture.work_obligation.clone(),
             ObligationDisposition::Terminated,
-            work_source,
+            fixture.work_disposition.clone(),
             &basis.qualification_cut,
         )
         .unwrap(),
     ];
 
     assert!(matches!(
-        satisfied_profile().qualify(
-            WorkflowRef::new("workflow:service-sale:1").unwrap(),
-            basis,
-        ),
+        fixture.profile().qualify(workflow(), basis),
         Err(ClosureQualificationError::Closure(
             ClosureError::SatisfactionStrengthening { .. }
         ))
@@ -477,71 +780,78 @@ fn closure_class_is_part_of_reusable_profile_not_caller_selected_basis() {
 }
 
 #[test]
-fn one_accounting_boundary_can_compress_a_deeper_domain_proof_graph() {
-    let accounting_close = input(
-        "accounting",
-        "period-close:2026-08",
-        "accounting.qualified-period-close",
-    );
+fn one_accounting_boundary_can_compress_deeper_private_proof_graph() {
     let policy_source = input(
         "governance",
         "closure-policy:month-end:v1",
         "governance.closure-policy-active",
+        1,
     );
-    let mut cut = QualificationCut::new(
-        OrganizationContextRef::new("org:acme").unwrap(),
-        profile("business.month-end.qualification", 1),
-        TimestampMs::new(80),
+    let accounting_close = input(
+        "accounting",
+        "period-close:2026-08",
+        "accounting.qualified-period-close",
+        1,
     );
-    assert!(cut.insert_input(accounting_close.clone()).unwrap());
-    assert!(cut.insert_input(policy_source.clone()).unwrap());
-
     let root = node("business:month-end-orchestration-close");
     let accounting_node = node("accounting:qualified-period-close");
+
     let mut graph = ClosureDependencyGraph::default();
     graph.add_dependency(root.clone(), accounting_node.clone());
+    let requirements = BTreeMap::from([(
+        accounting_node.clone(),
+        QualifiedBoundaryRequirement::input(
+            domain("accounting"),
+            semantic("accounting.qualified-period-close", 1),
+        ),
+    )]);
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.month-end.qualification", 1),
+        ClosurePolicyRef::new("closure:month-end").unwrap(),
+        semantic("business.month-end.close", 1),
+        ClosureClass::Satisfied,
+        policy_source.clone(),
+        root,
+        graph,
+        requirements,
+        BTreeMap::new(),
+    );
+
+    let mut cut = QualificationCut::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        semantic("business.month-end.qualification", 1),
+        TimestampMs::new(80),
+    );
+    assert!(cut.insert_input(policy_source).unwrap());
+    assert!(cut.insert_input(accounting_close.clone()).unwrap());
 
     let basis = ClosureQualificationBasis {
         qualification_cut: cut,
-        dependency_graph: graph,
         boundary_results: BTreeMap::from([(
             accounting_node,
             QualifiedBoundaryRef::Input(accounting_close),
         )]),
-        closure_requirements: ClosureRequirements::new(BTreeSet::new()),
+        obligations: BTreeMap::new(),
         disposition_bindings: Vec::new(),
         exception_bindings: Vec::new(),
         compensating_intents: BTreeSet::new(),
     };
 
-    assert_eq!(basis.boundary_results.len(), 1);
-    assert_eq!(basis.qualification_cut.inputs().len(), 2);
-
-    let month_end = ClosureQualificationProfile::new(
-        OrganizationContextRef::new("org:acme").unwrap(),
-        profile("business.month-end.qualification", 1),
-        ClosurePolicyRef::new("closure:month-end").unwrap(),
-        profile("business.month-end.close", 1),
-        ClosureClass::Satisfied,
-        policy_source,
-        root,
-    );
-
-    let receipt = month_end
+    let receipt = profile
         .qualify(WorkflowRef::new("workflow:month-end:2026-08").unwrap(), basis)
-        .expect("one qualified Accounting boundary is sufficient structurally");
-
+        .unwrap();
     assert_eq!(receipt.class(), ClosureClass::Satisfied);
     assert_eq!(receipt.qualification_cut().inputs().len(), 2);
 }
 
 #[test]
 fn same_profile_and_exact_basis_are_deterministic() {
-    let profile = satisfied_profile();
-    let workflow = WorkflowRef::new("workflow:service-sale:1").unwrap();
-    let basis = service_sale_basis();
+    let fixture = ServiceFixture::new();
+    let profile = fixture.profile();
+    let basis = fixture.basis();
 
-    let first = profile.qualify(workflow.clone(), basis.clone()).unwrap();
-    let second = profile.qualify(workflow, basis).unwrap();
+    let first = profile.qualify(workflow(), basis.clone()).unwrap();
+    let second = profile.qualify(workflow(), basis).unwrap();
     assert_eq!(first, second);
 }

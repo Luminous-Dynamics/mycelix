@@ -5,13 +5,14 @@
 //!
 //! The larger GP-002/003/006 fixtures remain as adversarial detail. This file
 //! asks one narrower architectural question: can materially different Business
-//! closures use the same reusable profile/basis algebra without losing their
-//! distinct policy, evidence, and closure-class shapes?
+//! closures use the same reusable profile/basis algebra while the reusable
+//! profile—not each transaction basis—owns proof topology, boundary roles, and
+//! which obligation roles count?
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_business_core::{
-    ClosureClass, ClosurePolicyRef, ClosureRequirements, DerivationNodeRef, DomainObligationRef,
+    ClosureClass, ClosurePolicyRef, DerivationNodeRef, DomainObligationRef,
     DomainReconciliationRef, DomainRef, DomainScopedRef, ObligationDisposition,
     ObligationDispositionBinding, ObligationRef, OrganizationContextRef, QualificationCut,
     QualifiedInputRef, ReconciliationRef, RecordRef, SemanticProfileId, TimestampMs, ValidityEnd,
@@ -19,7 +20,7 @@ use mycelix_business_core::{
 };
 use mycelix_business_qualification::{
     ClosureDependencyGraph, ClosureQualificationBasis, ClosureQualificationError,
-    ClosureQualificationProfile, QualifiedBoundaryRef,
+    ClosureQualificationProfile, QualifiedBoundaryRef, QualifiedBoundaryRequirement,
 };
 
 fn semantic(name: &str) -> SemanticProfileId {
@@ -67,6 +68,14 @@ fn reconciliation(domain_name: &str, local_id: &str) -> DomainReconciliationRef 
     )
 }
 
+fn input_requirement(domain_name: &str, profile_name: &str) -> QualifiedBoundaryRequirement {
+    QualifiedBoundaryRequirement::input(domain(domain_name), semantic(profile_name))
+}
+
+fn reconciliation_requirement(domain_name: &str) -> QualifiedBoundaryRequirement {
+    QualifiedBoundaryRequirement::reconciliation(domain(domain_name))
+}
+
 fn policy_source(record_name: &str, profile_name: &str) -> QualifiedInputRef {
     input("governance", record_name, profile_name)
 }
@@ -93,6 +102,7 @@ fn bind_disposition(
         .expect("fixture disposition source is exact")
 }
 
+#[allow(clippy::too_many_arguments)]
 fn profile(
     qualification_profile: &str,
     closure_policy: &str,
@@ -100,6 +110,9 @@ fn profile(
     class: ClosureClass,
     policy: QualifiedInputRef,
     root: &str,
+    graph: ClosureDependencyGraph,
+    requirements: BTreeMap<DerivationNodeRef, QualifiedBoundaryRequirement>,
+    obligation_roles: BTreeMap<DerivationNodeRef, DomainRef>,
 ) -> ClosureQualificationProfile {
     ClosureQualificationProfile::new(
         org(),
@@ -109,6 +122,9 @@ fn profile(
         class,
         policy,
         node(root),
+        graph,
+        requirements,
+        obligation_roles,
     )
 }
 
@@ -194,12 +210,43 @@ fn service_sale_case() -> GoldenPathCase {
     graph.add_dependency(root, accounting_node.clone());
     graph.add_dependency(accounting_node.clone(), reconciliation_node.clone());
 
+    let requirements = BTreeMap::from([
+        (
+            agreement_node.clone(),
+            input_requirement("commerce", "commerce.agreement-accepted"),
+        ),
+        (
+            invoice_node.clone(),
+            input_requirement("commerce", "commerce.invoice-projection-accepted"),
+        ),
+        (
+            work_node.clone(),
+            input_requirement("service-work", "service-work.obligation-disposition"),
+        ),
+        (
+            payment_node.clone(),
+            input_requirement("finance", "finance.obligation-disposition"),
+        ),
+        (
+            reconciliation_node.clone(),
+            reconciliation_requirement("finance"),
+        ),
+        (
+            accounting_node.clone(),
+            input_requirement("accounting", "accounting.accepted-economic-event"),
+        ),
+    ]);
+    let obligation_roles = BTreeMap::from([
+        (payment_node.clone(), domain("finance")),
+        (work_node.clone(), domain("service-work")),
+    ]);
+
     let boundaries = BTreeMap::from([
         (agreement_node, QualifiedBoundaryRef::Input(agreement)),
         (invoice_node, QualifiedBoundaryRef::Input(invoice)),
-        (work_node, QualifiedBoundaryRef::Input(work_disposition)),
+        (work_node.clone(), QualifiedBoundaryRef::Input(work_disposition)),
         (
-            payment_node,
+            payment_node.clone(),
             QualifiedBoundaryRef::Input(payment_disposition),
         ),
         (
@@ -218,15 +265,17 @@ fn service_sale_case() -> GoldenPathCase {
             ClosureClass::Satisfied,
             policy,
             "business:service-sale-closure",
+            graph,
+            requirements,
+            obligation_roles,
         ),
         basis: ClosureQualificationBasis {
             qualification_cut: exact_cut,
-            dependency_graph: graph,
             boundary_results: boundaries,
-            closure_requirements: ClosureRequirements::new(BTreeSet::from([
-                payment_obligation,
-                work_obligation,
-            ])),
+            obligations: BTreeMap::from([
+                (payment_node, payment_obligation),
+                (work_node, work_obligation),
+            ]),
             disposition_bindings: dispositions,
             exception_bindings: Vec::new(),
             compensating_intents: BTreeSet::new(),
@@ -316,9 +365,44 @@ fn procurement_satisfied_case() -> GoldenPathCase {
     graph.add_dependency(accounting_node.clone(), reconciliation_node.clone());
     graph.add_dependency(reconciliation_node.clone(), settlement_node.clone());
 
+    let requirements = BTreeMap::from([
+        (
+            po_node.clone(),
+            input_requirement("commerce", "commerce.purchase-order-accepted"),
+        ),
+        (
+            receiving_node.clone(),
+            input_requirement("supply-chain", "supply-chain.receiving-accepted"),
+        ),
+        (
+            bill_match_node.clone(),
+            input_requirement("commerce", "commerce.bill-match-accepted"),
+        ),
+        (
+            settlement_node.clone(),
+            input_requirement("finance", "finance.settlement-accepted"),
+        ),
+        (
+            reconciliation_node.clone(),
+            reconciliation_requirement("finance"),
+        ),
+        (
+            payment_node.clone(),
+            input_requirement("finance", "finance.obligation-disposition"),
+        ),
+        (
+            accounting_node.clone(),
+            input_requirement("accounting", "accounting.accepted-economic-event"),
+        ),
+    ]);
+    let obligation_roles = BTreeMap::from([
+        (payment_node.clone(), domain("finance")),
+        (receiving_node.clone(), domain("supply-chain")),
+    ]);
+
     let boundaries = BTreeMap::from([
         (po_node, QualifiedBoundaryRef::Input(purchase_order)),
-        (receiving_node, QualifiedBoundaryRef::Input(receiving)),
+        (receiving_node.clone(), QualifiedBoundaryRef::Input(receiving)),
         (bill_match_node, QualifiedBoundaryRef::Input(bill_match)),
         (settlement_node, QualifiedBoundaryRef::Input(settlement)),
         (
@@ -326,7 +410,7 @@ fn procurement_satisfied_case() -> GoldenPathCase {
             QualifiedBoundaryRef::Reconciliation(finance_reconciliation),
         ),
         (
-            payment_node,
+            payment_node.clone(),
             QualifiedBoundaryRef::Input(payment_disposition),
         ),
         (accounting_node, QualifiedBoundaryRef::Input(accounting)),
@@ -341,15 +425,17 @@ fn procurement_satisfied_case() -> GoldenPathCase {
             ClosureClass::Satisfied,
             policy,
             "business:procurement-satisfied-closure",
+            graph,
+            requirements,
+            obligation_roles,
         ),
         basis: ClosureQualificationBasis {
             qualification_cut: exact_cut,
-            dependency_graph: graph,
             boundary_results: boundaries,
-            closure_requirements: ClosureRequirements::new(BTreeSet::from([
-                payment_obligation,
-                receiving_obligation,
-            ])),
+            obligations: BTreeMap::from([
+                (payment_node, payment_obligation),
+                (receiving_node, receiving_obligation),
+            ]),
             disposition_bindings: dispositions,
             exception_bindings: Vec::new(),
             compensating_intents: BTreeSet::new(),
@@ -427,14 +513,37 @@ fn procurement_terminated_case() -> GoldenPathCase {
         graph.add_dependency(root.clone(), boundary);
     }
 
+    let requirements = BTreeMap::from([
+        (
+            cancellation_node.clone(),
+            input_requirement("finance", "finance.payment-cancellation-accepted"),
+        ),
+        (
+            payment_node.clone(),
+            input_requirement("finance", "finance.obligation-disposition"),
+        ),
+        (
+            receiving_node.clone(),
+            input_requirement("supply-chain", "supply-chain.obligation-disposition"),
+        ),
+        (
+            accounting_node.clone(),
+            input_requirement("accounting", "accounting.accepted-cancellation-event"),
+        ),
+    ]);
+    let obligation_roles = BTreeMap::from([
+        (payment_node.clone(), domain("finance")),
+        (receiving_node.clone(), domain("supply-chain")),
+    ]);
+
     let boundaries = BTreeMap::from([
         (cancellation_node, QualifiedBoundaryRef::Input(cancellation)),
         (
-            payment_node,
+            payment_node.clone(),
             QualifiedBoundaryRef::Input(payment_disposition),
         ),
         (
-            receiving_node,
+            receiving_node.clone(),
             QualifiedBoundaryRef::Input(receiving_disposition),
         ),
         (accounting_node, QualifiedBoundaryRef::Input(accounting)),
@@ -449,15 +558,17 @@ fn procurement_terminated_case() -> GoldenPathCase {
             ClosureClass::Terminated,
             policy,
             "business:procurement-terminated-closure",
+            graph,
+            requirements,
+            obligation_roles,
         ),
         basis: ClosureQualificationBasis {
             qualification_cut: exact_cut,
-            dependency_graph: graph,
             boundary_results: boundaries,
-            closure_requirements: ClosureRequirements::new(BTreeSet::from([
-                payment_obligation,
-                receiving_obligation,
-            ])),
+            obligations: BTreeMap::from([
+                (payment_node, payment_obligation),
+                (receiving_node, receiving_obligation),
+            ]),
             disposition_bindings: dispositions,
             exception_bindings: Vec::new(),
             compensating_intents: BTreeSet::new(),
@@ -484,6 +595,11 @@ fn month_end_case() -> GoldenPathCase {
     let mut graph = ClosureDependencyGraph::default();
     graph.add_dependency(root, accounting_node.clone());
 
+    let requirements = BTreeMap::from([(
+        accounting_node.clone(),
+        input_requirement("accounting", "accounting.qualified-period-close"),
+    )]);
+
     GoldenPathCase {
         workflow: WorkflowRef::new("workflow:month-end:2026-08").unwrap(),
         profile: profile(
@@ -493,15 +609,17 @@ fn month_end_case() -> GoldenPathCase {
             ClosureClass::Satisfied,
             policy,
             "business:month-end-orchestration-close",
+            graph,
+            requirements,
+            BTreeMap::new(),
         ),
         basis: ClosureQualificationBasis {
             qualification_cut: exact_cut,
-            dependency_graph: graph,
             boundary_results: BTreeMap::from([(
                 accounting_node,
                 QualifiedBoundaryRef::Input(accounting_close),
             )]),
-            closure_requirements: ClosureRequirements::new(BTreeSet::new()),
+            obligations: BTreeMap::new(),
             disposition_bindings: Vec::new(),
             exception_bindings: Vec::new(),
             compensating_intents: BTreeSet::new(),
@@ -536,42 +654,60 @@ fn one_profile_basis_algebra_expresses_three_materially_different_golden_paths()
 }
 
 #[test]
-fn procurement_terminal_classes_keep_distinct_proof_shapes() {
-    let satisfied = procurement_satisfied_case().qualify().unwrap();
-    let terminated = procurement_terminated_case().qualify().unwrap();
+fn procurement_terminal_classes_keep_distinct_reusable_proof_schemas() {
+    let satisfied_case = procurement_satisfied_case();
+    let terminated_case = procurement_terminated_case();
 
+    assert_ne!(
+        satisfied_case.profile.dependency_graph(),
+        terminated_case.profile.dependency_graph()
+    );
+    assert_ne!(
+        satisfied_case.profile.boundary_requirements(),
+        terminated_case.profile.boundary_requirements()
+    );
+    assert_eq!(satisfied_case.profile.required_obligation_roles().len(), 2);
+    assert_eq!(terminated_case.profile.required_obligation_roles().len(), 2);
+
+    let satisfied = satisfied_case.qualify().unwrap();
+    let terminated = terminated_case.qualify().unwrap();
     assert_eq!(satisfied.class(), ClosureClass::Satisfied);
     assert_eq!(terminated.class(), ClosureClass::Terminated);
     assert_eq!(satisfied.qualification_cut().reconciliations().len(), 1);
     assert!(terminated.qualification_cut().reconciliations().is_empty());
-    assert_ne!(satisfied.closure_profile(), terminated.closure_profile());
-    assert_ne!(satisfied.closure_policy(), terminated.closure_policy());
 }
 
 #[test]
-fn service_sale_uses_reachable_internal_boundaries_without_flattening_them_to_leaves() {
-    let receipt = service_sale_case().qualify().unwrap();
+fn service_sale_profile_requires_internal_boundaries_and_both_obligation_roles() {
+    let mut case = service_sale_case();
+    assert!(case
+        .profile
+        .boundary_requirements()
+        .contains_key(&node("commerce:accepted-invoice")));
+    assert!(case
+        .profile
+        .boundary_requirements()
+        .contains_key(&node("accounting:accepted-economic-event")));
+    assert_eq!(case.profile.required_obligation_roles().len(), 2);
 
-    assert_eq!(receipt.class(), ClosureClass::Satisfied);
-    assert_eq!(receipt.qualification_cut().reconciliations().len(), 1);
-    assert!(receipt
-        .qualification_cut()
-        .inputs()
-        .iter()
-        .any(|exact| exact.record.as_str() == "invoice:1"));
-    assert!(receipt
-        .qualification_cut()
-        .inputs()
-        .iter()
-        .any(|exact| exact.record.as_str() == "economic-event:service-sale-1"));
+    case.basis
+        .obligations
+        .remove(&node("finance:payment-disposition"));
+    assert!(matches!(
+        case.profile.qualify(case.workflow, case.basis),
+        Err(ClosureQualificationError::ObligationRoleSetMismatch { .. })
+    ));
 }
 
 #[test]
 fn month_end_preserves_proof_compression_at_the_business_boundary() {
-    let receipt = month_end_case().qualify().unwrap();
+    let case = month_end_case();
+    assert_eq!(case.profile.boundary_requirements().len(), 1);
+    assert!(case.profile.required_obligation_roles().is_empty());
+    assert_eq!(case.basis.qualification_cut.inputs().len(), 2);
 
+    let receipt = case.qualify().unwrap();
     assert_eq!(receipt.class(), ClosureClass::Satisfied);
-    assert_eq!(receipt.qualification_cut().inputs().len(), 2);
     assert!(receipt
         .qualification_cut()
         .inputs()
