@@ -1,0 +1,150 @@
+name: Authority Coordinator Deployment Contract
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-deployment/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-deployment-contract.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-deployment-contract-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-deployment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact CellId + coordinator code set + provisioning containment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-deployment/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-deployment/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-deployment/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-deployment')
+          src = (root / 'src/lib.rs').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          gate = Path('mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Pure matcher has no Holochain/HDK runtime dependency.
+          assert 'hdk' not in cargo.lower()
+          assert 'holochain' not in cargo.lower()
+          assert 'holochain_client' not in src
+          assert 'AdminWebsocket::' not in src
+          assert 'use hdk::' not in src
+          assert 'use holochain' not in src
+
+          assert 'pub struct RequiredCoordinatorDeployment {' in src
+          assert 'pub struct ObservedCoordinatorDeployment {' in src
+          assert 'pub struct MatchedCoordinatorDeployment {' in src
+          matched_prefix = src.split('pub struct MatchedCoordinatorDeployment {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in matched_prefix)
+
+          for token in [
+              'HOLO_HASH_RAW_LEN: usize = 39',
+              'MAX_OBSERVATION_REUSE_MS: u64 = 5_000',
+              'holochain-admin-get-dna-definition-cell-coordinator-wasm-v1',
+              'pub agent_pub_key_raw_39: Vec<u8>',
+              'CellAgentMismatch',
+              'canonical_coordinators',
+              'DuplicateCoordinator',
+              'MissingCoordinator',
+              'UnexpectedCoordinator',
+              'WasmHashMismatch',
+              'DnaMismatch',
+              'InvalidObservationWindow',
+              'ObservationLeaseTooWide',
+              'required.dna_hash_raw_39 != observed.dna_hash_raw_39',
+              'required.agent_pub_key_raw_39 != observed.agent_pub_key_raw_39',
+              'actual.wasm_hash_raw_39 != expected.wasm_hash_raw_39',
+              'width > MAX_OBSERVATION_REUSE_MS',
+          ]:
+              assert token in src, token
+
+          # Requirement/match digests commit exact CellId, not only DNA.
+          requirement_digest = src.split('pub fn requirement_digest(&self)', 1)[1].split('/// Deserializable observation', 1)[0]
+          assert 'PROTOCOL_VERSION.as_bytes()' in requirement_digest
+          assert '&self.dna_hash_raw_39' in requirement_digest
+          assert '&self.agent_pub_key_raw_39' in requirement_digest
+          matcher = src.split('pub fn match_required_coordinator_deployment(', 1)[1].split('fn require_protocol', 1)[0]
+          assert '&observed.dna_hash_raw_39' in matcher
+          assert '&observed.agent_pub_key_raw_39' in matcher
+
+          # Exact approved-set closure: missing/substituted/extra executable code denies.
+          assert 'MissingCoordinator' in matcher
+          assert 'UnexpectedCoordinator' in matcher
+          assert 'WasmHashMismatch' in matcher
+          assert 'additional observed coordinators are outside this requirement scope' not in matcher.lower()
+          assert 'unexpected_extra_coordinator_denies' in src
+          assert 'stale_or_over_wide_observation_denies' in src
+          assert 'wrong_dna_or_cell_agent_denies' in src
+
+          # Matching is shape/equality only; no host provenance or effect action is implemented here.
+          for forbidden in [
+              'dna_info(',
+              'zome_info(',
+              'get_links(',
+              'execute_actions',
+              'reputation',
+              'phi',
+              'model_score',
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
+
+          for invariant in [
+              'dna identity is not coordinator code identity',
+              'zome self-report cannot establish coordinator code identity',
+              'native conductor observation is the required provenance source',
+              'requirement authenticity is separate',
+              'installed coordinator set must equal the approved set exactly',
+              'observation lease is explicit and bounded',
+              'matching does not prove provenance',
+              'coordinator-update races remain a separate theorem',
+              'current authority stack remains unprovisioned',
+              'future provisioning gate',
+          ]:
+              assert invariant in inv, invariant
+
+          for gate_token in [
+              'same dna != same coordinator implementation',
+              'dna hash + cell agent public key',
+              'complete approved coordinator set',
+              'unexpected coordinator',
+              'update-race',
+          ]:
+              assert gate_token in gate, gate_token
+
+          # This tranche must not provision the unqualified authority runtime.
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: exact CellId and exact coordinator set are independently modeled with bounded reuse; pure matching cannot self-attest provenance or solve update races')
+          PY

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mycelix-governance/zomes/authority-current-freshness-verifier/**'
+      - 'crates/mycelix-authority-coordinator-deployment/**'
       - 'mycelix-governance/dna/dna.yaml'
       - '.github/workflows/authority-currentness-consumer-boundary.yml'
   push:
@@ -11,6 +12,7 @@ on:
       - 'security/authority-currentness-wire-boundary-v0.1'
       - 'security/authority-deployment-constitution-context-v0.1'
       - 'security/deployment-currentness-evidence-context-v0.1'
+      - 'security/authority-coordinator-deployment-contract-v0.1'
 
 permissions:
   contents: read
@@ -36,7 +38,10 @@ jobs:
           types = (root / 'coordinator/src/v04/types.rs').read_text()
           runtime = (root / 'coordinator/src/v04/runtime.rs').read_text()
           contract = (root / 'CONSUMER_HANDOFF.md').read_text()
+          coordinator_gate = (root / 'COORDINATOR_DEPLOYMENT_GATE.md').read_text()
           lower = contract.lower()
+          gate_lower = coordinator_gate.lower()
+          coordinator_src = Path('crates/mycelix-authority-coordinator-deployment/src/lib.rs').read_text()
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
 
           assert 'mycelix-authority-current-freshness-verifier-v0.11' in types
@@ -111,6 +116,19 @@ jobs:
           ]:
               assert positive_name in contract, positive_name
 
+          # Same DNA is explicitly insufficient for effect-capable provisioning.
+          for gate_token in [
+              'same dna != same coordinator implementation',
+              'exact installed set, not required-subset matching',
+              'unexpected coordinator',
+              'observation freshness is bounded but not atomicity',
+              'update-race / atomicity policy',
+              'caller-supplied coordinator snapshot cannot substitute for a native attestor observation',
+          ]:
+              assert gate_token in gate_lower, gate_token
+          assert 'UnexpectedCoordinator' in coordinator_src
+          assert 'MAX_OBSERVATION_REUSE_MS: u64 = 5_000' in coordinator_src
+
           assert 'directly calling the designated local currentness verifier' in contract
           assert 'final deployment-evidence identity' in lower
           assert '#192 manifest alone as sufficient deployment proof' in contract
@@ -122,7 +140,10 @@ jobs:
               'automatic_external_effects_enabled = true',
           ]:
               assert forbidden not in runtime
-          assert 'name: authority_current_freshness_verifier' not in dna
 
-          print('PASS: v0.11 receipt exposes composition plus explicit final currentness evidence while live authority still originates only from a direct local verifier call')
+          # Currentness is intentionally not provisioned before conductor-code attestation exists.
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: v0.11 currentness remains transport-only and effect provisioning is blocked until exact native-attested coordinator deployment plus update-race policy are qualified')
           PY
