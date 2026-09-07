@@ -20,6 +20,7 @@ members = [
     "zomes/budgeting/integrity",
     "zomes/budgeting/coordinator",
     "crates/governance-utils",
+    "crates/governance-resolution-types",
 ]
 exclude = ["tests"]
 
@@ -67,6 +68,7 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic", "
 
 # Shared governance utilities
 governance-utils = { path = "crates/governance-utils" }
+governance-resolution-types = { path = "crates/governance-resolution-types" }
 
 # ZKP verification for anonymous voting
 mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }

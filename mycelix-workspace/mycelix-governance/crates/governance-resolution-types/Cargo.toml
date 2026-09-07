@@ -1,0 +1,12 @@
+[package]
+name = "governance-resolution-types"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Transport-neutral authorized resolution outcome vocabulary for Mycelix Governance"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
