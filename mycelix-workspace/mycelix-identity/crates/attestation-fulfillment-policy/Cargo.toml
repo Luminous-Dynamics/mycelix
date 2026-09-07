@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-attestation-fulfillment-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Holochain-free convergent semantic policy for attestation fulfillment V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-attestation-request-root-policy = { path = "../attestation-request-root-policy" }
+mycelix-trust-authority-policy = { path = "../trust-authority-policy" }
+sha2 = { workspace = true }
