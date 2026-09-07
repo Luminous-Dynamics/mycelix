@@ -1,0 +1,211 @@
+name: Identity K-Vector Signature Verification Request V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-verification-request-policy/**'
+      - '.github/workflows/identity-kvector-signature-verification-request-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-verification-request-policy/**'
+      - '.github/workflows/identity-kvector-signature-verification-request-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-signature-verification-request-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert pre-crypto verification-request boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-signature-verification-request-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-did-observer-assembly-policy',
+              'mycelix-kvector-proof-statement-policy',
+              'mycelix-kvector-signature-material-policy',
+              'mycelix-kvector-verification-record-policy',
+              'mycelix-kvector-verifier-policy-body',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: signature request dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: signature request must use workspace mycelix-crypto types')
+
+          expected_paths = {
+              'mycelix-did-observer-assembly-policy': '../did-observer-assembly-policy',
+              'mycelix-kvector-proof-statement-policy': '../kvector-proof-statement-policy',
+              'mycelix-kvector-signature-material-policy': '../kvector-signature-material-policy',
+              'mycelix-kvector-verification-record-policy': '../kvector-verification-record-policy',
+              'mycelix-kvector-verifier-policy-body': '../kvector-verifier-policy-body',
+          }
+          for name, path in expected_paths.items():
+              if deps[name].get('path') != path:
+                  raise SystemExit(f'ERROR: {name} is not bound to canonical theorem path')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'PreparedSignatureVerificationV2',
+              'prepare_kvector_signature_verification_v2',
+              'observer: &QualifiedDidObserverAssemblyV2',
+              'validate_kvector_verification_record_binding_v2(',
+              'validate_kvector_verification_record_against_policy_body_v2(',
+              'observer.observed_verifier_key()',
+              'observed.did != policy.verifier_did',
+              'observed.key.canonical_key_id != policy.verifier_key_id',
+              'validate_kvector_signature_material_for_policy_v2(',
+              'derive_kvector_verification_record_signing_digest_v2(',
+              'public_key: observed.key.public_key.clone()',
+              'signature: signature.clone()',
+              'verification_policy_sha256: policy_digest',
+              'observed_document_action_id: observed.document_action_id.clone()',
+              'coverage_head_action_id: observer.coverage_head_action_id().to_string()',
+              'proof_substitution_fails_before_signature_preparation',
+              'static_policy_substitution_fails_closed',
+              'observed_key_capability_cannot_be_rebound_to_another_policy_key',
+              'signature_algorithm_substitution_fails_closed',
+              'exact_request_prepares_without_claiming_signature_authenticity',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: pre-crypto request theorem missing: {needle!r}')
+
+          # Prepared is an authority-sensitive provenance capability, not a DTO.
+          for public_field in [
+              'pub signing_digest:',
+              'pub algorithm:',
+              'pub public_key:',
+              'pub signature:',
+              'pub verifier_did:',
+              'pub verifier_key_id:',
+              'pub verification_policy_sha256:',
+              'pub observed_document_action_id:',
+              'pub coverage_head_action_id:',
+          ]:
+              if public_field in text:
+                  raise SystemExit(
+                      f'ERROR: prepared signature capability exposes forgeable public field: {public_field!r}'
+                  )
+
+          prepare_start = text.index('pub fn prepare_kvector_signature_verification_v2')
+          prepare_end = text.index('#[cfg(test)]', prepare_start)
+          prepare_body = text[prepare_start:prepare_end]
+          ordered = [
+              'validate_kvector_verification_record_binding_v2(',
+              'validate_kvector_verification_record_against_policy_body_v2(',
+              'observer.observed_verifier_key()',
+              'validate_kvector_signature_material_for_policy_v2(',
+              'derive_kvector_verification_record_signing_digest_v2(',
+          ]
+          positions = [prepare_body.index(needle) for needle in ordered]
+          if positions != sorted(positions):
+              raise SystemExit('ERROR: preparation theorem reordered proof/policy/key/material/digest boundaries')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'resolve_did(',
+              'sys_time(',
+              'std::time',
+              'ed25519_dalek',
+              'ml_dsa::',
+              'hybrid_sig::verify',
+              'mldsa65verifier',
+              'ed25519verifier',
+              '.verify(',
+              'qualifiedsignatureauthenticity',
+              'signature_authentic:',
+              'signature_verified:',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence:',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: crypto execution/currentness/positive authority leaked into preparation theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-signature-verification-request-policy/Cargo.toml \
+            -- --check
+
+      - name: Test signed-record body theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml
+
+      - name: Test verifier-policy body theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/Cargo.toml
+
+      - name: Test signature-material theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/Cargo.toml
+
+      - name: Test DID observer assembly theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-observer-assembly-policy/Cargo.toml
+
+      - name: Test signature verification request theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-signature-verification-request-policy/Cargo.toml
+
+      - name: Check signature verification request theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-signature-verification-request-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
