@@ -67,6 +67,19 @@ def main() -> None:
             ('holochain_sqlite = "=0.6.1"', 'holochain_sqlite = "=0.6.3"'),
         ],
     )
+    replace_exact(
+        WORKSPACE / "Cargo.toml",
+        '# holochain_client tracks Holochain at a fixed +2 minor offset and, from 0.8.0 on,\n'
+        '# is released in lockstep from the same repo commit -- so the patch numbers match\n'
+        '# exactly: client 0.8.1 <-> Holochain 0.6.1. Do NOT "upgrade" to crates.io\'s\n'
+        '# max_stable 0.8.3; that one requires holochain_types ^0.6.3, which =0.6.1 cannot\n'
+        '# satisfy. Verified 2026-07-30 from each version\'s own published manifest.',
+        '# holochain_client tracks Holochain at a fixed +2 minor offset and matching patch\n'
+        '# in this qualified cohort: client 0.8.3 <-> Holochain 0.6.3. Keep this exact pair\n'
+        '# aligned with holochain-cohort.toml and Holonix rather than upgrading either side\n'
+        '# independently.',
+        count=1,
+    )
 
     # Active Pulse zome workspace.
     set_manifest_versions(
@@ -92,13 +105,14 @@ def main() -> None:
         ],
     )
 
-    # Standalone hApp integrity crate.
+    # Standalone hApp integrity crate. Its manifest does not directly depend on
+    # holochain_zome_types; do not invent a dependency merely to make the cohort
+    # table look uniform.
     set_manifest_versions(
         WORKSPACE / "mycelix-pulse/happ/dna/integrity/Cargo.toml",
         [
             ('hdi = "=0.7.1"', 'hdi = "=0.7.3"'),
             ('holochain_integrity_types = "=0.6.1"', 'holochain_integrity_types = "=0.6.3"'),
-            ('holochain_zome_types = "=0.6.1"', 'holochain_zome_types = "=0.6.3"'),
             ('holo_hash = "=0.6.1"', 'holo_hash = "=0.6.3"'),
             ('hdk_derive = "=0.6.1"', 'hdk_derive = "=0.6.3"'),
         ],
@@ -106,8 +120,9 @@ def main() -> None:
 
     # Legacy backend/CLI API islands: force them into the same 0.6.3 API cohort
     # so compilation, rather than version coexistence, decides whether migration is valid.
+    backend = WORKSPACE / "mycelix-pulse/happ/backend-rs/Cargo.toml"
     set_manifest_versions(
-        WORKSPACE / "mycelix-pulse/happ/backend-rs/Cargo.toml",
+        backend,
         [
             ('holochain_client = "=0.8.1"', 'holochain_client = "=0.8.3"'),
             ('holochain_types = "0.5"', 'holochain_types = "=0.6.3"'),
@@ -115,13 +130,30 @@ def main() -> None:
             ('holochain_keystore = "0.5"', 'holochain_keystore = "=0.6.3"'),
         ],
     )
+    replace_exact(
+        backend,
+        '# Holochain client\nholochain_client = "=0.8.3" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client',
+        '# Holochain client -- qualified Holochain 0.6.3 API cohort.\n'
+        'holochain_client = "=0.8.3" # client 0.8.3 <-> Holochain 0.6.3',
+        count=1,
+    )
+
+    cli = WORKSPACE / "mycelix-pulse/happ/cli/Cargo.toml"
     set_manifest_versions(
-        WORKSPACE / "mycelix-pulse/happ/cli/Cargo.toml",
+        cli,
         [
             ('holochain_client = "=0.8.1"', 'holochain_client = "=0.8.3"'),
             ('holochain_types = "0.5"', 'holochain_types = "=0.6.3"'),
             ('holochain_conductor_api = "0.5"', 'holochain_conductor_api = "=0.6.3"'),
         ],
+    )
+    replace_exact(
+        cli,
+        '# Holochain integration (Phase C - HDK 0.5.6 compatible)\n'
+        'holochain_client = "=0.8.3" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client',
+        '# Holochain integration -- qualified Holochain 0.6.3 API cohort.\n'
+        'holochain_client = "=0.8.3" # client 0.8.3 <-> Holochain 0.6.3',
+        count=1,
     )
 
     # Legacy simplified DNA tree.
@@ -191,7 +223,6 @@ path = "mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml"
 reason = "Standalone hApp integrity crate migrated to the 0.6.3 cohort."
 hdi = "0.7.3"
 holochain_integrity_types = "0.6.3"
-holochain_zome_types = "0.6.3"
 holo_hash = "0.6.3"
 hdk_derive = "0.6.3"
 
