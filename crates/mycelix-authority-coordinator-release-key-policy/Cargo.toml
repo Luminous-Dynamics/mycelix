@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-authority-coordinator-release-key-policy"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure current authorized hybrid signing-key policy for candidate Mycelix coordinator releases"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-release = { path = "../mycelix-authority-coordinator-release" }
+
+[dev-dependencies]
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }

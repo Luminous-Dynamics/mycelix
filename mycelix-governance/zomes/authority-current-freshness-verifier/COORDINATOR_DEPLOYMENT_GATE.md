@@ -1,132 +1,173 @@
-# Current Freshness — Coordinator Deployment Gate v0.6
+# Current Freshness — Coordinator Deployment Gate v0.8
 
-Status: **native observer candidate + signed-release authentication + pure release-currentness + exact deployment composition + pure pre/post stability fence implemented; live provenance/atomic effect admission still incomplete**
+Status: **native observer candidate + release semantics/currentness + exact deployment composition + stability fence + non-circular manifest-bound hybrid key-policy theorem implemented; live verifier provenance/atomic effect admission still incomplete**
 
-## Why this gate exists
+## Core deployment distinction
 
 The v0.11 current-freshness theorem binds local `DnaHash`, but coordinator WASM can change without changing that hash. Therefore `same DNA != same coordinator implementation`.
 
 Current Holochain 0.6 Admin APIs retrieve/update coordinator definitions by exact `CellId`, so deployment attestation binds **DNA hash + cell agent public key**, not DNA alone.
 
-## No coordinator self-attestation
+Coordinator self-reported code identity is never sufficient.
 
-A coordinator must never satisfy this gate by reporting its own compile-time hash, source commit, package version or expected deployment digest. `dna_info()`/`zome_info()` are not trustworthy current coordinator-WASM attestations to the executing coordinator.
+## Native conductor observation candidate
 
-## Native observer candidate implemented
+`mycelix-authority-coordinator-native-attestor` directly queries a loopback Holochain Admin API for an exact `CellId`, enumerates the complete installed coordinator set, extracts exact `WasmHash` values, samples time only after observation/extraction and owns the fixed five-second observation reuse cap.
 
-`mycelix-authority-coordinator-native-attestor` is the candidate conductor-observation trust domain.
+It does not choose an approved release or perform the match.
 
-Its live API accepts only a validated loopback admin `SocketAddr` plus exact `CellId`, establishes its own `AdminWebsocket`, calls `get_dna_definition(cell_id)`, enumerates the complete installed coordinator set, extracts every exact `WasmHash`, samples time only after observation/extraction and owns the fixed five-second reuse cap.
+## Coordinator release semantics
 
-The observer does not accept an approved release requirement or perform release/deployment matching.
+`mycelix-authority-coordinator-release` defines a DNA/code-scoped candidate release manifest committing the complete coordinator `WasmHash` closure plus DNA bundle/source/lock/toolchain/build-recipe/SBOM identities, release authority and release-policy identity.
 
-## Signed release authentication theorem implemented
+The semantic manifest exists before signature authentication and does not choose an installation-specific agent.
 
-`mycelix-authority-coordinator-release` defines the independent expected-release side.
+## Non-circular hybrid release signing-key policy
 
-Its manifest commits exact DNA identity, the complete approved coordinator name + `WasmHash` closure, DNA bundle/source/lock/toolchain/build-recipe/SBOM digests, source/build references and exact release-policy identity.
+`mycelix-authority-coordinator-release-key-policy` gives the candidate manifest's release-policy commitment one exact v0.1 hybrid-key meaning **before** release authentication.
 
-The release remains DNA/code scoped and does not choose an installation-specific cell agent.
+The v0.1 policy fixes:
 
-## Pure release currentness / withdrawal theorem implemented
+`Ed25519 + ML-DSA-65`
 
-`mycelix-authority-coordinator-release-currentness` requires both an independently verified current release-registry head and independently verified status of the exact authenticated release at that exact head.
+with exact public-key wire lengths:
 
-Only `Active` qualifies. `Withdrawn`, `Superseded`, an old-head `Active` proof, alternate v0.1 registry-head/status-record profiles, or release-policy mismatch deny.
+- Ed25519: 32 bytes;
+- ML-DSA-65: 1952 bytes.
 
-Its lease is no wider than authenticated-release, current-head or status-proof validity.
+The semantic `CoordinatorReleaseKeyPolicy` commits exact release authority, policy id/generation, complete canonical authorized-key set, exact key bytes, key-specific validity windows and policy lifetime.
 
-## Pure exact target/release/observation composition implemented
-
-`mycelix-authority-coordinator-deployment-composer` joins three distinct inputs:
-
-1. `TargetCellSelection` — exact DNA hash + exact target agent + selection reference;
-2. `QualifiedCurrentCoordinatorRelease` — exact currently Active approved DNA/code release; and
-3. `ObservedCoordinatorDeployment` — exact observed installed coordinator set for one CellId.
-
-The composer requires target DNA == release DNA, specializes the release to the independently supplied target agent, then delegates whole-set equality to #262.
-
-The non-deserializable positive composition commits current-release identity, target-selection identity, exact requirement identity, #262 match identity and the minimum release/observation lease.
-
-## Pure pre/post coordinator stability fence implemented
-
-`mycelix-authority-coordinator-stability-fence` now adds a second exact observation around one named admission attempt.
-
-Positive fencing requires:
+Positive key authorization now follows only this direction:
 
 ```text
-pre QualifiedCoordinatorDeploymentComposition
+candidate CoordinatorReleaseManifest
         +
-CoordinatorAdmissionSubject(subject digest/profile + per-attempt nonce/ref)
+semantic CoordinatorReleaseKeyPolicy
         +
-strictly later post ObservedCoordinatorDeployment
+independently verified current-policy proof
         ↓
-reconstruct exact same release/target requirement
+qualify_manifest_key_policy
         ↓
-#262 exact post whole-set match
+QualifiedCoordinatorReleaseManifestKeyPolicy
+        ↓ exact authorized key id + key lifetime
+QualifiedCoordinatorReleaseSigningKey
         ↓
-QualifiedCoordinatorStabilityFence
+future real hybrid signature verification
+        ↓
+#269 authenticated release
+        ↓
+#275 current/non-withdrawn release
 ```
 
-The post observation must be strictly later than the pre observation and must occur inside the pre-composition evidence window. The pre composition must still be live at qualification.
+The key-policy crate MUST NOT consume `QualifiedCurrentCoordinatorRelease`, `QualifiedCoordinatorReleaseRequirement`, `VerifiedCoordinatorReleaseSignatureProof`, or any other positive result whose construction already depends on release signature authentication. That would recreate circular authority.
 
-The reconstructed requirement identity and post CellId must equal the pre composition's exact requirement/target. Missing, substituted, duplicate or unexpected coordinator code continues to deny through #262.
+## Exact candidate-manifest binding
 
-The fence identity commits the pre composition, post match, exact admission subject/attempt nonce and final evidence window.
+The key-policy qualifier validates the candidate #269 manifest and recomputes its canonical `manifest_digest`.
 
-Changing the admission attempt nonce changes fence identity so one stability interval is not anonymous reusable evidence for unrelated admission attempts.
+It then requires:
 
-## Stability is still not atomicity
+- candidate `release_policy_profile` == exact v0.1 key-policy profile;
+- candidate `release_policy_digest` == locally recomputed semantic policy digest;
+- candidate `release_authority_ref` == policy release authority; and
+- a separate current-policy receipt naming the exact policy digest/profile/generation.
 
-Two matching exact observations establish **no detected coordinator deployment change across that observed interval** under their evidence assumptions.
+The non-deserializable policy qualification commits the exact candidate manifest digest/profile plus the exact policy/currentness identities.
 
-They do **not** prove that `UpdateCoordinators` cannot run immediately after the post observation. The pure fence provides no conductor mutex, generation lock, transaction or OS-level update exclusion.
+`QualifiedCoordinatorReleaseSigningKey` also carries that exact candidate manifest digest/profile. A future crypto verifier must recompute the candidate manifest digest and require equality before using the key bytes. A key capability for release manifest A cannot authenticate manifest B.
 
-The future native admission path must establish that pre/post observations genuinely bracket the admission work, own the admission nonce, and define what happens if coordinator update can race after the final observation.
+## Current key-policy evidence is bounded but still provenance-limited
+
+`VerifiedCurrentCoordinatorReleaseKeyPolicyProof` remains deserializable evidence. Pure qualification cannot prove which verifier produced it or whether policy-registry completeness/currentness was established correctly.
+
+Its v0.1 reuse window is capped at 30 seconds. This limits reuse but is not proof that policy cannot change inside the window.
+
+A live path must obtain current-policy evidence directly from an independently qualified verifier and ignore caller-supplied receipt bytes for positive authority.
+
+## Raw trusted-key input is forbidden
+
+The future hybrid verifier must accept a non-deserializable `QualifiedCoordinatorReleaseSigningKey`, not a caller-selected trusted-key path, public-key blob or key pair.
+
+The existing Luminous Ed25519 + ML-DSA-65 implementation motivating the wire profile remains experimental/unaudited; this gate does not upgrade its assurance status.
+
+## Key authorization is not signature verification
+
+The key-policy crate contains no Ed25519/ML-DSA verifier implementation and does not construct #269's signature proof.
+
+The future native signature verifier must:
+
+1. accept the exact candidate `CoordinatorReleaseManifest` plus a manifest-bound `QualifiedCoordinatorReleaseSigningKey`;
+2. recompute the #269 manifest digest and require exact equality with the key capability's manifest digest/profile;
+3. construct one fixed deterministic release-signature message from that manifest identity plus exact release-authority/policy identity;
+4. verify **both** Ed25519 and ML-DSA-65 signatures with the qualified key;
+5. sample verification time only after both cryptographic checks succeed;
+6. own a bounded proof horizon rather than accept caller-selected proof times; and
+7. only then construct `VerifiedCoordinatorReleaseSignatureProof` for local #269 qualification.
+
+## Release currentness / withdrawal follows authentication
+
+`mycelix-authority-coordinator-release-currentness` applies only after #269 authenticated release qualification. It requires the independently verified current registry head plus exact status of that authenticated release at that exact head.
+
+Only `Active` qualifies. `Withdrawn`, `Superseded`, old-head `Active`, wrong policy or alternate v0.1 profiles deny.
+
+Thus:
+
+`candidate release != key authorization != signature authentication != release currentness`.
+
+## Exact target/release/observation composition
+
+After authentication/currentness, `mycelix-authority-coordinator-deployment-composer` keeps target selection, current release and conductor observation as separate inputs, specializes the release to the independently selected target agent, and delegates whole-set equality to #262.
+
+Its positive result is non-deserializable and lease-monotone, but pure composition does not prove live origin of any input.
+
+## Subject-bound pre/post stability
+
+`mycelix-authority-coordinator-stability-fence` requires a strictly later second exact deployment observation inside the first composition's evidence window, reconstructs the exact same release/target requirement, re-runs #262 and binds the result to one admission subject + per-attempt nonce.
+
+This proves no detected code change across the observed interval. It is still not a mutex/transaction/atomicity guarantee: `UpdateCoordinators` can race after the post observation.
 
 ## Live provenance remains separate
 
-None of the pure composition/fence theorems prove that:
+The pure theorems do not prove that their deserializable evidence inputs came from designated live verifier roles.
 
-- target selection came from trusted host/application policy;
-- conductor observations came from the #264 native observer;
-- release signature proof came from the designated cryptographic verifier;
-- registry-head/status proofs came from their designated live verifiers; or
-- the admission subject/nonce came from the native effect-admission orchestrator.
+In particular:
 
-Therefore:
+`semantic key policy != current key-policy provenance != manifest-bound qualified signing key != hybrid signature verification`.
 
-`target selection != current approved release != observed deployment != stability interval != live provenance != atomic effect admission`.
+Likewise:
+
+`target selection != current approved release != observed deployment != stability interval != atomic effect admission`.
 
 ## Consumer rule
 
-A future lifecycle/effect consumer needs all of these independently:
+A future lifecycle/effect consumer needs independently:
 
 1. fresh v0.11 operational currentness from a direct local verifier call;
 2. exact stable/dynamic deployment evidence + lease;
-3. independently established exact target CellId selection;
-4. authenticated/current coordinator release from designated live verifier roles;
-5. native pre coordinator observation for that exact CellId;
-6. exact target/current-release/pre-observation composition through #290/#262;
-7. native post coordinator observation for the same exact CellId;
-8. subject/attempt-bound stability fencing through the stability theorem;
-9. an explicit native policy for coordinator-update races after the final observation;
-10. later lifecycle/executor/effect-safety authority; and
-11. an effect path whose actual execution cannot be replaced by caller-supplied serialized positive receipts.
-
-Caller-supplied target, coordinator, head, status, signature, stability or admission-subject bytes cannot substitute for the independent live provenance/orchestration boundaries.
+3. trusted exact target CellId selection;
+4. candidate coordinator release semantics;
+5. independently current release-key policy;
+6. manifest-bound non-deserializable qualified hybrid signing key;
+7. live hybrid release-signature verification using that key;
+8. #269 authenticated release followed by independently proven #275 current release-registry head/completeness and exact status-at-head;
+9. native pre deployment observation for the exact CellId;
+10. exact target/current-release/observation composition through #290/#262;
+11. native post observation and subject/attempt-bound stability through #298;
+12. explicit native policy for coordinator-update races after the final observation;
+13. later lifecycle/executor/effect-safety authority; and
+14. an effect path that consumes only in-process positive qualifications, never caller-supplied serialized positive receipts.
 
 ## Provisioning state
 
-The pure stability theorem still does not satisfy this gate.
+The corrected non-circular key-policy theorem still does not satisfy this gate.
 
-Until the native observer is runtime-qualified against a real conductor, target-selection provenance is qualified, release-signature/head/status verifier provenance is qualified, a native orchestrator obtains and brackets the pre/post observations around one admission attempt, coordinator-update race semantics are qualified, and the final lifecycle/effect path consumes only in-process positive results:
+Until current key-policy provenance, real hybrid signature verification, release-head/status provenance, real-conductor observation, target-selection provenance, native pre/post orchestration and post-observation race semantics are qualified and bound into final lifecycle/effect admission:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no effect-capable consumer may interpret current deployment evidence as coordinator-code-attested atomic authority; and
+- no effect-capable consumer may interpret deployment evidence as coordinator-code-attested atomic authority; and
 - external effects remain disabled.
 
-## Qualification required to satisfy the gate
+## Qualification still required
 
-Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; independent release-signature verifier; current registry-head verifier/completeness theorem; exact status-at-head verifier; live provenance-preserving composition; native pre/post admission orchestration; an explicit post-observation update-race/atomicity policy; binding the subject-specific stability result into final lifecycle/effect admission; and adversarial forged/wrong-cell/stale/over-wide/missing/substituted/extra/forged-release/old-head/withdrawn/superseded/target-substitution/replayed-attempt/local-endpoint-impersonation/update-race tests.
+Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; current release-key-policy verifier/completeness; native hybrid signature verifier using only a manifest-bound qualified key; current registry-head verifier/completeness; exact status-at-head verifier; live provenance-preserving composition; native pre/post admission orchestration; explicit post-observation update-race/atomicity policy; final lifecycle/effect binding; and adversarial wrong-key/wrong-policy/key-rotation/manifest-substitution/forged-signature/wrong-cell/stale/extra/old-head/withdrawn/replayed-attempt/local-endpoint-impersonation/update-race tests.
