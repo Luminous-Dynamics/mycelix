@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-kvector-signature-material-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Algorithm and byte-shape binding theorem for Identity V2 K-vector verifier signatures"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
