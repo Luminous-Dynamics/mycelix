@@ -1,0 +1,148 @@
+name: Governance Constitution Currentness
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-governance/zomes/constitution-currentness-verifier/**'
+      - 'mycelix-governance/zomes/constitution-authority/**'
+      - 'mycelix-governance/Cargo.toml'
+      - 'mycelix-governance/dna/dna.yaml'
+      - 'crates/mycelix-governance-constitution/**'
+      - '.github/workflows/governance-constitution-currentness.yml'
+  push:
+    branches:
+      - 'security/constitution-currentness-lease-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-constitution-currentness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Genesis-only leased constitutional currentness
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Format
+        working-directory: mycelix-governance
+        run: cargo fmt --package constitution_currentness_verifier -- --check
+
+      - name: Native tests
+        working-directory: mycelix-governance
+        run: cargo test --package constitution_currentness_verifier --all-targets
+
+      - name: Native clippy
+        working-directory: mycelix-governance
+        run: cargo clippy --package constitution_currentness_verifier --all-targets -- -D warnings
+
+      - name: WASM check
+        working-directory: mycelix-governance
+        run: cargo check --release --target wasm32-unknown-unknown --package constitution_currentness_verifier
+
+      - name: Currentness authority separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('mycelix-governance/zomes/constitution-currentness-verifier')
+          src = (root / 'coordinator/src/lib.rs').read_text()
+          compact = ''.join(src.split())
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'coordinator/Cargo.toml').read_text()
+          workspace = Path('mycelix-governance/Cargo.toml').read_text()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+          authority = Path('mycelix-governance/zomes/constitution-authority/coordinator/src/lib.rs').read_text()
+
+          assert 'blake3 = "1"' in cargo
+          assert '"zomes/constitution-currentness-verifier/coordinator"' in workspace
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          # The only semantic authority source is immutable DNA genesis.
+          assert 'const CONSTITUTION_AUTHORITY_ZOME: &str = "constitution_authority";' in src
+          assert 'const CONSTITUTION_GENESIS_FUNCTION: &str = "get_verified_constitution_genesis";' in src
+          assert 'get_verified_constitution_genesis' in authority
+          assert 'amendments_enabled: false' in authority
+          assert 'if genesis.amendments_enabled' in src
+          assert 'amendments are enabled but bounded amendment currentness is not implemented' in src
+
+          # Currentness observation identity is separate from semantic statement identity.
+          for token in [
+              'CURRENTNESS_EVIDENCE_PROFILE',
+              'DOMAIN_CURRENTNESS_EVIDENCE',
+              'currentness_evidence_digest: Digest32',
+              'currentness_evidence_profile: String',
+              'fn currentness_evidence_digest(',
+              'frame(&mut hasher, dna_hash.as_bytes())',
+              'frame(&mut hasher, STATEMENT_PROFILE.as_bytes())',
+              'frame(&mut hasher, &statement_digest.0)',
+              'frame(&mut hasher, lease_basis.as_bytes())',
+              'frame(&mut hasher, &verified_at_ms.to_le_bytes())',
+              'frame(&mut hasher, &valid_until_ms.to_le_bytes())',
+              'constitution-currentness-evidence:{CURRENTNESS_EVIDENCE_PROFILE}',
+              'currentness_evidence_identity_explicit: true',
+          ]:
+              assert token in src, token
+          assert 'currentness_observation_window_changes_evidence_identity' in src
+          assert 'dna_identity_changes_currentness_evidence_identity' in src
+
+          # The lease is a short local re-observation cap, not semantic authority expiry.
+          assert 'GENESIS_CURRENTNESS_REUSE_MS: u64 = 30_000' in src
+          assert 'local_reuse_cap_is_authority_expiry: false' in src
+          assert 'verified_at_ms.checked_add(GENESIS_CURRENTNESS_REUSE_MS)' in compact
+
+          # Positive genesis currentness never depends on candidate/DHT visibility.
+          for forbidden in [
+              'get_links(',
+              'get_details(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'project_verified_lineage',
+              'ConstitutionTransitionCandidate',
+              'constitution_transition',
+              'binding_voting',
+              'governance_rights_verifier',
+              'threshold_authority_verifier',
+              'execute_actions',
+              'phi',
+              'reputation',
+              'model_score',
+          ]:
+              assert forbidden.lower() not in src.lower(), forbidden
+
+          for token in [
+              'genesis_currentness_supported: true',
+              'amendment_currentness_supported: false',
+              'candidate_discovery_grants_authority: false',
+              'absence_of_transition_record_grants_authority: false',
+              'unbounded_transition_verifier_receipts_accepted: false',
+              'local_reuse_cap_is_authority_expiry: false',
+          ]:
+              assert token in src, token
+
+          for invariant in [
+              'currentness is a separate verifier role',
+              'candidate discovery is not used for positive genesis currentness',
+              'amendment currentness fails closed',
+              'the genesis lease is a reuse cap, not authority expiry',
+              'currentness evidence identity is distinct from constitutional statement identity',
+              'no latest-record heuristic',
+              'amendment enablement gate',
+          ]:
+              assert invariant in inv, invariant
+
+          print('PASS: DNA genesis currentness is independently leased, explicitly identified, and amendment/DHT currentness remains fail-closed')
+          PY

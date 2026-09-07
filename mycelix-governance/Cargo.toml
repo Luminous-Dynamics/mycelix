@@ -31,6 +31,7 @@ members = [
     "zomes/constitution-authority/coordinator",
     "zomes/constitution-transition/integrity",
     "zomes/constitution-transition/coordinator",
+    "zomes/constitution-currentness-verifier/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
     "zomes/threshold-signing/integrity",
