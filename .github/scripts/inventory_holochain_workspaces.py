@@ -138,13 +138,28 @@ def expand_workspace_patterns(root_manifest: Path, patterns: list[str]) -> set[P
     root_dir = root_manifest.parent
     results: set[Path] = set()
     for pattern in patterns:
-        for match in glob.glob(str(root_dir / pattern)):
+        for match in glob.glob(str(root_dir / pattern), recursive=True):
             path = Path(match).resolve()
             if path.is_dir():
                 path = path / "Cargo.toml"
             if path.name == "Cargo.toml" and path.is_file():
                 results.add(path)
     return results
+
+
+def explicit_package_workspace(manifest: Path, document: dict) -> Path | None:
+    package = document.get("package")
+    if not isinstance(package, dict):
+        return None
+    raw = package.get("workspace")
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"{rel(manifest)}: package.workspace must be a non-empty path string")
+    candidate = (manifest.parent / raw).resolve()
+    if candidate.is_dir():
+        candidate = candidate / "Cargo.toml"
+    return candidate
 
 
 def git_head() -> str:
@@ -280,15 +295,34 @@ def main() -> None:
                     queue.append(dep)
         root_members[root] = seen
 
-    # Workspace root manifests are authority subjects even when they are virtual and
-    # contain no [package]. Treat the root itself as a structural claim so an outer
-    # workspace accidentally claiming a nested workspace becomes an explicit conflict.
+    # Workspace root manifests are authority subjects even when virtual. Cargo
+    # workspace member patterns and package.workspace declarations then add claims.
     claims: dict[Path, set[Path]] = defaultdict(set)
     for root in explicit_roots:
         claims[root].add(root)
     for root, members in root_members.items():
         for member in members:
             claims[member].add(root)
+
+    package_workspace_errors: list[str] = []
+    for manifest, document in parsed.items():
+        try:
+            workspace_root = explicit_package_workspace(manifest, document)
+        except ValueError as exc:
+            package_workspace_errors.append(str(exc))
+            continue
+        if workspace_root is None:
+            continue
+        if workspace_root not in explicit_roots:
+            try:
+                target = rel(workspace_root)
+            except ValueError:
+                target = str(workspace_root)
+            package_workspace_errors.append(
+                f"{rel(manifest)}: package.workspace resolves to non-workspace root {target}"
+            )
+            continue
+        claims[manifest].add(workspace_root)
 
     workspace_conflicts = {
         rel(m): sorted(rel(r) for r in roots)
@@ -300,7 +334,10 @@ def main() -> None:
     manifest_subject: dict[Path, Path] = {}
     for manifest, roots in claims.items():
         if len(roots) == 1:
-            manifest_subject[manifest] = next(iter(roots))
+            subject = next(iter(roots))
+            manifest_subject[manifest] = subject
+            if isinstance(parsed.get(manifest, {}).get("package"), dict):
+                subjects.setdefault(subject, set()).add(manifest)
 
     # Every parseable package outside an explicit workspace is an implicit singleton
     # Cargo subject. Explicit virtual workspace roots were already mapped above.
@@ -397,6 +434,7 @@ def main() -> None:
         or workspace_conflicts
         or suspicious_invalid
         or anchor_errors
+        or package_workspace_errors
     )
 
     evidence = {
@@ -417,6 +455,7 @@ def main() -> None:
         "workspace_conflict_count": len(workspace_conflicts),
         "suspicious_invalid_manifest_count": len(suspicious_invalid),
         "anchor_error_count": len(anchor_errors),
+        "package_workspace_error_count": len(package_workspace_errors),
         "closed": closed,
         "bindings": sorted(bindings_evidence, key=lambda row: (row["authority"], row["anchor"])),
         "unclassified_holochain_workspaces": sorted(unclassified),
@@ -424,6 +463,7 @@ def main() -> None:
         "workspace_conflicts": workspace_conflicts,
         "suspicious_invalid_manifests": sorted(suspicious_invalid),
         "invalid_manifests": {rel(path): error for path, error in sorted(parse_errors.items(), key=lambda item: rel(item[0]))},
+        "package_workspace_errors": package_workspace_errors,
         "anchor_errors": anchor_errors,
         "non_holochain_isolated_workspaces": sorted(non_holochain_isolated),
         "subjects": subject_rows,
@@ -450,6 +490,8 @@ def main() -> None:
         hard_failures.append("one or more manifests are structurally claimed by multiple workspaces")
     if suspicious_invalid:
         hard_failures.append("invalid manifests contain dependency-like Holochain-family tokens")
+    if package_workspace_errors:
+        hard_failures.append("one or more package.workspace declarations are invalid/unresolved")
     if anchor_errors:
         hard_failures.append("authority policy contains invalid/unresolved anchors")
     if unclassified and not args.allow_unclassified:
