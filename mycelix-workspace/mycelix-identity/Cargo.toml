@@ -27,6 +27,8 @@ members = [
     "crates/did-document-crypto-policy",
     # Viewpoint-scoped agent-activity coverage theorem
     "crates/agent-activity-coverage-policy",
+    # Pure bridge from qualified activity to exact DID records + lineage
+    "crates/did-observer-assembly-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
