@@ -123,8 +123,8 @@ fn declared_reconciliation_boundary_forms_valid_exact_cut() {
 
 #[test]
 fn unrelated_reconciliation_cannot_ride_along_in_successful_closure_cut() {
-    assert!(
-        qualify_reconciliation_cut(true).is_err(),
-        "every reconciliation in an exact closure cut must occupy a declared reconciliation role"
-    );
+    assert!(matches!(
+        qualify_reconciliation_cut(true),
+        Err(ClosureQualificationError::UnaccountedCutReconciliations { .. })
+    ));
 }

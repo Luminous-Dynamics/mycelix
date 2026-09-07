@@ -543,6 +543,29 @@ impl ClosureQualificationProfile {
             });
         }
 
+        let accounted_reconciliations = basis
+            .boundary_results
+            .values()
+            .filter_map(|boundary| {
+                if let QualifiedBoundaryRef::Reconciliation(reconciliation) = boundary {
+                    Some(reconciliation.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<BTreeSet<_>>();
+        let unaccounted_reconciliations = basis
+            .qualification_cut
+            .reconciliations()
+            .difference(&accounted_reconciliations)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if !unaccounted_reconciliations.is_empty() {
+            return Err(ClosureQualificationError::UnaccountedCutReconciliations {
+                reconciliations: unaccounted_reconciliations,
+            });
+        }
+
         WorkflowClosureReceipt::new(
             workflow,
             self.closure_policy.clone(),
@@ -656,6 +679,9 @@ pub enum ClosureQualificationError {
     },
     UnaccountedCutInputs {
         inputs: BTreeSet<QualifiedInputRef>,
+    },
+    UnaccountedCutReconciliations {
+        reconciliations: BTreeSet<DomainReconciliationRef>,
     },
     Closure(ClosureError),
 }
@@ -778,6 +804,10 @@ impl fmt::Display for ClosureQualificationError {
             Self::UnaccountedCutInputs { inputs } => write!(
                 f,
                 "closure qualification cut contains exact inputs not accounted for by the policy source or declared input-boundary roles: {inputs:?}"
+            ),
+            Self::UnaccountedCutReconciliations { reconciliations } => write!(
+                f,
+                "closure qualification cut contains reconciliations not accounted for by declared reconciliation-boundary roles: {reconciliations:?}"
             ),
             Self::Closure(err) => write!(f, "core closure qualification failed: {err}"),
         }
