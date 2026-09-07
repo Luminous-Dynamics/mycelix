@@ -523,6 +523,26 @@ impl ClosureQualificationProfile {
             closure_required_obligations.insert(obligation.clone());
         }
 
+        let mut accounted_inputs = BTreeSet::from([self.policy_source.clone()]);
+        accounted_inputs.extend(basis.boundary_results.values().filter_map(|boundary| {
+            if let QualifiedBoundaryRef::Input(input) = boundary {
+                Some(input.clone())
+            } else {
+                None
+            }
+        }));
+        let unaccounted_inputs = basis
+            .qualification_cut
+            .inputs()
+            .difference(&accounted_inputs)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if !unaccounted_inputs.is_empty() {
+            return Err(ClosureQualificationError::UnaccountedCutInputs {
+                inputs: unaccounted_inputs,
+            });
+        }
+
         WorkflowClosureReceipt::new(
             workflow,
             self.closure_policy.clone(),
@@ -633,6 +653,9 @@ pub enum ClosureQualificationError {
         role: DerivationNodeRef,
         disposition_source: QualifiedInputRef,
         boundary_source: QualifiedInputRef,
+    },
+    UnaccountedCutInputs {
+        inputs: BTreeSet<QualifiedInputRef>,
     },
     Closure(ClosureError),
 }
@@ -751,6 +774,10 @@ impl fmt::Display for ClosureQualificationError {
                 boundary_source.domain,
                 boundary_source.record,
                 boundary_source.version
+            ),
+            Self::UnaccountedCutInputs { inputs } => write!(
+                f,
+                "closure qualification cut contains exact inputs not accounted for by the policy source or declared input-boundary roles: {inputs:?}"
             ),
             Self::Closure(err) => write!(f, "core closure qualification failed: {err}"),
         }
