@@ -1,0 +1,65 @@
+name: Governance Resolution Contract Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-governance/crates/governance-resolution-types/**'
+      - 'mycelix-workspace/mycelix-governance/Cargo.toml'
+      - '.github/workflows/governance-resolution-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-resolution-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Governance resolution semantics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify workspace and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          workspace_root = pathlib.Path('mycelix-workspace/mycelix-governance')
+          workspace = tomllib.loads((workspace_root / 'Cargo.toml').read_text())['workspace']
+          crate = 'crates/governance-resolution-types'
+          assert crate in workspace['members'], 'resolution vocabulary must be an explicit Governance workspace member'
+
+          manifest = tomllib.loads((workspace_root / crate / 'Cargo.toml').read_text())
+          dependencies = manifest.get('dependencies', {})
+          assert set(dependencies) == {'serde'}, (
+              'resolution vocabulary may depend only on Serde; runtime/Holochain/Business dependencies are forbidden'
+          )
+          assert dependencies['serde'].get('workspace') is True
+          assert not manifest.get('dev-dependencies'), 'resolution vocabulary must have zero dev dependencies'
+          assert not manifest.get('build-dependencies'), 'resolution vocabulary must have zero build dependencies'
+          PY
+
+      - name: Verify transport-neutral source boundary
+        run: |
+          src='mycelix-workspace/mycelix-governance/crates/governance-resolution-types/src'
+          if grep -R -n -E 'use[[:space:]]+(hdk|hdi)::|holochain_[a-z_]+::|mycelix_business_[a-z_]+::|std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src"; then
+            echo 'Governance resolution vocabulary gained runtime, Business, or ambient authority coupling' >&2
+            exit 1
+          fi
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-governance/crates/governance-resolution-types/Cargo.toml --all -- --check
+
+      - name: tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-governance/crates/governance-resolution-types/Cargo.toml
+
+      - name: clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-governance/crates/governance-resolution-types/Cargo.toml --all-targets -- -D warnings
