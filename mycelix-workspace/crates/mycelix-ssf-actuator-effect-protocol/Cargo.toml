@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ssf-actuator-effect-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-durable-effect-capability-claim = { path = "../mycelix-ssf-durable-effect-capability-claim" }
+mycelix-ssf-pre-invocation-actuator-qualification = { path = "../mycelix-ssf-pre-invocation-actuator-qualification" }
+mycelix-ssf-source-owned-operation-material = { path = "../mycelix-ssf-source-owned-operation-material" }
