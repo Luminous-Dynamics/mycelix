@@ -17,13 +17,15 @@ Golden Path policy fixtures
     service sale / procurement / month-end / future paths
 ```
 
-The qualification crate is deliberately **not** another authority-owning domain. It does not decide whether Commerce accepted an agreement, Finance reconciled settlement, Supply Chain accepted receiving, Accounting recognized an economic event, or Governance granted power. Those meanings remain with the owning domain/profile.
+The qualification crate is deliberately **not** another authority-owning domain. It does not decide whether Commerce accepted an agreement, Finance reconciled settlement, Supply Chain accepted receiving, Accounting recognized an economic event, or Governance activated a closure policy. Those meanings remain with the owning domain/profile.
 
 ## Observed abstraction
 
 Three materially different Golden Paths independently produced the same structural requirement:
 
 ```text
+exact policy/profile source
+        +
 (organization, qualification profile, closure policy, closure class)
         +
 exact instance basis
@@ -38,16 +40,37 @@ The reusable profile fixes:
 - closure policy;
 - closure semantic profile;
 - closure class;
+- exact policy/profile source result;
 - closure derivation root.
 
 The exact basis carries:
 
 - the immutable `QualificationCut`;
 - one explicit closure dependency DAG;
-- exact boundary results bound to DAG leaves;
+- exact factual boundary results bound to DAG leaves;
 - exact obligation requirements and disposition provenance;
 - exact exception provenance;
 - exact compensation provenance.
+
+## Policy provenance is distinct from factual dependency provenance
+
+A closure policy/profile is not allowed to float free of evidence merely because code can name a `ClosurePolicyRef` or `SemanticProfileId`.
+
+`ClosureQualificationProfile` therefore retains one exact `QualifiedInputRef` supplied by the owning policy adapter/domain as the source for the selected policy/profile/class. Qualification requires that exact source to be present and current in the same cut.
+
+The generic layer does **not** decide that the source substantively corresponds to the named policy/profile/class. That interpretation remains owning-domain authority, exactly as with authorization, disposition, compensation, and exception bindings.
+
+The policy source is intentionally not treated as a factual DAG leaf:
+
+```text
+policy/profile source
+    = semantic authority for how the proof is interpreted
+
+qualified boundary result
+    = factual/result prerequisite consumed by the proof
+```
+
+This distinction lets a month-end Business proof contain, for example, one Governance/policy source plus one Accounting-qualified close boundary without pretending that policy activation is itself an Accounting fact.
 
 ## Graph grounding invariant
 
@@ -62,7 +85,7 @@ and
 
 reachable graph leaves
     ==
-exact nodes carrying qualified boundary results
+exact nodes carrying qualified factual boundary results
 ```
 
 A leaf can currently be grounded by only the boundary kinds independently required by GP-002, GP-003, and GP-006:
@@ -88,6 +111,8 @@ Business month-end orchestration DAG leaf
 
 Business does not need to flatten or dereference the Accounting proof graph to compose the result. This preserves authority boundaries, reduces disclosure, and prevents Business from becoming a universal evidence warehouse.
 
+Policy provenance follows the same compression principle. The Business qualifier consumes an exact policy-source result; it does not need to recursively ingest every Governance fact that caused the policy adapter to produce that result.
+
 ## Closure-class specificity
 
 Closure class belongs to the reusable profile, not the instance basis. A caller therefore cannot take a basis intended for one terminal meaning and select a stronger class as a free argument.
@@ -112,6 +137,7 @@ This crate does not provide:
 - a generic predicate language;
 - a Turing-complete policy DSL;
 - domain semantic interpretation;
+- policy-source semantic interpretation;
 - authority evaluation;
 - provider verification;
 - accounting recognition;
@@ -120,4 +146,4 @@ This crate does not provide:
 - identity truth;
 - automatic dereferencing of upstream evidence graphs.
 
-The intended shape is a deterministic structural qualification layer over exact, already-authoritative boundary results.
+The intended shape is a deterministic structural qualification layer over exact, already-authoritative boundary and policy results.

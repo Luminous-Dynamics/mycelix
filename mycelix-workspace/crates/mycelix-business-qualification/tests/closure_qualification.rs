@@ -56,6 +56,14 @@ fn reconciliation(domain_name: &str, local_id: &str) -> DomainReconciliationRef 
     )
 }
 
+fn service_sale_policy_source() -> QualifiedInputRef {
+    input(
+        "governance",
+        "closure-policy:service-sale:v1",
+        "governance.closure-policy-active",
+    )
+}
+
 fn satisfied_profile() -> ClosureQualificationProfile {
     ClosureQualificationProfile::new(
         OrganizationContextRef::new("org:acme").unwrap(),
@@ -63,6 +71,7 @@ fn satisfied_profile() -> ClosureQualificationProfile {
         ClosurePolicyRef::new("closure:service-sale").unwrap(),
         profile("business.service-sale.close", 1),
         ClosureClass::Satisfied,
+        service_sale_policy_source(),
         node("business:service-sale-closure"),
     )
 }
@@ -84,6 +93,7 @@ fn service_sale_basis() -> ClosureQualificationBasis {
         "economic-event:service-sale-1",
         "accounting.accepted-economic-event",
     );
+    let policy_source = service_sale_policy_source();
     let finance_reconciliation = reconciliation("finance", "reconciliation:invoice-1");
     let payment_obligation = obligation("finance", "payment:invoice-1");
     let work_obligation = obligation("service-work", "work:agreement-1");
@@ -98,6 +108,7 @@ fn service_sale_basis() -> ClosureQualificationBasis {
         work_disposition_source.clone(),
         payment_disposition_source.clone(),
         accounting.clone(),
+        policy_source,
     ] {
         assert!(cut.insert_input(exact).unwrap());
     }
@@ -180,6 +191,55 @@ fn reusable_profile_qualifies_exact_service_sale_basis() {
 
     assert_eq!(receipt.class(), ClosureClass::Satisfied);
     assert_eq!(receipt.obligations().len(), 2);
+}
+
+#[test]
+fn policy_profile_source_is_required_in_the_exact_cut() {
+    let basis = service_sale_basis();
+    let absent_policy_source = input(
+        "governance",
+        "closure-policy:service-sale:v2",
+        "governance.closure-policy-active",
+    );
+    let profile = ClosureQualificationProfile::new(
+        OrganizationContextRef::new("org:acme").unwrap(),
+        profile("business.service-sale.qualification", 1),
+        ClosurePolicyRef::new("closure:service-sale").unwrap(),
+        profile("business.service-sale.close", 1),
+        ClosureClass::Satisfied,
+        absent_policy_source,
+        node("business:service-sale-closure"),
+    );
+
+    assert!(matches!(
+        profile.qualify(
+            WorkflowRef::new("workflow:service-sale:1").unwrap(),
+            basis,
+        ),
+        Err(ClosureQualificationError::PolicySourceMissingFromCut { .. })
+    ));
+}
+
+#[test]
+fn policy_source_is_semantic_authority_input_not_a_factual_dag_leaf() {
+    let profile = satisfied_profile();
+    let basis = service_sale_basis();
+
+    assert!(basis
+        .qualification_cut
+        .inputs()
+        .contains(profile.policy_source()));
+    assert!(basis
+        .boundary_results
+        .values()
+        .all(|boundary| boundary != &QualifiedBoundaryRef::Input(profile.policy_source().clone())));
+
+    profile
+        .qualify(
+            WorkflowRef::new("workflow:service-sale:1").unwrap(),
+            basis,
+        )
+        .expect("policy source may govern the DAG without masquerading as a factual leaf");
 }
 
 #[test]
@@ -387,12 +447,18 @@ fn one_accounting_boundary_can_compress_a_deeper_domain_proof_graph() {
         "period-close:2026-08",
         "accounting.qualified-period-close",
     );
+    let policy_source = input(
+        "governance",
+        "closure-policy:month-end:v1",
+        "governance.closure-policy-active",
+    );
     let mut cut = QualificationCut::new(
         OrganizationContextRef::new("org:acme").unwrap(),
         profile("business.month-end.qualification", 1),
         TimestampMs::new(80),
     );
     assert!(cut.insert_input(accounting_close.clone()).unwrap());
+    assert!(cut.insert_input(policy_source.clone()).unwrap());
 
     let root = node("business:month-end-orchestration-close");
     let accounting_node = node("accounting:qualified-period-close");
@@ -412,12 +478,16 @@ fn one_accounting_boundary_can_compress_a_deeper_domain_proof_graph() {
         compensating_intents: BTreeSet::new(),
     };
 
+    assert_eq!(basis.boundary_results.len(), 1);
+    assert_eq!(basis.qualification_cut.inputs().len(), 2);
+
     let month_end = ClosureQualificationProfile::new(
         OrganizationContextRef::new("org:acme").unwrap(),
         profile("business.month-end.qualification", 1),
         ClosurePolicyRef::new("closure:month-end").unwrap(),
         profile("business.month-end.close", 1),
         ClosureClass::Satisfied,
+        policy_source,
         root,
     );
 
@@ -426,7 +496,7 @@ fn one_accounting_boundary_can_compress_a_deeper_domain_proof_graph() {
         .expect("one qualified Accounting boundary is sufficient structurally");
 
     assert_eq!(receipt.class(), ClosureClass::Satisfied);
-    assert_eq!(receipt.qualification_cut().inputs().len(), 1);
+    assert_eq!(receipt.qualification_cut().inputs().len(), 2);
 }
 
 #[test]

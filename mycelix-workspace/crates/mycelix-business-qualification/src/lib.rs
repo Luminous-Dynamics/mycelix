@@ -8,8 +8,8 @@
 //! This crate does not interpret domain truth. It composes exact domain-owned
 //! boundary results into one auditable closure proof skeleton while preserving
 //! organization/profile scope, closure-class-specific semantics, acyclicity,
-//! exact cut membership, and the non-strengthening guarantees enforced by the
-//! core `WorkflowClosureReceipt`.
+//! exact cut membership, policy provenance, and the non-strengthening guarantees
+//! enforced by the core `WorkflowClosureReceipt`.
 
 use core::fmt;
 use std::collections::{BTreeMap, BTreeSet};
@@ -124,9 +124,11 @@ impl ClosureDependencyGraph {
 
 /// Reusable structural semantics for one organization/policy/class closure path.
 ///
-/// A profile does not contain transaction-specific records. It fixes the scope
-/// and meaning of the qualification operation while the exact instance evidence
-/// lives in `ClosureQualificationBasis`.
+/// A profile does not contain transaction-specific business results, but it is
+/// anchored to one exact policy/profile source supplied by the owning policy
+/// adapter/domain. The generic qualification layer does not interpret that
+/// source; it only requires that the source is present and current in the exact
+/// qualification cut so profile selection cannot float free of provenance.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosureQualificationProfile {
     organization_context: OrganizationContextRef,
@@ -134,11 +136,16 @@ pub struct ClosureQualificationProfile {
     closure_policy: ClosurePolicyRef,
     closure_profile: SemanticProfileId,
     closure_class: ClosureClass,
+    policy_source: QualifiedInputRef,
     root_node: DerivationNodeRef,
 }
 
 impl ClosureQualificationProfile {
     /// Define one reusable organization/policy/class-specific closure profile.
+    ///
+    /// `policy_source` is the exact owning-domain result that the policy adapter
+    /// asserts corresponds to this policy/profile/class definition. Business
+    /// checks provenance/currentness but does not interpret that correspondence.
     #[must_use]
     pub fn new(
         organization_context: OrganizationContextRef,
@@ -146,6 +153,7 @@ impl ClosureQualificationProfile {
         closure_policy: ClosurePolicyRef,
         closure_profile: SemanticProfileId,
         closure_class: ClosureClass,
+        policy_source: QualifiedInputRef,
         root_node: DerivationNodeRef,
     ) -> Self {
         Self {
@@ -154,6 +162,7 @@ impl ClosureQualificationProfile {
             closure_policy,
             closure_profile,
             closure_class,
+            policy_source,
             root_node,
         }
     }
@@ -183,6 +192,12 @@ impl ClosureQualificationProfile {
         self.closure_class
     }
 
+    /// Exact domain-owned result grounding this policy/profile selection.
+    #[must_use]
+    pub fn policy_source(&self) -> &QualifiedInputRef {
+        &self.policy_source
+    }
+
     #[must_use]
     pub fn root_node(&self) -> &DerivationNodeRef {
         &self.root_node
@@ -191,7 +206,7 @@ impl ClosureQualificationProfile {
     /// Qualify one exact closure basis into a sealed core receipt.
     ///
     /// The generic qualification layer proves only structure and provenance. It
-    /// does not interpret the substantive meaning of any boundary input.
+    /// does not interpret the substantive meaning of any boundary or policy input.
     pub fn qualify(
         &self,
         workflow: WorkflowRef,
@@ -208,6 +223,12 @@ impl ClosureQualificationProfile {
             return Err(ClosureQualificationError::WrongQualificationProfile {
                 expected: self.qualification_profile.clone(),
                 actual: basis.qualification_cut.semantic_profile.clone(),
+            });
+        }
+
+        if !basis.qualification_cut.inputs().contains(&self.policy_source) {
+            return Err(ClosureQualificationError::PolicySourceMissingFromCut {
+                source: self.policy_source.clone(),
             });
         }
 
@@ -307,6 +328,9 @@ pub enum ClosureQualificationError {
         expected: SemanticProfileId,
         actual: SemanticProfileId,
     },
+    PolicySourceMissingFromCut {
+        source: QualifiedInputRef,
+    },
     InvalidCut(mycelix_business_core::CutError),
     Dependency(GraphError),
     MissingRootNode {
@@ -342,6 +366,11 @@ impl fmt::Display for ClosureQualificationError {
             Self::WrongQualificationProfile { expected, actual } => write!(
                 f,
                 "closure qualification expected semantic profile {expected} but cut uses {actual}"
+            ),
+            Self::PolicySourceMissingFromCut { source } => write!(
+                f,
+                "closure profile source {}/{}@{} is absent from the exact qualification cut",
+                source.domain, source.record, source.version
             ),
             Self::InvalidCut(err) => write!(f, "invalid exact closure qualification cut: {err}"),
             Self::Dependency(err) => write!(f, "invalid closure dependency graph: {err}"),
