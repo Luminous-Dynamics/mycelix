@@ -7,7 +7,7 @@ on:
       - 'mycelix-governance/zomes/authority-state-source-head-verifier/**'
       - 'mycelix-governance/zomes/authority-state-witness-verifier/**'
       - 'mycelix-governance/zomes/authority-operational-policy-leased-provider/**'
-      - 'mycelix-governance/zomes/constitution-transition/**'
+      - 'mycelix-governance/zomes/constitution-currentness-verifier/**'
       - 'mycelix-governance/zomes/constitution-authority/**'
       - 'mycelix-governance/Cargo.toml'
       - 'mycelix-governance/dna/dna.yaml'
@@ -37,6 +37,7 @@ on:
       - 'security/authority-currentness-wire-boundary-v0.1'
       - 'security/authority-root-provenance-v0.2'
       - 'security/authority-deployment-constitution-context-v0.1'
+      - 'security/constitution-currentness-lease-v0.1'
 
 permissions:
   contents: read
@@ -50,7 +51,7 @@ env:
 
 jobs:
   qualify:
-    name: Constitution + provenance bound current freshness
+    name: Leased constitution + provenance bound current freshness
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -91,7 +92,7 @@ jobs:
         working-directory: mycelix-governance
         run: cargo check --release --target wasm32-unknown-unknown --package authority_current_freshness_verifier
 
-      - name: End-to-end constitution and provenance deployment audit
+      - name: End-to-end leased constitution and provenance deployment audit
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -110,9 +111,52 @@ jobs:
           dna = Path('mycelix-governance/dna/dna.yaml').read_text()
           lease_src = Path('crates/mycelix-authority-evidence-lease/src/lib.rs').read_text()
           fence = Path('crates/mycelix-authority-operational-deployment-fence/src/constitution.rs').read_text()
+          constitution_currentness = Path('mycelix-governance/zomes/constitution-currentness-verifier/coordinator/src/lib.rs').read_text()
 
           for name in ['types.rs', 'root.rs', 'evidence.rs', 'runtime.rs']:
               assert f'include!("v04/{name}");' in lib
+
+          # Dedicated leased constitution-currentness verifier is the only constitutional-currentness source.
+          assert 'const CONSTITUTION_CURRENTNESS_VERIFIER_ZOME: &str = "constitution_currentness_verifier";' in types
+          assert 'const CURRENT_CONSTITUTION_FUNCTION: &str = "get_leased_current_constitution";' in types
+          assert 'mycelix-governance-current-constitution-leased-v0.1' in types
+          assert 'dna-immutable-genesis-amendments-disabled-local-reuse-v1' in types
+          assert 'CONSTITUTION_TRANSITION_ZOME' not in src
+          assert 'get_verified_current_constitution' not in src
+          assert 'CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS' not in src
+          assert 'current.verified_transition_count != 0' in root_src
+          assert '!current.genesis_currentness_by_amendments_disabled' in root_src
+          assert 'current.transition_currentness_supported' in root_src
+          assert 'current.candidate_discovery_used_for_positive_currentness' in root_src
+          assert 'current.lease_basis != GENESIS_CURRENTNESS_LEASE_BASIS' in root_src
+          assert 'current.protocol != LEASED_CURRENT_CONSTITUTION_PROTOCOL' in root_src
+          assert 'current.valid_until_ms <= now' in root_src
+
+          # The #111 receipt copies exact verifier evidence; the consumer never invents a constitution lease/ref.
+          receipt_fn = root_src.split('fn current_constitution_receipt(', 1)[1].split('fn resolve_root()', 1)[0]
+          assert 'verify_constitution_projection(current, now)?;' in receipt_fn
+          assert 'verification_ref: current.verification_ref.clone()' in receipt_fn
+          assert 'verified_at_ms: current.verified_at_ms' in receipt_fn
+          assert 'valid_until_ms: current.valid_until_ms' in receipt_fn
+          assert 'checked_add(' not in receipt_fn
+          assert 'format!(' not in receipt_fn
+          assert 'constitution-transition-current' not in receipt_fn
+
+          # The independent verifier itself is genesis-only and never uses candidate/DHT absence as authority.
+          assert 'CONSTITUTION_AUTHORITY_ZOME' in constitution_currentness
+          assert 'if genesis.amendments_enabled' in constitution_currentness
+          assert 'transition_currentness_supported: false' in constitution_currentness
+          assert 'candidate_discovery_used_for_positive_currentness: false' in constitution_currentness
+          for forbidden_currentness in [
+              'get_links(',
+              'get_details(',
+              'project_verified_lineage',
+              'ConstitutionTransitionCandidate',
+              'binding_voting',
+              'governance_rights_verifier',
+              'threshold_authority_verifier',
+          ]:
+              assert forbidden_currentness not in constitution_currentness, forbidden_currentness
 
           # Versioned canonical currentness provenance remains explicit.
           assert 'mycelix-authority-evidence-lease-v0.2' in lease_src
@@ -183,7 +227,7 @@ jobs:
           assert 'final_constitution.dna_hash' not in call
           assert 'constitution_statement_digest' not in call
 
-          # Pure context qualifier also consumes the non-deserializable #111 root, not a primitive digest.
+          # Pure context qualifier consumes the non-deserializable #111 root, not a primitive digest.
           context_sig = fence.split('pub fn qualify_binding_constitution_context(', 1)[1].split(') -> Result<', 1)[0]
           assert 'current: &VerifiedCurrentConstitutionReceipt' in context_sig
           assert 'rooted: &QualifiedAuthorityStateBootstrapRoot' in context_sig
@@ -236,8 +280,12 @@ jobs:
           assert 'binding_constitution_context_digest: deployment.binding_constitution_context_digest()' in operational
           assert 'deployment_evidence_digest: deployment.deployment_evidence_digest()' in operational
 
-          # Status freezes the new trust boundary and all previous containment properties.
+          # Status freezes leased constitutional currentness plus all previous containment properties.
           required = [
+              'leased_binding_constitution_consumed: true',
+              'synthetic_constitution_lease_constructed_locally: false',
+              'amendment_currentness_accepted_without_bounded_transition_lease: false',
+              'constitution_candidate_discovery_grants_authority: false',
               'root_adoption_provenance_explicit: true',
               'root_provenance_lease_constructed_at_root_boundary: true',
               'final_constitution_context_qualified_locally: true',
@@ -276,17 +324,18 @@ jobs:
               assert forbidden.lower() not in src.lower(), forbidden
 
           assert '"zomes/authority-current-freshness-verifier/coordinator"' in workspace
+          assert '"zomes/constitution-currentness-verifier/coordinator"' in workspace
           assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
           for invariant in [
+              'binding constitutional currentness comes from the dedicated leased verifier',
               'root establishment provenance is explicit',
               'final constitutional re-observation is a separate deployment phase',
               'active deployment path accepts no plain constitutional primitives',
               'final constitution evidence is bound into dynamic deployment evidence',
-              'final constitutional evidence can only narrow reuse',
-              'runtime cross-checks both evidence phases',
               'wire receipt is transport/audit only',
               'deliberately unprovisioned',
           ]:
               assert invariant in inv, invariant
-          print('PASS: #192 closes before the final constitution fence; qualified root and constitution context are cross-bound before deployment')
+          print('PASS: leased genesis constitutional currentness propagates unchanged through #111/#192/final deployment and amendment currentness fails closed')
           PY
