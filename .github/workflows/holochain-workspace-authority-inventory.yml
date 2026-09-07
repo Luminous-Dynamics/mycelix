@@ -1,0 +1,218 @@
+name: Holochain Workspace Authority Inventory
+
+on:
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+      - '.github/scripts/holochain_release_family.py'
+      - '.github/scripts/inventory_holochain_workspaces.py'
+      - '.github/workflows/holochain-workspace-authority-inventory.yml'
+      - 'mycelix-workspace/holochain-workspace-authority.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: holochain-workspace-authority-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PARENT_BRANCH: test/holochain-0.6.3-root-fanout-qualification
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  inventory:
+    name: Measure complete Holochain Cargo workspace authority
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Bind exact inventory head
+        id: head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "Expected inventory head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out inventory head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Bind current #243 parent and ancestry
+        id: parent
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
+          live_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
+          expected_parent="${EVENT_BASE_SHA:-$live_parent}"
+          echo "Live parent branch head: $live_parent"
+          echo "Event/expected parent head: $expected_parent"
+          test "$live_parent" = "$expected_parent"
+          git merge-base --is-ancestor "$expected_parent" HEAD
+          echo "sha=$expected_parent" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare evidence directory
+        run: mkdir -p "$RUNNER_TEMP/holochain-workspace-authority-evidence"
+
+      - name: Capture inventory execution capsule
+        id: execution_capsule
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-workspace-authority-evidence"
+          {
+            echo "schema=1"
+            echo "authority=measurement-only"
+            echo "runner_label=ubuntu-24.04"
+            echo "runner_os=${RUNNER_OS:-unknown}"
+            echo "runner_arch=${RUNNER_ARCH:-unknown}"
+            echo "image_os=${ImageOS:-unknown}"
+            echo "image_version=${ImageVersion:-unknown}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF:-unknown}"
+            echo "workflow_sha=${GITHUB_WORKFLOW_SHA:-unknown}"
+            echo "checkout_action_sha=11d5960a326750d5838078e36cf38b85af677262"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "[uname]"
+            uname -a
+            echo "[os-release]"
+            cat /etc/os-release
+            echo "[git]"
+            git --version
+            echo "[python]"
+            python3 --version
+          } > "$evidence/execution-capsule.txt"
+          test -s "$evidence/execution-capsule.txt"
+
+      - name: Syntax-check inventory tool without creating bytecode
+        id: syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/inventory_holochain_workspaces.py')
+          compile(path.read_text(), str(path), 'exec')
+          print('inventory tool syntax OK')
+          PY
+
+      - name: Measure Holochain workspace authority
+        id: census
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-workspace-authority-evidence"
+          python3 .github/scripts/inventory_holochain_workspaces.py \
+            --policy mycelix-workspace/holochain-workspace-authority.toml \
+            --output "$evidence/holochain-workspace-inventory.json" \
+            --allow-unclassified
+          test -s "$evidence/holochain-workspace-inventory.json"
+          python3 - "$evidence/holochain-workspace-inventory.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          result = json.loads(Path(sys.argv[1]).read_text())
+          print(f"manifest_count={result['manifest_count']}")
+          print(f"cargo_subject_count={result['cargo_subject_count']}")
+          print(f"holochain_bearing_subject_count={result['holochain_bearing_subject_count']}")
+          print(f"unclassified_holochain_workspace_count={result['unclassified_holochain_workspace_count']}")
+          print(f"closed={result['closed']}")
+          PY
+
+      - name: Prove census was source-read-only
+        id: readonly
+        run: |
+          set -euo pipefail
+          test -z "$(git status --short)"
+
+      - name: Seal measurement evidence
+        id: seal
+        if: always()
+        env:
+          INVENTORY_HEAD_SHA: ${{ steps.head.outputs.sha }}
+          INVENTORY_PARENT_SHA: ${{ steps.parent.outputs.sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-workspace-authority-evidence"
+          test -s "$evidence/execution-capsule.txt"
+          test -s "$evidence/holochain-workspace-inventory.json"
+
+          python3 - "$evidence/holochain-workspace-inventory.json" \
+            "$evidence/qualification-metadata.txt" <<'PY'
+          import json
+          from pathlib import Path
+          import os
+          import sys
+          inventory = json.loads(Path(sys.argv[1]).read_text())
+          metadata = Path(sys.argv[2])
+          lines = [
+              f"inventory_head_sha={os.environ['INVENTORY_HEAD_SHA']}",
+              f"inventory_parent_sha={os.environ['INVENTORY_PARENT_SHA']}",
+              f"inventory_parent_branch={os.environ['EXPECTED_PARENT_BRANCH']}",
+              f"workflow_run_id={os.environ['GITHUB_RUN_ID']}",
+              f"workflow_run_attempt={os.environ['GITHUB_RUN_ATTEMPT']}",
+              f"event_name={os.environ['GITHUB_EVENT_NAME']}",
+              "evidence_authority=measurement-only",
+              f"inventory_closed={str(bool(inventory['closed'])).lower()}",
+              f"unclassified_holochain_workspace_count={inventory['unclassified_holochain_workspace_count']}",
+              "product_materialization_authorized=false",
+              "authorization_reason=workspace_inventory_measurement_only",
+          ]
+          metadata.write_text("\n".join(lines) + "\n")
+          PY
+
+          sha256sum \
+            .github/scripts/inventory_holochain_workspaces.py \
+            mycelix-workspace/holochain-workspace-authority.toml \
+            "$evidence/execution-capsule.txt" \
+            "$evidence/holochain-workspace-inventory.json" \
+            "$evidence/qualification-metadata.txt" \
+            > "$evidence/evidence-sha256.txt"
+
+      - name: Preserve workspace inventory evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: holochain-workspace-authority-${{ steps.head.outputs.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/holochain-workspace-authority-evidence/execution-capsule.txt
+            ${{ runner.temp }}/holochain-workspace-authority-evidence/holochain-workspace-inventory.json
+            ${{ runner.temp }}/holochain-workspace-authority-evidence/qualification-metadata.txt
+            ${{ runner.temp }}/holochain-workspace-authority-evidence/evidence-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Measurement gate
+        if: always()
+        run: |
+          set -euo pipefail
+          failed=0
+          check() {
+            name="$1"
+            outcome="$2"
+            printf '%-24s %s\n' "$name" "$outcome"
+            if [ "$outcome" != success ]; then
+              failed=1
+            fi
+          }
+          check checkout '${{ steps.checkout.outcome }}'
+          check head '${{ steps.head.outcome }}'
+          check parent '${{ steps.parent.outcome }}'
+          check execution_capsule '${{ steps.execution_capsule.outcome }}'
+          check syntax '${{ steps.syntax.outcome }}'
+          check census '${{ steps.census.outcome }}'
+          check readonly '${{ steps.readonly.outcome }}'
+          check seal '${{ steps.seal.outcome }}'
+          if [ "$failed" -ne 0 ]; then
+            echo 'Holochain workspace authority measurement FAILED.'
+            exit 1
+          fi
+          echo 'Holochain workspace authority measurement completed.'
+          echo 'IMPORTANT: measurement success does not mean the inventory is closed or qualified.'
