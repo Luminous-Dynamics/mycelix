@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Materialize, but do not commit, the exact Mycelix/Pulse Holochain 0.6.3 candidate.
+"""Materialize, but do not commit, the exact Mycelix/Pulse Holochain 0.6.3 canary.
 
-This script is intentionally narrow: canonical workspace pins + every currently known
-Pulse Holochain island. It is run only by the qualification workflow; product source
-is materialized later from a qualified patch.
+The canary intentionally mutates canonical workspace pins plus every currently known
+Pulse Holochain island in the ephemeral CI checkout. That is useful for proving the
+integrated 0.6.3 cohort, but it is not product-materialization authority by itself:
+canonical root-workspace fanout must qualify separately before these global pin changes
+may be applied to product source.
 """
 
 from __future__ import annotations
@@ -44,12 +46,14 @@ def main() -> None:
         "hdk": "0.6.3",
         "hdi": "0.7.3",
         "holochain_client": "0.8.3",
+        "holochain_chc": "0.3.3",
         "kitsune2": "0.4.1",
         "lair_keystore": "0.6.3",
     }:
         raise SystemExit(f"next_0_6 contract changed unexpectedly: {target!r}")
 
-    # Canonical workspace cohort.
+    # Canonical workspace cohort. These pins have repository-wide consumers;
+    # qualification here is a canary only until the root fanout tranche passes.
     set_manifest_versions(
         WORKSPACE / "Cargo.toml",
         [
@@ -258,7 +262,7 @@ hdk = "0.6.3"
 """
     CONTRACT.write_text(text)
 
-    print("Materialized Holochain 0.6.3 Pulse candidate with explicit aligned-surface bindings.")
+    print("Materialized Holochain 0.6.3 integrated canary with explicit aligned-surface bindings.")
 
 
 if __name__ == "__main__":

@@ -2,9 +2,11 @@
 """Verify resolved Cargo graphs contain only the qualified Holochain cohort.
 
 Top-level manifest equality is necessary but insufficient: Cargo can resolve multiple
-versions of the same protocol family and still compile. This checker runs metadata for
-each migration surface and rejects any tracked Holochain/Kitsune2/Lair package whose
-resolved version falls outside the materialized cohort contract.
+versions of the same protocol family and still compile. This checker resolves every
+migration surface, records the concrete Cargo workspace/lockfile that produced that
+graph, and rejects mixed protocol generations. Upstream crates that version
+independently (for example holochain_chc) are classified explicitly rather than by
+prefix guessing.
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
-import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,17 +31,44 @@ SURFACES = {
     "pulse-simple-trust": WORKSPACE / "mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml",
 }
 
+HOLOCHAIN_RELEASE_COUPLED = {
+    "holochain",
+    "holochain_cascade",
+    "holochain_conductor_api",
+    "holochain_conductor_config",
+    "holochain_integrity_types",
+    "holochain_keystore",
+    "holochain_metrics",
+    "holochain_nonce",
+    "holochain_p2p",
+    "holochain_secure_primitive",
+    "holochain_sqlite",
+    "holochain_state",
+    "holochain_state_types",
+    "holochain_timestamp",
+    "holochain_trace",
+    "holochain_types",
+    "holochain_util",
+    "holochain_websocket",
+    "holochain_zome_types",
+}
+
+
+class UnclassifiedFamilyPackage(ValueError):
+    pass
+
 
 def load_contract() -> dict:
     return tomllib.loads((WORKSPACE / "holochain-cohort.toml").read_text())
 
 
-def expected_version(name: str, rust: dict[str, str]) -> str | None:
+def expected_version(name: str, contract: dict) -> str | None:
+    rust = contract["rust"]
+    target = contract["next_0_6"]
+
     if name == "hdi":
         return rust["hdi"]
-    if name == "hdk":
-        return rust["hdk"]
-    if name == "hdk_derive":
+    if name in {"hdk", "hdk_derive"}:
         return rust["hdk"]
     if name == "holochain_client":
         return rust["holochain_client"]
@@ -50,13 +78,27 @@ def expected_version(name: str, rust: dict[str, str]) -> str | None:
         return rust["holochain_serialized_bytes"]
     if name.startswith("holochain_wasmer_"):
         return rust["holochain_wasmer_host"]
-    if name == "holochain" or name.startswith("holochain_"):
+    if name == "holochain_chc":
+        return target["holochain_chc"]
+    if name in HOLOCHAIN_RELEASE_COUPLED:
         return rust["holochain"]
+    if name.startswith("holochain_"):
+        raise UnclassifiedFamilyPackage(
+            f"unclassified Holochain-family package {name!r}; classify its upstream version line explicitly"
+        )
     if name == "kitsune2" or name.startswith("kitsune2_"):
         return rust["kitsune2"]
     if name == "lair_keystore" or name.startswith("lair_keystore_"):
         return rust["lair_keystore"]
     return None
+
+
+def relative_repo_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT.resolve()))
+    except ValueError as exc:
+        raise RuntimeError(f"resolved Cargo path escaped repository: {resolved}") from exc
 
 
 def cargo_metadata(manifest: Path) -> dict:
@@ -95,9 +137,8 @@ def main() -> None:
     if not contract["policy"].get("require_rust_nix_alignment"):
         raise SystemExit("aligned candidate must require Rust/Nix alignment")
 
-    rust = contract["rust"]
     failures: list[str] = []
-    evidence: dict[str, dict[str, list[str]]] = {}
+    surfaces_evidence: dict[str, dict] = {}
 
     for surface, manifest in SURFACES.items():
         if not manifest.is_file():
@@ -106,14 +147,27 @@ def main() -> None:
 
         try:
             metadata = cargo_metadata(manifest)
-        except (RuntimeError, json.JSONDecodeError) as exc:
+            workspace_root = Path(metadata["workspace_root"])
+            lockfile = workspace_root / "Cargo.lock"
+            workspace_root_rel = relative_repo_path(workspace_root)
+            lockfile_rel = relative_repo_path(lockfile)
+        except (RuntimeError, KeyError, json.JSONDecodeError) as exc:
             failures.append(f"{surface}: {exc}")
             continue
+
+        if not lockfile.is_file() or lockfile.stat().st_size == 0:
+            failures.append(
+                f"{surface}: resolved graph has no concrete non-empty lockfile at {lockfile_rel}"
+            )
 
         observed: dict[str, set[str]] = {}
         for package in metadata.get("packages", []):
             name = package["name"]
-            expected = expected_version(name, rust)
+            try:
+                expected = expected_version(name, contract)
+            except UnclassifiedFamilyPackage as exc:
+                failures.append(f"{surface}:{exc}")
+                continue
             if expected is None:
                 continue
             version = package["version"]
@@ -126,24 +180,44 @@ def main() -> None:
         if not observed:
             failures.append(f"{surface}: resolved graph contained no tracked Holochain-family package")
 
-        evidence[surface] = {
-            name: sorted(versions) for name, versions in sorted(observed.items())
+        surfaces_evidence[surface] = {
+            "manifest": str(manifest.relative_to(ROOT)),
+            "workspace_root": workspace_root_rel,
+            "lockfile": lockfile_rel,
+            "tracked_packages": {
+                name: sorted(versions) for name, versions in sorted(observed.items())
+            },
         }
+
+    unique_locks = sorted(
+        {item["lockfile"] for item in surfaces_evidence.values() if item.get("lockfile")}
+    )
+    evidence = {
+        "schema": 2,
+        "surface_count": len(surfaces_evidence),
+        "unique_lockfile_count": len(unique_locks),
+        "lockfiles": unique_locks,
+        "surfaces": surfaces_evidence,
+    }
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
 
-    for surface, packages in evidence.items():
+    for surface, item in surfaces_evidence.items():
         summary = ", ".join(
-            f"{name}={'/'.join(versions)}" for name, versions in packages.items()
+            f"{name}={'/'.join(versions)}"
+            for name, versions in item["tracked_packages"].items()
         )
-        print(f"{surface}: {summary}")
+        print(f"{surface}: lock={item['lockfile']}; {summary}")
 
     if failures:
         raise SystemExit("Resolved Holochain graph qualification failed:\n- " + "\n- ".join(failures))
 
-    print(f"Resolved Holochain cohort graphs OK across {len(evidence)} Pulse surfaces.")
+    print(
+        f"Resolved Holochain cohort graphs OK across {len(surfaces_evidence)} Pulse surfaces "
+        f"using {len(unique_locks)} concrete Cargo lockfiles."
+    )
 
 
 if __name__ == "__main__":
