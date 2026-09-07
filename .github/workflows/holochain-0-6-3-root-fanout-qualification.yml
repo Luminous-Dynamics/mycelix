@@ -7,6 +7,7 @@ on:
       - '.github/scripts/check_holochain_root_fanout_scope.py'
       - '.github/scripts/check_holochain_root_fanout_graph.py'
       - '.github/scripts/holochain_release_family.py'
+      - '.github/scripts/capture_holochain_execution_capsule.py'
       - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
       - '.github/scripts/check_holochain_cohort.py'
       - '.github/workflows/holochain-0-6-3-root-fanout-qualification.yml'
@@ -84,42 +85,24 @@ jobs:
           toolchain: 1.96.0
           targets: wasm32-unknown-unknown
 
-      - name: Capture qualification execution capsule
+      - name: Capture canonical qualification execution lineage
         id: execution_capsule
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
-          {
-            echo "schema=1"
-            echo "runner_label=ubuntu-24.04"
-            echo "runner_os=${RUNNER_OS:-unknown}"
-            echo "runner_arch=${RUNNER_ARCH:-unknown}"
-            echo "image_os=${ImageOS:-unknown}"
-            echo "image_version=${ImageVersion:-unknown}"
-            echo "workflow_ref=${GITHUB_WORKFLOW_REF:-unknown}"
-            echo "workflow_sha=${GITHUB_WORKFLOW_SHA:-unknown}"
-            echo "checkout_action_sha=11d5960a326750d5838078e36cf38b85af677262"
-            echo "install_nix_action_sha=13d8dd58da0234aa297dedd986986ccb8e7f3e24"
-            echo "rust_toolchain_action_sha=6bed0761d98439e5a578e2877258200ad565ba87"
-            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
-            echo "nix_installer_version=2.35.2"
-            echo "nix_installer_url=https://releases.nixos.org/nix/nix-2.35.2/install"
-            echo "[uname]"
-            uname -a
-            echo "[os-release]"
-            cat /etc/os-release
-            echo "[git]"
-            git --version
-            echo "[python]"
-            python3 --version
-            echo "[rustc]"
-            rustc -vV
-            echo "[cargo]"
-            cargo --version
-            echo "[nix]"
-            nix --version
-          } > "$evidence/execution-capsule.txt"
-          test -s "$evidence/execution-capsule.txt"
+          python3 .github/scripts/capture_holochain_execution_capsule.py \
+            --output "$evidence/execution-capsule.json" \
+            --lineage-output "$evidence/execution-lineage.sha256" \
+            --runner-label ubuntu-24.04 \
+            --expected-rust 1.96.0 \
+            --expected-nix 2.35.2 \
+            --nix-installer-url https://releases.nixos.org/nix/nix-2.35.2/install \
+            --action checkout=11d5960a326750d5838078e36cf38b85af677262 \
+            --action install_nix=13d8dd58da0234aa297dedd986986ccb8e7f3e24 \
+            --action rust_toolchain=6bed0761d98439e5a578e2877258200ad565ba87 \
+            --action upload_artifact=ea165f8d65b6e75b540449e92b4886f43607fa02
+          test -s "$evidence/execution-capsule.json"
+          test "$(wc -c < "$evidence/execution-lineage.sha256")" -eq 65
 
       - name: Materialize shared 0.6.3 candidate
         id: materialize
@@ -277,13 +260,15 @@ jobs:
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
-          test -s "$evidence/execution-capsule.txt"
+          test -s "$evidence/execution-capsule.json"
+          test -s "$evidence/execution-lineage.sha256"
           test -s "$evidence/root-holochain-fanout.json"
           test -s "$evidence/root-fanout-scope-proof.json"
           test -s "$evidence/root-resolved-holochain-graphs.json"
           test -s "$evidence/host-check-results.tsv"
           test -f "$evidence/wasm-check-results.tsv"
           test -s mycelix-workspace/Cargo.lock
+          environment_lineage_sha256="$(cat "$evidence/execution-lineage.sha256")"
 
           {
             echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
@@ -292,13 +277,15 @@ jobs:
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event_name=${GITHUB_EVENT_NAME}"
+            echo "environment_lineage_sha256=$environment_lineage_sha256"
             echo "product_materialization_authorized=false"
             echo "authorization_reason=qualification_only_no_product_source_materialized"
           } > "$evidence/qualification-metadata.txt"
 
           sha256sum \
             mycelix-workspace/Cargo.lock \
-            "$evidence/execution-capsule.txt" \
+            "$evidence/execution-capsule.json" \
+            "$evidence/execution-lineage.sha256" \
             "$evidence/root-holochain-fanout.json" \
             "$evidence/root-fanout-scope-proof.json" \
             "$evidence/root-resolved-holochain-graphs.json" \
@@ -314,7 +301,8 @@ jobs:
         with:
           name: holochain-0.6.3-root-fanout-${{ steps.head.outputs.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/execution-capsule.txt
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/execution-capsule.json
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/execution-lineage.sha256
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-holochain-fanout.json
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-fanout-scope-proof.json
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-resolved-holochain-graphs.json
