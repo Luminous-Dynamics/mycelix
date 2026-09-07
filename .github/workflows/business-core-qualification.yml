@@ -5,6 +5,7 @@ on:
     paths:
       - 'mycelix-workspace/crates/mycelix-business-core/**'
       - 'mycelix-workspace/crates/mycelix-business-qualification/**'
+      - 'mycelix-workspace/crates/mycelix-business-terminal-qualification/**'
       - '.github/workflows/business-core-qualification.yml'
   workflow_dispatch:
 
@@ -42,6 +43,7 @@ jobs:
           toolchain = tomllib.loads((root / 'rust-toolchain.toml').read_text())['toolchain']
           core = 'crates/mycelix-business-core'
           qualification = 'crates/mycelix-business-qualification'
+          terminal = 'crates/mycelix-business-terminal-qualification'
 
           assert toolchain['channel'] == '1.96.0', (
               'business qualification workflow must be updated atomically with '
@@ -51,7 +53,7 @@ jobs:
           members = workspace.get('members', [])
           excludes = workspace.get('exclude', [])
 
-          for crate in (core, qualification):
+          for crate in (core, qualification, terminal):
               assert any(fnmatch.fnmatch(crate, pattern) for pattern in members), (
                   f'{crate} is not covered by a workspace member pattern'
               )
@@ -78,13 +80,29 @@ jobs:
           assert not qualification_manifest.get('build-dependencies'), (
               'qualification algebra must have zero build dependencies'
           )
+
+          terminal_manifest = tomllib.loads((root / terminal / 'Cargo.toml').read_text())
+          terminal_dependencies = terminal_manifest.get('dependencies', {})
+          assert set(terminal_dependencies) == {
+              'mycelix-business-core',
+              'mycelix-business-qualification',
+          }, 'terminal qualification may depend only on the two lower Business crates'
+          assert terminal_dependencies['mycelix-business-core'].get('path') == '../mycelix-business-core'
+          assert terminal_dependencies['mycelix-business-qualification'].get('path') == '../mycelix-business-qualification'
+          assert not terminal_manifest.get('dev-dependencies'), (
+              'terminal qualification must have zero dev dependencies'
+          )
+          assert not terminal_manifest.get('build-dependencies'), (
+              'terminal qualification must have zero build dependencies'
+          )
           PY
 
       - name: Verify no ambient runtime authority surface
         run: |
           for crate in \
             mycelix-workspace/crates/mycelix-business-core/src \
-            mycelix-workspace/crates/mycelix-business-qualification/src
+            mycelix-workspace/crates/mycelix-business-qualification/src \
+            mycelix-workspace/crates/mycelix-business-terminal-qualification/src
           do
             if grep -R -n -E 'std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$crate"; then
               echo "$crate gained ambient clock/environment/network/filesystem/process authority" >&2
@@ -123,3 +141,23 @@ jobs:
 
       - name: clippy closure qualification algebra offline
         run: cargo clippy --offline --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml --all-targets -- -D warnings
+
+      - name: Isolate terminal-role qualification with exact lower dependencies
+        run: |
+          rm -rf /tmp/mycelix-business-terminal-qualification-suite
+          mkdir -p /tmp/mycelix-business-terminal-qualification-suite
+          cp -R mycelix-workspace/crates/mycelix-business-core \
+            /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-qualification \
+            /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-qualification
+          cp -R mycelix-workspace/crates/mycelix-business-terminal-qualification \
+            /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification
+
+      - name: rustfmt terminal-role qualification
+        run: cargo fmt --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml --all -- --check
+
+      - name: terminal-role qualification tests offline
+        run: cargo test --offline --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml
+
+      - name: clippy terminal-role qualification offline
+        run: cargo clippy --offline --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml --all-targets -- -D warnings

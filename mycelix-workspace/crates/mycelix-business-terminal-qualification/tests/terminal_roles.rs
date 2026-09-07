@@ -1,14 +1,6 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Regression target for #276.
-//!
-//! Exact compensation/exception provenance is necessary but not sufficient.
-//! A reusable closure policy must eventually prove that the supplied terminal
-//! binding occupies the exact terminal role required by that policy. These tests
-//! deliberately keep both the intended and substituted sources as declared
-//! boundary roles, so proof-manifest accounting cannot explain the denial.
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_business_core::{
@@ -16,11 +8,15 @@ use mycelix_business_core::{
     DomainExceptionRef, DomainRef, DomainScopedRef, ExceptionBinding, ExceptionRef,
     LogicalIntentRef, OperationCommitment, OrganizationContextRef, QualificationCut,
     QualifiedInputRef, RecordRef, SemanticProfileId, TimestampMs, ValidityEnd, ValidityWindow,
-    WorkflowClosureReceipt, WorkflowRef,
+    WorkflowRef,
 };
 use mycelix_business_qualification::{
-    ClosureDependencyGraph, ClosureQualificationBasis, ClosureQualificationError,
-    ClosureQualificationProfile, QualifiedBoundaryRef, QualifiedBoundaryRequirement,
+    ClosureDependencyGraph, ClosureQualificationProfile, QualifiedBoundaryRef,
+    QualifiedBoundaryRequirement,
+};
+use mycelix_business_terminal_qualification::{
+    CompensationRoleRequirement, TerminalClosureQualificationBasis,
+    TerminalClosureQualificationError, TerminalClosureQualificationProfile,
 };
 
 fn semantic(name: &str) -> SemanticProfileId {
@@ -50,7 +46,7 @@ fn input(domain_name: &str, record_name: &str, semantic_name: &str) -> Qualified
     }
 }
 
-fn compensation_intent(profile_name: &str, commitment: &str) -> CommittedIntent {
+fn intent(profile_name: &str, commitment: &str) -> CommittedIntent {
     CommittedIntent::new(
         LogicalIntentRef::new("refund:order-1").unwrap(),
         semantic(profile_name),
@@ -65,14 +61,16 @@ fn exception(domain_name: &str, local_id: &str) -> DomainExceptionRef {
     )
 }
 
-struct CompensatedFixture {
-    profile: ClosureQualificationProfile,
+struct CompensationFixture {
+    profile: TerminalClosureQualificationProfile,
     cut: QualificationCut,
+    intended_role: DerivationNodeRef,
+    alternate_role: DerivationNodeRef,
     intended_source: QualifiedInputRef,
     alternate_source: QualifiedInputRef,
 }
 
-fn compensated_fixture() -> CompensatedFixture {
+fn compensation_fixture() -> CompensationFixture {
     let organization = OrganizationContextRef::new("org:acme").unwrap();
     let qualification_profile = semantic("business.terminal-role.compensated.qualification");
     let policy_source = input(
@@ -90,7 +88,6 @@ fn compensated_fixture() -> CompensatedFixture {
         "refund-audit-result:other",
         "finance.accepted-refund-audit",
     );
-
     let root = node("business:compensated-close");
     let intended_role = node("finance:required-refund-effect");
     let alternate_role = node("finance:other-qualified-result");
@@ -99,7 +96,7 @@ fn compensated_fixture() -> CompensatedFixture {
     graph.add_dependency(root.clone(), intended_role.clone());
     graph.add_dependency(root.clone(), alternate_role.clone());
 
-    let profile = ClosureQualificationProfile::new(
+    let base = ClosureQualificationProfile::new(
         organization.clone(),
         qualification_profile.clone(),
         ClosurePolicyRef::new("closure:terminal-role:compensated").unwrap(),
@@ -126,6 +123,14 @@ fn compensated_fixture() -> CompensatedFixture {
         ]),
         BTreeMap::new(),
     );
+    let profile = TerminalClosureQualificationProfile::new(
+        base,
+        BTreeMap::from([(
+            intended_role.clone(),
+            CompensationRoleRequirement::new(semantic("finance.refund")),
+        )]),
+        BTreeSet::new(),
+    );
 
     let mut cut = QualificationCut::new(
         organization,
@@ -136,90 +141,100 @@ fn compensated_fixture() -> CompensatedFixture {
     assert!(cut.insert_input(intended_source.clone()).unwrap());
     assert!(cut.insert_input(alternate_source.clone()).unwrap());
 
-    CompensatedFixture {
+    CompensationFixture {
         profile,
         cut,
+        intended_role,
+        alternate_role,
         intended_source,
         alternate_source,
     }
 }
 
-fn qualify_compensated(
-    fixture: CompensatedFixture,
-    intent: CommittedIntent,
-    source: QualifiedInputRef,
-) -> Result<WorkflowClosureReceipt, ClosureQualificationError> {
-    let compensation = CompensationBinding::bind(intent, source, &fixture.cut).unwrap();
+fn compensation_basis(
+    fixture: &CompensationFixture,
+    binding: CompensationBinding,
+) -> TerminalClosureQualificationBasis {
+    TerminalClosureQualificationBasis {
+        qualification_cut: fixture.cut.clone(),
+        boundary_results: BTreeMap::from([
+            (
+                fixture.intended_role.clone(),
+                QualifiedBoundaryRef::Input(fixture.intended_source.clone()),
+            ),
+            (
+                fixture.alternate_role.clone(),
+                QualifiedBoundaryRef::Input(fixture.alternate_source.clone()),
+            ),
+        ]),
+        obligations: BTreeMap::new(),
+        disposition_bindings: Vec::new(),
+        compensation_bindings: BTreeMap::from([(fixture.intended_role.clone(), binding)]),
+        exception_bindings: BTreeMap::new(),
+    }
+}
 
-    fixture.profile.qualify(
-        WorkflowRef::new("workflow:terminal-role:compensated:1").unwrap(),
-        ClosureQualificationBasis {
-            qualification_cut: fixture.cut,
-            boundary_results: BTreeMap::from([
-                (
-                    node("finance:required-refund-effect"),
-                    QualifiedBoundaryRef::Input(fixture.intended_source),
-                ),
-                (
-                    node("finance:other-qualified-result"),
-                    QualifiedBoundaryRef::Input(fixture.alternate_source),
-                ),
-            ]),
-            obligations: BTreeMap::new(),
-            disposition_bindings: Vec::new(),
-            exception_bindings: Vec::new(),
-            compensating_intents: BTreeSet::from([compensation]),
-        },
+#[test]
+fn compensated_role_accepts_exact_declared_source_and_operation_profile() {
+    let fixture = compensation_fixture();
+    let binding = CompensationBinding::bind(
+        intent("finance.refund", "USD-cent:5000:customer-a"),
+        fixture.intended_source.clone(),
+        &fixture.cut,
     )
+    .unwrap();
+    let basis = compensation_basis(&fixture, binding);
+
+    let receipt = fixture
+        .profile
+        .qualify(WorkflowRef::new("workflow:terminal:compensated:1").unwrap(), basis)
+        .unwrap();
+    assert_eq!(receipt.class(), ClosureClass::Compensated);
 }
 
 #[test]
-fn compensated_control_with_intended_source_is_structurally_valid() {
-    let fixture = compensated_fixture();
-    let intended_source = fixture.intended_source.clone();
-    let result = qualify_compensated(
-        fixture,
-        compensation_intent("finance.refund", "USD-cent:5000:customer-a"),
-        intended_source,
-    );
-    assert!(result.is_ok());
+fn compensated_role_rejects_other_declared_same_domain_source() {
+    let fixture = compensation_fixture();
+    let binding = CompensationBinding::bind(
+        intent("finance.refund", "USD-cent:5000:customer-a"),
+        fixture.alternate_source.clone(),
+        &fixture.cut,
+    )
+    .unwrap();
+    let basis = compensation_basis(&fixture, binding);
+
+    assert!(matches!(
+        fixture
+            .profile
+            .qualify(WorkflowRef::new("workflow:terminal:compensated:2").unwrap(), basis),
+        Err(TerminalClosureQualificationError::CompensationBoundaryMismatch { .. })
+    ));
 }
 
 #[test]
-fn compensated_profile_cannot_accept_other_declared_finance_source_as_terminal_evidence() {
-    let fixture = compensated_fixture();
-    let alternate_source = fixture.alternate_source.clone();
-    let result = qualify_compensated(
-        fixture,
-        compensation_intent("finance.refund", "USD-cent:5000:customer-a"),
-        alternate_source,
-    );
+fn compensated_role_rejects_wrong_operation_semantic_profile() {
+    let fixture = compensation_fixture();
+    let binding = CompensationBinding::bind(
+        intent("finance.credit", "USD-cent:5000:customer-a"),
+        fixture.intended_source.clone(),
+        &fixture.cut,
+    )
+    .unwrap();
+    let basis = compensation_basis(&fixture, binding);
 
-    assert!(
-        result.is_err(),
-        "exact cut membership plus a declared boundary is not sufficient terminal-role correspondence"
-    );
-}
-
-#[test]
-fn compensated_profile_cannot_accept_wrong_operation_profile_for_required_terminal_role() {
-    let fixture = compensated_fixture();
-    let intended_source = fixture.intended_source.clone();
-    let result = qualify_compensated(
-        fixture,
-        compensation_intent("finance.credit", "USD-cent:5000:customer-a"),
-        intended_source,
-    );
-
-    assert!(
-        result.is_err(),
-        "a reusable refund-compensation role must not accept an arbitrary operation semantic profile"
-    );
+    assert!(matches!(
+        fixture
+            .profile
+            .qualify(WorkflowRef::new("workflow:terminal:compensated:3").unwrap(), basis),
+        Err(TerminalClosureQualificationError::CompensationOperationProfileMismatch { .. })
+    ));
 }
 
 struct ExceptionFixture {
-    profile: ClosureQualificationProfile,
+    profile: TerminalClosureQualificationProfile,
     cut: QualificationCut,
+    intended_role: DerivationNodeRef,
+    alternate_role: DerivationNodeRef,
     intended_source: QualifiedInputRef,
     alternate_source: QualifiedInputRef,
     retained_exception: DomainExceptionRef,
@@ -244,7 +259,6 @@ fn exception_fixture() -> ExceptionFixture {
         "finance.dispute-note-accepted",
     );
     let retained_exception = exception("finance", "chargeback:pending:1");
-
     let root = node("business:resolved-with-exception-close");
     let intended_role = node("finance:required-retained-exception");
     let alternate_role = node("finance:other-dispute-result");
@@ -253,7 +267,7 @@ fn exception_fixture() -> ExceptionFixture {
     graph.add_dependency(root.clone(), intended_role.clone());
     graph.add_dependency(root.clone(), alternate_role.clone());
 
-    let profile = ClosureQualificationProfile::new(
+    let base = ClosureQualificationProfile::new(
         organization.clone(),
         qualification_profile.clone(),
         ClosurePolicyRef::new("closure:terminal-role:exception").unwrap(),
@@ -280,6 +294,11 @@ fn exception_fixture() -> ExceptionFixture {
         ]),
         BTreeMap::new(),
     );
+    let profile = TerminalClosureQualificationProfile::new(
+        base,
+        BTreeMap::new(),
+        BTreeSet::from([intended_role.clone()]),
+    );
 
     let mut cut = QualificationCut::new(
         organization,
@@ -294,60 +313,70 @@ fn exception_fixture() -> ExceptionFixture {
     ExceptionFixture {
         profile,
         cut,
+        intended_role,
+        alternate_role,
         intended_source,
         alternate_source,
         retained_exception,
     }
 }
 
-fn qualify_exception(
-    fixture: ExceptionFixture,
-    source: QualifiedInputRef,
-) -> Result<WorkflowClosureReceipt, ClosureQualificationError> {
+fn exception_basis(
+    fixture: &ExceptionFixture,
+    binding: ExceptionBinding,
+) -> TerminalClosureQualificationBasis {
+    TerminalClosureQualificationBasis {
+        qualification_cut: fixture.cut.clone(),
+        boundary_results: BTreeMap::from([
+            (
+                fixture.intended_role.clone(),
+                QualifiedBoundaryRef::Input(fixture.intended_source.clone()),
+            ),
+            (
+                fixture.alternate_role.clone(),
+                QualifiedBoundaryRef::Input(fixture.alternate_source.clone()),
+            ),
+        ]),
+        obligations: BTreeMap::new(),
+        disposition_bindings: Vec::new(),
+        compensation_bindings: BTreeMap::new(),
+        exception_bindings: BTreeMap::from([(fixture.intended_role.clone(), binding)]),
+    }
+}
+
+#[test]
+fn exception_role_accepts_exact_declared_source() {
+    let fixture = exception_fixture();
     let binding = ExceptionBinding::bind(
-        fixture.retained_exception,
-        source,
+        fixture.retained_exception.clone(),
+        fixture.intended_source.clone(),
         &fixture.cut,
     )
     .unwrap();
+    let basis = exception_basis(&fixture, binding);
 
-    fixture.profile.qualify(
-        WorkflowRef::new("workflow:terminal-role:exception:1").unwrap(),
-        ClosureQualificationBasis {
-            qualification_cut: fixture.cut,
-            boundary_results: BTreeMap::from([
-                (
-                    node("finance:required-retained-exception"),
-                    QualifiedBoundaryRef::Input(fixture.intended_source),
-                ),
-                (
-                    node("finance:other-dispute-result"),
-                    QualifiedBoundaryRef::Input(fixture.alternate_source),
-                ),
-            ]),
-            obligations: BTreeMap::new(),
-            disposition_bindings: Vec::new(),
-            exception_bindings: vec![binding],
-            compensating_intents: BTreeSet::new(),
-        },
+    let receipt = fixture
+        .profile
+        .qualify(WorkflowRef::new("workflow:terminal:exception:1").unwrap(), basis)
+        .unwrap();
+    assert_eq!(receipt.class(), ClosureClass::ResolvedWithExceptions);
+}
+
+#[test]
+fn exception_role_rejects_other_declared_same_domain_source() {
+    let fixture = exception_fixture();
+    let binding = ExceptionBinding::bind(
+        fixture.retained_exception.clone(),
+        fixture.alternate_source.clone(),
+        &fixture.cut,
     )
-}
+    .unwrap();
+    let basis = exception_basis(&fixture, binding);
 
-#[test]
-fn resolved_exception_control_with_intended_source_is_structurally_valid() {
-    let fixture = exception_fixture();
-    let intended_source = fixture.intended_source.clone();
-    assert!(qualify_exception(fixture, intended_source).is_ok());
-}
-
-#[test]
-fn resolved_exception_profile_cannot_accept_other_declared_same_domain_source() {
-    let fixture = exception_fixture();
-    let alternate_source = fixture.alternate_source.clone();
-    let result = qualify_exception(fixture, alternate_source);
-
-    assert!(
-        result.is_err(),
-        "same-domain exact provenance must still correspond to the policy-required terminal role"
-    );
+    assert!(matches!(
+        fixture
+            .profile
+            .qualify(WorkflowRef::new("workflow:terminal:exception:2").unwrap(), basis),
+        Err(TerminalClosureQualificationError::ExceptionBoundaryMismatch { .. })
+    ));
 }
