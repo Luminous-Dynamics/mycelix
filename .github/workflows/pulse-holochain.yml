@@ -42,7 +42,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+      - name: Bind exact qualification head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.96.0
@@ -74,7 +83,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+      - name: Bind exact qualification head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.96.0
@@ -90,6 +108,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind exact qualification head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
       - name: Verify Rust, Nix, Pulse, and quarantine bindings
         run: python3 .github/scripts/check_holochain_cohort.py
 
