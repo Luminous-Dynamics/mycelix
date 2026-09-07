@@ -1,0 +1,131 @@
+name: Authority Coordinator Release Key Policy
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-key-policy/**'
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-key-policy.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-key-policy-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-key-policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Candidate manifest + current policy + manifest-bound hybrid key
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-key-policy/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-key-policy/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-key-policy/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-key-policy')
+          src = (root / 'src/lib.rs').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Pure key authorization may consume candidate #269 semantics only.
+          assert 'mycelix-authority-coordinator-release = ' in cargo
+          for forbidden_dependency in [
+              'mycelix-authority-coordinator-release-currentness',
+              'hdk',
+              'holochain_client',
+              'ed25519-dalek',
+              'ml-dsa',
+          ]:
+              assert forbidden_dependency not in cargo, forbidden_dependency
+
+          for token in [
+              'pub const ED25519_PUBLIC_KEY_LEN: usize = 32;',
+              'pub const ML_DSA_65_PUBLIC_KEY_LEN: usize = 1952;',
+              'pub const HYBRID_SIGNATURE_SCHEME: &str = "ed25519+ml-dsa-65";',
+              'pub const MAX_CURRENTNESS_PROOF_REUSE_MS: u64 = 30_000;',
+              'pub struct CoordinatorReleaseKeyPolicy {',
+              'pub struct VerifiedCurrentCoordinatorReleaseKeyPolicyProof {',
+              'pub struct QualifiedCoordinatorReleaseManifestKeyPolicy {',
+              'pub struct QualifiedCoordinatorReleaseSigningKey {',
+              'pub fn qualify_manifest_key_policy(',
+              '.manifest_digest()',
+              'manifest.release_policy_profile != POLICY_PROFILE',
+              'manifest.release_policy_digest != policy_digest',
+              'manifest.release_authority_ref != policy.release_authority_ref',
+              'currentness.policy_generation != policy.policy_generation',
+              'width > MAX_CURRENTNESS_PROOF_REUSE_MS',
+              'manifest_digest: self.manifest_digest',
+              'frame(&mut hasher, &self.manifest_digest);',
+              '.find(|key| key.key_id == key_id)',
+              'self.valid_until_ms.min(key.valid_until_ms)',
+          ]:
+              assert token in src, token
+
+          # Positive key-policy/key capabilities are locally constructed only.
+          for positive in [
+              'pub struct QualifiedCoordinatorReleaseManifestKeyPolicy {',
+              'pub struct QualifiedCoordinatorReleaseSigningKey {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+
+          # The circular dependency is itself forbidden.
+          for forbidden in [
+              'QualifiedCurrentCoordinatorRelease',
+              'qualify_current_coordinator_release',
+              'qualify_coordinator_release',
+              'VerifiedCoordinatorReleaseSignatureProof',
+              'SIGNATURE_PROOF_PROTOCOL',
+              'AdminWebsocket',
+              'ObservedCoordinatorDeployment',
+              'perform_external_effect',
+          ]:
+              assert forbidden not in src, forbidden
+
+          for invariant in [
+              'key authorization precedes release authentication',
+              'release-policy bytes have one exact v0.1 meaning',
+              'release authority and key policy are exact-bound',
+              'candidate manifest identity is explicit',
+              'the hybrid scheme and wire representation are fixed',
+              'semantic policy and current-policy proof are separate facts',
+              'current-policy verifier provenance remains separate',
+              'current-policy reuse is bounded',
+              'positive manifest/policy qualification is non-deserializable',
+              'raw trusted-key input is forbidden',
+              'positive signing key is non-deserializable and manifest-bound',
+              'lease composition is monotone',
+              'this is authorization, not signature verification',
+              'no release-currentness/deployment/effect authority',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: candidate manifest -> independently current key policy -> manifest-bound hybrid key; no circular release authentication')
+          PY
