@@ -40,7 +40,7 @@ env:
 jobs:
   pulse-zomes:
     name: Pulse zomes (fmt, clippy, tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -79,7 +79,7 @@ jobs:
 
   pulse-backend:
     name: Pulse backend tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
@@ -110,7 +110,7 @@ jobs:
 
   pulse-cohort:
     name: Holochain compatibility contract
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -131,7 +131,7 @@ jobs:
     name: Pulse qualification gate
     if: always()
     needs: [pulse-zomes, pulse-backend, pulse-cohort]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require every Pulse qualification job
         run: |
