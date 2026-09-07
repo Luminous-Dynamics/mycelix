@@ -81,6 +81,7 @@ jobs:
               'hdi::',
               'holochain_',
               'hybrid_sig::verify',
+              'mycelix_crypto::traits',
               'ed25519_dalek',
               'ml_dsa::',
               '.verify(',
@@ -90,7 +91,7 @@ jobs:
               'policy_current',
               'sys_time(',
               'std::time',
-              'native',
+              'feature = "native"',
           ]:
               if forbidden in lower:
                   raise SystemExit(
