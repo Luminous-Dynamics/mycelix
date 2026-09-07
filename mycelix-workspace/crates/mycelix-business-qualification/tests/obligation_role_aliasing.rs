@@ -14,11 +14,11 @@ use mycelix_business_core::{
     ClosureClass, ClosurePolicyRef, DerivationNodeRef, DomainObligationRef, DomainRef,
     DomainScopedRef, ObligationDisposition, ObligationDispositionBinding, ObligationRef,
     OrganizationContextRef, QualificationCut, QualifiedInputRef, RecordRef, SemanticProfileId,
-    TimestampMs, ValidityEnd, ValidityWindow, WorkflowRef,
+    TimestampMs, ValidityEnd, ValidityWindow, WorkflowClosureReceipt, WorkflowRef,
 };
 use mycelix_business_qualification::{
-    ClosureDependencyGraph, ClosureQualificationBasis, ClosureQualificationProfile,
-    QualifiedBoundaryRef, QualifiedBoundaryRequirement,
+    ClosureDependencyGraph, ClosureQualificationBasis, ClosureQualificationError,
+    ClosureQualificationProfile, QualifiedBoundaryRef, QualifiedBoundaryRequirement,
 };
 
 fn semantic(name: &str) -> SemanticProfileId {
@@ -55,8 +55,10 @@ fn obligation(domain_name: &str, local_id: &str) -> DomainObligationRef {
     )
 }
 
-#[test]
-fn distinct_required_roles_cannot_alias_one_exact_obligation() {
+fn qualify_two_finance_roles(
+    first_obligation: DomainObligationRef,
+    second_obligation: DomainObligationRef,
+) -> Result<WorkflowClosureReceipt, ClosureQualificationError> {
     let organization = OrganizationContextRef::new("org:acme").unwrap();
     let qualification_profile = semantic("business.alias-regression.qualification");
     let policy_source = input(
@@ -69,7 +71,6 @@ fn distinct_required_roles_cannot_alias_one_exact_obligation() {
         "batch-disposition:shared",
         "finance.obligation-disposition",
     );
-    let shared_obligation = obligation("finance", "obligation:shared");
 
     let root = node("business:alias-regression-close");
     let first_role = node("finance:first-required-duty");
@@ -120,13 +121,27 @@ fn distinct_required_roles_cannot_alias_one_exact_obligation() {
     assert!(cut.insert_input(policy_source).unwrap());
     assert!(cut.insert_input(shared_disposition.clone()).unwrap());
 
-    let disposition = ObligationDispositionBinding::bind(
-        shared_obligation.clone(),
+    let first_binding = ObligationDispositionBinding::bind(
+        first_obligation.clone(),
         ObligationDisposition::Satisfied,
         shared_disposition.clone(),
         &cut,
     )
     .unwrap();
+    let disposition_bindings = if first_obligation == second_obligation {
+        vec![first_binding]
+    } else {
+        vec![
+            first_binding,
+            ObligationDispositionBinding::bind(
+                second_obligation.clone(),
+                ObligationDisposition::Satisfied,
+                shared_disposition.clone(),
+                &cut,
+            )
+            .unwrap(),
+        ]
+    };
 
     let basis = ClosureQualificationBasis {
         qualification_cut: cut,
@@ -141,21 +156,38 @@ fn distinct_required_roles_cannot_alias_one_exact_obligation() {
             ),
         ]),
         obligations: BTreeMap::from([
-            (first_role, shared_obligation.clone()),
-            (second_role, shared_obligation),
+            (first_role, first_obligation),
+            (second_role, second_obligation),
         ]),
-        disposition_bindings: vec![disposition],
+        disposition_bindings,
         exception_bindings: Vec::new(),
         compensating_intents: BTreeSet::new(),
     };
 
-    let result = profile.qualify(
+    profile.qualify(
         WorkflowRef::new("workflow:alias-regression:1").unwrap(),
         basis,
+    )
+}
+
+#[test]
+fn distinct_required_roles_cannot_alias_one_exact_obligation() {
+    let shared_obligation = obligation("finance", "obligation:shared");
+    let result = qualify_two_finance_roles(shared_obligation.clone(), shared_obligation);
+
+    assert!(matches!(
+        result,
+        Err(ClosureQualificationError::ObligationRoleAliasing { .. })
+    ));
+}
+
+#[test]
+fn distinct_obligations_may_share_one_exact_batch_disposition_result() {
+    let result = qualify_two_finance_roles(
+        obligation("finance", "obligation:first"),
+        obligation("finance", "obligation:second"),
     );
 
-    assert!(
-        result.is_err(),
-        "distinct policy-required obligation roles must not collapse onto one exact obligation"
-    );
+    let receipt = result.expect("evidence reuse must not imply duty-identity aliasing");
+    assert_eq!(receipt.obligations().len(), 2);
 }

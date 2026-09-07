@@ -455,6 +455,17 @@ impl ClosureQualificationProfile {
             });
         }
 
+        let mut role_by_obligation = BTreeMap::new();
+        for (role, obligation) in &basis.obligations {
+            if let Some(first_role) = role_by_obligation.insert(obligation.clone(), role.clone()) {
+                return Err(ClosureQualificationError::ObligationRoleAliasing {
+                    obligation: obligation.clone(),
+                    first_role,
+                    second_role: role.clone(),
+                });
+            }
+        }
+
         let required_obligations = basis
             .obligations
             .values()
@@ -601,6 +612,11 @@ pub enum ClosureQualificationError {
         required: BTreeSet<DerivationNodeRef>,
         provided: BTreeSet<DerivationNodeRef>,
     },
+    ObligationRoleAliasing {
+        obligation: DomainObligationRef,
+        first_role: DerivationNodeRef,
+        second_role: DerivationNodeRef,
+    },
     ObligationRoleDomainMismatch {
         role: DerivationNodeRef,
         expected: DomainRef,
@@ -697,6 +713,14 @@ impl fmt::Display for ClosureQualificationError {
             Self::ObligationRoleSetMismatch { required, provided } => write!(
                 f,
                 "closure basis obligation roles {provided:?} do not exactly match profile-required roles {required:?}"
+            ),
+            Self::ObligationRoleAliasing {
+                obligation,
+                first_role,
+                second_role,
+            } => write!(
+                f,
+                "closure obligation roles {first_role} and {second_role} both map to exact obligation {obligation}; implicit normative-duty aliasing is forbidden"
             ),
             Self::ObligationRoleDomainMismatch {
                 role,
