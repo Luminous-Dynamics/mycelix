@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-business-governance-bridge"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure versioned bridge from typed Mycelix Governance resolution outcomes to Business terminal expectations"
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-terminal-expectation = { path = "../mycelix-business-terminal-expectation" }
+governance-resolution-types = { path = "../../mycelix-governance/crates/governance-resolution-types" }
