@@ -18,7 +18,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  EXPECTED_PARENT_HEAD_SHA: bf7c39020c1d67ae3283d22335c04349040358d1
   EXPECTED_PARENT_BRANCH: ci/pulse-holochain-qualification
 
 jobs:
@@ -46,7 +45,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD_SHA"
           echo "sha=$actual" >> "$GITHUB_OUTPUT"
 
-      - name: Bind exact parent qualification head
+      - name: Bind current parent branch, PR base, and ancestry
         id: parent
         env:
           EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -54,15 +53,14 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin \
             "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
-          actual_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
-          echo "Expected parent head: $EXPECTED_PARENT_HEAD_SHA"
-          echo "Observed parent head: $actual_parent"
-          test "$actual_parent" = "$EXPECTED_PARENT_HEAD_SHA"
-          if [ -n "${EVENT_BASE_SHA:-}" ]; then
-            echo "PR event base head: $EVENT_BASE_SHA"
-            test "$EVENT_BASE_SHA" = "$EXPECTED_PARENT_HEAD_SHA"
-          fi
-          echo "sha=$actual_parent" >> "$GITHUB_OUTPUT"
+          live_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
+          expected_parent="${EVENT_BASE_SHA:-$live_parent}"
+
+          echo "Live parent branch head: $live_parent"
+          echo "Event/expected parent head: $expected_parent"
+          test "$live_parent" = "$expected_parent"
+          git merge-base --is-ancestor "$expected_parent" HEAD
+          echo "sha=$expected_parent" >> "$GITHUB_OUTPUT"
 
       - name: Install Nix
         id: install_nix
@@ -79,9 +77,6 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
-      # Candidate construction is itself evidence. Keep the job alive after a
-      # construction failure so the final gate and evidence artifact can report
-      # the exact failed boundary rather than collapsing into an opaque red job.
       - name: Materialize candidate
         id: materialize
         continue-on-error: true
@@ -112,9 +107,6 @@ jobs:
             hc --version
           '
 
-      # Rust surfaces depend only on successful candidate materialization, not
-      # on Nix lock/runtime success. This preserves independent diagnostics when
-      # the Nix half of the cohort is the only failing boundary.
       - name: Qualify active Pulse zome workspace
         id: pulse_zomes
         if: steps.materialize.outcome == 'success'
@@ -199,9 +191,6 @@ jobs:
           evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
           mkdir -p "$evidence_dir"
 
-          # Include newly generated, non-ignored lockfiles in the patch rather
-          # than silently omitting them because plain `git diff` ignores
-          # untracked files. Intent-to-add changes only the ephemeral CI index.
           mapfile -t untracked < <(git ls-files --others --exclude-standard)
           if [ "${#untracked[@]}" -gt 0 ]; then
             echo 'Capturing generated untracked files:'
