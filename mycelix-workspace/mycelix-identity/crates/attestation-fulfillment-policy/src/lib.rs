@@ -3,20 +3,18 @@
 
 //! Convergent semantic theorem for Mycelix attestation fulfillment V2.
 //!
-//! This crate deliberately knows nothing about Holochain actions, DHT/network
-//! completeness, entry serialization, credential creation, or proof-system
-//! implementation details. Adapters provide canonical request-root bytes and
-//! verification-record facts derived from stronger boundaries.
+//! This crate owns **semantic fulfillment only**. It deliberately does not own
+//! cryptographic proof verification, signed verification records, Holochain state,
+//! credential creation, network completeness, or verifier-policy currentness.
 //!
 //! Security split:
 //!
 //! - semantic fulfillment identity is deterministic and independent of execution;
 //! - public trust-score bounds use the canonical fixed-point authority theorem;
 //! - proof encoding is evidence, not semantic identity;
-//! - a bare `verified: bool` is not accepted by semantic aggregation;
-//! - exact proof/claim verification evidence must first be qualified into an opaque
-//!   token bound to the proof digest and fulfillment ID;
-//! - equivalent retries converge; distinct semantic claims conflict.
+//! - structurally valid retries may converge semantically before proof verification;
+//! - semantic convergence is **not** cryptographic acceptance and grants no authority;
+//! - cryptographic qualification belongs above the backend-neutral proof statement.
 
 #![forbid(unsafe_code)]
 
@@ -29,17 +27,15 @@ use sha2::{Digest, Sha256};
 pub const REQUEST_ROOT_RAW39_LEN_V2: usize = 39;
 pub const K_VECTOR_COMMITMENT_LEN_V2: usize = 32;
 pub const FULFILLMENT_ID_LEN_V2: usize = 32;
-pub const SHA256_DIGEST_LEN_V2: usize = 32;
-pub const VERIFICATION_BACKEND_ID_MAX_LEN_V2: usize = 128;
 pub const ATTESTATION_FULFILLMENT_DOMAIN_V2: &[u8] =
     b"mycelix:identity:attestation-fulfillment:v2\0";
 
 /// Public semantic statement whose deterministic identity converges retries.
 ///
 /// Trust-score bounds are canonical fixed-point integers scaled by the authority
-/// theorem (`1_000_000 == 1.0`). The range proof itself is intentionally absent.
-/// Different valid proof encodings for this exact statement are retry-equivalent
-/// evidence, not different effects.
+/// theorem (`1_000_000 == 1.0`). The range proof itself is intentionally absent
+/// from this statement identity: proof bytes are evidence for the statement, not
+/// the semantic effect being requested.
 #[derive(Debug, Clone, Copy)]
 pub struct AttestationFulfillmentStatementV2<'a> {
     /// Canonical Holochain ActionHash raw representation (`get_raw_39()`).
@@ -52,62 +48,27 @@ pub struct AttestationFulfillmentStatementV2<'a> {
     pub credential_expires_at_micros: Option<i64>,
 }
 
-/// Durable fulfillment claim carrying evidence plus its deterministic semantic ID.
+/// One semantic fulfillment claim carrying proof bytes plus its deterministic ID.
+///
+/// `range_proof` is intentionally opaque here. Non-empty proof bytes make the
+/// claim structurally complete enough to enter evidence gathering, but **do not**
+/// mean that the proof is valid, accepted, current, or authoritative.
 #[derive(Debug, Clone, Copy)]
 pub struct AttestationFulfillmentClaimV2<'a> {
     pub statement: AttestationFulfillmentStatementV2<'a>,
-    /// Proof evidence is required but is not hashed into `fulfillment_id`.
     pub range_proof: &'a [u8],
     pub fulfillment_id: &'a [u8],
 }
 
-/// Outcome asserted by an external signed verification-record resolver.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AttestationProofVerificationOutcomeV2 {
-    Accepted,
-    Rejected,
-}
-
-/// Facts extracted from a signed/current verification-record boundary.
-#[derive(Debug, Clone, Copy)]
-pub struct AttestationProofVerificationRecordFactsV2<'a> {
-    pub fulfillment_id: &'a [u8],
-    pub proof_sha256: &'a [u8],
-    pub verifier_did: &'a str,
-    pub backend_id: &'a str,
-    pub verification_policy_sha256: &'a [u8],
-    pub verification_record_sha256: &'a [u8],
-    pub outcome: AttestationProofVerificationOutcomeV2,
-    pub signature_validated: bool,
-    pub policy_accepted: bool,
-    pub policy_current: bool,
-}
-
-/// Opaque capability proving that verification-record facts were structurally
-/// qualified against one exact claim/proof.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QualifiedAttestationProofVerificationV2 {
-    fulfillment_id: [u8; FULFILLMENT_ID_LEN_V2],
-    proof_sha256: [u8; SHA256_DIGEST_LEN_V2],
-}
-
-impl QualifiedAttestationProofVerificationV2 {
-    pub fn fulfillment_id(&self) -> &[u8; FULFILLMENT_ID_LEN_V2] {
-        &self.fulfillment_id
-    }
-
-    pub fn proof_sha256(&self) -> &[u8; SHA256_DIGEST_LEN_V2] {
-        &self.proof_sha256
-    }
-}
-
-/// One observed claim plus authoritative actor identity and a proof-bound qualified
-/// verification token.
+/// One observed semantic claim plus authoritative action-author identity.
+///
+/// This type contains no proof-verification witness. A later verification-record
+/// layer may filter/qualify claims cryptographically, but that stronger evidence is
+/// intentionally outside this crate.
 #[derive(Debug, Clone, Copy)]
 pub struct AttestationFulfillmentObservationV2<'a> {
     pub claim: AttestationFulfillmentClaimV2<'a>,
     pub action_author_did: &'a str,
-    pub verification: QualifiedAttestationProofVerificationV2,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,26 +84,19 @@ pub enum AttestationFulfillmentErrorV2 {
     TrustScoreRangeInvalid,
     FulfillmentIdLengthInvalid,
     FulfillmentIdMismatch,
-    VerificationFulfillmentIdLengthInvalid,
-    VerificationFulfillmentIdMismatch,
-    VerificationProofDigestLengthInvalid,
-    VerificationProofDigestMismatch,
-    VerifierDidInvalid,
-    VerificationBackendIdInvalid,
-    VerificationPolicyDigestLengthInvalid,
-    VerificationRecordDigestLengthInvalid,
-    VerificationOutcomeRejected,
-    VerificationSignatureNotValidated,
-    VerificationPolicyNotAccepted,
-    VerificationPolicyNotCurrent,
-    VerificationWitnessMismatch,
 }
 
-/// Observation-scoped semantic aggregation for one canonical request root.
+/// Observation-scoped aggregation of **semantic claims only**.
+///
+/// `ConvergedCandidate` means multiple observed claims describe the same semantic
+/// effect. It does not imply that any proof has been cryptographically accepted.
+/// A later verified-evidence layer must independently qualify proof bytes and bind
+/// them to the backend-neutral proof-statement digest before an effect can become
+/// authority-bearing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ObservedAttestationFulfillmentSetV2 {
+pub enum ObservedAttestationFulfillmentClaimSetV2 {
     Absent,
-    Converged {
+    ConvergedCandidate {
         fulfillment_id: [u8; FULFILLMENT_ID_LEN_V2],
         replicas: usize,
     },
@@ -189,17 +143,12 @@ fn validate_expected_context_v2(
     Ok(())
 }
 
-fn sha256_v2(bytes: &[u8]) -> [u8; SHA256_DIGEST_LEN_V2] {
-    let digest = Sha256::digest(bytes);
-    let mut out = [0u8; SHA256_DIGEST_LEN_V2];
-    out.copy_from_slice(&digest);
-    out
-}
-
 /// Derive the strongest authority tier guaranteed by this public fulfillment range.
 ///
-/// This delegates to the canonical lower-bound-only authority theorem. Fulfillment
-/// semantics do not maintain an independent tier mapping.
+/// This delegates to the canonical lower-bound-only authority theorem. It is a
+/// projection of the statement's **claimed/provable range**, not evidence that the
+/// range has actually been proven. Positive authority still requires a qualified
+/// cryptographic verification record above this layer.
 pub fn guaranteed_attestation_fulfillment_tier_v2(
     statement: AttestationFulfillmentStatementV2<'_>,
 ) -> Result<GuaranteedTrustTierV2, AttestationFulfillmentErrorV2> {
@@ -290,7 +239,7 @@ fn validate_claim_and_id_v2(
     Ok(expected_id)
 }
 
-/// Validate one fulfillment claim against immutable request-root context.
+/// Validate one semantic fulfillment claim against immutable request-root context.
 pub fn validate_attestation_fulfillment_claim_v2(
     claim: AttestationFulfillmentClaimV2<'_>,
     expected_request_root_raw39: &[u8],
@@ -306,82 +255,21 @@ pub fn validate_attestation_fulfillment_claim_v2(
     .map(|_| ())
 }
 
-/// Qualify signed/current proof-verification facts against one exact claim.
+/// Collapse observed **semantic** retry claims for one canonical request root.
 ///
-/// This is deliberately a structural capability constructor, not a cryptographic
-/// signature verifier. The future verification-record adapter must establish
-/// `signature_validated`, `policy_accepted` and `policy_current` from authoritative
-/// evidence; those facts must never be copied from an untrusted fulfillment caller.
-pub fn qualify_attestation_proof_verification_v2(
-    claim: AttestationFulfillmentClaimV2<'_>,
-    record: AttestationProofVerificationRecordFactsV2<'_>,
-) -> Result<QualifiedAttestationProofVerificationV2, AttestationFulfillmentErrorV2> {
-    let expected_id = derive_attestation_fulfillment_id_v2(claim.statement)?;
-    if claim.range_proof.is_empty() {
-        return Err(AttestationFulfillmentErrorV2::RangeProofEmpty);
-    }
-    if claim.fulfillment_id.len() != FULFILLMENT_ID_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::FulfillmentIdLengthInvalid);
-    }
-    if claim.fulfillment_id != expected_id.as_slice() {
-        return Err(AttestationFulfillmentErrorV2::FulfillmentIdMismatch);
-    }
-
-    if record.fulfillment_id.len() != FULFILLMENT_ID_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::VerificationFulfillmentIdLengthInvalid);
-    }
-    if record.fulfillment_id != expected_id.as_slice() {
-        return Err(AttestationFulfillmentErrorV2::VerificationFulfillmentIdMismatch);
-    }
-    if record.proof_sha256.len() != SHA256_DIGEST_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::VerificationProofDigestLengthInvalid);
-    }
-    let actual_proof_sha256 = sha256_v2(claim.range_proof);
-    if record.proof_sha256 != actual_proof_sha256.as_slice() {
-        return Err(AttestationFulfillmentErrorV2::VerificationProofDigestMismatch);
-    }
-    if !valid_did_shape_v2(record.verifier_did) {
-        return Err(AttestationFulfillmentErrorV2::VerifierDidInvalid);
-    }
-    if record.backend_id.is_empty() || record.backend_id.len() > VERIFICATION_BACKEND_ID_MAX_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::VerificationBackendIdInvalid);
-    }
-    if record.verification_policy_sha256.len() != SHA256_DIGEST_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::VerificationPolicyDigestLengthInvalid);
-    }
-    if record.verification_record_sha256.len() != SHA256_DIGEST_LEN_V2 {
-        return Err(AttestationFulfillmentErrorV2::VerificationRecordDigestLengthInvalid);
-    }
-    if record.outcome != AttestationProofVerificationOutcomeV2::Accepted {
-        return Err(AttestationFulfillmentErrorV2::VerificationOutcomeRejected);
-    }
-    if !record.signature_validated {
-        return Err(AttestationFulfillmentErrorV2::VerificationSignatureNotValidated);
-    }
-    if !record.policy_accepted {
-        return Err(AttestationFulfillmentErrorV2::VerificationPolicyNotAccepted);
-    }
-    if !record.policy_current {
-        return Err(AttestationFulfillmentErrorV2::VerificationPolicyNotCurrent);
-    }
-
-    Ok(QualifiedAttestationProofVerificationV2 {
-        fulfillment_id: expected_id,
-        proof_sha256: actual_proof_sha256,
-    })
-}
-
-/// Collapse observed **qualified** retry replicas for one request root without
-/// choosing a chronological winner.
-pub fn summarize_attestation_fulfillment_observations_v2(
+/// Every claim is revalidated for root/subject/actor/ID/proof-presence structure.
+/// Proof bytes are not cryptographically verified here. Exact semantic retries
+/// become `ConvergedCandidate`; multiple semantic effects become `Conflict`.
+/// Neither result grants authority.
+pub fn summarize_attestation_fulfillment_claims_v2(
     observations: &[AttestationFulfillmentObservationV2<'_>],
     expected_request_root_raw39: &[u8],
     expected_request_subject_did: &str,
-) -> Result<ObservedAttestationFulfillmentSetV2, AttestationFulfillmentErrorV2> {
+) -> Result<ObservedAttestationFulfillmentClaimSetV2, AttestationFulfillmentErrorV2> {
     validate_expected_context_v2(expected_request_root_raw39, expected_request_subject_did)?;
 
     if observations.is_empty() {
-        return Ok(ObservedAttestationFulfillmentSetV2::Absent);
+        return Ok(ObservedAttestationFulfillmentClaimSetV2::Absent);
     }
 
     let mut distinct_ids: Vec<[u8; FULFILLMENT_ID_LEN_V2]> = Vec::new();
@@ -392,24 +280,18 @@ pub fn summarize_attestation_fulfillment_observations_v2(
             expected_request_subject_did,
             observation.action_author_did,
         )?;
-        let proof_sha256 = sha256_v2(observation.claim.range_proof);
-        if observation.verification.fulfillment_id != fulfillment_id
-            || observation.verification.proof_sha256 != proof_sha256
-        {
-            return Err(AttestationFulfillmentErrorV2::VerificationWitnessMismatch);
-        }
         if !distinct_ids.contains(&fulfillment_id) {
             distinct_ids.push(fulfillment_id);
         }
     }
 
     if distinct_ids.len() == 1 {
-        Ok(ObservedAttestationFulfillmentSetV2::Converged {
+        Ok(ObservedAttestationFulfillmentClaimSetV2::ConvergedCandidate {
             fulfillment_id: distinct_ids[0],
             replicas: observations.len(),
         })
     } else {
-        Ok(ObservedAttestationFulfillmentSetV2::Conflict {
+        Ok(ObservedAttestationFulfillmentClaimSetV2::Conflict {
             distinct_claims: distinct_ids.len(),
             replicas: observations.len(),
         })
@@ -421,7 +303,6 @@ mod tests {
     use super::*;
 
     const SUBJECT: &str = "did:mycelix:subject";
-    const VERIFIER: &str = "did:mycelix:verifier";
 
     fn root_raw39() -> [u8; REQUEST_ROOT_RAW39_LEN_V2] {
         let mut root = [0u8; REQUEST_ROOT_RAW39_LEN_V2];
@@ -461,39 +342,6 @@ mod tests {
         }
     }
 
-    fn verification_facts<'a>(
-        claim: AttestationFulfillmentClaimV2<'a>,
-        proof_digest: &'a [u8],
-        policy_digest: &'a [u8],
-        record_digest: &'a [u8],
-    ) -> AttestationProofVerificationRecordFactsV2<'a> {
-        AttestationProofVerificationRecordFactsV2 {
-            fulfillment_id: claim.fulfillment_id,
-            proof_sha256: proof_digest,
-            verifier_did: VERIFIER,
-            backend_id: "qualified-kvector-v2",
-            verification_policy_sha256: policy_digest,
-            verification_record_sha256: record_digest,
-            outcome: AttestationProofVerificationOutcomeV2::Accepted,
-            signature_validated: true,
-            policy_accepted: true,
-            policy_current: true,
-        }
-    }
-
-    fn qualify<'a>(
-        claim: AttestationFulfillmentClaimV2<'a>,
-    ) -> QualifiedAttestationProofVerificationV2 {
-        let proof_digest = sha256_v2(claim.range_proof);
-        let policy_digest = [0x11; SHA256_DIGEST_LEN_V2];
-        let record_digest = [0x22; SHA256_DIGEST_LEN_V2];
-        qualify_attestation_proof_verification_v2(
-            claim,
-            verification_facts(claim, &proof_digest, &policy_digest, &record_digest),
-        )
-        .expect("verification facts qualify")
-    }
-
     #[test]
     fn deterministic_vector_is_frozen() {
         let root = root_raw39();
@@ -529,7 +377,7 @@ mod tests {
         let first = claim_for(base, b"proof-a", &base_id);
         let second = claim_for(base, b"proof-b", &base_id);
         assert_eq!(first.fulfillment_id, second.fulfillment_id);
-        assert_ne!(sha256_v2(first.range_proof), sha256_v2(second.range_proof));
+        assert_ne!(first.range_proof, second.range_proof);
     }
 
     #[test]
@@ -615,13 +463,6 @@ mod tests {
         );
         assert_eq!(
             derive_attestation_fulfillment_id_v2(AttestationFulfillmentStatementV2 {
-                trust_score_upper_scaled: 1_000_001,
-                ..base
-            }),
-            Err(AttestationFulfillmentErrorV2::TrustScoreRangeInvalid)
-        );
-        assert_eq!(
-            derive_attestation_fulfillment_id_v2(AttestationFulfillmentStatementV2 {
                 trust_score_lower_scaled: 700_000,
                 trust_score_upper_scaled: 600_000,
                 ..base
@@ -631,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn claim_binds_root_subject_actor_proof_and_semantic_id() {
+    fn claim_binds_root_subject_actor_proof_presence_and_semantic_id() {
         let root = root_raw39();
         let commitment = commitment();
         let statement = valid_statement(&root, &commitment);
@@ -661,96 +502,26 @@ mod tests {
     }
 
     #[test]
-    fn verification_token_requires_exact_proof_claim_signature_and_policy_facts() {
+    fn different_unverified_proof_encodings_converge_semantically_only() {
         let root = root_raw39();
         let commitment = commitment();
         let statement = valid_statement(&root, &commitment);
         let id = derive_attestation_fulfillment_id_v2(statement).unwrap();
-        let claim = claim_for(statement, b"proof-a", &id);
-        let proof_digest = sha256_v2(claim.range_proof);
-        let policy_digest = [0x11; SHA256_DIGEST_LEN_V2];
-        let record_digest = [0x22; SHA256_DIGEST_LEN_V2];
-        let valid = verification_facts(claim, &proof_digest, &policy_digest, &record_digest);
-        let token = qualify_attestation_proof_verification_v2(claim, valid).unwrap();
-        assert_eq!(token.fulfillment_id(), &id);
-        assert_eq!(token.proof_sha256(), &proof_digest);
-
-        let wrong_proof_digest = [0u8; SHA256_DIGEST_LEN_V2];
-        assert_eq!(
-            qualify_attestation_proof_verification_v2(
-                claim,
-                AttestationProofVerificationRecordFactsV2 {
-                    proof_sha256: &wrong_proof_digest,
-                    ..valid
-                }
-            ),
-            Err(AttestationFulfillmentErrorV2::VerificationProofDigestMismatch)
-        );
-        assert_eq!(
-            qualify_attestation_proof_verification_v2(
-                claim,
-                AttestationProofVerificationRecordFactsV2 {
-                    outcome: AttestationProofVerificationOutcomeV2::Rejected,
-                    ..valid
-                }
-            ),
-            Err(AttestationFulfillmentErrorV2::VerificationOutcomeRejected)
-        );
-        assert_eq!(
-            qualify_attestation_proof_verification_v2(
-                claim,
-                AttestationProofVerificationRecordFactsV2 {
-                    signature_validated: false,
-                    ..valid
-                }
-            ),
-            Err(AttestationFulfillmentErrorV2::VerificationSignatureNotValidated)
-        );
-        assert_eq!(
-            qualify_attestation_proof_verification_v2(
-                claim,
-                AttestationProofVerificationRecordFactsV2 {
-                    policy_accepted: false,
-                    ..valid
-                }
-            ),
-            Err(AttestationFulfillmentErrorV2::VerificationPolicyNotAccepted)
-        );
-        assert_eq!(
-            qualify_attestation_proof_verification_v2(
-                claim,
-                AttestationProofVerificationRecordFactsV2 {
-                    policy_current: false,
-                    ..valid
-                }
-            ),
-            Err(AttestationFulfillmentErrorV2::VerificationPolicyNotCurrent)
-        );
-    }
-
-    #[test]
-    fn different_qualified_proof_encodings_for_same_statement_converge() {
-        let root = root_raw39();
-        let commitment = commitment();
-        let statement = valid_statement(&root, &commitment);
-        let id = derive_attestation_fulfillment_id_v2(statement).unwrap();
-        let first = claim_for(statement, b"proof-encoding-a", &id);
-        let second = claim_for(statement, b"proof-encoding-b", &id);
+        let first = claim_for(statement, b"unverified-proof-a", &id);
+        let second = claim_for(statement, b"unverified-proof-b", &id);
         let observations = [
             AttestationFulfillmentObservationV2 {
                 claim: first,
                 action_author_did: SUBJECT,
-                verification: qualify(first),
             },
             AttestationFulfillmentObservationV2 {
                 claim: second,
                 action_author_did: SUBJECT,
-                verification: qualify(second),
             },
         ];
         assert_eq!(
-            summarize_attestation_fulfillment_observations_v2(&observations, &root, SUBJECT),
-            Ok(ObservedAttestationFulfillmentSetV2::Converged {
+            summarize_attestation_fulfillment_claims_v2(&observations, &root, SUBJECT),
+            Ok(ObservedAttestationFulfillmentClaimSetV2::ConvergedCandidate {
                 fulfillment_id: id,
                 replicas: 2,
             })
@@ -758,31 +529,12 @@ mod tests {
     }
 
     #[test]
-    fn proof_token_cannot_be_reused_for_different_proof_encoding() {
-        let root = root_raw39();
-        let commitment = commitment();
-        let statement = valid_statement(&root, &commitment);
-        let id = derive_attestation_fulfillment_id_v2(statement).unwrap();
-        let first = claim_for(statement, b"proof-a", &id);
-        let second = claim_for(statement, b"proof-b", &id);
-        let observations = [AttestationFulfillmentObservationV2 {
-            claim: second,
-            action_author_did: SUBJECT,
-            verification: qualify(first),
-        }];
-        assert_eq!(
-            summarize_attestation_fulfillment_observations_v2(&observations, &root, SUBJECT),
-            Err(AttestationFulfillmentErrorV2::VerificationWitnessMismatch)
-        );
-    }
-
-    #[test]
-    fn distinct_qualified_statements_for_one_root_are_conflict_not_latest_wins() {
+    fn distinct_semantic_claims_for_one_root_are_conflict_not_latest_wins() {
         let root = root_raw39();
         let commitment = commitment();
         let first_statement = valid_statement(&root, &commitment);
         let first_id = derive_attestation_fulfillment_id_v2(first_statement).unwrap();
-        let first = claim_for(first_statement, b"proof-a", &first_id);
+        let first = claim_for(first_statement, b"unverified-proof-a", &first_id);
 
         let mut second_commitment = commitment;
         second_commitment[0] ^= 1;
@@ -791,23 +543,21 @@ mod tests {
             ..first_statement
         };
         let second_id = derive_attestation_fulfillment_id_v2(second_statement).unwrap();
-        let second = claim_for(second_statement, b"proof-b", &second_id);
+        let second = claim_for(second_statement, b"unverified-proof-b", &second_id);
 
         let observations = [
             AttestationFulfillmentObservationV2 {
                 claim: first,
                 action_author_did: SUBJECT,
-                verification: qualify(first),
             },
             AttestationFulfillmentObservationV2 {
                 claim: second,
                 action_author_did: SUBJECT,
-                verification: qualify(second),
             },
         ];
         assert_eq!(
-            summarize_attestation_fulfillment_observations_v2(&observations, &root, SUBJECT),
-            Ok(ObservedAttestationFulfillmentSetV2::Conflict {
+            summarize_attestation_fulfillment_claims_v2(&observations, &root, SUBJECT),
+            Ok(ObservedAttestationFulfillmentClaimSetV2::Conflict {
                 distinct_claims: 2,
                 replicas: 2,
             })
