@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-canonical-effect-outcome-evidence"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-actuator-execution = { path = "../mycelix-ssf-canonical-actuator-execution" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
