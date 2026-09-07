@@ -25,6 +25,8 @@ members = [
     "crates/did-verifier-lineage-policy",
     # Strict cryptographic admission theorem for DID documents
     "crates/did-document-crypto-policy",
+    # Viewpoint-scoped agent-activity coverage theorem
+    "crates/agent-activity-coverage-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
