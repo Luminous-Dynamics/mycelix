@@ -18,6 +18,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  EXPECTED_PARENT_HEAD_SHA: bf7c39020c1d67ae3283d22335c04349040358d1
+  EXPECTED_PARENT_BRANCH: ci/pulse-holochain-qualification
 
 jobs:
   qualify:
@@ -43,6 +45,24 @@ jobs:
           echo "Checked-out qualification head: $actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
           echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Bind exact parent qualification head
+        id: parent
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
+          actual_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
+          echo "Expected parent head: $EXPECTED_PARENT_HEAD_SHA"
+          echo "Observed parent head: $actual_parent"
+          test "$actual_parent" = "$EXPECTED_PARENT_HEAD_SHA"
+          if [ -n "${EVENT_BASE_SHA:-}" ]; then
+            echo "PR event base head: $EVENT_BASE_SHA"
+            test "$EVENT_BASE_SHA" = "$EXPECTED_PARENT_HEAD_SHA"
+          fi
+          echo "sha=$actual_parent" >> "$GITHUB_OUTPUT"
 
       - name: Install Nix
         id: install_nix
@@ -173,6 +193,7 @@ jobs:
         id: patch
         env:
           QUALIFIED_HEAD_SHA: ${{ steps.head.outputs.sha }}
+          QUALIFIED_PARENT_SHA: ${{ steps.parent.outputs.sha }}
         run: |
           set -euo pipefail
           evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
@@ -239,6 +260,8 @@ jobs:
 
           {
             echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
+            echo "qualified_parent_sha=$QUALIFIED_PARENT_SHA"
+            echo "qualified_parent_branch=$EXPECTED_PARENT_BRANCH"
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event_name=${GITHUB_EVENT_NAME}"
@@ -284,6 +307,7 @@ jobs:
           }
           check checkout '${{ steps.checkout.outcome }}'
           check head '${{ steps.head.outcome }}'
+          check parent '${{ steps.parent.outcome }}'
           check install_nix '${{ steps.install_nix.outcome }}'
           check install_rust '${{ steps.install_rust.outcome }}'
           check materialize '${{ steps.materialize.outcome }}'
