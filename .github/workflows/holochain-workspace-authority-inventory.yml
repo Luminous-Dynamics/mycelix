@@ -19,6 +19,7 @@ permissions:
 
 env:
   EXPECTED_PARENT_BRANCH: test/holochain-0.6.3-root-fanout-qualification
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
   inventory:
@@ -93,9 +94,15 @@ jobs:
           } > "$evidence/execution-capsule.txt"
           test -s "$evidence/execution-capsule.txt"
 
-      - name: Syntax-check inventory tool
+      - name: Syntax-check inventory tool without creating bytecode
         id: syntax
-        run: python3 -m py_compile .github/scripts/inventory_holochain_workspaces.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/inventory_holochain_workspaces.py')
+          compile(path.read_text(), str(path), 'exec')
+          print('inventory tool syntax OK')
+          PY
 
       - name: Measure Holochain workspace authority
         id: census
@@ -111,12 +118,12 @@ jobs:
           import json
           from pathlib import Path
           import sys
-          evidence = json.loads(Path(sys.argv[1]).read_text())
-          print(f"manifest_count={evidence['manifest_count']}")
-          print(f"cargo_subject_count={evidence['cargo_subject_count']}")
-          print(f"holochain_bearing_subject_count={evidence['holochain_bearing_subject_count']}")
-          print(f"unclassified_holochain_workspace_count={evidence['unclassified_holochain_workspace_count']}")
-          print(f"closed={evidence['closed']}")
+          result = json.loads(Path(sys.argv[1]).read_text())
+          print(f"manifest_count={result['manifest_count']}")
+          print(f"cargo_subject_count={result['cargo_subject_count']}")
+          print(f"holochain_bearing_subject_count={result['holochain_bearing_subject_count']}")
+          print(f"unclassified_holochain_workspace_count={result['unclassified_holochain_workspace_count']}")
+          print(f"closed={result['closed']}")
           PY
 
       - name: Prove census was source-read-only
