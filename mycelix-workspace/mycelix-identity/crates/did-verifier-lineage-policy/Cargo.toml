@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-did-verifier-lineage-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Branch-aware observed DID verifier-key lineage theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
+mycelix-verifier-key-method-policy = { path = "../verifier-key-method-policy" }
