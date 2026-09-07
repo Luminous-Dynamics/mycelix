@@ -1,0 +1,118 @@
+name: Authority Coordinator Release Contract
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-contract.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-requirement-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Signed release authenticity without currentness/provenance collapse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release')
+          src = (root / 'src/lib.rs').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          cargo = (root / 'Cargo.toml').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'hdk' not in cargo
+          assert 'holochain_client' not in cargo
+          assert 'AdminWebsocket' not in src
+          assert 'ObservedCoordinatorDeployment' not in src
+          assert 'MatchedCoordinatorDeployment' not in src
+          assert 'pub struct CoordinatorReleaseManifest {' in src
+          assert 'pub struct VerifiedCoordinatorReleaseSignatureProof {' in src
+          assert 'pub struct QualifiedCoordinatorReleaseRequirement {' in src
+
+          positive_prefix = src.split('pub struct QualifiedCoordinatorReleaseRequirement {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in positive_prefix)
+
+          for token in [
+              'dna_bundle_digest',
+              'source_tree_digest',
+              'lockfile_digest',
+              'toolchain_digest',
+              'build_recipe_digest',
+              'sbom_digest',
+              'release_policy_digest',
+              'release_policy_profile',
+              'canonical_coordinators',
+              'ManifestDigestMismatch',
+              'ReleaseAuthorityMismatch',
+              'ReleasePolicyMismatch',
+              'signature_proof.valid_until_ms.min(manifest.valid_until_ms)',
+              'required_deployment_for_target_agent',
+          ]:
+              assert token in src, token
+
+          # The signed release is DNA/code scoped. Agent selection happens only
+          # when a qualified release is specialized for one independently chosen cell.
+          manifest_body = src.split('pub struct CoordinatorReleaseManifest {', 1)[1].split('}', 1)[0]
+          assert 'agent_pub_key_raw_39' not in manifest_body
+          specialization = src.split('pub fn required_deployment_for_target_agent(', 1)[1].split('\n    }', 1)[0]
+          assert 'agent_pub_key_raw_39' in specialization
+
+          # v0.1 authenticates a signed release but deliberately has no withdrawal/currentness oracle.
+          for forbidden in [
+              'release_currentness_verified = true',
+              'withdrawal_status_current = true',
+              'perform_external_effect',
+              'execute_claimed_',
+              'get_links(',
+              'call(',
+          ]:
+              assert forbidden not in src
+
+          for invariant in [
+              'release semantics are not deployment observation',
+              'release scope is dna/code, not installation-specific agent identity',
+              'complete coordinator closure is signed',
+              'supply-chain lineage is part of release identity',
+              'signature verification is a separate trust domain',
+              'positive release qualification is non-deserializable',
+              'release currentness / withdrawal is not established here',
+              'release policy currentness is separate from signed policy identity',
+              'no release-observation circularity',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: signed coordinator release authentication remains separate from conductor observation, target-cell selection, release currentness and effect authority')
+          PY
