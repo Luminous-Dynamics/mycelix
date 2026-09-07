@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Inventory the complete root-workspace impact of canonical Holochain pin changes.
 
-The direct seeds are root workspace members that inherit one of the exact canonical
-Holochain-family pins changed by the 0.6.3 materializer. The actual blast radius is
-larger: any root workspace member whose *locked resolved dependency closure* reaches
-one of those seeds can observe API/type changes caused by the canonical pin move.
+The direct seeds are root workspace members that inherit a canonical workspace
+requirement whose parsed dependency specification actually changed between committed
+HEAD and the materialized 0.6.3 working tree. The actual blast radius is larger: any
+root workspace member whose *locked resolved dependency closure* reaches one of those
+seeds can observe API/type changes caused by the canonical pin move.
 
 This script therefore records both direct and transitive impact, using Cargo's real
-workspace membership and resolve graph rather than directory heuristics.
+workspace membership and resolve graph rather than directory or hard-coded pin lists.
 """
 
 from __future__ import annotations
@@ -26,29 +27,41 @@ CONTRACT = WORKSPACE / "holochain-cohort.toml"
 
 DEPENDENCY_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
 
-# Keep this exactly aligned with the canonical-root replacements performed by
-# materialize_holochain_0_6_3_pulse.py. Unchanged family members (for example
-# serialized-bytes, Kitsune2, or Lair) are not direct seeds merely because they
-# are part of the compatibility contract; they are still observed downstream by
-# the resolved-graph theorem.
-ROOT_PIN_CHANGES = {
-    "hdk",
-    "hdi",
-    "holochain",
-    "holochain_client",
-    "holochain_types",
-    "holochain_zome_types",
-    "holo_hash",
-    "holochain_integrity_types",
-    "holochain_state",
-    "holochain_p2p",
-    "holochain_keystore",
-    "holochain_sqlite",
-}
-
 
 def load_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text())
+
+
+def committed_root_manifest() -> dict:
+    proc = subprocess.run(
+        ["git", "show", "HEAD:mycelix-workspace/Cargo.toml"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit("cannot read committed root Cargo.toml:\n" + proc.stderr)
+    return tomllib.loads(proc.stdout)
+
+
+def changed_root_dependencies(baseline: dict, current: dict) -> dict[str, dict]:
+    before = baseline["workspace"]["dependencies"]
+    after = current["workspace"]["dependencies"]
+    changed: dict[str, dict] = {}
+    for name in sorted(set(before) | set(after)):
+        old = before.get(name)
+        new = after.get(name)
+        if old == new:
+            continue
+        if old is None or new is None:
+            raise SystemExit(
+                f"candidate added/removed canonical workspace dependency {name!r}; "
+                "root fanout qualification only permits in-place cohort changes"
+            )
+        changed[name] = {"before": old, "after": new}
+    return changed
 
 
 def cargo_metadata() -> dict:
@@ -73,24 +86,24 @@ def cargo_metadata() -> dict:
     return json.loads(proc.stdout)
 
 
-def inherited_dependencies(table: dict, tracked: set[str], scope: str) -> list[dict[str, str]]:
+def inherited_dependencies(table: dict, changed_names: set[str], scope: str) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
     for alias, value in sorted(table.items()):
         if not isinstance(value, dict) or value.get("workspace") is not True:
             continue
         package = value.get("package", alias)
-        if package not in tracked:
+        if package not in changed_names:
             continue
         found.append({"alias": alias, "package": package, "scope": scope})
     return found
 
 
-def manifest_inherited_dependencies(manifest: dict, tracked: set[str]) -> list[dict[str, str]]:
+def manifest_inherited_dependencies(manifest: dict, changed_names: set[str]) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
     for table_name in DEPENDENCY_TABLES:
         table = manifest.get(table_name, {})
         if isinstance(table, dict):
-            found.extend(inherited_dependencies(table, tracked, table_name))
+            found.extend(inherited_dependencies(table, changed_names, table_name))
 
     targets = manifest.get("target", {})
     if isinstance(targets, dict):
@@ -103,7 +116,7 @@ def manifest_inherited_dependencies(manifest: dict, tracked: set[str]) -> list[d
                     found.extend(
                         inherited_dependencies(
                             table,
-                            tracked,
+                            changed_names,
                             f"target.{target_name}.{table_name}",
                         )
                     )
@@ -153,13 +166,20 @@ def main() -> None:
     if contract.get("state") != "aligned":
         raise SystemExit("root fanout inventory requires the materialized aligned candidate")
 
+    baseline_root = committed_root_manifest()
+    current_root = load_toml(ROOT_MANIFEST)
+    changed = changed_root_dependencies(baseline_root, current_root)
+    if not changed:
+        raise SystemExit("materialized candidate changed no canonical workspace dependencies")
+
     rust = contract.get("rust", {})
-    missing_contract_members = sorted(ROOT_PIN_CHANGES - set(rust))
-    if missing_contract_members:
+    unexpected = sorted(set(changed) - set(rust))
+    if unexpected:
         raise SystemExit(
-            "changed root pins missing from cohort contract:\n- "
-            + "\n- ".join(missing_contract_members)
+            "candidate changed canonical dependencies outside the Holochain cohort contract:\n- "
+            + "\n- ".join(unexpected)
         )
+    changed_names = set(changed)
 
     metadata = cargo_metadata()
     member_ids = set(metadata.get("workspace_members", []))
@@ -188,7 +208,7 @@ def main() -> None:
 
         relative, manifest_string = normalized_manifest(package["manifest_path"])
         manifest = load_toml(Path(package["manifest_path"]))
-        inherited = manifest_inherited_dependencies(manifest, ROOT_PIN_CHANGES)
+        inherited = manifest_inherited_dependencies(manifest, changed_names)
         if inherited:
             direct_ids.add(package_id)
 
@@ -206,7 +226,7 @@ def main() -> None:
 
     if not direct_ids:
         raise SystemExit(
-            "root fanout inventory found no direct workspace members inheriting changed Holochain pins"
+            "root fanout inventory found no workspace members inheriting actually changed canonical pins"
         )
 
     direct_manifest_by_id = {
@@ -262,14 +282,13 @@ def main() -> None:
         )
 
     evidence = {
-        "schema": 2,
+        "schema": 3,
         "qualified_checkout_head": git_head,
         "root_manifest": "mycelix-workspace/Cargo.toml",
         "contract_state": contract["state"],
-        "scope_model": "locked-resolved-reverse-impact-closure",
-        "changed_root_workspace_dependencies": {
-            name: rust[name] for name in sorted(ROOT_PIN_CHANGES)
-        },
+        "scope_model": "candidate-diff-seeded-locked-resolved-reverse-impact-closure",
+        "changed_root_workspace_dependencies": changed,
+        "changed_root_workspace_dependency_count": len(changed),
         "workspace_member_count": len(member_ids),
         "direct_affected_member_count": len(direct),
         "transitive_affected_member_count": len(transitive),
@@ -297,6 +316,7 @@ def main() -> None:
         )
 
     print(
+        f"Candidate changed {len(changed)} canonical workspace dependencies. "
         f"Root Holochain fanout: {len(direct)} direct + {len(transitive)} transitive = "
         f"{len(affected)} affected workspace members across {len(domains)} domains; "
         f"{len(non_pulse)} non-Pulse members across {len(non_pulse_domains)} domains; "
