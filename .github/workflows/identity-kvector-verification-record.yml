@@ -1,0 +1,208 @@
+name: Identity K-Vector Verification Record V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - '.github/workflows/identity-kvector-verification-record.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - '.github/workflows/identity-kvector-verification-record.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-kvector-verification-record-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert verification-record body theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-verification-record-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-attestation-fulfillment-policy',
+              'mycelix-kvector-proof-statement-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: verification-record policy dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-attestation-fulfillment-policy'].get('path') != '../attestation-fulfillment-policy':
+              raise SystemExit('ERROR: verification record is not bound to canonical fulfillment theorem')
+          if deps['mycelix-kvector-proof-statement-policy'].get('path') != '../kvector-proof-statement-policy':
+              raise SystemExit('ERROR: verification record is not bound to canonical proof-statement theorem')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: verification record must use workspace-qualified SHA-256')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'mycelix:identity:kvector-verification-record:v2\\0',
+              'KVectorProofVerificationRecordBodyV2',
+              'KVectorProofVerificationOutcomeV2',
+              'derive_kvector_verification_record_signing_digest_v2',
+              'validate_kvector_verification_record_binding_v2',
+              'effective_kvector_verification_valid_until_v2',
+              'derive_kvector_proof_statement_digest_v2(',
+              'body.fulfillment_id',
+              'body.proof_statement_sha256',
+              'body.proof_sha256',
+              'body.backend_id',
+              'body.circuit_id',
+              'body.circuit_version',
+              'body.verifier_did',
+              'body.verifier_key_id',
+              'body.signature_scheme_id',
+              'body.verification_policy_sha256',
+              'body.outcome.tag()',
+              'body.verified_at_micros.to_be_bytes()',
+              'body.valid_until_micros.to_be_bytes()',
+              'verification_record_digest_vector_is_frozen',
+              '0xe9, 0x06, 0x44, 0x17',
+              '0x77, 0x99, 0x7a, 0x3e',
+              'record_binds_exact_statement_and_proof',
+              'natural_validity_is_capped_by_record_key_and_policy_expiry',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: verification-record theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'f32',
+              'f64',
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'serde::',
+              'mycelix_zkp_core',
+              'mycelix-zkp-core',
+              'proofbackend',
+              'sys_time(',
+              'std::time',
+              'rand::',
+              'signature_validated',
+              'policy_current',
+              'policy_accepted',
+              'is_verified',
+              'pub verified',
+              '.sort_by(',
+              '.sort_by_key(',
+              '.max_by(',
+              '.max_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: signature/policy/runtime/backend authority leaked into record-body theorem: {forbidden!r}'
+                  )
+
+          digest_start = text.index('pub fn derive_kvector_verification_record_signing_digest_v2(')
+          digest_end = text.index('pub fn validate_kvector_verification_record_binding_v2(', digest_start)
+          digest_body = text[digest_start:digest_end]
+          for needle in [
+              'body.fulfillment_id',
+              'body.proof_statement_sha256',
+              'body.proof_sha256',
+              'body.backend_id.as_bytes()',
+              'body.circuit_id.as_bytes()',
+              'body.circuit_version.as_bytes()',
+              'body.verifier_did.as_bytes()',
+              'body.verifier_key_id.as_bytes()',
+              'body.signature_scheme_id.as_bytes()',
+              'body.verification_policy_sha256',
+              'body.outcome.tag()',
+              'body.verified_at_micros.to_be_bytes()',
+              'body.valid_until_micros.to_be_bytes()',
+          ]:
+              if needle not in digest_body:
+                  raise SystemExit(f'ERROR: signing transcript lost binding: {needle!r}')
+
+          bind_start = text.index('pub fn validate_kvector_verification_record_binding_v2(')
+          bind_end = text.index('pub fn effective_kvector_verification_valid_until_v2(', bind_start)
+          bind_body = text[bind_start:bind_end]
+          for needle in [
+              'public_statement.fulfillment_id.as_slice()',
+              'derive_kvector_proof_statement_digest_v2(public_statement)',
+              'sha256_v2(proof_bytes)',
+              'ProofDigestMismatch',
+              'StatementDigestMismatch',
+          ]:
+              if needle not in bind_body:
+                  raise SystemExit(f'ERROR: record/proof statement binding lost: {needle!r}')
+
+          expiry_start = text.index('pub fn effective_kvector_verification_valid_until_v2(')
+          expiry_end = text.index('#[cfg(test)]', expiry_start)
+          expiry_body = text[expiry_start:expiry_end]
+          for needle in [
+              '.valid_until_micros',
+              '.min(verifier_key_valid_until_micros)',
+              '.min(verification_policy_valid_until_micros)',
+          ]:
+              if needle not in expiry_body:
+                  raise SystemExit(f'ERROR: natural verification expiry lost bound: {needle!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml \
+            -- --check
+
+      - name: Test trust authority theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/trust-authority-policy/Cargo.toml
+
+      - name: Test semantic fulfillment theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/Cargo.toml
+
+      - name: Test proof statement theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/Cargo.toml
+
+      - name: Test verification-record body theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml
+
+      - name: Check verification-record body theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
