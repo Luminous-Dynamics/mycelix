@@ -158,6 +158,9 @@ def main() -> None:
         "url": args.nix_installer_url,
     }
 
+    # This object intentionally excludes run IDs and workflow/source SHAs. It is the
+    # normalized executor/environment identity that downstream authority gates may
+    # compare across separate qualification runs.
     environment_lineage = {
         "schema": 1,
         "runner": runner,
