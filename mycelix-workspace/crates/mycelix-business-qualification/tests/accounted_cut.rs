@@ -126,8 +126,8 @@ fn declared_policy_and_boundary_inputs_form_valid_minimal_cut() {
 
 #[test]
 fn unrelated_exact_input_cannot_ride_along_in_successful_closure_cut() {
-    assert!(
-        qualify_month_end_like_cut(true).is_err(),
-        "every exact closure-cut input must be accounted for by a declared structural role"
-    );
+    assert!(matches!(
+        qualify_month_end_like_cut(true),
+        Err(ClosureQualificationError::UnaccountedCutInputs { .. })
+    ));
 }
