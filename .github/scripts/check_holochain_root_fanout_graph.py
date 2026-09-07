@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Verify every root-workspace impact member resolves only the qualified cohort.
 
-The fanout inventory now contains the complete reverse-impact closure: direct members
-that inherit changed canonical pins plus transitive workspace consumers whose locked
-resolved closure reaches those direct seeds. This checker traverses every affected
-member's locked dependency closure and rejects mixed protocol-family generations that
-compilation alone could otherwise tolerate.
+The fanout inventory contains the complete candidate-diff-seeded reverse-impact closure:
+direct members that inherit actually changed canonical pins plus transitive workspace
+consumers whose locked resolved closure reaches those direct seeds. This checker
+traverses every affected member's locked dependency closure and rejects mixed protocol-
+family generations that compilation alone could otherwise tolerate.
 
 Upstream crates are classified by their actual release/version relationship. In
 particular, holochain_chc versions independently from the main Holochain crate family;
@@ -145,10 +145,12 @@ def main() -> None:
 
     inventory = json.loads(args.inventory.read_text())
     failures: list[str] = []
-    if inventory.get("schema") != 2:
-        failures.append(f"inventory schema {inventory.get('schema')!r} != 2")
-    if inventory.get("scope_model") != "locked-resolved-reverse-impact-closure":
+    if inventory.get("schema") != 3:
+        failures.append(f"inventory schema {inventory.get('schema')!r} != 3")
+    if inventory.get("scope_model") != "candidate-diff-seeded-locked-resolved-reverse-impact-closure":
         failures.append(f"unexpected inventory scope model {inventory.get('scope_model')!r}")
+    if not inventory.get("changed_root_workspace_dependencies"):
+        failures.append("inventory contains no changed canonical workspace dependency evidence")
 
     contract = load_contract()
     if contract.get("state") != "aligned":
