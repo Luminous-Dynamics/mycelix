@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Independently verify the canonical-root Holochain reverse-impact scope.
 
-The inventory script discovers affected members by computing each workspace member's
-forward dependency closure and asking whether it reaches a direct changed-pin seed.
-This verifier intentionally uses the dual algorithm: identify the direct seeds again,
-build Cargo's reverse resolved graph, walk outward from those seeds, and require the
-resulting workspace-member set to equal the inventory exactly.
+The inventory discovers affected members by computing each workspace member's forward
+dependency closure and asking whether it reaches a direct seed. This verifier uses the
+dual algorithm: independently derive the changed canonical dependency set from the
+committed-vs-materialized Cargo.toml diff, identify direct seeds again, build Cargo's
+reverse resolved graph, and require that resulting workspace-member set to equal the
+inventory exactly.
 
 It also independently recomputes the impacted guest-WASM set and checks the emitted
 manifest lists. Qualification fails closed on any scope disagreement.
@@ -26,24 +27,42 @@ ROOT_MANIFEST = WORKSPACE / "Cargo.toml"
 CONTRACT = WORKSPACE / "holochain-cohort.toml"
 
 DEPENDENCY_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
-ROOT_PIN_CHANGES = {
-    "hdk",
-    "hdi",
-    "holochain",
-    "holochain_client",
-    "holochain_types",
-    "holochain_zome_types",
-    "holo_hash",
-    "holochain_integrity_types",
-    "holochain_state",
-    "holochain_p2p",
-    "holochain_keystore",
-    "holochain_sqlite",
-}
 
 
 def load_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text())
+
+
+def committed_root_manifest() -> dict:
+    proc = subprocess.run(
+        ["git", "show", "HEAD:mycelix-workspace/Cargo.toml"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit("cannot read committed root Cargo.toml:\n" + proc.stderr)
+    return tomllib.loads(proc.stdout)
+
+
+def changed_root_dependencies(baseline: dict, current: dict) -> dict[str, dict]:
+    before = baseline["workspace"]["dependencies"]
+    after = current["workspace"]["dependencies"]
+    changed: dict[str, dict] = {}
+    for name in sorted(set(before) | set(after)):
+        old = before.get(name)
+        new = after.get(name)
+        if old == new:
+            continue
+        if old is None or new is None:
+            raise SystemExit(
+                f"candidate added/removed canonical workspace dependency {name!r}; "
+                "scope verifier permits only in-place cohort changes"
+            )
+        changed[name] = {"before": old, "after": new}
+    return changed
 
 
 def cargo_metadata() -> dict:
@@ -68,23 +87,23 @@ def cargo_metadata() -> dict:
     return json.loads(proc.stdout)
 
 
-def inherited_changed_dependencies(table: dict) -> set[str]:
+def inherited_changed_dependencies(table: dict, changed_names: set[str]) -> set[str]:
     found: set[str] = set()
     for alias, value in table.items():
         if not isinstance(value, dict) or value.get("workspace") is not True:
             continue
         package = value.get("package", alias)
-        if package in ROOT_PIN_CHANGES:
+        if package in changed_names:
             found.add(package)
     return found
 
 
-def direct_changed_dependencies(manifest: dict) -> set[str]:
+def direct_changed_dependencies(manifest: dict, changed_names: set[str]) -> set[str]:
     found: set[str] = set()
     for table_name in DEPENDENCY_TABLES:
         table = manifest.get(table_name, {})
         if isinstance(table, dict):
-            found.update(inherited_changed_dependencies(table))
+            found.update(inherited_changed_dependencies(table, changed_names))
 
     targets = manifest.get("target", {})
     if isinstance(targets, dict):
@@ -94,7 +113,7 @@ def direct_changed_dependencies(manifest: dict) -> set[str]:
             for table_name in DEPENDENCY_TABLES:
                 table = target_table.get(table_name, {})
                 if isinstance(table, dict):
-                    found.update(inherited_changed_dependencies(table))
+                    found.update(inherited_changed_dependencies(table, changed_names))
     return found
 
 
@@ -159,18 +178,30 @@ def main() -> None:
     args = parser.parse_args()
 
     inventory = json.loads(args.inventory.read_text())
-    if inventory.get("schema") != 2:
-        raise SystemExit(f"expected fanout inventory schema 2, got {inventory.get('schema')!r}")
-    if inventory.get("scope_model") != "locked-resolved-reverse-impact-closure":
+    if inventory.get("schema") != 3:
+        raise SystemExit(f"expected fanout inventory schema 3, got {inventory.get('schema')!r}")
+    if inventory.get("scope_model") != "candidate-diff-seeded-locked-resolved-reverse-impact-closure":
         raise SystemExit(f"unexpected scope model: {inventory.get('scope_model')!r}")
 
     contract = load_toml(CONTRACT)
     if contract.get("state") != "aligned":
         raise SystemExit("fanout scope verification requires aligned candidate state")
     rust = contract.get("rust", {})
-    missing = sorted(ROOT_PIN_CHANGES - set(rust))
-    if missing:
-        raise SystemExit("changed root pins missing from contract:\n- " + "\n- ".join(missing))
+
+    changed = changed_root_dependencies(committed_root_manifest(), load_toml(ROOT_MANIFEST))
+    if not changed:
+        raise SystemExit("independent scope verifier observed no canonical dependency changes")
+    unexpected = sorted(set(changed) - set(rust))
+    if unexpected:
+        raise SystemExit(
+            "candidate changed canonical dependencies outside the Holochain cohort contract:\n- "
+            + "\n- ".join(unexpected)
+        )
+    if inventory.get("changed_root_workspace_dependencies") != changed:
+        raise SystemExit("inventory changed-root dependency census disagrees with independent candidate diff")
+    if inventory.get("changed_root_workspace_dependency_count") != len(changed):
+        raise SystemExit("inventory changed_root_workspace_dependency_count mismatch")
+    changed_names = set(changed)
 
     metadata = cargo_metadata()
     packages = {package["id"]: package for package in metadata.get("packages", [])}
@@ -185,7 +216,7 @@ def main() -> None:
         if package is None:
             raise SystemExit(f"workspace member missing package metadata: {package_id}")
         manifest = load_toml(Path(package["manifest_path"]))
-        if direct_changed_dependencies(manifest):
+        if direct_changed_dependencies(manifest, changed_names):
             direct_ids.add(package_id)
         lib = manifest.get("lib", {})
         values = lib.get("crate-type", []) if isinstance(lib, dict) else []
@@ -269,8 +300,10 @@ def main() -> None:
         failures.append("wasm_affected_member_count mismatch")
 
     proof = {
-        "schema": 1,
-        "algorithm": "reverse-resolved-closure-from-independent-direct-seed-census",
+        "schema": 2,
+        "algorithm": "candidate-diff-seeded-reverse-resolved-closure",
+        "changed_root_workspace_dependencies": changed,
+        "changed_root_workspace_dependency_count": len(changed),
         "direct_seed_count": len(expected_direct_manifests),
         "transitive_affected_count": len(expected_transitive),
         "affected_member_count": len(expected_manifests),
@@ -287,7 +320,8 @@ def main() -> None:
         raise SystemExit("Root fanout scope verification failed:\n- " + "\n- ".join(failures))
 
     print(
-        "Independent root fanout scope OK: "
+        f"Independent candidate diff found {len(changed)} changed canonical dependencies. "
+        "Root fanout scope OK: "
         f"{len(expected_direct_manifests)} direct + {len(expected_transitive)} transitive = "
         f"{len(expected_manifests)} affected; {len(expected_wasm)} WASM surfaces."
     )
