@@ -30,6 +30,9 @@ concurrency:
   group: pulse-holochain-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: '-D warnings'
@@ -40,10 +43,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
       - name: Bind exact qualification head
         env:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -52,12 +56,12 @@ jobs:
           echo "Expected qualification head: $EXPECTED_HEAD_SHA"
           echo "Checked-out qualification head: $actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable action code
         with:
           toolchain: 1.96.0
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2 / 2.9.2
         with:
           workspaces: mycelix-workspace/mycelix-pulse/holochain
       - name: Check formatting
@@ -81,10 +85,11 @@ jobs:
       JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
       HOLOCHAIN_STUB_MODE: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
+          persist-credentials: false
       - name: Bind exact qualification head
         env:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -93,10 +98,10 @@ jobs:
           echo "Expected qualification head: $EXPECTED_HEAD_SHA"
           echo "Checked-out qualification head: $actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable action code
         with:
           toolchain: 1.96.0
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2 / 2.9.2
         with:
           workspaces: mycelix-workspace/mycelix-pulse/happ/backend-rs
       - name: Backend tests
@@ -107,9 +112,10 @@ jobs:
     name: Holochain compatibility contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - name: Bind exact qualification head
         env:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
