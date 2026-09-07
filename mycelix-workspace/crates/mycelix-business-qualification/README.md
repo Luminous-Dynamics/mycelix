@@ -11,7 +11,7 @@ mycelix-business-core
         ↓
 mycelix-business-qualification
     exactly one path dependency: mycelix-business-core
-    reusable closure profile/basis algebra
+    reusable closure proof-schema algebra
         ↓
 Golden Path policy fixtures
     service sale / procurement / month-end / future paths
@@ -26,14 +26,14 @@ Three materially different Golden Paths independently produced the same structur
 ```text
 exact policy/profile source
         +
-(organization, qualification profile, closure policy, closure class)
+reusable closure proof schema
         +
 exact instance basis
         ↓
 sealed WorkflowClosureReceipt
 ```
 
-The reusable profile fixes:
+The reusable `ClosureQualificationProfile` fixes:
 
 - organization context;
 - qualification semantic profile;
@@ -41,16 +41,22 @@ The reusable profile fixes:
 - closure semantic profile;
 - closure class;
 - exact policy/profile source result;
-- closure derivation root.
+- closure derivation root;
+- dependency-DAG topology;
+- exact set of boundary roles;
+- structural requirement for each boundary role;
+- exact set of policy-required obligation roles and their owning domains.
 
-The exact basis carries:
+The exact `ClosureQualificationBasis` carries:
 
 - the immutable `QualificationCut`;
-- one explicit closure dependency DAG;
-- exact factual boundary results bound to reachable DAG nodes;
-- exact obligation requirements and disposition provenance;
+- exact transaction-specific boundary results for the profile's declared roles;
+- exact transaction-specific obligation identities for the profile's declared obligation roles;
+- exact domain-owned disposition provenance for those obligations;
 - exact exception provenance;
 - exact compensation provenance.
+
+The basis does **not** own the dependency graph, boundary-role set, or required-obligation set. A transaction therefore cannot weaken a reusable proof by deleting an edge, omitting a policy-required internal boundary, or deciding that an inconvenient policy-required duty does not count.
 
 ## Policy provenance is distinct from factual dependency provenance
 
@@ -72,32 +78,78 @@ qualified boundary result
 
 This distinction lets a month-end Business proof contain, for example, one Governance/policy source plus one Accounting-qualified close boundary without pretending that policy activation is itself an Accounting fact.
 
-## Graph grounding invariant
+## Reusable proof schema
 
-Acyclicity alone is insufficient. An acyclic graph can still be unrelated decorative metadata.
+Acyclicity, reachability, boundary roles, and required obligation roles are policy semantics, not transaction inputs.
 
-Qualification therefore requires:
+A profile therefore owns one `ClosureDependencyGraph`, one exact boundary-role schema, and one exact required-obligation-role schema. Qualification requires:
 
 ```text
-all graph nodes are reachable from the closure root
+profile graph is acyclic
 
-and
+all profile graph nodes are reachable from the closure root
 
-every reachable leaf has exact qualified boundary provenance
+every reachable leaf is a declared boundary role
 
-and
+every declared boundary role is reachable from the closure root
 
-every node carrying an exact qualified boundary result is reachable from the closure root
+basis boundary-role set
+    ==
+profile boundary-role set
+
+basis obligation-role set
+    ==
+profile obligation-role set
 ```
 
 A qualified boundary may be either a leaf or a reachable internal node. This matters because an accepted result may itself depend on another accepted result without ceasing to be a valid cross-domain boundary. For example, an accepted Commerce invoice may depend on an accepted agreement, and an accepted Accounting event may depend on Finance/work results.
 
-The currently supported boundary kinds are only those independently required by GP-002, GP-003, and GP-006:
+The profile additionally declares a `QualifiedBoundaryRequirement` for each boundary role. v0.1 supports:
 
-- `QualifiedInputRef`;
-- `DomainReconciliationRef`.
+- exact input from a named authoritative domain under an exact semantic profile;
+- reconciliation identity from a named authoritative domain.
 
-Do **not** add another `QualifiedBoundaryRef` variant merely because a domain exposes another record type. Add one only when a materially different Golden Path proves that the cut-level reference kind must participate directly in cross-domain closure qualification and cannot be represented by an exact qualified input owned by that domain.
+This does not interpret the underlying record. It prevents structurally invalid substitutions such as:
+
+```text
+Accounting role <- Commerce input
+
+or
+
+Accounting role @ semantic profile v1 <- Accounting input @ semantic profile v2
+```
+
+Exact record IDs and versions remain instance-specific in the basis.
+
+## Required-obligation completeness
+
+Policy-required duties are part of the reusable proof schema, not caller-selected closure metadata.
+
+Each required obligation role:
+
+- names the proof/boundary role that carries its disposition result;
+- fixes the owning authoritative domain;
+- must also be an exact input boundary role;
+- receives an exact transaction-specific `DomainObligationRef` from the basis;
+- must have exactly one disposition binding for that exact obligation;
+- requires that binding to use the same exact `QualifiedInputRef` as the declared boundary result for the role.
+
+The qualifier then derives `ClosureRequirements` itself before calling the sealed core receipt constructor.
+
+Therefore a transaction cannot close by:
+
+```text
+omitting a required obligation
+
+substituting a Supply Chain obligation into a Finance role
+
+or
+
+using Finance disposition result B
+while the declared Finance boundary role is exact result A
+```
+
+The generic qualifier still does **not** decide whether an owning-domain disposition result substantively means `Satisfied`, `Terminated`, or another disposition. That interpretation remains with the owning domain/profile; the qualification layer enforces exact structural provenance and completeness.
 
 ## Proof compression
 
@@ -119,9 +171,9 @@ Policy provenance follows the same compression principle. The Business qualifier
 
 ## Closure-class specificity
 
-Closure class belongs to the reusable profile, not the instance basis. A caller therefore cannot take a basis intended for one terminal meaning and select a stronger class as a free argument.
+Closure class and proof schema belong to the reusable profile, not the instance basis. Policies with different terminal meanings therefore carry different reusable proof shapes.
 
-Domain/policy code should define separate profiles when different closure classes have different proof shapes, for example:
+For example:
 
 ```text
 procurement / Satisfied
@@ -131,7 +183,7 @@ procurement / Terminated
     -> payment cancellation + terminal dispositions + accounting
 ```
 
-The core receipt still performs the final non-strengthening checks over obligation dispositions, exceptions, and compensation.
+The compact cross-Golden-Path corpus proves that these are represented by different profile DAGs, boundary schemas, and obligation-role schemas, while the core receipt still performs the final non-strengthening checks over obligation dispositions, exceptions, and compensation.
 
 ## Non-goals
 
@@ -142,6 +194,7 @@ This crate does not provide:
 - a Turing-complete policy DSL;
 - domain semantic interpretation;
 - policy-source semantic interpretation;
+- obligation-disposition semantic interpretation;
 - authority evaluation;
 - provider verification;
 - accounting recognition;
@@ -150,4 +203,4 @@ This crate does not provide:
 - identity truth;
 - automatic dereferencing of upstream evidence graphs.
 
-The intended shape is a deterministic structural qualification layer over exact, already-authoritative boundary and policy results.
+The intended shape is a deterministic structural qualification layer over exact, already-authoritative boundary and policy results, with reusable proof topology and duty completeness owned by the profile rather than rewritten per transaction.

@@ -8,17 +8,18 @@
 //! This crate does not interpret domain truth. It composes exact domain-owned
 //! boundary results into one auditable closure proof skeleton while preserving
 //! organization/profile scope, closure-class-specific semantics, acyclicity,
-//! exact cut membership, policy provenance, and the non-strengthening guarantees
-//! enforced by the core `WorkflowClosureReceipt`.
+//! exact cut membership, policy provenance, proof-schema provenance, required
+//! obligation completeness, and the non-strengthening guarantees enforced by the
+//! core `WorkflowClosureReceipt`.
 
 use core::fmt;
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_business_core::{
     ClosureClass, ClosureError, ClosurePolicyRef, ClosureRequirements, CompensationBinding,
-    DependencyGraph, DerivationNodeRef, DomainReconciliationRef, ExceptionBinding, GraphError,
-    ObligationDispositionBinding, OrganizationContextRef, QualificationCut, QualifiedInputRef,
-    SemanticProfileId, WorkflowClosureReceipt, WorkflowRef,
+    DependencyGraph, DerivationNodeRef, DomainObligationRef, DomainReconciliationRef, DomainRef,
+    ExceptionBinding, GraphError, ObligationDispositionBinding, OrganizationContextRef,
+    QualificationCut, QualifiedInputRef, SemanticProfileId, WorkflowClosureReceipt, WorkflowRef,
 };
 
 /// One exact boundary result that can ground a node of a closure dependency DAG.
@@ -36,13 +37,69 @@ pub enum QualifiedBoundaryRef {
     Reconciliation(DomainReconciliationRef),
 }
 
-/// Closure dependency DAG with enough structure to ground consequential nodes in
-/// exact qualified boundary results.
+/// Reusable structural requirement for one boundary role in a closure profile.
+///
+/// This does not interpret the referenced record. It fixes only the reference
+/// kind, authoritative-domain namespace, and (for exact inputs) semantic profile
+/// that a policy adapter says may occupy the role. Exact record IDs and versions
+/// remain instance-specific in `ClosureQualificationBasis`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum QualifiedBoundaryRequirement {
+    /// Require an exact input from one domain under one exact semantic profile.
+    Input {
+        domain: DomainRef,
+        semantic_profile: SemanticProfileId,
+    },
+    /// Require a reconciliation identity owned by one domain.
+    Reconciliation { domain: DomainRef },
+}
+
+impl QualifiedBoundaryRequirement {
+    #[must_use]
+    pub fn input(domain: DomainRef, semantic_profile: SemanticProfileId) -> Self {
+        Self::Input {
+            domain,
+            semantic_profile,
+        }
+    }
+
+    #[must_use]
+    pub fn reconciliation(domain: DomainRef) -> Self {
+        Self::Reconciliation { domain }
+    }
+
+    #[must_use]
+    pub fn domain(&self) -> &DomainRef {
+        match self {
+            Self::Input { domain, .. } | Self::Reconciliation { domain } => domain,
+        }
+    }
+
+    #[must_use]
+    pub fn matches(&self, boundary: &QualifiedBoundaryRef) -> bool {
+        match (self, boundary) {
+            (
+                Self::Input {
+                    domain,
+                    semantic_profile,
+                },
+                QualifiedBoundaryRef::Input(input),
+            ) => &input.domain == domain && &input.semantic_profile == semantic_profile,
+            (
+                Self::Reconciliation { domain },
+                QualifiedBoundaryRef::Reconciliation(reconciliation),
+            ) => reconciliation.domain() == domain,
+            _ => false,
+        }
+    }
+}
+
+/// Closure dependency DAG for one reusable closure proof schema.
 ///
 /// Cycle validation is delegated to `mycelix-business-core::DependencyGraph`.
-/// This wrapper adds reachability/grounding structure needed to prove that the
-/// graph actually describes the closure basis rather than being unrelated
-/// metadata.
+/// This wrapper adds reachability/grounding structure needed to prove that a
+/// profile's graph actually describes one closure proof rather than unrelated
+/// decorative metadata.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClosureDependencyGraph {
     edges: BTreeMap<DerivationNodeRef, BTreeSet<DerivationNodeRef>>,
@@ -108,9 +165,9 @@ impl ClosureDependencyGraph {
         Some(reachable)
     }
 
-    /// Reachable leaf nodes. Every one must be grounded by exact boundary
-    /// provenance, but exact boundary results may additionally ground reachable
-    /// internal nodes.
+    /// Reachable leaf nodes. Every one must be declared as a required boundary
+    /// role by the reusable profile, while required boundaries may additionally
+    /// appear at reachable internal nodes.
     #[must_use]
     pub fn reachable_leaves_from(
         &self,
@@ -128,11 +185,11 @@ impl ClosureDependencyGraph {
 
 /// Reusable structural semantics for one organization/policy/class closure path.
 ///
-/// A profile does not contain transaction-specific business results, but it is
-/// anchored to one exact policy/profile source supplied by the owning policy
-/// adapter/domain. The generic qualification layer does not interpret that
-/// source; it only requires that the source is present and current in the exact
-/// qualification cut so profile selection cannot float free of provenance.
+/// The profile owns proof topology, boundary roles, and required-obligation roles.
+/// A transaction basis therefore cannot weaken the proof by deleting an edge,
+/// omitting an accepted internal result, or deciding that a policy-required duty
+/// does not count. Exact records, versions, and obligation IDs remain
+/// instance-specific.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosureQualificationProfile {
     organization_context: OrganizationContextRef,
@@ -142,15 +199,20 @@ pub struct ClosureQualificationProfile {
     closure_class: ClosureClass,
     policy_source: QualifiedInputRef,
     root_node: DerivationNodeRef,
+    dependency_graph: ClosureDependencyGraph,
+    boundary_requirements: BTreeMap<DerivationNodeRef, QualifiedBoundaryRequirement>,
+    required_obligation_roles: BTreeMap<DerivationNodeRef, DomainRef>,
 }
 
 impl ClosureQualificationProfile {
     /// Define one reusable organization/policy/class-specific closure profile.
     ///
-    /// `policy_source` is the exact owning-domain result that the policy adapter
-    /// asserts corresponds to this policy/profile/class definition. Business
-    /// checks provenance/currentness but does not interpret that correspondence.
+    /// `required_obligation_roles` maps disposition-boundary nodes to the
+    /// authoritative domain of the exact obligation that must occupy that role.
+    /// The corresponding basis disposition binding must use the same exact input
+    /// as the boundary result at that node.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         organization_context: OrganizationContextRef,
         qualification_profile: SemanticProfileId,
@@ -159,6 +221,9 @@ impl ClosureQualificationProfile {
         closure_class: ClosureClass,
         policy_source: QualifiedInputRef,
         root_node: DerivationNodeRef,
+        dependency_graph: ClosureDependencyGraph,
+        boundary_requirements: BTreeMap<DerivationNodeRef, QualifiedBoundaryRequirement>,
+        required_obligation_roles: BTreeMap<DerivationNodeRef, DomainRef>,
     ) -> Self {
         Self {
             organization_context,
@@ -168,6 +233,9 @@ impl ClosureQualificationProfile {
             closure_class,
             policy_source,
             root_node,
+            dependency_graph,
+            boundary_requirements,
+            required_obligation_roles,
         }
     }
 
@@ -207,10 +275,31 @@ impl ClosureQualificationProfile {
         &self.root_node
     }
 
+    /// Reusable dependency topology owned by this policy/profile/class.
+    #[must_use]
+    pub fn dependency_graph(&self) -> &ClosureDependencyGraph {
+        &self.dependency_graph
+    }
+
+    /// Exact set of proof roles that must carry instance-specific provenance.
+    #[must_use]
+    pub fn boundary_requirements(
+        &self,
+    ) -> &BTreeMap<DerivationNodeRef, QualifiedBoundaryRequirement> {
+        &self.boundary_requirements
+    }
+
+    /// Exact set of policy-required obligation roles and owning domains.
+    #[must_use]
+    pub fn required_obligation_roles(&self) -> &BTreeMap<DerivationNodeRef, DomainRef> {
+        &self.required_obligation_roles
+    }
+
     /// Qualify one exact closure basis into a sealed core receipt.
     ///
-    /// The generic qualification layer proves only structure and provenance. It
-    /// does not interpret the substantive meaning of any boundary or policy input.
+    /// The generic qualification layer proves only structure, scope, and
+    /// provenance. It does not interpret the substantive meaning of any boundary,
+    /// obligation disposition, or policy input.
     pub fn qualify(
         &self,
         workflow: WorkflowRef,
@@ -237,50 +326,94 @@ impl ClosureQualificationProfile {
         }
 
         basis.qualification_cut.validate_at_qualification_time()?;
-        basis.dependency_graph.validate_acyclic()?;
+        self.dependency_graph.validate_acyclic()?;
 
-        let reachable = basis
+        let reachable = self
             .dependency_graph
             .reachable_nodes_from(&self.root_node)
             .ok_or_else(|| ClosureQualificationError::MissingRootNode {
                 root: self.root_node.clone(),
             })?;
 
-        if reachable.len() != basis.dependency_graph.node_count() {
+        if reachable.len() != self.dependency_graph.node_count() {
             return Err(ClosureQualificationError::DisconnectedDependencyGraph {
                 root: self.root_node.clone(),
                 reachable: reachable.len(),
-                total: basis.dependency_graph.node_count(),
+                total: self.dependency_graph.node_count(),
             });
         }
 
-        let leaves = basis
+        let required_nodes = self
+            .boundary_requirements
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let leaves = self
             .dependency_graph
             .reachable_leaves_from(&self.root_node)
             .expect("root presence checked above");
-        let bound_nodes = basis.boundary_results.keys().cloned().collect::<BTreeSet<_>>();
 
         let ungrounded_leaves = leaves
-            .difference(&bound_nodes)
+            .difference(&required_nodes)
             .cloned()
             .collect::<BTreeSet<_>>();
         if !ungrounded_leaves.is_empty() {
-            return Err(ClosureQualificationError::UngroundedBoundaryLeaves {
+            return Err(ClosureQualificationError::ProfileUngroundedLeaves {
                 leaves: ungrounded_leaves,
             });
         }
 
-        let unreachable_boundaries = bound_nodes
+        let unreachable_required = required_nodes
             .difference(&reachable)
             .cloned()
             .collect::<BTreeSet<_>>();
-        if !unreachable_boundaries.is_empty() {
-            return Err(ClosureQualificationError::UnreachableBoundaryNodes {
-                nodes: unreachable_boundaries,
+        if !unreachable_required.is_empty() {
+            return Err(ClosureQualificationError::ProfileUnreachableBoundaryNodes {
+                nodes: unreachable_required,
             });
         }
 
-        for (node, boundary) in &basis.boundary_results {
+        for (role, expected_domain) in &self.required_obligation_roles {
+            let Some(boundary_requirement) = self.boundary_requirements.get(role) else {
+                return Err(ClosureQualificationError::ProfileObligationRoleMissingBoundary {
+                    role: role.clone(),
+                });
+            };
+            if boundary_requirement.domain() != expected_domain {
+                return Err(ClosureQualificationError::ProfileObligationRoleDomainMismatch {
+                    role: role.clone(),
+                    expected: expected_domain.clone(),
+                    boundary_domain: boundary_requirement.domain().clone(),
+                });
+            }
+        }
+
+        let provided_nodes = basis
+            .boundary_results
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if provided_nodes != required_nodes {
+            return Err(ClosureQualificationError::BoundaryRoleSetMismatch {
+                required: required_nodes,
+                provided: provided_nodes,
+            });
+        }
+
+        for (node, requirement) in &self.boundary_requirements {
+            let boundary = basis
+                .boundary_results
+                .get(node)
+                .expect("exact boundary role-set equality checked above");
+
+            if !requirement.matches(boundary) {
+                return Err(ClosureQualificationError::BoundaryRequirementMismatch {
+                    node: node.clone(),
+                    requirement: requirement.clone(),
+                    boundary: boundary.clone(),
+                });
+            }
+
             match boundary {
                 QualifiedBoundaryRef::Input(input) => {
                     if !basis.qualification_cut.inputs().contains(input) {
@@ -305,12 +438,86 @@ impl ClosureQualificationProfile {
             }
         }
 
+        let required_obligation_role_nodes = self
+            .required_obligation_roles
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let provided_obligation_role_nodes = basis
+            .obligations
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if provided_obligation_role_nodes != required_obligation_role_nodes {
+            return Err(ClosureQualificationError::ObligationRoleSetMismatch {
+                required: required_obligation_role_nodes,
+                provided: provided_obligation_role_nodes,
+            });
+        }
+
+        let required_obligations = basis
+            .obligations
+            .values()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let provided_dispositions = basis
+            .disposition_bindings
+            .iter()
+            .map(|binding| binding.obligation().clone())
+            .collect::<BTreeSet<_>>();
+        if provided_dispositions != required_obligations {
+            return Err(ClosureQualificationError::ObligationDispositionSetMismatch {
+                required: required_obligations,
+                provided: provided_dispositions,
+            });
+        }
+
+        let mut closure_required_obligations = BTreeSet::new();
+        for (role, expected_domain) in &self.required_obligation_roles {
+            let obligation = basis
+                .obligations
+                .get(role)
+                .expect("exact obligation role-set equality checked above");
+            if obligation.domain() != expected_domain {
+                return Err(ClosureQualificationError::ObligationRoleDomainMismatch {
+                    role: role.clone(),
+                    expected: expected_domain.clone(),
+                    actual: obligation.domain().clone(),
+                });
+            }
+
+            let boundary = basis
+                .boundary_results
+                .get(role)
+                .expect("obligation role must also be an exact boundary role");
+            let QualifiedBoundaryRef::Input(boundary_source) = boundary else {
+                return Err(ClosureQualificationError::ObligationDispositionBoundaryNotInput {
+                    role: role.clone(),
+                });
+            };
+
+            let binding = basis
+                .disposition_bindings
+                .iter()
+                .find(|binding| binding.obligation() == obligation)
+                .expect("exact disposition obligation-set equality checked above");
+            if binding.source() != boundary_source {
+                return Err(ClosureQualificationError::ObligationDispositionBoundaryMismatch {
+                    role: role.clone(),
+                    disposition_source: binding.source().clone(),
+                    boundary_source: boundary_source.clone(),
+                });
+            }
+
+            closure_required_obligations.insert(obligation.clone());
+        }
+
         WorkflowClosureReceipt::new(
             workflow,
             self.closure_policy.clone(),
             self.closure_profile.clone(),
             basis.qualification_cut,
-            basis.closure_requirements,
+            ClosureRequirements::new(closure_required_obligations),
             self.closure_class,
             basis.disposition_bindings,
             basis.exception_bindings,
@@ -322,14 +529,14 @@ impl ClosureQualificationProfile {
 
 /// Exact instance-specific basis consumed by one closure qualification.
 ///
-/// This is candidate input, not a positive proof object. It is intentionally
-/// constructible by policy code and consumed by `ClosureQualificationProfile`.
+/// The basis cannot choose or rewrite the reusable dependency topology, boundary
+/// roles, or which obligation roles count. It supplies exact transaction-specific
+/// records/versions and exact obligation identities for those declared roles.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosureQualificationBasis {
     pub qualification_cut: QualificationCut,
-    pub dependency_graph: ClosureDependencyGraph,
     pub boundary_results: BTreeMap<DerivationNodeRef, QualifiedBoundaryRef>,
-    pub closure_requirements: ClosureRequirements,
+    pub obligations: BTreeMap<DerivationNodeRef, DomainObligationRef>,
     pub disposition_bindings: Vec<ObligationDispositionBinding>,
     pub exception_bindings: Vec<ExceptionBinding>,
     pub compensating_intents: BTreeSet<CompensationBinding>,
@@ -359,11 +566,28 @@ pub enum ClosureQualificationError {
         reachable: usize,
         total: usize,
     },
-    UngroundedBoundaryLeaves {
+    ProfileUngroundedLeaves {
         leaves: BTreeSet<DerivationNodeRef>,
     },
-    UnreachableBoundaryNodes {
+    ProfileUnreachableBoundaryNodes {
         nodes: BTreeSet<DerivationNodeRef>,
+    },
+    ProfileObligationRoleMissingBoundary {
+        role: DerivationNodeRef,
+    },
+    ProfileObligationRoleDomainMismatch {
+        role: DerivationNodeRef,
+        expected: DomainRef,
+        boundary_domain: DomainRef,
+    },
+    BoundaryRoleSetMismatch {
+        required: BTreeSet<DerivationNodeRef>,
+        provided: BTreeSet<DerivationNodeRef>,
+    },
+    BoundaryRequirementMismatch {
+        node: DerivationNodeRef,
+        requirement: QualifiedBoundaryRequirement,
+        boundary: QualifiedBoundaryRef,
     },
     BoundaryInputMissing {
         node: DerivationNodeRef,
@@ -372,6 +596,27 @@ pub enum ClosureQualificationError {
     BoundaryReconciliationMissing {
         node: DerivationNodeRef,
         reconciliation: DomainReconciliationRef,
+    },
+    ObligationRoleSetMismatch {
+        required: BTreeSet<DerivationNodeRef>,
+        provided: BTreeSet<DerivationNodeRef>,
+    },
+    ObligationRoleDomainMismatch {
+        role: DerivationNodeRef,
+        expected: DomainRef,
+        actual: DomainRef,
+    },
+    ObligationDispositionSetMismatch {
+        required: BTreeSet<DomainObligationRef>,
+        provided: BTreeSet<DomainObligationRef>,
+    },
+    ObligationDispositionBoundaryNotInput {
+        role: DerivationNodeRef,
+    },
+    ObligationDispositionBoundaryMismatch {
+        role: DerivationNodeRef,
+        disposition_source: QualifiedInputRef,
+        boundary_source: QualifiedInputRef,
     },
     Closure(ClosureError),
 }
@@ -405,13 +650,37 @@ impl fmt::Display for ClosureQualificationError {
                 f,
                 "closure dependency graph rooted at {root} reaches {reachable} of {total} nodes"
             ),
-            Self::UngroundedBoundaryLeaves { leaves } => write!(
+            Self::ProfileUngroundedLeaves { leaves } => write!(
                 f,
-                "closure dependency graph has reachable leaf nodes without exact boundary provenance: {leaves:?}"
+                "closure profile has reachable leaf nodes without declared exact boundary roles: {leaves:?}"
             ),
-            Self::UnreachableBoundaryNodes { nodes } => write!(
+            Self::ProfileUnreachableBoundaryNodes { nodes } => write!(
                 f,
-                "closure basis binds exact boundary results to nodes that are not reachable from the closure root: {nodes:?}"
+                "closure profile declares exact boundary roles on nodes that are not reachable from the closure root: {nodes:?}"
+            ),
+            Self::ProfileObligationRoleMissingBoundary { role } => write!(
+                f,
+                "closure profile obligation role {role} is not also a required exact boundary role"
+            ),
+            Self::ProfileObligationRoleDomainMismatch {
+                role,
+                expected,
+                boundary_domain,
+            } => write!(
+                f,
+                "closure profile obligation role {role} expects domain {expected} but its boundary role expects {boundary_domain}"
+            ),
+            Self::BoundaryRoleSetMismatch { required, provided } => write!(
+                f,
+                "closure basis boundary roles {provided:?} do not exactly match profile-required roles {required:?}"
+            ),
+            Self::BoundaryRequirementMismatch {
+                node,
+                requirement,
+                boundary,
+            } => write!(
+                f,
+                "closure boundary node {node} received {boundary:?}, which does not satisfy profile requirement {requirement:?}"
             ),
             Self::BoundaryInputMissing { node, input } => write!(
                 f,
@@ -424,6 +693,40 @@ impl fmt::Display for ClosureQualificationError {
             } => write!(
                 f,
                 "closure boundary node {node} references missing reconciliation {reconciliation}"
+            ),
+            Self::ObligationRoleSetMismatch { required, provided } => write!(
+                f,
+                "closure basis obligation roles {provided:?} do not exactly match profile-required roles {required:?}"
+            ),
+            Self::ObligationRoleDomainMismatch {
+                role,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "closure obligation role {role} expects domain {expected} but basis supplied {actual}"
+            ),
+            Self::ObligationDispositionSetMismatch { required, provided } => write!(
+                f,
+                "closure disposition obligations {provided:?} do not exactly match profile-required exact obligations {required:?}"
+            ),
+            Self::ObligationDispositionBoundaryNotInput { role } => write!(
+                f,
+                "closure obligation role {role} must be grounded by an exact input boundary"
+            ),
+            Self::ObligationDispositionBoundaryMismatch {
+                role,
+                disposition_source,
+                boundary_source,
+            } => write!(
+                f,
+                "closure obligation role {role} disposition source {}/{}@{} does not equal boundary source {}/{}@{}",
+                disposition_source.domain,
+                disposition_source.record,
+                disposition_source.version,
+                boundary_source.domain,
+                boundary_source.record,
+                boundary_source.version
             ),
             Self::Closure(err) => write!(f, "core closure qualification failed: {err}"),
         }
