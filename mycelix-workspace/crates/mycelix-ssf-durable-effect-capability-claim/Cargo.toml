@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-durable-effect-capability-claim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-transient-effect-capability = { path = "../mycelix-ssf-transient-effect-capability" }
