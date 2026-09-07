@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/scripts/inventory_holochain_root_fanout.py'
+      - '.github/scripts/check_holochain_root_fanout_graph.py'
       - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
       - '.github/scripts/check_holochain_cohort.py'
       - '.github/workflows/holochain-0-6-3-root-fanout-qualification.yml'
@@ -123,6 +124,18 @@ jobs:
           test -s "$evidence/root-holochain-fanout.json"
           test -s "$evidence/affected-manifests.txt"
 
+      - name: Verify resolved root fanout dependency closures
+        id: resolved_graph
+        if: steps.inventory.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          python3 .github/scripts/check_holochain_root_fanout_graph.py \
+            --inventory "$evidence/root-holochain-fanout.json" \
+            --output "$evidence/root-resolved-holochain-graphs.json"
+          test -s "$evidence/root-resolved-holochain-graphs.json"
+
       - name: Check every affected root workspace member on host
         id: host_checks
         if: steps.inventory.outcome == 'success'
@@ -170,7 +183,6 @@ jobs:
               failed=1
             fi
           done < "$evidence/wasm-manifests.txt"
-          # An empty WASM list is allowed only if the inventory itself reports zero.
           python3 - "$evidence/root-holochain-fanout.json" "$results" <<'PY'
           import json
           from pathlib import Path
@@ -203,6 +215,7 @@ jobs:
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
           test -s "$evidence/root-holochain-fanout.json"
+          test -s "$evidence/root-resolved-holochain-graphs.json"
           test -s "$evidence/host-check-results.tsv"
           test -f "$evidence/wasm-check-results.tsv"
           test -s mycelix-workspace/Cargo.lock
@@ -215,12 +228,13 @@ jobs:
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "event_name=${GITHUB_EVENT_NAME}"
             echo "product_materialization_authorized=false"
-            echo "authorization_reason=root_fanout_requires_successful_exact-head_gate"
+            echo "authorization_reason=qualification_only_no_product_source_materialized"
           } > "$evidence/qualification-metadata.txt"
 
           sha256sum \
             mycelix-workspace/Cargo.lock \
             "$evidence/root-holochain-fanout.json" \
+            "$evidence/root-resolved-holochain-graphs.json" \
             "$evidence/affected-manifests.txt" \
             "$evidence/wasm-manifests.txt" \
             "$evidence/host-check-results.tsv" \
@@ -234,6 +248,7 @@ jobs:
           name: holochain-0.6.3-root-fanout-${{ steps.head.outputs.sha || github.sha }}
           path: |
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-holochain-fanout.json
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-resolved-holochain-graphs.json
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/affected-manifests.txt
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/wasm-manifests.txt
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/host-check-results.tsv
@@ -268,6 +283,7 @@ jobs:
           check contract '${{ steps.contract.outcome }}'
           check root_lock '${{ steps.root_lock.outcome }}'
           check inventory '${{ steps.inventory.outcome }}'
+          check resolved_graph '${{ steps.resolved_graph.outcome }}'
           check host_checks '${{ steps.host_checks.outcome }}'
           check wasm_checks '${{ steps.wasm_checks.outcome }}'
           check lock_frozen '${{ steps.lock_frozen.outcome }}'
