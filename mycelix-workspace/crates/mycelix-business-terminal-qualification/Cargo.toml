@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-business-terminal-qualification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Policy-declared terminal-role qualification for Mycelix Business closure proofs"
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
+mycelix-business-qualification = { path = "../mycelix-business-qualification" }
