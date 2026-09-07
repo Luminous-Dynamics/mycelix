@@ -1,0 +1,158 @@
+name: Authority Coordinator Release Hybrid Verifier
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-hybrid-verifier/**'
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-hybrid-verifier.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-hybrid-verifier-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-hybrid-verifier-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Manifest-bound Ed25519 + ML-DSA-65 verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-hybrid-verifier/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-hybrid-verifier/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-hybrid-verifier/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-hybrid-verifier')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Exact crypto implementations and semantic dependencies.
+          assert 'ed25519-dalek = "=2.2.0"' in cargo
+          assert 'ml-dsa = "=0.1.1"' in cargo
+          assert 'mycelix-authority-coordinator-release = ' in cargo
+          assert 'mycelix-authority-coordinator-release-key-policy = ' in cargo
+          assert 'holochain_client' not in cargo
+          assert 'hdk' not in cargo
+
+          for token in [
+              'pub const ED25519_SIGNATURE_LEN: usize = 64;',
+              'pub const ML_DSA_65_SIGNATURE_LEN: usize = 3309;',
+              'pub const MAX_SIGNATURE_PROOF_REUSE_MS: u64 = 5_000;',
+              'pub struct CoordinatorReleaseHybridSignature {',
+              'pub fn release_signature_message(',
+              'pub fn authenticate_coordinator_release_hybrid(',
+              '-> Result<QualifiedCoordinatorReleaseRequirement,',
+              'fn verify_and_build_signature_proof(',
+              '.verify_strict(message, &signature)',
+              'EncodedVerifyingKey::<MlDsa65>::try_from(key)',
+              'EncodedSignature::<MlDsa65>::try_from(signature)',
+              '.verify(message, &signature)',
+              'signature_ref: signature.canonical_signature_ref()?',
+              'qualify_coordinator_release(manifest, &proof, proof.verified_at_ms)',
+          ]:
+              assert token in src, token
+
+          # The evidence-shaped #269 proof helper must remain private.
+          assert 'pub fn verify_and_build_signature_proof' not in src
+
+          # Detached input cannot choose trusted keys or positive proof metadata.
+          sig_block = src.split('pub struct CoordinatorReleaseHybridSignature {', 1)[1].split('}', 1)[0]
+          for forbidden in [
+              'public_key', 'trusted_key', 'signature_ref', 'verifier_ref',
+              'verified_at_ms', 'valid_until_ms',
+          ]:
+              assert forbidden not in sig_block, forbidden
+
+          # Production code is verification-only. Qualified...SigningKey is a required
+          # capability type, so audit actual signer/generation APIs rather than names.
+          for forbidden in [
+              'SigningKey as ', 'EdSigningKey', 'MlSigningKey',
+              '::generate()', '.sign(', 'AdminWebsocket', 'call_zome',
+              'perform_external_effect', 'create_entry(',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          # Causal order: both crypto calls precede the verifier-owned clock and
+          # private proof construction. The public wrapper immediately consumes that
+          # private proof through #269 rather than returning receipt bytes.
+          helper = prod.split('fn verify_and_build_signature_proof(', 1)[1]
+          ed = helper.index('verify_ed25519(')
+          ml = helper.index('verify_ml_dsa_65(')
+          clock = helper.index('let verified_at_ms = system_time_ms()?;')
+          proof = helper.index('let proof = VerifiedCoordinatorReleaseSignatureProof {')
+          assert ed < ml < clock < proof
+
+          public = prod.split('pub fn authenticate_coordinator_release_hybrid(', 1)[1].split('\n}\n\nfn verify_and_build_signature_proof', 1)[0]
+          assert 'verify_and_build_signature_proof(&manifest, qualified_key, signature)?' in public
+          assert 'qualify_coordinator_release(manifest, &proof, proof.verified_at_ms)' in public
+          assert 'VerifiedCoordinatorReleaseSignatureProof' not in public
+
+          # The signature message binds exact subject/profile/key identity.
+          for token in [
+              'MESSAGE_DOMAIN', 'PROTOCOL_VERSION.as_bytes()',
+              'SIGNATURE_MESSAGE_PROFILE.as_bytes()',
+              'SIGNATURE_EVIDENCE_PROFILE.as_bytes()',
+              'MANIFEST_PROFILE.as_bytes()',
+              'manifest.release_authority_ref.as_bytes()',
+              'manifest.release_policy_digest',
+              'manifest.release_policy_profile.as_bytes()',
+              'signing_key_id.as_bytes()',
+          ]:
+              assert token in prod, token
+
+          # Signature reference is verifier-derived from exact bytes.
+          for token in [
+              'SIGNATURE_REF_DOMAIN', 'SIGNATURE_REF_PROFILE',
+              'self.ed25519_signature', 'self.ml_dsa_65_signature',
+              'hybrid-signature-blake3:',
+          ]:
+              assert token in src, token
+
+          for invariant in [
+              'key authorization precedes crypto',
+              'candidate manifest binding is rechecked locally',
+              'the signed message has one exact v0.1 meaning',
+              'exact crypto implementations and wires',
+              'hybrid means and',
+              'detached signature input carries no trusted-key or proof-authority fields',
+              'signature reference is verifier-owned',
+              'qualification clock follows crypto',
+              'proof horizon is verifier-owned and monotone',
+              'evidence-shaped signature proof stays private',
+              'this does not prove release currentness',
+              'no deployment/effect authority',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: manifest-bound qualified key -> strict Ed25519 AND ML-DSA-65 -> private proof -> local #269 authenticated release')
+          PY

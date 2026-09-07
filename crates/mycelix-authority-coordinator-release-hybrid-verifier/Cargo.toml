@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-coordinator-release-hybrid-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Native Ed25519 + ML-DSA-65 verifier for manifest-bound Mycelix coordinator releases"
+
+[dependencies]
+blake3 = "1"
+ed25519-dalek = "=2.2.0"
+ml-dsa = "=0.1.1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-release = { path = "../mycelix-authority-coordinator-release" }
+mycelix-authority-coordinator-release-key-policy = { path = "../mycelix-authority-coordinator-release-key-policy" }
+
+[dev-dependencies]
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }
