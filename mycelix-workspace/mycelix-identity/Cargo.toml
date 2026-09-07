@@ -13,6 +13,8 @@ members = [
     "crates/trust-authority-policy",
     # Backend-neutral K-vector proof statement theorem
     "crates/kvector-proof-statement-policy",
+    # Backend-neutral signed verification-record body theorem
+    "crates/kvector-verification-record-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
