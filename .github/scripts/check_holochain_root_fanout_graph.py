@@ -5,6 +5,10 @@ The root fanout inventory identifies workspace members whose direct Holochain-fa
 requirements are inherited from [workspace.dependencies]. This checker traverses each
 such member's *locked resolved dependency closure* and rejects mixed protocol-family
 generations that compilation alone could otherwise tolerate.
+
+Upstream crates are classified by their actual release/version relationship. In
+particular, holochain_chc versions independently from the main Holochain crate family;
+unknown Holochain-family packages fail closed until explicitly classified.
 """
 
 from __future__ import annotations
@@ -21,12 +25,41 @@ WORKSPACE = ROOT / "mycelix-workspace"
 ROOT_MANIFEST = WORKSPACE / "Cargo.toml"
 CONTRACT = WORKSPACE / "holochain-cohort.toml"
 
+HOLOCHAIN_RELEASE_COUPLED = {
+    "holochain",
+    "holochain_cascade",
+    "holochain_conductor_api",
+    "holochain_conductor_config",
+    "holochain_integrity_types",
+    "holochain_keystore",
+    "holochain_metrics",
+    "holochain_nonce",
+    "holochain_p2p",
+    "holochain_secure_primitive",
+    "holochain_sqlite",
+    "holochain_state",
+    "holochain_state_types",
+    "holochain_timestamp",
+    "holochain_trace",
+    "holochain_types",
+    "holochain_util",
+    "holochain_websocket",
+    "holochain_zome_types",
+}
+
+
+class UnclassifiedFamilyPackage(ValueError):
+    pass
+
 
 def load_contract() -> dict:
     return tomllib.loads(CONTRACT.read_text())
 
 
-def expected_version(name: str, rust: dict[str, str]) -> str | None:
+def expected_version(name: str, contract: dict) -> str | None:
+    rust = contract["rust"]
+    target = contract["next_0_6"]
+
     if name == "hdi":
         return rust["hdi"]
     if name in {"hdk", "hdk_derive"}:
@@ -39,8 +72,14 @@ def expected_version(name: str, rust: dict[str, str]) -> str | None:
         return rust["holochain_serialized_bytes"]
     if name.startswith("holochain_wasmer_"):
         return rust["holochain_wasmer_host"]
-    if name == "holochain" or name.startswith("holochain_"):
+    if name == "holochain_chc":
+        return target["holochain_chc"]
+    if name in HOLOCHAIN_RELEASE_COUPLED:
         return rust["holochain"]
+    if name.startswith("holochain_"):
+        raise UnclassifiedFamilyPackage(
+            f"unclassified Holochain-family package {name!r}; classify its upstream version line explicitly"
+        )
     if name == "kitsune2" or name.startswith("kitsune2_"):
         return rust["kitsune2"]
     if name == "lair_keystore" or name.startswith("lair_keystore_"):
@@ -110,7 +149,6 @@ def main() -> None:
     if not contract["policy"].get("require_rust_nix_alignment"):
         raise SystemExit("aligned candidate must require Rust/Nix alignment")
 
-    rust = contract["rust"]
     metadata = cargo_metadata()
     packages = {package["id"]: package for package in metadata.get("packages", [])}
     resolve = metadata.get("resolve") or {}
@@ -142,7 +180,11 @@ def main() -> None:
                 failures.append(f"{manifest}: unresolved metadata package id {reachable_id}")
                 continue
             name = package["name"]
-            expected = expected_version(name, rust)
+            try:
+                expected = expected_version(name, contract)
+            except UnclassifiedFamilyPackage as exc:
+                failures.append(f"{manifest}:{exc}")
+                continue
             if expected is None:
                 continue
             version = package["version"]
