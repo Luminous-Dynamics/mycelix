@@ -88,6 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          test -f .github/scripts/capture_holochain_execution_capsule.py
           python3 .github/scripts/capture_holochain_execution_capsule.py \
             --output "$evidence/execution-capsule.json" \
             --lineage-output "$evidence/execution-lineage.sha256" \
