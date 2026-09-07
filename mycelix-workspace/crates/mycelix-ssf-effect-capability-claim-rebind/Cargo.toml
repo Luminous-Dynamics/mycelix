@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-effect-capability-claim-rebind"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-durable-effect-capability-claim = { path = "../mycelix-ssf-durable-effect-capability-claim" }
+mycelix-ssf-historical-effect-capability-claim = { path = "../mycelix-ssf-historical-effect-capability-claim" }
+mycelix-ssf-transient-effect-capability = { path = "../mycelix-ssf-transient-effect-capability" }
