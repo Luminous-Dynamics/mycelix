@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-final-actuator-invocation-readiness"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-actuator-invocation-activation = { path = "../mycelix-ssf-actuator-invocation-activation" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-historical-actuator-invocation-activation = { path = "../mycelix-ssf-historical-actuator-invocation-activation" }
