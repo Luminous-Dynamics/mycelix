@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Capture a canonical, machine-checkable Holochain qualification environment capsule."""
+"""Capture a canonical, machine-checkable Holochain qualification environment capsule.
+
+The normalized environment lineage intentionally excludes run IDs and source/workflow
+SHAs so separate qualification tranches can compare executor equivalence directly.
+The full capsule still records those volatile provenance fields and is independently
+sealed by each qualification artifact.
+"""
 
 from __future__ import annotations
 
@@ -158,9 +164,6 @@ def main() -> None:
         "url": args.nix_installer_url,
     }
 
-    # This object intentionally excludes run IDs and workflow/source SHAs. It is the
-    # normalized executor/environment identity that downstream authority gates may
-    # compare across separate qualification runs.
     environment_lineage = {
         "schema": 1,
         "runner": runner,
