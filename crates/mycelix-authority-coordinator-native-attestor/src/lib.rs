@@ -14,8 +14,8 @@
 
 use holochain_client::{AdminWebsocket, CellId};
 use mycelix_authority_coordinator_deployment::{
-    CoordinatorCodeIdentity, CoordinatorDeploymentError, ObservedCoordinatorDeployment,
-    CONDUCTOR_ADMIN_SOURCE_PROFILE, MAX_OBSERVATION_REUSE_MS, PROTOCOL_VERSION,
+    CONDUCTOR_ADMIN_SOURCE_PROFILE, CoordinatorCodeIdentity, CoordinatorDeploymentError,
+    MAX_OBSERVATION_REUSE_MS, ObservedCoordinatorDeployment, PROTOCOL_VERSION,
 };
 use std::fmt;
 use std::net::SocketAddr;
@@ -146,13 +146,15 @@ pub enum NativeAttestorError {
 impl fmt::Display for NativeAttestorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidAdminEndpoint => {
-                write!(f, "admin attestation endpoint must be loopback with a non-zero port")
-            }
+            Self::InvalidAdminEndpoint => write!(
+                f,
+                "admin attestation endpoint must be loopback with a non-zero port"
+            ),
             Self::Conductor(error) => write!(f, "Holochain admin request failed: {error}"),
-            Self::CoordinatorDefinition(error) => {
-                write!(f, "installed coordinator definition is not a WASM zome: {error}")
-            }
+            Self::CoordinatorDefinition(error) => write!(
+                f,
+                "installed coordinator definition is not a WASM zome: {error}"
+            ),
             Self::ClockBeforeUnixEpoch => write!(f, "system clock is before the Unix epoch"),
             Self::ClockOverflow => write!(f, "native attestation clock overflow"),
             Self::ObservationDenied(error) => {
@@ -182,8 +184,12 @@ mod tests {
 
     #[test]
     fn admin_endpoint_is_loopback_only() {
-        assert!(LocalAdminEndpoint::new(SocketAddr::from((Ipv4Addr::LOCALHOST, 30_000))).is_ok());
-        assert!(LocalAdminEndpoint::new(SocketAddr::from((Ipv6Addr::LOCALHOST, 30_000))).is_ok());
+        assert!(
+            LocalAdminEndpoint::new(SocketAddr::from((Ipv4Addr::LOCALHOST, 30_000))).is_ok()
+        );
+        assert!(
+            LocalAdminEndpoint::new(SocketAddr::from((Ipv6Addr::LOCALHOST, 30_000))).is_ok()
+        );
         assert_eq!(
             LocalAdminEndpoint::new(SocketAddr::from(([10, 0, 0, 1], 30_000))).unwrap_err(),
             NativeAttestorError::InvalidAdminEndpoint
@@ -205,8 +211,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(observation.observed_at_ms, 100);
-        assert_eq!(observation.valid_until_ms, 100 + MAX_OBSERVATION_REUSE_MS);
-        assert_eq!(observation.source_profile, CONDUCTOR_ADMIN_SOURCE_PROFILE);
+        assert_eq!(
+            observation.valid_until_ms,
+            100 + MAX_OBSERVATION_REUSE_MS
+        );
+        assert_eq!(
+            observation.source_profile,
+            CONDUCTOR_ADMIN_SOURCE_PROFILE
+        );
         assert_eq!(observation.coordinators[0].zome_name, "alpha");
         assert_eq!(observation.coordinators[1].zome_name, "zeta");
     }
