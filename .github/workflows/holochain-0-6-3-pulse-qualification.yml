@@ -25,39 +25,64 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - id: checkout
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
           fetch-depth: 0
 
+      - name: Bind exact qualification head
+        id: head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
       - name: Install Nix
+        id: install_nix
         uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
       - name: Install pinned Rust toolchain
+        id: install_rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.96.0
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
+      # Candidate construction is itself evidence. Keep the job alive after a
+      # construction failure so the final gate and evidence artifact can report
+      # the exact failed boundary rather than collapsing into an opaque red job.
       - name: Materialize candidate
         id: materialize
+        continue-on-error: true
         run: python3 .github/scripts/materialize_holochain_0_6_3_pulse.py
 
       - name: Regenerate Holonix lock with Nix
         id: nix_lock
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
         working-directory: mycelix-workspace
         run: nix flake lock --update-input holonix
 
       - name: Verify aligned compatibility contract
         id: contract
+        if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
+        continue-on-error: true
         run: python3 .github/scripts/check_holochain_cohort.py
 
       - name: Verify Nix runtime cohort
         id: nix_runtime
+        if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace
         run: |
@@ -67,8 +92,12 @@ jobs:
             hc --version
           '
 
+      # Rust surfaces depend only on successful candidate materialization, not
+      # on Nix lock/runtime success. This preserves independent diagnostics when
+      # the Nix half of the cohort is the only failing boundary.
       - name: Qualify active Pulse zome workspace
         id: pulse_zomes
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/holochain
         run: |
@@ -80,6 +109,7 @@ jobs:
 
       - name: Qualify standalone hApp integrity crate
         id: happ_integrity
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/integrity
         run: |
@@ -89,6 +119,7 @@ jobs:
 
       - name: Qualify Pulse backend API migration
         id: backend
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
         env:
@@ -101,6 +132,7 @@ jobs:
 
       - name: Qualify Pulse CLI API migration
         id: cli
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/cli
         run: |
@@ -110,48 +142,128 @@ jobs:
 
       - name: Qualify simplified legacy DNA integrity
         id: simple_integrity
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity
         run: cargo check --target wasm32-unknown-unknown
 
       - name: Qualify simplified legacy DNA mail_messages
         id: simple_messages
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages
         run: cargo check --target wasm32-unknown-unknown
 
       - name: Qualify simplified legacy DNA trust_filter
         id: simple_trust
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter
         run: cargo check --target wasm32-unknown-unknown
 
       - name: Compile SweetConductor security harness
         id: sweettest
+        if: steps.materialize.outcome == 'success'
         continue-on-error: true
         working-directory: mycelix-workspace/mycelix-pulse/tests
         run: cargo test --test sweettest_mail_security --no-run
 
-      - name: Validate generated patch
+      - name: Validate and seal generated patch
         if: always()
         id: patch
+        env:
+          QUALIFIED_HEAD_SHA: ${{ steps.head.outputs.sha }}
         run: |
           set -euo pipefail
+          evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          mkdir -p "$evidence_dir"
+
+          # Include newly generated, non-ignored lockfiles in the patch rather
+          # than silently omitting them because plain `git diff` ignores
+          # untracked files. Intent-to-add changes only the ephemeral CI index.
+          mapfile -t untracked < <(git ls-files --others --exclude-standard)
+          if [ "${#untracked[@]}" -gt 0 ]; then
+            echo 'Capturing generated untracked files:'
+            printf '  %s\n' "${untracked[@]}"
+            git add -N -- "${untracked[@]}"
+          fi
+
           git diff --check
-          git diff --binary > holochain-0.6.3-pulse-candidate.patch
-          test -s holochain-0.6.3-pulse-candidate.patch
-          git status --short > holochain-0.6.3-pulse-status.txt
+          git diff --name-only | sort > "$evidence_dir/changed-files.txt"
+
+          python3 - "$evidence_dir/changed-files.txt" <<'PY'
+          from pathlib import Path
+          import sys
+
+          changed = set(Path(sys.argv[1]).read_text().splitlines())
+          required = {
+              'mycelix-workspace/Cargo.toml',
+              'mycelix-workspace/flake.nix',
+              'mycelix-workspace/flake.lock',
+              'mycelix-workspace/holochain-cohort.toml',
+              'mycelix-workspace/mycelix-pulse/holochain/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/tests/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml',
+          }
+          optional_locks = {
+              'mycelix-workspace/mycelix-pulse/holochain/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/tests/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/cli/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.lock',
+          }
+          missing = sorted(required - changed)
+          unexpected = sorted(changed - required - optional_locks)
+          if missing or unexpected:
+              if missing:
+                  print('Missing required candidate changes:')
+                  print('\n'.join(f'  {p}' for p in missing))
+              if unexpected:
+                  print('Unexpected candidate changes:')
+                  print('\n'.join(f'  {p}' for p in unexpected))
+              raise SystemExit(1)
+          print(f'Closed candidate file set OK: {len(changed)} changed files')
+          PY
+
+          git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
+          test -s "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
+          git status --short > "$evidence_dir/holochain-0.6.3-pulse-status.txt"
+
+          {
+            echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event_name=${GITHUB_EVENT_NAME}"
+          } > "$evidence_dir/qualification-metadata.txt"
+
+          sha256sum \
+            "$evidence_dir/holochain-0.6.3-pulse-candidate.patch" \
+            mycelix-workspace/flake.lock \
+            mycelix-workspace/holochain-cohort.toml \
+            > "$evidence_dir/qualification-sha256.txt"
+
           echo 'Generated candidate files:'
-          cat holochain-0.6.3-pulse-status.txt
+          cat "$evidence_dir/changed-files.txt"
 
       - name: Preserve exact candidate evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: holochain-0.6.3-pulse-candidate-${{ github.sha }}
+          name: holochain-0.6.3-pulse-candidate-${{ steps.head.outputs.sha || github.sha }}
           path: |
-            holochain-0.6.3-pulse-candidate.patch
-            holochain-0.6.3-pulse-status.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-candidate.patch
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-status.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/changed-files.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-metadata.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-sha256.txt
             mycelix-workspace/flake.lock
             mycelix-workspace/holochain-cohort.toml
           if-no-files-found: error
@@ -170,6 +282,10 @@ jobs:
               failed=1
             fi
           }
+          check checkout '${{ steps.checkout.outcome }}'
+          check head '${{ steps.head.outcome }}'
+          check install_nix '${{ steps.install_nix.outcome }}'
+          check install_rust '${{ steps.install_rust.outcome }}'
           check materialize '${{ steps.materialize.outcome }}'
           check nix_lock '${{ steps.nix_lock.outcome }}'
           check contract '${{ steps.contract.outcome }}'
