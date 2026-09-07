@@ -1,0 +1,152 @@
+name: Identity Verifier Key Method Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - '.github/workflows/identity-verifier-key-method-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/**'
+      - '.github/workflows/identity-verifier-key-method-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-verifier-key-method-policy-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert verifier-key-method theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/verifier-key-method-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-kvector-signature-material-policy',
+              'mycelix-kvector-verifier-policy-body',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: verifier-key-method dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: verifier-key theorem must use workspace mycelix-crypto types')
+          if deps['mycelix-kvector-signature-material-policy'].get('path') != '../kvector-signature-material-policy':
+              raise SystemExit('ERROR: verifier-key theorem is not bound to canonical #250 material theorem')
+          if deps['mycelix-kvector-verifier-policy-body'].get('path') != '../kvector-verifier-policy-body':
+              raise SystemExit('ERROR: verifier-key theorem is not bound to canonical #248 policy body')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'canonical_verification_method_id_v2',
+              'DuplicateCanonicalMethodId',
+              'PolicyVerifierMethodMissing',
+              'MethodControllerInvalid',
+              'ExplicitAlgorithmRequired',
+              'MethodTypeAlgorithmMismatch',
+              'DecodedKeyAlgorithmMismatch',
+              'DecodedKeyLengthMismatch',
+              'PolicyVerifierKeyNotAuthenticated',
+              'expected_algorithm_for_signature_scheme_v2',
+              'declared.is_signature_algorithm()',
+              'method.type_ != declared.did_verification_method_type()',
+              'decoded.algorithm != declared',
+              'decoded.key_bytes.len() != declared.public_key_size()',
+              'document.did != policy.verifier_did',
+              'policy_key_id != policy.verifier_key_id',
+              'fragment_full_duplicate_is_rejected',
+              'controller_and_authentication_are_authority_relevant',
+              'declared_type_and_decoded_algorithm_must_agree',
+              'missing_or_policy_mismatched_algorithm_fails_closed',
+              'fragment.is_empty()',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: verifier-key theorem missing: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'resolve_did(',
+              'get_links(',
+              'get_details(',
+              'sys_time(',
+              'std::time',
+              'hybrid_sig::verify',
+              'ed25519_dalek',
+              'ml_dsa::',
+              '.verify(',
+              'signature_verified',
+              'signature_validated',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: network/currentness/signature authority leaked into structural key theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/Cargo.toml \
+            -- --check
+
+      - name: Test verifier-policy body theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-policy-body/Cargo.toml
+
+      - name: Test signature-material theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-signature-material-policy/Cargo.toml
+
+      - name: Test verifier-key-method theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/Cargo.toml
+
+      - name: Check verifier-key-method theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-method-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
