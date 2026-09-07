@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
       - '.github/scripts/check_holochain_cohort.py'
+      - '.github/scripts/check_holochain_resolved_graph.py'
       - '.github/workflows/holochain-0-6-3-pulse-qualification.yml'
       - 'mycelix-workspace/holochain-cohort.toml'
   workflow_dispatch:
@@ -94,6 +95,14 @@ jobs:
         if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
         continue-on-error: true
         run: python3 .github/scripts/check_holochain_cohort.py
+
+      - name: Verify resolved Cargo Holochain cohorts
+        id: resolved_graph
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 .github/scripts/check_holochain_resolved_graph.py \
+            --output "$RUNNER_TEMP/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json"
 
       - name: Verify Nix runtime cohort
         id: nix_runtime
@@ -243,6 +252,7 @@ jobs:
           print(f'Closed candidate file set OK: {len(changed)} changed files')
           PY
 
+          test -s "$evidence_dir/resolved-holochain-graphs.json"
           git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
           test -s "$evidence_dir/holochain-0.6.3-pulse-candidate.patch"
           git status --short > "$evidence_dir/holochain-0.6.3-pulse-status.txt"
@@ -258,6 +268,7 @@ jobs:
 
           sha256sum \
             "$evidence_dir/holochain-0.6.3-pulse-candidate.patch" \
+            "$evidence_dir/resolved-holochain-graphs.json" \
             mycelix-workspace/flake.lock \
             mycelix-workspace/holochain-cohort.toml \
             > "$evidence_dir/qualification-sha256.txt"
@@ -274,6 +285,7 @@ jobs:
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-candidate.patch
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-status.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/changed-files.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-metadata.txt
             ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-sha256.txt
             mycelix-workspace/flake.lock
@@ -302,6 +314,7 @@ jobs:
           check materialize '${{ steps.materialize.outcome }}'
           check nix_lock '${{ steps.nix_lock.outcome }}'
           check contract '${{ steps.contract.outcome }}'
+          check resolved_graph '${{ steps.resolved_graph.outcome }}'
           check nix_runtime '${{ steps.nix_runtime.outcome }}'
           check pulse_zomes '${{ steps.pulse_zomes.outcome }}'
           check happ_integrity '${{ steps.happ_integrity.outcome }}'
