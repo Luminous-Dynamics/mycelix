@@ -6,6 +6,7 @@ on:
       - '.github/scripts/inventory_holochain_root_fanout.py'
       - '.github/scripts/check_holochain_root_fanout_scope.py'
       - '.github/scripts/check_holochain_root_fanout_graph.py'
+      - '.github/scripts/holochain_release_family.py'
       - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
       - '.github/scripts/check_holochain_cohort.py'
       - '.github/workflows/holochain-0-6-3-root-fanout-qualification.yml'
@@ -31,11 +32,12 @@ jobs:
     timeout-minutes: 120
     steps:
       - id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Bind exact qualification head
         id: head
@@ -70,14 +72,14 @@ jobs:
 
       - name: Install Nix
         id: install_nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
       - name: Install pinned Rust toolchain
         id: install_rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable action code
         with:
           toolchain: 1.96.0
           targets: wasm32-unknown-unknown
@@ -269,7 +271,7 @@ jobs:
 
       - name: Preserve root fanout evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: holochain-0.6.3-root-fanout-${{ steps.head.outputs.sha || github.sha }}
           path: |
