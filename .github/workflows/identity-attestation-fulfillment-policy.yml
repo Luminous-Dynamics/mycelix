@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Assert fulfillment theorem boundary
+      - name: Assert semantic-only fulfillment theorem boundary
         shell: bash
         run: |
           python - <<'PY'
@@ -73,18 +73,18 @@ jobs:
               'guaranteed_trust_tier_v2(',
               'statement.trust_score_lower_scaled.to_be_bytes()',
               'statement.trust_score_upper_scaled.to_be_bytes()',
-              'QualifiedAttestationProofVerificationV2',
-              'qualify_attestation_proof_verification_v2',
-              'summarize_attestation_fulfillment_observations_v2',
+              'AttestationFulfillmentObservationV2',
+              'ObservedAttestationFulfillmentClaimSetV2',
+              'summarize_attestation_fulfillment_claims_v2',
               'distinct_ids.contains(&fulfillment_id)',
-              'ObservedAttestationFulfillmentSetV2::Converged',
-              'ObservedAttestationFulfillmentSetV2::Conflict',
+              'ConvergedCandidate',
+              'Conflict',
+              'semantic convergence is **not** cryptographic acceptance',
               'deterministic_vector_is_frozen',
               '0x22, 0xa6, 0xf3, 0xa7',
               'fulfillment_delegates_guaranteed_tier_to_authority_theorem',
-              'different_qualified_proof_encodings_for_same_statement_converge',
-              'proof_token_cannot_be_reused_for_different_proof_encoding',
-              'distinct_qualified_statements_for_one_root_are_conflict_not_latest_wins',
+              'different_unverified_proof_encodings_converge_semantically_only',
+              'distinct_semantic_claims_for_one_root_are_conflict_not_latest_wins',
           ]
           for needle in required:
               if needle not in text:
@@ -95,8 +95,6 @@ jobs:
               'f32',
               'f64',
               'canonical_f32',
-              'trust_score_non_finite',
-              'trustscorenonfinite',
               'use hdk',
               'use hdi',
               'hdk::',
@@ -108,22 +106,27 @@ jobs:
               '.sort_by_key(',
               '.max_by(',
               '.max_by_key(',
+              'qualifiedattestationproofverificationv2',
+              'attestationproofverificationrecordfactsv2',
+              'attestationproofverificationoutcomev2',
+              'qualify_attestation_proof_verification_v2',
+              'signature_validated',
+              'policy_accepted',
+              'policy_current',
+              'verification_record_sha256',
+              'verification_policy_sha256',
           ]:
               if forbidden in lower:
-                  raise SystemExit(f'ERROR: float/Holochain/winner semantics leaked into pure fulfillment policy: {forbidden!r}')
-
-          if 'pub proof_verified: bool' in text:
-              raise SystemExit('ERROR: naked proof verification boolean re-entered aggregation API')
+                  raise SystemExit(
+                      f'ERROR: verification/backend/Holochain/winner semantics leaked into semantic fulfillment policy: {forbidden!r}'
+                  )
 
           derive_start = text.index('pub fn derive_attestation_fulfillment_id_v2(')
           derive_end = text.index('fn validate_claim_and_id_v2(', derive_start)
           derive_body = text[derive_start:derive_end]
           for forbidden in [
               'range_proof',
-              'signature_validated',
-              'policy_accepted',
-              'policy_current',
-              'verification_record_sha256',
+              'verification',
               'sys_time(',
               'ActionHash',
           ]:
