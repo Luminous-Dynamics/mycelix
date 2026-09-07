@@ -29,6 +29,8 @@ members = [
     "crates/agent-activity-coverage-policy",
     # Pure bridge from qualified activity to exact DID records + lineage
     "crates/did-observer-assembly-policy",
+    # Exact pre-crypto verification request theorem
+    "crates/kvector-signature-verification-request-policy",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure

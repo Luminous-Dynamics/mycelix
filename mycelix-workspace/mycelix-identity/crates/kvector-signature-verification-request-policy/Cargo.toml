@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-kvector-signature-verification-request-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure preparation theorem for exact Identity V2 K-vector signature verification requests"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-did-observer-assembly-policy = { path = "../did-observer-assembly-policy" }
+mycelix-kvector-proof-statement-policy = { path = "../kvector-proof-statement-policy" }
+mycelix-kvector-signature-material-policy = { path = "../kvector-signature-material-policy" }
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
+
+[dev-dependencies]
+mycelix-agent-activity-coverage-policy = { path = "../agent-activity-coverage-policy" }
