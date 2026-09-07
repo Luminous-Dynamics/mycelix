@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-final-canonical-replay-readiness"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-replay-invocation-activation = { path = "../mycelix-ssf-canonical-replay-invocation-activation" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-historical-canonical-replay-activation = { path = "../mycelix-ssf-historical-canonical-replay-activation" }
