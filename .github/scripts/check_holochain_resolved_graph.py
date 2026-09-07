@@ -4,8 +4,8 @@
 Top-level manifest equality is necessary but insufficient: Cargo can resolve multiple
 versions of the same protocol family and still compile. This checker resolves every
 migration surface, records the concrete Cargo workspace/lockfile that produced that
-graph, and rejects mixed protocol generations using the shared fail-closed release
-family classifier.
+graph, and rejects mixed protocol generations or same-version source substitutions
+using the shared fail-closed release-family classifier.
 """
 
 from __future__ import annotations
@@ -16,7 +16,11 @@ from pathlib import Path
 import subprocess
 import tomllib
 
-from holochain_release_family import UnclassifiedFamilyPackage, expected_family_version
+from holochain_release_family import (
+    FamilySourceMismatch,
+    UnclassifiedFamilyPackage,
+    qualified_family_package,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "mycelix-workspace"
@@ -104,24 +108,33 @@ def main() -> None:
                 f"{surface}: resolved graph has no concrete non-empty lockfile at {lockfile_rel}"
             )
 
-        observed: dict[str, set[str]] = {}
+        observed_versions: dict[str, set[str]] = {}
+        observed_sources: dict[str, set[str]] = {}
         for package in metadata.get("packages", []):
             name = package["name"]
             try:
-                expected = expected_family_version(name, contract)
-            except UnclassifiedFamilyPackage as exc:
+                expectation = qualified_family_package(package, contract)
+            except (UnclassifiedFamilyPackage, FamilySourceMismatch) as exc:
                 failures.append(f"{surface}:{exc}")
                 continue
-            if expected is None:
+            if expectation is None:
                 continue
+
+            expected_version, expected_source = expectation
             version = package["version"]
-            observed.setdefault(name, set()).add(version)
-            if version != expected:
+            source = package.get("source")
+            observed_versions.setdefault(name, set()).add(version)
+            observed_sources.setdefault(name, set()).add(str(source))
+            if version != expected_version:
                 failures.append(
-                    f"{surface}:{name}: resolved {version}, expected cohort {expected}"
+                    f"{surface}:{name}: resolved {version}, expected cohort {expected_version}"
+                )
+            if source != expected_source:
+                failures.append(
+                    f"{surface}:{name}: resolved source {source!r}, expected {expected_source!r}"
                 )
 
-        if not observed:
+        if not observed_versions:
             failures.append(f"{surface}: resolved graph contained no tracked Holochain-family package")
 
         surfaces_evidence[surface] = {
@@ -129,7 +142,10 @@ def main() -> None:
             "workspace_root": workspace_root_rel,
             "lockfile": lockfile_rel,
             "tracked_packages": {
-                name: sorted(versions) for name, versions in sorted(observed.items())
+                name: sorted(versions) for name, versions in sorted(observed_versions.items())
+            },
+            "tracked_sources": {
+                name: sorted(sources) for name, sources in sorted(observed_sources.items())
             },
         }
 
@@ -160,7 +176,7 @@ def main() -> None:
 
     print(
         f"Resolved Holochain cohort graphs OK across {len(surfaces_evidence)} Pulse surfaces "
-        f"using {len(unique_locks)} concrete Cargo lockfiles."
+        f"using {len(unique_locks)} concrete Cargo lockfiles with crates.io source provenance."
     )
 
 

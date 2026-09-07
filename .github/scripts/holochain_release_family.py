@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Shared fail-closed Holochain release-family classification.
+"""Shared fail-closed Holochain release-family and source classification.
 
 Holochain's package ecosystem does not use one universal version number. Most core
 crates follow the conductor release line, while HDI, the client, CHC, serialization,
 Wasmer, Kitsune2, and Lair each have their own version relationships. Qualification
 code must classify those relationships explicitly instead of inferring them from a
 package-name prefix.
+
+For this migration lineage there are no intentional Cargo source replacements or
+crates.io patches. A tracked family package therefore must also resolve from the
+official crates.io registry. Same-version git/path substitutions fail qualification.
 
 Unknown ``holochain_*`` packages deliberately raise until their upstream release
 relationship is reviewed and added here.
@@ -15,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
 # Crates verified to follow the main Holochain 0.6.x release line. This includes
 # the SweetConductor test-WASM crates pulled by holochain/sweettest -> test_utils.
@@ -47,6 +52,10 @@ HOLOCHAIN_RELEASE_COUPLED = frozenset(
 
 class UnclassifiedFamilyPackage(ValueError):
     """Raised when a Holochain-family name lacks an explicit release rule."""
+
+
+class FamilySourceMismatch(ValueError):
+    """Raised when a tracked family package resolves from an unauthorized source."""
 
 
 def expected_family_version(name: str, contract: Mapping) -> str | None:
@@ -95,3 +104,24 @@ def expected_family_version(name: str, contract: Mapping) -> str | None:
         return rust["lair_keystore"]
 
     return None
+
+
+def qualified_family_package(package: Mapping, contract: Mapping) -> tuple[str, str] | None:
+    """Return ``(expected_version, expected_source)`` for a tracked package.
+
+    The package name selects the release-family rule. Tracked packages must resolve
+    from crates.io in this lineage; source overrides are qualification failures even
+    when they preserve the expected semantic version string.
+    """
+
+    name = package["name"]
+    expected = expected_family_version(name, contract)
+    if expected is None:
+        return None
+
+    source = package.get("source")
+    if source != CRATES_IO_SOURCE:
+        raise FamilySourceMismatch(
+            f"{name!r} resolved from {source!r}, expected {CRATES_IO_SOURCE!r}"
+        )
+    return expected, CRATES_IO_SOURCE
