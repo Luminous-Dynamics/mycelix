@@ -1,6 +1,6 @@
-# Current Freshness — Coordinator Deployment Gate v0.8
+# Current Freshness — Coordinator Deployment Gate v0.9
 
-Status: **native observer candidate + release semantics/currentness + exact deployment composition + stability fence + non-circular manifest-bound hybrid key-policy theorem implemented; live verifier provenance/atomic effect admission still incomplete**
+Status: **native observer candidate + non-circular manifest-bound key authorization + native hybrid release authentication + release currentness + exact deployment composition + stability fence implemented; remaining live provenance/atomic effect admission incomplete**
 
 ## Core deployment distinction
 
@@ -14,30 +14,30 @@ Coordinator self-reported code identity is never sufficient.
 
 `mycelix-authority-coordinator-native-attestor` directly queries a loopback Holochain Admin API for an exact `CellId`, enumerates the complete installed coordinator set, extracts exact `WasmHash` values, samples time only after observation/extraction and owns the fixed five-second observation reuse cap.
 
-It does not choose an approved release or perform the match.
+It does not choose an approved release or perform deployment matching.
 
 ## Coordinator release semantics
 
-`mycelix-authority-coordinator-release` defines a DNA/code-scoped candidate release manifest committing the complete coordinator `WasmHash` closure plus DNA bundle/source/lock/toolchain/build-recipe/SBOM identities, release authority and release-policy identity.
+`mycelix-authority-coordinator-release` defines a DNA/code-scoped candidate manifest committing the complete coordinator `WasmHash` closure plus DNA bundle/source/lock/toolchain/build-recipe/SBOM identities, release authority and release-policy identity.
 
 The semantic manifest exists before signature authentication and does not choose an installation-specific agent.
 
-## Non-circular hybrid release signing-key policy
+## Non-circular manifest-bound key authorization
 
 `mycelix-authority-coordinator-release-key-policy` gives the candidate manifest's release-policy commitment one exact v0.1 hybrid-key meaning **before** release authentication.
 
-The v0.1 policy fixes:
+The active key-policy profile fixes:
 
 `Ed25519 + ML-DSA-65`
 
-with exact public-key wire lengths:
+with exact public-key wires:
 
 - Ed25519: 32 bytes;
 - ML-DSA-65: 1952 bytes.
 
-The semantic `CoordinatorReleaseKeyPolicy` commits exact release authority, policy id/generation, complete canonical authorized-key set, exact key bytes, key-specific validity windows and policy lifetime.
+The semantic policy commits exact release authority, policy id/generation, complete canonical authorized-key set, exact key bytes, key-specific validity windows and policy lifetime.
 
-Positive key authorization now follows only this direction:
+The causal order is strictly:
 
 ```text
 candidate CoordinatorReleaseManifest
@@ -46,97 +46,151 @@ semantic CoordinatorReleaseKeyPolicy
         +
 independently verified current-policy proof
         ↓
-qualify_manifest_key_policy
-        ↓
 QualifiedCoordinatorReleaseManifestKeyPolicy
         ↓ exact authorized key id + key lifetime
 QualifiedCoordinatorReleaseSigningKey
-        ↓
-future real hybrid signature verification
-        ↓
-#269 authenticated release
-        ↓
-#275 current/non-withdrawn release
 ```
 
-The key-policy crate MUST NOT consume `QualifiedCurrentCoordinatorRelease`, `QualifiedCoordinatorReleaseRequirement`, `VerifiedCoordinatorReleaseSignatureProof`, or any other positive result whose construction already depends on release signature authentication. That would recreate circular authority.
+The qualified signing key is non-deserializable and bound to the exact candidate manifest digest/profile, release authority and release-policy identity.
 
-## Exact candidate-manifest binding
+The key-policy crate is forbidden from depending on #269/#275 positive authenticated/current release objects; that would recreate circular authority.
 
-The key-policy qualifier validates the candidate #269 manifest and recomputes its canonical `manifest_digest`.
+## Current key-policy evidence is bounded but provenance is still open
 
-It then requires:
+`VerifiedCurrentCoordinatorReleaseKeyPolicyProof` remains deserializable evidence. Pure #307 qualification proves shape/equality only; it cannot prove verifier origin or policy-registry completeness/currentness.
 
-- candidate `release_policy_profile` == exact v0.1 key-policy profile;
-- candidate `release_policy_digest` == locally recomputed semantic policy digest;
-- candidate `release_authority_ref` == policy release authority; and
-- a separate current-policy receipt naming the exact policy digest/profile/generation.
+Its v0.1 reuse window is capped at 30 seconds. This limits reuse but does not make the policy immutable during that window.
 
-The non-deserializable policy qualification commits the exact candidate manifest digest/profile plus the exact policy/currentness identities.
+A future live path must obtain this current-policy proof directly from an independently qualified policy-currentness verifier and ignore caller-supplied currentness bytes for positive authority.
 
-`QualifiedCoordinatorReleaseSigningKey` also carries that exact candidate manifest digest/profile. A future crypto verifier must recompute the candidate manifest digest and require equality before using the key bytes. A key capability for release manifest A cannot authenticate manifest B.
+## Native hybrid release authentication candidate implemented
 
-## Current key-policy evidence is bounded but still provenance-limited
+`mycelix-authority-coordinator-release-hybrid-verifier` is the native cryptographic boundary between #307 key authorization and #269 release authentication.
 
-`VerifiedCurrentCoordinatorReleaseKeyPolicyProof` remains deserializable evidence. Pure qualification cannot prove which verifier produced it or whether policy-registry completeness/currentness was established correctly.
+Its public live input is exactly:
 
-Its v0.1 reuse window is capped at 30 seconds. This limits reuse but is not proof that policy cannot change inside the window.
+```text
+candidate CoordinatorReleaseManifest
++ non-deserializable manifest-bound QualifiedCoordinatorReleaseSigningKey
++ detached CoordinatorReleaseHybridSignature
+```
 
-A live path must obtain current-policy evidence directly from an independently qualified verifier and ignore caller-supplied receipt bytes for positive authority.
+The detached signature contains only protocol/profile, exact signing key id, 64-byte Ed25519 signature and 3309-byte ML-DSA-65 signature. It carries no public key, trusted-key path, verifier reference, signature reference, verification timestamp or proof horizon.
 
-## Raw trusted-key input is forbidden
+The verifier pins the same concrete RustCrypto wire implementations used by the existing Luminous hybrid prototype:
 
-The future hybrid verifier must accept a non-deserializable `QualifiedCoordinatorReleaseSigningKey`, not a caller-selected trusted-key path, public-key blob or key pair.
+- `ed25519-dalek = 2.2.0`;
+- `ml-dsa = 0.1.1`.
 
-The existing Luminous Ed25519 + ML-DSA-65 implementation motivating the wire profile remains experimental/unaudited; this gate does not upgrade its assurance status.
+That existing hybrid construction remains experimental/unaudited; this candidate does not upgrade its assurance status.
 
-## Key authorization is not signature verification
+## Exact signed message
 
-The key-policy crate contains no Ed25519/ML-DSA verifier implementation and does not construct #269's signature proof.
+Both algorithms verify the identical deterministic v0.1 message committing:
 
-The future native signature verifier must:
+- fixed message domain;
+- verifier protocol version;
+- fixed signature-message profile;
+- fixed signature-evidence profile;
+- canonical #269 manifest digest/profile;
+- exact release authority;
+- exact release-policy digest/profile; and
+- exact qualified signing key id.
 
-1. accept the exact candidate `CoordinatorReleaseManifest` plus a manifest-bound `QualifiedCoordinatorReleaseSigningKey`;
-2. recompute the #269 manifest digest and require exact equality with the key capability's manifest digest/profile;
-3. construct one fixed deterministic release-signature message from that manifest identity plus exact release-authority/policy identity;
-4. verify **both** Ed25519 and ML-DSA-65 signatures with the qualified key;
-5. sample verification time only after both cryptographic checks succeed;
-6. own a bounded proof horizon rather than accept caller-selected proof times; and
-7. only then construct `VerifiedCoordinatorReleaseSignatureProof` for local #269 qualification.
+Changing the manifest or key id changes the signed bytes.
+
+## Hybrid authentication is fail-closed AND composition
+
+The Ed25519 half uses strict Dalek verification. The ML-DSA-65 half decodes the exact RustCrypto encoded key/signature wires and verifies the same message.
+
+Both must succeed. No classical-only, PQ-only, OR or fallback success mode exists in v0.1.
+
+The verifier also recomputes the candidate manifest digest and rechecks its exact manifest/profile, release-authority and release-policy bindings against #307's qualified key before using the key bytes.
+
+## Positive proof metadata is verifier-owned
+
+After both cryptographic checks succeed, the verifier samples host time. It then rechecks that the manifest-bound key and candidate manifest are still live.
+
+The private #269 proof horizon is:
+
+`valid_until = min(qualified signing key, candidate manifest, verified_at + 5 seconds)`.
+
+The caller cannot select or widen this time window.
+
+The #269 `signature_ref` is also verifier-derived: BLAKE3 over the fixed signature-reference protocol/profile, signing key id and exact Ed25519 + ML-DSA-65 signature bytes.
+
+A caller therefore cannot relabel verified signature bytes with arbitrary positive provenance text.
+
+## Evidence-shaped signature proof stays private
+
+The native verifier does **not** publicly return `VerifiedCoordinatorReleaseSignatureProof`.
+
+Its private helper constructs that evidence-shaped receipt only after both crypto checks and immediately feeds it into local #269 `qualify_coordinator_release`.
+
+The public successful result is only non-deserializable:
+
+`QualifiedCoordinatorReleaseRequirement`.
+
+Thus the live authentication boundary is:
+
+```text
+manifest-bound qualified key
++ detached hybrid signature bytes
+        ↓
+strict Ed25519 AND ML-DSA-65 verification
+        ↓
+post-crypto host clock
+        ↓
+private verifier-owned #269 proof
+        ↓
+local #269 qualification
+        ↓
+non-deserializable authenticated release
+```
+
+This significantly reduces positive receipt replay/injection surface.
 
 ## Release currentness / withdrawal follows authentication
 
-`mycelix-authority-coordinator-release-currentness` applies only after #269 authenticated release qualification. It requires the independently verified current registry head plus exact status of that authenticated release at that exact head.
+`mycelix-authority-coordinator-release-currentness` applies only after #269 authentication. It requires the independently verified current registry head plus exact status of that authenticated release at that exact head.
 
 Only `Active` qualifies. `Withdrawn`, `Superseded`, old-head `Active`, wrong policy or alternate v0.1 profiles deny.
 
-Thus:
+Therefore:
 
-`candidate release != key authorization != signature authentication != release currentness`.
+`candidate release != key authorization != cryptographic authentication != release currentness`.
 
 ## Exact target/release/observation composition
 
-After authentication/currentness, `mycelix-authority-coordinator-deployment-composer` keeps target selection, current release and conductor observation as separate inputs, specializes the release to the independently selected target agent, and delegates whole-set equality to #262.
+After authentication/currentness, `mycelix-authority-coordinator-deployment-composer` keeps target selection, current release and conductor observation separate, specializes the release to the independently selected target agent, and delegates exact whole-set equality to #262.
 
-Its positive result is non-deserializable and lease-monotone, but pure composition does not prove live origin of any input.
+Missing, substituted, duplicate or unexpected installed coordinator code denies.
 
 ## Subject-bound pre/post stability
 
 `mycelix-authority-coordinator-stability-fence` requires a strictly later second exact deployment observation inside the first composition's evidence window, reconstructs the exact same release/target requirement, re-runs #262 and binds the result to one admission subject + per-attempt nonce.
 
-This proves no detected code change across the observed interval. It is still not a mutex/transaction/atomicity guarantee: `UpdateCoordinators` can race after the post observation.
+This proves no detected coordinator-code change across the observed interval. It is not a mutex, transaction or atomicity guarantee: `UpdateCoordinators` can still race after the post observation.
 
-## Live provenance remains separate
+## Remaining provenance boundaries
 
-The pure theorems do not prove that their deserializable evidence inputs came from designated live verifier roles.
+The new native crypto verifier establishes actual signature verification, but several independent live origins remain unresolved:
+
+- current key-policy proof provenance/completeness;
+- current release-registry head provenance/completeness;
+- exact release status-at-head provenance;
+- target CellId selection provenance;
+- real-conductor qualification of the native observer;
+- native ownership of the admission subject/attempt nonce and pre/post bracketing; and
+- post-observation update-race/effect atomicity semantics.
 
 In particular:
 
-`semantic key policy != current key-policy provenance != manifest-bound qualified signing key != hybrid signature verification`.
+`real crypto != current key-policy provenance != release-registry currentness`.
 
-Likewise:
+And:
 
-`target selection != current approved release != observed deployment != stability interval != atomic effect admission`.
+`exact deployment stability != atomic effect admission`.
 
 ## Consumer rule
 
@@ -146,10 +200,10 @@ A future lifecycle/effect consumer needs independently:
 2. exact stable/dynamic deployment evidence + lease;
 3. trusted exact target CellId selection;
 4. candidate coordinator release semantics;
-5. independently current release-key policy;
+5. independently current release-key policy from a qualified live verifier;
 6. manifest-bound non-deserializable qualified hybrid signing key;
-7. live hybrid release-signature verification using that key;
-8. #269 authenticated release followed by independently proven #275 current release-registry head/completeness and exact status-at-head;
+7. native strict hybrid authentication returning only local #269 authenticated release;
+8. independently proven #275 current release-registry head/completeness and exact status-at-head;
 9. native pre deployment observation for the exact CellId;
 10. exact target/current-release/observation composition through #290/#262;
 11. native post observation and subject/attempt-bound stability through #298;
@@ -159,9 +213,9 @@ A future lifecycle/effect consumer needs independently:
 
 ## Provisioning state
 
-The corrected non-circular key-policy theorem still does not satisfy this gate.
+The native hybrid verifier candidate still does not satisfy the whole deployment gate.
 
-Until current key-policy provenance, real hybrid signature verification, release-head/status provenance, real-conductor observation, target-selection provenance, native pre/post orchestration and post-observation race semantics are qualified and bound into final lifecycle/effect admission:
+Until current key-policy verifier provenance/completeness, release-head/status provenance, real-conductor observer qualification, target-selection provenance, native pre/post orchestration and post-observation race semantics are qualified and bound into final lifecycle/effect admission:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
@@ -170,4 +224,4 @@ Until current key-policy provenance, real hybrid signature verification, release
 
 ## Qualification still required
 
-Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; current release-key-policy verifier/completeness; native hybrid signature verifier using only a manifest-bound qualified key; current registry-head verifier/completeness; exact status-at-head verifier; live provenance-preserving composition; native pre/post admission orchestration; explicit post-observation update-race/atomicity policy; final lifecycle/effect binding; and adversarial wrong-key/wrong-policy/key-rotation/manifest-substitution/forged-signature/wrong-cell/stale/extra/old-head/withdrawn/replayed-attempt/local-endpoint-impersonation/update-race tests.
+Remaining work includes: real-conductor native observer qualification; trusted target-cell selection provenance; current release-key-policy verifier/completeness; current registry-head verifier/completeness; exact status-at-head verifier; live provenance-preserving composition; native pre/post admission orchestration; explicit post-observation update-race/atomicity policy; final lifecycle/effect binding; and adversarial wrong-key/wrong-policy/key-rotation/manifest-substitution/forged-signature/wrong-cell/stale/extra/old-head/withdrawn/replayed-attempt/local-endpoint-impersonation/update-race tests.
