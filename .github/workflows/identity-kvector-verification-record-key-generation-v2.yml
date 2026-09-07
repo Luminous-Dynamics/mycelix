@@ -1,0 +1,180 @@
+name: Identity K-Vector Verification Record Key Generation V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - '.github/workflows/identity-kvector-verification-record-key-generation-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/attestation-fulfillment-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-proof-statement-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - '.github/workflows/identity-kvector-verification-record-key-generation-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-key-generation-bound-record-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert key-generation-bound record theorem
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/kvector-verification-record-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-attestation-fulfillment-policy',
+              'mycelix-kvector-proof-statement-policy',
+              'mycelix-kvector-verifier-key-generation-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: verification-record deps drifted: {sorted(deps)}')
+          expected_paths = {
+              'mycelix-attestation-fulfillment-policy': '../attestation-fulfillment-policy',
+              'mycelix-kvector-proof-statement-policy': '../kvector-proof-statement-policy',
+              'mycelix-kvector-verifier-key-generation-policy': '../kvector-verifier-key-generation-policy',
+          }
+          for name, path in expected_paths.items():
+              if deps[name].get('path') != path:
+                  raise SystemExit(f'ERROR: {name} not bound to canonical theorem path')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: verification record must use workspace SHA-256')
+
+          dev = manifest.get('dev-dependencies', {})
+          if set(dev) != {'mycelix-crypto'} or dev['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit(f'ERROR: verification-record dev dependencies drifted: {sorted(dev)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'mycelix:identity:kvector-verification-record:key-generation-bound:v2\\0',
+              'verifier_key_generation_sha256:',
+              'VerifierKeyGenerationDigestLengthInvalid',
+              'VerifierKeyGenerationDigestMismatch',
+              'validate_kvector_verification_record_key_generation_binding_v2',
+              'derive_kvector_verifier_key_generation_digest_v2(generation)',
+              'validate_kvector_verifier_key_historical_use_v2(',
+              'body.verifier_key_generation_sha256 != generation_digest.as_slice()',
+              'hasher.update(body.verifier_key_generation_sha256)',
+              'effective_kvector_verification_valid_until_v2(',
+              '.min(generation.valid_until_micros)',
+              'generation_bound_verification_record_digest_vector_is_frozen',
+              '0x41, 0x32, 0x09, 0x4c',
+              'record_binds_exact_statement_proof_and_generation',
+              'key_generation_change_changes_signed_record_digest',
+              'backdated_record_cannot_bind_to_later_generation',
+              'natural_validity_uses_exact_generation_not_caller_key_expiry_scalar',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generation-bound record theorem missing: {needle!r}')
+
+          sign_start = text.index('pub fn derive_kvector_verification_record_signing_digest_v2(')
+          sign_end = text.index('pub fn validate_kvector_verification_record_binding_v2(', sign_start)
+          signing = text[sign_start:sign_end]
+          for needle in [
+              'body.fulfillment_id',
+              'body.proof_statement_sha256',
+              'body.proof_sha256',
+              'body.backend_id.as_bytes()',
+              'body.circuit_id.as_bytes()',
+              'body.circuit_version.as_bytes()',
+              'body.verifier_did.as_bytes()',
+              'body.verifier_key_id.as_bytes()',
+              'body.verifier_key_generation_sha256',
+              'body.signature_scheme_id.as_bytes()',
+              'body.verification_policy_sha256',
+              'body.outcome.tag()',
+              'body.verified_at_micros.to_be_bytes()',
+              'body.valid_until_micros.to_be_bytes()',
+          ]:
+              if needle not in signing:
+                  raise SystemExit(f'ERROR: signing transcript lost binding: {needle!r}')
+
+          key_start = text.index('pub fn validate_kvector_verification_record_key_generation_binding_v2(')
+          key_end = text.index('pub fn effective_kvector_verification_valid_until_v2(', key_start)
+          key_binding = text[key_start:key_end]
+          for needle in [
+              'derive_kvector_verifier_key_generation_digest_v2(generation)',
+              'body.verifier_key_generation_sha256 != generation_digest.as_slice()',
+              'verifier_did: body.verifier_did',
+              'verifier_key_id: body.verifier_key_id',
+              'verified_at_micros: body.verified_at_micros',
+              'validate_kvector_verifier_key_historical_use_v2(',
+          ]:
+              if needle not in key_binding:
+                  raise SystemExit(f'ERROR: historical key-generation binding lost: {needle!r}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_validated',
+              'policy_current',
+              'policy_accepted',
+              'is_verified',
+              'max_by_key',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/authenticity/currentness leaked into record theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml \
+            -- --check
+
+      - name: Test verifier-key generation theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/Cargo.toml
+
+      - name: Test generation-bound verification record
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml
+
+      - name: Check generation-bound record for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
