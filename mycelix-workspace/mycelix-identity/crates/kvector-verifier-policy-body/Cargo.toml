@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-kvector-verifier-policy-body"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Backend-neutral verifier-policy body theorem for Identity V2 K-vector proof evidence"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-kvector-proof-statement-policy = { path = "../kvector-proof-statement-policy" }
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }
+sha2 = { workspace = true }
