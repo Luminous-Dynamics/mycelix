@@ -28,7 +28,7 @@ env:
 jobs:
   qualify-root-fanout:
     name: Qualify canonical root Holochain fanout
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - id: checkout
@@ -83,6 +83,43 @@ jobs:
         with:
           toolchain: 1.96.0
           targets: wasm32-unknown-unknown
+
+      - name: Capture qualification execution capsule
+        id: execution_capsule
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          {
+            echo "schema=1"
+            echo "runner_label=ubuntu-24.04"
+            echo "runner_os=${RUNNER_OS:-unknown}"
+            echo "runner_arch=${RUNNER_ARCH:-unknown}"
+            echo "image_os=${ImageOS:-unknown}"
+            echo "image_version=${ImageVersion:-unknown}"
+            echo "workflow_ref=${GITHUB_WORKFLOW_REF:-unknown}"
+            echo "workflow_sha=${GITHUB_WORKFLOW_SHA:-unknown}"
+            echo "checkout_action_sha=11d5960a326750d5838078e36cf38b85af677262"
+            echo "install_nix_action_sha=13d8dd58da0234aa297dedd986986ccb8e7f3e24"
+            echo "rust_toolchain_action_sha=6bed0761d98439e5a578e2877258200ad565ba87"
+            echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
+            echo "nix_installer_version=2.35.2"
+            echo "nix_installer_url=https://releases.nixos.org/nix/nix-2.35.2/install"
+            echo "[uname]"
+            uname -a
+            echo "[os-release]"
+            cat /etc/os-release
+            echo "[git]"
+            git --version
+            echo "[python]"
+            python3 --version
+            echo "[rustc]"
+            rustc -vV
+            echo "[cargo]"
+            cargo --version
+            echo "[nix]"
+            nix --version
+          } > "$evidence/execution-capsule.txt"
+          test -s "$evidence/execution-capsule.txt"
 
       - name: Materialize shared 0.6.3 candidate
         id: materialize
@@ -240,6 +277,7 @@ jobs:
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/holochain-0.6.3-root-fanout-evidence"
+          test -s "$evidence/execution-capsule.txt"
           test -s "$evidence/root-holochain-fanout.json"
           test -s "$evidence/root-fanout-scope-proof.json"
           test -s "$evidence/root-resolved-holochain-graphs.json"
@@ -260,6 +298,7 @@ jobs:
 
           sha256sum \
             mycelix-workspace/Cargo.lock \
+            "$evidence/execution-capsule.txt" \
             "$evidence/root-holochain-fanout.json" \
             "$evidence/root-fanout-scope-proof.json" \
             "$evidence/root-resolved-holochain-graphs.json" \
@@ -275,6 +314,7 @@ jobs:
         with:
           name: holochain-0.6.3-root-fanout-${{ steps.head.outputs.sha || github.sha }}
           path: |
+            ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/execution-capsule.txt
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-holochain-fanout.json
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-fanout-scope-proof.json
             ${{ runner.temp }}/holochain-0.6.3-root-fanout-evidence/root-resolved-holochain-graphs.json
@@ -307,6 +347,7 @@ jobs:
           check parent '${{ steps.parent.outcome }}'
           check install_nix '${{ steps.install_nix.outcome }}'
           check install_rust '${{ steps.install_rust.outcome }}'
+          check execution_capsule '${{ steps.execution_capsule.outcome }}'
           check materialize '${{ steps.materialize.outcome }}'
           check nix_lock '${{ steps.nix_lock.outcome }}'
           check contract '${{ steps.contract.outcome }}'
