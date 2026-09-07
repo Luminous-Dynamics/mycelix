@@ -1,0 +1,77 @@
+name: Business Governance Resolution Bridge Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-business-governance-bridge/**'
+      - 'mycelix-workspace/crates/mycelix-business-core/**'
+      - 'mycelix-workspace/crates/mycelix-business-terminal-expectation/**'
+      - 'mycelix-workspace/mycelix-governance/crates/governance-resolution-types/**'
+      - '.github/workflows/business-governance-resolution-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: business-governance-resolution-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Governance to Business semantic bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify bridge dependency boundary
+        run: |
+          python3 - <<'PY'
+          import fnmatch
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']
+          crate = 'crates/mycelix-business-governance-bridge'
+          assert any(fnmatch.fnmatch(crate, pattern) for pattern in workspace.get('members', [])), (
+              'Governance resolution bridge is not covered by the root workspace'
+          )
+          assert not any(fnmatch.fnmatch(crate, pattern) for pattern in workspace.get('exclude', [])), (
+              'Governance resolution bridge is unexpectedly excluded from the root workspace'
+          )
+
+          manifest = tomllib.loads((root / crate / 'Cargo.toml').read_text())
+          dependencies = manifest.get('dependencies', {})
+          assert set(dependencies) == {
+              'mycelix-business-core',
+              'mycelix-business-terminal-expectation',
+              'governance-resolution-types',
+          }, 'bridge may depend only on exact semantic/proof boundary crates'
+          assert dependencies['mycelix-business-core'].get('path') == '../mycelix-business-core'
+          assert dependencies['mycelix-business-terminal-expectation'].get('path') == '../mycelix-business-terminal-expectation'
+          assert dependencies['governance-resolution-types'].get('path') == '../../mycelix-governance/crates/governance-resolution-types'
+          assert not manifest.get('dev-dependencies'), 'bridge must have zero dev dependencies'
+          assert not manifest.get('build-dependencies'), 'bridge must have zero build dependencies'
+          PY
+
+      - name: Verify no runtime authority coupling
+        run: |
+          src='mycelix-workspace/crates/mycelix-business-governance-bridge/src'
+          if grep -R -n -E 'use[[:space:]]+(hdk|hdi)::|holochain_[a-z_]+::|std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src"; then
+            echo 'Governance resolution bridge gained runtime or ambient authority coupling' >&2
+            exit 1
+          fi
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-business-governance-bridge/Cargo.toml --all -- --check
+
+      - name: tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-business-governance-bridge/Cargo.toml
+
+      - name: clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-business-governance-bridge/Cargo.toml --all-targets -- -D warnings
