@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-agent-activity-coverage-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Viewpoint-scoped agent activity coverage theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]

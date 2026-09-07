@@ -1,0 +1,137 @@
+name: Identity Agent Activity Coverage Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - '.github/workflows/identity-agent-activity-coverage-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - '.github/workflows/identity-agent-activity-coverage-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-agent-activity-coverage-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert agent-activity coverage theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/agent-activity-coverage-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          if deps:
+              raise SystemExit(f'ERROR: agent-activity coverage theorem must be dependency-free: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'AgentActivityObservationV2',
+              'ObservedChainStatusV2',
+              'ObservedHighestActivityV2',
+              'QualifiedActivityActionV2',
+              'QualifiedAgentActivityCoverageV2',
+              'qualify_agent_activity_coverage_v2',
+              'matching_valid_actions: Vec<QualifiedActivityActionV2>',
+              'pub fn matching_valid_actions(&self)',
+              'pub fn contains_action(&self, action_seq: u32, action_id: &str)',
+              'ForkedChainStatus',
+              'InvalidChainStatus',
+              'WarrantsPresent',
+              'RejectedActivityPresent',
+              'HighestObservedDoesNotMatchValidHead',
+              'MultipleHighestObservedHeads',
+              'DuplicateActionSequence',
+              'MatchingActivityBeyondValidHead',
+              'sparse_matching_activity_can_be_covered_by_a_settled_chain_head',
+              'qualified_output_retains_exact_input_action_set',
+              'forked_chain_status_fails_closed',
+              'warrants_fail_closed_even_when_status_is_valid',
+              'unintegrated_higher_observation_fails_closed',
+              'multiple_highest_observed_hashes_fail_closed',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: agent-activity coverage theorem missing: {needle!r}')
+
+          # Successful theorem outputs are verifier-owned capabilities, not caller-owned DTOs.
+          for public_field in [
+              'pub valid_head_action_seq:',
+              'pub valid_head_action_id:',
+              'pub matching_valid_actions:',
+              'pub action_seq: u32,\n    pub action_id: String',
+          ]:
+              if public_field in text:
+                  raise SystemExit(
+                      f'ERROR: qualified activity capability exposes forgeable public field: {public_field!r}'
+                  )
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'get_details(',
+              'max_by_key',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_verified',
+              'policy_current',
+              'policy_accepted',
+              'global_consensus:',
+              'positive_evidence:',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: HDK/network/crypto/currentness authority leaked into coverage theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml \
+            -- --check
+
+      - name: Test agent-activity coverage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml
+
+      - name: Check agent-activity coverage theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
