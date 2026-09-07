@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Inventory Holochain-bearing Cargo workspace authority across an exact checkout.
 
-This is a *static structural census*. It deliberately does not claim resolved-graph
-qualification; later tranches must confirm candidate graphs with Cargo metadata and
-locks. Its purpose is to make the repository scope closed: every Cargo manifest is
-seen, workspace nesting is modeled, local path dependency reachability is followed,
-and every Holochain-bearing workspace must resolve to reviewed migration authority
-or remain explicitly unclassified.
+This is a static structural census, not resolved-graph qualification. It sees every
+source Cargo manifest, models explicit/implicit workspace subjects, follows local
+path dependencies, and maps reviewed authority anchors to those structural subjects.
+Unknown Holochain-bearing subjects remain unclassified until deliberately reviewed.
 """
 
 from __future__ import annotations
@@ -17,6 +15,7 @@ import glob
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import tomllib
 
@@ -25,8 +24,8 @@ from holochain_release_family import HOLOCHAIN_RELEASE_COUPLED
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_POLICY = ROOT / "mycelix-workspace/holochain-workspace-authority.toml"
 
-# Generated/vendor trees are not source authority subjects. Keep this set small and
-# explicit; any future exclusion is a policy change reviewers can see.
+# Generated/vendor trees are not source authority subjects. Keep this list small and
+# visible: adding an exclusion changes the census theorem and requires review.
 SKIP_PARTS = {
     ".git",
     ".direnv",
@@ -53,6 +52,20 @@ FAMILY_PREFIXES = (
     "holochain_wasmer_",
     "kitsune2_",
     "lair_keystore_",
+)
+INVALID_FAMILY_RE = re.compile(
+    r'''(?mx)
+    ^\s*(?:
+        hdk|hdi|hdk_derive|holo_hash|holochain_client|holochain_chc|
+        holochain_serialized_bytes(?:_derive)?|holochain(?:[_-][A-Za-z0-9_-]+)?|
+        kitsune2(?:_[A-Za-z0-9_-]+)?|lair_keystore(?:_[A-Za-z0-9_-]+)?
+    )\s*=|
+    \bpackage\s*=\s*["'](?:
+        hdk|hdi|hdk_derive|holo_hash|holochain_client|holochain_chc|
+        holochain_serialized_bytes(?:_derive)?|holochain(?:[_-][A-Za-z0-9_-]+)?|
+        kitsune2(?:_[A-Za-z0-9_-]+)?|lair_keystore(?:_[A-Za-z0-9_-]+)?
+    )["']
+    '''
 )
 
 
@@ -189,8 +202,7 @@ def main() -> None:
             parse_errors[manifest] = str(exc)
             evidence["parse_status"] = "invalid"
             evidence["parse_error"] = str(exc)
-            lowered = raw.lower().replace("-", "_")
-            if any(name.replace("-", "_") in lowered for name in FAMILY_EXACT) or "holochain_" in lowered:
+            if INVALID_FAMILY_RE.search(raw):
                 suspicious_invalid.append(rel(manifest))
             manifest_evidence[rel(manifest)] = evidence
             continue
@@ -233,11 +245,9 @@ def main() -> None:
         evidence["path_dependencies"] = path_rows
         manifest_evidence[rel(manifest)] = evidence
 
-    # Discover explicit Cargo workspace roots and the manifests they claim through
-    # their reviewed member/exclude patterns. A package+[workspace] root includes
-    # itself. Empty [workspace] on a package therefore remains a singleton root.
     explicit_roots = {m for m, d in parsed.items() if isinstance(d.get("workspace"), dict)}
     root_members: dict[Path, set[Path]] = {}
+    root_excludes: dict[Path, set[Path]] = {}
     for root in sorted(explicit_roots, key=rel):
         document = parsed[root]
         workspace = document["workspace"]
@@ -247,15 +257,13 @@ def main() -> None:
         if isinstance(document.get("package"), dict):
             members.add(root)
         root_members[root] = {m for m in members if m in parsed}
+        root_excludes[root] = excludes
 
-    # Cargo also permits local path dependencies below a workspace root to become
-    # members. Conservatively close each explicit root over repository-local path
-    # dependencies that stay under the workspace directory, unless another explicit
-    # workspace root owns the candidate itself. This is structural discovery only;
-    # later resolved metadata must confirm the result.
+    # Conservatively close explicit roots over local path dependencies that remain
+    # below that root and are not excluded/nested workspace roots. Resolved Cargo
+    # metadata in a later gate remains authoritative over this static approximation.
     for root in sorted(explicit_roots, key=rel):
         root_dir = root.parent.resolve()
-        excluded = expand_workspace_patterns(root, list(parsed[root]["workspace"].get("exclude", [])))
         queue = deque(root_members[root])
         seen = set(root_members[root])
         while queue:
@@ -265,17 +273,22 @@ def main() -> None:
                     dep.relative_to(root_dir)
                 except ValueError:
                     continue
-                if dep in excluded or (dep in explicit_roots and dep != root):
+                if dep in root_excludes[root] or (dep in explicit_roots and dep != root):
                     continue
                 if dep not in seen:
                     seen.add(dep)
                     queue.append(dep)
         root_members[root] = seen
 
-    claims: dict[Path, list[Path]] = defaultdict(list)
+    # Workspace root manifests are authority subjects even when they are virtual and
+    # contain no [package]. Treat the root itself as a structural claim so an outer
+    # workspace accidentally claiming a nested workspace becomes an explicit conflict.
+    claims: dict[Path, set[Path]] = defaultdict(set)
+    for root in explicit_roots:
+        claims[root].add(root)
     for root, members in root_members.items():
         for member in members:
-            claims[member].append(root)
+            claims[member].add(root)
 
     workspace_conflicts = {
         rel(m): sorted(rel(r) for r in roots)
@@ -283,15 +296,14 @@ def main() -> None:
         if len(roots) > 1
     }
 
-    # Every parseable package not claimed by an explicit workspace is an implicit
-    # singleton Cargo subject for census purposes.
     subjects: dict[Path, set[Path]] = {root: set(members) for root, members in root_members.items()}
     manifest_subject: dict[Path, Path] = {}
-    for root, members in subjects.items():
-        for member in members:
-            if len(claims.get(member, [])) == 1:
-                manifest_subject[member] = root
+    for manifest, roots in claims.items():
+        if len(roots) == 1:
+            manifest_subject[manifest] = next(iter(roots))
 
+    # Every parseable package outside an explicit workspace is an implicit singleton
+    # Cargo subject. Explicit virtual workspace roots were already mapped above.
     for manifest, document in parsed.items():
         if not isinstance(document.get("package"), dict):
             continue
@@ -299,9 +311,6 @@ def main() -> None:
             subjects.setdefault(manifest, {manifest})
             manifest_subject[manifest] = manifest
 
-    # Resolve reviewed authority anchors to the structural Cargo subject that owns
-    # them. Multiple anchors may intentionally point to one subject, but different
-    # authority IDs may not claim the same subject.
     authorities: dict[Path, set[str]] = defaultdict(set)
     anchor_errors: list[str] = []
     bindings_evidence = []
@@ -317,7 +326,7 @@ def main() -> None:
             continue
         subject = manifest_subject.get(anchor)
         if subject is None:
-            anchor_errors.append(f"authority anchor has no structural Cargo subject: {anchor_raw}")
+            anchor_errors.append(f"authority anchor has no unambiguous Cargo subject: {anchor_raw}")
             continue
         authorities[subject].add(authority)
         bindings_evidence.append(
@@ -329,8 +338,6 @@ def main() -> None:
             }
         )
 
-    # Follow repository-local path dependencies from every subject. This catches a
-    # non-Holochain facade crate that reaches Holochain through a local path crate.
     subject_rows = []
     unclassified = []
     double_authority = []
@@ -366,7 +373,8 @@ def main() -> None:
                 double_authority.append({"workspace_root": rel(subject), "authorities": auth})
         else:
             classification = "non_holochain"
-            if subject in explicit_roots and subject != ROOT / "mycelix-workspace/Cargo.toml":
+            root_workspace = (ROOT / "mycelix-workspace/Cargo.toml").resolve()
+            if subject in explicit_roots and subject != root_workspace:
                 non_holochain_isolated.append(rel(subject))
 
         subject_rows.append(
@@ -415,6 +423,7 @@ def main() -> None:
         "duplicate_authority": double_authority,
         "workspace_conflicts": workspace_conflicts,
         "suspicious_invalid_manifests": sorted(suspicious_invalid),
+        "invalid_manifests": {rel(path): error for path, error in sorted(parse_errors.items(), key=lambda item: rel(item[0]))},
         "anchor_errors": anchor_errors,
         "non_holochain_isolated_workspaces": sorted(non_holochain_isolated),
         "subjects": subject_rows,
@@ -440,7 +449,7 @@ def main() -> None:
     if workspace_conflicts:
         hard_failures.append("one or more manifests are structurally claimed by multiple workspaces")
     if suspicious_invalid:
-        hard_failures.append("invalid manifests contain Holochain-family tokens")
+        hard_failures.append("invalid manifests contain dependency-like Holochain-family tokens")
     if anchor_errors:
         hard_failures.append("authority policy contains invalid/unresolved anchors")
     if unclassified and not args.allow_unclassified:
