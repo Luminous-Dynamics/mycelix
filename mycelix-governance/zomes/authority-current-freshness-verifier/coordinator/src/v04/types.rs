@@ -48,10 +48,14 @@ use mycelix_institutional_core::Digest32;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.9";
+const RUNTIME_PROTOCOL: &str = "mycelix-authority-current-freshness-verifier-v0.10";
 const ROOT_MANIFEST_PROVIDER_ZOME: &str = "authority_state_bootstrap_root_manifest_provider";
-const CONSTITUTION_TRANSITION_ZOME: &str = "constitution_transition";
-const CURRENT_CONSTITUTION_FUNCTION: &str = "get_verified_current_constitution";
+const CONSTITUTION_CURRENTNESS_VERIFIER_ZOME: &str = "constitution_currentness_verifier";
+const CURRENT_CONSTITUTION_FUNCTION: &str = "get_leased_current_constitution";
+const LEASED_CURRENT_CONSTITUTION_PROTOCOL: &str =
+    "mycelix-governance-current-constitution-leased-v0.1";
+const GENESIS_CURRENTNESS_LEASE_BASIS: &str =
+    "dna-immutable-genesis-amendments-disabled-local-reuse-v1";
 const ROOT_ADOPTION_PROOF_VERIFIER_ZOME: &str =
     "authority_bootstrap_root_adoption_proof_verifier";
 const ROOT_ADOPTION_PROOF_VERIFIER_FUNCTION: &str = "verify_bootstrap_root_adoption_proof";
@@ -69,17 +73,23 @@ const MAX_CONTROL_PLANE_PROBES: usize = 3;
 const MAX_WITNESSES: usize = 64;
 const MAX_TRUST_BINDINGS: usize = 64;
 const MAX_TRANSITIONS: usize = 256;
-const CURRENT_CONSTITUTION_COMPOSITION_LEASE_MS: u64 = 30_000;
 const DEPLOYMENT_RETURN_LEASE_MS: u64 = 5_000;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct VerifiedCurrentConstitutionMirror {
+    protocol: String,
     dna_hash: String,
     statement: ConstitutionStatement,
     statement_digest: ConstitutionDigest32,
     verified_transition_count: u64,
-    candidate_count: u64,
     legacy_constitution_authoritative: bool,
+    lease_basis: String,
+    verification_ref: String,
+    verified_at_ms: u64,
+    valid_until_ms: u64,
+    genesis_currentness_by_amendments_disabled: bool,
+    transition_currentness_supported: bool,
+    candidate_discovery_used_for_positive_currentness: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -233,6 +243,10 @@ pub struct CurrentFreshnessRuntimeStatus {
     pub composition_only: bool,
     pub root_manifest_provider_grants_authority: bool,
     pub current_constitution_source_is_binding_plane: bool,
+    pub leased_binding_constitution_consumed: bool,
+    pub synthetic_constitution_lease_constructed_locally: bool,
+    pub amendment_currentness_accepted_without_bounded_transition_lease: bool,
+    pub constitution_candidate_discovery_grants_authority: bool,
     pub constitution_rechecked_after_adoption: bool,
     pub constitution_rechecked_before_return: bool,
     pub root_adoption_proof_verifier_separate: bool,
