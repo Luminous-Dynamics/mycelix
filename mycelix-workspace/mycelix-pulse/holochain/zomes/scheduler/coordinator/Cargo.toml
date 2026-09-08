@@ -6,6 +6,13 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# These are control-flow/presentation findings in the legacy scheduler.
+# Keep them package-local during cohort qualification rather than
+# rewriting scheduling semantics under a dependency migration gate.
+[lints.clippy]
+collapsible_if = "allow"
+unnecessary_sort_by = "allow"
+
 [dependencies]
 hdk = "0.6"
 serde = { version = "1.0", features = ["derive"] }
