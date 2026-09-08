@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-authority-scoped-verifier-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Authority-domain-scoped static verifier-policy identity for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-authority-scoped-kvector-verification-record-policy = { path = "../authority-scoped-kvector-verification-record-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }

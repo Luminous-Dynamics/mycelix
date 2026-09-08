@@ -39,6 +39,8 @@ members = [
     "crates/authority-scoped-verifier-key-generation-policy",
     # Authority-domain-scoped signed verification-record envelope
     "crates/authority-scoped-kvector-verification-record-policy",
+    # Authority-domain-scoped static verifier-policy identity
+    "crates/authority-scoped-verifier-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Canonical-only DID V2 authority epoch (unprovisioned)
