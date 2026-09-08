@@ -1,0 +1,136 @@
+name: Identity Historical Activation Time Policy Transition V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-authority-domain-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-time-policy-transition-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert transition authority boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-transition-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-identity-authority-domain-policy',
+              'mycelix-historical-activation-time-authority-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: transition runtime dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: transition theorem must use workspace crypto/sha2')
+          expected_paths = {
+              'mycelix-identity-authority-domain-policy': '../identity-authority-domain-policy',
+              'mycelix-historical-activation-time-authority-policy': '../historical-activation-time-authority-policy',
+          }
+          for dep, path in expected_paths.items():
+              if deps[dep].get('path') != path:
+                  raise SystemExit(f'ERROR: {dep} path drifted')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'PreparedHistoricalActivationTimePolicyTransitionV2',
+              'HistoricalActivationTimePolicyTransitionKindV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_TRANSITION_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-transition:v2\\0',
+              'prepare_time_policy_adoption_transition_v2',
+              'prepare_time_policy_supersession_transition_v2',
+              'prepare_time_policy_revocation_transition_v2',
+              'validate_generation_and_predecessor_v2',
+              'RootPredecessorPresent',
+              'NonRootPredecessorMissing',
+              'SupersessionPolicyUnchanged',
+              'authority_domain.digest_sha256()',
+              'policy.policy_digest_sha256()',
+              '0xf7, 0x93, 0xf7, 0x9c',
+              'domain_is_cryptographically_bound',
+              'prepared_transition_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: transition invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct PreparedHistoricalActivationTimePolicyTransitionV2')
+          result_end = text.index('impl PreparedHistoricalActivationTimePolicyTransitionV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub authority_domain_sha256:',
+              'pub predecessor_transition_sha256:',
+              'pub prior_policy_sha256:',
+              'pub resulting_policy_sha256:',
+              'pub transition_signing_digest_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: transition capability is caller-forgeable: {field}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'use hdk', 'hdk::', '#[hdk_extern]', 'get_agent_activity(', 'get_links(',
+              'sys_time(', 'std::time', 'max_by_key', 'verify_strict', '.verify(',
+              'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/crypto/currentness authority leaked into transition theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/Cargo.toml -- --check
+
+      - name: Test authority-domain theorem
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/identity-authority-domain-policy/Cargo.toml
+
+      - name: Test static time-authority policy
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/Cargo.toml
+
+      - name: Test time-policy transition theorem
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/Cargo.toml
+
+      - name: Check transition theorem for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/Cargo.toml --target wasm32-unknown-unknown
