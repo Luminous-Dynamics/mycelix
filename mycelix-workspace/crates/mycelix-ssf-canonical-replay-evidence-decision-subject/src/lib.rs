@@ -5,9 +5,9 @@
 //!
 //! This crate consumes one fresh canonical replay-evidence qualification
 //! request and freezes the exact semantic object a future evidence qualifier
-//! is allowed to evaluate. It independently re-derives the replay basis from
-//! the exact latest canonical outcome and stable actuator recovery mode before
-//! freezing the decision subject.
+//! is allowed to evaluate. It independently re-derives both the historical
+//! self-consistency of the latest canonical observation and the replay basis
+//! before freezing the decision subject.
 //!
 //! This crate adds no cryptographic digest, evidence qualification, replay
 //! authority, or effect authority.
@@ -18,7 +18,9 @@
 use mycelix_ssf_actuator_effect_protocol::{recovery_policy_for, EffectRecoveryPolicyV1};
 use mycelix_ssf_canonical_actuator_execution::CanonicalQualifiedEffectDispositionV1;
 use mycelix_ssf_canonical_completed_effect_evidence::CanonicalCompletedInvocationRecordV1;
-use mycelix_ssf_canonical_completed_outcome_history::CanonicalCompletedOutcomeTerminalV1;
+use mycelix_ssf_canonical_completed_outcome_history::{
+    CanonicalCompletedOutcomeStoreTimeBasisV1, CanonicalCompletedOutcomeTerminalV1,
+};
 use mycelix_ssf_canonical_replay_evidence_qualification_request::{
     CanonicalReplayEvidenceQualificationRequestSubjectV1,
     CanonicalReplayEvidenceQualificationRequestV1,
@@ -96,7 +98,18 @@ pub enum CanonicalReplayEvidenceDecisionSubjectErrorV1 {
     SubjectNotInitialProvenance,
     HistoryInvocationRecordMismatch,
     HistoryHeadRecordMismatch,
+    UnsupportedHistoryStoreTimeBasis,
+    UnsupportedLatestManifestSchema,
     LatestEvidenceInvocationRecordMismatch,
+    LatestEvidenceProvenanceMismatch,
+    PredecessorInvocationMismatch,
+    PredecessorAlreadyTerminal,
+    ManifestExpiredAtRecording,
+    ManifestOutlivesStore,
+    RecordingTimeBeforePreInvocation,
+    RecordingTimeBeforePostInvocation,
+    RecordingTimeAfterHistoryRead,
+    HistoryGenerationMismatch,
     PriorAttemptMismatch,
     PriorEffectSubjectMismatch,
     StableEffectIdentityMismatch,
@@ -203,13 +216,75 @@ fn validate_semantic_lineage(
         return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::HistoryHeadRecordMismatch);
     }
 
-    let evidence = latest_entry.manifest.subject.evidence;
-    if latest_entry.manifest.subject.invocation_record != invocation_record
+    let manifest = latest_entry.manifest;
+    if manifest.expected_store.time_basis
+        != CanonicalCompletedOutcomeStoreTimeBasisV1::UnixMillisecondsUtc
+    {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::UnsupportedHistoryStoreTimeBasis,
+        );
+    }
+    if manifest.schema_version != SSF_SCHEMA_V1 {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::UnsupportedLatestManifestSchema,
+        );
+    }
+
+    let evidence = manifest.subject.evidence;
+    if manifest.subject.invocation_record != invocation_record
         || evidence.invocation_record() != invocation_record
     {
         return Err(
             CanonicalReplayEvidenceDecisionSubjectErrorV1::LatestEvidenceInvocationRecordMismatch,
         );
+    }
+    if evidence.provenance().invocation_record() != Some(invocation_record) {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::LatestEvidenceProvenanceMismatch,
+        );
+    }
+    if manifest.expected_head.invocation_record() != invocation_record {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::PredecessorInvocationMismatch,
+        );
+    }
+    if !manifest.expected_head.permits_append() {
+        return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::PredecessorAlreadyTerminal);
+    }
+    if manifest.valid_until < manifest.recording_latest_possible_unix_ms {
+        return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::ManifestExpiredAtRecording);
+    }
+    if manifest.valid_until > manifest.expected_store.valid_until {
+        return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::ManifestOutlivesStore);
+    }
+
+    let pre_time = evidence.pre_invocation_time().latest_possible_unix_ms;
+    if manifest.recording_latest_possible_unix_ms < pre_time {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::RecordingTimeBeforePreInvocation,
+        );
+    }
+    if evidence
+        .post_invocation_time()
+        .is_some_and(|time| manifest.recording_latest_possible_unix_ms < time.latest_possible_unix_ms)
+    {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::RecordingTimeBeforePostInvocation,
+        );
+    }
+    if subject.history_read_latest_possible_unix_ms()
+        < manifest.recording_latest_possible_unix_ms
+    {
+        return Err(
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::RecordingTimeAfterHistoryRead,
+        );
+    }
+
+    let Some(expected_generation) = manifest.expected_head.generation().get().checked_add(1) else {
+        return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::HistoryGenerationMismatch);
+    };
+    if expected_generation != history_head.generation().get() {
+        return Err(CanonicalReplayEvidenceDecisionSubjectErrorV1::HistoryGenerationMismatch);
     }
 
     let attempt = evidence.attempt();
@@ -331,10 +406,10 @@ mod tests {
     }
 
     #[test]
-    fn semantic_mismatch_and_expiry_are_distinct_failures() {
+    fn historical_and_replay_semantic_failures_are_distinct() {
         assert_ne!(
-            CanonicalReplayEvidenceDecisionSubjectErrorV1::ReplayBasisMismatch,
-            CanonicalReplayEvidenceDecisionSubjectErrorV1::RequestAlreadyExpired
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::ManifestExpiredAtRecording,
+            CanonicalReplayEvidenceDecisionSubjectErrorV1::ReplayBasisMismatch
         );
     }
 }
