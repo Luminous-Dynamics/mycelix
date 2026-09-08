@@ -140,6 +140,8 @@ pub enum JusticeFinalityEvidenceReceiptV1 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JusticeFinalityQualificationReceiptV1 {
     decision_ref: String,
+    decision_rendered_at_unix_ms: u64,
+    appeal_deadline_unix_ms: u64,
     semantic_profile: &'static str,
     semantic_version: u32,
     qualification_time_unix_ms: u64,
@@ -150,6 +152,16 @@ impl JusticeFinalityQualificationReceiptV1 {
     #[must_use]
     pub fn decision_ref(&self) -> &str {
         &self.decision_ref
+    }
+
+    #[must_use]
+    pub const fn decision_rendered_at_unix_ms(&self) -> u64 {
+        self.decision_rendered_at_unix_ms
+    }
+
+    #[must_use]
+    pub const fn appeal_deadline_unix_ms(&self) -> u64 {
+        self.appeal_deadline_unix_ms
     }
 
     #[must_use]
@@ -178,6 +190,8 @@ impl JusticeFinalityQualificationReceiptV1 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QualifiedJusticeFinalityV1 {
     decision_ref: String,
+    decision_rendered_at_unix_ms: u64,
+    appeal_deadline_unix_ms: u64,
     qualification_time_unix_ms: u64,
     finality: JusticeFinalityBasisV1,
     receipt: JusticeFinalityQualificationReceiptV1,
@@ -187,6 +201,16 @@ impl QualifiedJusticeFinalityV1 {
     #[must_use]
     pub fn decision_ref(&self) -> &str {
         &self.decision_ref
+    }
+
+    #[must_use]
+    pub const fn decision_rendered_at_unix_ms(&self) -> u64 {
+        self.decision_rendered_at_unix_ms
+    }
+
+    #[must_use]
+    pub const fn appeal_deadline_unix_ms(&self) -> u64 {
+        self.appeal_deadline_unix_ms
     }
 
     #[must_use]
@@ -380,6 +404,8 @@ fn qualify_no_appeal_coverage(
 
     let receipt = JusticeFinalityQualificationReceiptV1 {
         decision_ref: decision_ref.clone(),
+        decision_rendered_at_unix_ms,
+        appeal_deadline_unix_ms,
         semantic_profile: FINALITY_QUALIFICATION_PROFILE,
         semantic_version: FINALITY_QUALIFICATION_VERSION,
         qualification_time_unix_ms,
@@ -393,6 +419,8 @@ fn qualify_no_appeal_coverage(
 
     Ok(QualifiedJusticeFinalityV1 {
         decision_ref,
+        decision_rendered_at_unix_ms,
+        appeal_deadline_unix_ms,
         qualification_time_unix_ms,
         finality,
         receipt,
@@ -478,6 +506,8 @@ fn qualify_terminal_appeal_resolution(
 
     let receipt = JusticeFinalityQualificationReceiptV1 {
         decision_ref: decision_ref.clone(),
+        decision_rendered_at_unix_ms,
+        appeal_deadline_unix_ms,
         semantic_profile: FINALITY_QUALIFICATION_PROFILE,
         semantic_version: FINALITY_QUALIFICATION_VERSION,
         qualification_time_unix_ms,
@@ -494,6 +524,8 @@ fn qualify_terminal_appeal_resolution(
 
     Ok(QualifiedJusticeFinalityV1 {
         decision_ref,
+        decision_rendered_at_unix_ms,
+        appeal_deadline_unix_ms,
         qualification_time_unix_ms,
         finality,
         receipt,
@@ -555,7 +587,11 @@ mod tests {
     fn complete_positive_coverage_qualifies_no_appeal_finality() {
         let qualified = qualify_justice_finality_v1(coverage_basis()).unwrap();
         assert_eq!(qualified.decision_ref(), "decision-action:1");
+        assert_eq!(qualified.decision_rendered_at_unix_ms(), 100);
+        assert_eq!(qualified.appeal_deadline_unix_ms(), 200);
         assert_eq!(qualified.qualification_time_unix_ms(), 250);
+        assert_eq!(qualified.receipt().decision_rendered_at_unix_ms(), 100);
+        assert_eq!(qualified.receipt().appeal_deadline_unix_ms(), 200);
         assert_eq!(
             qualified.receipt().semantic_profile(),
             FINALITY_QUALIFICATION_PROFILE
@@ -690,6 +726,10 @@ mod tests {
     #[test]
     fn exact_terminal_affirmance_qualifies() {
         let qualified = qualify_justice_finality_v1(resolved_basis()).unwrap();
+        assert_eq!(qualified.decision_rendered_at_unix_ms(), 100);
+        assert_eq!(qualified.appeal_deadline_unix_ms(), 200);
+        assert_eq!(qualified.receipt().decision_rendered_at_unix_ms(), 100);
+        assert_eq!(qualified.receipt().appeal_deadline_unix_ms(), 200);
         assert!(matches!(
             qualified.finality(),
             JusticeFinalityBasisV1::AppealResolved {
