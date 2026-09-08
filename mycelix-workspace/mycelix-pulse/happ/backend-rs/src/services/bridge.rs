@@ -145,8 +145,8 @@ impl HappId {
     /// Get default weight for reputation aggregation
     pub fn default_weight(&self) -> f64 {
         match self {
-            HappId::Identity => 1.5,   // Identity verification weighs more
-            HappId::Justice => 1.3,    // Justice history weighs more
+            HappId::Identity => 1.5,
+            HappId::Justice => 1.3,
             HappId::Finance => 1.2,
             HappId::Governance => 1.1,
             HappId::Property => 1.0,
@@ -233,13 +233,9 @@ pub struct ReputationReport {
 /// Bridge connection state
 #[derive(Debug, Clone, PartialEq)]
 pub enum BridgeConnectionState {
-    /// Not connected
     Disconnected,
-    /// Connected in stub mode (no real Bridge)
     StubMode,
-    /// Connected to real Bridge zome
     Connected,
-    /// Connection failed, using fallback
     Fallback,
 }
 
@@ -256,34 +252,17 @@ struct CachedReputation {
 }
 
 /// Bridge Client for cross-hApp communication
-///
-/// Provides:
-/// - Identity queries from the Identity hApp
-/// - Cross-hApp reputation queries
-/// - Reputation reporting for trust updates
-/// - Graceful fallback when Bridge is unavailable
-///
-/// ## Integration with HolochainService
-///
-/// When connected to a real conductor, this client uses HolochainService
-/// to make zome calls to the Bridge coordinator zome for cross-hApp reputation.
 pub struct BridgeClient {
     config: Config,
     state: Arc<RwLock<BridgeConnectionState>>,
-    /// Cache for identity lookups
     identity_cache: Arc<RwLock<HashMap<String, CachedIdentity>>>,
-    /// Cache for reputation lookups
     reputation_cache: Arc<RwLock<HashMap<String, CachedReputation>>>,
-    /// TTL for cached data
     cache_ttl: Duration,
-    /// Pending reputation reports (for batch submission)
     pending_reports: Arc<RwLock<Vec<ReputationReport>>>,
-    /// Reference to HolochainService for zome calls (set after connection)
     holochain: Arc<RwLock<Option<Arc<crate::services::holochain::HolochainService>>>>,
 }
 
 impl BridgeClient {
-    /// Create a new Bridge client
     pub fn new(config: Config) -> Self {
         let cache_ttl = Duration::from_secs(config.bridge_cache_ttl_secs);
 
@@ -298,42 +277,32 @@ impl BridgeClient {
         }
     }
 
-    /// Set the HolochainService reference for making Bridge zome calls
-    ///
-    /// This should be called after the HolochainService is connected to enable
-    /// real Bridge zome calls instead of stub data.
     pub async fn set_holochain(&self, holochain: Arc<crate::services::holochain::HolochainService>) {
         let mut hc = self.holochain.write().await;
         *hc = Some(holochain);
         tracing::debug!("BridgeClient: HolochainService reference set");
     }
 
-    /// Check if HolochainService is available for Bridge calls
     pub async fn has_holochain(&self) -> bool {
         self.holochain.read().await.is_some()
     }
 
-    /// Initialize the Bridge connection
     pub async fn connect(&self) -> AppResult<()> {
         let mut state = self.state.write().await;
 
-        // Check if stub mode is enabled
         if self.config.bridge_stub_mode {
             tracing::info!("Bridge client initialized in STUB MODE");
             *state = BridgeConnectionState::StubMode;
             return Ok(());
         }
 
-        // Check if HolochainService is available
         let has_hc = self.holochain.read().await.is_some();
         if has_hc {
-            // We have a HolochainService, so we can make real Bridge zome calls
             tracing::info!("Bridge client connected via HolochainService");
             *state = BridgeConnectionState::Connected;
             return Ok(());
         }
 
-        // Fallback: no Holochain connection
         if self.config.bridge_url.is_some() {
             tracing::info!("Bridge URL configured but no HolochainService - using fallback");
             *state = BridgeConnectionState::Fallback;
@@ -345,33 +314,21 @@ impl BridgeClient {
         Ok(())
     }
 
-    /// Check if connected
     pub async fn is_connected(&self) -> bool {
         let state = self.state.read().await;
         matches!(*state, BridgeConnectionState::Connected | BridgeConnectionState::StubMode)
     }
 
-    /// Check if in fallback mode
     pub async fn is_fallback(&self) -> bool {
         let state = self.state.read().await;
         matches!(*state, BridgeConnectionState::Fallback)
     }
 
-    /// Get connection state
     pub async fn connection_state(&self) -> BridgeConnectionState {
         self.state.read().await.clone()
     }
 
-    // =========================================================================
-    // Identity Operations
-    // =========================================================================
-
-    /// Query identity information for a DID
-    ///
-    /// First checks cache, then queries Bridge if not found.
-    /// Falls back to minimal identity if Bridge unavailable.
     pub async fn query_identity(&self, did: &str) -> AppResult<CrossHappIdentity> {
-        // Check cache first
         {
             let cache = self.identity_cache.read().await;
             if let Some(cached) = cache.get(did) {
@@ -386,54 +343,49 @@ impl BridgeClient {
 
         let state = self.state.read().await;
         let identity = match *state {
-            BridgeConnectionState::Connected => {
-                self.fetch_identity_from_bridge(did).await?
-            }
-            BridgeConnectionState::StubMode => {
-                self.stub_identity(did)
-            }
+            BridgeConnectionState::Connected => self.fetch_identity_from_bridge(did).await?,
+            BridgeConnectionState::StubMode => self.stub_identity(did),
             BridgeConnectionState::Fallback | BridgeConnectionState::Disconnected => {
                 self.fallback_identity(did)
             }
         };
 
-        // Update cache
         {
             let mut cache = self.identity_cache.write().await;
-            cache.insert(did.to_string(), CachedIdentity {
-                identity: identity.clone(),
-                cached_at: Instant::now(),
-            });
+            cache.insert(
+                did.to_string(),
+                CachedIdentity {
+                    identity: identity.clone(),
+                    cached_at: Instant::now(),
+                },
+            );
         }
 
         Ok(identity)
     }
 
-    /// Fetch identity from Bridge zome (production)
-    ///
-    /// Makes a real zome call to the Bridge coordinator to query identity information.
     async fn fetch_identity_from_bridge(&self, did: &str) -> AppResult<CrossHappIdentity> {
         let hc_guard = self.holochain.read().await;
         let hc = match hc_guard.as_ref() {
             Some(hc) => hc.clone(),
             None => {
-                tracing::warn!("Bridge: No HolochainService available, using stub identity for {}", did);
+                tracing::warn!(
+                    "Bridge: No HolochainService available, using stub identity for {}",
+                    did
+                );
                 return Ok(self.stub_identity(did));
             }
         };
         drop(hc_guard);
 
-        // Query reputation records to infer identity information
-        // The Bridge zome aggregates reputation which tells us which hApps the agent is active in
         match hc.bridge_aggregate_reputation(did).await {
             Ok(rep) => {
-                // Extract registered hApps from the scores
-                let registered_happs: Vec<HappId> = rep.scores
+                let registered_happs: Vec<HappId> = rep
+                    .scores
                     .iter()
                     .filter_map(|s| self.happ_id_from_string(&s.happ_id))
                     .collect();
 
-                // Determine verification level based on hApp count and reputation
                 let verification_level = if rep.aggregate >= 0.8 && registered_happs.len() >= 3 {
                     3
                 } else if rep.aggregate >= 0.6 && !registered_happs.is_empty() {
@@ -449,7 +401,7 @@ impl BridgeClient {
                     verified: rep.aggregate >= 0.5 && rep.total_interactions > 0,
                     verification_level,
                     registered_happs,
-                    first_seen: chrono::Utc::now().timestamp_millis() - 86400000, // TODO: get from Bridge
+                    first_seen: chrono::Utc::now().timestamp_millis() - 86400000,
                     last_active: chrono::Utc::now().timestamp_millis(),
                 })
             }
@@ -460,7 +412,6 @@ impl BridgeClient {
         }
     }
 
-    /// Convert hApp ID string to HappId enum
     fn happ_id_from_string(&self, id: &str) -> Option<HappId> {
         match id.to_lowercase().as_str() {
             "governance" => Some(HappId::Governance),
@@ -479,19 +430,17 @@ impl BridgeClient {
         }
     }
 
-    /// Generate stub identity for testing
     fn stub_identity(&self, did: &str) -> CrossHappIdentity {
         CrossHappIdentity {
             did: did.to_string(),
             verified: true,
             verification_level: 1,
             registered_happs: vec![HappId::Mail, HappId::Identity],
-            first_seen: chrono::Utc::now().timestamp_millis() - 86400000, // 1 day ago
+            first_seen: chrono::Utc::now().timestamp_millis() - 86400000,
             last_active: chrono::Utc::now().timestamp_millis(),
         }
     }
 
-    /// Generate fallback identity when Bridge unavailable
     fn fallback_identity(&self, did: &str) -> CrossHappIdentity {
         CrossHappIdentity {
             did: did.to_string(),
@@ -503,31 +452,25 @@ impl BridgeClient {
         }
     }
 
-    // =========================================================================
-    // Reputation Operations
-    // =========================================================================
-
-    /// Get cross-hApp reputation for a DID
-    ///
-    /// Aggregates reputation scores from multiple hApps.
-    /// Uses weighted average based on hApp importance.
     pub async fn get_reputation(&self, did: &str) -> AppResult<CrossHappReputation> {
-        self.get_reputation_with_context(did, &[
-            HappId::Identity,
-            HappId::Mail,
-            HappId::Finance,
-            HappId::Justice,
-            HappId::Governance,
-        ]).await
+        self.get_reputation_with_context(
+            did,
+            &[
+                HappId::Identity,
+                HappId::Mail,
+                HappId::Finance,
+                HappId::Justice,
+                HappId::Governance,
+            ],
+        )
+        .await
     }
 
-    /// Get cross-hApp reputation with specific context hApps
     pub async fn get_reputation_with_context(
         &self,
         did: &str,
         context_happs: &[HappId],
     ) -> AppResult<CrossHappReputation> {
-        // Check cache first
         {
             let cache = self.reputation_cache.read().await;
             if let Some(cached) = cache.get(did) {
@@ -545,29 +488,26 @@ impl BridgeClient {
             BridgeConnectionState::Connected => {
                 self.fetch_reputation_from_bridge(did, context_happs).await?
             }
-            BridgeConnectionState::StubMode => {
-                self.stub_reputation(did, context_happs)
-            }
+            BridgeConnectionState::StubMode => self.stub_reputation(did, context_happs),
             BridgeConnectionState::Fallback | BridgeConnectionState::Disconnected => {
                 self.fallback_reputation(did)
             }
         };
 
-        // Update cache
         {
             let mut cache = self.reputation_cache.write().await;
-            cache.insert(did.to_string(), CachedReputation {
-                reputation: reputation.clone(),
-                cached_at: Instant::now(),
-            });
+            cache.insert(
+                did.to_string(),
+                CachedReputation {
+                    reputation: reputation.clone(),
+                    cached_at: Instant::now(),
+                },
+            );
         }
 
         Ok(reputation)
     }
 
-    /// Fetch reputation from Bridge zome (production)
-    ///
-    /// Makes a real zome call to the Bridge coordinator to get cross-hApp reputation.
     async fn fetch_reputation_from_bridge(
         &self,
         did: &str,
@@ -577,7 +517,10 @@ impl BridgeClient {
         let hc = match hc_guard.as_ref() {
             Some(hc) => hc.clone(),
             None => {
-                tracing::warn!("Bridge: No HolochainService available, using stub reputation for {}", did);
+                tracing::warn!(
+                    "Bridge: No HolochainService available, using stub reputation for {}",
+                    did
+                );
                 return Ok(self.stub_reputation(did, context_happs));
             }
         };
@@ -585,15 +528,13 @@ impl BridgeClient {
 
         let now = chrono::Utc::now().timestamp_millis();
 
-        // Call Bridge zome to get aggregate reputation
         match hc.bridge_aggregate_reputation(did).await {
             Ok(bridge_rep) => {
-                // Convert Bridge zome response to our internal format
-                let scores: Vec<HappReputationScore> = bridge_rep.scores
+                let scores: Vec<HappReputationScore> = bridge_rep
+                    .scores
                     .iter()
                     .filter_map(|s| {
                         let happ_id = self.happ_id_from_string(&s.happ_id)?;
-                        // Only include if in context_happs or if context_happs is empty
                         if !context_happs.is_empty() && !context_happs.contains(&happ_id) {
                             return None;
                         }
@@ -607,23 +548,21 @@ impl BridgeClient {
                     })
                     .collect();
 
-                // Calculate aggregate from filtered scores
                 let aggregate = if scores.is_empty() {
                     bridge_rep.aggregate
                 } else {
                     self.calculate_aggregate(&scores)
                 };
 
-                // Calculate confidence based on interaction count and hApp diversity
                 let confidence = if bridge_rep.total_interactions == 0 {
                     0.0
                 } else {
-                    let interaction_factor = (bridge_rep.total_interactions as f64 / 100.0).min(1.0);
+                    let interaction_factor =
+                        (bridge_rep.total_interactions as f64 / 100.0).min(1.0);
                     let diversity_factor = (scores.len() as f64 / 5.0).min(1.0);
                     interaction_factor * 0.7 + diversity_factor * 0.3
                 };
 
-                // Check if trustworthy (byzantine detection)
                 let is_trustworthy = hc.bridge_is_trustworthy(did, 0.3).await.unwrap_or(true);
 
                 Ok(CrossHappReputation {
@@ -642,14 +581,13 @@ impl BridgeClient {
         }
     }
 
-    /// Generate stub reputation for testing
     fn stub_reputation(&self, did: &str, context_happs: &[HappId]) -> CrossHappReputation {
         let now = chrono::Utc::now().timestamp_millis();
         let scores: Vec<HappReputationScore> = context_happs
             .iter()
             .map(|happ| HappReputationScore {
                 happ: *happ,
-                score: 0.5, // Neutral default
+                score: 0.5,
                 weight: happ.default_weight(),
                 last_update: now,
                 interaction_count: 0,
@@ -668,7 +606,6 @@ impl BridgeClient {
         }
     }
 
-    /// Generate fallback reputation when Bridge unavailable
     fn fallback_reputation(&self, did: &str) -> CrossHappReputation {
         CrossHappReputation {
             did: did.to_string(),
@@ -680,7 +617,6 @@ impl BridgeClient {
         }
     }
 
-    /// Calculate weighted aggregate from scores
     fn calculate_aggregate(&self, scores: &[HappReputationScore]) -> f64 {
         if scores.is_empty() {
             return 0.5;
@@ -695,59 +631,47 @@ impl BridgeClient {
         weighted_sum / total_weight
     }
 
-    // =========================================================================
-    // Reputation Reporting
-    // =========================================================================
-
-    /// Report a positive interaction with a DID
-    ///
-    /// This contributes to improving the DID's reputation across the ecosystem.
     pub async fn report_positive_interaction(&self, did: &str, context: &str) -> AppResult<()> {
         self.report_reputation(ReputationReport {
             subject_did: did.to_string(),
             report_type: ReputationReportType::PositiveInteraction,
             context: context.to_string(),
             weight: 1.0,
-        }).await
+        })
+        .await
     }
 
-    /// Report a negative interaction with a DID
-    ///
-    /// This contributes to lowering the DID's reputation.
     pub async fn report_negative_interaction(&self, did: &str, context: &str) -> AppResult<()> {
         self.report_reputation(ReputationReport {
             subject_did: did.to_string(),
             report_type: ReputationReportType::NegativeInteraction,
             context: context.to_string(),
             weight: 1.0,
-        }).await
+        })
+        .await
     }
 
-    /// Report spam from a DID
-    ///
-    /// This has a stronger negative impact than a regular negative interaction.
     pub async fn report_spam(&self, did: &str, context: &str) -> AppResult<()> {
         self.report_reputation(ReputationReport {
             subject_did: did.to_string(),
             report_type: ReputationReportType::Spam,
             context: context.to_string(),
-            weight: 2.0, // Higher weight for spam
-        }).await
+            weight: 2.0,
+        })
+        .await
     }
 
-    /// Vouch for a DID (explicit trust)
     pub async fn vouch_for(&self, did: &str, context: &str) -> AppResult<()> {
         self.report_reputation(ReputationReport {
             subject_did: did.to_string(),
             report_type: ReputationReportType::TrustVouch,
             context: context.to_string(),
             weight: 1.5,
-        }).await
+        })
+        .await
     }
 
-    /// Submit a reputation report
     async fn report_reputation(&self, report: ReputationReport) -> AppResult<()> {
-        // Save the DID before any potential move of the report
         let subject_did = report.subject_did.clone();
 
         let state = self.state.read().await;
@@ -764,14 +688,15 @@ impl BridgeClient {
                 );
             }
             BridgeConnectionState::Fallback | BridgeConnectionState::Disconnected => {
-                // Queue for later submission
                 let mut pending = self.pending_reports.write().await;
                 pending.push(report);
-                tracing::debug!("Queued reputation report for later submission ({} pending)", pending.len());
+                tracing::debug!(
+                    "Queued reputation report for later submission ({} pending)",
+                    pending.len()
+                );
             }
         }
 
-        // Invalidate cache for this DID
         {
             let mut cache = self.reputation_cache.write().await;
             cache.remove(&subject_did);
@@ -780,21 +705,20 @@ impl BridgeClient {
         Ok(())
     }
 
-    /// Submit report to Bridge zome (production)
-    ///
-    /// Records a reputation event via the Bridge coordinator zome.
     async fn submit_report_to_bridge(&self, report: &ReputationReport) -> AppResult<()> {
         let hc_guard = self.holochain.read().await;
         let hc = match hc_guard.as_ref() {
             Some(hc) => hc.clone(),
             None => {
-                tracing::warn!("Bridge: No HolochainService available, cannot submit report for {}", report.subject_did);
+                tracing::warn!(
+                    "Bridge: No HolochainService available, cannot submit report for {}",
+                    report.subject_did
+                );
                 return Err(AppError::TrustUnavailable("Bridge zome not connected".into()));
             }
         };
         drop(hc_guard);
 
-        // Convert report type to score delta and interaction counts
         let (score_delta, is_positive) = match report.report_type {
             ReputationReportType::PositiveInteraction => (0.05 * report.weight, true),
             ReputationReportType::NegativeInteraction => (-0.05 * report.weight, false),
@@ -803,22 +727,30 @@ impl BridgeClient {
             ReputationReportType::TrustRevoke => (-0.1 * report.weight, false),
         };
 
-        // First, query existing reputation to update it
-        let existing = hc.bridge_query_reputation(&report.subject_did, Some("mail")).await
+        let existing = hc
+            .bridge_query_reputation(&report.subject_did, Some("mail"))
+            .await
             .unwrap_or_default();
 
-        let (current_score, interactions, negative_interactions) = if let Some(rec) = existing.first() {
-            (rec.score, rec.interactions, rec.negative_interactions)
+        let (current_score, interactions, negative_interactions) =
+            if let Some(rec) = existing.first() {
+                (rec.score, rec.interactions, rec.negative_interactions)
+            } else {
+                (0.5, 0, 0)
+            };
+
+        let new_score = (current_score + score_delta).clamp(0.0, 1.0);
+        let new_interactions = if is_positive {
+            interactions + 1
         } else {
-            (0.5, 0, 0) // Default neutral score
+            interactions
+        };
+        let new_negative = if !is_positive {
+            negative_interactions + 1
+        } else {
+            negative_interactions
         };
 
-        // Calculate new score (bounded 0.0 - 1.0)
-        let new_score = (current_score + score_delta).clamp(0.0, 1.0);
-        let new_interactions = if is_positive { interactions + 1 } else { interactions };
-        let new_negative = if !is_positive { negative_interactions + 1 } else { negative_interactions };
-
-        // Submit to Bridge zome
         let input = crate::services::holochain::BridgeRecordReputationInput {
             agent: report.subject_did.clone(),
             happ_id: "mail".to_string(),
@@ -840,13 +772,16 @@ impl BridgeClient {
                 Ok(())
             }
             Err(e) => {
-                tracing::warn!("Bridge: Failed to record reputation for {}: {}", report.subject_did, e);
+                tracing::warn!(
+                    "Bridge: Failed to record reputation for {}: {}",
+                    report.subject_did,
+                    e
+                );
                 Err(e)
             }
         }
     }
 
-    /// Flush pending reports when Bridge becomes available
     pub async fn flush_pending_reports(&self) -> AppResult<usize> {
         let state = self.state.read().await;
         if !matches!(*state, BridgeConnectionState::Connected) {
@@ -854,7 +789,6 @@ impl BridgeClient {
         }
         drop(state);
 
-        // Take all pending reports out of the queue
         let reports: Vec<ReputationReport> = {
             let mut pending = self.pending_reports.write().await;
             std::mem::take(&mut *pending)
@@ -863,16 +797,13 @@ impl BridgeClient {
         let count = reports.len();
         let mut failed = Vec::new();
 
-        // Process each report
         for report in reports {
             if let Err(e) = self.submit_report_to_bridge(&report).await {
                 tracing::warn!("Failed to submit pending report: {}", e);
-                // Collect failed reports for re-queueing
                 failed.push(report);
             }
         }
 
-        // Re-queue failed reports
         if !failed.is_empty() {
             let mut pending = self.pending_reports.write().await;
             pending.extend(failed.into_iter());
@@ -881,11 +812,6 @@ impl BridgeClient {
         Ok(count)
     }
 
-    // =========================================================================
-    // Cache Management
-    // =========================================================================
-
-    /// Invalidate cache for a specific DID
     pub async fn invalidate_cache(&self, did: &str) {
         {
             let mut cache = self.identity_cache.write().await;
@@ -898,7 +824,6 @@ impl BridgeClient {
         tracing::debug!("Invalidated Bridge cache for {}", did);
     }
 
-    /// Clear all caches
     pub async fn clear_cache(&self) {
         {
             let mut cache = self.identity_cache.write().await;
@@ -911,7 +836,6 @@ impl BridgeClient {
         tracing::info!("Cleared all Bridge caches");
     }
 
-    /// Get cache statistics
     pub async fn cache_stats(&self) -> BridgeCacheStats {
         let identity_count = self.identity_cache.read().await.len();
         let reputation_count = self.reputation_cache.read().await.len();
@@ -926,7 +850,6 @@ impl BridgeClient {
     }
 }
 
-/// Bridge cache statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct BridgeCacheStats {
     pub identity_entries: usize,
@@ -935,22 +858,15 @@ pub struct BridgeCacheStats {
     pub cache_ttl_secs: u64,
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/// Check if a DID has sufficient reputation for receiving mail
 pub fn has_sufficient_reputation(reputation: &CrossHappReputation, min_trust: f64) -> bool {
     reputation.aggregate_score >= min_trust && !reputation.is_byzantine
 }
 
-/// Determine spam likelihood based on reputation
 pub fn spam_likelihood(reputation: &CrossHappReputation) -> f64 {
     if reputation.is_byzantine {
         return 1.0;
     }
 
-    // Lower reputation = higher spam likelihood
     1.0 - reputation.aggregate_score.clamp(0.0, 1.0)
 }
 
@@ -988,7 +904,6 @@ mod tests {
             bridge_min_confidence: 0.3,
             identity_conductor_url: None,
             identity_verify_on_send: true,
-            mail_kem_secret_key: None,
         }
     }
 
@@ -1029,10 +944,8 @@ mod tests {
         let bridge = BridgeClient::new(config);
         bridge.connect().await.unwrap();
 
-        // First call
         let _ = bridge.get_reputation("did:mycelix:test").await.unwrap();
 
-        // Second call should hit cache
         let stats_before = bridge.cache_stats().await;
         let _ = bridge.get_reputation("did:mycelix:test").await.unwrap();
         let stats_after = bridge.cache_stats().await;
