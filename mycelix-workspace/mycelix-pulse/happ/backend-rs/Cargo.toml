@@ -16,8 +16,8 @@ name = "mycelix-mail-backend"
 path = "src/main.rs"
 
 # Standalone quarantine surface: do not inherit the canonical root workspace.
-# This backend currently carries its own mixed Holochain dependency cohort and
-# is qualified independently until the coherent cohort is materialized.
+# Its Holochain crate versions are kept coherent with the canonical baseline,
+# but live conductor/API compatibility remains independently quarantined.
 [workspace]
 
 [dependencies]
@@ -33,10 +33,10 @@ tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 
 # Holochain client
-holochain_client = "=0.8.1" # client 0.8.1 <-> Holochain 0.6.1; "0.7" was the Holochain 0.5 client
-holochain_types = "0.5"
-holochain_zome_types = "0.5"
-holochain_keystore = "0.5"  # For lair keystore integration
+holochain_client = "=0.8.1" # client 0.8.1 <-> Holochain 0.6.1
+holochain_types = "=0.6.1"
+holochain_zome_types = "=0.6.1"
+holochain_keystore = "=0.6.1"  # For lair keystore integration
 
 # Shared types from integrity zome
 mycelix_mail_integrity = { path = "../dna/integrity" }
