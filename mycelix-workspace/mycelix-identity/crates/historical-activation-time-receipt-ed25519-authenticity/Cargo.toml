@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-historical-activation-time-receipt-ed25519-authenticity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Strict Ed25519 authenticity adapter for Identity V2 historical activation time receipts"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-receipt-crypto-request-policy = { path = "../historical-activation-time-receipt-crypto-request-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+mycelix-historical-activation-time-authority-key-generation-policy = { path = "../historical-activation-time-authority-key-generation-policy" }
