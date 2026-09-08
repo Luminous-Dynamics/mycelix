@@ -1,244 +1,240 @@
-# Current Freshness — Coordinator Deployment Gate v0.14
+# Current Freshness — Coordinator Deployment Gate v0.15
 
-Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted + crash-durable complete release-registry continuity, out-of-band pinned + crash-durable live target-CellId provenance, exact deployment composition and subject-bound stability exist as candidates; conductor-process identity and atomic effect admission remain incomplete**
+Status: **release-key trust, release authentication/currentness, durable complete registry state, exact target provenance, coordinator-code equality and a Linux conductor-process/listener stability fence now exist as candidates; native observation composition and atomic effect admission remain incomplete**
 
-## Core deployment distinction
+## Core separation
 
-Operational authority, approved release, release-registry status, exact target CellId, conductor process identity and actually installed coordinator code are separate facts.
+The deployment path treats these as independent facts:
+
+```text
+operational authority
+!= approved release
+!= release-registry currentness
+!= target CellId
+!= Admin endpoint
+!= process owning that endpoint
+!= installed coordinator code
+!= code stability
+!= effect authority
+```
 
 `same DNA != same CellId != same conductor process != same coordinator implementation`.
 
-A complete deployment admission therefore needs independently grounded evidence for each domain.
+## Release authentication/currentness
 
-## Release authentication chain
-
-```text
-independently delivered production key-policy root fingerprint
-        ↓
-#341 offline hybrid root threshold
-        ↓
-#347 crash-durable state-owned current root/head
-        ↓
-short-lived current CoordinatorReleaseKeyPolicy
-        ↓
-manifest-bound QualifiedCoordinatorReleaseSigningKey
-        ↓
-#326 strict Ed25519 AND ML-DSA-65 authentication
-        ↓
-QualifiedCoordinatorReleaseRequirement
-```
-
-Release signing keys are leaves; they cannot authorize their own policy root/currentness.
-
-#347 persists root/head continuity before #307 positive key-policy authority escapes. Its guarantee is local crash/restart continuity under an owner-protected filesystem, not same-UID arbitrary-write or full-machine rollback resistance.
-
-## Complete release-registry chain
+The release side remains:
 
 ```text
-independently delivered registry-root fingerprint
-        ↓
-#355 offline hybrid registry-root threshold
-        ↓
-separate hybrid registry-head threshold
-        ↓
-complete canonical release-status snapshot
-        ↓
-#365 crash-durable state-owned latest snapshot
-        ↓
-local exact manifest-status lookup
-        ↓
-private #275 head/status compatibility receipts
-        ↓
-QualifiedCurrentCoordinatorRelease
+independent key-policy root
+→ #341 offline hybrid root/currentness
+→ #347 crash-durable latest key-policy state
+→ manifest-bound signing key
+→ #326 strict Ed25519 AND ML-DSA-65 authentication
+→ authenticated release
+
+independent registry root
+→ #355 complete canonical registry
+→ #365 crash-durable latest complete snapshot
+→ local exact Active lookup
+→ #275 current release
 ```
 
-The registry snapshot is complete authority data, not a latest-record heuristic. Records are canonical/unique, old records cannot disappear, and terminal status cannot resurrect.
+Release signing keys cannot authorize their own key-policy root. Registry status is derived locally from one complete authenticated snapshot rather than a detached status oracle.
 
-#365 persists the full snapshot, root lineage, threshold floors, trusted clock floor and predecessor state before current-release authority escapes.
+The trusted filesystem stores remain crash/restart continuity theorems, not same-UID arbitrary-write or full-machine rollback resistance.
 
-Root rotation suspends an old-root snapshot from authorizing releases until a successor snapshot under the new root extends the persisted predecessor head.
+## Exact target CellId provenance
 
-## Durable registry integrity claim remains bounded
-
-The registry/key-policy state stores use canonical owner-controlled paths, exact `0600` regular files, `O_NOFOLLOW | O_CLOEXEC`, one exclusive `File::lock` transaction and same-directory temp-fsync/rename/directory-fsync replacement.
-
-Their BLAKE3 self-digests are unkeyed. Therefore:
-
-```text
-crash-durable locally monotone state
-!= same-UID arbitrary-write resistance
-!= full-machine rollback resistance
-```
-
-A stronger deployment threat model needs a separately protected keyed/TPM/hardware/enterprise/append-only rollback anchor.
-
-## Exact target CellId is now independently pinned
-
-`mycelix-authority-coordinator-target-cell` closes #290's caller-supplied target provenance gap.
-
-The first-use binding commits exact:
+#373 `mycelix-authority-coordinator-target-cell` pins exact:
 
 - raw 39-byte `DnaHash`;
 - raw 39-byte `AgentPubKey`;
-- loopback Holochain Admin `SocketAddr`;
-- binding id; and
-- provisioning reference.
+- loopback Admin `SocketAddr`;
+- binding id/reference.
 
-The pair `DnaHash + AgentPubKey` is the exact Holochain `CellId`; DNA-only identity is insufficient.
+The binding is accepted only during first-use out-of-band bootstrap. Normal live qualification accepts neither target nor endpoint from the caller.
 
-Bootstrap requires the exact binding digest/profile to match an independently delivered out-of-band pin and refuses an already initialized state path.
+The adapter calls Holochain `list_cell_ids()` itself and requires the exact pinned CellId to be present exactly once. Observation time is sampled after the Admin response, the trusted clock floor is durably advanced, and only then does a non-deserializable `QualifiedTargetCellSelection` escape.
 
-Normal live qualification accepts **no target CellId and no Admin endpoint** from the caller.
+There is no in-band retargeting in v0.1.
 
-## Target state is state-owned and crash durable
+## Linux conductor process/listener fence
 
-The target store resolves the requested parent once to a canonical real directory, then owns one fixed state/lock path.
+`mycelix-authority-coordinator-conductor-process` adds an independent host theorem for the process owning one pinned Admin endpoint.
 
-Persisted state commits:
+The first-use process binding commits exact:
 
-- exact target binding digest;
-- monotone state generation;
-- exact predecessor-state digest; and
-- durable host-clock floor.
+- loopback Admin endpoint;
+- expected effective process UID;
+- absolute executable path;
+- complete BLAKE3 executable-byte digest;
+- fixed executable profile; and
+- binding/provisioning identity.
 
-The same filesystem rules used by the registry/key-policy stores apply: owner-controlled directory, exact `0600` files, `O_NOFOLLOW`, exclusive lock, bounded parsing, same-directory temp, fsync, atomic rename and parent-directory fsync.
+The process binding has its own out-of-band pin protocol/profile. Normal fencing loads this policy from its store-owned trusted state and accepts no caller PID, listener inode, process snapshot, endpoint or timestamp.
 
-There is intentionally **no in-band retargeting API** in v0.1. A legitimate cell reinstall/replacement that changes exact `CellId` requires an explicit external decommission + fresh provisioning ceremony rather than silently inheriting old target authority.
+### Listener/process resolution
 
-## Live target presence is observed directly
-
-The target adapter creates its own `AdminWebsocket` to the state-owned pinned loopback endpoint and calls Holochain `list_cell_ids()`.
-
-The exact pinned DNA + agent pair must occur exactly once in the returned live-cell set.
-
-Missing target denies. Duplicate exact target identity denies.
-
-No app-name, role-name, cache, DHT, release-manifest or caller-selected heuristic chooses the target.
-
-Observation time is sampled only after the conductor response and CellId extraction complete.
-
-Positive target reuse is bounded to five seconds.
-
-## Persistence precedes positive target authority
-
-The live target causal order is:
+For the pinned endpoint the adapter:
 
 ```text
-exclusive lock
-→ load state-owned exact target + pinned endpoint
-→ Admin list_cell_ids
-→ require exact pinned CellId live exactly once
-→ post-observation host clock
-→ advance trusted clock-floor state
-→ temp fsync + atomic rename + parent-directory fsync
-→ privately construct #290 TargetCellSelection compatibility data
-→ QualifiedTargetCellSelection
+/proc/net/tcp or /proc/net/tcp6
+→ require exact unique LISTEN socket
+→ obtain listener socket inode
+→ /proc/<pid>/fd/* socket:[inode]
+→ require exact unique owning PID
+→ read /proc/<pid>/stat starttime
+→ read effective UID
+→ resolve/open /proc/<pid>/exe
+→ hash complete executable bytes
 ```
 
-If persistence fails, no positive target capability escapes.
+The process snapshot commits listener inode, PID, process start time, effective UID, executable path/digest, and executable device/inode/length.
 
-`QualifiedTargetCellSelection` is non-deserializable. The inner #290 `TargetCellSelection` remains deserializable compatibility data and must not be accepted directly as live provenance by an effect-capable consumer.
+Numeric PID equality alone is never process identity.
 
-## Pinned endpoint still does not prove conductor process identity
+### pidfd-backed interval opening
 
-Pinning the exact loopback socket removes caller endpoint selection, but loopback is not a cryptographic process identity.
+After the first procfs resolution the adapter calls Linux `pidfd_open`, checks that process for exit, and then performs a second full process/listener observation.
 
-A successful Admin request currently proves only that the adapter exchanged the expected Admin protocol with the process listening at the pinned local endpoint.
+The two snapshots must be exactly equal before the fence interval opens.
 
-It does **not** yet prove:
+The pidfd remains owned by the guard until fence close.
 
-- executable identity/hash/signature of the Holochain conductor;
-- OS service identity owning the socket;
-- process namespace/cgroup/systemd-unit identity;
-- kernel/host integrity; or
-- absence of a malicious local process impersonating the endpoint.
+### Fence close
 
-That is now the dominant remaining provenance boundary.
+After caller-owned work inside the interval:
+
+```text
+pidfd still alive
+→ re-resolve listener/process/executable
+→ exact pre/post snapshot equality
+→ pidfd still alive
+→ post-observation host clock
+→ durable trusted-state advancement
+→ QualifiedConductorProcessFence
+```
+
+Changed socket inode, PID/starttime, UID, executable path, executable bytes or executable inode/device identity denies.
+
+## Historical evidence only
+
+`QualifiedConductorProcessFence` deliberately has:
+
+```text
+started_at_ms
+ended_at_ms
+```
+
+and **no `valid_until_ms`**.
+
+The fence proves only a historical process/listener interval under the stated host model. It must not become reusable future conductor authority.
+
+A later orchestrator must prove that the exact target/code observations it relies upon occurred inside this interval and at the same endpoint.
+
+## Process-fence limits remain explicit
+
+This is not cryptographic TCP peer authentication. TCP loopback does not provide a Unix-domain `SO_PEERCRED` equivalent for the accepted Admin connection.
+
+The theorem also does not claim resistance to:
+
+- same-UID arbitrary process tampering;
+- root/kernel/procfs compromise;
+- full-machine rollback;
+- transient same-process exec-and-restore ABA while retaining the listener; or
+- a caller performing unrelated work between `begin_fence` and `finish`.
+
+A stronger deployment may later use a supervised/private conductor transport, dedicated namespace, authenticated local proxy or OS/hardware attestation.
 
 ## Native coordinator-code observation remains separate
 
-`mycelix-authority-coordinator-native-attestor` independently queries the exact target CellId through a loopback Holochain Admin endpoint, enumerates the complete `DnaDef.coordinator_zomes` set and preserves exact coordinator `WasmHash` identities.
+#264 `mycelix-authority-coordinator-native-attestor` queries the exact target CellId through Holochain Admin `get_dna_definition`, enumerates the complete coordinator zome set and preserves exact `WasmHash` identities.
 
-It does not choose the approved release or perform the #262 equality match.
-
-The intended next composition must ensure the native code observer and the target capability refer to the same independently qualified conductor/endpoint and exact CellId.
+It remains candidate observation provenance only. It does not choose the approved release or prove the process fence by itself.
 
 ## Exact deployment composition
 
-#290 currently joins:
+#290/#262 still establish:
 
 ```text
-TargetCellSelection
-        +
-QualifiedCurrentCoordinatorRelease
-        +
-ObservedCoordinatorDeployment
-        ↓
-#262 exact whole-set equality
-        ↓
-QualifiedCoordinatorDeploymentComposition
+exact target
++ current authenticated release
++ exact observed coordinator closure
+→ exact whole-set deployment match
 ```
 
-Missing, substituted, duplicate or unexpected installed coordinator code denies through #262.
+Missing, substituted, duplicate or unexpected coordinator code denies.
 
-For live admission, the deserializable target input must be projected privately from `QualifiedTargetCellSelection`; caller-supplied #290 target data must not regain authority at the join.
+For live admission, caller-supplied deserializable `TargetCellSelection` must not regain authority; target data must be projected from #373's non-deserializable positive capability.
 
 ## Subject-bound stability
 
-#298 requires a strictly later second exact deployment observation, reconstructs the same target/current-release/deployment requirement and binds stability to one admission subject + attempt nonce.
+#298 adds a later exact coordinator observation and binds stability to one admission subject + attempt nonce.
 
-This proves no detected coordinator-code change across the observed interval.
+It proves no detected coordinator-code change across its observed interval, but is not a mutex or transaction. Target stop/start, conductor replacement or `UpdateCoordinators` may still race after observation.
 
-It is still not atomic exclusion. The target can stop, an app can be disabled, the conductor can be replaced, or `UpdateCoordinators` can race after the second observation and before an external effect.
+## Next native composition theorem
+
+The next high-value layer must itself own the sequence:
+
+```text
+begin qualified conductor-process fence
+→ obtain fresh #373 target capability
+→ require target endpoint == process-fence endpoint
+→ obtain #264 exact code observation for that exact target/endpoint
+→ require target/code evidence timestamps inside process fence
+→ finish process fence
+→ require same process snapshot survived the observation interval
+→ compose current release + target + code through #290/#262
+```
+
+The caller must not supply substitute target/process/code positive receipts.
+
+This closes **observation provenance composition**, but still does not make the later external effect atomic with coordinator updates or conductor replacement.
 
 ## Remaining independent boundaries
 
 The dominant unresolved boundaries are now:
 
-- production delivery/protection of the initial key-policy, registry and target-binding fingerprints;
-- real conductor-process / pinned Admin-endpoint identity;
-- native consumption of `QualifiedTargetCellSelection` together with target-matched coordinator observation;
-- native ownership of admission subject/attempt nonce and pre/post observation bracketing;
-- target-liveness / coordinator-update / conductor-replacement atomicity with the effect;
-- final lifecycle/executor/effect-safety authority; and
-- stronger same-UID/full-machine rollback anchoring if required by deployment threat model.
+- production delivery/protection of initial key-policy, registry, target and process-binding fingerprints;
+- native target/process/code observation orchestration;
+- native ownership of admission subject + attempt nonce;
+- post-observation target-liveness/conductor-replacement/coordinator-update atomicity with the effect;
+- lifecycle/executor/effect-safety authority; and
+- stronger same-UID/full-machine rollback anchoring if required by the deployment threat model.
 
 ## Consumer rule
 
-A future effect-capable admission path needs independently:
+A future effect-capable path needs independently:
 
-1. fresh operational authority currentness from the direct local authority verifier chain;
-2. candidate coordinator release semantics;
-3. production-rooted and durably current release-key policy;
-4. manifest-bound authorized release signing key;
-5. #326 strict hybrid release authentication;
-6. production-rooted and durably latest complete registry state;
-7. local exact persisted Active status yielding `QualifiedCurrentCoordinatorRelease`;
-8. independently pinned + durably state-owned + freshly live `QualifiedTargetCellSelection`;
-9. independently qualified conductor-process/Admin-endpoint identity;
-10. native exact coordinator-code observation for that same conductor + exact target;
-11. #290/#262 exact target/current-release/installed-code composition using only local positive target provenance;
-12. qualified native post observation + #298 subject/attempt stability;
-13. explicit target/conductor/coordinator-update/effect atomicity;
-14. lifecycle/executor/effect-safety authority; and
-15. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
+1. fresh operational authority currentness;
+2. production-rooted + durably current release-key policy;
+3. #326 authenticated release;
+4. production-rooted + durably latest complete registry yielding #275 current Active release;
+5. #373 pinned + freshly live exact target capability;
+6. qualified Linux conductor-process fence for the same pinned endpoint;
+7. #264 exact coordinator-code observation produced inside that fence for the exact target;
+8. #290/#262 exact target/current-release/code composition;
+9. native subject/attempt ownership and #298 stability;
+10. explicit target/conductor/coordinator-update/effect atomicity;
+11. lifecycle/executor/effect-safety authorization; and
+12. an effect path consuming only in-process positive qualifications.
 
 ## Provisioning state
 
-The v0.14 target candidate still does **not** satisfy the complete deployment/effect gate.
+The v0.15 process-fence candidate does **not** satisfy the complete deployment/effect gate.
 
-Until production pin provenance, conductor-process identity, native admission ownership and update/effect atomicity are qualified:
+Until production pin provenance, native observation composition and update/effect atomicity are qualified:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no consumer may interpret target liveness, release currentness or deployment stability as atomic external-effect authority; and
+- no consumer may interpret process fencing or deployment stability as atomic external-effect authority; and
 - external effects remain disabled.
 
 ## Highest-value next work
 
-1. conductor-process / pinned Admin-endpoint identity qualification;
-2. native target-aware deployment composer consuming `QualifiedTargetCellSelection` rather than caller target data;
-3. native pre/post admission orchestrator owning subject + attempt nonce;
-4. target-liveness + coordinator-update + conductor-replacement atomicity boundary;
-5. final lifecycle/executor/effect-safety binding; and
-6. optional keyed/TPM/hardware/enterprise rollback anchors for trusted state stores.
+1. native target/process/code observation composer;
+2. native admission orchestrator owning subject + attempt nonce;
+3. explicit target-liveness + conductor-replacement + coordinator-update/effect atomicity boundary;
+4. final lifecycle/executor/effect-safety binding; and
+5. optional keyed/TPM/hardware/enterprise rollback anchors for the trusted state stores.
