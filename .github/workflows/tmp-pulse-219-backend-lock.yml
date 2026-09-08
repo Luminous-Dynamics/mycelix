@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
-          (cd mycelix-workspace/mycelix-pulse/happ/backend-rs && sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256")
+          sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"
       - name: Assemble lock evidence
         run: |
           set -euo pipefail
