@@ -1,0 +1,12 @@
+[package]
+name = "justice-resolution-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Transport-neutral semantic vocabulary for final Mycelix Justice resolution outcomes"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
