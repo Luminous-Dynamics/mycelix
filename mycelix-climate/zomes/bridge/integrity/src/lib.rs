@@ -7,7 +7,10 @@
 //! Uses HDI 0.7.0-dev.1 with FlatOp validation pattern.
 
 use hdi::prelude::*;
-use mycelix_bridge_entry_types::CrossClusterNotification;
+use mycelix_bridge_entry_types::{
+    check_author_match, check_link_author_match, did_for_author, require_did_is_author,
+    CrossClusterNotification,
+};
 
 /// Anchor entry for creating deterministic link bases
 #[hdk_entry_helper]
@@ -170,6 +173,21 @@ fn validate_did(did: &str) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Bind a self-reported actor DID to the Holochain author that committed the entry.
+///
+/// This is intentionally used only where the committer is unambiguously the actor:
+/// query requester, result responder, and marketplace seller. It must not be reused
+/// for on-behalf-of or shared-state subjects without a domain-specific witness rule.
+fn validate_actor_binding(
+    entry: &str,
+    field: &str,
+    did: &str,
+    author: &AgentPubKey,
+) -> ValidateCallbackResult {
+    let author_did = did_for_author(author);
+    require_did_is_author(entry, field, did, &author_did)
+}
+
 /// Validate a ClimateQuery entry
 fn validate_climate_query(query: &ClimateQuery) -> ExternResult<ValidateCallbackResult> {
     // Validate query ID
@@ -206,6 +224,22 @@ fn validate_climate_query(query: &ClimateQuery) -> ExternResult<ValidateCallback
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_climate_query_for_author(
+    query: &ClimateQuery,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_climate_query(query)?;
+    if let ValidateCallbackResult::Invalid(_) = fields {
+        return Ok(fields);
+    }
+    Ok(validate_actor_binding(
+        "ClimateQuery",
+        "requester_did",
+        &query.requester_did,
+        author,
+    ))
+}
+
 /// Validate a ClimateResult entry
 fn validate_climate_result(result: &ClimateResult) -> ExternResult<ValidateCallbackResult> {
     // Validate query ID
@@ -233,6 +267,22 @@ fn validate_climate_result(result: &ClimateResult) -> ExternResult<ValidateCallb
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_climate_result_for_author(
+    result: &ClimateResult,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_climate_result(result)?;
+    if let ValidateCallbackResult::Invalid(_) = fields {
+        return Ok(fields);
+    }
+    Ok(validate_actor_binding(
+        "ClimateResult",
+        "responder_did",
+        &result.responder_did,
+        author,
+    ))
 }
 
 /// Validate a MarketplaceListing entry
@@ -302,31 +352,59 @@ fn validate_marketplace_listing(listing: &MarketplaceListing) -> ExternResult<Va
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_marketplace_listing_for_author(
+    listing: &MarketplaceListing,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_marketplace_listing(listing)?;
+    if let ValidateCallbackResult::Invalid(_) = fields {
+        return Ok(fields);
+    }
+    Ok(validate_actor_binding(
+        "MarketplaceListing",
+        "seller_did",
+        &listing.seller_did,
+        author,
+    ))
+}
+
 /// Main validation callback using FlatOp pattern
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, .. } => match app_entry {
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ClimateQuery(query) => validate_climate_query(&query),
-                EntryTypes::ClimateResult(result) => validate_climate_result(&result),
-                EntryTypes::MarketplaceListing(listing) => validate_marketplace_listing(&listing),
+                EntryTypes::ClimateQuery(query) => {
+                    validate_climate_query_for_author(&query, &action.author)
+                }
+                EntryTypes::ClimateResult(result) => {
+                    validate_climate_result_for_author(&result, &action.author)
+                }
+                EntryTypes::MarketplaceListing(listing) => {
+                    validate_marketplace_listing_for_author(&listing, &action.author)
+                }
                 EntryTypes::Notification(n) => {
                     mycelix_bridge_entry_types::validate_notification(&n)
                         .map(|()| ValidateCallbackResult::Valid)
                         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))
                 }
             },
-            OpEntry::UpdateEntry { app_entry, .. } => match app_entry {
+            OpEntry::UpdateEntry {
+                app_entry, action, ..
+            } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
                     "Anchors cannot be updated".to_string(),
                 )),
-                EntryTypes::ClimateQuery(query) => validate_climate_query(&query),
+                EntryTypes::ClimateQuery(query) => {
+                    validate_climate_query_for_author(&query, &action.author)
+                }
                 EntryTypes::ClimateResult(_) => Ok(ValidateCallbackResult::Invalid(
                     "Climate results cannot be updated once submitted".to_string(),
                 )),
-                EntryTypes::MarketplaceListing(listing) => validate_marketplace_listing(&listing),
+                EntryTypes::MarketplaceListing(listing) => {
+                    validate_marketplace_listing_for_author(&listing, &action.author)
+                }
                 EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Invalid(
                     "Notifications cannot be updated".to_string(),
                 )),
@@ -344,22 +422,54 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::AllNotifications
             | LinkTypes::NotificationSubscription => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterDeleteLink { link_type, .. } => match link_type {
+        FlatOp::RegisterDeleteLink { link_type, action, .. } => match link_type {
             LinkTypes::QueryToResult => Ok(ValidateCallbackResult::Invalid(
                 "Query-to-result links cannot be deleted".to_string(),
             )),
-            _ => Ok(ValidateCallbackResult::Valid),
+            _ => {
+                let original_action = must_get_action(action.link_add_address.clone())?;
+                Ok(check_link_author_match(
+                    original_action.action().author(),
+                    &action.author,
+                ))
+            }
         },
-        FlatOp::StoreRecord(_)
-        | FlatOp::RegisterAgentActivity(_)
-        | FlatOp::RegisterUpdate(_)
-        | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        FlatOp::RegisterUpdate(update) => {
+            let action = match &update {
+                OpUpdate::Entry { action, .. }
+                | OpUpdate::PrivateEntry { action, .. }
+                | OpUpdate::Agent { action, .. }
+                | OpUpdate::CapClaim { action, .. }
+                | OpUpdate::CapGrant { action, .. } => action,
+            };
+            let original = must_get_action(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            ))
+        }
+        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original = must_get_action(action.deletes_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                &action.author,
+                "delete",
+            ))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fake_agent(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
 
     fn valid_query() -> ClimateQuery {
         ClimateQuery {
@@ -402,7 +512,10 @@ mod tests {
     }
 
     fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
-        assert!(matches!(result.expect("validator should execute"), ValidateCallbackResult::Valid));
+        assert!(matches!(
+            result.expect("validator should execute"),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     fn assert_invalid_contains(result: ExternResult<ValidateCallbackResult>, needle: &str) {
@@ -470,5 +583,49 @@ mod tests {
         let mut listing = valid_listing();
         listing.min_purchase = listing.available_tonnes + 1.0;
         assert_invalid_contains(validate_marketplace_listing(&listing), "cannot exceed");
+    }
+
+    #[test]
+    fn author_binding_accepts_query_requester_that_matches_committer() {
+        let author = fake_agent(1);
+        let mut query = valid_query();
+        query.requester_did = did_for_author(&author);
+        assert_valid(validate_climate_query_for_author(&query, &author));
+    }
+
+    #[test]
+    fn author_binding_rejects_forged_query_requester() {
+        let author = fake_agent(1);
+        let victim = fake_agent(2);
+        let mut query = valid_query();
+        query.requester_did = did_for_author(&victim);
+        assert_invalid_contains(
+            validate_climate_query_for_author(&query, &author),
+            "committing agent",
+        );
+    }
+
+    #[test]
+    fn author_binding_rejects_forged_result_responder() {
+        let author = fake_agent(3);
+        let victim = fake_agent(4);
+        let mut result = valid_result();
+        result.responder_did = did_for_author(&victim);
+        assert_invalid_contains(
+            validate_climate_result_for_author(&result, &author),
+            "committing agent",
+        );
+    }
+
+    #[test]
+    fn author_binding_rejects_forged_marketplace_seller() {
+        let author = fake_agent(5);
+        let victim = fake_agent(6);
+        let mut listing = valid_listing();
+        listing.seller_did = did_for_author(&victim);
+        assert_invalid_contains(
+            validate_marketplace_listing_for_author(&listing, &author),
+            "committing agent",
+        );
     }
 }

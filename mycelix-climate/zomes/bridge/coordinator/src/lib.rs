@@ -82,7 +82,11 @@ pub fn get_climate_query(action_hash: ActionHash) -> ExternResult<Option<Record>
     get(action_hash, GetOptions::default())
 }
 
-/// Get all pending queries
+/// Get all pending queries.
+///
+/// A result link is the authoritative completion witness. Query status remains
+/// requester-owned mutable state, so responders never need to mutate another
+/// agent's query merely to publish a result.
 #[hdk_extern]
 pub fn get_pending_queries(_: ()) -> ExternResult<Vec<Record>> {
     let anchor_hash = get_or_create_anchor("all_queries")?;
@@ -93,14 +97,14 @@ pub fn get_pending_queries(_: ()) -> ExternResult<Vec<Record>> {
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid action hash".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
             if let Some(q) = record
                 .entry()
                 .to_app_option::<ClimateQuery>()
                 .ok()
                 .flatten()
             {
-                if q.status == QueryStatus::Pending {
+                if q.status == QueryStatus::Pending && get_query_result(action_hash)?.is_none() {
                     records.push(record);
                 }
             }
@@ -177,7 +181,8 @@ pub struct SubmitResultInput {
 /// Submit a result for a climate query
 #[hdk_extern]
 pub fn submit_climate_result(input: SubmitResultInput) -> ExternResult<Record> {
-    // Verify the query exists and update its status
+    // Verify the query exists. The responder does not mutate the requester's
+    // query entry; completion is represented by the immutable QueryToResult link.
     let query_record = get(input.query_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Query not found".into())))?;
 
@@ -191,6 +196,15 @@ pub fn submit_climate_result(input: SubmitResultInput) -> ExternResult<Record> {
     if query.query_id != input.query_id {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Query ID mismatch".into()
+        )));
+    }
+
+    // The public coordinator allows one canonical result per query. Integrity
+    // keeps the result link undeletable; a later PR can additionally make
+    // uniqueness a DHT-level invariant for adversarial direct commits.
+    if get_query_result(input.query_action_hash.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Query already has a result".into()
         )));
     }
 
@@ -208,20 +222,14 @@ pub fn submit_climate_result(input: SubmitResultInput) -> ExternResult<Record> {
 
     let result_action_hash = create_entry(&EntryTypes::ClimateResult(result))?;
 
-    // Link query to result
+    // Link query to result. This link is the completion witness; no cross-author
+    // update of the original ClimateQuery is necessary.
     create_link(
-        input.query_action_hash.clone(),
+        input.query_action_hash,
         result_action_hash.clone(),
         LinkTypes::QueryToResult,
         (),
     )?;
-
-    // Update query status to Completed
-    let updated_query = ClimateQuery {
-        status: QueryStatus::Completed,
-        ..query
-    };
-    let _ = update_entry(input.query_action_hash, &EntryTypes::ClimateQuery(updated_query))?;
 
     get(result_action_hash, GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Failed to get created result".into())))
@@ -716,7 +724,10 @@ pub fn get_bridge_summary(_: ()) -> ExternResult<BridgeSummary> {
 
     // Get all queries
     let query_anchor = get_or_create_anchor("all_queries")?;
-    let query_links = get_links(LinkQuery::try_new(query_anchor, LinkTypes::AnchorToQueries)?, GetStrategy::default())?;
+    let query_links = get_links(
+        LinkQuery::try_new(query_anchor, LinkTypes::AnchorToQueries)?,
+        GetStrategy::default(),
+    )?;
 
     let mut total_queries = 0u64;
     let mut pending_queries = 0u64;
@@ -733,25 +744,28 @@ pub fn get_bridge_summary(_: ()) -> ExternResult<BridgeSummary> {
                     .flatten()
                 {
                     total_queries += 1;
-                    match q.status {
-                        QueryStatus::Pending => pending_queries += 1,
-                        QueryStatus::Completed => {
-                            completed_queries += 1;
-                            // Check if result was successful
-                            if let Some(result_record) = get_query_result(action_hash)? {
-                                if let Some(r) = result_record
-                                    .entry()
-                                    .to_app_option::<ClimateResult>()
-                                    .ok()
-                                    .flatten()
-                                {
-                                    if r.result == VerificationResult::Verified {
-                                        successful_verifications += 1;
-                                    }
-                                }
+
+                    // Prefer the immutable result link as the completion witness.
+                    // Fall back to legacy QueryStatus for older entries that were
+                    // completed before result-derived status was introduced.
+                    if let Some(result_record) = get_query_result(action_hash)? {
+                        completed_queries += 1;
+                        if let Some(r) = result_record
+                            .entry()
+                            .to_app_option::<ClimateResult>()
+                            .ok()
+                            .flatten()
+                        {
+                            if r.result == VerificationResult::Verified {
+                                successful_verifications += 1;
                             }
                         }
-                        _ => {}
+                    } else {
+                        match q.status {
+                            QueryStatus::Pending => pending_queries += 1,
+                            QueryStatus::Completed => completed_queries += 1,
+                            _ => {}
+                        }
                     }
                 }
             }
@@ -760,7 +774,10 @@ pub fn get_bridge_summary(_: ()) -> ExternResult<BridgeSummary> {
 
     // Get all listings
     let listing_anchor = get_or_create_anchor("all_listings")?;
-    let listing_links = get_links(LinkQuery::try_new(listing_anchor, LinkTypes::AnchorToListings)?, GetStrategy::default())?;
+    let listing_links = get_links(
+        LinkQuery::try_new(listing_anchor, LinkTypes::AnchorToListings)?,
+        GetStrategy::default(),
+    )?;
 
     let mut total_listings = 0u64;
     let mut active_listings = 0u64;
