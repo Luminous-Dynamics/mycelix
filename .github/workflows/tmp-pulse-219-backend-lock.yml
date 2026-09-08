@@ -74,15 +74,20 @@ jobs:
           PY
       - name: Verify derived lock unchanged
         run: sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"
-      - name: Assemble lock evidence
+      - name: Assemble portable lock evidence
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/backend-lock-evidence"
-          cp mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock "$RUNNER_TEMP/backend-lock-evidence/Cargo.lock"
-          cp "$RUNNER_TEMP/pulse-backend-lock.sha256" "$RUNNER_TEMP/backend-lock-evidence/Cargo.lock.sha256"
-          cp "$RUNNER_TEMP/pulse-backend-metadata.json" "$RUNNER_TEMP/backend-lock-evidence/cargo-metadata.json"
-          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/backend-lock-evidence/source-head.txt"
-          sha256sum "$RUNNER_TEMP/backend-lock-evidence/"* > "$RUNNER_TEMP/backend-lock-evidence/evidence.sha256"
+          evidence="$RUNNER_TEMP/backend-lock-evidence"
+          mkdir -p "$evidence"
+          cp mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock "$evidence/Cargo.lock"
+          cp "$RUNNER_TEMP/pulse-backend-lock.sha256" "$evidence/Cargo.lock.sha256"
+          cp "$RUNNER_TEMP/pulse-backend-metadata.json" "$evidence/cargo-metadata.json"
+          printf '%s\n' "$GITHUB_SHA" > "$evidence/source-head.txt"
+          (
+            cd "$evidence"
+            sha256sum Cargo.lock Cargo.lock.sha256 cargo-metadata.json source-head.txt > evidence.sha256
+            sha256sum --check evidence.sha256
+          )
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: pulse-backend-lock-${{ github.sha }}
