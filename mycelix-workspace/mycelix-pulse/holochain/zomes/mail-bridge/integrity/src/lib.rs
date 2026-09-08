@@ -1388,15 +1388,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "sender-proof activation audit events are append-only".to_string(),
                     ))
                 }
-                _ => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::MailBridgeQuery(_) | EntryTypes::MailBridgeEvent(_) => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "mail bridge entries cannot be updated".to_string(),
+                    ))
+                }
             },
-            // Neither entry type has a real update_entry call anywhere in the coordinator
-            // (confirmed via direct grep) -- reject outright rather than leave the previous
-            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times
-            // elsewhere in this pass).
-            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
-                "Mail bridge entries cannot be updated".to_string(),
-            )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         // Mail-bridge entries are audit records and are never deleted. This
