@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-authority-coordinator-conductor-policy"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Pure independently pinned Linux/systemd/Nix Holochain conductor deployment policy"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
