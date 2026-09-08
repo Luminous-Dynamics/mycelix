@@ -23,16 +23,22 @@ pub mod auth;
     reason = "qualification keeps the legacy route source stable while restoring its service layer"
 )]
 pub mod bridge;
+#[allow(
+    unused_variables,
+    reason = "qualification keeps the legacy claims route source stable while restoring its service layer"
+)]
 pub mod claims;
 pub mod did;
 #[allow(
     unused_imports,
-    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+    unused_variables,
+    reason = "qualification keeps the legacy email route source stable while restoring its service layer"
 )]
 pub mod emails;
 #[allow(
     unused_imports,
-    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+    unused_variables,
+    reason = "qualification keeps the legacy trust route source stable while restoring its service layer"
 )]
 pub mod trust;
 pub mod trust_graph;
