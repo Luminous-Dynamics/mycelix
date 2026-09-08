@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   derive-lock:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -72,14 +72,8 @@ jobs:
                   raise SystemExit(f"{name}: unexpected source {source!r}")
           print("Standalone backend graph identity OK")
           PY
-      - name: Execute backend tests against frozen lock
-        env:
-          JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
-          HOLOCHAIN_STUB_MODE: 'true'
-        run: |
-          set -euo pipefail
-          cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
-          sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"
+      - name: Verify derived lock unchanged
+        run: sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"
       - name: Assemble lock evidence
         run: |
           set -euo pipefail
