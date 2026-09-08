@@ -1,0 +1,160 @@
+name: Authority Coordinator Release Key Policy Root
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-key-policy-root/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy/**'
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-key-policy-root.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-key-policy-root-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-key-policy-root-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Offline root + threshold policy head currentness
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-key-policy-root/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-key-policy-root/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-key-policy-root/Cargo.toml --all-targets -- -D warnings
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-key-policy-root')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Independent root may consume semantic release/key-policy types only.
+          assert 'mycelix-authority-coordinator-release = ' in cargo
+          assert 'mycelix-authority-coordinator-release-key-policy = ' in cargo
+          assert 'ed25519-dalek = "=2.2.0"' in cargo
+          assert 'ml-dsa = "=0.1.1"' in cargo
+          for forbidden in [
+              'mycelix-authority-coordinator-release-currentness',
+              'mycelix-authority-coordinator-release-hybrid-verifier',
+              'holochain_client', 'hdk',
+          ]:
+              assert forbidden not in cargo, forbidden
+
+          for token in [
+              'pub const ED25519_PUBLIC_KEY_LEN: usize = 32;',
+              'pub const ED25519_SIGNATURE_LEN: usize = 64;',
+              'pub const ML_DSA_65_PUBLIC_KEY_LEN: usize = 1952;',
+              'pub const ML_DSA_65_SIGNATURE_LEN: usize = 3309;',
+              'pub const MAX_POLICY_HEAD_LIFETIME_MS: u64 = 30_000;',
+              'pub struct CoordinatorReleaseKeyPolicyTrustRoot {',
+              'pub struct CoordinatorReleaseKeyPolicyRootPin {',
+              'pub struct QualifiedCoordinatorReleaseKeyPolicyRoot {',
+              'pub struct CoordinatorReleaseKeyPolicyHead {',
+              'pub struct QualifiedCurrentCoordinatorReleaseKeyPolicyHead {',
+              'pub fn bootstrap_policy_root(',
+              'pub fn rotate_policy_root(',
+              'pub fn qualify_current_policy_head(',
+              'fn verify_exact_threshold(',
+              'signatures.len() != usize::from(threshold)',
+              '.verify_strict(message, &EdSignature::from_bytes(&ed_signature))',
+              'MlSignature::<MlDsa65>::decode(&encoded_signature)',
+              '.verify(message, &ml_signature)',
+              'new_root.root_threshold < current.root_threshold_floor',
+              'new_root.policy_head_threshold < current.policy_head_threshold_floor',
+              'old_root_signatures',
+              'new_root_signatures',
+              'root.root.root_version != 1',
+              'head.previous_head_digest != Some(previous.head_digest)',
+              '.min(signer_horizon(&root.root.policy_head_keys, signatures)?)',
+              'let receipt = VerifiedCurrentCoordinatorReleaseKeyPolicyProof {',
+              'qualify_manifest_key_policy_v01(manifest, self.policy.clone(), &receipt, now_ms)',
+          ]:
+              assert token in src, token
+
+          # Positive root/head are locally constructed only.
+          for positive in [
+              'pub struct QualifiedCoordinatorReleaseKeyPolicyRoot {',
+              'pub struct QualifiedCurrentCoordinatorReleaseKeyPolicyHead {',
+          ]:
+              prefix = src.split(positive, 1)[0].split('\n')[-8:]
+              assert not any('Deserialize' in line for line in prefix), positive
+
+          # Root bootstrap lifetime is root metadata lifetime; pin is identity only.
+          bootstrap = src.split('pub fn bootstrap_policy_root(', 1)[1].split('\n}\n\n/// Rotate', 1)[0]
+          assert 'let valid_until_ms = root.valid_until_ms;' in bootstrap
+          assert 'u64::MAX' not in bootstrap
+
+          # #307 evidence-shaped currentness is constructed only inside the safe
+          # non-deserializable-head method and consumed immediately.
+          method = prod.split('pub fn qualify_manifest_key_policy(', 1)[1].split('\n    }\n}', 1)[0]
+          assert 'VerifiedCurrentCoordinatorReleaseKeyPolicyProof {' in method
+          assert 'qualify_manifest_key_policy_v01' in method
+          assert 'Result<QualifiedCoordinatorReleaseManifestKeyPolicy' in method
+          assert 'Result<VerifiedCurrentCoordinatorReleaseKeyPolicyProof' not in prod
+
+          # Release-authenticated/current-release objects may not authorize their own key root.
+          for forbidden in [
+              'QualifiedCoordinatorReleaseRequirement',
+              'QualifiedCurrentCoordinatorRelease',
+              'VerifiedCoordinatorReleaseSignatureProof',
+              'qualify_coordinator_release(',
+              'qualify_current_coordinator_release(',
+              'AdminWebsocket', 'call_zome', 'perform_external_effect',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          # Production is verification-only; signing/key generation is test-only.
+          for forbidden in [
+              'EdSigningKey', 'MlSigningKey', '::generate()', '.sign(',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          for invariant in [
+              'release signing keys are leaves, never the policy root',
+              'initial root identity is pinned out of band',
+              'root and policy-head roles are cryptographically separate',
+              'v0.1 uses one exact hybrid wire contract',
+              'root bootstrap requires pin equality and exact threshold evidence',
+              'positive root is non-deserializable',
+              'root rotation requires old + new threshold authorization',
+              'root pin never becomes an infinite lease',
+              'policy heads are short lived',
+              'policy-head threshold is separate from root threshold',
+              'policy-head lineage is monotone and parent linked',
+              'durable rollback/fork protection remains a host theorem',
+              'current-policy evidence is privately projected into #307',
+              'policy-head lease is monotone',
+              'root/currentness does not authenticate a release',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: out-of-band root identity -> independent hybrid root threshold -> short-lived hybrid policy head -> private #307 currentness')
+          PY
