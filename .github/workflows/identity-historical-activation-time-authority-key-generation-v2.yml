@@ -1,0 +1,135 @@
+name: Identity Historical Activation Time Authority Key Generation V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-key-generation-policy/**'
+      - '.github/workflows/identity-historical-activation-time-authority-key-generation-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-key-generation-policy/**'
+      - '.github/workflows/identity-historical-activation-time-authority-key-generation-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-historical-activation-time-authority-key-generation-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact time-authority key-generation boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-authority-key-generation-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-authority-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: time-authority key-generation dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: key-generation theorem must use workspace crypto/sha2')
+          if deps['mycelix-historical-activation-time-authority-policy'].get('path') != '../historical-activation-time-authority-policy':
+              raise SystemExit('ERROR: key-generation theorem must bind #395 static policy')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text.split('#[cfg(test)]', 1)[0]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'HistoricalActivationTimeAuthorityKeyGenerationV2',
+              'QualifiedHistoricalActivationTimeAuthorityKeyGenerationV2',
+              'HISTORICAL_ACTIVATION_TIME_AUTHORITY_KEY_GENERATION_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-authority-key-generation:v2\\0',
+              'public_key_bytes',
+              'key_generation',
+              'valid_from_micros',
+              'valid_until_micros',
+              'algorithm.is_signature_algorithm()',
+              'public_key_bytes.len() != generation.algorithm.public_key_size()',
+              'public_key_bytes.iter().all',
+              'derive_historical_activation_time_authority_key_generation_digest_v2',
+              'qualify_historical_activation_time_authority_key_generation_v2',
+              'validate_time_authority_key_generation_against_static_policy_v2',
+              'generation.generation_digest_sha256() != policy.time_authority_key_generation_sha256()',
+              'policy.valid_from_micros() < generation.valid_from_micros()',
+              'policy.valid_until_micros() > generation.valid_until_micros()',
+          ]
+          for needle in required:
+              if needle not in production:
+                  raise SystemExit(f'ERROR: time-authority key-generation invariant missing: {needle!r}')
+
+          result_start = production.index('pub struct QualifiedHistoricalActivationTimeAuthorityKeyGenerationV2')
+          result_end = production.index('impl QualifiedHistoricalActivationTimeAuthorityKeyGenerationV2', result_start)
+          result_body = production[result_start:result_end]
+          for public_field in [
+              'pub generation_digest_sha256:',
+              'pub public_key_bytes:',
+              'pub key_generation:',
+              'pub valid_until_micros:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(f'ERROR: qualified time-authority generation is forgeable: {public_field}')
+
+          lower = production.lower()
+          for forbidden in [
+              'use hdk', 'use hdi', 'hdk::', 'hdi::', 'holochain_',
+              'sys_time(', 'std::time', 'network', 'verify_signature', '.verify(',
+              'signature_verified', 'authenticated_time', 'policy_current',
+              'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/crypto/currentness authority leaked into key generation: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-key-generation-policy/Cargo.toml \
+            -- --check
+
+      - name: Test static time-authority policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/Cargo.toml
+
+      - name: Test exact time-authority key generation
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-key-generation-policy/Cargo.toml
+
+      - name: Check exact time-authority key generation for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-key-generation-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
