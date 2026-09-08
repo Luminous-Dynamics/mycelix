@@ -1,0 +1,130 @@
+name: Justice Finality Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/crates/justice-finality-qualification/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-types/**'
+      - 'mycelix-workspace/mycelix-civic/Cargo.toml'
+      - '.github/workflows/justice-finality-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-finality-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Positive Justice finality qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify repository dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace/mycelix-civic')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          member = 'crates/justice-finality-qualification'
+          assert member in set(workspace['workspace']['members'])
+          assert workspace['workspace']['dependencies']['justice-finality-qualification']['path'] == member
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          assert set(manifest.get('dependencies', {})) == {'justice-resolution-types'}
+          assert manifest['dependencies']['justice-resolution-types']['path'] == '../justice-resolution-types'
+          assert not manifest.get('dev-dependencies')
+          assert not manifest.get('build-dependencies')
+          PY
+
+      - name: Verify pure finality source boundary
+        run: |
+          src='mycelix-workspace/mycelix-civic/crates/justice-finality-qualification'
+          if grep -R -n -E '(^|[^[:alnum:]_])(hdk|hdi|holochain|mycelix[_-]business|mycelix[_-]finance|mycelix[_-]governance)([^[:alnum:]_]|$)' "$src" --include='*.rs' --include='Cargo.toml'; then
+            echo 'Justice finality qualification must remain transport-neutral and Justice-local' >&2
+            exit 1
+          fi
+          if grep -R -n -E 'SystemTime|Instant::now|std::time::SystemTime|chrono::|time::OffsetDateTime|thread_rng|rand::|getrandom|std::env|std::fs|std::process' "$src/src" --include='*.rs'; then
+            echo 'Justice finality qualification must have no ambient time/random/process authority' >&2
+            exit 1
+          fi
+          grep -q 'justice.finality-qualification' "$src/src/lib.rs"
+          grep -q 'justice.complete-appeal-coverage' "$src/src/lib.rs"
+          grep -q 'justice.terminal-appeal-resolution' "$src/src/lib.rs"
+          grep -q 'struct QualifiedJusticeFinalityV1' "$src/src/lib.rs"
+          grep -q 'AppealObserved' "$src/src/lib.rs"
+          grep -q 'AppealChangedDecision' "$src/src/lib.rs"
+
+      - name: Build isolated exact dependency capsule
+        run: |
+          capsule="$RUNNER_TEMP/justice-finality-qualification-capsule"
+          rm -rf "$capsule"
+          mkdir -p "$capsule"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-resolution-types "$capsule/justice-resolution-types"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-finality-qualification "$capsule/justice-finality-qualification"
+          cat > "$capsule/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = [
+            "justice-resolution-types",
+            "justice-finality-qualification",
+          ]
+
+          [workspace.package]
+          version = "0.1.0"
+          edition = "2024"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          serde = { version = "=1.0.228", features = ["derive"] }
+          EOF
+          cargo generate-lockfile --manifest-path "$capsule/Cargo.toml"
+          echo "CAPSULE=$capsule" >> "$GITHUB_ENV"
+
+      - name: Check rustfmt for finality-owned package
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --package justice-finality-qualification -- --check
+
+      - name: test exact finality capsule
+        run: cargo test --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-finality-qualification
+
+      - name: clippy exact finality capsule
+        run: cargo clippy --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-finality-qualification --all-targets -- -D warnings
+
+      - name: Verify repository stayed clean
+        run: test -z "$(git status --short)"
+
+      - name: Evidence boundary
+        run: |
+          cat <<'EOF'
+          evidence_authority=pure_positive_finality_qualification
+          runtime_evidence_authentication_assumed=true
+          positive_finality_output_sealed=true
+          local_empty_query_is_finality=false
+          complete_coverage_required_for_no_appeal=true
+          terminal_appeal_resolution_profiled=true
+          ambient_clock_used=false
+          monetary_verifier_migrated_to_sealed_finality=false
+          appellate_runtime_authority_qualified=false
+          business_finance_bridge_authorized=false
+          EOF
+
+      - name: Require finality-owned source formatting
+        if: always()
+        run: |
+          if [[ '${{ steps.rustfmt.outcome }}' != 'success' ]]; then
+            echo 'Finality-owned source is not rustfmt-clean; qualification remains red after collecting compile/test/clippy evidence.' >&2
+            exit 1
+          fi

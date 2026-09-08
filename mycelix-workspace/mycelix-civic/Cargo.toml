@@ -6,6 +6,7 @@ members = [
     "crates/justice-resolution-types",
     "crates/justice-resolution-verifier",
     "crates/justice-adjudication-reducer",
+    "crates/justice-finality-qualification",
 
     # Justice domain (6 zomes)
     "zomes/justice-cases/integrity",
@@ -93,6 +94,7 @@ civic-types = { path = "crates/civic-types" }
 justice-resolution-types = { path = "crates/justice-resolution-types" }
 justice-resolution-verifier = { path = "crates/justice-resolution-verifier" }
 justice-adjudication-reducer = { path = "crates/justice-adjudication-reducer" }
+justice-finality-qualification = { path = "crates/justice-finality-qualification" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common", features = ["infrastructure"] }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
 mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
