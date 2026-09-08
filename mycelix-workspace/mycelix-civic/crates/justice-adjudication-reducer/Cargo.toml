@@ -10,3 +10,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 justice-resolution-verifier = { path = "../justice-resolution-verifier" }
+
+[dev-dependencies]
+justice-finality-qualification = { path = "../justice-finality-qualification" }

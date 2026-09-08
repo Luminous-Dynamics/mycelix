@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-types/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-finality-qualification/**'
       - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/**'
       - 'mycelix-workspace/mycelix-civic/Cargo.toml'
       - '.github/workflows/justice-resolution-verifier.yml'
@@ -18,10 +19,12 @@ concurrency:
 
 jobs:
   qualify:
-    name: Pure Justice resolution qualification kernel
-    runs-on: ubuntu-latest
+    name: Sealed-finality Justice resolution qualification
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
@@ -43,36 +46,115 @@ jobs:
 
           workspace_dependencies = workspace_manifest['workspace']['dependencies']
           assert workspace_dependencies['justice-resolution-verifier']['path'] == crate
+          assert workspace_dependencies['justice-finality-qualification']['path'] == 'crates/justice-finality-qualification'
 
           manifest = tomllib.loads((civic_root / crate / 'Cargo.toml').read_text())
           dependencies = manifest.get('dependencies', {})
-          assert set(dependencies) == {'justice-resolution-types'}, (
-              'verifier may depend only on the pure Justice resolution vocabulary'
-          )
+          assert set(dependencies) == {
+              'justice-resolution-types',
+              'justice-finality-qualification',
+          }, 'verifier may depend only on pure Justice resolution vocabulary + sealed finality token types'
           assert dependencies['justice-resolution-types']['path'] == '../justice-resolution-types'
+          assert dependencies['justice-finality-qualification']['path'] == '../justice-finality-qualification'
           assert not manifest.get('dev-dependencies'), 'verifier must have zero dev dependencies'
           assert not manifest.get('build-dependencies'), 'verifier must have zero build dependencies'
           PY
 
       - name: Verify pure source boundary
         run: |
-          src='mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/src'
+          src='mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier'
           if grep -R -n -E '(^|[[:space:]])use[[:space:]]+(hdk|hdi|holochain|mycelix_business|mycelix_finance)|hdk::|hdi::|holochain_[A-Za-z0-9_]*::|mycelix_business_[A-Za-z0-9_]*::|mycelix_finance_[A-Za-z0-9_]*::|std::(time|net|fs|process|env)::|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src" --include='*.rs'; then
             echo 'Justice verifier gained runtime, Business, Finance, Holochain, or ambient-authority coupling' >&2
             exit 1
           fi
 
-      - name: Verify frozen decision-rule profile is explicit
+      - name: Verify sealed finality consumer boundary
         run: |
           src='mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/src/lib.rs'
           grep -F 'justice.two-party-prevailing-party-full-award' "$src"
           grep -F 'TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_VERSION: u32 = 1' "$src"
+          grep -F 'pub qualified_finality: QualifiedJusticeFinalityV1' "$src"
+          grep -F 'FinalityDecisionMismatch' "$src"
+          grep -F 'FinalityDecisionRenderedAtMismatch' "$src"
+          grep -F 'FinalityAppealDeadlineMismatch' "$src"
+          grep -F 'FinalityQualificationTimeMismatch' "$src"
+          grep -F 'finality_receipt: JusticeFinalityQualificationReceiptV1' "$src"
+          if grep -R -n -E '(^|[^[:alnum:]_])enum[[:space:]]+CurrentAppealStateV1|appeal_state[[:space:]]*:[[:space:]]*CurrentAppealStateV1|appeal_state[[:space:]]*:[[:space:]]*CurrentAppealStateV1::' mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier --include='*.rs'; then
+            echo 'Caller-declared appeal state re-entered the executable monetary-remedy verifier surface' >&2
+            exit 1
+          fi
+          if grep -n -E '^pub[[:space:]]+use[[:space:]]+justice_finality_qualification' "$src"; then
+            echo 'Monetary-remedy verifier must consume sealed finality, not re-export the finality minting surface' >&2
+            exit 1
+          fi
+          grep -q '^use justice_finality_qualification::' mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/tests/sealed_finality_bypass.rs
 
-      - name: rustfmt
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml -- --check
+      - name: Build isolated exact dependency capsule
+        run: |
+          capsule="$RUNNER_TEMP/justice-resolution-verifier-capsule"
+          rm -rf "$capsule"
+          mkdir -p "$capsule"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-resolution-types "$capsule/justice-resolution-types"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-finality-qualification "$capsule/justice-finality-qualification"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier "$capsule/justice-resolution-verifier"
+          cat > "$capsule/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = [
+            "justice-resolution-types",
+            "justice-finality-qualification",
+            "justice-resolution-verifier",
+          ]
 
-      - name: tests
-        run: cargo test --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml
+          [workspace.package]
+          version = "0.1.0"
+          edition = "2024"
+          license = "AGPL-3.0-or-later"
 
-      - name: clippy
-        run: cargo clippy --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml --all-targets -- -D warnings
+          [workspace.dependencies]
+          serde = { version = "=1.0.228", features = ["derive"] }
+          EOF
+          cargo generate-lockfile --manifest-path "$capsule/Cargo.toml"
+          echo "CAPSULE=$capsule" >> "$GITHUB_ENV"
+
+      - name: Check rustfmt for verifier-owned package
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --package justice-resolution-verifier -- --check
+
+      - name: test exact verifier capsule
+        run: cargo test --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-resolution-verifier
+
+      - name: clippy exact verifier capsule
+        run: cargo clippy --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-resolution-verifier --all-targets -- -D warnings
+
+      - name: Verify repository stayed clean
+        run: test -z "$(git status --short)"
+
+      - name: Evidence boundary
+        run: |
+          cat <<'EOF'
+          evidence_authority=pure_sealed_finality_consumer_qualification
+          runtime_record_authentication_assumed=true
+          finality_evidence_authentication_assumed=true
+          direct_caller_appeal_state_path=false
+          finality_qualifier_reexported=false
+          sealed_finality_required=true
+          exact_decision_ref_bound=true
+          exact_decision_rendered_time_bound=true
+          exact_appeal_deadline_bound=true
+          exact_qualification_time_bound=true
+          finality_receipt_preserved=true
+          ambient_clock_used=false
+          appellate_runtime_authority_qualified=false
+          finance_execution_authorized=false
+          business_closure_authorized=false
+          EOF
+
+      - name: Require verifier-owned source formatting
+        if: always()
+        run: |
+          if [[ '${{ steps.rustfmt.outcome }}' != 'success' ]]; then
+            echo 'Verifier-owned source is not rustfmt-clean; qualification remains red after collecting compile/test/clippy evidence.' >&2
+            exit 1
+          fi

@@ -242,10 +242,8 @@ pub fn reduce_adjudication_evidence_v1(
     }
 
     let mut participation_refs = BTreeSet::new();
-    let mut participation_by_actor: BTreeMap<
-        String,
-        &AuthenticatedParticipationEvidenceV1,
-    > = BTreeMap::new();
+    let mut participation_by_actor: BTreeMap<String, &AuthenticatedParticipationEvidenceV1> =
+        BTreeMap::new();
     for evidence in &basis.participation {
         if evidence.attestation_ref.trim().is_empty() {
             return Err(AdjudicationReductionError::EmptyParticipationRef);
@@ -587,9 +585,7 @@ mod tests {
     #[test]
     fn vote_from_unselected_actor_is_denied() {
         let mut basis = happy_basis();
-        basis
-            .votes
-            .push(vote("did:z", "vote:z", "participation:z"));
+        basis.votes.push(vote("did:z", "vote:z", "participation:z"));
         assert_eq!(
             reduce_adjudication_evidence_v1(basis),
             Err(AdjudicationReductionError::VoteFromUnselectedActor)
