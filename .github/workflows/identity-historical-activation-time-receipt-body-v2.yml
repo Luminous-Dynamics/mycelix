@@ -1,0 +1,147 @@
+name: Identity Historical Activation Time Receipt Body V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/**'
+      - '.github/workflows/identity-historical-activation-time-receipt-body-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/**'
+      - '.github/workflows/identity-historical-activation-time-receipt-body-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-historical-activation-time-receipt-body-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert prepared time-receipt boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-receipt-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {'mycelix-crypto', 'sha2'}
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: time-receipt dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: time-receipt body must use workspace mycelix-crypto')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: time-receipt body must use workspace sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text.split('#[cfg(test)]', 1)[0]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'HistoricalActivationTimeReceiptBodyV2',
+              'PreparedHistoricalActivationTimeReceiptV2',
+              'UnixMicrosecondsUtc = 1',
+              'HISTORICAL_ACTIVATION_TIME_RECEIPT_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-receipt:v2\\0',
+              'activation_subject_sha256',
+              'time_authority_policy_sha256',
+              'time_authority_key_generation_sha256',
+              'time_authority_id',
+              'time_authority_key_id',
+              'algorithm.is_signature_algorithm()',
+              'observed_at_micros',
+              'uncertainty_before_micros',
+              'uncertainty_after_micros',
+              'receipt_valid_until_micros',
+              'checked_sub(before)',
+              'checked_add(after)',
+              'conservative_activation_bound_micros',
+              'self.latest_plausible_observation_micros',
+              'derive_historical_activation_time_receipt_signing_digest_v2',
+              'prepare_historical_activation_time_receipt_v2',
+          ]
+          for needle in required:
+              if needle not in production:
+                  raise SystemExit(f'ERROR: time-receipt invariant missing: {needle!r}')
+
+          result_start = production.index('pub struct PreparedHistoricalActivationTimeReceiptV2')
+          result_end = production.index('impl PreparedHistoricalActivationTimeReceiptV2', result_start)
+          result_body = production[result_start:result_end]
+          for public_field in [
+              'pub activation_subject_sha256:',
+              'pub signing_digest_sha256:',
+              'pub latest_plausible_observation_micros:',
+              'pub receipt_valid_until_micros:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(f'ERROR: prepared time-receipt capability is forgeable: {public_field}')
+
+          lower = production.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'sys_time(',
+              'std::time',
+              'verify_signature',
+              '.verify(',
+              'signature_verified',
+              'authenticated_time',
+              'trusted_time',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: clock/crypto/currentness authority leaked into receipt body: {forbidden!r}')
+
+          conservative_start = production.index('pub fn conservative_activation_bound_micros')
+          conservative_end = production.index('\n    }', conservative_start)
+          conservative = production[conservative_start:conservative_end]
+          if 'self.latest_plausible_observation_micros' not in conservative:
+              raise SystemExit('ERROR: conservative activation bound is not latest plausible observation')
+          if 'self.earliest_plausible_observation_micros' in conservative or 'self.observed_at_micros' in conservative:
+              raise SystemExit('ERROR: conservative activation bound may backdate through uncertainty')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/Cargo.toml \
+            -- --check
+
+      - name: Test prepared time-receipt body
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/Cargo.toml
+
+      - name: Check prepared time-receipt body for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-historical-activation-time-receipt-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Prepared signed time-receipt body for Identity V2 historical activation"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+sha2 = { workspace = true }
