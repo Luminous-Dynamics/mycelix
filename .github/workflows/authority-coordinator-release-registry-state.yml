@@ -1,0 +1,246 @@
+name: Authority Coordinator Release Registry State
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-registry-state/**'
+      - 'crates/mycelix-authority-coordinator-release-registry/**'
+      - 'crates/mycelix-authority-coordinator-release-currentness/**'
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-registry-state.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-registry-state-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-registry-state-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Durable latest complete registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-registry-state/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-registry-state/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-registry-state/Cargo.toml --all-targets -- -D warnings
+
+      - name: Complete-registry compatibility
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-registry/Cargo.toml --all-targets
+
+      - name: Current-release compatibility
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-currentness/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-registry-state')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Native Unix state boundary, Rust 1.89 File::lock and fixed hybrid crypto.
+          for token in [
+              'rust-version = "1.89"',
+              'ed25519-dalek = "=2.2.0"',
+              'ml-dsa = "=0.1.1"',
+              'libc = "0.2"',
+              'serde_json = "1"',
+              'mycelix-authority-coordinator-release-registry = ',
+          ]:
+              assert token in cargo, token
+          for forbidden in [
+              'holochain_client', 'hdk',
+              'mycelix-authority-coordinator-deployment-composer',
+              'mycelix-authority-coordinator-stability-fence',
+          ]:
+              assert forbidden not in cargo, forbidden
+
+          for token in [
+              'pub struct TrustedRegistrySnapshotCheckpoint {',
+              'pub struct TrustedCoordinatorReleaseRegistryState {',
+              'pub struct TrustedCoordinatorReleaseRegistryStore {',
+              'pub fn bootstrap_from_out_of_band_pin(',
+              'pub fn rotate_root(',
+              'pub fn advance_snapshot(',
+              'pub fn qualify_current_release(',
+              'pub fn state_summary(',
+              'pub const STATE_FILE_MODE: u32 = 0o600;',
+              'pub const MAX_STATE_BYTES: usize = 32 * 1024 * 1024;',
+          ]:
+              assert token in src, token
+
+          # The configured parent is resolved once to a canonical real path.
+          for token in [
+              'std::env::current_dir()',
+              'fs::canonicalize(requested_parent)',
+              'let state_path = canonical_parent.join(&file_name);',
+              'let lock_path = canonical_parent.join(lock_name);',
+          ]:
+              assert token in prod, token
+
+          # Normal operations own prior state/root/snapshot. Root pin is first-use only.
+          rotate_sig = prod.split('pub fn rotate_root(', 1)[1].split(') -> Result', 1)[0]
+          advance_sig = prod.split('pub fn advance_snapshot(', 1)[1].split(') -> Result', 1)[0]
+          qualify_sig = prod.split('pub fn qualify_current_release(', 1)[1].split(') -> Result', 1)[0]
+          assert 'CoordinatorReleaseRegistryRootPin' not in rotate_sig
+          assert 'TrustedCoordinatorReleaseRegistryState' not in rotate_sig
+          assert 'previous' not in rotate_sig.lower()
+          assert 'TrustedCoordinatorReleaseRegistryState' not in advance_sig
+          assert 'previous' not in advance_sig.lower()
+          for forbidden in [
+              'CoordinatorReleaseRegistrySnapshot',
+              'VerifiedCurrentReleaseRegistryHeadProof',
+              'VerifiedCoordinatorReleaseStatusAtHeadProof',
+              'CoordinatorReleaseStatus',
+              'previous', 'root:', 'head_proof', 'status_proof',
+          ]:
+              assert forbidden not in qualify_sig, forbidden
+
+          # Dual-threshold root rotation + upward ratchets.
+          for token in [
+              '&old_root.root_keys',
+              'old_root.root_threshold',
+              '&new_root.root_keys',
+              'new_root.root_threshold',
+              'state.root_threshold_floor.max(new_root.root_threshold)',
+              '.max(new_root.registry_head_threshold)',
+              'new_root.root_threshold < state.root_threshold_floor',
+              'new_root.registry_head_threshold < state.registry_head_threshold_floor',
+          ]:
+              assert token in prod, token
+
+          # Snapshot verification remains strict hybrid AND and post-crypto revalidated.
+          for token in [
+              'snapshot_signature_message(root, &snapshot)',
+              'signatures.len() != usize::from(threshold)',
+              '.verify_strict(message, &EdSignature::from_bytes(&ed_signature))',
+              'MlSignature::<MlDsa65>::decode(&encoded_signature)',
+              '.verify(message, &signature)',
+              'ensure_signers_live(&root.registry_head_keys, signatures, verified_at_ms)?',
+              '.min(signer_horizon(&root.registry_head_keys, signatures)?)',
+          ]:
+              assert token in prod, token
+
+          # Persist the full complete snapshot and contain its horizon.
+          for token in [
+              'pub snapshot: CoordinatorReleaseRegistrySnapshot,',
+              'self.verified_at_ms < self.snapshot.valid_from_ms',
+              'self.verified_at_ms >= self.snapshot.valid_until_ms',
+              'self.valid_until_ms > self.snapshot.valid_until_ms',
+              'checkpoint.valid_until_ms > self.current_root.valid_until_ms',
+          ]:
+              assert token in prod, token
+
+          # State-owned latest snapshot: exact revalidation or exact successor only.
+          for token in [
+              'Some(current) if current.registry_head_digest == head_digest',
+              '.registry_generation\n                    .checked_add(1)',
+              'snapshot.previous_registry_head_digest != Some(current.registry_head_digest)',
+              'snapshot.root_version < current.snapshot.root_version',
+              'RegistryRecordRemoved',
+              'RegistryRecordHistoryRewritten',
+              'InvalidStatusTransition',
+          ]:
+              assert token in prod, token
+
+          # Old snapshots stop authorizing immediately after root rotation.
+          qualify = prod.split('pub fn qualify_current_release(', 1)[1].split('\n    /// Diagnostics only', 1)[0]
+          assert 'checkpoint.snapshot.root_version != root.root_version' in qualify
+          assert 'SnapshotNotUnderCurrentRoot' in qualify
+
+          # Current release comes only from persisted complete-snapshot lookup.
+          for token in [
+              'self.load_state_unlocked()?;',
+              '.binary_search_by_key(&release.manifest_digest()',
+              'ReleaseMissingFromCompleteSnapshot',
+              'record.status != CoordinatorReleaseStatus::Active',
+          ]:
+              assert token in qualify, token
+
+          # Durable clock-floor advancement MUST precede private #275 receipt construction.
+          persist = qualify.index('self.atomic_replace_state(&next)?;')
+          head_receipt = qualify.index('let head_proof = VerifiedCurrentReleaseRegistryHeadProof {')
+          status_receipt = qualify.index('let status_proof = VerifiedCoordinatorReleaseStatusAtHeadProof {')
+          consume = qualify.index('qualify_current_coordinator_release(release, &head_proof, &status_proof, now_ms)')
+          assert persist < head_receipt < status_receipt < consume
+          assert 'Result<VerifiedCurrentReleaseRegistryHeadProof' not in prod
+          assert 'Result<VerifiedCoordinatorReleaseStatusAtHeadProof' not in prod
+
+          # Secure bounded crash-durable filesystem mechanics.
+          for token in [
+              '.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)',
+              'lock.lock()',
+              'file.take((MAX_STATE_BYTES + 1) as u64)',
+              '.create_new(true)',
+              'file.sync_all()',
+              'fs::rename(&tmp_path, &self.state_path)',
+              '.custom_flags(libc::O_DIRECTORY | libc::O_CLOEXEC)',
+              'directory\n                .sync_all()',
+          ]:
+              assert token in prod, token
+
+          # The digest is deliberately not advertised as keyed/same-UID anti-tamper.
+          assert 'blake3::keyed_hash' not in prod
+          for phrase in [
+              'serialized state is data, not caller authority',
+              'the state path resolves to one canonical real parent',
+              'bootstrap is a distinct first-use ceremony',
+              'the previous root is state-owned',
+              'threshold floors ratchet upward',
+              'registry advancement is independent of release queries',
+              'the complete snapshot is persisted, not merely its head digest',
+              'checkpoint horizons may not exceed signed snapshot horizons',
+              'persisted latest-snapshot lineage is monotone',
+              'complete-record monotonicity survives restart',
+              'root rotation immediately suspends old-snapshot release authority',
+              'release lookup is state-owned',
+              '#275 evidence-shaped receipts remain private compatibility projections',
+              'trusted host time has a durable floor',
+              'persistence precedes positive current-release authority',
+              'read / verify / advance is one exclusive transaction',
+              'filesystem inputs fail closed',
+              'state replacement is crash-durable at the filesystem boundary',
+              'state identity is self-consistent and parent linked',
+              'the self-digest is not a keyed anti-tamper proof',
+              'local durability is not full-machine anti-rollback',
+              'no holochain or external effects',
+              'provisioning remains blocked',
+          ]:
+              assert phrase in inv, phrase
+
+          # Production has verification/storage only, no signing or effect authority.
+          for forbidden in [
+              'EdSigningKey', 'MlSigningKey', '::generate()', '.sign(',
+              'AdminWebsocket', 'call_zome', 'UpdateCoordinators',
+              'perform_external_effect',
+          ]:
+              assert forbidden not in prod, forbidden
+          assert prod.count('unsafe {') == 1
+          assert 'unsafe { libc::geteuid() }' in prod
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: canonical secure path -> state-owned rooted complete registry -> durable latest snapshot -> local Active lookup -> private #275 currentness')
+          PY
