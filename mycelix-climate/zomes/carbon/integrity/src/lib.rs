@@ -256,3 +256,113 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_footprint() -> CarbonFootprint {
+        CarbonFootprint {
+            entity_did: "did:mycelix:org-1".into(),
+            period_start: 1_704_067_200,
+            period_end: 1_735_689_599,
+            scope1: 10.0,
+            scope2: 20.0,
+            scope3: 30.0,
+            methodology: "GHG Protocol".into(),
+            verified_by: None,
+        }
+    }
+
+    fn valid_credit() -> CarbonCredit {
+        CarbonCredit {
+            id: "credit:project-1:2026:1".into(),
+            project_id: "project-1".into(),
+            vintage_year: 2026,
+            tonnes_co2e: 10.0,
+            status: CreditStatus::Active,
+            owner_did: "did:mycelix:owner-1".into(),
+            retired_at: None,
+        }
+    }
+
+    fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
+        assert!(matches!(result.expect("validator should execute"), ValidateCallbackResult::Valid));
+    }
+
+    fn assert_invalid_contains(result: ExternResult<ValidateCallbackResult>, needle: &str) {
+        match result.expect("validator should execute") {
+            ValidateCallbackResult::Invalid(reason) => assert!(
+                reason.contains(needle),
+                "expected rejection containing {needle:?}, got {reason:?}"
+            ),
+            other => panic!("expected invalid result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn production_footprint_validator_accepts_valid_measurement() {
+        assert_valid(validate_carbon_footprint(&valid_footprint()));
+    }
+
+    #[test]
+    fn production_footprint_validator_rejects_invalid_identity() {
+        let mut footprint = valid_footprint();
+        footprint.entity_did = "org-1".into();
+        assert_invalid_contains(validate_carbon_footprint(&footprint), "did:");
+    }
+
+    #[test]
+    fn production_footprint_validator_rejects_negative_emissions() {
+        let mut footprint = valid_footprint();
+        footprint.scope2 = -0.01;
+        assert_invalid_contains(validate_carbon_footprint(&footprint), "Scope 2");
+    }
+
+    #[test]
+    fn production_footprint_validator_rejects_inverted_period() {
+        let mut footprint = valid_footprint();
+        footprint.period_start = footprint.period_end;
+        assert_invalid_contains(validate_carbon_footprint(&footprint), "Period start");
+    }
+
+    #[test]
+    fn production_footprint_validator_rejects_empty_methodology() {
+        let mut footprint = valid_footprint();
+        footprint.methodology.clear();
+        assert_invalid_contains(validate_carbon_footprint(&footprint), "Methodology");
+    }
+
+    #[test]
+    fn production_credit_validator_accepts_valid_credit() {
+        assert_valid(validate_carbon_credit(&valid_credit()));
+    }
+
+    #[test]
+    fn production_credit_validator_rejects_non_positive_tonnes() {
+        let mut credit = valid_credit();
+        credit.tonnes_co2e = 0.0;
+        assert_invalid_contains(validate_carbon_credit(&credit), "tonnes");
+    }
+
+    #[test]
+    fn production_credit_validator_rejects_invalid_vintage() {
+        let mut credit = valid_credit();
+        credit.vintage_year = 2101;
+        assert_invalid_contains(validate_carbon_credit(&credit), "Vintage year");
+    }
+
+    #[test]
+    fn production_credit_validator_requires_retirement_timestamp() {
+        let mut credit = valid_credit();
+        credit.status = CreditStatus::Retired;
+        assert_invalid_contains(validate_carbon_credit(&credit), "retired_at");
+    }
+
+    #[test]
+    fn production_credit_validator_rejects_timestamp_on_active_credit() {
+        let mut credit = valid_credit();
+        credit.retired_at = Some(1_800_000_000);
+        assert_invalid_contains(validate_carbon_credit(&credit), "Non-retired");
+    }
+}
