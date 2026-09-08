@@ -6,13 +6,15 @@ members = [
     "crates/justice-resolution-types",
     "crates/justice-resolution-verifier",
 
-    # Justice domain (5 zomes)
+    # Justice domain (6 zomes)
     "zomes/justice-cases/integrity",
     "zomes/justice-cases/coordinator",
     "zomes/justice-evidence/integrity",
     "zomes/justice-evidence/coordinator",
     "zomes/justice-arbitration/integrity",
     "zomes/justice-arbitration/coordinator",
+    "zomes/justice-adjudication-evidence/integrity",
+    "zomes/justice-adjudication-evidence/coordinator",
     "zomes/justice-restorative/integrity",
     "zomes/justice-restorative/coordinator",
     "zomes/justice-enforcement/integrity",
