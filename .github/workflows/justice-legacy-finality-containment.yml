@@ -1,0 +1,109 @@
+name: Justice Legacy Finality Containment
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/src/lib.rs'
+      - 'mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/src/lib.rs'
+      - '.github/workflows/justice-legacy-finality-containment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-legacy-finality-containment-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contain:
+    name: Legacy Justice finality cannot mint authority
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Prove legacy finality mutation paths are contained
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          integrity_path = Path('mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/src/lib.rs')
+          coordinator_path = Path('mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/src/lib.rs')
+          integrity = integrity_path.read_text()
+          coordinator = coordinator_path.read_text()
+
+          failures = []
+
+          # Creation must not let a Decision assert its own downstream finality.
+          if 'if decision.finalized' not in integrity:
+              failures.append(
+                  'Decision creation/shape validation does not reject finalized=true; '
+                  'legacy mutable finality can still be authored as record data'
+              )
+
+          # Appeal filings are appellant-authored facts. Their initial status must
+          # therefore be Filing only; later appellate disposition belongs to a
+          # distinct authority-qualified append-only record.
+          if 'appeal.status != AppealStatus::Filed' not in integrity:
+              failures.append(
+                  'Appeal validation does not require status=Filed; an appellant can '
+                  'author a terminal-looking status at creation'
+              )
+
+          # Integrity must reject direct Decision / Appeal entry updates. Same-author
+          # continuity is not institutional authority to mutate finality/disposition.
+          update_marker = 'FlatOp::StoreEntry(OpEntry::UpdateEntry'
+          if update_marker not in integrity:
+              failures.append('Could not locate StoreEntry(UpdateEntry) validation branch')
+          else:
+              update_tail = integrity.split(update_marker, 1)[1]
+              update_body = update_tail.split('FlatOp::RegisterCreateLink', 1)[0]
+              if 'EntryTypes::Decision(d) => validate_decision(&d)' in update_body:
+                  failures.append('Decision updates remain accepted by shape validation')
+              if 'EntryTypes::Appeal(a) => validate_appeal(&a)' in update_body:
+                  failures.append('Appeal updates remain accepted by shape validation')
+
+          # Coordinator convenience APIs must fail closed rather than mutating the
+          # two legacy projection fields.
+          if 'decision.finalized = true;' in coordinator:
+              failures.append('finalize_decision still mutates Decision.finalized=true')
+          if 'appeal.status = input.new_status;' in coordinator:
+              failures.append('update_appeal_status still mutates appellant-owned Appeal.status')
+
+          # Even after integrity containment, coordinator creation paths should
+          # normalize the legacy projection fields so caller input cannot choose them.
+          file_appeal = coordinator.split('pub fn file_appeal', 1)
+          if len(file_appeal) != 2 or 'appeal.status = AppealStatus::Filed;' not in file_appeal[1].split('/// Get appeals for a decision', 1)[0]:
+              failures.append('file_appeal does not force status=Filed before commit')
+
+          render_decision = coordinator.split('pub fn render_decision', 1)
+          if len(render_decision) != 2 or 'decision.finalized = false;' not in render_decision[1].split('/// Get decisions for a case', 1)[0]:
+              failures.append('render_decision does not force finalized=false before commit')
+
+          if failures:
+              print('Legacy Justice finality containment is NOT established:')
+              for failure in failures:
+                  print(f'  - {failure}')
+              raise SystemExit(1)
+
+          print('legacy_decision_finality_creation_contained=true')
+          print('legacy_appeal_status_creation_contained=true')
+          print('legacy_decision_updates_contained=true')
+          print('legacy_appeal_updates_contained=true')
+          print('legacy_finalize_decision_mutation_contained=true')
+          print('legacy_update_appeal_status_mutation_contained=true')
+          PY
+
+      - name: Evidence boundary
+        if: always()
+        run: |
+          cat <<'EOF'
+          evidence_authority=legacy_finality_containment_source_contract
+          positive_appellate_authority_qualified=false
+          complete_appeal_coverage_qualified=false
+          runtime_finality_adapter_authorized=false
+          finance_execution_authorized=false
+          business_closure_authorized=false
+          EOF
