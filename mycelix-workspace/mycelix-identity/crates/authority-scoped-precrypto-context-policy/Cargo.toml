@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-authority-scoped-precrypto-context-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Authority-domain equality and pre-crypto structural context theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-authority-scoped-kvector-verification-record-policy = { path = "../authority-scoped-kvector-verification-record-policy" }
+mycelix-authority-scoped-verifier-key-generation-policy = { path = "../authority-scoped-verifier-key-generation-policy" }
+mycelix-authority-scoped-verifier-policy = { path = "../authority-scoped-verifier-policy" }
+mycelix-kvector-verifier-key-generation-policy = { path = "../kvector-verifier-key-generation-policy" }
+mycelix-kvector-verifier-policy-body = { path = "../kvector-verifier-policy-body" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }
