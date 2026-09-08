@@ -53,6 +53,8 @@ members = [
     "crates/historical-activation-time-receipt-policy",
     # Static time-authority policy for historical activation
     "crates/historical-activation-time-authority-policy",
+    # Exact time-authority key generation for historical activation
+    "crates/historical-activation-time-authority-key-generation-policy",
     # Exact Holochain Record provenance observer (unprovisioned)
     "zomes/identity_security_observer_v2/coordinator",
     # Append-only verifier-key generation lifecycle integrity

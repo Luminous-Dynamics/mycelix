@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-historical-activation-time-authority-key-generation-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact time-authority key generation for Identity V2 historical activation"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
