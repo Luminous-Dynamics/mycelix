@@ -33,6 +33,9 @@ members = [
     "crates/historical-generation-observer-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
+    # Canonical-only DID V2 authority epoch (unprovisioned)
+    "zomes/did_registry_v2/integrity",
+    "zomes/did_registry_v2/coordinator",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
