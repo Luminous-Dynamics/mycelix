@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-activation-subject-context-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Cross-capability activation subject composition for Identity V2 historical verifier keys"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+identity_security_observer_v2 = { path = "../../zomes/identity_security_observer_v2/coordinator" }
+mycelix-authority-scoped-kvector-verification-record-policy = { path = "../authority-scoped-kvector-verification-record-policy" }
+mycelix-authority-scoped-precrypto-context-policy = { path = "../authority-scoped-precrypto-context-policy" }
+mycelix-identity-runtime-precrypto-context-adapter = { path = "../identity-runtime-precrypto-context-adapter" }
+mycelix-crypto = { workspace = true }
+sha2 = { workspace = true }
