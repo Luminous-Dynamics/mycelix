@@ -1,0 +1,18 @@
+[package]
+name = "identity_security_observer_v2"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact Holochain Record provenance adapter for Identity V2 historical verifier observation"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+did_registry_v2_integrity = { path = "../../did_registry_v2/integrity" }
+verifier_key_generation_integrity = { path = "../../verifier_key_generation/integrity" }
+mycelix-agent-activity-coverage-policy = { path = "../../../crates/agent-activity-coverage-policy" }
+mycelix-authority-scoped-kvector-verification-record-policy = { path = "../../../crates/authority-scoped-kvector-verification-record-policy" }
+mycelix-historical-generation-observer-policy = { path = "../../../crates/historical-generation-observer-policy" }
+sha2 = { workspace = true }

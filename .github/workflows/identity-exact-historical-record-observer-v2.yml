@@ -1,0 +1,203 @@
+name: Identity Exact Historical Record Observer V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/verifier_key_generation/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/**'
+      - 'mycelix-workspace/mycelix-identity/dna/dna.yaml'
+      - '.github/workflows/identity-exact-historical-record-observer-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/verifier_key_generation/integrity/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/**'
+      - 'mycelix-workspace/mycelix-identity/dna/dna.yaml'
+      - '.github/workflows/identity-exact-historical-record-observer-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-exact-historical-record-observer-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact Record provenance boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'zomes/identity_security_observer_v2/coordinator'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'hdk',
+              'did_registry_v2_integrity',
+              'verifier_key_generation_integrity',
+              'mycelix-agent-activity-coverage-policy',
+              'mycelix-authority-scoped-kvector-verification-record-policy',
+              'mycelix-historical-generation-observer-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: exact observer dependency drift: {sorted(deps)}')
+          if deps['hdk'].get('workspace') is not True:
+              raise SystemExit('ERROR: exact observer must use workspace-pinned HDK')
+          expected_paths = {
+              'did_registry_v2_integrity': '../../did_registry_v2/integrity',
+              'verifier_key_generation_integrity': '../../verifier_key_generation/integrity',
+              'mycelix-agent-activity-coverage-policy': '../../../crates/agent-activity-coverage-policy',
+              'mycelix-authority-scoped-kvector-verification-record-policy': '../../../crates/authority-scoped-kvector-verification-record-policy',
+              'mycelix-historical-generation-observer-policy': '../../../crates/historical-generation-observer-policy',
+          }
+          for dep, path in expected_paths.items():
+              if deps[dep].get('path') != path:
+                  raise SystemExit(f'ERROR: {dep} path drifted')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: exact observer must use workspace sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              '#[hdk_dependent_entry_types]',
+              'enum IdentitySecurityEntryTypes',
+              'DidRegistryV2(did_registry_v2_integrity::EntryTypes)',
+              'VerifierKeyGeneration(verifier_key_generation_integrity::EntryTypes)',
+              'ActionHashB64',
+              'AgentPubKeyB64',
+              'parse_canonical_action_hash_v2',
+              'verifier_agent_from_did_v2',
+              'get(requested_action_hash.clone(), GetOptions::default())',
+              'record.action_address() != &requested_action_hash',
+              'action.action_seq() != qualified_action_seq',
+              'action.author() != verifier_agent',
+              'RecordEntry::Present',
+              'RecordEntry::Hidden',
+              'RecordEntry::NA',
+              'RecordEntry::NotStored',
+              'hash_entry(entry.clone())',
+              'recomputed_entry_hash != committed_entry_hash',
+              'EntryType::App(app_entry_def)',
+              'EntryVisibility::Public',
+              'IdentitySecurityEntryTypes::deserialize_from_type',
+              'app_entry_def.zome_index()',
+              'app_entry_def.entry_index()',
+              'Action::Create',
+              'Action::Update(update)',
+              'update.original_action_address.to_string()',
+              'create.timestamp.as_micros()',
+              'assemble_normalized_historical_generation_observation_v2',
+              'derive_authority_scoped_kvector_verification_record_signing_digest_v2',
+              'QualifiedExactHistoricalGenerationObservationV2',
+              'EXACT_HISTORICAL_RECORD_OBSERVATION_DOMAIN_V2',
+              'mycelix:identity:exact-historical-record-observation:v2\\0',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: exact observer invariant missing: {needle!r}')
+
+          did_pos = text.index('DidRegistryV2(did_registry_v2_integrity::EntryTypes)')
+          generation_pos = text.index('VerifierKeyGeneration(verifier_key_generation_integrity::EntryTypes)')
+          if did_pos >= generation_pos:
+              raise SystemExit('ERROR: dependent integrity-zome order drifted')
+
+          result_start = text.index('pub struct QualifiedExactHistoricalGenerationObservationV2')
+          result_end = text.index('impl QualifiedExactHistoricalGenerationObservationV2', result_start)
+          result_body = text[result_start:result_end]
+          for public_field in [
+              'pub normalized_observation:',
+              'pub record_signing_digest_sha256:',
+              'pub exact_observation_digest_sha256:',
+              'pub exact_record_count:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(f'ERROR: exact observer capability is forgeable: {public_field}')
+
+          fn_start = text.index('pub fn qualify_exact_historical_generation_observation_v2')
+          fn_end = text.index(') -> ExternResult', fn_start)
+          signature = text[fn_start:fn_end]
+          if 'FetchedIdentitySecurityRecordV2' in signature or 'records:' in signature:
+              raise SystemExit('ERROR: caller-normalized historical records leaked into public API')
+          if 'ActionHash' in signature or 'AgentPubKey' in signature:
+              raise SystemExit('ERROR: caller can inject exact-record provenance fields')
+
+          lower = text.lower()
+          for forbidden in [
+              '#[hdk_extern]',
+              'dna_info(',
+              'sys_time(',
+              'get_links(',
+              'resolve_did(',
+              'get_did_document(',
+              'max_by_key',
+              'verify_signature',
+              '.verify(',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence',
+              'network_seed',
+              'entryhashb64',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: unrelated authority leaked into exact observer: {forbidden!r}')
+
+          legacy_dna = (root / 'dna/dna.yaml').read_text()
+          if 'identity_security_observer_v2' in legacy_dna:
+              raise SystemExit('ERROR: exact observer must remain unprovisioned in legacy DNA')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test prerequisite pure theorems
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/Cargo.toml
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/authority-scoped-kvector-verification-record-policy/Cargo.toml
+
+      - name: Test committed entry domains
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/Cargo.toml
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/zomes/verifier_key_generation/integrity/Cargo.toml
+
+      - name: Test exact Record observer
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/Cargo.toml
+
+      - name: Check exact Record observer for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
