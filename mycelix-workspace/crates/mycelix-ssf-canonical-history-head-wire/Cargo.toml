@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-ssf-canonical-history-head-wire"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-canonical-completed-outcome-history = { path = "../mycelix-ssf-canonical-completed-outcome-history" }
+mycelix-ssf-canonical-replay-wire-tags = { path = "../mycelix-ssf-canonical-replay-wire-tags" }
+mycelix-ssf-canonical-wire = { path = "../mycelix-ssf-canonical-wire" }
+
+[dev-dependencies]
+mycelix-ssf-canonical-completed-effect-evidence = { path = "../mycelix-ssf-canonical-completed-effect-evidence" }
+mycelix-ssf-durable-actuator-invocation-attempt = { path = "../mycelix-ssf-durable-actuator-invocation-attempt" }
