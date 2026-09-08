@@ -1,0 +1,42 @@
+name: SSF Canonical Replay Wire Tags
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-wire/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/**'
+      - '.github/workflows/ssf-canonical-replay-wire-tags.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-wire/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/**'
+      - '.github/workflows/ssf-canonical-replay-wire-tags.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-replay-wire-tags:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml -- --check
+      - name: Native check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml --all-targets
+      - name: no_std WASM check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml --lib --target wasm32-unknown-unknown
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml --all-targets -- -D warnings
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-wire-tags/Cargo.toml --no-deps

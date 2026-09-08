@@ -1,0 +1,23 @@
+[package]
+name = "mycelix-ssf-canonical-replay-wire-tags"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-completed-effect-evidence = { path = "../mycelix-ssf-canonical-completed-effect-evidence" }
+mycelix-ssf-canonical-completed-outcome-history = { path = "../mycelix-ssf-canonical-completed-outcome-history" }
+mycelix-ssf-canonical-replay-evidence-decision-subject = { path = "../mycelix-ssf-canonical-replay-evidence-decision-subject" }
+mycelix-ssf-canonical-replay-evidence-subject = { path = "../mycelix-ssf-canonical-replay-evidence-subject" }
+mycelix-ssf-canonical-wire = { path = "../mycelix-ssf-canonical-wire" }
+mycelix-ssf-execution-surface-admission = { path = "../mycelix-ssf-execution-surface-admission" }
+mycelix-ssf-no-third-attempt-provenance-gate = { path = "../mycelix-ssf-no-third-attempt-provenance-gate" }
+mycelix-ssf-pre-invocation-actuator-qualification = { path = "../mycelix-ssf-pre-invocation-actuator-qualification" }
+mycelix-ssf-source-owned-operation-material = { path = "../mycelix-ssf-source-owned-operation-material" }
+
+[dev-dependencies]
+mycelix-ssf-durable-actuator-invocation-attempt = { path = "../mycelix-ssf-durable-actuator-invocation-attempt" }
+mycelix-ssf-replay-aware-invocation-journal = { path = "../mycelix-ssf-replay-aware-invocation-journal" }
