@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-ssf-canonical-replay-evidence-subject"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-completed-effect-evidence = { path = "../mycelix-ssf-canonical-completed-effect-evidence" }
+mycelix-ssf-canonical-completed-outcome-history = { path = "../mycelix-ssf-canonical-completed-outcome-history" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-no-third-attempt-provenance-gate = { path = "../mycelix-ssf-no-third-attempt-provenance-gate" }
