@@ -19,6 +19,8 @@ members = [
     "crates/kvector-verification-record-policy",
     # Record-bound verifier-key generation lineage theorem
     "crates/kvector-verifier-key-generation-lineage-policy",
+    # Append-only verifier-key generation lifecycle integrity
+    "zomes/verifier_key_generation/integrity",
     # Shared crypto-agile types (PQE abstraction layer)
     "crates/mycelix-crypto",
     # eIDAS 2.0 ZKP selective disclosure
