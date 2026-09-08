@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-identity-runtime-precrypto-context-adapter"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Running-DNA binding for the Identity V2 authority-scoped pre-crypto context"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+mycelix-authority-scoped-precrypto-context-policy = { path = "../authority-scoped-precrypto-context-policy" }
+mycelix-identity-runtime-authority-domain-adapter = { path = "../identity-runtime-authority-domain-adapter" }
+sha2 = { workspace = true }
