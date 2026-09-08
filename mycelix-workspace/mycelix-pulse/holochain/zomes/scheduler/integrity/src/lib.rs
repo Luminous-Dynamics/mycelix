@@ -112,12 +112,10 @@ fn validate_create_scheduled_email(
             ));
         }
 
-        if let Some(max) = recurrence.max_occurrences {
-            if max == 0 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Max occurrences must be at least 1".to_string(),
-                ));
-            }
+        if recurrence.max_occurrences == Some(0) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Max occurrences must be at least 1".to_string(),
+            ));
         }
     }
 
@@ -159,16 +157,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::ScheduledEmail(scheduled) => {
                     // Validate status transitions
-                    match scheduled.status {
-                        ScheduleStatus::Sent => {
-                            // Cannot modify sent schedules
-                            if scheduled.recurrence.is_none() {
-                                return Ok(ValidateCallbackResult::Invalid(
-                                    "Cannot modify sent non-recurring schedule".to_string(),
-                                ));
-                            }
-                        }
-                        _ => {}
+                    if scheduled.status == ScheduleStatus::Sent
+                        && scheduled.recurrence.is_none()
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Cannot modify sent non-recurring schedule".to_string(),
+                        ));
                     }
                     // ScheduledEmail has no self-reported owner field -- update_schedule/
                     // cancel_schedule currently locate the target by scanning a global
