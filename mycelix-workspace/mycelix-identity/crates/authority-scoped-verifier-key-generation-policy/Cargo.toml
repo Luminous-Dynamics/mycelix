@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-scoped-verifier-key-generation-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Authority-domain-scoped verifier-key generation identity theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+mycelix-kvector-verifier-key-generation-policy = { path = "../kvector-verifier-key-generation-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }

@@ -33,6 +33,8 @@ members = [
     "crates/historical-generation-observer-policy",
     # Canonical logical authority-domain + concrete DNA identity theorem
     "crates/identity-authority-domain-policy",
+    # Authority-domain-scoped verifier-key generation identity theorem
+    "crates/authority-scoped-verifier-key-generation-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Canonical-only DID V2 authority epoch (unprovisioned)
