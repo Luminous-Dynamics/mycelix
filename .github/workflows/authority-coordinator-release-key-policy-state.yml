@@ -1,0 +1,202 @@
+name: Authority Coordinator Release Key Policy State
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-release-key-policy-state/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy-root/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy/**'
+      - 'crates/mycelix-authority-coordinator-release/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-release-key-policy-state.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-release-key-policy-state-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-release-key-policy-state-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Crash-durable rooted policy continuity
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-release-key-policy-state/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-key-policy-state/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-release-key-policy-state/Cargo.toml --all-targets -- -D warnings
+
+      - name: Root compatibility
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-release-key-policy-root/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-release-key-policy-state')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Native/Unix continuity boundary with exact crypto versions inherited from #341.
+          for token in [
+              'rust-version = "1.89"',
+              'ed25519-dalek = "=2.2.0"',
+              'ml-dsa = "=0.1.1"',
+              'libc = "0.2"',
+              'serde_json = "1"',
+              'mycelix-authority-coordinator-release-key-policy-root = ',
+          ]:
+              assert token in cargo, token
+          for forbidden in [
+              'mycelix-authority-coordinator-release-currentness',
+              'mycelix-authority-coordinator-release-hybrid-verifier',
+              'holochain_client', 'hdk',
+          ]:
+              assert forbidden not in cargo, forbidden
+
+          # Exact state/public boundary.
+          for token in [
+              'pub struct TrustedCoordinatorReleaseKeyPolicyState {',
+              'pub struct TrustedCoordinatorReleaseKeyPolicyStore {',
+              'pub fn bootstrap_from_out_of_band_pin(',
+              'pub fn rotate_root(',
+              'pub fn qualify_manifest_key_policy(',
+              'pub fn state_summary(',
+              'self.load_state_unlocked()?;',
+              'pub const STATE_FILE_MODE: u32 = 0o600;',
+              'pub const MAX_STATE_BYTES: usize = 4 * 1024 * 1024;',
+              '.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)',
+              'lock.lock()',
+              '.sync_all()',
+              'fs::rename(&tmp_path, &self.state_path)',
+              '.custom_flags(libc::O_DIRECTORY | libc::O_CLOEXEC)',
+              'state_generation\n            .checked_add(1)',
+              'previous_state_digest: Some(self.state_digest)',
+              'checked_time_after_floor(state.last_trusted_time_ms)?',
+          ]:
+              assert token in src, token
+
+          # Normal operations cannot accept caller-selected prior trust state/root/head/pin.
+          rotate = prod.split('pub fn rotate_root(', 1)[1].split('\n    }\n\n    /// Verify/revalidate', 1)[0]
+          qualify = prod.split('pub fn qualify_manifest_key_policy(', 1)[1].split('\n    }\n\n    /// Diagnostics', 1)[0]
+          assert 'CoordinatorReleaseKeyPolicyTrustRoot' in rotate
+          assert 'old_root:' not in rotate
+          assert 'CoordinatorReleaseKeyPolicyRootPin' not in rotate
+          assert 'TrustedCoordinatorReleaseKeyPolicyState' not in rotate
+          assert 'TrustedCoordinatorReleaseKeyPolicyState' not in qualify
+          assert 'CoordinatorReleaseKeyPolicyRootPin' not in qualify
+          assert 'previous_head:' not in qualify
+
+          # Root/policy thresholds are monotone ratchets, not merely bootstrap floors.
+          for token in [
+              'state.root_threshold_floor.max(new_root.root_threshold)',
+              '.max(new_root.policy_head_threshold)',
+              'new_root.root_threshold < state.root_threshold_floor',
+              'new_root.policy_head_threshold < state.policy_head_threshold_floor',
+          ]:
+              assert token in prod, token
+
+          # Persisted exact-current revalidation or exact successor only.
+          for token in [
+              'Some(current) if current.head_digest == head_digest',
+              '.checked_add(1)',
+              'head.previous_head_digest != Some(current.head_digest)',
+              'head.root_version < current.root_version',
+              'head.root_version != root.root_version',
+              'state.current_root.root_version != 1',
+          ]:
+              assert token in prod, token
+
+          # Manifest/policy mismatch must fail before state advancement.
+          manifest_check = qualify.index('manifest.release_policy_digest != policy_digest')
+          checkpoint = qualify.index('let checkpoint = TrustedPolicyHeadCheckpoint {')
+          assert manifest_check < checkpoint
+
+          # Threshold verification remains strict hybrid AND and exact-count.
+          for token in [
+              'signatures.len() != usize::from(threshold)',
+              '.verify_strict(message, &EdSignature::from_bytes(&ed_signature))',
+              'MlSignature::<MlDsa65>::decode(&encoded_signature)',
+              '.verify(message, &ml_signature)',
+              'ensure_signers_live(&root.policy_head_keys, head_signatures, verified_at_ms)?',
+              '.min(signer_horizon(&root.policy_head_keys, head_signatures)?)',
+          ]:
+              assert token in prod, token
+
+          # Durability MUST happen before evidence-shaped #307 receipt construction.
+          persist = qualify.index('self.atomic_replace_state(&next)?;')
+          receipt = qualify.index('let receipt = VerifiedCurrentCoordinatorReleaseKeyPolicyProof {')
+          consume = qualify.index('qualify_manifest_key_policy_v01(manifest, policy, &receipt, verified_at_ms)')
+          assert persist < receipt < consume
+          assert 'Result<VerifiedCurrentCoordinatorReleaseKeyPolicyProof' not in prod
+
+          # State serialization exists for disk only; no public live method can ingest it.
+          for marker in ['pub fn rotate_root(', 'pub fn qualify_manifest_key_policy(']:
+              block = prod.split(marker, 1)[1].split(') -> Result', 1)[0]
+              assert 'TrustedCoordinatorReleaseKeyPolicyState' not in block, marker
+          assert '#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]\npub struct TrustedCoordinatorReleaseKeyPolicyState {' in src
+
+          # Production is verification/storage only.
+          for forbidden in [
+              'EdSigningKey', 'MlSigningKey', '::generate()', '.sign(',
+              'AdminWebsocket', 'call_zome', 'UpdateCoordinators',
+              'perform_external_effect',
+          ]:
+              assert forbidden not in prod, forbidden
+          assert prod.count('unsafe {') == 1
+          assert 'unsafe { libc::geteuid() }' in prod
+
+          for invariant in [
+              'serialized state is data, not authority',
+              'bootstrap is a separate first-use ceremony',
+              'the previous root is state-owned',
+              'read / verify / advance is one exclusive transaction',
+              'filesystem inputs fail closed',
+              'state replacement is crash-durable at the filesystem boundary',
+              'state size is bounded',
+              'state identity is self-consistent and parent linked',
+              'state generation never moves backward through the adapter',
+              'trusted clock has a durable floor',
+              'root rotation remains dual-threshold and exact',
+              'threshold floors ratchet upward',
+              'policy-head currentness is rooted in persisted latest state',
+              'v0.1 genesis is deliberately fail-closed across root rotation',
+              'exact-head revalidation is allowed',
+              'currentness crypto remains fail-closed hybrid and',
+              'qualification time follows crypto',
+              'currentness lease is monotone',
+              'persistence precedes positive authority escape',
+              '#307 evidence-shaped receipt stays private',
+              'manifest mismatch cannot advance trusted policy state',
+              'no release-signing-key circularity',
+              'local durable state is not a hardware rollback anchor',
+              'no holochain or external effects',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: fixed secure path -> locked persisted latest root/head -> hybrid verification -> durable advancement -> private #307 currentness')
+          PY
