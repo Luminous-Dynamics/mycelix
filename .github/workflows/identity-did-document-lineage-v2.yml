@@ -1,0 +1,141 @@
+name: Identity DID Document Lineage V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/**'
+      - '.github/workflows/identity-did-document-lineage-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/**'
+      - '.github/workflows/identity-did-document-lineage-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-document-lineage-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert DID-document lineage theorem boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/did-document-lineage-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          if manifest.get('dependencies', {}):
+              raise SystemExit('ERROR: DID-document lineage theorem must remain dependency-free')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'MAX_OBSERVED_DID_DOCUMENT_ACTIONS_V2',
+              'ObservedDidDocumentLineageActionV2',
+              'QualifiedDidDocumentLineageV2',
+              'qualify_did_document_lineage_v2',
+              'MultipleCreationRoots',
+              'CreationVersionInvalid',
+              'UpdateParentMissing',
+              'UpdateVersionNotIncreasing',
+              'BranchingHistory',
+              'DisconnectedHistory',
+              'SelfParentReference',
+              'contains_document_action',
+              'child_of.insert(parent_action_id, index).is_some()',
+              'visited.len() != history.len()',
+              'multiple_creation_roots_fail_closed',
+              'competing_children_fail_closed_without_version_tiebreaker',
+              'missing_direct_parent_fails_closed',
+              'qualified_lineage_fields_are_verifier_owned',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: DID-document lineage theorem missing: {needle!r}')
+
+          result_start = text.index('pub struct QualifiedDidDocumentLineageV2')
+          result_end = text.index('impl QualifiedDidDocumentLineageV2', result_start)
+          result_body = text[result_start:result_end]
+          for public_field in [
+              'pub did:',
+              'pub root_action_id:',
+              'pub terminal_action_id:',
+              'pub terminal_version:',
+              'pub actions:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(
+                      f'ERROR: DID-document lineage capability exposes public field: {public_field!r}'
+                  )
+
+          derive_start = text.rfind('#[derive(', 0, result_start)
+          derive_end = text.index(')]', derive_start) + 2
+          derive = text[derive_start:derive_end]
+          if 'Clone' in derive or 'Copy' in derive:
+              raise SystemExit('ERROR: DID-document lineage capability must remain non-Clone/non-Copy')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'get_details(',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_scheme_id',
+              'verification_policy_sha256',
+              'policy_current',
+              'policy_accepted',
+              'positive_evidence:',
+              '.max_by_key(',
+              '.sort_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: runtime/policy/chronology authority leaked into DID-document lineage: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/Cargo.toml \
+            -- --check
+
+      - name: Test DID-document lineage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/Cargo.toml
+
+      - name: Check DID-document lineage theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

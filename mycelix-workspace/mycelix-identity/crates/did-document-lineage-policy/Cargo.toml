@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-did-document-lineage-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Policy-neutral observed DID document lineage theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
