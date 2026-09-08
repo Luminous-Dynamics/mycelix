@@ -1,0 +1,15 @@
+[package]
+name = "justice_adjudication_evidence_integrity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "justice_adjudication_evidence_integrity"
+
+[dependencies]
+hdi = { workspace = true }
+serde = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+justice_arbitration_integrity = { path = "../../justice-arbitration/integrity" }
