@@ -573,7 +573,8 @@ mod tests {
     #[test]
     fn local_absence_without_positive_coverage_ref_is_denied() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.coverage_ref.clear();
@@ -586,7 +587,8 @@ mod tests {
     #[test]
     fn coverage_without_authority_provenance_is_denied() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.authority_evidence_ref.clear();
@@ -599,7 +601,8 @@ mod tests {
     #[test]
     fn coverage_profile_drift_is_denied() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.semantic_version = 2;
@@ -612,7 +615,8 @@ mod tests {
     #[test]
     fn partial_coverage_starting_after_decision_is_denied() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.covered_from_unix_ms = 101;
@@ -625,7 +629,8 @@ mod tests {
     #[test]
     fn stale_coverage_ending_before_qualification_is_denied() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.covered_through_unix_ms = 249;
@@ -657,7 +662,8 @@ mod tests {
     #[test]
     fn observed_appeal_blocks_no_appeal_finality() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.observed_appeal_refs.push("appeal-action:1".into());
@@ -670,7 +676,8 @@ mod tests {
     #[test]
     fn duplicate_observed_appeal_identity_is_denied_before_absence_claim() {
         let mut basis = coverage_basis();
-        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::NoAppealCoverage { coverage, .. } = &mut basis
+        else {
             unreachable!();
         };
         coverage.observed_appeal_refs = vec!["appeal:1".into(), "appeal:1".into()];
@@ -702,7 +709,9 @@ mod tests {
     #[test]
     fn changed_appeal_denies_original_decision_finality() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         resolution.disposition = TerminalAppealDispositionV1::Changed;
@@ -736,7 +745,9 @@ mod tests {
     #[test]
     fn second_level_appeal_requires_a_future_profile() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { appeal, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { appeal, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         appeal.appeal_number = 2;
@@ -749,7 +760,9 @@ mod tests {
     #[test]
     fn resolution_before_filing_is_denied() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         resolution.resolved_at_unix_ms = 149;
@@ -762,7 +775,9 @@ mod tests {
     #[test]
     fn future_resolution_is_denied() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         resolution.resolved_at_unix_ms = 191;
@@ -775,7 +790,9 @@ mod tests {
     #[test]
     fn resolution_must_match_exact_appeal() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         resolution.appeal_ref = "appeal-action:other".into();
@@ -788,7 +805,9 @@ mod tests {
     #[test]
     fn terminal_resolution_profile_drift_is_denied() {
         let mut basis = resolved_basis();
-        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } = &mut basis else {
+        let JusticeFinalityQualificationBasisV1::TerminalAppealResolution { resolution, .. } =
+            &mut basis
+        else {
             unreachable!();
         };
         resolution.semantic_version = 2;

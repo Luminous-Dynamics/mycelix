@@ -92,8 +92,10 @@ jobs:
           cargo generate-lockfile --manifest-path "$capsule/Cargo.toml"
           echo "CAPSULE=$capsule" >> "$GITHUB_ENV"
 
-      - name: rustfmt exact capsule
-        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --all -- --check
+      - name: Check rustfmt for finality-owned package
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --package justice-finality-qualification -- --check
 
       - name: test exact finality capsule
         run: cargo test --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-finality-qualification
@@ -118,3 +120,11 @@ jobs:
           appellate_runtime_authority_qualified=false
           business_finance_bridge_authorized=false
           EOF
+
+      - name: Require finality-owned source formatting
+        if: always()
+        run: |
+          if [[ '${{ steps.rustfmt.outcome }}' != 'success' ]]; then
+            echo 'Finality-owned source is not rustfmt-clean; qualification remains red after collecting compile/test/clippy evidence.' >&2
+            exit 1
+          fi
