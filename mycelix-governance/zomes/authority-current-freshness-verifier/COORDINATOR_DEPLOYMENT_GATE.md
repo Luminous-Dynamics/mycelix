@@ -1,18 +1,16 @@
-# Current Freshness — Coordinator Deployment Gate v0.13
+# Current Freshness — Coordinator Deployment Gate v0.14
 
-Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted + crash-durable complete release-registry continuity, exact deployment composition and subject-bound stability exist as candidates; target/conductor provenance and atomic effect admission remain incomplete**
+Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted + crash-durable complete release-registry continuity, out-of-band pinned + crash-durable live target-CellId provenance, exact deployment composition and subject-bound stability exist as candidates; conductor-process identity and atomic effect admission remain incomplete**
 
 ## Core deployment distinction
 
-Operational authority identity, approved coordinator release identity, release-registry status and actually installed coordinator code are separate facts.
+Operational authority, approved release, release-registry status, exact target CellId, conductor process identity and actually installed coordinator code are separate facts.
 
-`same DNA != same coordinator implementation`.
+`same DNA != same CellId != same conductor process != same coordinator implementation`.
 
-Coordinator deployment evidence therefore binds exact `CellId` = DNA hash + cell agent public key and the complete coordinator WASM closure.
+A complete deployment admission therefore needs independently grounded evidence for each domain.
 
-## Release-key trust chain
-
-The release-authentication path is:
+## Release authentication chain
 
 ```text
 independently delivered production key-policy root fingerprint
@@ -30,228 +28,41 @@ manifest-bound QualifiedCoordinatorReleaseSigningKey
 QualifiedCoordinatorReleaseRequirement
 ```
 
-Release signing keys remain leaves. They cannot authorize their own policy root/currentness.
+Release signing keys are leaves; they cannot authorize their own policy root/currentness.
 
-#347 owns predecessor/root/head state under one secure locked path and persists state before #307 positive authority can escape.
+#347 persists root/head continuity before #307 positive key-policy authority escapes. Its guarantee is local crash/restart continuity under an owner-protected filesystem, not same-UID arbitrary-write or full-machine rollback resistance.
 
-Its theorem is local crash/restart continuity under normal owner-protected filesystem semantics, not same-UID arbitrary-write or full-machine rollback resistance.
-
-## Complete release-registry trust chain
-
-#355 replaces the detached status-service authority path with one independently rooted complete canonical registry snapshot:
+## Complete release-registry chain
 
 ```text
 independently delivered registry-root fingerprint
         ↓
-offline hybrid registry-root threshold
+#355 offline hybrid registry-root threshold
         ↓
 separate hybrid registry-head threshold
         ↓
-short-lived complete canonical registry snapshot
+complete canonical release-status snapshot
+        ↓
+#365 crash-durable state-owned latest snapshot
         ↓
 local exact manifest-status lookup
         ↓
 private #275 head/status compatibility receipts
         ↓
-local #275 qualification
-        ↓
 QualifiedCurrentCoordinatorRelease
 ```
 
-Release signing keys are not registry-root or registry-head keys.
+The registry snapshot is complete authority data, not a latest-record heuristic. Records are canonical/unique, old records cannot disappear, and terminal status cannot resurrect.
 
-The registry root commits root identity/version, release authority, registry id, separate root/head key sets and thresholds, and lifetime. Root/head key identities and actual hybrid key material are disjoint.
+#365 persists the full snapshot, root lineage, threshold floors, trusted clock floor and predecessor state before current-release authority escapes.
 
-Initial qualification requires an out-of-band root pin plus the configured root threshold. Rotation requires the exact transition to satisfy both old and new root thresholds, version `old + 1`, fixed scope and non-decreasing threshold floors.
+Root rotation suspends an old-root snapshot from authorizing releases until a successor snapshot under the new root extends the persisted predecessor head.
 
-A bootstrap root-lineage digest survives rotation so a predecessor snapshot from another independently pinned root lineage cannot be grafted into the chain.
+## Durable registry integrity claim remains bounded
 
-## Complete snapshot semantics
+The registry/key-policy state stores use canonical owner-controlled paths, exact `0600` regular files, `O_NOFOLLOW | O_CLOEXEC`, one exclusive `File::lock` transaction and same-directory temp-fsync/rename/directory-fsync replacement.
 
-One registry snapshot commits exact:
-
-- root version;
-- registry id;
-- release authority;
-- release-policy digest/profile chain;
-- registry generation;
-- predecessor-head digest or explicit genesis;
-- complete ordered release-status record set; and
-- bounded validity window.
-
-Its head uses #275's fixed `REGISTRY_HEAD_PROFILE`; v0.1 snapshot lifetime is at most 30 seconds and one snapshot contains at most 65,536 records.
-
-Records are strictly ordered and unique by manifest digest. Every successor retains every prior record.
-
-An unchanged status preserves exact effective time/reference. Only:
-
-```text
-Active -> Withdrawn
-Active -> Superseded
-```
-
-with strictly later effective time are accepted. Terminal status resurrection/history rewriting and future-dated status records deny.
-
-Currentness is therefore not inferred from DHT ordering, cache ordering, a `latest record` query or absence of a later record. Completeness is explicit authenticated authority semantics.
-
-## Durable latest complete-registry state
-
-`mycelix-authority-coordinator-release-registry-state` closes the ordinary restart/lost-update boundary above #355.
-
-The central rule is:
-
-`serialized registry state != caller authority`.
-
-Positive registry/current-release authority comes only from `TrustedCoordinatorReleaseRegistryStore` loading its own state path while holding the exclusive store lock.
-
-Normal operations accept no caller-supplied:
-
-- previous trusted state;
-- previous/current root;
-- root pin;
-- previous registry snapshot;
-- previous registry generation/head digest;
-- #275 registry-head proof; or
-- #275 status-at-head proof.
-
-### Canonical path ownership
-
-At construction, a relative path is anchored to the current directory and the requested parent is canonicalized.
-
-The store then retains only the canonical real parent + file name. Changing an ancestor symlink later cannot retarget that store instance.
-
-The parent must be a real effective-user-owned directory, owner-writable and inaccessible to group/other users.
-
-State/lock/temp files must be regular effective-user-owned exact-mode `0600` files opened with `O_NOFOLLOW | O_CLOEXEC`.
-
-### First-use bootstrap
-
-`bootstrap_from_out_of_band_pin` is the only state-adapter operation accepting a registry root pin.
-
-It refuses an existing state path, delegates exact pin + root-threshold cryptography to #355, constructs state generation 1 and durably installs it before returning success.
-
-The adapter does not prove how the production operator obtained the fingerprint; root-pin delivery/protection remains separate provisioning policy.
-
-### State-owned root rotation
-
-`rotate_root` loads the old root from trusted state rather than request input.
-
-The candidate transition requires exact old + new root thresholds, exact version advance, fixed root/authority/registry scope and post-crypto liveness.
-
-Threshold floors ratchet upward:
-
-```text
-root_floor_next = max(root_floor_current, new_root.root_threshold)
-registry_head_floor_next = max(registry_head_floor_current, new_root.registry_head_threshold)
-```
-
-### Registry advancement is query-independent
-
-`advance_snapshot(snapshot, signatures)` verifies and durably advances the complete registry without taking a release query.
-
-A caller asking about release X therefore cannot choose the registry snapshot used to answer that question.
-
-The persisted checkpoint contains the **full canonical snapshot**, not merely its head digest, so status derivation after restart still uses the exact complete state that was accepted previously.
-
-### Persisted latest-snapshot lineage
-
-Without a stored snapshot, genesis is accepted only at root version 1 / registry generation 1 / no predecessor.
-
-An unchanged exact head may be reverified while live.
-
-A changed successor must:
-
-- use generation `current + 1`;
-- commit the exact persisted current head digest;
-- never decrease root version;
-- retain registry id, release authority and release-policy chain; and
-- preserve all complete-record/status monotonicity rules.
-
-The predecessor is state-owned across restart.
-
-### Root rotation suspends the old snapshot
-
-An old-root snapshot may remain stored only as the lineage predecessor across a root rotation.
-
-It cannot authorize a release under the new root. `qualify_current_release` requires the snapshot's root version to equal the exact current root version.
-
-Current-release authority resumes only after a successor snapshot signed by the new registry-head role extends the persisted old head.
-
-### Checkpoint lease containment
-
-A persisted checkpoint must recompute the exact snapshot head and satisfy:
-
-```text
-snapshot.valid_from <= verified_at < snapshot.valid_until
-verified_at < valid_until <= snapshot.valid_until
-```
-
-When it is under the current root, its horizon must also not exceed the current root horizon.
-
-Persistence may preserve or shorten authenticated evidence lifetime; it may not widen it.
-
-## Current-release query is state-owned
-
-`qualify_current_release` accepts exactly one already-authenticated `QualifiedCoordinatorReleaseRequirement`.
-
-It loads the current root + complete snapshot from trusted state, validates liveness/scope, performs exact local manifest lookup and denies absent, Withdrawn or Superseded records.
-
-The caller supplies no status and no currentness receipt.
-
-## Persistence precedes #275 positive authority
-
-The live current-release causal order is:
-
-```text
-exclusive lock
-→ load persisted root + complete snapshot
-→ trusted-clock/root/snapshot/release checks
-→ local exact Active lookup
-→ advance trusted clock-floor state
-→ temp fsync + atomic rename + parent-directory fsync
-→ privately construct #275 head receipt
-→ privately construct #275 status receipt
-→ local #275 qualification
-→ QualifiedCurrentCoordinatorRelease
-```
-
-If state replacement fails, no positive current-release authority escapes.
-
-The evidence-shaped #275 receipts remain private compatibility projections derived from the same persisted complete checkpoint.
-
-## Durable trusted host clock
-
-The state persists `last_trusted_time_ms`.
-
-Every accepted root/snapshot transition samples trusted host time after cryptographic verification. A successful current-release query also advances the clock floor before positive authority escapes.
-
-Observed host time below the persisted floor fails closed.
-
-## Filesystem durability contract
-
-All bootstrap/rotation/snapshot/query state transitions share one exclusive `File::lock` transaction. Rust 1.89 is therefore the v0.1 minimum toolchain.
-
-State parsing is bounded to 32 MiB.
-
-Replacement is:
-
-```text
-same-directory create_new temp
-→ write exact state
-→ fsync temp
-→ atomic rename
-→ fsync containing directory
-```
-
-## Integrity claim is intentionally bounded
-
-Each state carries a monotonically increasing state generation, predecessor-state digest, bootstrap root identity, current root identity, threshold floors, complete snapshot checkpoint, trusted clock floor and BLAKE3 self-digest.
-
-The root digest and state digest are recomputed on load.
-
-This detects corruption/non-self-consistent bytes under the owner-protected-filesystem model. The self-digest is **not keyed**.
-
-Therefore:
+Their BLAKE3 self-digests are unkeyed. Therefore:
 
 ```text
 crash-durable locally monotone state
@@ -259,24 +70,105 @@ crash-durable locally monotone state
 != full-machine rollback resistance
 ```
 
-An attacker with arbitrary trusted-UID file-write authority can recompute an unkeyed state digest. Restoring an entire older machine image can also restore an older internally valid root/snapshot/clock floor together.
+A stronger deployment threat model needs a separately protected keyed/TPM/hardware/enterprise/append-only rollback anchor.
 
-A stronger threat model needs an independent keyed/monotonic anchor such as TPM/hardware state, enterprise/device-management state or a separately trusted append-only witness.
+## Exact target CellId is now independently pinned
 
-## Native conductor observation
+`mycelix-authority-coordinator-target-cell` closes #290's caller-supplied target provenance gap.
 
-`mycelix-authority-coordinator-native-attestor` independently queries the loopback Holochain Admin API for one exact `CellId`, enumerates the complete installed coordinator set, extracts exact `WasmHash` values and owns a short observation lease.
+The first-use binding commits exact:
 
-It does not choose release policy, current release or target policy.
+- raw 39-byte `DnaHash`;
+- raw 39-byte `AgentPubKey`;
+- loopback Holochain Admin `SocketAddr`;
+- binding id; and
+- provisioning reference.
 
-Its remaining problem is **live endpoint/conductor provenance**: loopback location by itself is not sufficient proof that the observed endpoint is the intended trusted conductor.
+The pair `DnaHash + AgentPubKey` is the exact Holochain `CellId`; DNA-only identity is insufficient.
+
+Bootstrap requires the exact binding digest/profile to match an independently delivered out-of-band pin and refuses an already initialized state path.
+
+Normal live qualification accepts **no target CellId and no Admin endpoint** from the caller.
+
+## Target state is state-owned and crash durable
+
+The target store resolves the requested parent once to a canonical real directory, then owns one fixed state/lock path.
+
+Persisted state commits:
+
+- exact target binding digest;
+- monotone state generation;
+- exact predecessor-state digest; and
+- durable host-clock floor.
+
+The same filesystem rules used by the registry/key-policy stores apply: owner-controlled directory, exact `0600` files, `O_NOFOLLOW`, exclusive lock, bounded parsing, same-directory temp, fsync, atomic rename and parent-directory fsync.
+
+There is intentionally **no in-band retargeting API** in v0.1. A legitimate cell reinstall/replacement that changes exact `CellId` requires an explicit external decommission + fresh provisioning ceremony rather than silently inheriting old target authority.
+
+## Live target presence is observed directly
+
+The target adapter creates its own `AdminWebsocket` to the state-owned pinned loopback endpoint and calls Holochain `list_cell_ids()`.
+
+The exact pinned DNA + agent pair must occur exactly once in the returned live-cell set.
+
+Missing target denies. Duplicate exact target identity denies.
+
+No app-name, role-name, cache, DHT, release-manifest or caller-selected heuristic chooses the target.
+
+Observation time is sampled only after the conductor response and CellId extraction complete.
+
+Positive target reuse is bounded to five seconds.
+
+## Persistence precedes positive target authority
+
+The live target causal order is:
+
+```text
+exclusive lock
+→ load state-owned exact target + pinned endpoint
+→ Admin list_cell_ids
+→ require exact pinned CellId live exactly once
+→ post-observation host clock
+→ advance trusted clock-floor state
+→ temp fsync + atomic rename + parent-directory fsync
+→ privately construct #290 TargetCellSelection compatibility data
+→ QualifiedTargetCellSelection
+```
+
+If persistence fails, no positive target capability escapes.
+
+`QualifiedTargetCellSelection` is non-deserializable. The inner #290 `TargetCellSelection` remains deserializable compatibility data and must not be accepted directly as live provenance by an effect-capable consumer.
+
+## Pinned endpoint still does not prove conductor process identity
+
+Pinning the exact loopback socket removes caller endpoint selection, but loopback is not a cryptographic process identity.
+
+A successful Admin request currently proves only that the adapter exchanged the expected Admin protocol with the process listening at the pinned local endpoint.
+
+It does **not** yet prove:
+
+- executable identity/hash/signature of the Holochain conductor;
+- OS service identity owning the socket;
+- process namespace/cgroup/systemd-unit identity;
+- kernel/host integrity; or
+- absence of a malicious local process impersonating the endpoint.
+
+That is now the dominant remaining provenance boundary.
+
+## Native coordinator-code observation remains separate
+
+`mycelix-authority-coordinator-native-attestor` independently queries the exact target CellId through a loopback Holochain Admin endpoint, enumerates the complete `DnaDef.coordinator_zomes` set and preserves exact coordinator `WasmHash` identities.
+
+It does not choose the approved release or perform the #262 equality match.
+
+The intended next composition must ensure the native code observer and the target capability refer to the same independently qualified conductor/endpoint and exact CellId.
 
 ## Exact deployment composition
 
-#290 keeps three domains separate:
+#290 currently joins:
 
 ```text
-trusted exact target CellId selection
+TargetCellSelection
         +
 QualifiedCurrentCoordinatorRelease
         +
@@ -287,33 +179,33 @@ ObservedCoordinatorDeployment
 QualifiedCoordinatorDeploymentComposition
 ```
 
-Missing, substituted, duplicate or unexpected installed coordinator code denies.
+Missing, substituted, duplicate or unexpected installed coordinator code denies through #262.
 
-Pure `TargetCellSelection` still does not prove why that CellId is the trusted target.
+For live admission, the deserializable target input must be projected privately from `QualifiedTargetCellSelection`; caller-supplied #290 target data must not regain authority at the join.
 
 ## Subject-bound stability
 
-#298 requires a strictly later second exact deployment observation, reruns the same deployment requirement and binds stability to one admission subject + attempt nonce.
+#298 requires a strictly later second exact deployment observation, reconstructs the same target/current-release/deployment requirement and binds stability to one admission subject + attempt nonce.
 
-It proves no detected coordinator-code change across that observed interval.
+This proves no detected coordinator-code change across the observed interval.
 
-It is not an atomic exclusion mechanism: `UpdateCoordinators` can still race after the second observation and before an effect.
+It is still not atomic exclusion. The target can stop, an app can be disabled, the conductor can be replaced, or `UpdateCoordinators` can race after the second observation and before an external effect.
 
-## Remaining independent live boundaries
+## Remaining independent boundaries
 
 The dominant unresolved boundaries are now:
 
-- actual production delivery/protection of both initial root fingerprints;
-- trusted target CellId selection provenance;
-- real-conductor/local Admin API endpoint provenance and qualification;
+- production delivery/protection of the initial key-policy, registry and target-binding fingerprints;
+- real conductor-process / pinned Admin-endpoint identity;
+- native consumption of `QualifiedTargetCellSelection` together with target-matched coordinator observation;
 - native ownership of admission subject/attempt nonce and pre/post observation bracketing;
-- post-observation coordinator-update/effect atomicity;
+- target-liveness / coordinator-update / conductor-replacement atomicity with the effect;
 - final lifecycle/executor/effect-safety authority; and
-- stronger same-UID/full-machine rollback anchoring if required by the deployment threat model.
+- stronger same-UID/full-machine rollback anchoring if required by deployment threat model.
 
 ## Consumer rule
 
-A future effect-capable consumer needs independently:
+A future effect-capable admission path needs independently:
 
 1. fresh operational authority currentness from the direct local authority verifier chain;
 2. candidate coordinator release semantics;
@@ -321,31 +213,32 @@ A future effect-capable consumer needs independently:
 4. manifest-bound authorized release signing key;
 5. #326 strict hybrid release authentication;
 6. production-rooted and durably latest complete registry state;
-7. local exact persisted status derivation yielding #275 `QualifiedCurrentCoordinatorRelease`;
-8. trusted exact target CellId selection;
-9. qualified native pre-deployment conductor observation;
-10. #290/#262 exact target/current-release/installed-code composition;
-11. qualified native post observation + #298 subject/attempt stability;
-12. explicit coordinator-update/effect atomicity;
-13. lifecycle/executor/effect-safety authority; and
-14. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
+7. local exact persisted Active status yielding `QualifiedCurrentCoordinatorRelease`;
+8. independently pinned + durably state-owned + freshly live `QualifiedTargetCellSelection`;
+9. independently qualified conductor-process/Admin-endpoint identity;
+10. native exact coordinator-code observation for that same conductor + exact target;
+11. #290/#262 exact target/current-release/installed-code composition using only local positive target provenance;
+12. qualified native post observation + #298 subject/attempt stability;
+13. explicit target/conductor/coordinator-update/effect atomicity;
+14. lifecycle/executor/effect-safety authority; and
+15. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
 
 ## Provisioning state
 
-The v0.13 durable-registry candidate does **not** satisfy the complete deployment/effect gate.
+The v0.14 target candidate still does **not** satisfy the complete deployment/effect gate.
 
-Until production root-pin provenance, target/conductor provenance, native admission ownership and update/effect atomicity are qualified:
+Until production pin provenance, conductor-process identity, native admission ownership and update/effect atomicity are qualified:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no consumer may interpret release currentness or deployment stability as atomic external-effect authority; and
+- no consumer may interpret target liveness, release currentness or deployment stability as atomic external-effect authority; and
 - external effects remain disabled.
 
 ## Highest-value next work
 
-1. trusted target CellId selection provenance;
-2. real-conductor/local-admin-endpoint qualification;
+1. conductor-process / pinned Admin-endpoint identity qualification;
+2. native target-aware deployment composer consuming `QualifiedTargetCellSelection` rather than caller target data;
 3. native pre/post admission orchestrator owning subject + attempt nonce;
-4. explicit coordinator-update/effect atomicity boundary;
+4. target-liveness + coordinator-update + conductor-replacement atomicity boundary;
 5. final lifecycle/executor/effect-safety binding; and
-6. optional keyed/TPM/hardware/enterprise rollback anchor for the trusted state stores.
+6. optional keyed/TPM/hardware/enterprise rollback anchors for trusted state stores.

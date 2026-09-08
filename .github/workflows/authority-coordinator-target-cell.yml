@@ -1,0 +1,226 @@
+name: Authority Coordinator Target Cell
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-target-cell/**'
+      - 'crates/mycelix-authority-coordinator-deployment-composer/**'
+      - 'crates/mycelix-authority-coordinator-native-attestor/**'
+      - 'mycelix-governance/zomes/authority-current-freshness-verifier/COORDINATOR_DEPLOYMENT_GATE.md'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-target-cell.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-target-cell-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-target-cell-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pinned exact live CellId provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-target-cell/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-target-cell/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-target-cell/Cargo.toml --all-targets -- -D warnings
+
+      - name: Composer compatibility
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-deployment-composer/Cargo.toml --all-targets
+
+      - name: Native-attestor compatibility
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-target-cell')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          # Native Unix state + Holochain 0.8.1 boundary.
+          for token in [
+              'rust-version = "1.89"',
+              'holochain_client = "=0.8.1"',
+              'libc = "0.2"',
+              'serde_json = "1"',
+              'mycelix-authority-coordinator-deployment-composer = ',
+              'mycelix-authority-coordinator-native-attestor = ',
+          ]:
+              assert token in cargo, token
+          for forbidden in [
+              'mycelix-authority-coordinator-release = ',
+              'mycelix-authority-coordinator-release-currentness = ',
+              'mycelix-authority-coordinator-deployment = ',
+              'hdk = ',
+          ]:
+              assert forbidden not in cargo, forbidden
+
+          for token in [
+              'pub struct TargetCellBinding {',
+              'pub struct TargetCellBindingPin {',
+              'pub struct TrustedTargetCellState {',
+              'pub struct QualifiedTargetCellSelection {',
+              'pub struct TrustedTargetCellStore {',
+              'pub fn bootstrap_from_out_of_band_pin(',
+              'pub async fn qualify_live_target(',
+              'pub const MAX_LIVE_TARGET_REUSE_MS: u64 = 5_000;',
+              'pub const STATE_FILE_MODE: u32 = 0o600;',
+              'pub const MAX_STATE_BYTES: usize = 1024 * 1024;',
+          ]:
+              assert token in src, token
+
+          # Positive target capability is locally constructed only.
+          prefix = src.split('pub struct QualifiedTargetCellSelection {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+
+          # Binding commits exact CellId + loopback Admin endpoint.
+          for token in [
+              'frame(&mut h, &self.dna_hash_raw_39);',
+              'frame(&mut h, &self.agent_pub_key_raw_39);',
+              'frame(&mut h, self.admin_endpoint.to_string().as_bytes());',
+              'LocalAdminEndpoint::new(self.admin_endpoint)',
+              'pin.binding_digest != binding_digest',
+              'pin.binding_profile != BINDING_PROFILE',
+          ]:
+              assert token in prod, token
+
+          # Normal live qualification accepts no caller-selected target, endpoint,
+          # clock, validity, binding, pin or previous state.
+          signature = prod.split('pub async fn qualify_live_target(', 1)[1].split(') -> Result', 1)[0]
+          assert '&self' in signature
+          for forbidden in [
+              'CellId', 'SocketAddr', 'LocalAdminEndpoint', 'TargetCellBinding',
+              'TargetCellBindingPin', 'TargetCellSelection', 'TrustedTargetCellState',
+              'observed_at', 'valid_until', 'now_ms', 'previous',
+          ]:
+              assert forbidden not in signature, forbidden
+
+          # State-owned endpoint -> direct complete live-cell observation -> clock.
+          live = prod.split('pub async fn qualify_live_target(', 1)[1].split('\n    pub fn state_summary', 1)[0]
+          for token in [
+              'state.binding.admin_endpoint',
+              'AdminWebsocket::connect(',
+              '.list_cell_ids()',
+              'cell_id.dna_hash().get_raw_39().to_vec()',
+              'cell_id.agent_pubkey().get_raw_39().to_vec()',
+              'let observed_at_ms = system_time_ms()?;',
+          ]:
+              assert token in live, token
+          connect = live.index('AdminWebsocket::connect(')
+          list_cells = live.index('.list_cell_ids()')
+          extract_dna = live.index('cell_id.dna_hash().get_raw_39().to_vec()')
+          extract_agent = live.index('cell_id.agent_pubkey().get_raw_39().to_vec()')
+          observe_clock = live.index('let observed_at_ms = system_time_ms()?;')
+          assert connect < list_cells < extract_dna < observe_clock
+          assert connect < list_cells < extract_agent < observe_clock
+
+          finalize = prod.split('fn finalize_live_observation(', 1)[1].split('\n    fn acquire_exclusive_lock', 1)[0]
+          for token in [
+              'dna == &state.binding.dna_hash_raw_39',
+              'agent == &state.binding.agent_pub_key_raw_39',
+              'PinnedTargetNotLive',
+              'DuplicateTargetCell',
+              '.checked_add(MAX_LIVE_TARGET_REUSE_MS)',
+              'let next = state.advance_time(observed_at_ms)?;',
+              'self.atomic_replace_state(&next)?;',
+              'let selection = TargetCellSelection {',
+              'let qualification_digest = *h.finalize().as_bytes();',
+              'Ok(QualifiedTargetCellSelection {',
+          ]:
+              assert token in finalize, token
+
+          # Persistence must complete before legacy selection / positive capability.
+          persist = finalize.index('self.atomic_replace_state(&next)?;')
+          selection = finalize.index('let selection = TargetCellSelection {')
+          positive = finalize.index('Ok(QualifiedTargetCellSelection {')
+          assert persist < selection < positive
+
+          # Canonical secure path and crash-durable replacement.
+          for token in [
+              'std::env::current_dir()',
+              'fs::canonicalize(&anchored_parent)',
+              '.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)',
+              'lock.lock()',
+              'file.take((MAX_STATE_BYTES + 1) as u64)',
+              '.create_new(true)',
+              'file.sync_all()',
+              'fs::rename(&temp_path, &self.state_path)',
+              '.custom_flags(libc::O_DIRECTORY | libc::O_CLOEXEC)',
+              '.sync_all()',
+          ]:
+              assert token in prod, token
+
+          # No in-band retargeting API exists.
+          for forbidden in [
+              'pub fn rotate_target', 'pub fn rebind', 'pub fn update_target',
+              'pub fn set_target', 'pub fn set_admin_endpoint',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          # Target provenance may not absorb release/code matching/effect authority.
+          for forbidden in [
+              'get_dna_definition(', 'get_wasm_zome_hash(',
+              'match_required_coordinator_deployment(',
+              'QualifiedCurrentCoordinatorRelease',
+              'RequiredCoordinatorDeployment', 'MatchedCoordinatorDeployment',
+              'UpdateCoordinators', 'call_zome', 'perform_external_effect',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          # The state digest is deliberately not advertised as a keyed anchor.
+          assert 'blake3::keyed_hash' not in prod
+          assert prod.count('unsafe {') == 1
+          assert 'unsafe { libc::geteuid() }' in prod
+
+          for phrase in [
+              'target identity is pinned out of band',
+              'normal live qualification accepts neither target nor endpoint',
+              'the admin endpoint is part of target binding',
+              'live presence is observed directly',
+              'observation time follows conductor evidence production',
+              'target reuse is short lived',
+              'persistence precedes positive target authority',
+              'positive target qualification is non-deserializable',
+              'the exact #290 selection identity is preserved',
+              'state path resolves to one canonical real parent',
+              'read / verify / advance is one exclusive transaction',
+              'state replacement is crash durable at the filesystem boundary',
+              'trusted host time has a durable floor',
+              'state identity is self-consistent and parent linked',
+              'the self-digest is not a keyed anti-tamper proof',
+              'local durability is not full-machine anti-rollback',
+              'there is no in-band retargeting in v0.1',
+              'target provenance remains separate from release and code observation',
+              'no conductor-process integrity claim',
+              'no update atomicity or effect authority',
+              'provisioning remains blocked',
+          ]:
+              assert phrase in inv, phrase
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: out-of-band exact CellId+endpoint pin -> state-owned live-cell observation -> durable clock floor -> non-deserializable target capability')
+          PY
