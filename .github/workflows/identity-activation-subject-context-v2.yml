@@ -1,0 +1,160 @@
+name: Identity Historical Activation Subject V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/activation-subject-context-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-precrypto-context-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-runtime-precrypto-context-adapter/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/**'
+      - '.github/workflows/identity-activation-subject-context-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/activation-subject-context-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/authority-scoped-precrypto-context-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-runtime-precrypto-context-adapter/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/**'
+      - '.github/workflows/identity-activation-subject-context-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-historical-activation-subject-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert activation-subject composition boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/activation-subject-context-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'identity_security_observer_v2',
+              'mycelix-authority-scoped-kvector-verification-record-policy',
+              'mycelix-authority-scoped-precrypto-context-policy',
+              'mycelix-identity-runtime-precrypto-context-adapter',
+              'mycelix-crypto',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: activation-subject dependency drift: {sorted(deps)}')
+          expected_paths = {
+              'identity_security_observer_v2': '../../zomes/identity_security_observer_v2/coordinator',
+              'mycelix-authority-scoped-kvector-verification-record-policy': '../authority-scoped-kvector-verification-record-policy',
+              'mycelix-authority-scoped-precrypto-context-policy': '../authority-scoped-precrypto-context-policy',
+              'mycelix-identity-runtime-precrypto-context-adapter': '../identity-runtime-precrypto-context-adapter',
+          }
+          for dep, path in expected_paths.items():
+              if deps[dep].get('path') != path:
+                  raise SystemExit(f'ERROR: {dep} path drifted')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: activation subject must use workspace crypto/sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalActivationSubjectContextV2',
+              'ACTIVATION_SUBJECT_CONTEXT_DOMAIN_V2',
+              'mycelix:identity:activation-subject-context:v2\\0',
+              'qualify_historical_activation_subject_context_v2',
+              'derive_authority_scoped_kvector_verification_record_signing_digest_v2',
+              'record.authority_domain_sha256 != precrypto_context.authority_domain_digest_sha256()',
+              'runtime_context.authority_domain_digest_sha256()',
+              'precrypto_context.authority_domain_digest_sha256()',
+              'runtime_context.precrypto_context_digest_sha256()',
+              'precrypto_context.precrypto_context_digest_sha256()',
+              'precrypto_context.record_signing_digest_sha256()',
+              'exact_observation.record_signing_digest_sha256()',
+              'resolved.generation_sha256()',
+              'record.base_record.verifier_key_generation_sha256',
+              'resolved.verifier_did() != record.base_record.verifier_did',
+              'resolved.verifier_key_id() != record.base_record.verifier_key_id',
+              'normalized.coverage()',
+              'resolved.generation_action_id()',
+              'normalized.selected_did_document_action_id()',
+              '0x98, 0x8c, 0x9e, 0xfa',
+              'runtime_context_substitution_changes_activation_subject',
+              'qualified_result_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: activation-subject invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct QualifiedHistoricalActivationSubjectContextV2')
+          result_end = text.index('impl QualifiedHistoricalActivationSubjectContextV2', result_start)
+          result_body = text[result_start:result_end]
+          for public_field in [
+              'pub authority_domain_digest_sha256:',
+              'pub record_signing_digest_sha256:',
+              'pub precrypto_context_digest_sha256:',
+              'pub runtime_bound_context_digest_sha256:',
+              'pub exact_observation_digest_sha256:',
+              'pub generation_sha256:',
+              'pub activation_subject_digest_sha256:',
+              'pub generation_action_id:',
+              'pub did_document_action_id:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(f'ERROR: activation subject capability is forgeable: {public_field}')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(', 'network_seed',
+              'get_agent_activity(', 'get_links(', 'sys_time(', 'std::time',
+              'resolve_did(', 'max_by_key', 'verify_signature', '.verify(',
+              'policy_current', 'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/time/crypto/currentness authority leaked into activation subject: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/activation-subject-context-policy/Cargo.toml -- --check
+
+      - name: Test pure precrypto context
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/authority-scoped-precrypto-context-policy/Cargo.toml
+
+      - name: Test runtime-bound context
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/identity-runtime-precrypto-context-adapter/Cargo.toml
+
+      - name: Test exact historical Record observer
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/zomes/identity_security_observer_v2/coordinator/Cargo.toml
+
+      - name: Test activation subject composition
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/activation-subject-context-policy/Cargo.toml
+
+      - name: Check activation subject for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/activation-subject-context-policy/Cargo.toml --target wasm32-unknown-unknown
