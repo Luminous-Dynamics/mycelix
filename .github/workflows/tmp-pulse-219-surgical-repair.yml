@@ -26,20 +26,29 @@ jobs:
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
 
       - name: Apply exact source repairs
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           bridge = Path("mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs")
           text = bridge.read_text()
           replacements = [
               (
-                  "    // =========================================================================\n    // Reputation Reporting\n    // ============================================================================\n",
-                  "    // =========================================================================\n    // Reputation Reporting\n    // =========================================================================\n",
+                  "    // =========================================================================\n"
+                  "    // Reputation Reporting\n"
+                  "    // ============================================================================\n",
+                  "    // =========================================================================\n"
+                  "    // Reputation Reporting\n"
+                  "    // =========================================================================\n",
               ),
               (
-                  "    // =========================================================================\n    // Cache Management\n    // ============================================================================\n",
-                  "    // =========================================================================\n    // Cache Management\n    // =========================================================================\n",
+                  "    // =========================================================================\n"
+                  "    // Cache Management\n"
+                  "    // ============================================================================\n",
+                  "    // =========================================================================\n"
+                  "    // Cache Management\n"
+                  "    // =========================================================================\n",
               ),
           ]
           for old, new in replacements:
@@ -51,47 +60,51 @@ jobs:
 
           validator = Path("mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs")
           text = validator.read_text()
-          old = '''                _ => Ok(ValidateCallbackResult::Valid),
-            },
-            // Neither entry type has a real update_entry call anywhere in the coordinator
-            // (confirmed via direct grep) -- reject outright rather than leave the previous
-            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times
-            // elsewhere in this pass).
-            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(
-                "Mail bridge entries cannot be updated".to_string(),
-            )),
-'''
-          new = '''                EntryTypes::MailBridgeQuery(_) | EntryTypes::MailBridgeEvent(_) => {
-                    Ok(ValidateCallbackResult::Invalid(
-                        "mail bridge entries cannot be updated".to_string(),
-                    ))
-                }
-            },
-'''
+          old = (
+              "                _ => Ok(ValidateCallbackResult::Valid),\n"
+              "            },\n"
+              "            // Neither entry type has a real update_entry call anywhere in the coordinator\n"
+              "            // (confirmed via direct grep) -- reject outright rather than leave the previous\n"
+              "            // unbound dead-code path (P0 wide-open RegisterUpdate gap, confirmed 50+ times\n"
+              "            // elsewhere in this pass).\n"
+              "            OpEntry::UpdateEntry { .. } => Ok(ValidateCallbackResult::Invalid(\n"
+              "                \"Mail bridge entries cannot be updated\".to_string(),\n"
+              "            )),\n"
+          )
+          new = (
+              "                EntryTypes::MailBridgeQuery(_) | EntryTypes::MailBridgeEvent(_) => {\n"
+              "                    Ok(ValidateCallbackResult::Invalid(\n"
+              "                        \"mail bridge entries cannot be updated\".to_string(),\n"
+              "                    ))\n"
+              "                }\n"
+              "            },\n"
+          )
           count = text.count(old)
           if count != 1:
               raise SystemExit(f"mail-bridge repair precondition failed: expected 1 match, found {count}")
           validator.write_text(text.replace(old, new, 1))
+          PY
 
-      - name: Prove surgical diff and self-delete
+      - name: Prove surgical source diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' \
+            'mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs' \
+            'mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs' | sort)"
+          git diff -- mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs
+          git diff -- mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs
+
+      - name: Commit and self-delete
         shell: bash
         run: |
           set -euo pipefail
           git rm .github/workflows/tmp-pulse-219-surgical-repair.yml
-          git diff --check
-          git diff -- mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs
-          git diff -- mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs
-          test "$(git diff --name-only | sort)" = "$(printf '%s\n' \
-            'mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs' \
-            'mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs' | sort)"
-
-      - name: Commit detached repair
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "Luminous Dynamics Qualification Bot"
           git config user.email "actions@users.noreply.github.com"
           git add mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/bridge.rs
           git add mycelix-workspace/mycelix-pulse/holochain/zomes/mail-bridge/integrity/src/lib.rs
+          git diff --cached --check
           git commit -m "fix(pulse): close executable qualification defects"
           git push origin HEAD:tmp/pulse-219-evidence-repair
