@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-identity-authority-domain-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical Identity V2 logical authority-domain and concrete DNA identity theorem"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+sha2 = { workspace = true }
