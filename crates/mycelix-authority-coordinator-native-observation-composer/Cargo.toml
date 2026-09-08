@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-coordinator-native-observation-composer"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Process-fenced native target and coordinator observations for Mycelix admission"
+
+[dependencies]
+blake3 = "1"
+holo_hash = "=0.6.1"
+holochain_client = "=0.8.1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-conductor-process = { path = "../mycelix-authority-coordinator-conductor-process" }
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }
+mycelix-authority-coordinator-native-attestor = { path = "../mycelix-authority-coordinator-native-attestor" }
+mycelix-authority-coordinator-target-cell = { path = "../mycelix-authority-coordinator-target-cell" }
