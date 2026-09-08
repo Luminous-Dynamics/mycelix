@@ -17,6 +17,8 @@ members = [
     "crates/kvector-verifier-key-generation-policy",
     # Key-generation-bound signed verification-record body
     "crates/kvector-verification-record-policy",
+    # Repaired-stack static verifier-policy body theorem
+    "crates/kvector-verifier-policy-body",
     # Record-bound verifier-key generation lineage theorem
     "crates/kvector-verifier-key-generation-lineage-policy",
     # Strict DID document cryptographic admission theorem
