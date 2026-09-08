@@ -89,8 +89,10 @@ jobs:
           cargo generate-lockfile --manifest-path "$capsule/Cargo.toml"
           echo "CAPSULE=$capsule" >> "$GITHUB_ENV"
 
-      - name: rustfmt exact capsule
-        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --all -- --check
+      - name: Check rustfmt for reducer-owned package
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --package justice-adjudication-reducer -- --check
 
       - name: test reducer exact capsule
         run: cargo test --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-adjudication-reducer
@@ -114,3 +116,11 @@ jobs:
           appeal_finality_qualified=false
           business_finance_bridge_authorized=false
           EOF
+
+      - name: Require reducer-owned source formatting
+        if: always()
+        run: |
+          if [[ '${{ steps.rustfmt.outcome }}' != 'success' ]]; then
+            echo 'Reducer-owned source is not rustfmt-clean; qualification remains red after collecting compile/test/clippy evidence.' >&2
+            exit 1
+          fi

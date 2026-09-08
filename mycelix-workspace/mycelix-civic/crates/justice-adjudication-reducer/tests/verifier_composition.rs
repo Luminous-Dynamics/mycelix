@@ -10,9 +10,8 @@ use justice_resolution_verifier::{
     ArbitrationSnapshotV1, CurrentAppealStateV1, DecisionSnapshotV1, DecisionVoteChoiceV1,
     FullAwardPolicyV1, FullDecisionOutcomeV1, MonetaryRemedyQualificationBasisV1,
     MonetaryRemedySnapshotV1, RuntimeMonetaryRemedyKindV1,
-    TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE,
-    TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_VERSION, TwoPartyCaseSnapshotV1,
-    qualify_monetary_remedy_v1,
+    TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE, TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_VERSION,
+    TwoPartyCaseSnapshotV1, qualify_monetary_remedy_v1,
 };
 
 fn participation(actor: &str, attestation: &str) -> AuthenticatedParticipationEvidenceV1 {
