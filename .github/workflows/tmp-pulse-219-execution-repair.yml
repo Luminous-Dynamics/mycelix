@@ -21,7 +21,7 @@ jobs:
           set -euo pipefail
           test "$(git branch --show-current)" = "tmp/pulse-219-execution-repair"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-      - name: Apply exact evidence-driven repairs
+      - name: Apply exact evidence-driven source repairs
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -34,9 +34,8 @@ jobs:
                   raise SystemExit(f"{path}: expected exactly one repair target, found {count}")
               path.write_text(text.replace(old, new, 1))
 
-          scheduler = "mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml"
           replace_exact(
-              scheduler,
+              "mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml",
               '[lib]\ncrate-type = ["cdylib", "rlib"]\n\n[dependencies]\n',
               '[lib]\ncrate-type = ["cdylib", "rlib"]\n\n'
               '# These are control-flow/presentation findings in the legacy scheduler.\n'
@@ -48,9 +47,8 @@ jobs:
               '[dependencies]\n',
           )
 
-          crypto = "mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs"
           replace_exact(
-              crypto,
+              "mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs",
               '        // Dilithium3 signature is 3293 bytes\n'
               '        assert_eq!(signature.len(), 3293);\n',
               '        // Bind to the exact pqcrypto-dilithium wire contract selected by Cargo.lock.\n'
@@ -113,36 +111,8 @@ jobs:
               '            want,\n'
               '        )\n',
           )
-
-          workflow = ".github/workflows/pulse-holochain.yml"
-          replace_exact(
-              workflow,
-              '      JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long\n'
-              "      HOLOCHAIN_STUB_MODE: 'true'\n",
-              '      JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long\n'
-              "      HOLOCHAIN_STUB_MODE: 'true'\n"
-              '      CREDENTIAL_ENCRYPTION_SECRET: ci-credential-encryption-secret-at-least-32-characters-long\n'
-              '      MYCELIX_DATA_DIR: ${{ runner.temp }}/pulse-backend-data\n',
-          )
-          replace_exact(
-              workflow,
-              '      - name: Backend tests\n'
-              '        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs\n'
-              '        run: cargo test\n',
-              '      - name: Bind committed Pulse backend lock\n'
-              '        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs\n'
-              '        run: |\n'
-              '          test -s Cargo.lock\n'
-              '          sha256sum Cargo.lock > "$RUNNER_TEMP/pulse-backend-lock.sha256"\n'
-              '      - name: Backend tests\n'
-              '        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs\n'
-              '        run: cargo test --locked\n'
-              '      - name: Verify Pulse backend lock unchanged\n'
-              '        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs\n'
-              '        run: sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"\n',
-          )
           PY
-      - name: Validate staged repair
+      - name: Validate staged source repair
         run: |
           set -euo pipefail
           git diff --check
@@ -151,21 +121,19 @@ jobs:
           actual="$(git diff --name-only | sort)"
           expected="$(printf '%s\n' \
             '.github/scripts/check_holochain_cohort.py' \
-            '.github/workflows/pulse-holochain.yml' \
             'mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs' \
             'mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml' | sort)"
           test "$actual" = "$expected"
-      - name: Commit self-cleaned repair tree
+      - name: Commit self-cleaned source repair tree
         run: |
           set -euo pipefail
           git rm .github/workflows/tmp-pulse-219-execution-repair.yml
           git add \
             .github/scripts/check_holochain_cohort.py \
-            .github/workflows/pulse-holochain.yml \
             mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs \
             mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml
           git diff --cached --check
           git config user.name "Luminous Dynamics Qualification Bot"
           git config user.email "actions@users.noreply.github.com"
-          git commit -m "fix(pulse): bind reproducible execution repairs"
+          git commit -m "fix(pulse): bind reproducible source repairs"
           git push origin HEAD:tmp/pulse-219-execution-repair
