@@ -356,3 +356,119 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         | FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_query() -> ClimateQuery {
+        ClimateQuery {
+            query_id: "query:1".into(),
+            purpose: QueryPurpose::ProjectDueDiligence,
+            requester_did: "did:mycelix:requester-1".into(),
+            target_id: "project:1".into(),
+            parameters: Some(r#"{"depth":"standard"}"#.into()),
+            status: QueryStatus::Pending,
+            created_at: 1_788_825_600,
+        }
+    }
+
+    fn valid_result() -> ClimateResult {
+        ClimateResult {
+            query_id: "query:1".into(),
+            result: VerificationResult::Verified,
+            data: Some(r#"{"evidence":"artifact:1"}"#.into()),
+            responder_did: "did:mycelix:verifier-1".into(),
+            responded_at: 1_788_825_700,
+            signature: None,
+        }
+    }
+
+    fn valid_listing() -> MarketplaceListing {
+        MarketplaceListing {
+            listing_id: "listing:1".into(),
+            credit_id: "credit:1".into(),
+            credit_action_hash: "uhCAkexample".into(),
+            project_id: "project:1".into(),
+            seller_did: "did:mycelix:seller-1".into(),
+            price_per_tonne: 1_000,
+            currency: "USD".into(),
+            min_purchase: 1.0,
+            available_tonnes: 10.0,
+            expires_at: 1_800_000_000,
+            is_active: true,
+            created_at: 1_788_825_600,
+        }
+    }
+
+    fn assert_valid(result: ExternResult<ValidateCallbackResult>) {
+        assert!(matches!(result.expect("validator should execute"), ValidateCallbackResult::Valid));
+    }
+
+    fn assert_invalid_contains(result: ExternResult<ValidateCallbackResult>, needle: &str) {
+        match result.expect("validator should execute") {
+            ValidateCallbackResult::Invalid(reason) => assert!(
+                reason.contains(needle),
+                "expected rejection containing {needle:?}, got {reason:?}"
+            ),
+            other => panic!("expected invalid result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn production_query_validator_accepts_valid_query() {
+        assert_valid(validate_climate_query(&valid_query()));
+    }
+
+    #[test]
+    fn production_query_validator_rejects_invalid_requester_identity() {
+        let mut query = valid_query();
+        query.requester_did = "requester-1".into();
+        assert_invalid_contains(validate_climate_query(&query), "did:");
+    }
+
+    #[test]
+    fn production_query_validator_rejects_invalid_parameters_json() {
+        let mut query = valid_query();
+        query.parameters = Some("{".into());
+        assert_invalid_contains(validate_climate_query(&query), "valid JSON");
+    }
+
+    #[test]
+    fn production_result_validator_accepts_valid_result() {
+        assert_valid(validate_climate_result(&valid_result()));
+    }
+
+    #[test]
+    fn production_result_validator_rejects_invalid_responder_identity() {
+        let mut result = valid_result();
+        result.responder_did = "verifier-1".into();
+        assert_invalid_contains(validate_climate_result(&result), "did:");
+    }
+
+    #[test]
+    fn production_result_validator_rejects_invalid_data_json() {
+        let mut result = valid_result();
+        result.data = Some("[".into());
+        assert_invalid_contains(validate_climate_result(&result), "valid JSON");
+    }
+
+    #[test]
+    fn production_listing_validator_accepts_valid_listing() {
+        assert_valid(validate_marketplace_listing(&valid_listing()));
+    }
+
+    #[test]
+    fn production_listing_validator_rejects_zero_price() {
+        let mut listing = valid_listing();
+        listing.price_per_tonne = 0;
+        assert_invalid_contains(validate_marketplace_listing(&listing), "Price");
+    }
+
+    #[test]
+    fn production_listing_validator_rejects_oversized_minimum_purchase() {
+        let mut listing = valid_listing();
+        listing.min_purchase = listing.available_tonnes + 1.0;
+        assert_invalid_contains(validate_marketplace_listing(&listing), "cannot exceed");
+    }
+}
