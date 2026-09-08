@@ -157,9 +157,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => match app_entry {
                 EntryTypes::ScheduledEmail(scheduled) => {
                     // Validate status transitions
-                    if scheduled.status == ScheduleStatus::Sent
-                        && scheduled.recurrence.is_none()
-                    {
+                    if scheduled.status == ScheduleStatus::Sent && scheduled.recurrence.is_none() {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Cannot modify sent non-recurring schedule".to_string(),
                         ));
