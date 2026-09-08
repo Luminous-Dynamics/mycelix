@@ -1,0 +1,14 @@
+[package]
+name = "verifier_key_generation_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Append-only verifier-key generation lifecycle integrity for Identity V2"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
