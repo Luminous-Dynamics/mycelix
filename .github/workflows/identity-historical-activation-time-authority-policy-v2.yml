@@ -1,0 +1,140 @@
+name: Identity Historical Activation Time Authority Policy V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - '.github/workflows/identity-historical-activation-time-authority-policy-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - '.github/workflows/identity-historical-activation-time-authority-policy-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-historical-activation-time-authority-policy-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert static time-authority policy boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-authority-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-receipt-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: time-authority policy dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: time-authority policy must use workspace crypto/sha2')
+          if deps['mycelix-historical-activation-time-receipt-policy'].get('path') != '../historical-activation-time-receipt-policy':
+              raise SystemExit('ERROR: time-authority policy must bind #394 prepared receipt')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text.split('#[cfg(test)]', 1)[0]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'HistoricalActivationTimeAuthorityPolicyBodyV2',
+              'QualifiedStaticHistoricalActivationTimeAuthorityPolicyV2',
+              'HISTORICAL_ACTIVATION_TIME_AUTHORITY_POLICY_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-authority-policy:v2\\0',
+              'utc_realization_id',
+              'max_uncertainty_before_micros',
+              'max_uncertainty_after_micros',
+              'max_receipt_lifetime_micros',
+              'valid_from_micros',
+              'valid_until_micros',
+              'algorithm.is_signature_algorithm()',
+              'derive_historical_activation_time_authority_policy_digest_v2',
+              'qualify_static_historical_activation_time_authority_policy_v2',
+              'validate_prepared_time_receipt_against_static_policy_v2',
+              'receipt.time_authority_policy_sha256() != policy.policy_digest_sha256()',
+              'receipt.time_authority_key_generation_sha256()',
+              'receipt.uncertainty_before_micros() > policy.max_uncertainty_before_micros()',
+              'receipt.uncertainty_after_micros() > policy.max_uncertainty_after_micros()',
+              'earliest < policy.valid_from_micros()',
+              'latest >= policy.valid_until_micros()',
+              'receipt.receipt_valid_until_micros() > policy.valid_until_micros()',
+              'lifetime > policy.max_receipt_lifetime_micros()',
+          ]
+          for needle in required:
+              if needle not in production:
+                  raise SystemExit(f'ERROR: static time-authority invariant missing: {needle!r}')
+
+          result_start = production.index('pub struct QualifiedStaticHistoricalActivationTimeAuthorityPolicyV2')
+          result_end = production.index('impl QualifiedStaticHistoricalActivationTimeAuthorityPolicyV2', result_start)
+          result_body = production[result_start:result_end]
+          for public_field in [
+              'pub policy_digest_sha256:',
+              'pub time_authority_key_generation_sha256:',
+              'pub max_uncertainty_after_micros:',
+              'pub valid_until_micros:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(f'ERROR: static time-authority capability is forgeable: {public_field}')
+
+          lower = production.lower()
+          for forbidden in [
+              'use hdk', 'use hdi', 'hdk::', 'hdi::', 'holochain_',
+              'sys_time(', 'std::time', 'network', 'roughtime', 'nts::', 'ntp::',
+              'verify_signature', '.verify(', 'signature_verified', 'authenticated_time',
+              'policy_current', 'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/provider/crypto/currentness authority leaked into static time policy: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/Cargo.toml \
+            -- --check
+
+      - name: Test prepared receipt prerequisite
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-receipt-policy/Cargo.toml
+
+      - name: Test static time-authority policy
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/Cargo.toml
+
+      - name: Check static time-authority policy for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
