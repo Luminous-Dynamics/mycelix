@@ -1,0 +1,22 @@
+[package]
+name = "mycelix-historical-generation-observer-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Normalized observation theorem for exact historical verifier-key generations"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-agent-activity-coverage-policy = { path = "../agent-activity-coverage-policy" }
+mycelix-did-authentication-method-material-policy = { path = "../did-authentication-method-material-policy" }
+mycelix-did-document-crypto-policy = { path = "../did-document-crypto-policy" }
+mycelix-did-document-lineage-policy = { path = "../did-document-lineage-policy" }
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }
+mycelix-kvector-verifier-key-generation-lineage-policy = { path = "../kvector-verifier-key-generation-lineage-policy" }
+mycelix-verifier-key-generation-material-policy = { path = "../verifier-key-generation-material-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-kvector-verifier-key-generation-policy = { path = "../kvector-verifier-key-generation-policy" }

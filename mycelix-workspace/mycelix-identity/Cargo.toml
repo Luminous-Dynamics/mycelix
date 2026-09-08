@@ -29,6 +29,8 @@ members = [
     "crates/agent-activity-coverage-policy",
     # Policy-neutral observed DID-document lineage theorem
     "crates/did-document-lineage-policy",
+    # Generation-aware normalized historical observer theorem
+    "crates/historical-generation-observer-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Shared crypto-agile types (PQE abstraction layer)
