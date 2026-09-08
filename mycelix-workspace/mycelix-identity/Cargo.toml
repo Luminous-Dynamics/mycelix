@@ -25,6 +25,8 @@ members = [
     "crates/did-authentication-method-material-policy",
     # Exact verifier-key generation material assembly theorem
     "crates/verifier-key-generation-material-policy",
+    # Viewpoint-scoped exact agent-activity coverage theorem
+    "crates/agent-activity-coverage-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Shared crypto-agile types (PQE abstraction layer)
