@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-ssf-canonical-execution-semantics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
