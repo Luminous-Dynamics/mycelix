@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 import tomllib
@@ -13,6 +14,10 @@ WORKSPACE = ROOT / "mycelix-workspace"
 
 def load_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text())
+
+
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text())
 
 
 def dep_version(value) -> str | None:
@@ -69,7 +74,7 @@ def verify_manifest_binding(failures: list[str], kind: str, binding: dict) -> No
 def main() -> None:
     contract = load_toml(WORKSPACE / "holochain-cohort.toml")
     root = load_toml(WORKSPACE / "Cargo.toml")
-    flake_lock = load_toml(WORKSPACE / "flake.lock")
+    flake_lock = load_json(WORKSPACE / "flake.lock")
     pulse = load_toml(WORKSPACE / "mycelix-pulse/holochain/Cargo.toml")
     pulse_tests = load_toml(WORKSPACE / "mycelix-pulse/tests/Cargo.toml")
     happ_integrity = load_toml(

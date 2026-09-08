@@ -15,6 +15,11 @@ path = "src/lib.rs"
 name = "mycelix-mail-backend"
 path = "src/main.rs"
 
+# Standalone quarantine surface: do not inherit the canonical root workspace.
+# This backend currently carries its own mixed Holochain dependency cohort and
+# is qualified independently until the coherent cohort is materialized.
+[workspace]
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["ws", "macros"] }
