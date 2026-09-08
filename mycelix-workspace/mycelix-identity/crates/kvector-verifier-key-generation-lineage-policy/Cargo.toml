@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-kvector-verifier-key-generation-lineage-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Record-bound historical verifier-key generation lineage theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-kvector-verification-record-policy = { path = "../kvector-verification-record-policy" }
+mycelix-kvector-verifier-key-generation-policy = { path = "../kvector-verifier-key-generation-policy" }
