@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-ssf-canonical-replay-evidence-qualification-request"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-canonical-replay-evidence-subject = { path = "../mycelix-ssf-canonical-replay-evidence-subject" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }

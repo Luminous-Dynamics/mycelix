@@ -1,0 +1,41 @@
+name: SSF Canonical Replay Evidence Qualification Request
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-subject/**'
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/**'
+      - '.github/workflows/ssf-canonical-replay-evidence-qualification-request.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/**'
+      - '.github/workflows/ssf-canonical-replay-evidence-qualification-request.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  replay-evidence-qualification-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml -- --check
+      - name: Native check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml --all-targets
+      - name: no_std WASM check
+        run: cargo check --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml --lib --target wasm32-unknown-unknown
+      - name: Tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml --all-targets -- -D warnings
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path mycelix-workspace/crates/mycelix-ssf-canonical-replay-evidence-qualification-request/Cargo.toml --no-deps
