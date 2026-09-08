@@ -1,0 +1,217 @@
+name: Identity Historical Generation Observer V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/**'
+      - '.github/workflows/identity-historical-generation-observer-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verification-record-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/**'
+      - '.github/workflows/identity-historical-generation-observer-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-historical-generation-observer-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert historical-generation observer boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-generation-observer-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-agent-activity-coverage-policy',
+              'mycelix-did-authentication-method-material-policy',
+              'mycelix-did-document-crypto-policy',
+              'mycelix-did-document-lineage-policy',
+              'mycelix-kvector-verification-record-policy',
+              'mycelix-kvector-verifier-key-generation-lineage-policy',
+              'mycelix-verifier-key-generation-material-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: historical observer runtime dependencies drifted: {sorted(deps)}')
+
+          expected_paths = {
+              'mycelix-agent-activity-coverage-policy': '../agent-activity-coverage-policy',
+              'mycelix-did-authentication-method-material-policy': '../did-authentication-method-material-policy',
+              'mycelix-did-document-crypto-policy': '../did-document-crypto-policy',
+              'mycelix-did-document-lineage-policy': '../did-document-lineage-policy',
+              'mycelix-kvector-verification-record-policy': '../kvector-verification-record-policy',
+              'mycelix-kvector-verifier-key-generation-lineage-policy': '../kvector-verifier-key-generation-lineage-policy',
+              'mycelix-verifier-key-generation-material-policy': '../verifier-key-generation-material-policy',
+          }
+          for name, path in expected_paths.items():
+              if deps[name].get('path') != path:
+                  raise SystemExit(f'ERROR: {name} path drifted: {deps[name]}')
+
+          dev = manifest.get('dev-dependencies', {})
+          if set(dev) != {'mycelix-crypto', 'mycelix-kvector-verifier-key-generation-policy'}:
+              raise SystemExit(f'ERROR: historical observer test dependencies drifted: {sorted(dev)}')
+          if dev['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: tests must use workspace mycelix-crypto')
+          if dev['mycelix-kvector-verifier-key-generation-policy'].get('path') != '../kvector-verifier-key-generation-policy':
+              raise SystemExit('ERROR: tests must use canonical #316 generation theorem')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'FetchedIdentitySecurityRecordV2',
+              'FetchedDidDocumentRecordV2',
+              'FetchedDidDeactivationRecordV2',
+              'FetchedVerifierKeyGenerationRecordV2',
+              'QualifiedNormalizedHistoricalGenerationObservationV2',
+              'assemble_normalized_historical_generation_observation_v2',
+              'coverage.matching_valid_actions()',
+              'coverage.contains_action(seq, action_id)',
+              'qualify_did_document_lineage_v2',
+              'did_lineage.contains_document_action',
+              'ReferencedDidDocumentOutsideQualifiedLineage',
+              'resolve_admitted_did_authentication_method_v2',
+              'assemble_verifier_key_generation_material_v2',
+              'resolve_record_bound_verifier_key_generation_v2',
+              'second_independent_did_root_fails_before_generation_material',
+              'branched_did_updates_fail_before_generation_material',
+              'fetched_record_substitution_fails_before_lineage',
+              'missing_qualified_generation_fetch_fails_closed',
+              'later_deactivation_is_retained_without_retroactive_veto',
+              'observer_success_fields_are_verifier_owned',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: historical observer theorem missing: {needle!r}')
+
+          result_start = text.index('pub struct QualifiedNormalizedHistoricalGenerationObservationV2')
+          result_end = text.index('impl QualifiedNormalizedHistoricalGenerationObservationV2', result_start)
+          result_body = text[result_start:result_end]
+          for public_field in [
+              'pub coverage:',
+              'pub did_lineage:',
+              'pub resolved_generation:',
+              'pub selected_did_document_action_id:',
+              'pub assembled_generation_count:',
+              'pub deactivations:',
+          ]:
+              if public_field in result_body:
+                  raise SystemExit(
+                      f'ERROR: historical observer exposes forgeable success field: {public_field!r}'
+                  )
+
+          derive_start = text.rfind('#[derive(', 0, result_start)
+          if derive_start < 0:
+              raise SystemExit('ERROR: historical observer derive attribute missing')
+          derive_end = text.index(')]', derive_start) + 2
+          derive = text[derive_start:derive_end]
+          if 'Clone' in derive or 'Copy' in derive:
+              raise SystemExit('ERROR: historical observer capability must remain non-Clone/non-Copy')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'get_agent_activity(',
+              'get_links(',
+              'get_links_details',
+              'must_get_valid_record(',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'kvector_verifier_policy_body',
+              'signature_material_policy',
+              'policy_current',
+              'policy_accepted',
+              'qualifiedsignature',
+              'positive_evidence:',
+              '.max_by_key(',
+              '.sort_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: HDK/policy/time/signature authority leaked into normalized observer: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/Cargo.toml \
+            -- --check
+
+      - name: Test upstream DID-document lineage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-lineage-policy/Cargo.toml
+
+      - name: Test upstream activity coverage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/agent-activity-coverage-policy/Cargo.toml
+
+      - name: Test upstream admitted DID method theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/Cargo.toml
+
+      - name: Test upstream generation material theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/Cargo.toml
+
+      - name: Test upstream generation lineage theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-lineage-policy/Cargo.toml
+
+      - name: Test historical generation observer theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/Cargo.toml
+
+      - name: Check historical generation observer for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/historical-generation-observer-policy/Cargo.toml \
+            --target wasm32-unknown-unknown
