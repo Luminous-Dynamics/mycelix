@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     # Shared crates
     "crates/civic-types",
+    "crates/justice-resolution-types",
 
     # Justice domain (5 zomes)
     "zomes/justice-cases/integrity",
@@ -85,6 +86,7 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 
 # Internal shared crates
 civic-types = { path = "crates/civic-types" }
+justice-resolution-types = { path = "crates/justice-resolution-types" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common", features = ["infrastructure"] }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
 mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
