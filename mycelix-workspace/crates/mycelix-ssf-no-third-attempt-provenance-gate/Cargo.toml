@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-ssf-no-third-attempt-provenance-gate"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-actuator-execution = { path = "../mycelix-ssf-canonical-actuator-execution" }
+mycelix-ssf-canonical-completed-effect-evidence = { path = "../mycelix-ssf-canonical-completed-effect-evidence" }
+mycelix-ssf-canonical-completed-outcome-history-audit = { path = "../mycelix-ssf-canonical-completed-outcome-history-audit" }
