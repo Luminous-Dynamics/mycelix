@@ -171,9 +171,12 @@ impl HolochainService {
         // Step 1: Connect to admin interface to get authentication token
         tracing::debug!("Connecting to admin interface at {}", self.config.holochain_admin_url);
 
-        let admin_ws = AdminWebsocket::connect(&self.config.holochain_admin_url)
-            .await
-            .map_err(|e| AppError::HolochainError(format!("Admin connection failed: {}", e)))?;
+        let admin_ws = AdminWebsocket::connect(
+            &self.config.holochain_admin_url,
+            self.config.holochain_origin(),
+        )
+        .await
+        .map_err(|e| AppError::HolochainError(format!("Admin connection failed: {}", e)))?;
 
         // Step 2: Get app info to find the cell
         let installed_app_id = self.config.holochain_app_id.clone();
@@ -204,6 +207,7 @@ impl HolochainService {
             &self.config.holochain_conductor_url,
             token_response.token,
             signer.clone(),
+            self.config.holochain_origin(),
         )
         .await
         .map_err(|e| AppError::HolochainError(format!("App connection failed: {}", e)))?;
@@ -1681,38 +1685,7 @@ mod tests {
 
     /// Create a test config with stub mode enabled
     fn test_config() -> Config {
-        Config {
-            host: "0.0.0.0".to_string(),
-            port: 3001,
-            holochain_conductor_url: "ws://localhost:8888".to_string(),
-            holochain_admin_url: "ws://localhost:8889".to_string(),
-            holochain_app_id: "mycelix_mail".to_string(),
-            holochain_stub_mode: true,
-            lair_url: None,
-            lair_passphrase: None,
-            holochain_connect_timeout_secs: 30,
-            holochain_max_reconnect_attempts: 5,
-            jwt_secret: "test_secret_for_testing_only_32chars!".to_string(),
-            jwt_expiration_hours: 24,
-            trust_cache_ttl_secs: 300,
-            trust_cache_max_entries: 10000,
-            default_min_trust: 0.3,
-            byzantine_threshold: 0.2,
-            cors_origins: vec!["http://localhost:3000".to_string()],
-            rate_limit_rpm: 100,
-            log_level: "info".to_string(),
-            // Bridge configuration
-            bridge_url: None,
-            bridge_stub_mode: true,
-            bridge_cache_ttl_secs: 300,
-            bridge_fallback_trust: 0.3,
-            bridge_zome_name: "bridge".to_string(),
-            bridge_cross_happ_enabled: true,
-            bridge_min_confidence: 0.3,
-            identity_conductor_url: None,
-            identity_verify_on_send: true,
-            mail_kem_secret_key: None,
-        }
+        Config::for_test()
     }
 
     #[tokio::test]
