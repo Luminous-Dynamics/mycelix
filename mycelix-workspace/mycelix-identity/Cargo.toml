@@ -45,6 +45,8 @@ members = [
     "crates/authority-scoped-precrypto-context-policy",
     # HDK-only running-cell authority-domain provenance adapter (unprovisioned)
     "crates/identity-runtime-authority-domain-adapter",
+    # Running-DNA binding for the pure authority-scoped pre-crypto context
+    "crates/identity-runtime-precrypto-context-adapter",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Canonical-only DID V2 authority epoch (unprovisioned)
