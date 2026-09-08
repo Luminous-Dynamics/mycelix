@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-ssf-canonical-completed-outcome-history"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-canonical-actuator-execution = { path = "../mycelix-ssf-canonical-actuator-execution" }
+mycelix-ssf-canonical-completed-effect-evidence = { path = "../mycelix-ssf-canonical-completed-effect-evidence" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+
+[dev-dependencies]
+mycelix-ssf-durable-actuator-invocation-attempt = { path = "../mycelix-ssf-durable-actuator-invocation-attempt" }
