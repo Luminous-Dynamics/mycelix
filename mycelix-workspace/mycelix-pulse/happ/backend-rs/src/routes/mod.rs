@@ -13,13 +13,33 @@ use crate::services::{BridgeClient, HolochainService, StorageService, TrustCache
 use mycelix_identity_client::{FallbackMode, IdentityClient, IdentityClientConfig};
 
 pub mod ai;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+)]
 pub mod auth;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+)]
 pub mod bridge;
 pub mod claims;
 pub mod did;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+)]
 pub mod emails;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+)]
 pub mod trust;
 pub mod trust_graph;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the legacy route source stable while restoring its service layer"
+)]
 pub mod ws;
 
 pub use ws::{EventBroadcast, WsEvent, notify_new_mail, notify_trust_update};

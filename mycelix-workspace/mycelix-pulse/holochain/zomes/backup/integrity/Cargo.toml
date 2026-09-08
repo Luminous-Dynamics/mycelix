@@ -6,6 +6,12 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# `EntryTypes` is a Holochain schema-facing enum; boxing a large variant to
+# satisfy Clippy would alter its generated representation. Preserve the schema
+# and make the exception explicit rather than changing wire-facing shape.
+[lints.clippy]
+large_enum_variant = "allow"
+
 [dependencies]
 hdi = { workspace = true }
 holochain_serialized_bytes = { workspace = true }
