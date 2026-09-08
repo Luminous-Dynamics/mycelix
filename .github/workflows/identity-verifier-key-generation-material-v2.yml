@@ -1,0 +1,171 @@
+name: Identity Verifier Key Generation Material V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/**'
+      - '.github/workflows/identity-verifier-key-generation-material-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/**'
+      - '.github/workflows/identity-verifier-key-generation-material-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-verifier-key-generation-material-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact generation-material assembly boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/verifier-key-generation-material-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-did-authentication-method-material-policy',
+              'mycelix-kvector-verifier-key-generation-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: generation-material runtime dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-did-authentication-method-material-policy'].get('path') != '../did-authentication-method-material-policy':
+              raise SystemExit('ERROR: generation material not bound to #344 admitted-method theorem')
+          if deps['mycelix-kvector-verifier-key-generation-policy'].get('path') != '../kvector-verifier-key-generation-policy':
+              raise SystemExit('ERROR: generation material not bound to #316 generation theorem')
+
+          dev_deps = manifest.get('dev-dependencies', {})
+          expected_dev = {'mycelix-crypto', 'mycelix-did-document-crypto-policy'}
+          if set(dev_deps) != expected_dev:
+              raise SystemExit(f'ERROR: generation-material dev dependencies drifted: {sorted(dev_deps)}')
+          if dev_deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: test crypto must use workspace mycelix-crypto')
+          if dev_deps['mycelix-did-document-crypto-policy'].get('path') != '../did-document-crypto-policy':
+              raise SystemExit('ERROR: tests must use transplanted DID crypto admission theorem')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'VerifierKeyGenerationLifecycleAssertionV2',
+              'AssembledVerifierKeyGenerationV2',
+              'assemble_verifier_key_generation_material_v2',
+              'admitted_did_document_action_id != lifecycle.did_document_action_id',
+              'method.did() != lifecycle.verifier_did',
+              'method.canonical_key_id() != lifecycle.verifier_key_id',
+              'issued_at_micros: lifecycle.generation_action_timestamp_micros',
+              'validate_kvector_verifier_key_generation_v2(generation)',
+              'derive_kvector_verifier_key_generation_digest_v2(generation)',
+              'KVectorVerifierKeyGenerationErrorV2::KeyGenerationInvalid',
+              'GenerationActionReusesDidDocumentAction',
+              'PreviousGenerationSelfReference',
+              'PreviousGenerationReusesDidDocumentAction',
+              'exact_lifecycle_and_admitted_material_reconstruct_generation',
+              'did_document_action_substitution_fails_closed',
+              'zero_generation_reuses_exact_316_failure',
+              'source_chain_timestamp_cannot_bypass_generation_validity_shape',
+              'all_zero_admitted_key_is_rejected_by_generation_theorem',
+              'assembled_generation_fields_are_not_public',
+              'assembled_generation_is_not_clone_or_copy',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: generation-material theorem missing: {needle!r}')
+
+          result_start = text.index('pub struct AssembledVerifierKeyGenerationV2')
+          result_end = text.index('impl AssembledVerifierKeyGenerationV2', result_start)
+          result_body = text[result_start:result_end]
+          if 'pub ' in '\n'.join(result_body.splitlines()[1:]):
+              raise SystemExit('ERROR: assembled generation exposes public fields')
+          derive_start = text.rfind('#[derive(', 0, result_start)
+          if derive_start < 0:
+              raise SystemExit('ERROR: assembled generation derive attribute missing')
+          derive_end = text.index(')]', derive_start) + 2
+          derive = text[derive_start:derive_end]
+          if 'Clone' in derive or 'Copy' in derive:
+              raise SystemExit('ERROR: assembled generation must remain non-Clone/non-Copy')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'get_details(',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_scheme_id',
+              'verification_policy_sha256',
+              'policy_current',
+              'policy_accepted',
+              'qualifiedsignature',
+              'positive_evidence:',
+              '.sort_by(',
+              '.max_by(',
+              '.max_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: network/policy/currentness/authenticity leaked into generation material: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/Cargo.toml \
+            -- --check
+
+      - name: Test #316 generation theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/kvector-verifier-key-generation-policy/Cargo.toml
+
+      - name: Test #344 admitted method theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/Cargo.toml
+
+      - name: Test generation material theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/Cargo.toml
+
+      - name: Check generation material theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/verifier-key-generation-material-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-verifier-key-generation-material-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact verifier-key generation material assembly theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-did-authentication-method-material-policy = { path = "../did-authentication-method-material-policy" }
+mycelix-kvector-verifier-key-generation-policy = { path = "../kvector-verifier-key-generation-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-did-document-crypto-policy = { path = "../did-document-crypto-policy" }

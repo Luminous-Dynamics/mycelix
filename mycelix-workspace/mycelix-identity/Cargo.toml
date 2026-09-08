@@ -23,6 +23,8 @@ members = [
     "crates/did-document-crypto-policy",
     # Policy-neutral admitted DID authentication-method material theorem
     "crates/did-authentication-method-material-policy",
+    # Exact verifier-key generation material assembly theorem
+    "crates/verifier-key-generation-material-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Shared crypto-agile types (PQE abstraction layer)
