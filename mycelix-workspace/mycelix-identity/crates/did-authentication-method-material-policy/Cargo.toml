@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-did-authentication-method-material-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Policy-neutral admitted DID authentication-method material theorem for Identity V2"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-did-document-crypto-policy = { path = "../did-document-crypto-policy" }
