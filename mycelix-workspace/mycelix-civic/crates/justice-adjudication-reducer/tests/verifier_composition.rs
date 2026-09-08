@@ -6,11 +6,15 @@ use justice_adjudication_reducer::{
     AuthenticatedParticipationEvidenceV1, AuthenticatedVoteEvidenceV1, SelectedPanelMemberV1,
     reduce_adjudication_evidence_v1,
 };
+use justice_finality_qualification::{
+    COMPLETE_APPEAL_COVERAGE_PROFILE, COMPLETE_APPEAL_COVERAGE_VERSION,
+    CompleteAppealCoverageEvidenceV1, JusticeFinalityQualificationBasisV1,
+    qualify_justice_finality_v1,
+};
 use justice_resolution_verifier::{
-    ArbitrationSnapshotV1, CurrentAppealStateV1, DecisionSnapshotV1, DecisionVoteChoiceV1,
-    FullAwardPolicyV1, FullDecisionOutcomeV1, MonetaryRemedyQualificationBasisV1,
-    MonetaryRemedySnapshotV1, RuntimeMonetaryRemedyKindV1,
-    TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE,
+    ArbitrationSnapshotV1, DecisionSnapshotV1, DecisionVoteChoiceV1, FullAwardPolicyV1,
+    FullDecisionOutcomeV1, MonetaryRemedyQualificationBasisV1, MonetaryRemedySnapshotV1,
+    RuntimeMonetaryRemedyKindV1, TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE,
     TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_VERSION, TwoPartyCaseSnapshotV1,
     qualify_monetary_remedy_v1,
 };
@@ -36,7 +40,7 @@ fn vote(actor: &str, attestation: &str, acceptance: &str) -> AuthenticatedVoteEv
 }
 
 #[test]
-fn reduced_authenticated_evidence_flows_directly_into_pure_remedy_verifier() {
+fn reduced_authenticated_evidence_flows_through_sealed_finality_into_remedy_verifier() {
     let reduced = reduce_adjudication_evidence_v1(AdjudicationReductionBasisV1 {
         arbitration_ref: "arb-action:1".into(),
         decision_ref: "decision-action:1".into(),
@@ -67,6 +71,25 @@ fn reduced_authenticated_evidence_flows_directly_into_pure_remedy_verifier() {
     })
     .unwrap();
 
+    let qualified_finality =
+        qualify_justice_finality_v1(JusticeFinalityQualificationBasisV1::NoAppealCoverage {
+            decision_ref: "decision-action:1".into(),
+            decision_rendered_at_unix_ms: 100,
+            appeal_deadline_unix_ms: 200,
+            qualification_time_unix_ms: 300,
+            coverage: CompleteAppealCoverageEvidenceV1 {
+                coverage_ref: "appeal-coverage:decision-action-1:through-300".into(),
+                decision_ref: "decision-action:1".into(),
+                authority_evidence_ref: "justice-finality-authority:test".into(),
+                semantic_profile: COMPLETE_APPEAL_COVERAGE_PROFILE.into(),
+                semantic_version: COMPLETE_APPEAL_COVERAGE_VERSION,
+                covered_from_unix_ms: 100,
+                covered_through_unix_ms: 300,
+                observed_appeal_refs: vec![],
+            },
+        })
+        .unwrap();
+
     let verified = qualify_monetary_remedy_v1(MonetaryRemedyQualificationBasisV1 {
         case: TwoPartyCaseSnapshotV1 {
             case_ref: "case-action:1".into(),
@@ -96,9 +119,7 @@ fn reduced_authenticated_evidence_flows_directly_into_pure_remedy_verifier() {
             amount: Some(5_000),
             unit: Some("USD-cent".into()),
         },
-        appeal_state: CurrentAppealStateV1::None {
-            no_live_appeal_evidence_ref: "synthetic:test-only:no-live-appeal".into(),
-        },
+        qualified_finality,
         policy: FullAwardPolicyV1 {
             policy_ref: "justice-policy:1".into(),
             semantic_profile: TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE.into(),
@@ -110,7 +131,20 @@ fn reduced_authenticated_evidence_flows_directly_into_pure_remedy_verifier() {
     })
     .unwrap();
 
+    assert_eq!(reduced.receipt().arbitration_ref(), "arb-action:1");
+    assert_eq!(reduced.receipt().decision_ref(), "decision-action:1");
     assert_eq!(verified.receipt().arbitration_ref(), "arb-action:1");
     assert_eq!(verified.receipt().decision_ref(), "decision-action:1");
     assert_eq!(verified.receipt().support_votes(), 2);
+    assert_eq!(
+        verified.receipt().finality_receipt().decision_ref(),
+        "decision-action:1"
+    );
+    assert_eq!(
+        verified
+            .receipt()
+            .finality_receipt()
+            .qualification_time_unix_ms(),
+        300
+    );
 }

@@ -5,15 +5,21 @@
 
 //! Pure qualification kernel for final Justice monetary remedies.
 //!
-//! Callers supply transport-neutral snapshots that a future owning Justice
-//! adapter must obtain from exact authoritative records. This crate proves the
-//! relationships between those snapshots and constructs a positive typed result
-//! plus an auditable verification receipt. It does not fetch Holochain state or
-//! authenticate the snapshots itself.
+//! Callers supply transport-neutral snapshots that an owning Justice adapter
+//! must obtain from exact authoritative records. Positive finality is not a
+//! caller-authored appeal-state assertion: it must arrive as a sealed
+//! `QualifiedJusticeFinalityV1` minted by the pure Justice finality qualifier.
+//! This crate proves the relationships between the exact case/arbitration/
+//! decision/remedy/policy cut and that sealed finality cut, then constructs a
+//! positive typed result plus auditable verification receipts. It does not fetch
+//! Holochain state or authenticate runtime records or finality evidence itself.
 
 use core::fmt;
 use std::collections::BTreeSet;
 
+use justice_finality_qualification::{
+    JusticeFinalityQualificationReceiptV1, QualifiedJusticeFinalityV1,
+};
 use justice_resolution_types::{
     FinalMonetaryRemedyV1, JusticeFinalityBasisV1, MonetaryRemedyKindV1,
 };
@@ -104,29 +110,6 @@ pub struct MonetaryRemedySnapshotV1 {
     pub unit: Option<String>,
 }
 
-/// Current appeal state supplied by the owning Justice adapter.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CurrentAppealStateV1 {
-    /// Exact negative-query/evidence result: no live appeal changes disposition.
-    None {
-        no_live_appeal_evidence_ref: String,
-    },
-    /// An appeal is currently live; original decision is not executable as final.
-    Active {
-        appeal_ref: String,
-    },
-    /// An exact appeal resolution affirmed the decision/remedy.
-    ResolvedAffirmed {
-        appeal_ref: String,
-        appeal_resolution_ref: String,
-    },
-    /// Appeal changed/reversed/remanded the original decision.
-    ResolvedChanged {
-        appeal_ref: String,
-        appeal_resolution_ref: String,
-    },
-}
-
 /// Exact Justice policy inputs for the frozen two-party prevailing-party rule.
 ///
 /// The policy record reference and semantic profile/version are both explicit.
@@ -142,13 +125,17 @@ pub struct FullAwardPolicyV1 {
 }
 
 /// Complete explicit input cut for one monetary-remedy qualification.
+///
+/// `qualified_finality` cannot be constructed directly outside its owning
+/// qualifier. The owning Justice runtime still must authenticate the evidence
+/// supplied to that qualifier before this consumer may trust the token.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MonetaryRemedyQualificationBasisV1 {
     pub case: TwoPartyCaseSnapshotV1,
     pub arbitration: ArbitrationSnapshotV1,
     pub decision: DecisionSnapshotV1,
     pub remedy: MonetaryRemedySnapshotV1,
-    pub appeal_state: CurrentAppealStateV1,
+    pub qualified_finality: QualifiedJusticeFinalityV1,
     pub policy: FullAwardPolicyV1,
     pub qualification_time_unix_ms: u64,
 }
@@ -160,6 +147,8 @@ pub struct JusticeVerificationReceiptV1 {
     case_ref: String,
     arbitration_ref: String,
     decision_ref: String,
+    decision_rendered_at_unix_ms: u64,
+    appeal_deadline_unix_ms: u64,
     remedy_index: u32,
     policy_ref: String,
     policy_semantic_profile: String,
@@ -171,6 +160,7 @@ pub struct JusticeVerificationReceiptV1 {
     support_votes: usize,
     qualification_time_unix_ms: u64,
     finality: JusticeFinalityBasisV1,
+    finality_receipt: JusticeFinalityQualificationReceiptV1,
 }
 
 impl JusticeVerificationReceiptV1 {
@@ -187,6 +177,16 @@ impl JusticeVerificationReceiptV1 {
     #[must_use]
     pub fn decision_ref(&self) -> &str {
         &self.decision_ref
+    }
+
+    #[must_use]
+    pub const fn decision_rendered_at_unix_ms(&self) -> u64 {
+        self.decision_rendered_at_unix_ms
+    }
+
+    #[must_use]
+    pub const fn appeal_deadline_unix_ms(&self) -> u64 {
+        self.appeal_deadline_unix_ms
     }
 
     #[must_use]
@@ -243,6 +243,11 @@ impl JusticeVerificationReceiptV1 {
     pub const fn finality(&self) -> &JusticeFinalityBasisV1 {
         &self.finality
     }
+
+    #[must_use]
+    pub const fn finality_receipt(&self) -> &JusticeFinalityQualificationReceiptV1 {
+        &self.finality_receipt
+    }
 }
 
 /// Positive output whose constructor is verifier-owned.
@@ -293,6 +298,10 @@ pub enum JusticeVerificationError {
     DecisionCaseMismatch,
     DecisionArbitrationMismatch,
     AppealDeadlineBeforeDecision,
+    FinalityDecisionMismatch,
+    FinalityDecisionRenderedAtMismatch,
+    FinalityAppealDeadlineMismatch,
+    FinalityQualificationTimeMismatch,
     EmptyPolicyRef,
     WrongPolicyProfile,
     InvalidPolicyThreshold,
@@ -306,12 +315,6 @@ pub enum JusticeVerificationError {
     MissingAmount,
     ZeroAmount,
     MissingUnit,
-    QualificationBeforeAppealDeadline,
-    MissingNoLiveAppealEvidence,
-    ActiveAppeal,
-    AppealChangedDecision,
-    EmptyAppealRef,
-    EmptyAppealResolutionRef,
     OutputConstructionFailed,
 }
 
@@ -325,14 +328,21 @@ impl std::error::Error for JusticeVerificationError {}
 
 /// Qualify an exact two-party full monetary remedy without ambient authority.
 ///
-/// The runtime `declared_finalized` bit is intentionally ignored. Finality is
-/// derived from explicit time + appeal evidence/state below.
+/// The runtime `declared_finalized` bit is intentionally ignored. Positive
+/// finality comes exclusively from `QualifiedJusticeFinalityV1`, and that token
+/// must bind the exact Decision ref/rendered time/appeal deadline/qualification
+/// time consumed by this same verifier invocation.
 pub fn qualify_monetary_remedy_v1(
     basis: MonetaryRemedyQualificationBasisV1,
 ) -> Result<VerifiedJusticeMonetaryRemedyV1, JusticeVerificationError> {
     validate_case(&basis.case)?;
     let active_panel = validate_arbitration(&basis.arbitration, &basis.case)?;
     validate_decision_links(&basis.decision, &basis.case, &basis.arbitration)?;
+    validate_finality_cut(
+        &basis.decision,
+        &basis.qualified_finality,
+        basis.qualification_time_unix_ms,
+    )?;
     validate_policy(&basis.policy, active_panel.len())?;
     let vote_qualification = validate_votes(
         &basis.decision,
@@ -381,11 +391,8 @@ pub fn qualify_monetary_remedy_v1(
         return Err(JusticeVerificationError::MissingUnit);
     }
 
-    let finality = qualify_finality(
-        &basis.decision,
-        &basis.appeal_state,
-        basis.qualification_time_unix_ms,
-    )?;
+    let finality = basis.qualified_finality.finality().clone();
+    let finality_receipt = basis.qualified_finality.receipt().clone();
 
     let remedy_ref = derived_remedy_ref(&basis.decision.decision_ref, basis.remedy.remedy_index);
     let effect_id = derived_effect_id(&basis.decision.decision_ref, basis.remedy.remedy_index);
@@ -409,6 +416,8 @@ pub fn qualify_monetary_remedy_v1(
         case_ref: basis.case.case_ref,
         arbitration_ref: basis.arbitration.arbitration_ref,
         decision_ref: basis.decision.decision_ref,
+        decision_rendered_at_unix_ms: basis.decision.rendered_at_unix_ms,
+        appeal_deadline_unix_ms: basis.decision.appeal_deadline_unix_ms,
         remedy_index: basis.remedy.remedy_index,
         policy_ref: basis.policy.policy_ref,
         policy_semantic_profile: basis.policy.semantic_profile,
@@ -420,6 +429,7 @@ pub fn qualify_monetary_remedy_v1(
         support_votes: vote_qualification.support_votes,
         qualification_time_unix_ms: basis.qualification_time_unix_ms,
         finality,
+        finality_receipt,
     };
 
     Ok(VerifiedJusticeMonetaryRemedyV1 { outcome, receipt })
@@ -497,6 +507,26 @@ fn validate_decision_links(
     Ok(())
 }
 
+fn validate_finality_cut(
+    decision: &DecisionSnapshotV1,
+    qualified_finality: &QualifiedJusticeFinalityV1,
+    qualification_time_unix_ms: u64,
+) -> Result<(), JusticeVerificationError> {
+    if qualified_finality.decision_ref() != decision.decision_ref {
+        return Err(JusticeVerificationError::FinalityDecisionMismatch);
+    }
+    if qualified_finality.decision_rendered_at_unix_ms() != decision.rendered_at_unix_ms {
+        return Err(JusticeVerificationError::FinalityDecisionRenderedAtMismatch);
+    }
+    if qualified_finality.appeal_deadline_unix_ms() != decision.appeal_deadline_unix_ms {
+        return Err(JusticeVerificationError::FinalityAppealDeadlineMismatch);
+    }
+    if qualified_finality.qualification_time_unix_ms() != qualification_time_unix_ms {
+        return Err(JusticeVerificationError::FinalityQualificationTimeMismatch);
+    }
+    Ok(())
+}
+
 fn validate_policy(
     policy: &FullAwardPolicyV1,
     active_panel_size: usize,
@@ -565,63 +595,6 @@ fn validate_votes(
     })
 }
 
-fn qualify_finality(
-    decision: &DecisionSnapshotV1,
-    appeal_state: &CurrentAppealStateV1,
-    qualification_time_unix_ms: u64,
-) -> Result<JusticeFinalityBasisV1, JusticeVerificationError> {
-    match appeal_state {
-        CurrentAppealStateV1::None {
-            no_live_appeal_evidence_ref,
-        } => {
-            if qualification_time_unix_ms < decision.appeal_deadline_unix_ms {
-                return Err(JusticeVerificationError::QualificationBeforeAppealDeadline);
-            }
-            if no_live_appeal_evidence_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::MissingNoLiveAppealEvidence);
-            }
-            Ok(JusticeFinalityBasisV1::AppealWindowExpired {
-                appeal_deadline_unix_ms: decision.appeal_deadline_unix_ms,
-                qualified_at_unix_ms: qualification_time_unix_ms,
-                no_live_appeal_evidence_ref: no_live_appeal_evidence_ref.clone(),
-            })
-        }
-        CurrentAppealStateV1::Active { appeal_ref } => {
-            if appeal_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::EmptyAppealRef);
-            }
-            Err(JusticeVerificationError::ActiveAppeal)
-        }
-        CurrentAppealStateV1::ResolvedAffirmed {
-            appeal_ref,
-            appeal_resolution_ref,
-        } => {
-            if appeal_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::EmptyAppealRef);
-            }
-            if appeal_resolution_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::EmptyAppealResolutionRef);
-            }
-            Ok(JusticeFinalityBasisV1::AppealResolved {
-                appeal_ref: appeal_ref.clone(),
-                appeal_resolution_ref: appeal_resolution_ref.clone(),
-            })
-        }
-        CurrentAppealStateV1::ResolvedChanged {
-            appeal_ref,
-            appeal_resolution_ref,
-        } => {
-            if appeal_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::EmptyAppealRef);
-            }
-            if appeal_resolution_ref.trim().is_empty() {
-                return Err(JusticeVerificationError::EmptyAppealResolutionRef);
-            }
-            Err(JusticeVerificationError::AppealChangedDecision)
-        }
-    }
-}
-
 fn derived_remedy_ref(decision_ref: &str, remedy_index: u32) -> String {
     let mut out = String::from("justice-remedy-v1");
     push_text_field(&mut out, "decision", decision_ref);
@@ -650,6 +623,72 @@ fn push_text_field(out: &mut String, name: &str, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use justice_finality_qualification::{
+        APPEAL_FILING_PROFILE, APPEAL_FILING_VERSION, AuthenticatedAppealFilingEvidenceV1,
+        AuthenticatedTerminalAppealResolutionEvidenceV1, COMPLETE_APPEAL_COVERAGE_PROFILE,
+        COMPLETE_APPEAL_COVERAGE_VERSION, CompleteAppealCoverageEvidenceV1,
+        FINALITY_QUALIFICATION_PROFILE, JusticeFinalityQualificationBasisV1,
+        TERMINAL_APPEAL_RESOLUTION_PROFILE, TERMINAL_APPEAL_RESOLUTION_VERSION,
+        TerminalAppealDispositionV1, qualify_justice_finality_v1,
+    };
+
+    fn no_appeal_finality(
+        decision_ref: &str,
+        rendered_at_unix_ms: u64,
+        appeal_deadline_unix_ms: u64,
+        qualification_time_unix_ms: u64,
+    ) -> QualifiedJusticeFinalityV1 {
+        qualify_justice_finality_v1(JusticeFinalityQualificationBasisV1::NoAppealCoverage {
+            decision_ref: decision_ref.into(),
+            decision_rendered_at_unix_ms: rendered_at_unix_ms,
+            appeal_deadline_unix_ms,
+            qualification_time_unix_ms,
+            coverage: CompleteAppealCoverageEvidenceV1 {
+                coverage_ref: format!(
+                    "appeal-coverage:{decision_ref}:through-{qualification_time_unix_ms}"
+                ),
+                decision_ref: decision_ref.into(),
+                authority_evidence_ref: "justice-finality-authority:test".into(),
+                semantic_profile: COMPLETE_APPEAL_COVERAGE_PROFILE.into(),
+                semantic_version: COMPLETE_APPEAL_COVERAGE_VERSION,
+                covered_from_unix_ms: rendered_at_unix_ms,
+                covered_through_unix_ms: qualification_time_unix_ms,
+                observed_appeal_refs: vec![],
+            },
+        })
+        .unwrap()
+    }
+
+    fn terminal_affirmance_finality() -> QualifiedJusticeFinalityV1 {
+        qualify_justice_finality_v1(
+            JusticeFinalityQualificationBasisV1::TerminalAppealResolution {
+                decision_ref: "decision:1".into(),
+                decision_rendered_at_unix_ms: 100,
+                appeal_deadline_unix_ms: 200,
+                qualification_time_unix_ms: 190,
+                appeal: AuthenticatedAppealFilingEvidenceV1 {
+                    appeal_ref: "appeal:1".into(),
+                    decision_ref: "decision:1".into(),
+                    appellant_ref: "party:merchant".into(),
+                    appeal_number: 1,
+                    semantic_profile: APPEAL_FILING_PROFILE.into(),
+                    semantic_version: APPEAL_FILING_VERSION,
+                    filed_at_unix_ms: 150,
+                },
+                resolution: AuthenticatedTerminalAppealResolutionEvidenceV1 {
+                    resolution_ref: "appeal-resolution:affirmed:1".into(),
+                    appeal_ref: "appeal:1".into(),
+                    decision_ref: "decision:1".into(),
+                    authority_evidence_ref: "appellate-authority:test".into(),
+                    semantic_profile: TERMINAL_APPEAL_RESOLUTION_PROFILE.into(),
+                    semantic_version: TERMINAL_APPEAL_RESOLUTION_VERSION,
+                    resolved_at_unix_ms: 180,
+                    disposition: TerminalAppealDispositionV1::Affirmed,
+                },
+            },
+        )
+        .unwrap()
+    }
 
     fn basis() -> MonetaryRemedyQualificationBasisV1 {
         MonetaryRemedyQualificationBasisV1 {
@@ -710,9 +749,7 @@ mod tests {
                 amount: Some(5_000),
                 unit: Some("USD-cent".to_owned()),
             },
-            appeal_state: CurrentAppealStateV1::None {
-                no_live_appeal_evidence_ref: "appeal-query:none:decision-1".to_owned(),
-            },
+            qualified_finality: no_appeal_finality("decision:1", 100, 200, 201),
             policy: FullAwardPolicyV1 {
                 policy_ref: "justice-policy:full-award:v1".to_owned(),
                 semantic_profile: TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_PROFILE.to_owned(),
@@ -725,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_two_party_restitution_qualifies_with_auditable_receipt() {
+    fn exact_two_party_restitution_qualifies_with_auditable_receipts() {
         let verified = qualify_monetary_remedy_v1(basis()).unwrap();
         let outcome = verified.outcome();
         assert_eq!(outcome.remedy_kind(), MonetaryRemedyKindV1::Restitution);
@@ -739,6 +776,8 @@ mod tests {
         assert_eq!(receipt.case_ref(), "case:1");
         assert_eq!(receipt.arbitration_ref(), "arbitration:1");
         assert_eq!(receipt.decision_ref(), "decision:1");
+        assert_eq!(receipt.decision_rendered_at_unix_ms(), 100);
+        assert_eq!(receipt.appeal_deadline_unix_ms(), 200);
         assert_eq!(receipt.remedy_index(), 0);
         assert_eq!(receipt.policy_ref(), "justice-policy:full-award:v1");
         assert_eq!(
@@ -752,6 +791,17 @@ mod tests {
         assert_eq!(receipt.voters().len(), 3);
         assert_eq!(receipt.support_votes(), 2);
         assert_eq!(receipt.qualification_time_unix_ms(), 201);
+        assert_eq!(
+            receipt.finality_receipt().semantic_profile(),
+            FINALITY_QUALIFICATION_PROFILE
+        );
+        assert_eq!(receipt.finality_receipt().decision_ref(), "decision:1");
+        assert_eq!(
+            receipt.finality_receipt().decision_rendered_at_unix_ms(),
+            100
+        );
+        assert_eq!(receipt.finality_receipt().appeal_deadline_unix_ms(), 200);
+        assert_eq!(receipt.finality_receipt().qualification_time_unix_ms(), 201);
     }
 
     #[test]
@@ -773,20 +823,51 @@ mod tests {
 
     #[test]
     fn runtime_finalized_flag_is_not_authority() {
+        let expected = qualify_monetary_remedy_v1(basis()).unwrap();
         let mut candidate = basis();
         candidate.decision.declared_finalized = true;
-        candidate.qualification_time_unix_ms = 199;
+        let actual = qualify_monetary_remedy_v1(candidate).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn finality_must_reference_exact_decision() {
+        let mut candidate = basis();
+        candidate.decision.decision_ref = "decision:other".into();
         assert_eq!(
             qualify_monetary_remedy_v1(candidate),
-            Err(JusticeVerificationError::QualificationBeforeAppealDeadline)
+            Err(JusticeVerificationError::FinalityDecisionMismatch)
         );
     }
 
     #[test]
-    fn declared_not_final_does_not_override_exact_finality_evidence() {
+    fn finality_must_bind_exact_rendered_time() {
         let mut candidate = basis();
-        candidate.decision.declared_finalized = false;
-        assert!(qualify_monetary_remedy_v1(candidate).is_ok());
+        candidate.decision.rendered_at_unix_ms = 101;
+        assert_eq!(
+            qualify_monetary_remedy_v1(candidate),
+            Err(JusticeVerificationError::FinalityDecisionRenderedAtMismatch)
+        );
+    }
+
+    #[test]
+    fn finality_must_bind_exact_appeal_deadline() {
+        let mut candidate = basis();
+        candidate.decision.appeal_deadline_unix_ms = 201;
+        assert_eq!(
+            qualify_monetary_remedy_v1(candidate),
+            Err(JusticeVerificationError::FinalityAppealDeadlineMismatch)
+        );
+    }
+
+    #[test]
+    fn finality_must_bind_exact_qualification_time() {
+        let mut candidate = basis();
+        candidate.qualification_time_unix_ms = 202;
+        assert_eq!(
+            qualify_monetary_remedy_v1(candidate),
+            Err(JusticeVerificationError::FinalityQualificationTimeMismatch)
+        );
     }
 
     #[test]
@@ -958,51 +1039,18 @@ mod tests {
     }
 
     #[test]
-    fn blank_no_live_appeal_evidence_is_denied() {
+    fn terminal_affirmance_can_establish_finality_before_window_expiry() {
         let mut candidate = basis();
-        candidate.appeal_state = CurrentAppealStateV1::None {
-            no_live_appeal_evidence_ref: " ".to_owned(),
-        };
-        assert_eq!(
-            qualify_monetary_remedy_v1(candidate),
-            Err(JusticeVerificationError::MissingNoLiveAppealEvidence)
-        );
-    }
-
-    #[test]
-    fn active_appeal_is_denied() {
-        let mut candidate = basis();
-        candidate.appeal_state = CurrentAppealStateV1::Active {
-            appeal_ref: "appeal:1".to_owned(),
-        };
-        assert_eq!(
-            qualify_monetary_remedy_v1(candidate),
-            Err(JusticeVerificationError::ActiveAppeal)
-        );
-    }
-
-    #[test]
-    fn changed_appeal_resolution_supersedes_original_decision() {
-        let mut candidate = basis();
-        candidate.appeal_state = CurrentAppealStateV1::ResolvedChanged {
-            appeal_ref: "appeal:1".to_owned(),
-            appeal_resolution_ref: "appeal-resolution:modified:1".to_owned(),
-        };
-        assert_eq!(
-            qualify_monetary_remedy_v1(candidate),
-            Err(JusticeVerificationError::AppealChangedDecision)
-        );
-    }
-
-    #[test]
-    fn affirmed_appeal_can_establish_finality() {
-        let mut candidate = basis();
-        candidate.qualification_time_unix_ms = 150;
-        candidate.appeal_state = CurrentAppealStateV1::ResolvedAffirmed {
-            appeal_ref: "appeal:1".to_owned(),
-            appeal_resolution_ref: "appeal-resolution:affirmed:1".to_owned(),
-        };
-        assert!(qualify_monetary_remedy_v1(candidate).is_ok());
+        candidate.qualification_time_unix_ms = 190;
+        candidate.qualified_finality = terminal_affirmance_finality();
+        let verified = qualify_monetary_remedy_v1(candidate).unwrap();
+        assert!(matches!(
+            verified.receipt().finality(),
+            JusticeFinalityBasisV1::AppealResolved {
+                appeal_ref,
+                appeal_resolution_ref,
+            } if appeal_ref == "appeal:1" && appeal_resolution_ref == "appeal-resolution:affirmed:1"
+        ));
     }
 
     #[test]
@@ -1016,9 +1064,6 @@ mod tests {
 
         let verified = qualify_monetary_remedy_v1(candidate).unwrap();
         assert_eq!(verified.outcome().beneficiary_party_ref(), "party:merchant");
-        assert_eq!(
-            verified.outcome().responsible_party_ref(),
-            "party:customer"
-        );
+        assert_eq!(verified.outcome().responsible_party_ref(), "party:customer");
     }
 }
