@@ -1,0 +1,176 @@
+name: Authority Coordinator Native Observation Composer
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-coordinator-native-observation-composer/**'
+      - 'crates/mycelix-authority-coordinator-conductor-process/**'
+      - 'crates/mycelix-authority-coordinator-target-cell/**'
+      - 'crates/mycelix-authority-coordinator-native-attestor/**'
+      - 'crates/mycelix-authority-coordinator-deployment/**'
+      - 'mycelix-governance/dna/dna.yaml'
+      - '.github/workflows/authority-coordinator-native-observation-composer.yml'
+  push:
+    branches:
+      - 'security/authority-coordinator-native-observation-composer-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-coordinator-native-observation-composer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Process-fenced native target + code observations
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-coordinator-native-observation-composer/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-coordinator-native-observation-composer/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-coordinator-native-observation-composer/Cargo.toml --all-targets -- -D warnings
+
+      - name: Upstream boundary compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-coordinator-conductor-process/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-target-cell/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-native-attestor/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-deployment/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('crates/mycelix-authority-coordinator-native-observation-composer')
+          src = (root / 'src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          cargo = (root / 'Cargo.toml').read_text()
+          inv = (root / 'INVARIANTS.md').read_text().lower()
+          dna = Path('mycelix-governance/dna/dna.yaml').read_text()
+
+          assert 'rust-version = "1.89"' in cargo
+          for dep in [
+              'holo_hash = "=0.6.1"',
+              'holochain_client = "=0.8.1"',
+              'mycelix-authority-coordinator-conductor-process = ',
+              'mycelix-authority-coordinator-target-cell = ',
+              'mycelix-authority-coordinator-native-attestor = ',
+              'mycelix-authority-coordinator-deployment = ',
+          ]:
+              assert dep in cargo, dep
+          for forbidden in [
+              'mycelix-authority-coordinator-release-currentness',
+              'mycelix-authority-coordinator-deployment-composer',
+              'mycelix-authority-coordinator-stability-fence',
+          ]:
+              assert forbidden not in cargo, forbidden
+
+          for token in [
+              'pub struct QualifiedProcessBoundCoordinatorObservations {',
+              'pub async fn observe_process_bound_coordinator_state(',
+              'process_store: &TrustedConductorProcessStore',
+              'target_store: &TrustedTargetCellStore',
+              '.begin_fence()',
+              'let endpoint = guard.admin_endpoint();',
+              '.state_summary()',
+              'if target_state.admin_endpoint != endpoint',
+              '.qualify_live_target()',
+              'target.binding_digest() != target_state.binding_digest',
+              'DnaHash::try_from_raw_39',
+              'AgentPubKey::try_from_raw_39',
+              'CellId::new(dna_hash, agent)',
+              'observe_local_coordinator_deployment(local_endpoint, cell_id.clone())',
+              'observe_local_coordinator_deployment(local_endpoint, cell_id)',
+              'let process_fence = guard',
+              '.finish()',
+              'validate_process_bound_timeline(',
+              'post.observed_at_ms <= pre.observed_at_ms',
+              'process.ended_at_ms() < post.observed_at_ms',
+              'target.valid_until_ms() <= fence_end',
+              'pre.valid_until_ms <= fence_end',
+              'post.valid_until_ms <= fence_end',
+              'post.observed_at_ms > pre.valid_until_ms',
+              'pre.validate(fence_end)',
+              'post.validate(fence_end)',
+              'target.qualification_digest()',
+              'process_fence.qualification_digest()',
+          ]:
+              assert token in src, token
+
+          # Caller cannot supply target/endpoint/observations/times to the live function.
+          sig = prod.split('pub async fn observe_process_bound_coordinator_state(', 1)[1].split(') ->', 1)[0]
+          assert sig.count(': &') == 2
+          for forbidden in ['SocketAddr', 'CellId', 'ObservedCoordinatorDeployment', 'u64', 'QualifiedTargetCellSelection']:
+              assert forbidden not in sig, forbidden
+
+          # Direct call order is part of provenance.
+          body = prod.split('pub async fn observe_process_bound_coordinator_state(', 1)[1].split('\n}\n\nfn cell_id_from_target', 1)[0]
+          begin = body.index('.begin_fence()')
+          target = body.index('.qualify_live_target()')
+          pre = body.index('observe_local_coordinator_deployment(local_endpoint, cell_id.clone())')
+          post = body.index('observe_local_coordinator_deployment(local_endpoint, cell_id)')
+          finish = body.index('.finish()')
+          validate = body.index('validate_process_bound_timeline(')
+          positive = body.index('Ok(QualifiedProcessBoundCoordinatorObservations {')
+          assert begin < target < pre < post < finish < validate < positive
+
+          # Positive bundle is non-deserializable and has no process-derived future lease.
+          prefix = src.split('pub struct QualifiedProcessBoundCoordinatorObservations {', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          positive_fields = src.split('pub struct QualifiedProcessBoundCoordinatorObservations {', 1)[1].split('\n}', 1)[0]
+          assert 'valid_until_ms' not in positive_fields
+          assert 'target: QualifiedTargetCellSelection' in positive_fields
+          assert 'pre_observation: ObservedCoordinatorDeployment' in positive_fields
+          assert 'post_observation: ObservedCoordinatorDeployment' in positive_fields
+          assert 'process_fence: QualifiedConductorProcessFence' in positive_fields
+
+          # Release/subject/effect semantics remain downstream.
+          for forbidden in [
+              'QualifiedCurrentCoordinatorRelease',
+              'qualify_current_release_against_observed_deployment',
+              'CoordinatorAdmissionSubject',
+              'qualify_coordinator_stability_fence',
+              'perform_external_effect', 'call_zome',
+          ]:
+              assert forbidden not in prod, forbidden
+
+          for invariant in [
+              'the composer owns provenance-producing calls',
+              'process fencing begins before every admin observation',
+              'target and process stores must pin the same endpoint',
+              'target provenance is consumed as a non-deserializable capability',
+              'cellid construction is local and typed',
+              'both code observations are direct #264 calls',
+              'causal order is exact',
+              'evidence leases must cover process-fence close',
+              'exact cellid agreement is rechecked',
+              'process fence closes after both code observations',
+              'the composition is historical only',
+              'positive composition is non-deserializable',
+              'bundle identity commits all three trust domains',
+              'no release policy in this layer',
+              'no admission subject authority in this layer',
+              'no effect authority',
+              'underlying host limitations remain',
+              'provisioning remains blocked',
+          ]:
+              assert invariant in inv, invariant
+
+          assert 'name: authority_current_freshness_verifier' not in dna
+          assert 'name: constitution_currentness_verifier' not in dna
+
+          print('PASS: #381 process fence owns #373 target + two #264 code observations; historical bundle only')
+          PY

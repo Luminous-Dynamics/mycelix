@@ -1,6 +1,6 @@
-# Current Freshness — Coordinator Deployment Gate v0.15
+# Current Freshness — Coordinator Deployment Gate v0.16
 
-Status: **release-key trust, release authentication/currentness, durable complete registry state, exact target provenance, coordinator-code equality and a Linux conductor-process/listener stability fence now exist as candidates; native observation composition and atomic effect admission remain incomplete**
+Status: **release-key trust, release authentication/currentness, durable complete registry state, exact target provenance, Linux conductor-process fencing and native process-bound target/code observation composition now exist as candidates; admission-subject ownership and atomic effect admission remain incomplete**
 
 ## Core separation
 
@@ -14,7 +14,8 @@ operational authority
 != Admin endpoint
 != process owning that endpoint
 != installed coordinator code
-!= code stability
+!= observation provenance
+!= admission attempt
 != effect authority
 ```
 
@@ -45,161 +46,144 @@ The trusted filesystem stores remain crash/restart continuity theorems, not same
 
 ## Exact target CellId provenance
 
-#373 `mycelix-authority-coordinator-target-cell` pins exact:
+#373 pins an exact raw `DnaHash` + `AgentPubKey` CellId and loopback Admin endpoint out of band.
 
-- raw 39-byte `DnaHash`;
-- raw 39-byte `AgentPubKey`;
-- loopback Admin `SocketAddr`;
-- binding id/reference.
-
-The binding is accepted only during first-use out-of-band bootstrap. Normal live qualification accepts neither target nor endpoint from the caller.
-
-The adapter calls Holochain `list_cell_ids()` itself and requires the exact pinned CellId to be present exactly once. Observation time is sampled after the Admin response, the trusted clock floor is durably advanced, and only then does a non-deserializable `QualifiedTargetCellSelection` escape.
+Normal live qualification accepts neither target nor endpoint from the caller. It calls Holochain `list_cell_ids()` directly, requires the pinned CellId to be live exactly once, samples time after the Admin response, durably advances its clock floor and only then returns non-deserializable `QualifiedTargetCellSelection`.
 
 There is no in-band retargeting in v0.1.
 
 ## Linux conductor process/listener fence
 
-`mycelix-authority-coordinator-conductor-process` adds an independent host theorem for the process owning one pinned Admin endpoint.
+#381 independently pins the process policy for that endpoint: expected effective UID, absolute executable path, complete executable-byte BLAKE3 digest and binding identity.
 
-The first-use process binding commits exact:
+The process fence resolves the exact unique LISTEN socket from `/proc/net/tcp{,6}`, joins its socket inode to the unique `/proc/<pid>/fd` owner, commits PID + process start time + effective UID + executable path/digest/dev/inode/length, opens a pidfd, and requires an identical second pre-snapshot before the interval begins.
 
-- loopback Admin endpoint;
-- expected effective process UID;
-- absolute executable path;
-- complete BLAKE3 executable-byte digest;
-- fixed executable profile; and
-- binding/provisioning identity.
+Fence close requires the pidfd still alive and the exact same listener/process/executable snapshot. Trusted state is durably advanced before non-deserializable `QualifiedConductorProcessFence` escapes.
 
-The process binding has its own out-of-band pin protocol/profile. Normal fencing loads this policy from its store-owned trusted state and accepts no caller PID, listener inode, process snapshot, endpoint or timestamp.
+The fence is historical only: it has `started_at_ms` / `ended_at_ms` and deliberately no future `valid_until_ms`.
 
-### Listener/process resolution
+It is not TCP peer authentication and does not claim same-UID/root/kernel compromise resistance, transient same-process exec-and-restore ABA resistance or full-machine anti-rollback.
 
-For the pinned endpoint the adapter:
+## Native process-bound observation composition
+
+`mycelix-authority-coordinator-native-observation-composer` now owns the provenance sequence that was previously only a future requirement:
 
 ```text
-/proc/net/tcp or /proc/net/tcp6
-→ require exact unique LISTEN socket
-→ obtain listener socket inode
-→ /proc/<pid>/fd/* socket:[inode]
-→ require exact unique owning PID
-→ read /proc/<pid>/stat starttime
-→ read effective UID
-→ resolve/open /proc/<pid>/exe
-→ hash complete executable bytes
+#381 begin process fence
+→ read #373 state-owned target binding
+→ require target/process Admin endpoints equal
+→ #373 direct live-target qualification
+→ decode exact typed CellId locally
+→ #264 PRE get_dna_definition coordinator observation
+→ #264 POST get_dna_definition coordinator observation
+→ #381 finish process fence
+→ require exact process/listener snapshot survived
+→ require target/PRE/POST timestamps inside the same interval
+→ require all short evidence horizons still cover fence close
+→ non-deserializable historical observation bundle
 ```
 
-The process snapshot commits listener inode, PID, process start time, effective UID, executable path/digest, and executable device/inode/length.
+The public live function accepts only the already-provisioned process and target stores. It accepts no caller-supplied CellId, endpoint, PID/process snapshot, coordinator observation, timestamp or horizon.
 
-Numeric PID equality alone is never process identity.
+### Exact typed target
 
-### pidfd-backed interval opening
+The qualified target's raw 39-byte DNA and agent identities are decoded with typed Holochain hash constructors and combined into one `CellId` locally. Malformed or wrong-type hash bytes deny rather than being sent to the conductor unchecked.
 
-After the first procfs resolution the adapter calls Linux `pidfd_open`, checks that process for exit, and then performs a second full process/listener observation.
+Both #264 calls use that exact typed CellId and the exact endpoint from the open process fence.
 
-The two snapshots must be exactly equal before the fence interval opens.
+### Causal observation interval
 
-The pidfd remains owned by the guard until fence close.
-
-### Fence close
-
-After caller-owned work inside the interval:
+A positive bundle requires:
 
 ```text
-pidfd still alive
-→ re-resolve listener/process/executable
-→ exact pre/post snapshot equality
-→ pidfd still alive
-→ post-observation host clock
-→ durable trusted-state advancement
-→ QualifiedConductorProcessFence
+process fence start
+<= target observed_at
+<= PRE code observed_at
+<  POST code observed_at
+<= process fence end
 ```
 
-Changed socket inode, PID/starttime, UID, executable path, executable bytes or executable inode/device identity denies.
+Equal PRE/POST millisecond timestamps deny; the adapter never synthesizes artificial time ordering.
 
-## Historical evidence only
+The POST observation must also occur inside the PRE observation's own short reuse window.
 
-`QualifiedConductorProcessFence` deliberately has:
+### Lease containment at fence close
 
-```text
-started_at_ms
-ended_at_ms
-```
+The target, PRE code observation and POST code observation must all still be live when #381 closes the process fence.
 
-and **no `valid_until_ms`**.
+Both code observations are validated at `process_fence.ended_at_ms`.
 
-The fence proves only a historical process/listener interval under the stated host model. It must not become reusable future conductor authority.
+This preserves the general rule:
 
-A later orchestrator must prove that the exact target/code observations it relies upon occurred inside this interval and at the same endpoint.
+`composition may preserve/shorten evidence lifetime; it may never widen it`.
 
-## Process-fence limits remain explicit
+### Exact CellId agreement
 
-This is not cryptographic TCP peer authentication. TCP loopback does not provide a Unix-domain `SO_PEERCRED` equivalent for the accepted Admin connection.
+Both coordinator observations must name the exact DNA hash + agent key in #373's qualified target. Same code under another cell identity is insufficient.
 
-The theorem also does not claim resistance to:
+### Historical bundle only
 
-- same-UID arbitrary process tampering;
-- root/kernel/procfs compromise;
-- full-machine rollback;
-- transient same-process exec-and-restore ABA while retaining the listener; or
-- a caller performing unrelated work between `begin_fence` and `finish`.
+`QualifiedProcessBoundCoordinatorObservations` contains the non-deserializable #373 target capability, PRE and POST #264 observations, and the non-deserializable #381 process fence.
 
-A stronger deployment may later use a supervised/private conductor transport, dedicated namespace, authenticated local proxy or OS/hardware attestation.
+It intentionally has **no `valid_until_ms` of its own**.
 
-## Native coordinator-code observation remains separate
+This is important: completing a process fence must not create the fiction that the conductor process remains trusted for another five seconds. Downstream admission must immediately consume the retained underlying short-lived evidence and still solve the post-fence race separately.
 
-#264 `mycelix-authority-coordinator-native-attestor` queries the exact target CellId through Holochain Admin `get_dna_definition`, enumerates the complete coordinator zome set and preserves exact `WasmHash` identities.
+The bundle digest commits target qualification identity, canonical PRE/POST observation identities, process-fence qualification identity and exact fence start/end timestamps.
 
-It remains candidate observation provenance only. It does not choose the approved release or prove the process fence by itself.
+## Release/deployment equality remains downstream
 
-## Exact deployment composition
+The native observation composer deliberately does not consume a release and does not invoke #262/#290/#298.
 
-#290/#262 still establish:
+#290/#262 remain the exact equality theorem:
 
 ```text
-exact target
-+ current authenticated release
+current authenticated Active release
++ exact target
 + exact observed coordinator closure
 → exact whole-set deployment match
 ```
 
 Missing, substituted, duplicate or unexpected coordinator code denies.
 
-For live admission, caller-supplied deserializable `TargetCellSelection` must not regain authority; target data must be projected from #373's non-deserializable positive capability.
+The next live admission layer should project #373's inner target only locally from the process-bound positive bundle; caller-supplied deserializable `TargetCellSelection` must not regain authority.
 
-## Subject-bound stability
+## Subject-bound stability remains downstream
 
-#298 adds a later exact coordinator observation and binds stability to one admission subject + attempt nonce.
+#298 already proves that one exact pre-deployment composition plus a strictly later exact observation still matches the same release/CellId and binds the result to an admission subject + attempt nonce.
 
-It proves no detected coordinator-code change across its observed interval, but is not a mutex or transaction. Target stop/start, conductor replacement or `UpdateCoordinators` may still race after observation.
+The native process-bound composer now supplies the provenance context #298 was missing, but it intentionally does not choose or authenticate the admission subject.
 
-## Next native composition theorem
+The next orchestrator must own the subject/attempt identity and consume the bundle directly through #290/#298.
 
-The next high-value layer must itself own the sequence:
+## The remaining race is now explicit
+
+Even a successful process-bound PRE/POST observation bundle proves only the historical interval before #381 closes.
+
+Immediately afterward any of these can still occur:
+
+- target cell stops/restarts;
+- conductor process is replaced;
+- `UpdateCoordinators` changes coordinator code; or
+- release/operational authority expires or is withdrawn.
+
+Therefore:
 
 ```text
-begin qualified conductor-process fence
-→ obtain fresh #373 target capability
-→ require target endpoint == process-fence endpoint
-→ obtain #264 exact code observation for that exact target/endpoint
-→ require target/code evidence timestamps inside process fence
-→ finish process fence
-→ require same process snapshot survived the observation interval
-→ compose current release + target + code through #290/#262
+process-bound native observations
+!= atomic external-effect admission
 ```
 
-The caller must not supply substitute target/process/code positive receipts.
-
-This closes **observation provenance composition**, but still does not make the later external effect atomic with coordinator updates or conductor replacement.
+The final effect path must either own a stronger exclusion/transaction boundary or perform a final fail-closed revalidation immediately adjacent to an effect mechanism whose race semantics are explicitly qualified.
 
 ## Remaining independent boundaries
 
 The dominant unresolved boundaries are now:
 
 - production delivery/protection of initial key-policy, registry, target and process-binding fingerprints;
-- native target/process/code observation orchestration;
-- native ownership of admission subject + attempt nonce;
-- post-observation target-liveness/conductor-replacement/coordinator-update atomicity with the effect;
+- native admission-subject/attempt ownership;
+- direct local #290/#298 consumption of the process-bound observation bundle;
+- post-fence target/conductor/coordinator-update atomicity with the effect;
 - lifecycle/executor/effect-safety authority; and
 - stronger same-UID/full-machine rollback anchoring if required by the deployment threat model.
 
@@ -211,30 +195,28 @@ A future effect-capable path needs independently:
 2. production-rooted + durably current release-key policy;
 3. #326 authenticated release;
 4. production-rooted + durably latest complete registry yielding #275 current Active release;
-5. #373 pinned + freshly live exact target capability;
-6. qualified Linux conductor-process fence for the same pinned endpoint;
-7. #264 exact coordinator-code observation produced inside that fence for the exact target;
-8. #290/#262 exact target/current-release/code composition;
-9. native subject/attempt ownership and #298 stability;
-10. explicit target/conductor/coordinator-update/effect atomicity;
-11. lifecycle/executor/effect-safety authorization; and
-12. an effect path consuming only in-process positive qualifications.
+5. one process-bound native observation bundle that directly owns #373 target + PRE/POST #264 observations inside #381;
+6. native subject/attempt ownership;
+7. local #290/#262 exact release/target/PRE-code composition;
+8. local #298 exact POST-code stability qualification;
+9. explicit target/conductor/coordinator-update/effect atomicity;
+10. lifecycle/executor/effect-safety authorization; and
+11. an effect path consuming only in-process positive qualifications.
 
 ## Provisioning state
 
-The v0.15 process-fence candidate does **not** satisfy the complete deployment/effect gate.
+The v0.16 native-observation candidate does **not** satisfy the complete deployment/effect gate.
 
-Until production pin provenance, native observation composition and update/effect atomicity are qualified:
+Until production pin provenance, admission-subject ownership and update/effect atomicity are qualified:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no consumer may interpret process fencing or deployment stability as atomic external-effect authority; and
+- no consumer may interpret the process-bound observation bundle as future process or atomic external-effect authority; and
 - external effects remain disabled.
 
 ## Highest-value next work
 
-1. native target/process/code observation composer;
-2. native admission orchestrator owning subject + attempt nonce;
-3. explicit target-liveness + conductor-replacement + coordinator-update/effect atomicity boundary;
-4. final lifecycle/executor/effect-safety binding; and
-5. optional keyed/TPM/hardware/enterprise rollback anchors for the trusted state stores.
+1. native admission orchestrator that owns subject + fresh attempt nonce and consumes the process-bound bundle directly through #290/#298;
+2. explicit target-liveness + conductor-replacement + coordinator-update/effect atomicity boundary;
+3. final lifecycle/executor/effect-safety binding; and
+4. optional keyed/TPM/hardware/enterprise rollback anchors for the trusted state stores.
