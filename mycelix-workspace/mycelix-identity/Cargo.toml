@@ -43,6 +43,8 @@ members = [
     "crates/authority-scoped-verifier-policy",
     # Exact authority-domain equality + pre-crypto structural context
     "crates/authority-scoped-precrypto-context-policy",
+    # HDK-only running-cell authority-domain provenance adapter (unprovisioned)
+    "crates/identity-runtime-authority-domain-adapter",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Canonical-only DID V2 authority epoch (unprovisioned)
