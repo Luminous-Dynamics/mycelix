@@ -1,0 +1,19 @@
+[package]
+name = "did_registry_v2_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical-only DID:mycelix V2 integrity domain"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+mycelix-did-document-crypto-policy = { path = "../../../crates/did-document-crypto-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+bs58 = { workspace = true }

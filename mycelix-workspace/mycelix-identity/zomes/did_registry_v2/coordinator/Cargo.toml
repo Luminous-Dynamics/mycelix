@@ -1,0 +1,16 @@
+[package]
+name = "did_registry_v2"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact-parent canonical DID:mycelix V2 coordinator"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+holochain_serialized_bytes = { workspace = true }
+serde = { workspace = true }
+mycelix-crypto = { workspace = true }
+did_registry_v2_integrity = { path = "../integrity" }

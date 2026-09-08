@@ -1,0 +1,154 @@
+name: Identity DID Canonical Admission V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/did_registry_v2/**'
+      - 'mycelix-workspace/mycelix-identity/dna/dna.yaml'
+      - '.github/workflows/identity-did-canonical-admission-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/did_registry_v2/**'
+      - 'mycelix-workspace/mycelix-identity/dna/dna.yaml'
+      - '.github/workflows/identity-did-canonical-admission-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-canonical-admission-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert V2 admission epoch boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          required_members = {
+              'zomes/did_registry_v2/integrity',
+              'zomes/did_registry_v2/coordinator',
+          }
+          missing = required_members.difference(workspace)
+          if missing:
+              raise SystemExit(f'ERROR: missing V2 DID workspace members: {sorted(missing)}')
+
+          integrity_manifest = tomllib.loads(
+              (root / 'zomes/did_registry_v2/integrity/Cargo.toml').read_text()
+          )
+          if set(integrity_manifest.get('dependencies', {})) != {
+              'hdi', 'holochain_serialized_bytes', 'serde', 'mycelix-did-document-crypto-policy'
+          }:
+              raise SystemExit('ERROR: DID V2 integrity dependency boundary drifted')
+          if integrity_manifest['dependencies']['mycelix-did-document-crypto-policy'].get('path') != '../../../crates/did-document-crypto-policy':
+              raise SystemExit('ERROR: DID V2 integrity is not bound to canonical #343 theorem')
+
+          coordinator_manifest = tomllib.loads(
+              (root / 'zomes/did_registry_v2/coordinator/Cargo.toml').read_text()
+          )
+          if set(coordinator_manifest.get('dependencies', {})) != {
+              'hdk', 'holochain_serialized_bytes', 'serde', 'mycelix-crypto', 'did_registry_v2_integrity'
+          }:
+              raise SystemExit('ERROR: DID V2 coordinator dependency boundary drifted')
+
+          integrity = (root / 'zomes/did_registry_v2/integrity/src/lib.rs').read_text()
+          coordinator = (root / 'zomes/did_registry_v2/coordinator/src/lib.rs').read_text()
+
+          for needle in [
+              'validate_did_document_crypto_v2',
+              'validate_crypto_fields_v2(&document)',
+              'document.version != expected_version',
+              'DID V2 authority entries cannot be deleted',
+              'legacy_raw_ed25519_is_rejected_by_v2_integrity_adapter',
+          ]:
+              if needle not in integrity:
+                  raise SystemExit(f'ERROR: DID V2 integrity invariant missing: {needle!r}')
+
+          for needle in [
+              'agent.get_raw_32()',
+              'TaggedPublicKey::new(AlgorithmId::Ed25519',
+              'pub previous_action: ActionHash',
+              'previous_record.action_address() != &input.previous_action',
+              'pub fn get_did_v2_action(action_hash: ActionHash)',
+          ]:
+              if needle not in coordinator:
+                  raise SystemExit(f'ERROR: DID V2 producer invariant missing: {needle!r}')
+
+          lower = coordinator.lower()
+          for forbidden in [
+              'format!("z{}"',
+              'max_by_key',
+              'get_links(',
+              'resolve_did(',
+              'get_did_document(',
+              'latest_link',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: legacy/latest-wins semantics leaked into DID V2 coordinator: {forbidden!r}'
+                  )
+
+          legacy_dna = (root / 'dna/dna.yaml').read_text()
+          if 'did_registry_v2' in legacy_dna:
+              raise SystemExit('ERROR: DID V2 zomes must remain unprovisioned in the legacy DNA')
+          if 'network_seed: "mycelix-identity-v1"' not in legacy_dna:
+              raise SystemExit('ERROR: legacy DNA seed changed inside the V2 admission slice')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/Cargo.toml \
+            -- --check
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/coordinator/Cargo.toml \
+            -- --check
+
+      - name: Test strict DID crypto theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml
+
+      - name: Test DID V2 integrity
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/Cargo.toml
+
+      - name: Test DID V2 canonical producer
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/coordinator/Cargo.toml
+
+      - name: Check DID V2 integrity for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/integrity/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Check DID V2 coordinator for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/zomes/did_registry_v2/coordinator/Cargo.toml \
+            --target wasm32-unknown-unknown
