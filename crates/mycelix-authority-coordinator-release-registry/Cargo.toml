@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-coordinator-release-registry"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Offline-rooted complete current registry snapshots for Mycelix coordinator releases"
+
+[dependencies]
+blake3 = "1"
+ed25519-dalek = "=2.2.0"
+ml-dsa = "=0.1.1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-release = { path = "../mycelix-authority-coordinator-release" }
+mycelix-authority-coordinator-release-currentness = { path = "../mycelix-authority-coordinator-release-currentness" }
+
+[dev-dependencies]
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }

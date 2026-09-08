@@ -1,287 +1,259 @@
-# Current Freshness — Coordinator Deployment Gate v0.11
+# Current Freshness — Coordinator Deployment Gate v0.12
 
-Status: **offline-rooted + crash-durable local release-key-policy continuity, native hybrid release authentication, release currentness semantics, exact deployment composition and stability fencing exist as candidates; remaining registry/target/runtime provenance and atomic effect admission are incomplete**
+Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted complete release-registry snapshots, exact deployment composition and stability fencing exist as candidates; durable latest-registry state, remaining target/runtime provenance and atomic effect admission are incomplete**
 
 ## Core deployment distinction
 
-The operational currentness theorem binds local `DnaHash`, but coordinator WASM can change without changing that hash. Therefore:
+Operational authority identity, approved coordinator release identity and actually installed coordinator code are separate facts.
 
 `same DNA != same coordinator implementation`.
 
-Coordinator deployment evidence must bind exact `CellId` = DNA hash + cell agent public key and the complete coordinator WASM closure. Coordinator self-report is never sufficient.
+Coordinator deployment evidence therefore binds exact `CellId` = DNA hash + cell agent public key and the complete coordinator WASM closure.
 
-## Native conductor observation candidate
+## Release-key trust chain
 
-`mycelix-authority-coordinator-native-attestor` queries the loopback Holochain Admin API for one exact `CellId`, enumerates the complete installed coordinator set, extracts exact `WasmHash` values, samples time after observation/extraction and owns a five-second reuse cap.
-
-It does not choose an approved release, target policy or deployment match.
-
-## Candidate release semantics
-
-`mycelix-authority-coordinator-release` defines the DNA/code-scoped release manifest. It commits the complete approved coordinator `WasmHash` closure plus DNA bundle/source/lock/toolchain/build-recipe/SBOM identities and release authority/policy identity.
-
-It exists before signature authentication and does not choose an installation-specific agent.
-
-## Release-key trust is non-circular
-
-The intended key-policy chain is now:
+The current release-key path is:
 
 ```text
-independently delivered production root fingerprint
+independently delivered production key-policy root fingerprint
         ↓
-first-use pinned offline hybrid root
+#341 offline hybrid root threshold
         ↓
-crash-durable state-owned current root
+#347 crash-durable state-owned current root/head
         ↓
-separate hybrid policy-head threshold
-        ↓
-durably latest short-lived policy head
-        ↓
-semantic CoordinatorReleaseKeyPolicy
+short-lived current CoordinatorReleaseKeyPolicy
         ↓
 manifest-bound QualifiedCoordinatorReleaseSigningKey
         ↓
-#326 hybrid release authentication
+#326 strict Ed25519 AND ML-DSA-65 release authentication
+        ↓
+QualifiedCoordinatorReleaseRequirement
 ```
 
-Release signing keys remain leaves. They cannot create or rotate their policy root and cannot declare their own key policy current.
+Release signing keys remain leaves. They cannot authorize their own policy root/currentness.
 
-## #341 offline-rooted policy-currentness theorem
+#347 normal operations load predecessor/root/head state from one configured secure path under an exclusive transaction lock; state replacement is fsynced and atomically installed before #307 positive authority can escape.
 
-`mycelix-authority-coordinator-release-key-policy-root` defines the pure cryptographic root/currentness theorem.
+#347 protects ordinary restart/lost-update/torn-write continuity under the local host/filesystem trust model. It does not claim resistance to restoration of an entire old machine image.
 
-The root commits exact root identity/version, release authority, policy id, offline root key set/threshold, distinct policy-head key set/threshold and root lifetime.
+## Complete release-registry theorem
 
-Root and policy-head roles use disjoint key IDs and disjoint actual Ed25519 + ML-DSA-65 material.
+`mycelix-authority-coordinator-release-registry` replaces the intended detached status-service path with one independently rooted complete canonical registry snapshot.
 
-Initial bootstrap requires exact out-of-band pin equality plus the configured offline root threshold. The pin establishes identity only; root lifetime remains bounded by root metadata.
-
-Root rotation requires one exact transition to satisfy both old and new root thresholds, version exactly old + 1, fixed trust scope and non-decreasing bootstrap threshold floors.
-
-Policy heads are signed by the separate policy-head role, bind exact root/policy generation/predecessor/lifetime and are capped at 30 seconds. Positive root/head objects are non-deserializable.
-
-## Native durable trusted-state candidate
-
-`mycelix-authority-coordinator-release-key-policy-state` now closes the ordinary restart/lost-update boundary above #341.
-
-The central distinction is:
-
-`serialized trusted-state bytes != positive authority`.
-
-Positive authority comes only from a configured `TrustedCoordinatorReleaseKeyPolicyStore` loading its own fixed state path under an exclusive transaction lock.
-
-Normal operations do **not** accept caller-supplied:
-
-- previous trusted state;
-- previous root;
-- root pin;
-- previous policy head;
-- previous state generation; or
-- previous state digest.
-
-### First-use bootstrap
-
-`bootstrap_from_out_of_band_pin` is the only state-adapter operation accepting a root pin.
-
-It is first-use only, refuses to overwrite any existing state path and delegates exact root-pin/threshold cryptography to #341 before durably creating generation-1 state.
-
-The adapter still cannot prove how the production operator received the fingerprint. Root-pin delivery remains an independent provisioning responsibility.
-
-### State-owned root rotation
-
-`rotate_root` obtains the old root from persisted state rather than request input.
-
-The candidate new root still requires exact old+new hybrid thresholds and the #341 version/scope theorem.
-
-The durable adapter strengthens the pure theorem by ratcheting threshold floors upward:
+The registry trust chain is:
 
 ```text
-root_floor_next = max(root_floor_current, new_root.root_threshold)
-policy_head_floor_next = max(policy_head_floor_current, new_root.policy_head_threshold)
+independently delivered registry-root fingerprint
+        ↓
+offline hybrid registry-root threshold
+        ↓
+separate hybrid registry-head threshold
+        ↓
+short-lived complete canonical registry snapshot
+        ↓
+local exact manifest-status lookup
+        ↓
+private #275 head/status compatibility receipts
+        ↓
+local #275 qualification
+        ↓
+QualifiedCurrentCoordinatorRelease
 ```
 
-A future root cannot lower a threshold that an earlier trusted root strengthened.
+Release signing keys are not registry-root or registry-head keys.
 
-### Persisted latest policy head
+### Registry root
 
-The state stores the latest qualified policy-head checkpoint.
+The registry root commits exact root identity/version, release authority, registry id, offline root key set/threshold, separate registry-head key set/threshold and lifetime.
 
-A later head is accepted only as:
+Both roles use exact Ed25519 + ML-DSA-65 AND-composition. Key IDs and actual hybrid key material must be disjoint across root and registry-head roles.
 
-- exact-current head revalidation while still live; or
-- exact generation `current + 1` committing the persisted current head digest.
+Initial root qualification requires an out-of-band pinned canonical root digest/profile plus the configured root threshold. Pin provenance remains an external provisioning responsibility.
 
-Older signed heads, alternate parents, skipped generations and generation restart deny after process restart because the predecessor is loaded from the state-owned path.
+Root rotation requires the same transition to satisfy both old and new root thresholds, version exactly old + 1, fixed root/authority/registry scope and non-decreasing threshold floors.
 
-v0.1 deliberately remains stricter at genesis: generation 1 without a predecessor is accepted only while root version is 1. Operators therefore establish the initial policy head before the first root rotation. A later version may relax this only with an explicit persisted lineage-initialization/migration theorem.
+A bootstrap `root_lineage_digest` survives authorized rotation. Registry snapshots from another independently pinned root lineage cannot be grafted into this lineage.
 
-## Filesystem continuity contract
+### Complete snapshot identity
 
-v0.1 is Unix-only.
+A snapshot commits exact:
 
-The immediate trusted-state directory must be a real owner-controlled directory with no group/other access. State and lock files must be regular, effective-user-owned, exact mode `0600`, and opened with `O_NOFOLLOW`/`O_CLOEXEC`.
+- current root version;
+- registry id;
+- release authority;
+- one release-policy digest/profile chain;
+- registry generation;
+- exact predecessor-head digest or explicit genesis;
+- complete ordered release-status record set; and
+- bounded validity window.
 
-All read/verify/advance transactions share one exclusive file lock.
+The head digest uses #275's fixed `REGISTRY_HEAD_PROFILE`.
 
-State replacement is:
+The v0.1 snapshot lifetime is at most 30 seconds.
+
+### Canonical completeness
+
+Records must be strictly ordered by manifest digest, making duplicate manifest entries impossible. v0.1 caps one snapshot at 65,536 records.
+
+Every status record commits exact manifest digest/profile, status, effective time and status reference using #275's exact `STATUS_RECORD_PROFILE`.
+
+A successor may add records, but every record from the previous qualified snapshot must remain present.
+
+Therefore a previously Withdrawn/Superseded release cannot be made to disappear merely by omission in a later otherwise-valid snapshot.
+
+A release not present in the complete qualified snapshot cannot qualify as current.
+
+### Monotone status history
+
+An unchanged status preserves exact effective time/reference.
+
+A status transition is allowed only:
 
 ```text
-same-directory create_new temporary file
-→ write exact state
-→ fsync temporary file
-→ atomic rename over state path
-→ fsync containing directory
+Active -> Withdrawn
+Active -> Superseded
 ```
 
-The parser also enforces a 4 MiB maximum with a bounded read.
+with a strictly later effective time.
 
-## Persisted state identity and clock floor
+`Withdrawn` and `Superseded` are terminal in v0.1. Neither may become `Active` again, and terminal states cannot silently rewrite into each other.
 
-Every state commits exact protocol/profile, monotonically increasing state generation, predecessor-state digest, bootstrap root identity, current root identity, threshold floors, current head checkpoint and last trusted host time.
+Future-dated status records also deny: status-effective time must be no later than snapshot validity start.
 
-The current root digest and state self-digest are recomputed on load.
+### Registry predecessor lineage
 
-The persisted trusted time is a local clock floor: if host time later moves below the last accepted value, currentness qualification fails closed.
+Without a predecessor, only root version 1 / registry generation 1 / no predecessor digest qualifies.
 
-This can trade availability for security after severe backward clock adjustment.
+A changed successor must advance generation by exactly one and commit the exact previous qualified head digest.
 
-## Persistence precedes positive authority
+It must also remain in the same bootstrap root lineage, registry id, release authority and release-policy digest/profile chain.
 
-For release-key-policy currentness the causal order is now:
+Exact current-head revalidation remains allowed while the same immutable snapshot is live.
 
-```text
-exclusive lock
-→ load persisted latest root/head
-→ verify manifest + semantic policy + head lineage
-→ strict policy-head Ed25519 AND ML-DSA-65 threshold crypto
-→ post-crypto clock/liveness checks
-→ construct next checkpoint
-→ fsync + rename + directory-fsync trusted state
-→ privately construct #307 currentness receipt
-→ local #307 qualification
-→ non-deserializable manifest-bound policy capability
-```
+## #275 receipts are private compatibility objects
 
-If durable state advancement fails, no positive #307 capability escapes.
+The complete qualified snapshot's `qualify_current_release` method performs the exact manifest lookup locally.
 
-A manifest that does not already bind the exact semantic policy digest/profile/release authority fails before any state advancement.
+It privately creates:
 
-## Local continuity is not full-image rollback resistance
+- `VerifiedCurrentReleaseRegistryHeadProof`; and
+- `VerifiedCoordinatorReleaseStatusAtHeadProof`
 
-The state self-digest and predecessor digest provide integrity/lineage checks under the trusted local-filesystem model. They are not an independent anti-rollback anchor against an attacker who can restore or rewrite the entire trusted state and recompute its unkeyed digest.
+from the same already-qualified complete snapshot and immediately invokes local #275 `qualify_current_coordinator_release`.
 
-Therefore:
+The intended live path therefore accepts no caller-supplied #275 head/status receipt bytes as positive registry authority.
 
-`crash-durable local monotonic state != hardware-monotonic rollback proof`.
+This removes a major oracle surface:
 
-Restoring an entire older machine/filesystem image can still restore an older internally valid state. Stronger resistance requires an independent monotonic anchor such as TPM/hardware-backed state, enterprise/device-management state, or a separately trusted append-only witness.
+`detached status service != release currentness authority`.
 
-No such stronger property is claimed in v0.11.
+## Completeness is not a DHT/latest heuristic
 
-## #307 currentness receipt remains private
+No currentness theorem is inferred from DHT ordering, cache order, `latest record`, or absence of later records.
 
-After durable head advancement, the adapter privately constructs `VerifiedCurrentCoordinatorReleaseKeyPolicyProof` and immediately consumes it through #307.
+The registry authority signs the complete canonical snapshot. An authenticated release must have an exact entry in it or qualification denies.
 
-The public successful result is only non-deserializable `QualifiedCoordinatorReleaseManifestKeyPolicy`; exact key selection then returns non-deserializable `QualifiedCoordinatorReleaseSigningKey`.
+## Durable latest registry state is still missing
 
-## Native hybrid release authentication candidate
+The registry theorem currently proves the predecessor represented by an in-process non-deserializable qualified snapshot.
 
-`mycelix-authority-coordinator-release-hybrid-verifier` consumes only:
+It does not yet prove after restart that the supplied predecessor is the durably latest registry head ever accepted by the device.
 
-```text
-candidate CoordinatorReleaseManifest
-+ manifest-bound QualifiedCoordinatorReleaseSigningKey
-+ detached hybrid signature bytes
-```
+The next native registry-state adapter should mirror #347's fail-closed continuity model and persist at minimum:
 
-It accepts no caller-selected trusted public key or positive proof metadata.
+- bootstrap registry-root lineage digest;
+- current registry root + digest/version;
+- root/registry-head threshold floors;
+- current release-policy chain identity;
+- current complete snapshot generation/head digest/records;
+- predecessor-state digest/state generation; and
+- trusted host-clock floor.
 
-The v0.1 release signature contract is strict Ed25519 AND ML-DSA-65 over identical deterministic manifest/authority/policy/key-id bytes. The exact wires remain Ed25519 64-byte signature and ML-DSA-65 3309-byte signature, with the key wires fixed upstream at 32 and 1952 bytes respectively.
+Normal operations must load these from one configured secure path under an exclusive lock, reject caller-selected predecessors, atomically/fsync advance state, and persist before returning current-release positive authority.
 
-After both crypto checks the verifier samples host time, derives verifier-owned proof metadata, privately constructs #269 signature evidence and immediately consumes it locally. The public success is only non-deserializable `QualifiedCoordinatorReleaseRequirement`.
+Full-machine snapshot rollback remains a stronger separate TPM/hardware/enterprise/witness problem.
 
-The RustCrypto hybrid construction remains experimental/unaudited; this gate does not upgrade that assurance status.
+## Native conductor observation
 
-## Release currentness follows authentication
+`mycelix-authority-coordinator-native-attestor` independently queries the loopback Holochain Admin API for one exact `CellId`, enumerates the complete installed coordinator set, extracts exact `WasmHash` values and owns a short observation lease.
 
-#275 requires an independently verified current release-registry head plus exact status of the authenticated #269 release at that same head.
-
-Only `Active` qualifies. `Withdrawn`, `Superseded`, old-head `Active`, wrong policy or alternate profiles deny.
-
-Thus:
-
-`candidate release != rooted key-policy currentness != authorized key != release authentication != release currentness`.
+It does not choose release policy, current release or target policy.
 
 ## Exact deployment composition
 
-#290 keeps target CellId selection, current authenticated release and conductor observation separate, specializes the release to the independently selected target agent and delegates exact whole-set coordinator equality to #262.
+#290 keeps three facts separate:
 
-Missing, substituted, duplicate or unexpected coordinator code denies.
+```text
+trusted exact target CellId selection
+        +
+QualifiedCurrentCoordinatorRelease
+        +
+ObservedCoordinatorDeployment
+        ↓
+#262 exact whole-set equality
+        ↓
+QualifiedCoordinatorDeploymentComposition
+```
 
-## Subject-bound pre/post stability
+Missing, substituted, duplicate or unexpected installed coordinator code denies.
 
-#298 requires a strictly later second exact deployment observation inside the first composition's evidence window, reconstructs the same release/target requirement, reruns #262 and binds the result to one admission subject + per-attempt nonce.
+## Subject-bound stability
 
-This proves no detected coordinator-code change across the observed interval. It is not a mutex/transaction/atomicity guarantee: `UpdateCoordinators` can still race after the post observation.
+#298 requires a strictly later second exact deployment observation, reruns the same exact deployment requirement and binds the stability result to one admission subject + per-attempt nonce.
 
-## Remaining independent live origins
+This proves no detected coordinator-code change across the observed interval.
 
-The major unresolved boundaries are now:
+It is not an atomic update exclusion mechanism. `UpdateCoordinators` can still race after the second observation.
 
-- actual production delivery/protection of the initial root fingerprint;
-- current release-registry head provenance/completeness;
-- exact release status-at-head provenance;
+## Remaining independent live boundaries
+
+Major unresolved boundaries are now:
+
+- actual production delivery/protection of both initial root fingerprints;
+- durable latest complete release-registry state across restart;
 - trusted target CellId selection provenance;
-- real-conductor qualification of the native observer;
+- real-conductor qualification/local-endpoint provenance for the native observer;
 - native ownership of admission subject/attempt nonce and pre/post bracketing;
-- post-observation coordinator-update race / effect atomicity; and
-- hardware/enterprise monotonic anchoring if full-machine rollback resistance is required.
-
-In particular:
-
-`durable local key-policy continuity != release-registry currentness`.
-
-`exact deployment stability != atomic effect admission`.
+- post-observation coordinator-update/effect atomicity;
+- final lifecycle/executor/effect-safety authority; and
+- stronger full-machine rollback anchoring if required.
 
 ## Consumer rule
 
-A future lifecycle/effect consumer needs independently:
+A future effect-capable consumer needs independently:
 
-1. fresh operational authority currentness from a direct local verifier call;
-2. trusted exact target CellId selection;
-3. candidate coordinator release semantics;
-4. production-rooted and durably current release-key policy;
-5. manifest-bound non-deserializable qualified hybrid signing key;
-6. native strict hybrid release authentication;
-7. independently proven current release-registry head/completeness and exact `Active` status-at-head;
-8. native pre-deployment observation for the exact CellId;
-9. exact target/current-release/observation composition through #290/#262;
-10. native post observation and subject/attempt-bound stability through #298;
-11. explicit coordinator-update race/atomicity policy;
-12. final lifecycle/executor/effect-safety authority; and
-13. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
+1. fresh operational authority currentness from the direct local verifier chain;
+2. candidate coordinator release semantics;
+3. production-rooted and durably current release-key policy;
+4. manifest-bound authorized release signing key;
+5. #326 strict hybrid release authentication;
+6. production-rooted complete registry snapshot that is also durably latest;
+7. local exact registry status derivation yielding #275 `QualifiedCurrentCoordinatorRelease`;
+8. trusted exact target CellId selection;
+9. native pre-deployment conductor observation;
+10. #290/#262 exact target/current-release/installed-code composition;
+11. native post observation + #298 subject/attempt stability;
+12. explicit update-race/effect atomicity policy;
+13. lifecycle/executor/effect-safety authority; and
+14. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
 
 ## Provisioning state
 
-The v0.11 trusted-state candidate materially closes ordinary restart/rollback injection and crash-durability gaps, but it still does not satisfy the complete deployment/effect gate.
+The v0.12 registry theorem does **not** satisfy the complete deployment/effect gate.
 
-Until production root-pin delivery, release-registry provenance, target selection, real-conductor observation qualification, native pre/post orchestration and post-observation atomicity are independently qualified and bound into final effect admission:
+Until durable latest registry state, production root-pin provenance, target/conductor provenance, native bracketing and update-race/effect semantics are qualified:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no effect-capable consumer may treat coordinator deployment evidence as atomic execution authority; and
+- no consumer may interpret a registry snapshot or deployment match as atomic external-effect authority; and
 - external effects remain disabled.
 
-## Qualification still required
+## Highest-value next work
 
-Highest-value remaining work after this tranche is:
-
-1. current release-registry head/completeness verifier;
-2. exact release status-at-head verifier;
-3. trusted target CellId selection provenance;
-4. real-conductor qualification of the native observer;
-5. native pre/post admission orchestration;
-6. explicit post-observation coordinator-update race / atomic effect boundary;
-7. production root-pin ceremony/delivery integration;
-8. optional TPM/hardware/enterprise monotonic rollback anchor; and
-9. final lifecycle/executor/effect-safety binding with adversarial rollback/fork/wrong-key/forged-signature/wrong-cell/stale/extra/withdrawn/replayed-attempt/local-endpoint-impersonation/update-race tests.
+1. native crash-durable latest release-registry state adapter;
+2. trusted target CellId selection provenance;
+3. real-conductor/local-admin-endpoint qualification;
+4. native pre/post admission orchestrator;
+5. explicit coordinator-update/effect atomicity boundary;
+6. final lifecycle/executor/effect-safety binding; and
+7. optional TPM/hardware/enterprise rollback anchor for both key-policy and registry trusted state.
