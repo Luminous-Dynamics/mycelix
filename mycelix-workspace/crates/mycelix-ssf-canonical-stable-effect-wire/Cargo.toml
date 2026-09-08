@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-ssf-canonical-stable-effect-wire"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-replay-wire-tags = { path = "../mycelix-ssf-canonical-replay-wire-tags" }
+mycelix-ssf-canonical-wire = { path = "../mycelix-ssf-canonical-wire" }
+mycelix-ssf-execution-surface-admission = { path = "../mycelix-ssf-execution-surface-admission" }
+mycelix-ssf-pre-invocation-actuator-qualification = { path = "../mycelix-ssf-pre-invocation-actuator-qualification" }
+mycelix-ssf-source-owned-operation-material = { path = "../mycelix-ssf-source-owned-operation-material" }
+
+[dev-dependencies]
+mycelix-ssf-durable-effect-capability-claim = { path = "../mycelix-ssf-durable-effect-capability-claim" }
