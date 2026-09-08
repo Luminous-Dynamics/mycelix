@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-ssf-canonical-replay-evidence-encoding-profile"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-canonical-replay-evidence-decision-subject = { path = "../mycelix-ssf-canonical-replay-evidence-decision-subject" }
+mycelix-ssf-contracts = { path = "../mycelix-ssf-contracts" }
