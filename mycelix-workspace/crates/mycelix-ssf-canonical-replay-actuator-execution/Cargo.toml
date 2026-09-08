@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-ssf-canonical-replay-actuator-execution"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mycelix-ssf-actuator-effect-protocol = { path = "../mycelix-ssf-actuator-effect-protocol" }
+mycelix-ssf-canonical-actuator-execution = { path = "../mycelix-ssf-canonical-actuator-execution" }
+mycelix-ssf-canonical-execution-semantics = { path = "../mycelix-ssf-canonical-execution-semantics" }
+mycelix-ssf-current-authority-revalidation = { path = "../mycelix-ssf-current-authority-revalidation" }
+mycelix-ssf-final-canonical-replay-readiness = { path = "../mycelix-ssf-final-canonical-replay-readiness" }
