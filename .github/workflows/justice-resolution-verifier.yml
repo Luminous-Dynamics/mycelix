@@ -1,0 +1,78 @@
+name: Justice Resolution Verifier Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-types/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/**'
+      - 'mycelix-workspace/mycelix-civic/Cargo.toml'
+      - '.github/workflows/justice-resolution-verifier.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-resolution-verifier-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Justice resolution qualification kernel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify workspace and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          civic_root = pathlib.Path('mycelix-workspace/mycelix-civic')
+          workspace_manifest = tomllib.loads((civic_root / 'Cargo.toml').read_text())
+          workspace = workspace_manifest['workspace']
+          crate = 'crates/justice-resolution-verifier'
+          assert crate in workspace['members'], (
+              'Justice resolution verifier must be an explicit Civic workspace member'
+          )
+
+          workspace_dependencies = workspace_manifest['workspace']['dependencies']
+          assert workspace_dependencies['justice-resolution-verifier']['path'] == crate
+
+          manifest = tomllib.loads((civic_root / crate / 'Cargo.toml').read_text())
+          dependencies = manifest.get('dependencies', {})
+          assert set(dependencies) == {'justice-resolution-types'}, (
+              'verifier may depend only on the pure Justice resolution vocabulary'
+          )
+          assert dependencies['justice-resolution-types']['path'] == '../justice-resolution-types'
+          assert not manifest.get('dev-dependencies'), 'verifier must have zero dev dependencies'
+          assert not manifest.get('build-dependencies'), 'verifier must have zero build dependencies'
+          PY
+
+      - name: Verify pure source boundary
+        run: |
+          src='mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/src'
+          if grep -R -n -E '(^|[[:space:]])use[[:space:]]+(hdk|hdi|holochain|mycelix_business|mycelix_finance)|hdk::|hdi::|holochain_[A-Za-z0-9_]*::|mycelix_business_[A-Za-z0-9_]*::|mycelix_finance_[A-Za-z0-9_]*::|std::(time|net|fs|process|env)::|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src" --include='*.rs'; then
+            echo 'Justice verifier gained runtime, Business, Finance, Holochain, or ambient-authority coupling' >&2
+            exit 1
+          fi
+
+      - name: Verify frozen decision-rule profile is explicit
+        run: |
+          src='mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/src/lib.rs'
+          grep -F 'justice.two-party-prevailing-party-full-award' "$src"
+          grep -F 'TWO_PARTY_PREVAILING_PARTY_FULL_AWARD_VERSION: u32 = 1' "$src"
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml -- --check
+
+      - name: tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml
+
+      - name: clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/Cargo.toml --all-targets -- -D warnings
