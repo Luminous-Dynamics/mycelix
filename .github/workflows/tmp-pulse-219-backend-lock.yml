@@ -1,0 +1,97 @@
+name: Temporary Pulse 219 Backend Lock
+
+on:
+  push:
+    branches:
+      - tmp/pulse-219-backend-lock
+
+permissions:
+  contents: read
+
+jobs:
+  derive-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Bind exact staging head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+      - name: Derive and freeze standalone backend lock
+        run: |
+          set -euo pipefail
+          manifest='mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml'
+          lock='mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock'
+          test ! -e "$lock"
+          cargo generate-lockfile --manifest-path "$manifest"
+          test -s "$lock"
+          sha256sum "$lock" > "$RUNNER_TEMP/pulse-backend-lock.sha256"
+          cargo metadata --locked --manifest-path "$manifest" --format-version 1 > "$RUNNER_TEMP/pulse-backend-metadata.json"
+      - name: Verify standalone graph identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          metadata = json.loads((temp / "pulse-backend-metadata.json").read_text())
+          expected_root = Path("mycelix-workspace/mycelix-pulse/happ/backend-rs").resolve()
+          observed_root = Path(metadata["workspace_root"]).resolve()
+          if observed_root != expected_root:
+              raise SystemExit(f"unexpected backend workspace_root: {observed_root} != {expected_root}")
+
+          packages = {pkg["id"]: pkg for pkg in metadata["packages"]}
+          roots = [pkg for pkg in metadata["packages"] if pkg["name"] == "mycelix-mail-backend"]
+          if len(roots) != 1:
+              raise SystemExit(f"expected one backend root package, found {len(roots)}")
+          nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
+          root_node = nodes[roots[0]["id"]]
+          direct = {dep["name"]: packages[dep["pkg"]] for dep in root_node["deps"]}
+          expected = {
+              "holochain_client": "0.8.1",
+              "holochain_types": "0.6.1",
+              "holochain_zome_types": "0.6.1",
+              "holochain_keystore": "0.6.1",
+          }
+          for name, version in expected.items():
+              pkg = direct.get(name)
+              if pkg is None:
+                  raise SystemExit(f"missing direct backend dependency: {name}")
+              if pkg["version"] != version:
+                  raise SystemExit(f"{name}: {pkg['version']} != {version}")
+              source = pkg.get("source") or ""
+              if not source.startswith("registry+"):
+                  raise SystemExit(f"{name}: unexpected source {source!r}")
+          print("Standalone backend graph identity OK")
+          PY
+      - name: Execute backend tests against frozen lock
+        env:
+          JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+          HOLOCHAIN_STUB_MODE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test --locked --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml
+          (cd mycelix-workspace/mycelix-pulse/happ/backend-rs && sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256")
+      - name: Assemble lock evidence
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/backend-lock-evidence"
+          cp mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock "$RUNNER_TEMP/backend-lock-evidence/Cargo.lock"
+          cp "$RUNNER_TEMP/pulse-backend-lock.sha256" "$RUNNER_TEMP/backend-lock-evidence/Cargo.lock.sha256"
+          cp "$RUNNER_TEMP/pulse-backend-metadata.json" "$RUNNER_TEMP/backend-lock-evidence/cargo-metadata.json"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/backend-lock-evidence/source-head.txt"
+          sha256sum "$RUNNER_TEMP/backend-lock-evidence/"* > "$RUNNER_TEMP/backend-lock-evidence/evidence.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pulse-backend-lock-${{ github.sha }}
+          path: ${{ runner.temp }}/backend-lock-evidence
+          if-no-files-found: error
+          retention-days: 7
