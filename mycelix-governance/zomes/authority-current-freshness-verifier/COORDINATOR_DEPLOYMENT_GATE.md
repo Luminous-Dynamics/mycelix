@@ -1,10 +1,10 @@
-# Current Freshness — Coordinator Deployment Gate v0.12
+# Current Freshness — Coordinator Deployment Gate v0.13
 
-Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted complete release-registry snapshots, exact deployment composition and stability fencing exist as candidates; durable latest-registry state, remaining target/runtime provenance and atomic effect admission are incomplete**
+Status: **offline-rooted + crash-durable release-key-policy continuity, native hybrid release authentication, offline-rooted + crash-durable complete release-registry continuity, exact deployment composition and subject-bound stability exist as candidates; target/conductor provenance and atomic effect admission remain incomplete**
 
 ## Core deployment distinction
 
-Operational authority identity, approved coordinator release identity and actually installed coordinator code are separate facts.
+Operational authority identity, approved coordinator release identity, release-registry status and actually installed coordinator code are separate facts.
 
 `same DNA != same coordinator implementation`.
 
@@ -12,7 +12,7 @@ Coordinator deployment evidence therefore binds exact `CellId` = DNA hash + cell
 
 ## Release-key trust chain
 
-The current release-key path is:
+The release-authentication path is:
 
 ```text
 independently delivered production key-policy root fingerprint
@@ -25,22 +25,20 @@ short-lived current CoordinatorReleaseKeyPolicy
         ↓
 manifest-bound QualifiedCoordinatorReleaseSigningKey
         ↓
-#326 strict Ed25519 AND ML-DSA-65 release authentication
+#326 strict Ed25519 AND ML-DSA-65 authentication
         ↓
 QualifiedCoordinatorReleaseRequirement
 ```
 
 Release signing keys remain leaves. They cannot authorize their own policy root/currentness.
 
-#347 normal operations load predecessor/root/head state from one configured secure path under an exclusive transaction lock; state replacement is fsynced and atomically installed before #307 positive authority can escape.
+#347 owns predecessor/root/head state under one secure locked path and persists state before #307 positive authority can escape.
 
-#347 protects ordinary restart/lost-update/torn-write continuity under the local host/filesystem trust model. It does not claim resistance to restoration of an entire old machine image.
+Its theorem is local crash/restart continuity under normal owner-protected filesystem semantics, not same-UID arbitrary-write or full-machine rollback resistance.
 
-## Complete release-registry theorem
+## Complete release-registry trust chain
 
-`mycelix-authority-coordinator-release-registry` replaces the intended detached status-service path with one independently rooted complete canonical registry snapshot.
-
-The registry trust chain is:
+#355 replaces the detached status-service authority path with one independently rooted complete canonical registry snapshot:
 
 ```text
 independently delivered registry-root fingerprint
@@ -62,116 +60,208 @@ QualifiedCurrentCoordinatorRelease
 
 Release signing keys are not registry-root or registry-head keys.
 
-### Registry root
+The registry root commits root identity/version, release authority, registry id, separate root/head key sets and thresholds, and lifetime. Root/head key identities and actual hybrid key material are disjoint.
 
-The registry root commits exact root identity/version, release authority, registry id, offline root key set/threshold, separate registry-head key set/threshold and lifetime.
+Initial qualification requires an out-of-band root pin plus the configured root threshold. Rotation requires the exact transition to satisfy both old and new root thresholds, version `old + 1`, fixed scope and non-decreasing threshold floors.
 
-Both roles use exact Ed25519 + ML-DSA-65 AND-composition. Key IDs and actual hybrid key material must be disjoint across root and registry-head roles.
+A bootstrap root-lineage digest survives rotation so a predecessor snapshot from another independently pinned root lineage cannot be grafted into the chain.
 
-Initial root qualification requires an out-of-band pinned canonical root digest/profile plus the configured root threshold. Pin provenance remains an external provisioning responsibility.
+## Complete snapshot semantics
 
-Root rotation requires the same transition to satisfy both old and new root thresholds, version exactly old + 1, fixed root/authority/registry scope and non-decreasing threshold floors.
+One registry snapshot commits exact:
 
-A bootstrap `root_lineage_digest` survives authorized rotation. Registry snapshots from another independently pinned root lineage cannot be grafted into this lineage.
-
-### Complete snapshot identity
-
-A snapshot commits exact:
-
-- current root version;
+- root version;
 - registry id;
 - release authority;
-- one release-policy digest/profile chain;
+- release-policy digest/profile chain;
 - registry generation;
-- exact predecessor-head digest or explicit genesis;
+- predecessor-head digest or explicit genesis;
 - complete ordered release-status record set; and
 - bounded validity window.
 
-The head digest uses #275's fixed `REGISTRY_HEAD_PROFILE`.
+Its head uses #275's fixed `REGISTRY_HEAD_PROFILE`; v0.1 snapshot lifetime is at most 30 seconds and one snapshot contains at most 65,536 records.
 
-The v0.1 snapshot lifetime is at most 30 seconds.
+Records are strictly ordered and unique by manifest digest. Every successor retains every prior record.
 
-### Canonical completeness
-
-Records must be strictly ordered by manifest digest, making duplicate manifest entries impossible. v0.1 caps one snapshot at 65,536 records.
-
-Every status record commits exact manifest digest/profile, status, effective time and status reference using #275's exact `STATUS_RECORD_PROFILE`.
-
-A successor may add records, but every record from the previous qualified snapshot must remain present.
-
-Therefore a previously Withdrawn/Superseded release cannot be made to disappear merely by omission in a later otherwise-valid snapshot.
-
-A release not present in the complete qualified snapshot cannot qualify as current.
-
-### Monotone status history
-
-An unchanged status preserves exact effective time/reference.
-
-A status transition is allowed only:
+An unchanged status preserves exact effective time/reference. Only:
 
 ```text
 Active -> Withdrawn
 Active -> Superseded
 ```
 
-with a strictly later effective time.
+with strictly later effective time are accepted. Terminal status resurrection/history rewriting and future-dated status records deny.
 
-`Withdrawn` and `Superseded` are terminal in v0.1. Neither may become `Active` again, and terminal states cannot silently rewrite into each other.
+Currentness is therefore not inferred from DHT ordering, cache ordering, a `latest record` query or absence of a later record. Completeness is explicit authenticated authority semantics.
 
-Future-dated status records also deny: status-effective time must be no later than snapshot validity start.
+## Durable latest complete-registry state
 
-### Registry predecessor lineage
+`mycelix-authority-coordinator-release-registry-state` closes the ordinary restart/lost-update boundary above #355.
 
-Without a predecessor, only root version 1 / registry generation 1 / no predecessor digest qualifies.
+The central rule is:
 
-A changed successor must advance generation by exactly one and commit the exact previous qualified head digest.
+`serialized registry state != caller authority`.
 
-It must also remain in the same bootstrap root lineage, registry id, release authority and release-policy digest/profile chain.
+Positive registry/current-release authority comes only from `TrustedCoordinatorReleaseRegistryStore` loading its own state path while holding the exclusive store lock.
 
-Exact current-head revalidation remains allowed while the same immutable snapshot is live.
+Normal operations accept no caller-supplied:
 
-## #275 receipts are private compatibility objects
+- previous trusted state;
+- previous/current root;
+- root pin;
+- previous registry snapshot;
+- previous registry generation/head digest;
+- #275 registry-head proof; or
+- #275 status-at-head proof.
 
-The complete qualified snapshot's `qualify_current_release` method performs the exact manifest lookup locally.
+### Canonical path ownership
 
-It privately creates:
+At construction, a relative path is anchored to the current directory and the requested parent is canonicalized.
 
-- `VerifiedCurrentReleaseRegistryHeadProof`; and
-- `VerifiedCoordinatorReleaseStatusAtHeadProof`
+The store then retains only the canonical real parent + file name. Changing an ancestor symlink later cannot retarget that store instance.
 
-from the same already-qualified complete snapshot and immediately invokes local #275 `qualify_current_coordinator_release`.
+The parent must be a real effective-user-owned directory, owner-writable and inaccessible to group/other users.
 
-The intended live path therefore accepts no caller-supplied #275 head/status receipt bytes as positive registry authority.
+State/lock/temp files must be regular effective-user-owned exact-mode `0600` files opened with `O_NOFOLLOW | O_CLOEXEC`.
 
-This removes a major oracle surface:
+### First-use bootstrap
 
-`detached status service != release currentness authority`.
+`bootstrap_from_out_of_band_pin` is the only state-adapter operation accepting a registry root pin.
 
-## Completeness is not a DHT/latest heuristic
+It refuses an existing state path, delegates exact pin + root-threshold cryptography to #355, constructs state generation 1 and durably installs it before returning success.
 
-No currentness theorem is inferred from DHT ordering, cache order, `latest record`, or absence of later records.
+The adapter does not prove how the production operator obtained the fingerprint; root-pin delivery/protection remains separate provisioning policy.
 
-The registry authority signs the complete canonical snapshot. An authenticated release must have an exact entry in it or qualification denies.
+### State-owned root rotation
 
-## Durable latest registry state is still missing
+`rotate_root` loads the old root from trusted state rather than request input.
 
-The registry theorem currently proves the predecessor represented by an in-process non-deserializable qualified snapshot.
+The candidate transition requires exact old + new root thresholds, exact version advance, fixed root/authority/registry scope and post-crypto liveness.
 
-It does not yet prove after restart that the supplied predecessor is the durably latest registry head ever accepted by the device.
+Threshold floors ratchet upward:
 
-The next native registry-state adapter should mirror #347's fail-closed continuity model and persist at minimum:
+```text
+root_floor_next = max(root_floor_current, new_root.root_threshold)
+registry_head_floor_next = max(registry_head_floor_current, new_root.registry_head_threshold)
+```
 
-- bootstrap registry-root lineage digest;
-- current registry root + digest/version;
-- root/registry-head threshold floors;
-- current release-policy chain identity;
-- current complete snapshot generation/head digest/records;
-- predecessor-state digest/state generation; and
-- trusted host-clock floor.
+### Registry advancement is query-independent
 
-Normal operations must load these from one configured secure path under an exclusive lock, reject caller-selected predecessors, atomically/fsync advance state, and persist before returning current-release positive authority.
+`advance_snapshot(snapshot, signatures)` verifies and durably advances the complete registry without taking a release query.
 
-Full-machine snapshot rollback remains a stronger separate TPM/hardware/enterprise/witness problem.
+A caller asking about release X therefore cannot choose the registry snapshot used to answer that question.
+
+The persisted checkpoint contains the **full canonical snapshot**, not merely its head digest, so status derivation after restart still uses the exact complete state that was accepted previously.
+
+### Persisted latest-snapshot lineage
+
+Without a stored snapshot, genesis is accepted only at root version 1 / registry generation 1 / no predecessor.
+
+An unchanged exact head may be reverified while live.
+
+A changed successor must:
+
+- use generation `current + 1`;
+- commit the exact persisted current head digest;
+- never decrease root version;
+- retain registry id, release authority and release-policy chain; and
+- preserve all complete-record/status monotonicity rules.
+
+The predecessor is state-owned across restart.
+
+### Root rotation suspends the old snapshot
+
+An old-root snapshot may remain stored only as the lineage predecessor across a root rotation.
+
+It cannot authorize a release under the new root. `qualify_current_release` requires the snapshot's root version to equal the exact current root version.
+
+Current-release authority resumes only after a successor snapshot signed by the new registry-head role extends the persisted old head.
+
+### Checkpoint lease containment
+
+A persisted checkpoint must recompute the exact snapshot head and satisfy:
+
+```text
+snapshot.valid_from <= verified_at < snapshot.valid_until
+verified_at < valid_until <= snapshot.valid_until
+```
+
+When it is under the current root, its horizon must also not exceed the current root horizon.
+
+Persistence may preserve or shorten authenticated evidence lifetime; it may not widen it.
+
+## Current-release query is state-owned
+
+`qualify_current_release` accepts exactly one already-authenticated `QualifiedCoordinatorReleaseRequirement`.
+
+It loads the current root + complete snapshot from trusted state, validates liveness/scope, performs exact local manifest lookup and denies absent, Withdrawn or Superseded records.
+
+The caller supplies no status and no currentness receipt.
+
+## Persistence precedes #275 positive authority
+
+The live current-release causal order is:
+
+```text
+exclusive lock
+→ load persisted root + complete snapshot
+→ trusted-clock/root/snapshot/release checks
+→ local exact Active lookup
+→ advance trusted clock-floor state
+→ temp fsync + atomic rename + parent-directory fsync
+→ privately construct #275 head receipt
+→ privately construct #275 status receipt
+→ local #275 qualification
+→ QualifiedCurrentCoordinatorRelease
+```
+
+If state replacement fails, no positive current-release authority escapes.
+
+The evidence-shaped #275 receipts remain private compatibility projections derived from the same persisted complete checkpoint.
+
+## Durable trusted host clock
+
+The state persists `last_trusted_time_ms`.
+
+Every accepted root/snapshot transition samples trusted host time after cryptographic verification. A successful current-release query also advances the clock floor before positive authority escapes.
+
+Observed host time below the persisted floor fails closed.
+
+## Filesystem durability contract
+
+All bootstrap/rotation/snapshot/query state transitions share one exclusive `File::lock` transaction. Rust 1.89 is therefore the v0.1 minimum toolchain.
+
+State parsing is bounded to 32 MiB.
+
+Replacement is:
+
+```text
+same-directory create_new temp
+→ write exact state
+→ fsync temp
+→ atomic rename
+→ fsync containing directory
+```
+
+## Integrity claim is intentionally bounded
+
+Each state carries a monotonically increasing state generation, predecessor-state digest, bootstrap root identity, current root identity, threshold floors, complete snapshot checkpoint, trusted clock floor and BLAKE3 self-digest.
+
+The root digest and state digest are recomputed on load.
+
+This detects corruption/non-self-consistent bytes under the owner-protected-filesystem model. The self-digest is **not keyed**.
+
+Therefore:
+
+```text
+crash-durable locally monotone state
+!= same-UID arbitrary-write resistance
+!= full-machine rollback resistance
+```
+
+An attacker with arbitrary trusted-UID file-write authority can recompute an unkeyed state digest. Restoring an entire older machine image can also restore an older internally valid root/snapshot/clock floor together.
+
+A stronger threat model needs an independent keyed/monotonic anchor such as TPM/hardware state, enterprise/device-management state or a separately trusted append-only witness.
 
 ## Native conductor observation
 
@@ -179,9 +269,11 @@ Full-machine snapshot rollback remains a stronger separate TPM/hardware/enterpri
 
 It does not choose release policy, current release or target policy.
 
+Its remaining problem is **live endpoint/conductor provenance**: loopback location by itself is not sufficient proof that the observed endpoint is the intended trusted conductor.
+
 ## Exact deployment composition
 
-#290 keeps three facts separate:
+#290 keeps three domains separate:
 
 ```text
 trusted exact target CellId selection
@@ -197,63 +289,63 @@ QualifiedCoordinatorDeploymentComposition
 
 Missing, substituted, duplicate or unexpected installed coordinator code denies.
 
+Pure `TargetCellSelection` still does not prove why that CellId is the trusted target.
+
 ## Subject-bound stability
 
-#298 requires a strictly later second exact deployment observation, reruns the same exact deployment requirement and binds the stability result to one admission subject + per-attempt nonce.
+#298 requires a strictly later second exact deployment observation, reruns the same deployment requirement and binds stability to one admission subject + attempt nonce.
 
-This proves no detected coordinator-code change across the observed interval.
+It proves no detected coordinator-code change across that observed interval.
 
-It is not an atomic update exclusion mechanism. `UpdateCoordinators` can still race after the second observation.
+It is not an atomic exclusion mechanism: `UpdateCoordinators` can still race after the second observation and before an effect.
 
 ## Remaining independent live boundaries
 
-Major unresolved boundaries are now:
+The dominant unresolved boundaries are now:
 
 - actual production delivery/protection of both initial root fingerprints;
-- durable latest complete release-registry state across restart;
 - trusted target CellId selection provenance;
-- real-conductor qualification/local-endpoint provenance for the native observer;
-- native ownership of admission subject/attempt nonce and pre/post bracketing;
+- real-conductor/local Admin API endpoint provenance and qualification;
+- native ownership of admission subject/attempt nonce and pre/post observation bracketing;
 - post-observation coordinator-update/effect atomicity;
 - final lifecycle/executor/effect-safety authority; and
-- stronger full-machine rollback anchoring if required.
+- stronger same-UID/full-machine rollback anchoring if required by the deployment threat model.
 
 ## Consumer rule
 
 A future effect-capable consumer needs independently:
 
-1. fresh operational authority currentness from the direct local verifier chain;
+1. fresh operational authority currentness from the direct local authority verifier chain;
 2. candidate coordinator release semantics;
 3. production-rooted and durably current release-key policy;
 4. manifest-bound authorized release signing key;
 5. #326 strict hybrid release authentication;
-6. production-rooted complete registry snapshot that is also durably latest;
-7. local exact registry status derivation yielding #275 `QualifiedCurrentCoordinatorRelease`;
+6. production-rooted and durably latest complete registry state;
+7. local exact persisted status derivation yielding #275 `QualifiedCurrentCoordinatorRelease`;
 8. trusted exact target CellId selection;
-9. native pre-deployment conductor observation;
+9. qualified native pre-deployment conductor observation;
 10. #290/#262 exact target/current-release/installed-code composition;
-11. native post observation + #298 subject/attempt stability;
-12. explicit update-race/effect atomicity policy;
+11. qualified native post observation + #298 subject/attempt stability;
+12. explicit coordinator-update/effect atomicity;
 13. lifecycle/executor/effect-safety authority; and
 14. an effect path consuming only in-process positive qualifications, never caller-supplied serialized positive receipts.
 
 ## Provisioning state
 
-The v0.12 registry theorem does **not** satisfy the complete deployment/effect gate.
+The v0.13 durable-registry candidate does **not** satisfy the complete deployment/effect gate.
 
-Until durable latest registry state, production root-pin provenance, target/conductor provenance, native bracketing and update-race/effect semantics are qualified:
+Until production root-pin provenance, target/conductor provenance, native admission ownership and update/effect atomicity are qualified:
 
 - `authority_current_freshness_verifier` remains absent from binding `dna.yaml`;
 - `constitution_currentness_verifier` remains absent from binding `dna.yaml`;
-- no consumer may interpret a registry snapshot or deployment match as atomic external-effect authority; and
+- no consumer may interpret release currentness or deployment stability as atomic external-effect authority; and
 - external effects remain disabled.
 
 ## Highest-value next work
 
-1. native crash-durable latest release-registry state adapter;
-2. trusted target CellId selection provenance;
-3. real-conductor/local-admin-endpoint qualification;
-4. native pre/post admission orchestrator;
-5. explicit coordinator-update/effect atomicity boundary;
-6. final lifecycle/executor/effect-safety binding; and
-7. optional TPM/hardware/enterprise rollback anchor for both key-policy and registry trusted state.
+1. trusted target CellId selection provenance;
+2. real-conductor/local-admin-endpoint qualification;
+3. native pre/post admission orchestrator owning subject + attempt nonce;
+4. explicit coordinator-update/effect atomicity boundary;
+5. final lifecycle/executor/effect-safety binding; and
+6. optional keyed/TPM/hardware/enterprise rollback anchor for the trusted state stores.
