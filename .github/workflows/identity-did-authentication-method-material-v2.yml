@@ -1,0 +1,143 @@
+name: Identity DID Authentication Method Material V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - '.github/workflows/identity-did-authentication-method-material-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/mycelix-crypto/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/**'
+      - '.github/workflows/identity-did-authentication-method-material-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-did-authentication-method-material-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert policy-neutral admitted-method boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/did-authentication-method-material-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          if member not in workspace.get('workspace', {}).get('members', []):
+              raise SystemExit(f'ERROR: {member} is not an explicit identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {'mycelix-crypto', 'mycelix-did-document-crypto-policy'}
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: admitted-method dependencies drifted: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: admitted-method theorem must use workspace mycelix-crypto')
+          if deps['mycelix-did-document-crypto-policy'].get('path') != '../did-document-crypto-policy':
+              raise SystemExit('ERROR: admitted-method theorem is not bound to the #272 crypto-admission theorem')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'AdmittedDidAuthenticationMethodV2',
+              'DidAuthenticationMethodMaterialErrorV2',
+              'resolve_admitted_did_authentication_method_v2',
+              'validate_did_document_crypto_v2(document)',
+              'canonical_did_method_id_v2(document.did, target_key_id)',
+              'TargetKeyIdNotCanonical',
+              'TargetMethodMissing',
+              'TargetAuthenticationReferenceMissing',
+              'TaggedPublicKey::from_multibase(selected.public_key_multibase)',
+              'decoded.to_multibase() != selected.public_key_multibase',
+              'decoded.algorithm != declared',
+              'decoded.key_bytes.len() != declared.public_key_size()',
+              'canonical_target_resolves_exact_authenticated_material',
+              'target_key_id_must_already_be_canonical',
+              'target_must_be_explicit_authentication_method',
+              'key_agreement_method_cannot_substitute_for_authentication',
+              'complete_document_admission_precedes_target_selection',
+              'admitted_method_capability_fields_are_verifier_owned',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: admitted-method theorem missing: {needle!r}')
+
+          result_start = text.index('pub struct AdmittedDidAuthenticationMethodV2')
+          result_end = text.index('impl AdmittedDidAuthenticationMethodV2', result_start)
+          result_body = text[result_start:result_end]
+          if 'pub ' in '\n'.join(result_body.splitlines()[1:]):
+              raise SystemExit('ERROR: admitted-method capability exposes public fields')
+
+          lower = text.lower()
+          for forbidden in [
+              'use hdk',
+              'use hdi',
+              'hdk::',
+              'hdi::',
+              'holochain_',
+              'get_agent_activity(',
+              'get_links(',
+              'get_details(',
+              'sys_time(',
+              'std::time',
+              '.verify(',
+              'signature_scheme_id',
+              'verification_policy_sha256',
+              'mycelix_kvector_verifier_policy_body',
+              'mycelix_kvector_signature_material_policy',
+              'policy_current',
+              'policy_accepted',
+              'latest-wins',
+              '.max_by(',
+              '.max_by_key(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(
+                      f'ERROR: policy/network/currentness/authenticity leaked into admitted-method theorem: {forbidden!r}'
+                  )
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/Cargo.toml \
+            -- --check
+
+      - name: Test DID document crypto admission theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-document-crypto-policy/Cargo.toml
+
+      - name: Test admitted authentication-method material theorem
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/Cargo.toml
+
+      - name: Check admitted-method theorem for wasm32
+        run: |
+          cargo check \
+            --manifest-path mycelix-workspace/mycelix-identity/crates/did-authentication-method-material-policy/Cargo.toml \
+            --target wasm32-unknown-unknown

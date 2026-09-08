@@ -21,6 +21,8 @@ members = [
     "crates/kvector-verifier-key-generation-lineage-policy",
     # Strict DID document cryptographic admission theorem
     "crates/did-document-crypto-policy",
+    # Policy-neutral admitted DID authentication-method material theorem
+    "crates/did-authentication-method-material-policy",
     # Append-only verifier-key generation lifecycle integrity
     "zomes/verifier_key_generation/integrity",
     # Shared crypto-agile types (PQE abstraction layer)
