@@ -45,9 +45,9 @@ holochain_chc = "0.3.3"
 kitsune2 = "0.4.1"
 lair_keystore = "0.6.3"
 
-# Known legacy islands. Their exact drift is frozen so upgrades cannot silently
-# change only one side of an ABI/API boundary. Each quarantine must be removed
-# by a dedicated migration that proves the island joins the canonical cohort.
+# Known compatibility islands. A quarantine may represent either an exact
+# version-family drift or a remaining runtime/evidence boundary. Each binding
+# is fail-closed against the manifest so the reason cannot silently go stale.
 [[quarantine]]
 path = "mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml"
 reason = "Pulse CLI mixes holochain_client 0.8.1 with holochain_types/conductor_api 0.5 and must be migrated as its own compatibility boundary."
@@ -57,11 +57,11 @@ holochain_conductor_api = "0.5"
 
 [[quarantine]]
 path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
-reason = "Pulse backend mixes holochain_client 0.8.1 with holochain_types/zome_types/keystore 0.5; stub-mode tests do not prove conductor API compatibility."
+reason = "Pulse backend is version-aligned with the canonical Rust 0.6.1/0.8.1 cohort, but stub-mode tests do not prove live conductor/API compatibility; keep it quarantined until that runtime boundary is qualified."
 holochain_client = "0.8.1"
-holochain_types = "0.5"
-holochain_zome_types = "0.5"
-holochain_keystore = "0.5"
+holochain_types = "0.6.1"
+holochain_zome_types = "0.6.1"
+holochain_keystore = "0.6.1"
 
 [[quarantine]]
 path = "mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml"
