@@ -6,6 +6,10 @@
 pub mod ai;
 pub mod bridge;
 pub mod claims;
+#[allow(
+    unused_imports,
+    reason = "qualification keeps the restored crypto source stable while the historical import surface is reconciled"
+)]
 pub mod crypto;
 pub mod holochain;
 pub mod persistence;
