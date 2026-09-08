@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-identity-runtime-authority-domain-adapter"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "HDK runtime provenance adapter for the Identity V2 authority domain"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+hdk = { workspace = true }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
