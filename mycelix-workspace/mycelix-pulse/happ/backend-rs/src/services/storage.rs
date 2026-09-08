@@ -289,11 +289,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_storage_roundtrip() {
-        let config = Config::from_env().unwrap_or_else(|_| {
-            // Create minimal config for testing
-            std::env::set_var("JWT_SECRET", "test-secret-for-testing");
-            Config::from_env().unwrap()
-        });
+        let config = Config::for_test();
 
         let storage = StorageService::new(&config);
         let content = b"Hello, Mycelix storage!";
@@ -310,10 +306,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypted_storage_roundtrip() {
-        let config = Config::from_env().unwrap_or_else(|_| {
-            std::env::set_var("JWT_SECRET", "test-secret-for-testing");
-            Config::from_env().unwrap()
-        });
+        let config = Config::for_test();
 
         let storage = StorageService::new(&config);
         let plaintext = b"Secret message body";
@@ -332,10 +325,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_not_found() {
-        let config = Config::from_env().unwrap_or_else(|_| {
-            std::env::set_var("JWT_SECRET", "test-secret-for-testing");
-            Config::from_env().unwrap()
-        });
+        let config = Config::for_test();
 
         let storage = StorageService::new(&config);
         let result = storage.retrieve("QmNonExistentCid").await;

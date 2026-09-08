@@ -988,7 +988,6 @@ mod tests {
             bridge_min_confidence: 0.3,
             identity_conductor_url: None,
             identity_verify_on_send: true,
-            mail_kem_secret_key: None,
         }
     }
 
