@@ -6,10 +6,21 @@ on:
       - 'mycelix-position/**'
       - '.github/workflows/position-qualification.yml'
   push:
+    branches:
+      - main
     paths:
       - 'mycelix-position/**'
       - '.github/workflows/position-qualification.yml'
   workflow_dispatch:
+
+# Exact-head qualification is useful only for the newest head in one logical
+# event stream. Preserve historical run metadata while cancelling queued/running
+# work superseded by a newer synchronization of the same PR. Keep manual and
+# push executions in separate groups so an intentional workflow_dispatch cannot
+# cancel a main-branch integration run (or vice versa).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
