@@ -51,10 +51,10 @@ jobs:
 
           src = Path('crates/mycelix-response-executor-coverage/src/lib.rs').read_text()
           provider = Path('crates/mycelix-governance-executor-provider-contract/src/lib.rs').read_text()
+          compact = ''.join(src.split())
 
           required = [
               'match_response_executor_coverage(',
-              'receipt.validate_at(now_ms)',
               'projection.proposal_id.as_str() != prepared.proposal_id()',
               'projection.capability_scope.as_str() != prepared.requirement().action',
               'actual_jurisdiction != prepared.requirement().jurisdiction.as_deref()',
@@ -70,6 +70,7 @@ jobs:
           ]
           for token in required:
               assert token in src, token
+          assert 'receipt.validate_at(now_ms)' in compact
 
           # Provider v0.2 must expose the exact designation subject id, not just
           # the generation-sensitive current-authority alias.
