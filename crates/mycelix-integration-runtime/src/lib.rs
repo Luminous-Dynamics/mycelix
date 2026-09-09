@@ -1572,7 +1572,7 @@ mod tests {
     }
 
     fn confirmed(command: &str) -> ExternalExecutionOutcome {
-        ExternalExecutionOutcome::Confirmed(mycelix_integration_core::ExternalReceipt {
+        ExternalExecutionOutcome::Confirmed(ExternalReceipt {
             operation: operation(command),
             provider_receipt: Some(ExternalOpaqueId::new("receipt-1").unwrap()),
             receipt_commitment: ContentCommitment::sha256(b"provider-receipt"),
