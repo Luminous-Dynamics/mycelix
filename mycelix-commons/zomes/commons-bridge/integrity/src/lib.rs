@@ -75,20 +75,17 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::Query(query) => validate_query(&query),
-            EntryTypes::Event(event) => validate_event(&event),
+            EntryTypes::Query(query) => validate_query_for_author(&query, &action.author),
+            EntryTypes::Event(event) => validate_event_for_author(&event, &action.author),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::Query(query) => validate_query(&query),
-            EntryTypes::Event(event) => validate_event(&event),
+            EntryTypes::Query(query) => validate_query_for_author(&query, &action.author),
+            EntryTypes::Event(event) => validate_event_for_author(&event, &action.author),
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
@@ -147,6 +144,43 @@ fn validate_event(event: &BridgeEventEntry) -> ExternResult<ValidateCallbackResu
     }
 }
 
+/// Validate query fields and bind the embedded requester to the signed action author.
+///
+/// The requester is used by coordinator indexes, so accepting a caller-supplied
+/// third-party key here would turn a valid signature into forged attribution.
+fn validate_query_for_author(
+    query: &BridgeQueryEntry,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_query(query)?;
+    if !matches!(fields, ValidateCallbackResult::Valid) {
+        return Ok(fields);
+    }
+    if &query.requester != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Bridge query requester must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate event fields and bind the embedded source agent to the signed action author.
+fn validate_event_for_author(
+    event: &BridgeEventEntry,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_event(event)?;
+    if !matches!(fields, ValidateCallbackResult::Valid) {
+        return Ok(fields);
+    }
+    if &event.source_agent != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Bridge event source_agent must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_credential_cache(cred: &CachedCredentialEntry) -> ExternResult<ValidateCallbackResult> {
     match validate_cached_credential(cred) {
         Ok(()) => Ok(ValidateCallbackResult::Valid),
@@ -161,7 +195,11 @@ mod tests {
     // ── Helpers ──────────────────────────────────────────────────────────
 
     fn fake_agent() -> AgentPubKey {
-        AgentPubKey::from_raw_36(vec![0u8; 36])
+        fake_agent_with_byte(0)
+    }
+
+    fn fake_agent_with_byte(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
     }
 
     fn make_query(domain: &str, params: &str) -> BridgeQueryEntry {
@@ -188,6 +226,71 @@ mod tests {
             related_hashes: vec![],
             schema_version: 1,
         }
+    }
+
+    // ── Author provenance ────────────────────────────────────────────────
+
+    #[test]
+    fn query_requester_matching_action_author_is_accepted() {
+        let query = make_query("property", "{}");
+        assert!(matches!(
+            validate_query_for_author(&query, &query.requester).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn forged_query_requester_is_rejected() {
+        let query = make_query("property", "{}");
+        let actual_author = fake_agent_with_byte(1);
+        match validate_query_for_author(&query, &actual_author).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("requester"));
+                assert!(message.contains("action author"));
+            }
+            other => panic!("Expected forged requester to be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn event_source_matching_action_author_is_accepted() {
+        let event = make_event("transport", "{}");
+        assert!(matches!(
+            validate_event_for_author(&event, &event.source_agent).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn forged_event_source_agent_is_rejected() {
+        let event = make_event("transport", "{}");
+        let actual_author = fake_agent_with_byte(1);
+        match validate_event_for_author(&event, &actual_author).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("source_agent"));
+                assert!(message.contains("action author"));
+            }
+            other => panic!("Expected forged event source to be rejected, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn update_author_binding_rejects_rewriting_embedded_subject() {
+        let mut query = make_query("property", "{}");
+        let update_author = query.requester.clone();
+        query.requester = fake_agent_with_byte(2);
+        assert!(matches!(
+            validate_query_for_author(&query, &update_author).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+
+        let mut event = make_event("transport", "{}");
+        let update_author = event.source_agent.clone();
+        event.source_agent = fake_agent_with_byte(3);
+        assert!(matches!(
+            validate_event_for_author(&event, &update_author).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ── VALID_DOMAINS ───────────────────────────────────────────────────
