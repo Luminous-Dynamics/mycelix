@@ -55,6 +55,8 @@ members = [
     "crates/historical-activation-time-authority-policy",
     # Canonical mapping of the exact time-authority policy into generic currentness semantics
     "crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy",
+    # Exact terminal time-authority policy candidate bound to the authenticated transition lineage
+    "crates/historical-activation-time-authority-policy-terminal-candidate-policy",
     # Exact time-authority key generation for historical activation
     "crates/historical-activation-time-authority-key-generation-policy",
     # Prepared crypto request for a historical activation time receipt
@@ -127,7 +129,6 @@ members = [
     "zomes/web-of-trust/integrity",
     # Cross-Cluster Reputation Aggregator
     "zomes/reputation-aggregator/coordinator",
-    "zomes/reputation-aggregator/integrity",
     # Ruleset Registry (Warded Node design Phase 5b: federated marketplace
     # of shareable memetic-pathogen rulesets, no canonical publisher)
     "zomes/ruleset_registry/coordinator",
