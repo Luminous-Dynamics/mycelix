@@ -71,15 +71,113 @@ jobs:
             exit 1
           fi
 
-      - name: Enforce crash ambiguity invariant
+      - name: Enforce prepared-attempt before dispatch
         shell: bash
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'SideEffectClass::ReadOnly' "$source"
-          grep -Fq 'OutboundStage::Ambiguous' "$source"
-          grep -Fq 'side_effecting_marked_ambiguous' "$source"
-          grep -Fq 'recover_expired_claims' "$source"
+
+          grep -Fq 'OutboundStage::AttemptPrepared' "$source"
+          grep -Fq 'OutboundStage::DispatchStarted' "$source"
+          grep -Fq 'pub struct ExecutionClaim' "$source"
+          grep -Fq 'pub struct DispatchStarted' "$source"
+          grep -Fq 'mark_dispatch_started' "$source"
+          grep -Fq 'AttemptFenceMismatch' "$source"
+          grep -Fq 'LeaseExpired' "$source"
+          grep -Fq 'checked_add(lease_duration_ms)' "$source"
+
+          if grep -Fq 'OutboundStage::Executing' "$source"; then
+            echo 'Runtime regressed to the old claim==dispatch Executing state.'
+            exit 1
+          fi
+
+      - name: Enforce pre-dispatch reclaim and post-dispatch ambiguity
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          grep -Fq 'pre_dispatch_requeued' "$source"
+          grep -Fq 'post_dispatch_marked_ambiguous' "$source"
+          grep -Fq 'pre_dispatch_crash_is_reclaimable_even_for_irreversible_work' "$source"
+          grep -Fq 'post_dispatch_crash_becomes_ambiguous_without_inferring_idempotency_support' "$source"
+          grep -Fq 'ReconciliationStrategy::ManualReview' "$source"
+
+          if grep -Fq 'ReconciliationStrategy::IdempotencyKey' "$source"; then
+            echo 'INT-03 must not infer provider idempotency/reconciliation support from key presence.'
+            exit 1
+          fi
+
+      - name: Enforce exact attempt and operation fencing
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          grep -Fq 'attempt_id: &ExecutionAttemptId' "$source"
+          grep -Fq 'stale_attempt_cannot_complete_a_new_attempt_even_with_same_worker_id' "$source"
+          grep -Fq 'outcome.operation()' "$source"
+          grep -Fq 'OutcomeOperationMismatch' "$source"
+          grep -Fq 'rejected_outcome_for_another_operation_is_rejected' "$source"
+          grep -Fq 'RecordedForStaleAttempt' "$source"
+          grep -Fq 'late_response_after_post_dispatch_timeout_is_evidence_not_state_rewrite' "$source"
+
+      - name: Enforce unknown preservation and append-only reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          grep -Fq 'integration_reconciliation_history' "$source"
+          grep -Fq 'INSERT INTO integration_reconciliation_history' "$source"
+          grep -Fq 'reconciliation.is_conclusive()' "$source"
+          grep -Fq 'still_ambiguous_does_not_finalize_and_history_is_append_only' "$source"
+          grep -Fq 'reconciliation_history' "$source"
+
+      - name: Enforce non-materializing execution claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('crates/mycelix-integration-runtime/src/lib.rs').read_text()
+          start = text.index('pub struct ExecutionClaim')
+          end = text.index('\n}', start) + 2
+          claim = text[start:end]
+          forbidden = ('command_bytes', 'authority_commitment')
+          present = [name for name in forbidden if name in claim]
+          if present:
+              raise SystemExit(f'ExecutionClaim exposes capability-adjacent material: {present}')
+          PY
+
+          grep -Fq 'claim_returns_metadata_not_executable_command_bytes' "$source"
+
+      - name: Enforce bounded admission profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          grep -Fq 'MAX_INBOUND_PAYLOAD_BYTES' "$source"
+          grep -Fq 'MAX_COMMAND_BYTES' "$source"
+          grep -Fq 'MAX_SERIALIZED_OUTCOME_BYTES' "$source"
+          grep -Fq 'MAX_SERIALIZED_RECONCILIATION_BYTES' "$source"
+          grep -Fq 'MAX_RECONCILIATION_HISTORY_PER_ENTRY' "$source"
+          grep -Fq 'MAX_EXECUTION_OBSERVATIONS_PER_ENTRY' "$source"
+
+      - name: Enforce fail-safe runtime schema migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+
+          grep -Fq 'RUNTIME_SCHEMA_VERSION: i64 = 2' "$source"
+          grep -Fq 'migrate_implicit_v1_to_v2' "$source"
+          grep -Fq 'legacy_executing_stage_migrates_to_ambiguous_not_attempt_prepared' "$source"
+          grep -Fq 'WHEN 4 THEN 8' "$source"
+          grep -Fq 'PRAGMA user_version = 2' "$source"
 
       - name: Enforce reconciliation-before-finalization invariant
         shell: bash
@@ -88,7 +186,7 @@ jobs:
           source='crates/mycelix-integration-runtime/src/lib.rs'
           grep -Fq 'record_reconciliation' "$source"
           grep -Fq 'finalize_outbound' "$source"
-          grep -Fq 'confirmed_effect_must_reconcile_before_finalization' "$source"
+          grep -Fq 'confirmed_effect_requires_conclusive_reconciliation_before_finalization' "$source"
 
       - name: Enforce no provider execution API in INT-03
         shell: bash
