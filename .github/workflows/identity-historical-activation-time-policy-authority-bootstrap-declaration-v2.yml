@@ -1,0 +1,120 @@
+name: Identity Historical Activation Time Policy Authority Bootstrap Declaration V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-subject-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-declaration-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-declaration-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-bootstrap-declaration-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert domain-independent constitutional declaration boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-bootstrap-declaration-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: bootstrap-declaration runtime dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: declaration must use workspace crypto/sha2')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-subject-policy':
+              raise SystemExit('ERROR: scope dependency path drifted')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'BOOTSTRAP_DECLARATION_FORMAT_VERSION_V2',
+              'HistoricalActivationTimePolicyAuthorityBootstrapDeclarationV2',
+              'CanonicalHistoricalActivationTimePolicyAuthorityBootstrapDeclarationV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_AUTHORITY_BOOTSTRAP_DECLARATION_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-authority-bootstrap-declaration:v2\\0',
+              'canonicalize_historical_activation_time_policy_authority_bootstrap_declaration_v2',
+              'declaration.format_version != BOOTSTRAP_DECLARATION_FORMAT_VERSION_V2',
+              'declaration.key_generation != 1',
+              'canonical_scope_mask_v2(declaration.scope)',
+              '0xee, 0x70, 0xfb, 0x06',
+              'unsupported_format_fails_before_semantic_fields',
+              'public_key_substitution_changes_declaration_identity',
+              'scope_change_changes_declaration_identity',
+              'malformed_key_and_nonroot_generation_fail_closed',
+              'canonical_declaration_is_domain_independent_and_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: bootstrap-declaration invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          if production.index('declaration.format_version != BOOTSTRAP_DECLARATION_FORMAT_VERSION_V2') > production.index('valid_canonical_id(declaration.constitution_id'):
+              raise SystemExit('ERROR: format version is not rejected before semantic declaration validation')
+
+          lower = production.lower()
+          for forbidden in [
+              'qualifiedidentityauthoritydomain', 'authority_domain_sha256',
+              'exacthistoricalactivationtimepolicyauthoritykeygenerationv2',
+              'exacthistoricalactivationtimepolicyauthoritybootstrapsubjectv2',
+              'pub struct authorized', 'pub struct qualified',
+              'from_trusted_configuration', 'is_authorized',
+              'serde::', 'serialize', 'deserialize',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(', 'sys_time(', 'std::time',
+              'verify_strict', '.verify(', 'positive_evidence', 'trust_score',
+              '.expect(', '.unwrap(', 'panic!(', 'unreachable!(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: domain/authority/runtime/crypto/panic surface leaked into declaration theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/Cargo.toml -- --check
+
+      - name: Test bootstrap subject parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-subject-policy/Cargo.toml
+
+      - name: Test domain-independent declaration
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/Cargo.toml
+
+      - name: Check declaration for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/Cargo.toml --target wasm32-unknown-unknown
