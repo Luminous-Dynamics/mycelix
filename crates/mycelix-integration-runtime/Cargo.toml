@@ -8,7 +8,6 @@ description = "Durable inbox, outbox, lease recovery, and reconciliation runtime
 [dependencies]
 mycelix-integration-core = { path = "../mycelix-integration-core" }
 rusqlite = { version = "0.32", features = ["bundled"] }
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 
