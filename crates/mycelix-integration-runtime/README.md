@@ -17,36 +17,31 @@ It owns:
 - exact attempt/fence identities;
 - an explicit local `DispatchStarted` boundary;
 - conservative crash recovery;
-- exact-operation execution outcomes;
+- exact-operation provider outcomes;
 - append-only execution observations;
-- append-only reconciliation history;
+- append-only reconciliation history, including post-resolution evidence;
 - reconciliation checkpoints;
-- reconciliation-before-finalization;
-- bounded payload/history admission;
+- reconciliation-before-finalization for effect-bearing or uncertain outcomes;
+- direct closure for proven no-effect outcomes;
+- bounded payload/history/attempt admission;
 - fail-safe storage-schema migration.
 
-It does **not** own:
+It does **not** own provider APIs, webhook authentication, Holochain calls, institutional authority, capability minting, provider idempotency claims, provider payload materialization, domain acceptance, or physical postcondition truth.
 
-- provider HTTP/API clients;
-- webhook authentication;
-- Holochain zome calls;
-- institutional authority;
-- capability minting;
-- provider idempotency claims;
-- provider payload materialization;
-- domain acceptance;
-- physical postcondition truth.
+## Distinct denial, claim, dispatch, and outcome states
 
-## Claim is not dispatch
-
-The runtime deliberately separates acquiring durable work from crossing the external-effect boundary:
+The runtime consumes the provider-neutral causal model from INT-02:
 
 ```text
-OutboxCommitted
+AuthorityChecked
+      +-- policy/authority denial ---------> AuthorityDenied -> Finalized
       |
       v
+Approved
+      v
+OutboxCommitted
+      v
 AttemptPrepared
-      |
       |  lease expires before dispatch
       +-------------------------------> OutboxCommitted
       |
@@ -55,77 +50,103 @@ AttemptPrepared
       |  + exact payload materialization
       v
 DispatchStarted
-      |
-      +-- confirmed receipt ----------> Confirmed
-      +-- explicit rejection ---------> Rejected
-      +-- uncertain / timeout --------> Ambiguous
-      +-- worker disappears ----------> Ambiguous
-                                          |
-                                          | conclusive reconciliation
-                                          v
-                                      Reconciled
-                                          |
-                                          v
-                                       Finalized
+      +-- proven pre-commit rejection ----> RejectedBeforeCommit -> Finalized
+      +-- confirmed effect ---------------> Confirmed ----+
+      +-- uncertain / timeout ------------> Ambiguous ----+--> Reconciled -> Finalized
 ```
 
-This distinction matters because a worker crash before `DispatchStarted` proves that this runtime never crossed its local external-call boundary. The attempt can therefore be reclaimed even for an irreversible command.
-
-After `DispatchStarted`, absence of a response does **not** prove the provider did nothing. The result becomes `Ambiguous` and stays out of the executable queue until a conclusive reconciliation record exists.
+The distinctions are semantic, not cosmetic:
 
 ```text
+AuthorityDenied != RejectedBeforeCommit
 Claimed != Dispatched
+RejectedBeforeCommit != CommitUnknown
 Timeout != NotCommitted
-Ambiguous != Rejected
+Ambiguous != RejectedBeforeCommit
 Reversible != SafeBlindRetry
 Compensatable != SafeBlindRetry
 IdempotencyKeyPresent != EndpointIdempotencyGuarantee
 ```
 
-## Exact attempt fencing
+A worker crash before `DispatchStarted` proves this runtime never crossed its local external-call boundary, so the attempt can be reclaimed even for an irreversible command. After `DispatchStarted`, absence of a response does not prove the provider did nothing; the result becomes `Ambiguous` and remains non-executable until qualified reconciliation resolves it.
 
-Each claim receives a distinct `ExecutionAttemptId` bound to the outbox entry and monotonically increasing attempt count.
+A provider response is `RejectedBeforeCommit` only when a qualified provider profile can establish that the exact operation did not commit an external effect. Ordinary transport failures or ambiguous provider errors must remain `Ambiguous`.
 
-Execution completion must present the exact attempt identity. Reusing a worker ID after restart is insufficient.
+## Exact attempt fencing and explicit attempt budget
 
-A stale attempt therefore cannot attach its result to a later attempt. A late result for the same attempt after timeout is preserved as an execution observation but does not silently rewrite an `Ambiguous` case into a terminal state.
+Each claim receives a distinct `ExecutionAttemptId` derived from the outbox entry and monotonically increasing attempt generation. Reusing a worker ID is insufficient to complete another attempt.
+
+The v0.1 reference profile admits at most **1024 attempts per outbox entry**. Attempt generation is durable across restarts and fails closed with `AttemptBudgetExceeded` before attempt 1025 can be minted. Exhaustion does not mean success, rejection, ambiguity, or fresh authority.
+
+```text
+AttemptBudgetExceeded
+    != provider outcome
+    != reconciliation
+    != execution authority
+```
+
+The attempt budget is a declared reference-profile resource bound, not an accidental integer ceiling.
+
+## Historical evidence is append-only
+
+Current state transition and historical evidence admission are separate operations.
+
+An exact late provider result for the same attempt may arrive after `Ambiguous`, `Reconciled`, or `Finalized`. The runtime appends it to execution-observation history as non-applying evidence and does not rewrite current state.
+
+Likewise, an exact-operation reconciliation result that arrives after `Reconciled` or `Finalized` is appended to reconciliation history without mutating the terminal state, even when it contradicts the earlier resolution.
+
+```text
+historical observation append
+    != current-state transition
+
+Finalized
+    != history closed to new evidence
+```
+
+Wrong-operation and wrong-attempt evidence remain rejected. Later contradictory evidence is therefore preserved for a future review/reopen/impact layer instead of being silently discarded or allowed to mutate history.
+
+## Shared bounded evidence budgets
+
+Both ordinary provider observations and internally generated crash ambiguity consume the same per-entry execution-observation budget. Internal recovery has no unbounded side channel.
+
+The v0.1 SQLite profile bounds:
+
+- inbound normalized payload bytes;
+- durable command bytes;
+- serialized provider outcomes;
+- serialized reconciliation results;
+- execution-observation history;
+- reconciliation history;
+- execution attempt generations;
+- worker identifiers and claim batch size.
+
+Budget exhaustion fails closed and does not promote epistemic or execution state.
 
 ## Unknown is preserved
 
-`ReconciliationDisposition::StillAmbiguous` is a reconciliation observation, not a resolution.
+`ReconciliationDisposition::StillAmbiguous` is a reconciliation observation, not a resolution. It stays in `OutboundStage::Ambiguous`, cannot enable `Finalized`, and is appended to history.
 
-It therefore:
-
-- remains in `OutboundStage::Ambiguous`;
-- cannot enable `Finalized`;
-- is appended to reconciliation history;
-- may be followed by additional reconciliation attempts.
-
-The runtime may cache the latest reconciliation on the outbox row for inspection, but the append-only history is the authoritative durable record of reconciliation attempts.
+The outbox row may cache the latest applicable reconciliation for inspection, but append-only histories are the durable causal record. Post-resolution observations do not overwrite that cached historical decision.
 
 ## Authority and payload-materialization boundary
 
 `DurableOutboundIntent.authority_commitment` is durable provenance only. It cannot recreate fresh execution authority after restart.
 
-Likewise, `ExecutionClaim` intentionally omits `command_bytes` and the durable authority commitment. Claiming queue work is not enough to obtain a provider-ready payload.
+`ExecutionClaim` intentionally omits `command_bytes` and the durable authority commitment. Claiming queue work is not enough to obtain a provider-ready payload.
 
-The intended INT-04 composition is:
+The intended INT-04 composition remains:
 
 ```text
 DurableOutboundIntent
-      |
       v
 ExecutionClaim / AttemptLease       INT-03
-      |
       + fresh CurrentExecutionAuthority
       + qualified provider execution/replay profile
       + exact command/target/attempt binding
       v
 provider payload materialization    INT-04
-      |
       v
 mark DispatchStarted
-      |
       v
 external dispatch
 ```
@@ -142,56 +163,38 @@ queue presence != permission to act
 
 ## Provider idempotency remains external
 
-The runtime can persist an idempotency key, but the existence of that key says nothing about whether a provider:
+The runtime may persist an idempotency key, but key presence does not prove the provider honors it, scopes it correctly, retains it long enough, exposes it for reconciliation, or returns semantically equivalent replay results.
 
-- honors it;
-- scopes it correctly;
-- retains it long enough;
-- exposes it for reconciliation;
-- returns the same semantic result on replay.
-
-Those properties belong to a versioned, qualified provider profile. Consequently crash recovery defaults to `ManualReview` rather than inferring `IdempotencyKey` reconciliation support from stored data.
+Those properties belong to a versioned qualified provider profile. Crash recovery therefore defaults to `ManualReview` rather than inferring idempotency support from persisted data.
 
 ## Storage evolution
 
-Runtime schema v2 adds prepared-attempt and dispatch state plus append-only histories.
+Runtime schema v2 adds prepared-attempt/dispatch state and append-only histories.
 
-The original reference schema had no `PRAGMA user_version` and encoded numeric stage `4` as `Executing`. In v2 numeric stage `4` is `AttemptPrepared`.
+The original reference schema had no `PRAGMA user_version` and encoded numeric stage `4` as `Executing`. In v2, numeric `4` means `AttemptPrepared`. Reinterpreting an old stage-4 row as merely prepared would be unsafe because the old representation cannot prove whether dispatch occurred, so migration maps legacy `Executing` conservatively to v2 `Ambiguous`.
 
-Reinterpreting an existing stage-4 row as merely prepared would be unsafe because the old database cannot prove whether external dispatch occurred. The migration therefore maps legacy `Executing` conservatively to v2 `Ambiguous`, clears its old worker/lease ownership, and requires reconciliation.
+Existing v2 numeric meanings are preserved as the vocabulary becomes more precise: the former definite provider-rejection slot maps to `RejectedBeforeCommit`; the newly distinguished `AuthorityDenied` receives a new numeric slot rather than reinterpreting old stored rows.
 
-```text
-legacy Executing
-    != v2 AttemptPrepared
-
-legacy Executing
-    -> v2 Ambiguous
-```
-
-Unknown future runtime schema versions fail closed rather than being interpreted under v2 semantics.
-
-## Bounded reference profile
-
-The SQLite implementation applies explicit v0.1 limits to inbound payloads, command material, serialized outcomes/reconciliations, and per-entry observation/reconciliation histories. These are reference implementation admission bounds, not immutable universal protocol constants.
-
-A future PostgreSQL/distributed implementation should satisfy the same behavioral contract while declaring its own compatible admission profile rather than redefining the causal semantics.
+Unknown future runtime schema versions fail closed.
 
 ## Qualification target
 
 Before INT-03 is promoted, exact-head hosted qualification should establish at least:
 
-1. identical inbound redelivery is idempotent, while content or normalization substitution is rejected;
-2. one command ID cannot be rebound to another connector or command representation;
-3. claims expose attempt metadata but not executable command bytes;
-4. pre-dispatch crash safely returns the work to the durable queue;
-5. post-dispatch crash becomes `Ambiguous` regardless of reversible/compensatable labeling;
-6. stale attempts cannot complete later attempts, including same-worker reuse;
-7. late results are preserved without erasing ambiguity;
-8. rejection/outcome/reconciliation records bind the exact logical operation;
-9. `StillAmbiguous` remains ambiguous and reconciliation history is append-only;
-10. finalization requires conclusive reconciliation;
-11. presence of an idempotency key does not create provider capability semantics;
-12. legacy `Executing` storage migrates to `Ambiguous` rather than `AttemptPrepared`;
-13. persisted state survives reopen under the versioned schema.
+1. inbound duplicate/id-collision semantics;
+2. immutable command/connector binding;
+3. non-materializing execution claims;
+4. pre-dispatch safe reclaim and post-dispatch ambiguity;
+5. exact attempt fencing, including same-worker reuse;
+6. exact-operation binding for every provider outcome;
+7. distinct `AuthorityDenied` and `RejectedBeforeCommit` semantics;
+8. shared bounded execution-observation history, including crash-generated ambiguity;
+9. `StillAmbiguous` preservation and append-only reconciliation;
+10. post-`Reconciled`/`Finalized` exact evidence remains appendable without state rewrite;
+11. the 1024-attempt budget persists across SQLite reopen and attempt 1025 fails with `AttemptBudgetExceeded`;
+12. `Confirmed`/`Ambiguous` require conclusive reconciliation before finalization, while proven no-effect paths can close directly;
+13. idempotency-key presence does not create provider capability semantics;
+14. legacy `Executing` storage migrates to `Ambiguous`, not `AttemptPrepared`;
+15. persisted state survives reopen under the versioned schema.
 
-A green hosted run establishes execution of that exact source under the workflow profile. It does not establish provider correctness, current execution authority, exactly-once effects, or physical postconditions.
+A green hosted run establishes execution of that exact source under the workflow profile. It does not establish provider correctness, current execution authority, exactly-once effects, or physical-world postconditions.
