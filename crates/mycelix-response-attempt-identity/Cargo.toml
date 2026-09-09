@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-response-attempt-identity"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Exact effect and attempt identity binding for Mycelix response admission"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-stability-fence = { path = "../mycelix-authority-coordinator-stability-fence" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-response-current-executor = { path = "../mycelix-response-current-executor" }
+mycelix-response-effect-safety = { path = "../mycelix-response-effect-safety" }

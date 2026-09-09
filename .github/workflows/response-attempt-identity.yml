@@ -1,0 +1,95 @@
+name: Response Attempt Identity
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-attempt-identity/**'
+      - 'crates/mycelix-response-current-executor/**'
+      - 'crates/mycelix-response-effect-safety/**'
+      - 'crates/mycelix-authority-coordinator-stability-fence/**'
+      - '.github/workflows/response-attempt-identity.yml'
+  push:
+    branches:
+      - 'response-authority-8-attempt-identity'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-attempt-identity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Stable effect key + exact attempt subject
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-response-attempt-identity/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-response-attempt-identity/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-response-attempt-identity/Cargo.toml --all-targets -- -D warnings
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-response-current-executor/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-stability-fence/Cargo.toml --all-targets
+      - name: Attempt identity boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-response-attempt-identity/src/lib.rs').read_text()
+          compact = ''.join(src.split())
+          lowered = src.lower()
+
+          for token in [
+              'pub struct PreparedResponseAttempt',
+              'pub fn prepare_response_attempt(',
+              'current.response_safety_qualification_digest() != safety.qualification_digest()',
+              'effect_identity_digest = effect_identity(safety)',
+              'response_current_executor_digest = current.qualification_digest()',
+              'CoordinatorAdmissionSubject {',
+              'subject_digest: current.qualification_digest().0',
+              'subject_profile: current.qualification_profile().into()',
+              'attempt_nonce',
+              'attempt_ref',
+              'now_ms.checked_add(max_attempt_lease_ms)',
+              'current.valid_until_ms().min(safety.valid_until_ms())',
+          ]:
+              assert token.replace(' ', '') in compact, token
+
+          effect = src.split('fn effect_identity(', 1)[1].split('fn attempt_identity(', 1)[0]
+          for required in ['proposal_digest()', 'decision_id()', 'option_id()', 'actions_digest()', 'adapter_profile()']:
+              assert required in effect, required
+          for forbidden in ['executor_authority_ref', 'qualification_digest', 'verified_at_ms', 'valid_until_ms']:
+              assert forbidden not in effect, forbidden
+
+          prefix = src.split('pub struct PreparedResponseAttempt', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          for positive in [
+              'exact_effect_identity_bound_here(&self) -> bool',
+              'coordinator_admission_subject_bound_here(&self) -> bool',
+          ]:
+              assert positive in src, positive
+          for negative in [
+              'attempt_identity_origin_verified_here(&self) -> bool',
+              'durably_reserved_here(&self) -> bool',
+              'coordinator_stability_fenced_here(&self) -> bool',
+              'coordinator_update_excluded_here(&self) -> bool',
+              'grants_execution_authority(&self) -> bool',
+          ]:
+              assert negative in src, negative
+
+          for forbidden in ['std::fs', '#[hdk_extern]', 'create_entry(', 'execute_actions(', 'perform_external_effect']:
+              assert forbidden not in lowered, forbidden
+          print('PASS: attempt identity binds exact effect and #298 subject without claiming durability or effect authority')
+          PY
