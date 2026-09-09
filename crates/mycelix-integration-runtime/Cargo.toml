@@ -6,7 +6,7 @@ license = "AGPL-3.0-or-later"
 description = "Durable inbox, outbox, lease recovery, and reconciliation runtime for Mycelix integrations"
 
 [lib]
-path = "src/v3.rs"
+path = "src/v31.rs"
 
 [dependencies]
 mycelix-integration-core = { path = "../mycelix-integration-core" }
