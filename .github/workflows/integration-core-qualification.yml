@@ -66,8 +66,8 @@ jobs:
           test -f "$constitution"
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
           grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
-          grep -Fq 'Every execution outcome MUST bind one exact logical operation' "$constitution"
-          grep -Fq 'Rejected` MUST mean definite denial/no intended effect' "$constitution"
+          grep -Fq 'Every provider execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Authority denial and provider rejection-before-commit MUST remain distinct' "$constitution"
           grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
           grep -Fq 'Idempotency MUST be a qualified provider property' "$constitution"
           grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
@@ -78,7 +78,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           manifest='crates/mycelix-integration-core/Cargo.toml'
           source='crates/mycelix-integration-core/src'
 
@@ -95,52 +94,59 @@ jobs:
             exit 1
           fi
 
-      - name: Enforce reconciliation-before-finalization state machines
+      - name: Enforce completion and finalization semantics
         shell: bash
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-core/src/lib.rs'
-          rejected_test='crates/mycelix-integration-core/tests/rejected_terminal.rs'
+          terminal_test='crates/mycelix-integration-core/tests/rejected_terminal.rs'
 
           if grep -Fq '(DomainAccepted, Finalized)' "$source"; then
             echo 'Inbound state machine permits DomainAccepted -> Finalized without reconciliation.'
             exit 1
           fi
 
-          if grep -Fq '(Confirmed, Finalized)' "$source"; then
-            echo 'Outbound state machine permits Confirmed -> Finalized without reconciliation.'
+          if grep -Fq '(Confirmed, Finalized)' "$source" || grep -Fq '(Ambiguous, Finalized)' "$source"; then
+            echo 'Effectful or uncertain outbound completion bypasses reconciliation.'
             exit 1
           fi
 
           grep -Fq '(DomainAccepted, Reconciled)' "$source"
           grep -Fq '(Confirmed, Reconciled)' "$source"
           grep -Fq '(Ambiguous, Reconciled)' "$source"
+          grep -Fq '(AuthorityDenied, Finalized)' "$source"
+          grep -Fq '(RejectedBeforeCommit, Finalized)' "$source"
           grep -Fq '(Reconciled, Finalized)' "$source"
           grep -Fq 'StillAmbiguous' "$source"
           grep -Fq 'pub fn is_conclusive' "$source"
-          test -f "$rejected_test"
-          grep -Fq 'rejected_is_a_terminal_no_effect_or_denial_stage' "$rejected_test"
-          grep -Fq 'OutboundStage::Rejected.allows_transition_to(OutboundStage::Reconciled)' "$rejected_test"
-          grep -Fq 'OutboundStage::Rejected.allows_transition_to(OutboundStage::Finalized)' "$rejected_test"
 
-      - name: Enforce claim-before-dispatch boundary
+          test -f "$terminal_test"
+          grep -Fq 'denial_and_before_commit_rejection_are_distinct_terminal_no_effect_paths' "$terminal_test"
+          grep -Fq 'OutboundStage::AuthorityDenied' "$terminal_test"
+          grep -Fq 'OutboundStage::RejectedBeforeCommit' "$terminal_test"
+
+      - name: Enforce denial claim dispatch boundary
         shell: bash
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-core/src/lib.rs'
 
+          grep -Fq '(AuthorityChecked, AuthorityDenied)' "$source"
+          grep -Fq '(AuthorityDenied, Finalized)' "$source"
           grep -Fq '(Approved, OutboxCommitted)' "$source"
           grep -Fq '(OutboxCommitted, AttemptPrepared)' "$source"
           grep -Fq '(AttemptPrepared, OutboxCommitted)' "$source"
           grep -Fq '(AttemptPrepared, DispatchStarted)' "$source"
           grep -Fq '(DispatchStarted, Confirmed)' "$source"
-          grep -Fq '(DispatchStarted, Rejected)' "$source"
+          grep -Fq '(DispatchStarted, RejectedBeforeCommit)' "$source"
           grep -Fq '(DispatchStarted, Ambiguous)' "$source"
 
-          if grep -Fq '(Approved, DispatchStarted)' "$source" || \
+          if grep -Fq '(AuthorityChecked, RejectedBeforeCommit)' "$source" || \
+             grep -Fq '(Approved, DispatchStarted)' "$source" || \
              grep -Fq '(OutboxCommitted, DispatchStarted)' "$source" || \
-             grep -Fq '(AttemptPrepared, Confirmed)' "$source"; then
-            echo 'Outbound state machine permits dispatch/result without the required attempt boundary.'
+             grep -Fq '(AttemptPrepared, Confirmed)' "$source" || \
+             grep -Fq '(AttemptPrepared, RejectedBeforeCommit)' "$source"; then
+            echo 'Outbound state machine conflates denial, claim, dispatch, or provider rejection.'
             exit 1
           fi
 
@@ -151,7 +157,7 @@ jobs:
           source='crates/mycelix-integration-core/src/lib.rs'
 
           grep -Fq 'id_type!(ExecutionAttemptId)' "$source"
-          grep -Fq 'Rejected {' "$source"
+          grep -Fq 'RejectedBeforeCommit {' "$source"
           grep -Fq 'operation: ExternalOperationRef' "$source"
           grep -Fq 'pub fn operation(&self) -> &ExternalOperationRef' "$source"
           grep -Fq 'requires_reconciliation_if_ambiguous' "$source"

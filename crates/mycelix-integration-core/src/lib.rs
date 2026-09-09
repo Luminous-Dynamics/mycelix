@@ -362,11 +362,17 @@ pub struct ExternalRejection {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "outcome", content = "data", rename_all = "snake_case")]
 pub enum ExternalExecutionOutcome {
+    /// Provider semantics establish a successful/committed operation. This is
+    /// still not a physical-world postcondition.
     Confirmed(ExternalReceipt),
-    Rejected {
+    /// The provider conclusively rejected the exact operation before committing
+    /// any external effect. If that cannot be established, use `Ambiguous`.
+    RejectedBeforeCommit {
         operation: ExternalOperationRef,
         reason: ExternalRejection,
     },
+    /// The transport/provider interaction cannot establish whether an effect
+    /// occurred. Unknown must be preserved until qualified reconciliation.
     Ambiguous {
         operation: ExternalOperationRef,
         reconciliation_hint: ReconciliationHint,
@@ -378,7 +384,9 @@ impl ExternalExecutionOutcome {
     pub fn operation(&self) -> &ExternalOperationRef {
         match self {
             Self::Confirmed(receipt) => &receipt.operation,
-            Self::Rejected { operation, .. } | Self::Ambiguous { operation, .. } => operation,
+            Self::RejectedBeforeCommit { operation, .. } | Self::Ambiguous { operation, .. } => {
+                operation
+            }
         }
     }
 
@@ -480,12 +488,13 @@ impl InboundStage {
 pub enum OutboundStage {
     Proposed,
     AuthorityChecked,
+    AuthorityDenied,
     Approved,
     OutboxCommitted,
     AttemptPrepared,
     DispatchStarted,
     Confirmed,
-    Rejected,
+    RejectedBeforeCommit,
     Ambiguous,
     Reconciled,
     Finalized,
@@ -494,23 +503,26 @@ pub enum OutboundStage {
 impl OutboundStage {
     pub fn allows_transition_to(self, next: Self) -> bool {
         use OutboundStage::{
-            Ambiguous, Approved, AttemptPrepared, AuthorityChecked, Confirmed, DispatchStarted,
-            Finalized, OutboxCommitted, Proposed, Reconciled, Rejected,
+            Ambiguous, Approved, AttemptPrepared, AuthorityChecked, AuthorityDenied, Confirmed,
+            DispatchStarted, Finalized, OutboxCommitted, Proposed, Reconciled,
+            RejectedBeforeCommit,
         };
 
         matches!(
             (self, next),
             (Proposed, AuthorityChecked)
                 | (AuthorityChecked, Approved)
-                | (AuthorityChecked, Rejected)
+                | (AuthorityChecked, AuthorityDenied)
+                | (AuthorityDenied, Finalized)
                 | (Approved, OutboxCommitted)
                 | (OutboxCommitted, AttemptPrepared)
                 | (AttemptPrepared, OutboxCommitted)
                 | (AttemptPrepared, DispatchStarted)
                 | (DispatchStarted, Confirmed)
-                | (DispatchStarted, Rejected)
+                | (DispatchStarted, RejectedBeforeCommit)
                 | (DispatchStarted, Ambiguous)
                 | (Confirmed, Reconciled)
+                | (RejectedBeforeCommit, Finalized)
                 | (Ambiguous, Reconciled)
                 | (Reconciled, Finalized)
         )
@@ -740,7 +752,7 @@ mod tests {
 
     #[test]
     fn trust_state_cannot_move_backwards_or_skip_reconciliation_after_verified() {
-        assert!(ExternalTrustState::Observed.allows_transition_to(ExternalTrustState::Verified));
+        assert!(ExternalTrustState::Observed.allows_transition_to(ExternalTrustState::Authenticated));
         assert!(
             ExternalTrustState::Verified.allows_transition_to(ExternalTrustState::Reconciled)
         );
@@ -750,7 +762,7 @@ mod tests {
 
     #[test]
     fn every_execution_outcome_binds_exact_operation() {
-        let rejected = ExternalExecutionOutcome::Rejected {
+        let rejected = ExternalExecutionOutcome::RejectedBeforeCommit {
             operation: operation("cmd-rejected"),
             reason: ExternalRejection {
                 code: id("declined", ExternalRejectionCode::new),
@@ -816,7 +828,12 @@ mod tests {
     }
 
     #[test]
-    fn outbound_state_machine_separates_claim_from_dispatch() {
+    fn outbound_state_machine_separates_denial_claim_dispatch_and_commit_uncertainty() {
+        assert!(OutboundStage::Proposed.allows_transition_to(OutboundStage::AuthorityChecked));
+        assert!(OutboundStage::AuthorityChecked.allows_transition_to(OutboundStage::AuthorityDenied));
+        assert!(!OutboundStage::AuthorityDenied.allows_transition_to(OutboundStage::OutboxCommitted));
+        assert!(OutboundStage::AuthorityDenied.allows_transition_to(OutboundStage::Finalized));
+
         assert!(OutboundStage::Approved.allows_transition_to(OutboundStage::OutboxCommitted));
         assert!(OutboundStage::OutboxCommitted.allows_transition_to(OutboundStage::AttemptPrepared));
         assert!(!OutboundStage::OutboxCommitted.allows_transition_to(OutboundStage::DispatchStarted));
@@ -824,15 +841,20 @@ mod tests {
         assert!(OutboundStage::AttemptPrepared.allows_transition_to(OutboundStage::DispatchStarted));
         assert!(!OutboundStage::AttemptPrepared.allows_transition_to(OutboundStage::Confirmed));
         assert!(OutboundStage::DispatchStarted.allows_transition_to(OutboundStage::Confirmed));
+        assert!(
+            OutboundStage::DispatchStarted.allows_transition_to(OutboundStage::RejectedBeforeCommit)
+        );
         assert!(OutboundStage::DispatchStarted.allows_transition_to(OutboundStage::Ambiguous));
         assert!(!OutboundStage::Ambiguous.allows_transition_to(OutboundStage::DispatchStarted));
     }
 
     #[test]
-    fn outbound_finalization_requires_conclusive_reconciliation_stage() {
+    fn only_effectful_or_uncertain_completion_requires_reconciliation() {
         assert!(OutboundStage::Confirmed.allows_transition_to(OutboundStage::Reconciled));
         assert!(!OutboundStage::Confirmed.allows_transition_to(OutboundStage::Finalized));
         assert!(OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Reconciled));
+        assert!(!OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Finalized));
+        assert!(OutboundStage::RejectedBeforeCommit.allows_transition_to(OutboundStage::Finalized));
         assert!(OutboundStage::Reconciled.allows_transition_to(OutboundStage::Finalized));
     }
 
