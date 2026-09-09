@@ -69,6 +69,7 @@ jobs:
           test -f "$constitution"
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
           grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
+          grep -Fq 'Rejected` MUST mean definite denial/no intended effect' "$constitution"
           grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
           grep -Fq 'Reconciliation observations MUST be append-only and non-conclusive by default' "$constitution"
           grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
@@ -137,6 +138,18 @@ jobs:
           grep -Fq 'rejected_outcome_for_another_operation_is_rejected' "$source"
           grep -Fq 'RecordedForStaleAttempt' "$source"
           grep -Fq 'late_response_after_post_dispatch_timeout_is_evidence_not_state_rewrite' "$source"
+
+      - name: Enforce terminal rejection without fabricated reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rejected_test='crates/mycelix-integration-runtime/tests/rejected_terminal.rs'
+          test -f "$rejected_test"
+          grep -Fq 'definite_rejection_is_terminal_without_fabricated_reconciliation' "$rejected_test"
+          grep -Fq 'OutboundStage::Rejected' "$rejected_test"
+          grep -Fq 'OutboundStage::Reconciled' "$rejected_test"
+          grep -Fq 'reconciliation_history(entry_id)' "$rejected_test"
+          grep -Fq 'OutboundStage::Finalized' "$rejected_test"
 
       - name: Enforce unknown preservation and append-only reconciliation
         shell: bash
