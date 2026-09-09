@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: b3e07217e2915cc6706ba8ebe997a0b7d3cc8add
+          fetch-depth: 2
           submodules: recursive
           persist-credentials: false
       - name: Bind exact candidate head
