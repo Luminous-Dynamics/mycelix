@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -60,8 +61,35 @@ def verify_manifest_binding(failures: list[str], kind: str, binding: dict) -> No
     path = checked_manifest_path(binding["path"])
     manifest = load_toml(path)
     deps = manifest.get("dependencies", {})
+
+    lock_path = binding.get("lock_path")
+    lock_sha256 = binding.get("lock_sha256")
+    if (lock_path is None) != (lock_sha256 is None):
+        failures.append(
+            f"{kind}:{binding['path']}: lock_path and lock_sha256 must be declared together"
+        )
+    elif lock_path is not None:
+        if not isinstance(lock_path, str) or not isinstance(lock_sha256, str):
+            failures.append(f"{kind}:{binding['path']}: invalid lock binding")
+        elif not re.fullmatch(r"[0-9a-f]{64}", lock_sha256):
+            failures.append(f"{kind}:{binding['path']}: lock_sha256 must be 64 lowercase hex")
+        else:
+            try:
+                lock = checked_manifest_path(lock_path)
+                if not lock.is_file():
+                    failures.append(f"{kind}:{binding['path']}: missing bound lock {lock_path}")
+                else:
+                    require_equal(
+                        failures,
+                        f"{kind}:{binding['path']}:lock_sha256",
+                        hashlib.sha256(lock.read_bytes()).hexdigest(),
+                        lock_sha256,
+                    )
+            except (OSError, ValueError) as exc:
+                failures.append(f"{kind}:{binding['path']}: cannot verify lock: {exc}")
+
     for name, want in binding.items():
-        if name in {"path", "reason"}:
+        if name in {"path", "reason", "lock_path", "lock_sha256"}:
             continue
         require_equal(
             failures,

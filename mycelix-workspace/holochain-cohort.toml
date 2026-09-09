@@ -57,7 +57,9 @@ holochain_conductor_api = "0.5"
 
 [[quarantine]]
 path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
-reason = "Pulse backend is version-aligned with the canonical Rust 0.6.1/0.8.1 cohort, but stub-mode tests do not prove live conductor/API compatibility; keep it quarantined until that runtime boundary is qualified."
+reason = "Pulse backend is version-aligned with the canonical Rust 0.6.1/0.8.1 cohort and now binds a sealed Cargo.lock, but stub-mode tests do not prove live conductor/API compatibility; keep it quarantined until that runtime boundary is qualified."
+lock_path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock"
+lock_sha256 = "73f4b3654724c25736db619d41af0c2cb138a46d19c7553983d47885940c9c45"
 holochain_client = "0.8.1"
 holochain_types = "0.6.1"
 holochain_zome_types = "0.6.1"

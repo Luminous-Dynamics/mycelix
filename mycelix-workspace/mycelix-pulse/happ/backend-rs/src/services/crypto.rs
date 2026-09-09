@@ -617,8 +617,8 @@ mod tests {
         let kp = DilithiumKeyPair::generate();
         let message = b"Test message for Dilithium signing";
         let signature = kp.sign(message);
-        // Dilithium3 signature is 3293 bytes
-        assert_eq!(signature.len(), 3293);
+        // Bind to the exact pqcrypto-dilithium wire contract selected by Cargo.lock.
+        assert_eq!(signature.len(), dilithium3::signature_bytes());
 
         let valid = verify_dilithium3(message, &signature, &kp.public_bytes()).unwrap();
         assert!(valid, "Valid signature must verify");

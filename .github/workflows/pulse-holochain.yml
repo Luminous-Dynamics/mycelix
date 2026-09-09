@@ -92,6 +92,8 @@ jobs:
     env:
       JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
       HOLOCHAIN_STUB_MODE: 'true'
+      CREDENTIAL_ENCRYPTION_SECRET: ci-credential-encryption-secret-at-least-32-characters-long
+      MYCELIX_DATA_DIR: ${{ runner.temp }}/pulse-backend-data
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -112,9 +114,17 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2 / 2.9.2
         with:
           workspaces: mycelix-workspace/mycelix-pulse/happ/backend-rs
+      - name: Bind committed Pulse backend lock
+        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        run: |
+          test -s Cargo.lock
+          sha256sum Cargo.lock > "$RUNNER_TEMP/pulse-backend-lock.sha256"
       - name: Backend tests
         working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
-        run: cargo test
+        run: cargo test --locked
+      - name: Verify Pulse backend lock unchanged
+        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        run: sha256sum --check "$RUNNER_TEMP/pulse-backend-lock.sha256"
 
   pulse-cohort:
     name: Holochain compatibility contract
@@ -132,7 +142,7 @@ jobs:
           echo "Expected qualification head: $EXPECTED_HEAD_SHA"
           echo "Checked-out qualification head: $actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - name: Verify Rust, Nix, Pulse, and quarantine bindings
+      - name: Verify Rust, Nix, Pulse, quarantine, and lock bindings
         run: python3 .github/scripts/check_holochain_cohort.py
 
   pulse-ci-pass:
