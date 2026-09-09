@@ -1,0 +1,134 @@
+name: Position Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-position/**'
+      - '.github/workflows/position-qualification.yml'
+  push:
+    paths:
+      - 'mycelix-position/**'
+      - '.github/workflows/position-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-position:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Pull requests must qualify the exact branch head, not GitHub's synthetic
+      # merge commit. Push/manual runs naturally fall back to github.sha.
+      QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    defaults:
+      run:
+        working-directory: mycelix-position
+    steps:
+      # Pin every reusable action by full commit SHA. The trailing version
+      # comment is informational only; the SHA is the authority.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: mycelix-position
+
+      - name: Capture qualification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "qualification_subject_sha=${QUALIFICATION_SUBJECT_SHA}"
+          echo "qualification_base_sha=${QUALIFICATION_BASE_SHA}"
+          echo "github_runtime_sha=${GITHUB_SHA}"
+          echo "qualification_workflow_ref=${GITHUB_WORKFLOW_REF}"
+          echo "runner_os=${RUNNER_OS}"
+          echo "runner_arch=${RUNNER_ARCH}"
+          echo "pure_wasm_profile=wasm32-unknown-unknown"
+          echo "holochain_guest_wasm_profile=wasm32-unknown-unknown+getrandom_backend:custom"
+          echo "--- checked out commit ---"
+          git rev-parse HEAD
+          echo "--- /etc/os-release ---"
+          cat /etc/os-release
+          echo "--- rustc ---"
+          rustc --version --verbose
+          echo "--- cargo ---"
+          cargo --version --verbose
+          echo "--- rustup ---"
+          rustup --version
+          rustup show active-toolchain
+          echo "--- committed inputs ---"
+          sha256sum Cargo.lock
+          sha256sum rust-toolchain.toml
+          sha256sum ../.github/workflows/position-qualification.yml
+
+      - name: Check formatting of changed Rust files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${QUALIFICATION_BASE_SHA}"
+          if [[ -z "${base}" || "${base}" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^)"
+          fi
+
+          mapfile -t changed_rs < <(
+            git diff --name-only --diff-filter=ACMR "${base}" "${QUALIFICATION_SUBJECT_SHA}" -- mycelix-position \
+              | grep '\.rs$' || true
+          )
+
+          if [[ ${#changed_rs[@]} -eq 0 ]]; then
+            echo "No Rust source files changed in this tranche."
+            exit 0
+          fi
+
+          printf 'Rust files subject to formatting qualification:\n'
+          printf '  %s\n' "${changed_rs[@]}"
+
+          cargo fmt --all
+
+          if ! git diff --exit-code -- "${changed_rs[@]}"; then
+            echo "Changed Rust files are not formatted by the pinned rustfmt toolchain." >&2
+            exit 1
+          fi
+
+          # cargo fmt may expose unrelated historical style debt outside this
+          # tranche. Restore the exact subject before runtime qualification;
+          # those files are not silently included in the code under test.
+          git restore --worktree --source=HEAD -- .
+
+      - name: Check native workspace
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Test native workspace
+        run: cargo test --workspace --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The pure mathematical crate makes a stronger portability claim than the
+      # Holochain zomes: it must compile for bare wasm32-unknown-unknown without
+      # browser, WASI, or Holochain-specific randomness assumptions.
+      - name: Check pure positioning WASM
+        run: cargo check -p positioning --target wasm32-unknown-unknown --locked
+
+      # Holochain zomes run in the conductor's guest environment, not a browser
+      # or WASI runtime. Current Holochain build guidance selects getrandom's
+      # custom backend for wasm32-unknown-unknown zome builds. Keep that runtime
+      # profile scoped to the Holochain side so it cannot weaken the pure-crate
+      # portability theorem above.
+      - name: Check Holochain guest WASM
+        env:
+          RUSTFLAGS: '--cfg getrandom_backend="custom"'
+        run: cargo check --workspace --exclude positioning --target wasm32-unknown-unknown --locked
