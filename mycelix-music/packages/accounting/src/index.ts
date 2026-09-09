@@ -11,3 +11,4 @@ export * from './interop.js';
 export * from './recovery.js';
 export * from './projection.js';
 export * from './legacy.js';
+export * from './disclosure.js';
