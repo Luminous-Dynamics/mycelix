@@ -8,6 +8,7 @@
 //! - **K-Vector**: 8-dimensional trust representation
 //! - **E/N/M/H Classification**: Epistemic classification system
 //! - **Planetary Evidence**: Dependency-light environmental evidence payloads
+//! - **Planetary Lineage**: Validated provenance DAGs for derived/model products
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
 //! - **WisdomEngine**: Full Stack Wisdom / Holistic Epistemics architecture with
@@ -153,6 +154,7 @@ pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod planetary_evidence;
+pub mod planetary_lineage;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -162,6 +164,7 @@ pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use planetary_evidence::*;
+pub use planetary_lineage::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
