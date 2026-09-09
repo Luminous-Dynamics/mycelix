@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-response-attempt-store"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Crash-durable Linux reservation store for exact Mycelix response attempts"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-response-attempt-identity = { path = "../mycelix-response-attempt-identity" }
+mycelix-response-current-executor = { path = "../mycelix-response-current-executor" }
+mycelix-response-effect-safety = { path = "../mycelix-response-effect-safety" }
