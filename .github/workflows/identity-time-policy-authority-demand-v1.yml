@@ -1,0 +1,106 @@
+name: Identity Time Policy Authority Demand V1
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-demand-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/**'
+      - '.github/workflows/identity-time-policy-authority-demand-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-demand-policy/**'
+      - '.github/workflows/identity-time-policy-authority-demand-v1.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-authority-demand-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert demand-only convergence boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-demand-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          assert member in workspace, member
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-policy-authority-anchored-authenticated-lineage-policy',
+              'mycelix-historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy',
+              'mycelix-historical-activation-time-authority-policy-generic-authority-subject-mapping-policy',
+              'mycelix-historical-activation-time-authority-policy-terminal-candidate-policy',
+              'sha2',
+          }
+          assert set(deps) == expected, sorted(deps)
+
+          src = (root / member / 'src/lib.rs').read_text()
+          production = src[:src.index('#[cfg(test)]')]
+          required = [
+              'QualifiedHistoricalActivationTimePolicyAuthorityDemandV1',
+              'HistoricalTimePolicyAuthorityDemandV1',
+              'CurrentTimeAuthorityPolicyDemandV1',
+              'lineage.requirements()',
+              'mapping.source_signer_subject_sha256()',
+              'MissingSignerMapping',
+              'ExtraSignerMapping',
+              'DuplicateSignerMapping',
+              'terminal_candidate.lineage_qualification_digest_sha256()',
+              'terminal_candidate.generic_policy_mapping_digest_sha256()',
+              'terminal_mapping.generic_identity_digest()',
+              'GENERIC_SIGNING_POLICY_KIND_V1',
+              'derive_demand_digest_v1(',
+          ]
+          for token in required:
+              assert token in production, token
+
+          lowered = production.lower()
+          for forbidden in [
+              'mycelix_authority_', 'mycelix-authority-',
+              'authoritysubjectref', 'authoritysubjectkind',
+              'qualifiedhistoricaloperationalauthority',
+              'qualifiedcurrentoperationalauthority',
+              'verifiedauthorityfreshness',
+              'is_authorized', 'accepted_policy', 'current_policy = true',
+              '#[hdk_extern]', 'hdk::', 'sys_time(', 'std::time',
+              'verify_strict', '.verify(', 'max_by_key', 'latest', 'newest',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          assert 'MAX_HISTORICAL_AUTHORITY_DEMANDS_V1: usize = 4096' in production
+          print('PASS: Identity emits a closed demand set without importing or claiming generic authority')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-demand-policy/Cargo.toml -- --check
+
+      - name: Test authority demand theorem
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-demand-policy/Cargo.toml
+
+      - name: Check authority demand theorem for wasm32
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-demand-policy/Cargo.toml --target wasm32-unknown-unknown
