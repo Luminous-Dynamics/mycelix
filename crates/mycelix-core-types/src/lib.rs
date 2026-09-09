@@ -10,6 +10,7 @@
 //! - **Planetary Evidence**: Dependency-light environmental evidence payloads
 //! - **Planetary Lineage**: Validated provenance DAGs for derived/model products
 //! - **Planetary Attestations**: Digest-bound claims about evidence and lineage
+//! - **Attestation Canonicalization**: Deterministic signing preimage for attestations
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
 //! - **WisdomEngine**: Full Stack Wisdom / Holistic Epistemics architecture with
@@ -154,6 +155,7 @@ pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
 pub mod planetary_attestation;
+pub mod planetary_attestation_canonical;
 pub mod planetary_evidence;
 pub mod planetary_lineage;
 pub mod planetary_product;
@@ -166,6 +168,7 @@ pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
 pub use planetary_attestation::*;
+pub use planetary_attestation_canonical::*;
 pub use planetary_evidence::*;
 pub use planetary_lineage::*;
 pub use planetary_product::*;
