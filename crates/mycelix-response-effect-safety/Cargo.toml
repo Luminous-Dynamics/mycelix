@@ -1,0 +1,28 @@
+[package]
+name = "mycelix-response-effect-safety"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure composition of qualified Mycelix response execution intent with current effect-safety policy"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+mycelix-response-execution-intent = { path = "../mycelix-response-execution-intent" }
+mycelix-effect-safety = { path = "../mycelix-effect-safety" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+
+[dev-dependencies]
+mycelix-response-authority-binding = { path = "../mycelix-response-authority-binding" }
+mycelix-response-executor-coverage = { path = "../mycelix-response-executor-coverage" }
+mycelix-governance-executor-provider-contract = { path = "../mycelix-governance-executor-provider-contract" }
+mycelix-execution-action-digest = { path = "../mycelix-execution-action-digest" }
+mycelix-core-types = { path = "../mycelix-core-types", features = ["serde"] }
+mycelix-authority-identity = { path = "../mycelix-authority-identity" }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
+mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
