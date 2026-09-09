@@ -72,6 +72,7 @@ pub mod scientific_events;
 pub mod scientific_governance;
 pub mod scientific_governance_quorum;
 pub mod semantic;
+pub mod spectroscopy_dkg;
 
 // Advanced epistemic modules (Phase 2 - v0.4.0)
 pub mod bayesian;
@@ -225,6 +226,13 @@ pub use scientific_events::{
     SCIENTIFIC_EVENT_CODEC, SCIENTIFIC_EVENT_PROTOCOL, SCIENTIFIC_EVENT_PROTOCOL_VERSION,
     SCIENTIFIC_EVENT_SCHEMA_VERSION, ScientificEventEnvelope, ScientificEventId,
     ScientificEventLog, ScientificEventPayload, SignedScientificEvent, StreamHead,
+};
+
+// Symthaea spectroscopy / epistemic-DKG transport
+pub use spectroscopy_dkg::{
+    SPECTROSCOPY_DKG_PROTOCOL, SPECTROSCOPY_DKG_SCHEMA_VERSION, SpectroscopyDkgBundle,
+    SpectroscopyDkgEdge, SpectroscopyDkgError, SpectroscopyDkgNode, SpectroscopyNodeKind,
+    SpectroscopyProvenance, SpectroscopyRelation,
 };
 
 pub use legacy_migration::{
