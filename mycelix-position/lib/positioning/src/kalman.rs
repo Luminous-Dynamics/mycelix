@@ -11,6 +11,10 @@
 //! use and commit state transactionally only after the candidate result passes
 //! numerical validation.
 //!
+//! Covariance validity is stronger than finite entries plus non-negative
+//! diagonal terms: checked authority paths explicitly qualify the complete
+//! symmetric matrix as positive semidefinite within a declared tolerance.
+//!
 //! Important: this filter assumes conditionally independent measurement noise.
 //! Unknown cross-correlated peer state estimates should be fused with
 //! covariance-bounding methods such as Covariance Intersection before or
@@ -22,6 +26,15 @@ use serde::{Deserialize, Serialize};
 const STATE_DIM: usize = 6;
 const COVARIANCE_LEN: usize = STATE_DIM * STATE_DIM;
 const SYMMETRY_TOLERANCE: f64 = 1e-9;
+/// Relative tolerance used to distinguish numerical roundoff from a materially
+/// negative covariance eigenvalue.
+const PSD_RELATIVE_TOLERANCE: f64 = 1e-10;
+/// Absolute floor for PSD classification when covariance scale is very small.
+const PSD_ABSOLUTE_TOLERANCE: f64 = 1e-12;
+/// Relative off-diagonal convergence target for the deterministic symmetric
+/// Jacobi eigensolver used only for covariance qualification.
+const JACOBI_RELATIVE_TOLERANCE: f64 = 1e-12;
+const JACOBI_MAX_ROTATIONS: usize = 256;
 
 fn idx(row: usize, col: usize) -> usize {
     row * STATE_DIM + col
@@ -74,6 +87,33 @@ pub enum FilterUpdateOutcome {
     SourceRejected,
 }
 
+/// Explicit PSD qualification for a covariance matrix.
+///
+/// `NearSingular` is still mathematically admissible as PSD within tolerance;
+/// it is deliberately distinct from estimator/geometry conditioning, which is
+/// a separate Q4 contract. `Indeterminate` means the bounded eigensolver could
+/// not establish a spectrum and therefore authority-facing validation fails
+/// closed.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum CovariancePsdStatus {
+    Valid {
+        min_eigenvalue: f64,
+        max_eigenvalue: f64,
+        tolerance: f64,
+    },
+    NearSingular {
+        min_eigenvalue: f64,
+        max_eigenvalue: f64,
+        tolerance: f64,
+    },
+    Indeterminate,
+    Invalid {
+        min_eigenvalue: f64,
+        max_eigenvalue: f64,
+        tolerance: f64,
+    },
+}
+
 /// Typed errors for authority-facing EKF operations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FilterError {
@@ -85,6 +125,8 @@ pub enum FilterError {
     AsymmetricCovariance,
     NegativeVariance { index: usize, value: f64 },
     CovarianceLimitExceeded { index: usize, value: f64, max: f64 },
+    IndefiniteCovariance { min_eigenvalue: f64, tolerance: f64 },
+    CovarianceQualificationIndeterminate,
     InvalidTimeStep { dt: f64 },
     InvalidMeasurement { field: &'static str, value: f64 },
     InvalidAnchor { component: usize, value: f64 },
@@ -104,14 +146,28 @@ impl std::fmt::Display for FilterError {
             }
             Self::NonFiniteState => write!(f, "filter state contains non-finite values"),
             Self::NonFiniteCovariance => write!(f, "filter covariance contains non-finite values"),
-            Self::AsymmetricCovariance => write!(f, "filter covariance is not symmetric within tolerance"),
+            Self::AsymmetricCovariance => {
+                write!(f, "filter covariance is not symmetric within tolerance")
+            }
             Self::NegativeVariance { index, value } => {
                 write!(f, "covariance diagonal {index} is negative: {value}")
             }
             Self::CovarianceLimitExceeded { index, value, max } => {
                 write!(f, "covariance diagonal {index}={value} exceeds configured maximum {max}")
             }
-            Self::InvalidTimeStep { dt } => write!(f, "time step must be finite and positive, got {dt}"),
+            Self::IndefiniteCovariance {
+                min_eigenvalue,
+                tolerance,
+            } => write!(
+                f,
+                "covariance is indefinite: minimum eigenvalue {min_eigenvalue} is below -{tolerance}"
+            ),
+            Self::CovarianceQualificationIndeterminate => {
+                write!(f, "covariance PSD qualification did not converge")
+            }
+            Self::InvalidTimeStep { dt } => {
+                write!(f, "time step must be finite and positive, got {dt}")
+            }
             Self::InvalidMeasurement { field, value } => {
                 write!(f, "invalid measurement field {field}: {value}")
             }
@@ -145,7 +201,7 @@ fn validate_config(config: &FilterConfig) -> Result<(), FilterError> {
     Ok(())
 }
 
-fn validate_covariance(covariance: &[f64], max: f64) -> Result<(), FilterError> {
+fn validate_covariance_structure(covariance: &[f64], max: f64) -> Result<(), FilterError> {
     if covariance.len() != COVARIANCE_LEN {
         return Err(FilterError::InvalidCovarianceShape {
             have: covariance.len(),
@@ -180,6 +236,153 @@ fn validate_covariance(covariance: &[f64], max: f64) -> Result<(), FilterError> 
         }
     }
     Ok(())
+}
+
+fn covariance_psd_status(covariance: &[f64]) -> CovariancePsdStatus {
+    let mut matrix = [0.0_f64; COVARIANCE_LEN];
+    matrix.copy_from_slice(covariance);
+
+    let matrix_scale = matrix
+        .iter()
+        .fold(0.0_f64, |scale, value| scale.max(value.abs()));
+    let convergence_tolerance =
+        JACOBI_RELATIVE_TOLERANCE * matrix_scale.max(1.0);
+
+    let mut converged = false;
+    for _ in 0..JACOBI_MAX_ROTATIONS {
+        let mut p = 0;
+        let mut q = 1;
+        let mut max_off_diagonal = 0.0_f64;
+        for row in 0..STATE_DIM {
+            for col in (row + 1)..STATE_DIM {
+                let value = matrix[idx(row, col)].abs();
+                if value > max_off_diagonal {
+                    max_off_diagonal = value;
+                    p = row;
+                    q = col;
+                }
+            }
+        }
+
+        if !max_off_diagonal.is_finite() {
+            return CovariancePsdStatus::Indeterminate;
+        }
+        if max_off_diagonal <= convergence_tolerance {
+            converged = true;
+            break;
+        }
+
+        let app = matrix[idx(p, p)];
+        let aqq = matrix[idx(q, q)];
+        let apq = matrix[idx(p, q)];
+        if !app.is_finite() || !aqq.is_finite() || !apq.is_finite() || apq == 0.0 {
+            return CovariancePsdStatus::Indeterminate;
+        }
+
+        // For a real symmetric matrix, a Jacobi rotation with
+        // theta = 0.5 * atan2(2*apq, aqq-app) diagonalizes the selected 2×2
+        // plane. The equivalent atan2 form below avoids explicitly doubling
+        // apq, which keeps extreme finite inputs from overflowing merely while
+        // computing the angle.
+        let theta = 0.5 * apq.atan2(0.5 * (aqq - app));
+        let c = theta.cos();
+        let s = theta.sin();
+        if !c.is_finite() || !s.is_finite() {
+            return CovariancePsdStatus::Indeterminate;
+        }
+
+        for k in 0..STATE_DIM {
+            if k == p || k == q {
+                continue;
+            }
+            let akp = matrix[idx(k, p)];
+            let akq = matrix[idx(k, q)];
+            let new_kp = c * akp - s * akq;
+            let new_kq = s * akp + c * akq;
+            if !new_kp.is_finite() || !new_kq.is_finite() {
+                return CovariancePsdStatus::Indeterminate;
+            }
+            matrix[idx(k, p)] = new_kp;
+            matrix[idx(p, k)] = new_kp;
+            matrix[idx(k, q)] = new_kq;
+            matrix[idx(q, k)] = new_kq;
+        }
+
+        let c2 = c * c;
+        let s2 = s * s;
+        let sc2 = 2.0 * s * c;
+        let new_app = c2 * app - sc2 * apq + s2 * aqq;
+        let new_aqq = s2 * app + sc2 * apq + c2 * aqq;
+        if !new_app.is_finite() || !new_aqq.is_finite() {
+            return CovariancePsdStatus::Indeterminate;
+        }
+        matrix[idx(p, p)] = new_app;
+        matrix[idx(q, q)] = new_aqq;
+        matrix[idx(p, q)] = 0.0;
+        matrix[idx(q, p)] = 0.0;
+    }
+
+    if !converged {
+        let remaining = (0..STATE_DIM)
+            .flat_map(|row| ((row + 1)..STATE_DIM).map(move |col| (row, col)))
+            .map(|(row, col)| matrix[idx(row, col)].abs())
+            .fold(0.0_f64, f64::max);
+        if remaining > convergence_tolerance || !remaining.is_finite() {
+            return CovariancePsdStatus::Indeterminate;
+        }
+    }
+
+    let mut min_eigenvalue = f64::INFINITY;
+    let mut max_eigenvalue = f64::NEG_INFINITY;
+    for i in 0..STATE_DIM {
+        let value = matrix[idx(i, i)];
+        if !value.is_finite() {
+            return CovariancePsdStatus::Indeterminate;
+        }
+        min_eigenvalue = min_eigenvalue.min(value);
+        max_eigenvalue = max_eigenvalue.max(value);
+    }
+
+    let tolerance = PSD_ABSOLUTE_TOLERANCE.max(
+        PSD_RELATIVE_TOLERANCE * max_eigenvalue.abs().max(1.0),
+    );
+    if min_eigenvalue < -tolerance {
+        CovariancePsdStatus::Invalid {
+            min_eigenvalue,
+            max_eigenvalue,
+            tolerance,
+        }
+    } else if min_eigenvalue <= tolerance {
+        CovariancePsdStatus::NearSingular {
+            min_eigenvalue,
+            max_eigenvalue,
+            tolerance,
+        }
+    } else {
+        CovariancePsdStatus::Valid {
+            min_eigenvalue,
+            max_eigenvalue,
+            tolerance,
+        }
+    }
+}
+
+fn validate_covariance(covariance: &[f64], max: f64) -> Result<(), FilterError> {
+    validate_covariance_structure(covariance, max)?;
+    match covariance_psd_status(covariance) {
+        CovariancePsdStatus::Valid { .. } | CovariancePsdStatus::NearSingular { .. } => Ok(()),
+        CovariancePsdStatus::Invalid {
+            min_eigenvalue,
+            tolerance,
+            ..
+        } => Err(FilterError::IndefiniteCovariance {
+            min_eigenvalue,
+            tolerance,
+        }),
+        CovariancePsdStatus::Indeterminate => {
+            Err(FilterError::CovarianceQualificationIndeterminate)
+        }
+    }
 }
 
 fn validate_filter_state(state: &FilterState, config: &FilterConfig) -> Result<(), FilterError> {
@@ -683,15 +886,27 @@ impl PositionFilter {
         relative_position: [f64; 3],
         covariance: [f64; 9],
     ) {
-        let _ = self.update_relative_position_checked(reference_position, relative_position, covariance);
+        let _ = self.update_relative_position_checked(
+            reference_position,
+            relative_position,
+            covariance,
+        );
     }
 
     pub fn position(&self) -> [f64; 3] {
-        [self.state.state[0], self.state.state[1], self.state.state[2]]
+        [
+            self.state.state[0],
+            self.state.state[1],
+            self.state.state[2],
+        ]
     }
 
     pub fn velocity(&self) -> [f64; 3] {
-        [self.state.state[3], self.state.state[4], self.state.state[5]]
+        [
+            self.state.state[3],
+            self.state.state[4],
+            self.state.state[5],
+        ]
     }
 
     pub fn update_barometer_checked(
@@ -729,6 +944,15 @@ impl PositionFilter {
         let _ = self.update_barometer_checked(pressure_hpa, reference_hpa, sigma_m);
     }
 
+    /// Qualify the complete current covariance matrix as PSD without collapsing
+    /// the result to a boolean. `NearSingular` is accepted by filter validation;
+    /// downstream policy can inspect it without confusing it with invalidity.
+    pub fn covariance_psd_status_checked(&self) -> Result<CovariancePsdStatus, FilterError> {
+        validate_config(&self.config)?;
+        validate_covariance_structure(&self.state.covariance, self.config.max_covariance)?;
+        Ok(covariance_psd_status(&self.state.covariance))
+    }
+
     /// Get 1-sigma position uncertainty (meters).
     pub fn position_sigma_checked(&self) -> Result<f64, FilterError> {
         validate_filter_state(&self.state, &self.config)?;
@@ -759,18 +983,78 @@ mod tests {
             for col in 0..STATE_DIM {
                 let a = filter.state.covariance[idx(row, col)];
                 let b = filter.state.covariance[idx(col, row)];
-                assert!((a - b).abs() < 1e-8, "P[{row},{col}]={a} vs P[{col},{row}]={b}");
+                assert!(
+                    (a - b).abs() < 1e-8,
+                    "P[{row},{col}]={a} vs P[{col},{row}]={b}"
+                );
             }
+        }
+    }
+
+    fn assert_covariance_psd(filter: &PositionFilter) {
+        match filter.covariance_psd_status_checked().unwrap() {
+            CovariancePsdStatus::Valid { .. } | CovariancePsdStatus::NearSingular { .. } => {}
+            other => panic!("expected PSD covariance, got {other:?}"),
         }
     }
 
     #[test]
     fn checked_constructor_rejects_invalid_state_or_config() {
-        assert!(PositionFilter::try_new([f64::NAN, 0.0, 0.0], 1.0, FilterConfig::default()).is_err());
+        assert!(
+            PositionFilter::try_new([f64::NAN, 0.0, 0.0], 1.0, FilterConfig::default()).is_err()
+        );
         assert!(PositionFilter::try_new([0.0; 3], 0.0, FilterConfig::default()).is_err());
         let mut config = FilterConfig::default();
         config.innovation_gate_sigma = f64::NAN;
         assert!(PositionFilter::try_new([0.0; 3], 1.0, config).is_err());
+    }
+
+    #[test]
+    fn identity_covariance_is_psd_valid() {
+        let mut filter = test_filter(1.0);
+        filter.state.covariance = identity_matrix();
+        assert!(matches!(
+            filter.covariance_psd_status_checked().unwrap(),
+            CovariancePsdStatus::Valid { .. }
+        ));
+        assert!(filter.position_sigma_checked().is_ok());
+    }
+
+    #[test]
+    fn singular_covariance_is_psd_but_explicitly_near_singular() {
+        let mut filter = test_filter(1.0);
+        filter.state.covariance = identity_matrix();
+        filter.state.covariance[idx(0, 0)] = 0.0;
+        assert!(matches!(
+            filter.covariance_psd_status_checked().unwrap(),
+            CovariancePsdStatus::NearSingular { .. }
+        ));
+        assert!(filter.position_sigma_checked().is_ok());
+    }
+
+    #[test]
+    fn positive_diagonal_does_not_hide_indefinite_covariance() {
+        let mut filter = test_filter(1.0);
+        filter.state.covariance = identity_matrix();
+        // This 2×2 principal block has eigenvalues 3 and -1 even though both
+        // diagonal variances are positive. The old structural checks accepted it.
+        filter.state.covariance[idx(0, 1)] = 2.0;
+        filter.state.covariance[idx(1, 0)] = 2.0;
+
+        assert!(matches!(
+            filter.covariance_psd_status_checked().unwrap(),
+            CovariancePsdStatus::Invalid { .. }
+        ));
+        assert!(matches!(
+            filter.position_sigma_checked(),
+            Err(FilterError::IndefiniteCovariance { .. })
+        ));
+    }
+
+    #[test]
+    fn checked_constructor_covariance_has_qualified_psd_status() {
+        let filter = test_filter(25.0);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -779,6 +1063,7 @@ mod tests {
         filter.state.state[3] = 1.0;
         filter.predict_checked(10.0).unwrap();
         assert!((filter.position()[0] - 10.0).abs() < 0.01);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -790,6 +1075,7 @@ mod tests {
         assert!((filter.state.covariance[idx(0, 3)] - expected).abs() < 1e-9);
         assert!((filter.state.covariance[idx(3, 0)] - expected).abs() < 1e-9);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -800,7 +1086,10 @@ mod tests {
             assert!(filter.predict_checked(bad).is_err());
             assert_eq!(filter.state.state, before.state.state);
             assert_eq!(filter.state.covariance, before.state.covariance);
-            assert_eq!(filter.state.last_update_time, before.state.last_update_time);
+            assert_eq!(
+                filter.state.last_update_time,
+                before.state.last_update_time
+            );
         }
     }
 
@@ -810,6 +1099,7 @@ mod tests {
         let sigma_before = filter.position_sigma();
         filter.predict_checked(60.0).unwrap();
         assert!(filter.position_sigma() > sigma_before);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -822,6 +1112,7 @@ mod tests {
         assert_eq!(outcome, FilterUpdateOutcome::Accepted);
         assert!(filter.position_sigma() < sigma_before);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
         assert!(filter.state.covariance.iter().all(|v| v.is_finite()));
         for i in 0..STATE_DIM {
             assert!(filter.state.covariance[idx(i, i)] >= 0.0);
@@ -860,13 +1151,19 @@ mod tests {
         let mut filter = test_filter(25.0);
         let before = filter.clone();
         for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-            assert!(filter.update_range_checked(&[100.0, 0.0, 0.0], bad, 1.0).is_err());
+            assert!(
+                filter
+                    .update_range_checked(&[100.0, 0.0, 0.0], bad, 1.0)
+                    .is_err()
+            );
             assert_eq!(filter.state.state, before.state.state);
             assert_eq!(filter.state.covariance, before.state.covariance);
         }
-        assert!(filter
-            .update_range_checked(&[f64::NAN, 0.0, 0.0], 100.0, 1.0)
-            .is_err());
+        assert!(
+            filter
+                .update_range_checked(&[f64::NAN, 0.0, 0.0], 100.0, 1.0)
+                .is_err()
+        );
         assert_eq!(filter.state.state, before.state.state);
         assert_eq!(filter.state.covariance, before.state.covariance);
     }
@@ -911,6 +1208,7 @@ mod tests {
         assert!(error < 5.0, "EKF error {error}m");
         assert!(filter.position_sigma() < 50.0);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -924,6 +1222,7 @@ mod tests {
         assert!(filter.state.covariance[idx(2, 2)] < sigma_z_before);
         assert!(filter.position()[2].abs() > 10.0);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -945,6 +1244,7 @@ mod tests {
         assert!((pos[1] - 2.0).abs() < 1.0);
         assert!((pos[2] + 3.0).abs() < 1.0);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
@@ -961,13 +1261,16 @@ mod tests {
         assert!((vel[1] + 0.5).abs() < 0.5);
         assert!((vel[2] - 0.25).abs() < 0.5);
         assert_covariance_symmetric(&filter);
+        assert_covariance_psd(&filter);
     }
 
     #[test]
     fn depth_update_reduces_vertical_error() {
-        let mut filter = PositionFilter::try_new([0.0, 0.0, 40.0], 50.0, FilterConfig::default()).unwrap();
+        let mut filter =
+            PositionFilter::try_new([0.0, 0.0, 40.0], 50.0, FilterConfig::default()).unwrap();
         let outcome = filter.update_depth_checked(12.0, 0.5).unwrap();
         assert_eq!(outcome, FilterUpdateOutcome::Accepted);
         assert!((filter.position()[2] - 12.0).abs() < 5.0);
+        assert_covariance_psd(&filter);
     }
 }
