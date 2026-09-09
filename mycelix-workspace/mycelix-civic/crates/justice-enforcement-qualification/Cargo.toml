@@ -1,0 +1,16 @@
+[package]
+name = "justice-enforcement-qualification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure enforcement authorization over verified Mycelix Justice remedies"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+justice-resolution-types = { path = "../justice-resolution-types" }
+justice-resolution-verifier = { path = "../justice-resolution-verifier" }
+
+[dev-dependencies]
+justice-finality-qualification = { path = "../justice-finality-qualification" }
