@@ -1,0 +1,97 @@
+name: Identity Time Policy Signer Generic Authority Subject Mapping V1
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-authority-subject-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/**'
+      - '.github/workflows/identity-time-policy-signer-generic-authority-subject-mapping-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/**'
+      - '.github/workflows/identity-time-policy-signer-generic-authority-subject-mapping-v1.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-mapping-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert deterministic mapping boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: signer mapping runtime dependency drift: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text[:text.index('#[cfg(test)]')]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalActivationTimePolicySignerGenericAuthoritySubjectMappingV1',
+              'GENERIC_AUTHORITY_SUBJECT_KIND_V1',
+              '"SigningPolicy"',
+              'qualify_historical_activation_time_policy_signer_generic_authority_subject_mapping_v1',
+              'subject.namespace()',
+              'subject.subject_id()',
+              'subject.semantic_profile()',
+              'subject.subject_digest_sha256()',
+              'subject.capability()',
+              '0xa5, 0xad, 0xb8, 0xa4',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: signer mapping invariant missing: {needle!r}')
+
+          lower = production.lower()
+          for forbidden in [
+              'authoritysubjectref', 'authoritysubjectkind',
+              'mycelix_authority_freshness', 'mycelix-authority-freshness',
+              'qualifiedactivecausalauthority', 'qualifiedcurrentoperationalauthority',
+              'verifiedauthorityfreshness', 'use hdk', 'hdk::',
+              'sys_time(', 'std::time', 'verify_strict', '.verify(',
+              'is_authorized', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: generic authority/currentness implementation leaked into pure mapping theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/Cargo.toml -- --check
+
+      - name: Test mapping theorem
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/Cargo.toml
+
+      - name: Check mapping theorem for wasm32
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy/Cargo.toml --target wasm32-unknown-unknown

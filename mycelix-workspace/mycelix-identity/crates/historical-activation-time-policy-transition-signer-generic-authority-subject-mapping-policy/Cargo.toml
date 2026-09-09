@@ -1,0 +1,18 @@
+[package]
+name = "mycelix-historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical Identity-to-generic-authority subject mapping for historical time-policy transition signers"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy = { path = "../historical-activation-time-policy-transition-signer-authority-subject-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
