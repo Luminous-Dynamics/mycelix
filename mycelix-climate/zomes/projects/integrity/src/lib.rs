@@ -144,7 +144,6 @@ fn validate_did(did: &str) -> ExternResult<ValidateCallbackResult> {
 
 /// Validate a Location
 fn validate_location(location: &Location) -> ExternResult<ValidateCallbackResult> {
-    // Validate country code (simple check for 2 uppercase letters)
     if location.country_code.len() != 2 {
         return Ok(ValidateCallbackResult::Invalid(
             "Country code must be 2 characters (ISO 3166-1 alpha-2)".to_string(),
@@ -157,14 +156,12 @@ fn validate_location(location: &Location) -> ExternResult<ValidateCallbackResult
         ));
     }
 
-    // Validate latitude
     if location.latitude < -90.0 || location.latitude > 90.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Latitude must be between -90 and 90".to_string(),
         ));
     }
 
-    // Validate longitude
     if location.longitude < -180.0 || location.longitude > 180.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Longitude must be between -180 and 180".to_string(),
@@ -176,27 +173,23 @@ fn validate_location(location: &Location) -> ExternResult<ValidateCallbackResult
 
 /// Validate a ClimateProject entry
 fn validate_climate_project(project: &ClimateProject) -> ExternResult<ValidateCallbackResult> {
-    // Validate project ID
     if project.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project ID cannot be empty".to_string(),
         ));
     }
 
-    // Validate project name
     if project.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project name cannot be empty".to_string(),
         ));
     }
 
-    // Validate location
     let location_result = validate_location(&project.location)?;
     if let ValidateCallbackResult::Invalid(_) = location_result {
         return Ok(location_result);
     }
 
-    // Validate expected credits are finite and non-negative
     if !project.expected_credits.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
             "Expected credits must be finite".to_string(),
@@ -208,7 +201,6 @@ fn validate_climate_project(project: &ClimateProject) -> ExternResult<ValidateCa
         ));
     }
 
-    // Validate verifier DID if present
     if let Some(ref verifier) = project.verifier_did {
         let verifier_result = validate_did(verifier)?;
         if let ValidateCallbackResult::Invalid(_) = verifier_result {
@@ -221,21 +213,18 @@ fn validate_climate_project(project: &ClimateProject) -> ExternResult<ValidateCa
 
 /// Validate a ProjectMilestone entry
 fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCallbackResult> {
-    // Validate project ID
     if milestone.project_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project ID cannot be empty".to_string(),
         ));
     }
 
-    // Validate title
     if milestone.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Milestone title cannot be empty".to_string(),
         ));
     }
 
-    // Validate credits issued are finite and non-negative if present
     if let Some(credits) = milestone.credits_issued {
         if !credits.is_finite() {
             return Ok(ValidateCallbackResult::Invalid(
@@ -249,7 +238,6 @@ fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCall
         }
     }
 
-    // Validate verifier DID if present
     if let Some(ref verifier) = milestone.verified_by {
         let verifier_result = validate_did(verifier)?;
         if let ValidateCallbackResult::Invalid(_) = verifier_result {
@@ -257,10 +245,8 @@ fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCall
         }
     }
 
-    // Validate completed_at if present
     if let Some(completed) = milestone.completed_at {
         if completed < milestone.target_date - 31536000 {
-            // More than 1 year before target
             return Ok(ValidateCallbackResult::Invalid(
                 "Completion date seems unreasonably early".to_string(),
             ));
@@ -271,10 +257,6 @@ fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCall
 }
 
 /// Creation policy for a climate project.
-///
-/// Field validation alone is insufficient because malicious authors can bypass
-/// the coordinator and author entries directly. Every project must therefore
-/// enter the DHT in the only valid initial lifecycle state.
 fn validate_create_project(project: &ClimateProject) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_climate_project(project)?;
     if let ValidateCallbackResult::Invalid(_) = fields {
@@ -296,9 +278,6 @@ fn validate_create_project(project: &ClimateProject) -> ExternResult<ValidateCal
 }
 
 /// Creation policy for a project milestone.
-///
-/// Completion is an authenticated state transition. A milestone cannot be
-/// authored directly in a completed/credited/verified state.
 fn validate_create_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_milestone(milestone)?;
     if let ValidateCallbackResult::Invalid(_) = fields {
@@ -318,9 +297,6 @@ fn validate_create_milestone(milestone: &ProjectMilestone) -> ExternResult<Valid
 }
 
 /// Pure relationship policy for the ProjectToMilestones link.
-///
-/// The DHT link is the authoritative association between a concrete project
-/// record and a concrete milestone record, so their logical IDs must agree.
 fn validate_project_milestone_binding(
     project: &ClimateProject,
     milestone: &ProjectMilestone,
@@ -334,9 +310,7 @@ fn validate_project_milestone_binding(
     ValidateCallbackResult::Valid
 }
 
-/// Resolve and validate both ends of a ProjectToMilestones link at DHT
-/// integrity time. Both addresses must be action hashes pointing to the
-/// expected entry types; merely supplying an existing hash is not enough.
+/// Resolve and validate both ends of a ProjectToMilestones link.
 fn validate_project_to_milestone_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
@@ -373,13 +347,66 @@ fn validate_project_to_milestone_link(
     Ok(validate_project_milestone_binding(&project, &milestone))
 }
 
-/// Pure state-machine policy for climate-project lifecycle updates.
+/// Compute the sole valid anchor text for a project index link.
 ///
-/// The project proposal is immutable after creation. Verification is performed
-/// by the committing verifier; subsequent activation/completion remain under
-/// that recorded verifier in the v1 schema because no separate proposer or
-/// governance capability is stored yet. A later evidence/capability PR can
-/// replace this verifier-owned lifecycle without weakening these invariants.
+/// Indexes are derived views of validated project state. Their base anchor must
+/// therefore be reproducible from the target record instead of trusted as
+/// caller-supplied metadata.
+fn expected_project_index_anchor(
+    link_type: &LinkTypes,
+    project: &ClimateProject,
+) -> Result<String, String> {
+    match link_type {
+        LinkTypes::AnchorToProjects => Ok("all_projects".into()),
+        LinkTypes::TypeToProjects => Ok(format!("type:{:?}", project.project_type)),
+        LinkTypes::StatusToProjects => Ok(format!("status:{:?}", project.status)),
+        LinkTypes::VerifierToProjects => project
+            .verifier_did
+            .as_ref()
+            .map(|did| format!("verifier:{did}"))
+            .ok_or_else(|| "VerifierToProjects target has no verifier DID".to_string()),
+        _ => Err("link type is not a project index".into()),
+    }
+}
+
+/// Validate a project index by resolving its target and recomputing the exact
+/// anchor hash from target state.
+fn validate_project_index_link(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    link_type: &LinkTypes,
+) -> ExternResult<ValidateCallbackResult> {
+    let project_action_hash = ActionHash::try_from(target_address).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Project index target must be a ClimateProject action hash".into()
+        ))
+    })?;
+    let project_record = must_get_valid_record(project_action_hash)?;
+    let project: ClimateProject = project_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Project index target is not a ClimateProject entry".into()
+        )))?;
+
+    let anchor_text = match expected_project_index_anchor(link_type, &project) {
+        Ok(anchor) => anchor,
+        Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+    };
+    let expected_entry_hash = hash_entry(&Anchor(anchor_text.clone()))?;
+    let expected_base: AnyLinkableHash = expected_entry_hash.into();
+
+    if base_address != expected_base {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Project index base does not match derived anchor {anchor_text:?}"
+        )));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Pure state-machine policy for climate-project lifecycle updates.
 fn validate_project_transition(
     original: &ClimateProject,
     updated: &ClimateProject,
@@ -465,9 +492,6 @@ fn validate_update_project(
 }
 
 /// Pure state-machine policy for milestone completion.
-///
-/// A milestone is immutable until one completion event. The completing agent is
-/// recorded as the verifier, and all authored milestone content remains fixed.
 fn validate_milestone_transition(
     original: &ProjectMilestone,
     updated: &ProjectMilestone,
@@ -576,8 +600,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             LinkTypes::AnchorToProjects
             | LinkTypes::TypeToProjects
             | LinkTypes::StatusToProjects
-            | LinkTypes::ProjectUpdates
-            | LinkTypes::VerifierToProjects => Ok(ValidateCallbackResult::Valid),
+            | LinkTypes::VerifierToProjects => {
+                validate_project_index_link(base_address, target_address, &link_type)
+            }
+            LinkTypes::ProjectUpdates => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink { link_type, action, .. } => match link_type {
             LinkTypes::ProjectToMilestones
@@ -731,6 +757,37 @@ mod tests {
         let mut project = valid_project();
         project.verifier_did = Some("did:example:forged".into());
         assert_invalid_contains(validate_create_project(&project), "must not have a verifier");
+    }
+
+    #[test]
+    fn project_index_anchor_is_derived_from_target_state() {
+        let project = valid_project();
+        assert_eq!(
+            expected_project_index_anchor(&LinkTypes::AnchorToProjects, &project).unwrap(),
+            "all_projects"
+        );
+        assert_eq!(
+            expected_project_index_anchor(&LinkTypes::TypeToProjects, &project).unwrap(),
+            "type:RenewableEnergy"
+        );
+        assert_eq!(
+            expected_project_index_anchor(&LinkTypes::StatusToProjects, &project).unwrap(),
+            "status:Proposed"
+        );
+    }
+
+    #[test]
+    fn verifier_index_requires_and_uses_target_verifier() {
+        let project = valid_project();
+        assert!(expected_project_index_anchor(&LinkTypes::VerifierToProjects, &project).is_err());
+
+        let mut verified = project;
+        verified.status = ProjectStatus::Verified;
+        verified.verifier_did = Some("did:example:verifier".into());
+        assert_eq!(
+            expected_project_index_anchor(&LinkTypes::VerifierToProjects, &verified).unwrap(),
+            "verifier:did:example:verifier"
+        );
     }
 
     #[test]
