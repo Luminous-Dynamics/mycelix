@@ -1,0 +1,135 @@
+name: Authority Historical Operational
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-historical-operational/**'
+      - 'crates/mycelix-authority-causal-active/**'
+      - 'crates/mycelix-authority-causal-projection/**'
+      - 'crates/mycelix-authority-operational-context/**'
+      - 'crates/mycelix-authority-operational-freshness/**'
+      - 'crates/mycelix-authority-state-coverage/**'
+      - 'crates/mycelix-authority-state-coverage-context/**'
+      - 'crates/mycelix-authority-state-source/**'
+      - '.github/workflows/authority-historical-operational.yml'
+  push:
+    branches:
+      - 'security/authority-historical-operational-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-historical-operational-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Constitution-rooted exact causal historical authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-authority-historical-operational
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-historical-operational/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-historical-operational/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-historical-operational/Cargo.toml --all-targets -- -D warnings
+
+      - name: Current and causal downstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-operational-freshness/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-current-operational/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-causal-projection/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-causal-active/Cargo.toml --all-targets
+
+      - name: Historical operational authority audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('crates/mycelix-authority-historical-operational')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'blake3', 'serde', 'mycelix-institutional-core',
+              'mycelix-authority-freshness', 'mycelix-authority-state-source',
+              'mycelix-authority-state-coverage',
+              'mycelix-authority-state-coverage-context',
+              'mycelix-authority-operational-context',
+              'mycelix-authority-causal-projection',
+              'mycelix-authority-causal-active',
+          }
+          assert set(deps) == expected, sorted(deps)
+
+          src = (root / 'src/lib.rs').read_text()
+          production = src[:src.index('#[cfg(test)]')]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalOperationalAuthority',
+              'context.validate_current_at(now_ms)',
+              'challenge.context_policy_digest != context.context_policy_digest()',
+              'qualify_context_bound_coverage(',
+              'context_coverage.to_state_source_coverage()',
+              'project_authority_state_at_causal_position(',
+              'qualify_active_causal_authority_at(',
+              'active.subject() != subject',
+              'active.generation() != target_generation',
+              'active.selected_transition_digest() != target_transition_digest',
+              'context.bootstrap_root_digest()',
+              'context.qualification_digest()',
+              'active.active_authority_digest()',
+              'active.full_lineage_digest()',
+              'active.current_head_transition_digest()',
+              'AUTHORITY_IDENTITY_PROFILE',
+              'EVIDENCE_IDENTITY_PROFILE',
+          ]
+          for token in required:
+              assert token in production, token
+
+          before = production.split('pub struct QualifiedHistoricalOperationalAuthority', 1)[0][-220:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+
+          for forbidden in [
+              'qualify_current_freshness(',
+              'project_current_authority_state(',
+              'project_authority_state_as_of(',
+              'to_current_freshness_receipt',
+              'to_verified_freshness',
+              'QualifiedCurrentOperationalAuthority',
+              'VerifiedAuthorityFreshness',
+              '#[hdk_extern]', 'hdk::', 'call_remote(', 'get_links(',
+              'SystemTime', 'std::time', 'as_of_ms', 'max_by_key',
+              'phi', 'reputation', 'model_score', 'is_authorized',
+          ]:
+              assert forbidden not in production, forbidden
+
+          inv = (root / 'INVARIANTS.md').read_text()
+          for phrase in [
+              'The operational policy context is current first',
+              'The same challenge/source/witness coverage path as #117 is mandatory',
+              'Historical selection is causal, not temporal',
+              'Historical existence is still not enough',
+              'No current-freshness conversion',
+          ]:
+              assert phrase in inv, phrase
+
+          print('PASS: historical operational authority preserves #116/#117 policy+coverage semantics and replaces only current-head selection with exact #429/#446 causal Active qualification')
+          PY
