@@ -579,21 +579,49 @@ impl SqliteIntegrationStore {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         recover_expired_claims_in_tx(&tx, now_ms)?;
 
+        // Exhausted rows remain durably visible but must not head-of-line block
+        // unrelated eligible work. The claim query therefore filters by the
+        // declared attempt budget before ordering/limiting.
         let ids = {
             let mut statement = tx.prepare(
                 "SELECT entry_id FROM integration_outbox\n\
-                 WHERE stage = ?1\n\
-                 ORDER BY entry_id ASC LIMIT ?2",
+                 WHERE stage = ?1 AND attempt_count < ?2\n\
+                 ORDER BY entry_id ASC LIMIT ?3",
             )?;
             let rows = statement.query_map(
                 params![
                     outbound_stage_to_i64(OutboundStage::OutboxCommitted),
+                    MAX_EXECUTION_ATTEMPTS_PER_ENTRY,
                     limit as i64
                 ],
                 |row| row.get::<_, i64>(0),
             )?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
+
+        // If nothing is claimable solely because queued work exhausted its
+        // attempt budget, surface that fact explicitly instead of returning an
+        // indistinguishable empty queue.
+        if ids.is_empty() {
+            let exhausted: Option<i64> = tx
+                .query_row(
+                    "SELECT entry_id FROM integration_outbox\n\
+                     WHERE stage = ?1 AND attempt_count >= ?2\n\
+                     ORDER BY entry_id ASC LIMIT 1",
+                    params![
+                        outbound_stage_to_i64(OutboundStage::OutboxCommitted),
+                        MAX_EXECUTION_ATTEMPTS_PER_ENTRY,
+                    ],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if let Some(entry_id) = exhausted {
+                return Err(RuntimeError::AttemptBudgetExceeded {
+                    entry_id,
+                    limit: MAX_EXECUTION_ATTEMPTS_PER_ENTRY as u32,
+                });
+            }
+        }
 
         let mut claimed = Vec::with_capacity(ids.len());
         for entry_id in ids {
@@ -1544,7 +1572,7 @@ mod tests {
     }
 
     fn confirmed(command: &str) -> ExternalExecutionOutcome {
-        ExternalExecutionOutcome::Confirmed(ExternalReceipt {
+        ExternalExecutionOutcome::Confirmed(mycelix_integration_core::ExternalReceipt {
             operation: operation(command),
             provider_receipt: Some(ExternalOpaqueId::new("receipt-1").unwrap()),
             receipt_commitment: ContentCommitment::sha256(b"provider-receipt"),
