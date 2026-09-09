@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-authority-coordinator-stability-fence"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure before/after coordinator deployment stability fence for one admission attempt"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-deployment = { path = "../mycelix-authority-coordinator-deployment" }
+mycelix-authority-coordinator-deployment-composer = { path = "../mycelix-authority-coordinator-deployment-composer" }
+
+[dev-dependencies]
+mycelix-authority-coordinator-release = { path = "../mycelix-authority-coordinator-release" }
+mycelix-authority-coordinator-release-currentness = { path = "../mycelix-authority-coordinator-release-currentness" }
