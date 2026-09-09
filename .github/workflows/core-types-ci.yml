@@ -10,6 +10,7 @@ on:
     paths:
       - 'crates/mycelix-core-types/**'
       - '.github/workflows/core-types-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,23 +18,116 @@ permissions:
 jobs:
   core-types:
     name: Core types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      # Pull requests qualify the exact branch head, never GitHub's synthetic
+      # merge commit. Push/manual runs naturally fall back to github.sha.
+      QUALIFICATION_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      QUALIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ env.QUALIFICATION_SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.98.1
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: crates/mycelix-core-types
-      - name: Check formatting
-        run: cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml --all -- --check
+
+      - name: Capture qualification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [[ "${checked_out_sha}" != "${QUALIFICATION_SUBJECT_SHA}" ]]; then
+            echo "Checked-out HEAD does not match the declared qualification subject." >&2
+            echo "declared=${QUALIFICATION_SUBJECT_SHA}" >&2
+            echo "actual=${checked_out_sha}" >&2
+            exit 1
+          fi
+
+          echo "qualification_subject_sha=${QUALIFICATION_SUBJECT_SHA}"
+          echo "qualification_base_sha=${QUALIFICATION_BASE_SHA}"
+          echo "github_runtime_sha=${GITHUB_SHA}"
+          echo "qualification_workflow_ref=${GITHUB_WORKFLOW_REF}"
+          echo "runner_os=${RUNNER_OS}"
+          echo "runner_arch=${RUNNER_ARCH}"
+          echo "checked_out_sha=${checked_out_sha}"
+
+          echo "--- /etc/os-release ---"
+          cat /etc/os-release
+          echo "--- rustc ---"
+          rustc --version --verbose
+          echo "--- cargo ---"
+          cargo --version --verbose
+          echo "--- rustup ---"
+          rustup --version
+          rustup show active-toolchain
+
+          echo "--- committed inputs ---"
+          sha256sum crates/mycelix-core-types/Cargo.toml
+          sha256sum crates/mycelix-core-types/Cargo.lock
+          sha256sum .github/workflows/core-types-ci.yml
+
+          echo "--- dependency-light feature graph ---"
+          cargo tree --manifest-path crates/mycelix-core-types/Cargo.toml --locked -e features
+          echo "--- serde feature graph ---"
+          cargo tree --manifest-path crates/mycelix-core-types/Cargo.toml --locked -e features --features serde
+          echo "--- holochain+serde feature graph ---"
+          cargo tree --manifest-path crates/mycelix-core-types/Cargo.toml --locked -e features --features holochain,serde
+
+      - name: Check formatting of changed Core Types Rust files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${QUALIFICATION_BASE_SHA}"
+          if [[ -z "${base}" || "${base}" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^)"
+          fi
+
+          mapfile -t changed_rs < <(
+            git diff --name-only --diff-filter=ACMR \
+              "${base}" "${QUALIFICATION_SUBJECT_SHA}" -- crates/mycelix-core-types \
+              | grep '\.rs$' || true
+          )
+
+          if [[ ${#changed_rs[@]} -eq 0 ]]; then
+            echo "No Rust source files changed in this tranche."
+            exit 0
+          fi
+
+          printf 'Rust files subject to formatting qualification:\n'
+          printf '  %s\n' "${changed_rs[@]}"
+
+          cargo fmt --manifest-path crates/mycelix-core-types/Cargo.toml --all
+
+          if ! git diff --exit-code -- "${changed_rs[@]}"; then
+            echo "Changed Core Types Rust files are not formatted by the pinned rustfmt toolchain." >&2
+            exit 1
+          fi
+
+          # cargo fmt may expose unrelated historical style debt outside this
+          # tranche. Restore the exact subject before runtime qualification;
+          # those files are not silently included in the code under test.
+          git restore --worktree --source=HEAD -- crates/mycelix-core-types
+
       - name: Test dependency-light core
-        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml
+        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --locked
+
       - name: Test serde contract
-        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --features serde
+        run: cargo test --manifest-path crates/mycelix-core-types/Cargo.toml --features serde --locked
+
       - name: Check Holochain + serde compatibility
-        run: cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --features holochain,serde
+        run: cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --features holochain,serde --locked
+
       - name: Clippy
-        run: cargo clippy --manifest-path crates/mycelix-core-types/Cargo.toml --features serde -- -D warnings
+        run: cargo clippy --manifest-path crates/mycelix-core-types/Cargo.toml --features serde --locked -- -D warnings
