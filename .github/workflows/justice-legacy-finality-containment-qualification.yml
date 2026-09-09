@@ -1,0 +1,119 @@
+name: Justice Legacy Finality Containment Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/Cargo.lock'
+      - 'mycelix-workspace/mycelix-civic/zomes/justice-arbitration/**'
+      - '.github/scripts/check_justice_legacy_finality_containment.py'
+      - '.github/workflows/justice-legacy-finality-containment-qualification.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'mycelix-workspace/mycelix-civic/Cargo.lock'
+      - 'mycelix-workspace/mycelix-civic/zomes/justice-arbitration/**'
+      - '.github/scripts/check_justice_legacy_finality_containment.py'
+      - '.github/workflows/justice-legacy-finality-containment-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-legacy-finality-containment-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Enforce semantic quarantine contract
+        run: python3 .github/scripts/check_justice_legacy_finality_containment.py
+
+      - name: Rustfmt
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/Cargo.toml -- --check
+          cargo fmt --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/Cargo.toml -- --check
+
+      - name: Locked native tests
+        run: |
+          cargo test --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/Cargo.toml
+          cargo test --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/Cargo.toml
+
+      - name: Clippy with attributed legacy-debt boundary
+        run: |
+          cargo clippy --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/Cargo.toml --all-targets --message-format=json > /tmp/justice-integrity-clippy.json
+          cargo clippy --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/Cargo.toml --all-targets --message-format=json > /tmp/justice-coordinator-clippy.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def warnings_for(path, target_name):
+              warnings = []
+              for raw in Path(path).read_text().splitlines():
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('reason') != 'compiler-message':
+                      continue
+                  target = event.get('target') or {}
+                  message = event.get('message') or {}
+                  if target.get('name') != target_name or message.get('level') != 'warning':
+                      continue
+                  code = (message.get('code') or {}).get('code')
+                  primary = next((s for s in message.get('spans', []) if s.get('is_primary')), {})
+                  line = primary.get('line_start')
+                  rendered = (message.get('rendered') or message.get('message') or '').strip()
+                  warnings.append((code, line, rendered))
+              return warnings
+
+          # The integrity zome carries broad pre-existing collapsible-if debt. Keep
+          # that one warning class isolated to this exact target; any other class fails.
+          integrity = warnings_for('/tmp/justice-integrity-clippy.json', 'justice_arbitration_integrity')
+          unexpected_integrity = [w for w in integrity if w[0] != 'clippy::collapsible_if']
+          if unexpected_integrity:
+              raise SystemExit('unexpected integrity warnings:\n' + '\n'.join(f'{code}@{line}: {msg}' for code, line, msg in unexpected_integrity))
+
+          # The coordinator has only five known legacy collapsible-if sites. Pin the
+          # exact primary source lines rather than allowing the class wholesale, so a
+          # new occurrence is still a qualification failure.
+          allowed_coordinator_collapsible_if_lines = {71, 191, 249, 295, 828}
+          coordinator = warnings_for('/tmp/justice-coordinator-clippy.json', 'justice_arbitration')
+          unexpected_coordinator = [
+              w for w in coordinator
+              if w[0] != 'clippy::collapsible_if' or w[1] not in allowed_coordinator_collapsible_if_lines
+          ]
+          if unexpected_coordinator:
+              raise SystemExit('unexpected coordinator warnings:\n' + '\n'.join(f'{code}@{line}: {msg}' for code, line, msg in unexpected_coordinator))
+
+          observed_lines = {line for code, line, _ in coordinator if code == 'clippy::collapsible_if'}
+          if observed_lines != allowed_coordinator_collapsible_if_lines:
+              raise SystemExit(
+                  'coordinator legacy clippy baseline changed: '
+                  f'expected {sorted(allowed_coordinator_collapsible_if_lines)}, '
+                  f'observed {sorted(observed_lines)}'
+              )
+
+          print(f'legacy_integrity_collapsible_if_warnings={len(integrity)}')
+          print(f'coordinator_legacy_collapsible_if_lines={sorted(observed_lines)}')
+          PY
+
+      - name: Locked WASM checks
+        run: |
+          cargo check --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/integrity/Cargo.toml --target wasm32-unknown-unknown
+          cargo check --locked --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-arbitration/coordinator/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Repository cleanliness
+        run: |
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"

@@ -420,7 +420,8 @@ pub struct Decision {
     pub rendered_at: Timestamp,
     /// Appeal deadline
     pub appeal_deadline: Timestamp,
-    /// Finalized (no more appeals)
+    /// Legacy projection field retained for schema compatibility. Must remain false;
+    /// authoritative finality is derived from append-only qualified evidence.
     pub finalized: bool,
 }
 
@@ -534,7 +535,8 @@ pub struct Appeal {
     pub grounds: Vec<AppealGround>,
     /// Argument
     pub argument: String,
-    /// Status
+    /// Legacy filing projection retained for schema compatibility. This append-only
+    /// record must remain Filed; appellate disposition belongs to separate evidence.
     pub status: AppealStatus,
     /// Appeal number (1st, 2nd, etc.)
     pub appeal_number: u8,
@@ -762,6 +764,12 @@ pub enum LinkTypes {
 // VALIDATION
 // ============================================================================
 
+fn is_legacy_finality_entry_type(entry_type: Option<&EntryType>) -> ExternResult<bool> {
+    let decision_entry_type = EntryType::App(UnitEntryTypes::Decision.try_into()?);
+    let appeal_entry_type = EntryType::App(UnitEntryTypes::Appeal.try_into()?);
+    Ok(entry_type == Some(&decision_entry_type) || entry_type == Some(&appeal_entry_type))
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -848,8 +856,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Evidence(e) => validate_evidence(&e),
             EntryTypes::Mediation(m) => validate_mediation(&m),
             EntryTypes::Arbitration(a) => validate_arbitration(&a),
-            EntryTypes::Decision(d) => validate_decision(&d),
-            EntryTypes::Appeal(a) => validate_appeal(&a),
+            EntryTypes::Decision(_) => Ok(ValidateCallbackResult::Invalid(
+                "Decision entries are append-only; direct updates cannot establish finality".into(),
+            )),
+            EntryTypes::Appeal(_) => Ok(ValidateCallbackResult::Invalid(
+                "Appeal filings are append-only; disposition requires a separate authority-qualified record".into(),
+            )),
             EntryTypes::Enforcement(e) => validate_enforcement(&e),
             EntryTypes::RestorativeCircle(r) => validate_restorative(&r),
         },
@@ -920,6 +932,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapGrant { action, .. } => action,
             };
             let original = must_get_action(action.original_action_address.clone())?;
+            if is_legacy_finality_entry_type(original.action().entry_type())? {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Decision and Appeal legacy records are append-only; updates are forbidden".into(),
+                ));
+            }
             Ok(check_author_match(
                 original.action().author(),
                 &action.author,
@@ -928,6 +945,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
             let original = must_get_action(action.deletes_address.clone())?;
+            if is_legacy_finality_entry_type(original.action().entry_type())? {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Decision and Appeal legacy records are append-only; deletes are forbidden".into(),
+                ));
+            }
             Ok(check_author_match(
                 original.action().author(),
                 &action.author,
@@ -1281,6 +1303,13 @@ fn validate_arbitration(arb: &Arbitration) -> ExternResult<ValidateCallbackResul
 }
 
 fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult> {
+    // Legacy `Decision.finalized` is projection-only and cannot establish finality.
+    if decision.finalized {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Decision.finalized must be false; legacy finality is projection-only".into(),
+        ));
+    }
+
     // String length limits
     if decision.id.len() > 256 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1382,6 +1411,13 @@ fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult
 }
 
 fn validate_appeal(appeal: &Appeal) -> ExternResult<ValidateCallbackResult> {
+    // The appellant owns the filing fact, not appellate disposition authority.
+    if appeal.status != AppealStatus::Filed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Appeal.status must be Filed; appellate disposition requires a separate authority-qualified record".into(),
+        ));
+    }
+
     // String length limits
     if appeal.id.len() > 256 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -3417,10 +3453,12 @@ mod tests {
     }
 
     #[test]
-    fn decision_finalized_flag_does_not_affect_validation() {
+    fn decision_finalized_true_rejected() {
         let mut dec = make_decision();
         dec.finalized = true;
-        assert!(is_valid(&validate_decision(&dec)));
+        let result = validate_decision(&dec);
+        assert!(is_invalid(&result));
+        assert!(invalid_msg(&result).contains("projection-only"));
     }
 
     // ========================================================================
@@ -3521,9 +3559,13 @@ mod tests {
     }
 
     #[test]
-    fn appeal_with_all_statuses_passes() {
+    fn appeal_filed_status_passes() {
+        assert!(is_valid(&validate_appeal(&make_appeal())));
+    }
+
+    #[test]
+    fn appeal_non_filed_statuses_rejected() {
         let statuses = vec![
-            AppealStatus::Filed,
             AppealStatus::UnderReview,
             AppealStatus::Granted,
             AppealStatus::Denied,
@@ -3533,7 +3575,9 @@ mod tests {
         for status in statuses {
             let mut appeal = make_appeal();
             appeal.status = status;
-            assert!(is_valid(&validate_appeal(&appeal)));
+            let result = validate_appeal(&appeal);
+            assert!(is_invalid(&result));
+            assert!(invalid_msg(&result).contains("authority-qualified"));
         }
     }
 

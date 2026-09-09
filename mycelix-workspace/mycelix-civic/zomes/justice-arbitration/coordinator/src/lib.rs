@@ -8,9 +8,7 @@
 
 use hdk::prelude::*;
 use justice_arbitration_integrity::*;
-use mycelix_bridge_common::{
-    GovernanceEligibility, civic_requirement_proposal, civic_requirement_voting,
-};
+use mycelix_bridge_common::{civic_requirement_proposal, civic_requirement_voting};
 use mycelix_zome_helpers as _;
 use mycelix_zome_helpers::get_latest_record;
 
@@ -151,13 +149,16 @@ pub struct ArbitratorResponseInput {
 
 /// Render a decision
 #[hdk_extern]
-pub fn render_decision(decision: Decision) -> ExternResult<Record> {
+pub fn render_decision(mut decision: Decision) -> ExternResult<Record> {
     // Consciousness gate: Citizen tier + identity >= 0.25
     let _eligibility = mycelix_zome_helpers::require_civic(
         "civic_bridge",
         &civic_requirement_voting(),
         "render_decision",
     )?;
+
+    // Caller input cannot choose legacy projection finality.
+    decision.finalized = false;
 
     let action_hash = create_entry(&EntryTypes::Decision(decision.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
@@ -211,6 +212,9 @@ pub fn file_appeal(mut appeal: Appeal) -> ExternResult<Record> {
     // author-binding pass. The appellant is always the committing agent.
     appeal.appellant = my_did()?;
 
+    // Filing authority does not include appellate disposition authority.
+    appeal.status = AppealStatus::Filed;
+
     let action_hash = create_entry(&EntryTypes::Appeal(appeal.clone()))?;
     let record = get_latest_record(action_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not get created appeal".into())
@@ -252,67 +256,26 @@ pub fn get_decision_appeals(decision_id: String) -> ExternResult<Vec<Record>> {
     Ok(records)
 }
 
-/// Update appeal status
+/// Legacy mutable Appeal status is not appellate authority.
 #[hdk_extern]
-pub fn update_appeal_status(input: UpdateAppealStatusInput) -> ExternResult<Record> {
-    let record = get(input.appeal_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Appeal not found".into())
-    ))?;
-
-    let mut appeal: Appeal = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Deserialize error: {:?}", e))))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid appeal entry".into()
-        )))?;
-
-    appeal.status = input.new_status;
-
-    let action_hash = update_entry(input.appeal_hash, &appeal)?;
-
-    get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not get updated appeal".into()
+pub fn update_appeal_status(_input: UpdateAppealStatusInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Legacy Appeal.status mutation is disabled; appellate disposition requires an append-only authority-qualified resolution record".into()
     )))
 }
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateAppealStatusInput {
     pub appeal_hash: ActionHash,
     pub new_status: AppealStatus,
 }
 
-/// Finalize a decision (no more appeals allowed)
+/// Legacy mutable Decision finalization is not finality authority.
 #[hdk_extern]
-pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
-    // Consciousness gate: Citizen tier + identity >= 0.25
-    let _eligibility = mycelix_zome_helpers::require_civic(
-        "civic_bridge",
-        &civic_requirement_voting(),
-        "finalize_decision",
-    )?;
-
-    let record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Decision not found".into())
-    ))?;
-
-    let mut decision: Decision = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Deserialize error: {:?}", e))))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid decision entry".into()
-        )))?;
-
-    decision.finalized = true;
-
-    let action_hash = update_entry(input.decision_hash, &decision)?;
-
-    get_latest_record(action_hash)?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not get updated decision".into()
+pub fn finalize_decision(_input: FinalizeDecisionInput) -> ExternResult<Record> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Legacy Decision.finalized mutation is disabled; finality requires authority-qualified append-only evidence".into()
     )))
 }
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FinalizeDecisionInput {
     pub decision_hash: ActionHash,
