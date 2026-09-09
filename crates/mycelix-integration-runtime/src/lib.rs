@@ -8,12 +8,11 @@
 
 use mycelix_integration_core::{
     ConnectorInstanceId, ContentCommitment, DigestAlgorithm, ExternalExecutionOutcome,
-    ExternalOperationRef, IdempotencyKey, InboundStage, IntegrationCommandId, OutboundStage,
-    ReconcileCursor, ReconciliationHint, ReconciliationResult, ReconciliationStrategy,
-    SideEffectClass,
+    ExternalOperationRef, IdempotencyKey, InboundStage, IntegrationCommandId, IntegrationEventId,
+    OutboundStage, ReconcileCursor, ReconciliationHint, ReconciliationResult,
+    ReconciliationStrategy, SideEffectClass,
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
-use serde::{Deserialize, Serialize};
 use std::{path::Path, time::Duration};
 use thiserror::Error;
 
@@ -74,7 +73,7 @@ pub enum RuntimeError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersistableInbound {
-    pub event_id: String,
+    pub event_id: IntegrationEventId,
     pub connector_instance: ConnectorInstanceId,
     pub event_commitment: ContentCommitment,
     pub normalized_payload: Vec<u8>,
@@ -146,12 +145,6 @@ pub struct RecoverySummary {
     pub side_effecting_marked_ambiguous: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct StoredCrashAmbiguity {
-    outcome: ExternalExecutionOutcome,
-    reason: &'static str,
-}
-
 /// SQLite-backed durable reference implementation.
 ///
 /// The connection is intentionally owned directly rather than shared across
@@ -181,7 +174,7 @@ impl SqliteIntegrationStore {
         )?;
         // WAL is a durability/performance preference for file-backed stores.
         // SQLite legitimately keeps `:memory:` databases in memory-journal mode.
-        let _ = conn.pragma_update(None, "journal_mode", "WAL");
+        conn.pragma_update(None, "journal_mode", "WAL")?;
 
         let store = Self { conn };
         store.initialize_schema()?;
@@ -255,7 +248,7 @@ impl SqliteIntegrationStore {
                 "SELECT commitment_algorithm, commitment_digest\n\
                  FROM integration_inbound\n\
                  WHERE connector_instance = ?1 AND event_id = ?2",
-                params![key_connector, inbound.event_id],
+                params![key_connector, inbound.event_id.as_str()],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
@@ -268,7 +261,7 @@ impl SqliteIntegrationStore {
             }
             return Err(RuntimeError::InboundIdentityCollision {
                 connector_instance: key_connector.to_owned(),
-                event_id: inbound.event_id.clone(),
+                event_id: inbound.event_id.to_string(),
             });
         }
 
@@ -279,11 +272,11 @@ impl SqliteIntegrationStore {
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 key_connector,
-                inbound.event_id,
+                inbound.event_id.as_str(),
                 digest_algorithm_to_i64(inbound.event_commitment.algorithm),
                 inbound.event_commitment.digest.as_slice(),
-                outbound_stage_or_inbound_to_i64(InboundStage::Persisted),
-                inbound.normalized_payload,
+                inbound_stage_to_i64(InboundStage::Persisted),
+                inbound.normalized_payload.as_slice(),
                 inbound.received_at_ms,
             ],
         )?;
@@ -372,7 +365,7 @@ impl SqliteIntegrationStore {
                 intent.authority_commitment.digest.as_slice(),
                 side_effect_to_i64(intent.side_effect_class),
                 intent.idempotency_key.as_ref().map(IdempotencyKey::as_str),
-                intent.command_bytes,
+                intent.command_bytes.as_slice(),
                 outbound_stage_to_i64(OutboundStage::OutboxCommitted),
                 intent.created_at_ms,
             ],
@@ -761,8 +754,6 @@ fn recover_expired_claims_in_tx(
     for (entry_id, command_id, connector_instance, side_effect, idempotency_key) in stale {
         let side_effect = side_effect_from_i64(side_effect)?;
         if side_effect == SideEffectClass::ReadOnly {
-            require_outbound_transition(OutboundStage::Executing, OutboundStage::Ambiguous)
-                .or_else(|_| Ok::<(), RuntimeError>(()))?;
             tx.execute(
                 "UPDATE integration_outbox\n\
                  SET stage = ?1, worker_id = NULL, lease_until_ms = NULL, updated_at_ms = ?2\n\
@@ -804,11 +795,7 @@ fn recover_expired_claims_in_tx(
             },
         };
         require_outbound_transition(OutboundStage::Executing, OutboundStage::Ambiguous)?;
-        let stored = StoredCrashAmbiguity {
-            outcome,
-            reason: "worker lease expired while a side-effecting operation was executing",
-        };
-        let json = serde_json::to_vec(&stored.outcome)?;
+        let json = serde_json::to_vec(&outcome)?;
         tx.execute(
             "UPDATE integration_outbox\n\
              SET stage = ?1, worker_id = NULL, lease_until_ms = NULL,\n\
@@ -946,7 +933,7 @@ fn side_effect_from_i64(value: i64) -> Result<SideEffectClass, RuntimeError> {
     }
 }
 
-fn outbound_stage_or_inbound_to_i64(value: InboundStage) -> i64 {
+fn inbound_stage_to_i64(value: InboundStage) -> i64 {
     match value {
         InboundStage::Received => 0,
         InboundStage::Authenticated => 1,
@@ -1012,6 +999,10 @@ mod tests {
         IntegrationCommandId::new(value).unwrap()
     }
 
+    fn event_id(value: &str) -> IntegrationEventId {
+        IntegrationEventId::new(value).unwrap()
+    }
+
     fn intent(command: &str, side_effect_class: SideEffectClass) -> DurableOutboundIntent {
         DurableOutboundIntent {
             command_id: command_id(command),
@@ -1034,7 +1025,7 @@ mod tests {
     }
 
     fn confirmed(command: &str) -> ExternalExecutionOutcome {
-        ExternalExecutionOutcome::Confirmed(ExternalReceipt {
+        ExternalExecutionOutcome::Confirmed(mycelix_integration_core::ExternalReceipt {
             operation: operation(command),
             provider_receipt: Some(ExternalOpaqueId::new("receipt-1").unwrap()),
             receipt_commitment: ContentCommitment::sha256(b"provider-receipt"),
@@ -1055,7 +1046,7 @@ mod tests {
     fn inbound_duplicate_is_idempotent_but_collision_is_rejected() {
         let mut store = SqliteIntegrationStore::in_memory().unwrap();
         let inbound = PersistableInbound {
-            event_id: "evt-1".into(),
+            event_id: event_id("evt-1"),
             connector_instance: connector(),
             event_commitment: ContentCommitment::sha256(b"event-a"),
             normalized_payload: b"normalized".to_vec(),
@@ -1131,7 +1122,10 @@ mod tests {
         assert_eq!(recovered.side_effecting_marked_ambiguous, 1);
         let snapshot = store.outbox_snapshot(entry_id).unwrap();
         assert_eq!(snapshot.stage, OutboundStage::Ambiguous);
-        assert!(matches!(snapshot.outcome, Some(ExternalExecutionOutcome::Ambiguous { .. })));
+        assert!(matches!(
+            snapshot.outcome,
+            Some(ExternalExecutionOutcome::Ambiguous { .. })
+        ));
 
         assert!(store.claim_outbox("worker-b", 122, 10, 10).unwrap().is_empty());
     }
