@@ -24,6 +24,7 @@ const MAX_SERIALIZED_OUTCOME_BYTES: usize = 256 * 1024;
 const MAX_SERIALIZED_RECONCILIATION_BYTES: usize = 256 * 1024;
 const MAX_RECONCILIATION_HISTORY_PER_ENTRY: i64 = 4096;
 const MAX_EXECUTION_OBSERVATIONS_PER_ENTRY: i64 = 4096;
+const MAX_EXECUTION_ATTEMPTS_PER_ENTRY: i64 = 1024;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
@@ -59,6 +60,8 @@ pub enum RuntimeError {
     ReconciliationHistoryLimit { entry_id: i64 },
     #[error("execution observation history for outbox entry {entry_id} reached its v0.1 bound")]
     ExecutionObservationHistoryLimit { entry_id: i64 },
+    #[error("execution attempt budget for outbox entry {entry_id} reached its v0.1 limit of {limit}")]
+    AttemptBudgetExceeded { entry_id: i64, limit: u32 },
     #[error("inbound event identity collision for {connector_instance}:{event_id}")]
     InboundIdentityCollision {
         connector_instance: String,
@@ -209,13 +212,11 @@ pub struct SqliteIntegrationStore {
 
 impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
-        let conn = Connection::open(path)?;
-        Self::from_connection(conn)
+        Self::from_connection(Connection::open(path)?)
     }
 
     pub fn in_memory() -> Result<Self, RuntimeError> {
-        let conn = Connection::open_in_memory()?;
-        Self::from_connection(conn)
+        Self::from_connection(Connection::open_in_memory()?)
     }
 
     fn from_connection(conn: Connection) -> Result<Self, RuntimeError> {
@@ -225,7 +226,6 @@ impl SqliteIntegrationStore {
              PRAGMA synchronous = FULL;",
         )?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
-
         let mut store = Self { conn };
         store.initialize_or_migrate_schema()?;
         Ok(store)
@@ -236,7 +236,6 @@ impl SqliteIntegrationStore {
             .conn
             .pragma_query_value(None, "user_version", |row| row.get(0))?;
         let has_outbox = table_exists(&self.conn, "integration_outbox")?;
-
         match (version, has_outbox) {
             (0, false) => self.create_schema_v2(),
             (0, true) => self.migrate_implicit_v1_to_v2(),
@@ -290,7 +289,6 @@ impl SqliteIntegrationStore {
 
             CREATE INDEX IF NOT EXISTS integration_outbox_claim_idx
                 ON integration_outbox(stage, entry_id);
-
             CREATE INDEX IF NOT EXISTS integration_outbox_lease_idx
                 ON integration_outbox(stage, lease_until_ms);
 
@@ -303,7 +301,6 @@ impl SqliteIntegrationStore {
                 applied_to_current INTEGER NOT NULL,
                 FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)
             );
-
             CREATE INDEX IF NOT EXISTS integration_execution_observation_idx
                 ON integration_execution_observation(entry_id, observation_id);
 
@@ -314,7 +311,6 @@ impl SqliteIntegrationStore {
                 recorded_at_ms INTEGER NOT NULL,
                 FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)
             );
-
             CREATE INDEX IF NOT EXISTS integration_reconciliation_history_idx
                 ON integration_reconciliation_history(entry_id, sequence);
 
@@ -336,7 +332,6 @@ impl SqliteIntegrationStore {
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-
         tx.execute_batch(
             r#"
             ALTER TABLE integration_outbox ADD COLUMN current_attempt_id TEXT;
@@ -351,7 +346,6 @@ impl SqliteIntegrationStore {
                 applied_to_current INTEGER NOT NULL,
                 FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)
             );
-
             CREATE INDEX IF NOT EXISTS integration_execution_observation_idx
                 ON integration_execution_observation(entry_id, observation_id);
 
@@ -362,12 +356,13 @@ impl SqliteIntegrationStore {
                 recorded_at_ms INTEGER NOT NULL,
                 FOREIGN KEY(entry_id) REFERENCES integration_outbox(entry_id)
             );
-
             CREATE INDEX IF NOT EXISTS integration_reconciliation_history_idx
                 ON integration_reconciliation_history(entry_id, sequence);
             "#,
         )?;
 
+        // Legacy v1 stage 4 was `Executing`; it cannot prove whether dispatch had
+        // occurred, so migration preserves uncertainty by mapping it to Ambiguous.
         tx.execute(
             "UPDATE integration_outbox\n\
              SET worker_id = NULL, lease_until_ms = NULL\n\
@@ -404,12 +399,10 @@ impl SqliteIntegrationStore {
         if inbound.normalized_payload.len() > MAX_INBOUND_PAYLOAD_BYTES {
             return Err(RuntimeError::InboundPayloadTooLarge);
         }
-
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let key_connector = inbound.connector_instance.as_str();
-
         let existing: Option<(i64, Vec<u8>, Vec<u8>)> = tx
             .query_row(
                 "SELECT commitment_algorithm, commitment_digest, normalized_payload\n\
@@ -468,7 +461,6 @@ impl SqliteIntegrationStore {
         if intent.command_bytes.len() > MAX_COMMAND_BYTES {
             return Err(RuntimeError::CommandTooLarge);
         }
-
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -528,7 +520,6 @@ impl SqliteIntegrationStore {
                 && idempotency_key.as_deref()
                     == intent.idempotency_key.as_ref().map(IdempotencyKey::as_str)
                 && command_bytes == intent.command_bytes;
-
             if same {
                 tx.commit()?;
                 return Ok(EnqueueDisposition::AlreadyPresent(entry_id));
@@ -583,7 +574,6 @@ impl SqliteIntegrationStore {
         let lease_until_ms = now_ms
             .checked_add(lease_duration_ms)
             .ok_or(RuntimeError::LeaseDeadlineOverflow)?;
-
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -612,11 +602,17 @@ impl SqliteIntegrationStore {
                 params![entry_id],
                 |row| row.get(0),
             )?;
+            if previous_attempt_count >= MAX_EXECUTION_ATTEMPTS_PER_ENTRY {
+                return Err(RuntimeError::AttemptBudgetExceeded {
+                    entry_id,
+                    limit: MAX_EXECUTION_ATTEMPTS_PER_ENTRY as u32,
+                });
+            }
             let next_attempt_count = previous_attempt_count
                 .checked_add(1)
-                .ok_or(RuntimeError::InvalidStoredEnum {
-                    field: "attempt_count",
-                    value: previous_attempt_count,
+                .ok_or(RuntimeError::AttemptBudgetExceeded {
+                    entry_id,
+                    limit: MAX_EXECUTION_ATTEMPTS_PER_ENTRY as u32,
                 })?;
             let attempt_id = ExecutionAttemptId::new(format!("{entry_id}:{next_attempt_count}"))
                 .map_err(|error| RuntimeError::StoredIdentifier(error.to_string()))?;
@@ -647,7 +643,6 @@ impl SqliteIntegrationStore {
             }
             claimed.push(load_execution_claim(&tx, entry_id, attempt_id, lease_until_ms)?);
         }
-
         tx.commit()?;
         Ok(claimed)
     }
@@ -664,7 +659,6 @@ impl SqliteIntegrationStore {
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-
         let (stage, owner, stored_attempt, lease_until, command_id, connector_instance): (
             i64,
             Option<String>,
@@ -690,7 +684,6 @@ impl SqliteIntegrationStore {
             )
             .optional()?
             .ok_or(RuntimeError::UnknownOutboxEntry { entry_id })?;
-
         let stage = outbound_stage_from_i64(stage)?;
         if stage != OutboundStage::AttemptPrepared {
             return Err(RuntimeError::UnexpectedOutboundStage {
@@ -703,12 +696,10 @@ impl SqliteIntegrationStore {
         if lease_until.is_none_or(|deadline| now_ms >= deadline) {
             return Err(RuntimeError::LeaseExpired { entry_id });
         }
-
         let command_id = IntegrationCommandId::new(command_id)
             .map_err(|error| RuntimeError::StoredIdentifier(error.to_string()))?;
         let connector_instance = ConnectorInstanceId::new(connector_instance)
             .map_err(|error| RuntimeError::StoredIdentifier(error.to_string()))?;
-
         require_outbound_transition(stage, OutboundStage::DispatchStarted)?;
         tx.execute(
             "UPDATE integration_outbox\n\
@@ -723,7 +714,6 @@ impl SqliteIntegrationStore {
             ],
         )?;
         tx.commit()?;
-
         Ok(DispatchStarted {
             entry_id,
             attempt_id: attempt_id.clone(),
@@ -763,11 +753,9 @@ impl SqliteIntegrationStore {
         if outcome_json.len() > MAX_SERIALIZED_OUTCOME_BYTES {
             return Err(RuntimeError::OutcomeTooLarge);
         }
-
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-
         let (stage, owner, stored_attempt, command_id, connector_instance): (
             i64,
             Option<String>,
@@ -792,24 +780,28 @@ impl SqliteIntegrationStore {
             .optional()?
             .ok_or(RuntimeError::UnknownOutboxEntry { entry_id })?;
         let stage = outbound_stage_from_i64(stage)?;
-
         let operation = outcome.operation();
         if operation.command_id.as_str() != command_id
             || operation.connector_instance.as_str() != connector_instance
         {
             return Err(RuntimeError::OutcomeOperationMismatch { entry_id });
         }
+        if stored_attempt.as_deref() != Some(attempt_id.as_str()) {
+            return Err(RuntimeError::AttemptFenceMismatch { entry_id });
+        }
 
         let is_current_dispatch = stage == OutboundStage::DispatchStarted
-            && owner.as_deref() == Some(worker_id)
-            && stored_attempt.as_deref() == Some(attempt_id.as_str());
-        let is_late_same_attempt = stage == OutboundStage::Ambiguous
-            && stored_attempt.as_deref() == Some(attempt_id.as_str());
+            && owner.as_deref() == Some(worker_id);
+        let is_historical_same_attempt = matches!(
+            stage,
+            OutboundStage::Confirmed
+                | OutboundStage::RejectedBeforeCommit
+                | OutboundStage::Ambiguous
+                | OutboundStage::Reconciled
+                | OutboundStage::Finalized
+        );
 
-        if !is_current_dispatch && !is_late_same_attempt {
-            if stored_attempt.as_deref() != Some(attempt_id.as_str()) {
-                return Err(RuntimeError::AttemptFenceMismatch { entry_id });
-            }
+        if !is_current_dispatch && !is_historical_same_attempt {
             if owner.as_deref().is_some_and(|owner| owner != worker_id) {
                 return Err(RuntimeError::LeaseOwnerMismatch { entry_id });
             }
@@ -819,16 +811,7 @@ impl SqliteIntegrationStore {
                 actual: stage,
             });
         }
-
-        let observation_count: i64 = tx.query_row(
-            "SELECT COUNT(*) FROM integration_execution_observation WHERE entry_id = ?1",
-            params![entry_id],
-            |row| row.get(0),
-        )?;
-        if observation_count >= MAX_EXECUTION_OBSERVATIONS_PER_ENTRY {
-            return Err(RuntimeError::ExecutionObservationHistoryLimit { entry_id });
-        }
-
+        ensure_execution_observation_capacity(&tx, entry_id)?;
         tx.execute(
             "INSERT INTO integration_execution_observation (\n\
                 entry_id, attempt_id, outcome_json, observed_at_ms, applied_to_current\n\
@@ -842,14 +825,16 @@ impl SqliteIntegrationStore {
             ],
         )?;
 
-        if is_late_same_attempt {
+        if is_historical_same_attempt {
             tx.commit()?;
             return Ok(ExecutionRecordDisposition::RecordedForStaleAttempt);
         }
 
         let next = match outcome {
             ExternalExecutionOutcome::Confirmed(_) => OutboundStage::Confirmed,
-            ExternalExecutionOutcome::Rejected { .. } => OutboundStage::Rejected,
+            ExternalExecutionOutcome::RejectedBeforeCommit { .. } => {
+                OutboundStage::RejectedBeforeCommit
+            }
             ExternalExecutionOutcome::Ambiguous { .. } => OutboundStage::Ambiguous,
         };
         require_outbound_transition(stage, next)?;
@@ -881,7 +866,6 @@ impl SqliteIntegrationStore {
         if reconciliation_json.len() > MAX_SERIALIZED_RECONCILIATION_BYTES {
             return Err(RuntimeError::ReconciliationTooLarge);
         }
-
         let tx = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -895,28 +879,20 @@ impl SqliteIntegrationStore {
             .optional()?
             .ok_or(RuntimeError::UnknownOutboxEntry { entry_id })?;
         let stage = outbound_stage_from_i64(stage)?;
-
         if reconciliation.operation.command_id.as_str() != command_id
             || reconciliation.operation.connector_instance.as_str() != connector_instance
         {
             return Err(RuntimeError::ReconciliationOperationMismatch { entry_id });
         }
+        ensure_reconciliation_capacity(&tx, entry_id)?;
 
-        let reconciliation_count: i64 = tx.query_row(
-            "SELECT COUNT(*) FROM integration_reconciliation_history WHERE entry_id = ?1",
-            params![entry_id],
-            |row| row.get(0),
-        )?;
-        if reconciliation_count >= MAX_RECONCILIATION_HISTORY_PER_ENTRY {
-            return Err(RuntimeError::ReconciliationHistoryLimit { entry_id });
+        // Historical evidence remains appendable after resolution/finalization,
+        // but it never rewrites the already established current state.
+        if matches!(stage, OutboundStage::Reconciled | OutboundStage::Finalized) {
+            append_reconciliation_history(&tx, entry_id, &reconciliation_json, now_ms)?;
+            tx.commit()?;
+            return Ok(());
         }
-
-        tx.execute(
-            "INSERT INTO integration_reconciliation_history (\n\
-                entry_id, result_json, recorded_at_ms\n\
-             ) VALUES (?1, ?2, ?3)",
-            params![entry_id, reconciliation_json.as_slice(), now_ms],
-        )?;
 
         if !reconciliation.is_conclusive() {
             if stage != OutboundStage::Ambiguous {
@@ -926,6 +902,7 @@ impl SqliteIntegrationStore {
                     actual: stage,
                 });
             }
+            append_reconciliation_history(&tx, entry_id, &reconciliation_json, now_ms)?;
             tx.execute(
                 "UPDATE integration_outbox\n\
                  SET reconciliation_json = ?1, updated_at_ms = ?2\n\
@@ -937,6 +914,7 @@ impl SqliteIntegrationStore {
         }
 
         require_outbound_transition(stage, OutboundStage::Reconciled)?;
+        append_reconciliation_history(&tx, entry_id, &reconciliation_json, now_ms)?;
         tx.execute(
             "UPDATE integration_outbox\n\
              SET stage = ?1, reconciliation_json = ?2, updated_at_ms = ?3\n\
@@ -1040,7 +1018,6 @@ impl SqliteIntegrationStore {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-
         stored
             .map(|(cursor, algorithm, digest)| {
                 Ok(ReconcileCursor {
@@ -1172,6 +1149,57 @@ fn require_attempt_owner(
     Ok(())
 }
 
+fn execution_observation_count(
+    tx: &Transaction<'_>,
+    entry_id: i64,
+) -> Result<i64, RuntimeError> {
+    Ok(tx.query_row(
+        "SELECT COUNT(*) FROM integration_execution_observation WHERE entry_id = ?1",
+        params![entry_id],
+        |row| row.get(0),
+    )?)
+}
+
+fn ensure_execution_observation_capacity(
+    tx: &Transaction<'_>,
+    entry_id: i64,
+) -> Result<(), RuntimeError> {
+    if execution_observation_count(tx, entry_id)? >= MAX_EXECUTION_OBSERVATIONS_PER_ENTRY {
+        return Err(RuntimeError::ExecutionObservationHistoryLimit { entry_id });
+    }
+    Ok(())
+}
+
+fn ensure_reconciliation_capacity(
+    tx: &Transaction<'_>,
+    entry_id: i64,
+) -> Result<(), RuntimeError> {
+    let count: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM integration_reconciliation_history WHERE entry_id = ?1",
+        params![entry_id],
+        |row| row.get(0),
+    )?;
+    if count >= MAX_RECONCILIATION_HISTORY_PER_ENTRY {
+        return Err(RuntimeError::ReconciliationHistoryLimit { entry_id });
+    }
+    Ok(())
+}
+
+fn append_reconciliation_history(
+    tx: &Transaction<'_>,
+    entry_id: i64,
+    reconciliation_json: &[u8],
+    now_ms: i64,
+) -> Result<(), RuntimeError> {
+    tx.execute(
+        "INSERT INTO integration_reconciliation_history (\n\
+            entry_id, result_json, recorded_at_ms\n\
+         ) VALUES (?1, ?2, ?3)",
+        params![entry_id, reconciliation_json, now_ms],
+    )?;
+    Ok(())
+}
+
 fn recover_expired_claims_in_tx(
     tx: &Transaction<'_>,
     now_ms: i64,
@@ -1224,6 +1252,7 @@ fn recover_expired_claims_in_tx(
                 summary.pre_dispatch_requeued += 1;
             }
             OutboundStage::DispatchStarted => {
+                ensure_execution_observation_capacity(tx, entry_id)?;
                 let command_id = IntegrationCommandId::new(command_id)
                     .map_err(|error| RuntimeError::StoredIdentifier(error.to_string()))?;
                 let connector_instance = ConnectorInstanceId::new(connector_instance)
@@ -1269,7 +1298,11 @@ fn recover_expired_claims_in_tx(
                 }
                 summary.post_dispatch_marked_ambiguous += 1;
             }
-            _ => unreachable!("stale query restricts stages"),
+            _ => return Err(RuntimeError::UnexpectedOutboundStage {
+                entry_id,
+                expected: OutboundStage::DispatchStarted,
+                actual: stage,
+            }),
         }
     }
     Ok(summary)
@@ -1300,7 +1333,6 @@ fn load_execution_claim(
             ))
         },
     )?;
-
     Ok(ExecutionClaim {
         entry_id,
         attempt_id,
@@ -1429,6 +1461,9 @@ fn inbound_stage_to_i64(value: InboundStage) -> i64 {
     }
 }
 
+// Numeric v2 storage values are explicit protocol representation. Existing
+// values are preserved; AuthorityDenied is allocated a new slot rather than
+// reinterpreting any previously stored stage.
 fn outbound_stage_to_i64(value: OutboundStage) -> i64 {
     match value {
         OutboundStage::Proposed => 0,
@@ -1438,10 +1473,11 @@ fn outbound_stage_to_i64(value: OutboundStage) -> i64 {
         OutboundStage::AttemptPrepared => 4,
         OutboundStage::DispatchStarted => 5,
         OutboundStage::Confirmed => 6,
-        OutboundStage::Rejected => 7,
+        OutboundStage::RejectedBeforeCommit => 7,
         OutboundStage::Ambiguous => 8,
         OutboundStage::Reconciled => 9,
         OutboundStage::Finalized => 10,
+        OutboundStage::AuthorityDenied => 11,
     }
 }
 
@@ -1454,10 +1490,11 @@ fn outbound_stage_from_i64(value: i64) -> Result<OutboundStage, RuntimeError> {
         4 => Ok(OutboundStage::AttemptPrepared),
         5 => Ok(OutboundStage::DispatchStarted),
         6 => Ok(OutboundStage::Confirmed),
-        7 => Ok(OutboundStage::Rejected),
+        7 => Ok(OutboundStage::RejectedBeforeCommit),
         8 => Ok(OutboundStage::Ambiguous),
         9 => Ok(OutboundStage::Reconciled),
         10 => Ok(OutboundStage::Finalized),
+        11 => Ok(OutboundStage::AuthorityDenied),
         _ => Err(RuntimeError::InvalidStoredEnum {
             field: "outbound_stage",
             value,
@@ -1516,7 +1553,7 @@ mod tests {
     }
 
     fn rejected(command: &str) -> ExternalExecutionOutcome {
-        ExternalExecutionOutcome::Rejected {
+        ExternalExecutionOutcome::RejectedBeforeCommit {
             operation: operation(command),
             reason: ExternalRejection {
                 code: ExternalRejectionCode::new("declined").unwrap(),
@@ -1557,17 +1594,14 @@ mod tests {
             normalized_payload: b"normalized".to_vec(),
             received_at_ms: 100,
         };
-
         assert_eq!(store.insert_inbound(&inbound).unwrap(), InsertDisposition::Inserted);
         assert_eq!(store.insert_inbound(&inbound).unwrap(), InsertDisposition::Duplicate);
-
         let mut content_conflict = inbound.clone();
         content_conflict.event_commitment = ContentCommitment::sha256(b"event-b");
         assert!(matches!(
             store.insert_inbound(&content_conflict),
             Err(RuntimeError::InboundIdentityCollision { .. })
         ));
-
         let mut normalization_conflict = inbound.clone();
         normalization_conflict.normalized_payload = b"different-normalization".to_vec();
         assert!(matches!(
@@ -1588,14 +1622,12 @@ mod tests {
             store.enqueue_outbound(&intent).unwrap(),
             EnqueueDisposition::AlreadyPresent(entry_id)
         );
-
         let mut bytes_conflict = intent.clone();
         bytes_conflict.command_bytes = b"different-command".to_vec();
         assert!(matches!(
             store.enqueue_outbound(&bytes_conflict),
             Err(RuntimeError::OutboxIdentityCollision { .. })
         ));
-
         let mut connector_conflict = intent.clone();
         connector_conflict.connector_instance = ConnectorInstanceId::new("other").unwrap();
         assert!(matches!(
@@ -1623,7 +1655,6 @@ mod tests {
         let mut store = SqliteIntegrationStore::in_memory().unwrap();
         let entry_id = enqueue(&mut store, "cmd-pre", SideEffectClass::Irreversible);
         store.claim_outbox("worker-a", 110, 10, 10).unwrap();
-
         let recovered = store.recover_expired_claims(121).unwrap();
         assert_eq!(recovered.pre_dispatch_requeued, 1);
         assert_eq!(
@@ -1640,7 +1671,6 @@ mod tests {
         store
             .mark_dispatch_started(entry_id, &claim.attempt_id, "worker-a", 111)
             .unwrap();
-
         let recovered = store.recover_expired_claims(121).unwrap();
         assert_eq!(recovered.post_dispatch_marked_ambiguous, 1);
         let snapshot = store.outbox_snapshot(entry_id).unwrap();
@@ -1668,7 +1698,6 @@ mod tests {
         store
             .mark_dispatch_started(entry_id, &attempt_two.attempt_id, "worker-a", 123)
             .unwrap();
-
         assert!(matches!(
             store.record_execution(
                 entry_id,
@@ -1690,7 +1719,6 @@ mod tests {
             .mark_dispatch_started(entry_id, &claim.attempt_id, "worker-a", 111)
             .unwrap();
         store.recover_expired_claims(121).unwrap();
-
         let disposition = store
             .record_execution(
                 entry_id,
@@ -1718,7 +1746,6 @@ mod tests {
         store
             .mark_dispatch_started(entry_id, &claim.attempt_id, "worker-a", 111)
             .unwrap();
-
         assert!(matches!(
             store.record_execution(
                 entry_id,
@@ -1740,7 +1767,6 @@ mod tests {
             .mark_dispatch_started(entry_id, &claim.attempt_id, "worker-a", 111)
             .unwrap();
         store.recover_expired_claims(121).unwrap();
-
         store
             .record_reconciliation(
                 entry_id,
@@ -1755,7 +1781,6 @@ mod tests {
                 140,
             )
             .unwrap();
-
         assert_eq!(
             store.outbox_snapshot(entry_id).unwrap().stage,
             OutboundStage::Ambiguous
@@ -1784,12 +1809,10 @@ mod tests {
                 150,
             )
             .unwrap();
-
         assert!(matches!(
             store.finalize_outbound(entry_id, 160),
             Err(RuntimeError::IllegalOutboundTransition { .. })
         ));
-
         store
             .record_reconciliation(
                 entry_id,
@@ -1828,7 +1851,6 @@ mod tests {
             let mut store = SqliteIntegrationStore::open(&path).unwrap();
             entry_id = enqueue(&mut store, "cmd-persist", SideEffectClass::Irreversible);
         }
-
         let store = SqliteIntegrationStore::open(&path).unwrap();
         let snapshot = store.outbox_snapshot(entry_id).unwrap();
         assert_eq!(snapshot.stage, OutboundStage::OutboxCommitted);
@@ -1899,7 +1921,6 @@ mod tests {
             )
             .unwrap();
         }
-
         let store = SqliteIntegrationStore::open(&path).unwrap();
         let snapshot = store.outbox_snapshot(1).unwrap();
         assert_eq!(snapshot.stage, OutboundStage::Ambiguous);
