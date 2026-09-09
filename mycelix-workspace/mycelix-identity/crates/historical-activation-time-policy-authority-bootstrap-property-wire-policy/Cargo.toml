@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Strict raw DNA-property wire envelope for the historical time-policy authority bootstrap declaration"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy = { path = "../historical-activation-time-policy-authority-bootstrap-subject-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy = { path = "../historical-activation-time-policy-authority-bootstrap-declaration-policy" }
+
+[dev-dependencies]
+sha2 = { workspace = true }
