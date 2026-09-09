@@ -1,0 +1,15 @@
+[package]
+name = "mycelix-authority-causal-active"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Historical positive-authority qualification over exact causal authority-state projections"
+
+[dependencies]
+blake3 = "1"
+mycelix-authority-causal-projection = { path = "../mycelix-authority-causal-projection" }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+
+[dev-dependencies]
+mycelix-authority-state-source = { path = "../mycelix-authority-state-source" }
