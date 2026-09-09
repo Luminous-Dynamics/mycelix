@@ -5,8 +5,7 @@
 //!
 //! This zome indexes and queries immutable evidence. It does not assign ownership,
 //! reputation, payments, governance weight, execution authority, or causal truth.
-//! Index links are treated as hints: every query re-reads and re-validates the target
-//! record payload before returning it.
+//! Every query re-reads and re-validates target record payloads before returning them.
 
 use hdk::prelude::*;
 use lineage_integrity::*;
@@ -28,6 +27,12 @@ pub enum LineageSignal {
         attestor_did: String,
         source_ref: String,
         target_ref: String,
+    },
+    ResponsePublished {
+        id: String,
+        responder_did: String,
+        subject_action: ActionHash,
+        disposition: ResponseDisposition,
     },
 }
 
@@ -77,6 +82,29 @@ pub struct ActorQueryInput {
 pub struct EdgeQueryInput {
     pub subject_ref: String,
     pub pagination: PaginationInput,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ResponseQueryInput {
+    pub subject_action: ActionHash,
+    pub pagination: PaginationInput,
+}
+
+/// Conflict-preserving projection over one exact evidence action.
+///
+/// This intentionally contains raw response records rather than aggregated confidence,
+/// votes, or reputation. `author_state_conflict` only describes contradictory author
+/// dispositions (e.g. retract + supersede, or multiple replacement actions); it does not
+/// resolve them.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EvidenceResponseView {
+    pub subject: Record,
+    pub corroborations: Vec<Record>,
+    pub contests: Vec<Record>,
+    pub retractions: Vec<Record>,
+    pub supersessions: Vec<Record>,
+    pub superseding_actions: Vec<ActionHash>,
+    pub author_state_conflict: bool,
 }
 
 fn guest(message: impl Into<String>) -> WasmError {
@@ -139,7 +167,7 @@ fn anchor_hash(anchor: impl Into<String>) -> ExternResult<EntryHash> {
     hash_entry(&Anchor(anchor.into()))
 }
 
-fn create_index(
+fn create_anchor_index(
     anchor: impl Into<String>,
     target: ActionHash,
     link_type: LinkTypes,
@@ -148,11 +176,23 @@ fn create_index(
     Ok(())
 }
 
+fn create_action_index(
+    base: ActionHash,
+    target: ActionHash,
+    link_type: LinkTypes,
+) -> ExternResult<()> {
+    create_link(base, target, link_type, ())?;
+    Ok(())
+}
+
 /// Read action-hash index targets, silently dropping malformed targets, missing records,
 /// and duplicate links. Payload semantics are checked by the typed filters below.
-fn resolve_action_index(anchor: String, link_type: LinkTypes) -> ExternResult<Vec<Record>> {
+fn resolve_action_index(
+    base: AnyLinkableHash,
+    link_type: LinkTypes,
+) -> ExternResult<Vec<Record>> {
     let links = get_links(
-        LinkQuery::try_new(anchor_hash(anchor)?, link_type)?,
+        LinkQuery::try_new(base, link_type)?,
         GetStrategy::default(),
     )?;
 
@@ -170,6 +210,13 @@ fn resolve_action_index(anchor: String, link_type: LinkTypes) -> ExternResult<Ve
         }
     }
     Ok(records)
+}
+
+fn resolve_anchor_index(anchor: String, link_type: LinkTypes) -> ExternResult<Vec<Record>> {
+    resolve_action_index(
+        AnyLinkableHash::from(anchor_hash(anchor)?),
+        link_type,
+    )
 }
 
 fn record_author_did(record: &Record) -> String {
@@ -200,6 +247,18 @@ fn attestation_payload(record: &Record) -> Option<LineageAttestation> {
     }
 }
 
+fn response_payload(record: &Record) -> Option<LineageResponse> {
+    match record.entry().to_app_option::<LineageResponse>() {
+        Ok(Some(payload))
+            if validate_response_fields(&payload).is_ok()
+                && payload.responder_did == record_author_did(record) =>
+        {
+            Some(payload)
+        }
+        _ => None,
+    }
+}
+
 fn filter_contributions<F>(records: Vec<Record>, predicate: F) -> Vec<Record>
 where
     F: Fn(&ContributionRecord) -> bool,
@@ -209,7 +268,7 @@ where
         .filter(|record| {
             contribution_payload(record)
                 .as_ref()
-                .is_some_and(&predicate)
+                .is_some_and(|payload| predicate(payload))
         })
         .collect()
 }
@@ -223,7 +282,21 @@ where
         .filter(|record| {
             attestation_payload(record)
                 .as_ref()
-                .is_some_and(&predicate)
+                .is_some_and(|payload| predicate(payload))
+        })
+        .collect()
+}
+
+fn filter_responses<F>(records: Vec<Record>, predicate: F) -> Vec<Record>
+where
+    F: Fn(&LineageResponse) -> bool,
+{
+    records
+        .into_iter()
+        .filter(|record| {
+            response_payload(record)
+                .as_ref()
+                .is_some_and(|payload| predicate(payload))
         })
         .collect()
 }
@@ -236,8 +309,12 @@ fn attestation_matches_id(claim: &LineageAttestation, actor_did: &str, id: &str)
     claim.attestor_did == actor_did && claim.id == id
 }
 
+fn response_matches_id(response: &LineageResponse, actor_did: &str, id: &str) -> bool {
+    response.responder_did == actor_did && response.id == id
+}
+
 fn find_contribution_by_id(actor_did: &str, id: &str) -> ExternResult<Option<Record>> {
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         contribution_id_anchor(actor_did, id),
         LinkTypes::ContributionById,
     )?;
@@ -249,7 +326,7 @@ fn find_contribution_by_id(actor_did: &str, id: &str) -> ExternResult<Option<Rec
 }
 
 fn find_attestation_by_id(actor_did: &str, id: &str) -> ExternResult<Option<Record>> {
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         attestation_id_anchor(actor_did, id),
         LinkTypes::AttestationById,
     )?;
@@ -258,6 +335,28 @@ fn find_attestation_by_id(actor_did: &str, id: &str) -> ExternResult<Option<Reco
     })
     .into_iter()
     .next())
+}
+
+fn find_response_by_id(actor_did: &str, id: &str) -> ExternResult<Option<Record>> {
+    let records = resolve_anchor_index(
+        response_id_anchor(actor_did, id),
+        LinkTypes::ResponseById,
+    )?;
+    Ok(filter_responses(records, |response| {
+        response_matches_id(response, actor_did, id)
+    })
+    .into_iter()
+    .next())
+}
+
+fn responses_for_action(subject_action: &ActionHash) -> ExternResult<Vec<Record>> {
+    let records = resolve_action_index(
+        AnyLinkableHash::from(subject_action.clone()),
+        LinkTypes::SubjectToResponse,
+    )?;
+    Ok(filter_responses(records, |response| {
+        response.subject_action == *subject_action
+    }))
 }
 
 #[hdk_extern]
@@ -276,22 +375,22 @@ pub fn publish_contribution(record: ContributionRecord) -> ExternResult<Record> 
 
     let action_hash = create_entry(&EntryTypes::ContributionRecord(record.clone()))?;
 
-    create_index(
+    create_anchor_index(
         ALL_CONTRIBUTIONS_ANCHOR,
         action_hash.clone(),
         LinkTypes::AllContributions,
     )?;
-    create_index(
+    create_anchor_index(
         contribution_id_anchor(&record.contributor_did, &record.id),
         action_hash.clone(),
         LinkTypes::ContributionById,
     )?;
-    create_index(
+    create_anchor_index(
         contribution_subject_anchor(&record.subject_ref),
         action_hash.clone(),
         LinkTypes::SubjectToContribution,
     )?;
-    create_index(
+    create_anchor_index(
         contribution_contributor_anchor(&record.contributor_did),
         action_hash.clone(),
         LinkTypes::ContributorToContribution,
@@ -303,9 +402,8 @@ pub fn publish_contribution(record: ContributionRecord) -> ExternResult<Record> 
         subject_ref: record.subject_ref.clone(),
     });
 
-    get(action_hash, GetOptions::default())?.ok_or_else(|| {
-        guest("could not fetch newly created contribution record")
-    })
+    get(action_hash, GetOptions::default())?
+        .ok_or_else(|| guest("could not fetch newly created contribution record"))
 }
 
 #[hdk_extern]
@@ -322,27 +420,27 @@ pub fn publish_attestation(claim: LineageAttestation) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::LineageAttestation(claim.clone()))?;
 
-    create_index(
+    create_anchor_index(
         ALL_ATTESTATIONS_ANCHOR,
         action_hash.clone(),
         LinkTypes::AllAttestations,
     )?;
-    create_index(
+    create_anchor_index(
         attestation_id_anchor(&claim.attestor_did, &claim.id),
         action_hash.clone(),
         LinkTypes::AttestationById,
     )?;
-    create_index(
+    create_anchor_index(
         attestation_source_anchor(&claim.source_ref),
         action_hash.clone(),
         LinkTypes::SourceToAttestation,
     )?;
-    create_index(
+    create_anchor_index(
         attestation_target_anchor(&claim.target_ref),
         action_hash.clone(),
         LinkTypes::TargetToAttestation,
     )?;
-    create_index(
+    create_anchor_index(
         attestation_attestor_anchor(&claim.attestor_did),
         action_hash.clone(),
         LinkTypes::AttestorToAttestation,
@@ -355,9 +453,56 @@ pub fn publish_attestation(claim: LineageAttestation) -> ExternResult<Record> {
         target_ref: claim.target_ref.clone(),
     });
 
-    get(action_hash, GetOptions::default())?.ok_or_else(|| {
-        guest("could not fetch newly created lineage attestation")
-    })
+    get(action_hash, GetOptions::default())?
+        .ok_or_else(|| guest("could not fetch newly created lineage attestation"))
+}
+
+#[hdk_extern]
+pub fn publish_response(response: LineageResponse) -> ExternResult<Record> {
+    validate_response_fields(&response).map_err(guest)?;
+    require_caller(&response.responder_did)?;
+
+    if find_response_by_id(&response.responder_did, &response.id)?.is_some() {
+        return Err(guest(format!(
+            "response id '{}' already exists for this responder",
+            response.id
+        )));
+    }
+
+    // Entry integrity validation resolves the exact subject/replacement and enforces
+    // independent vs author-only disposition semantics.
+    let action_hash = create_entry(&EntryTypes::LineageResponse(response.clone()))?;
+
+    create_anchor_index(
+        ALL_RESPONSES_ANCHOR,
+        action_hash.clone(),
+        LinkTypes::AllResponses,
+    )?;
+    create_anchor_index(
+        response_id_anchor(&response.responder_did, &response.id),
+        action_hash.clone(),
+        LinkTypes::ResponseById,
+    )?;
+    create_action_index(
+        response.subject_action.clone(),
+        action_hash.clone(),
+        LinkTypes::SubjectToResponse,
+    )?;
+    create_anchor_index(
+        response_responder_anchor(&response.responder_did),
+        action_hash.clone(),
+        LinkTypes::ResponderToResponse,
+    )?;
+
+    let _ = emit_signal(&LineageSignal::ResponsePublished {
+        id: response.id.clone(),
+        responder_did: response.responder_did.clone(),
+        subject_action: response.subject_action.clone(),
+        disposition: response.disposition.clone(),
+    });
+
+    get(action_hash, GetOptions::default())?
+        .ok_or_else(|| guest("could not fetch newly created lineage response"))
 }
 
 #[hdk_extern]
@@ -375,9 +520,16 @@ pub fn get_attestation_by_id(input: ScopedIdInput) -> ExternResult<Option<Record
 }
 
 #[hdk_extern]
+pub fn get_response_by_id(input: ScopedIdInput) -> ExternResult<Option<Record>> {
+    validate_query_value("actor_did", &input.actor_did, MAX_ID_LEN)?;
+    validate_query_value("id", &input.id, MAX_ID_LEN)?;
+    find_response_by_id(&input.actor_did, &input.id)
+}
+
+#[hdk_extern]
 pub fn get_all_contributions(pagination: PaginationInput) -> ExternResult<PaginatedRecords> {
     validate_pagination(&pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         ALL_CONTRIBUTIONS_ANCHOR.into(),
         LinkTypes::AllContributions,
     )?;
@@ -391,7 +543,7 @@ pub fn get_all_contributions(pagination: PaginationInput) -> ExternResult<Pagina
 pub fn get_contributions_for_subject(input: SubjectQueryInput) -> ExternResult<PaginatedRecords> {
     validate_query_value("subject_ref", &input.subject_ref, MAX_SUBJECT_REF_LEN)?;
     validate_pagination(&input.pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         contribution_subject_anchor(&input.subject_ref),
         LinkTypes::SubjectToContribution,
     )?;
@@ -405,7 +557,7 @@ pub fn get_contributions_for_subject(input: SubjectQueryInput) -> ExternResult<P
 pub fn get_contributions_by_contributor(input: ActorQueryInput) -> ExternResult<PaginatedRecords> {
     validate_query_value("actor_did", &input.actor_did, MAX_ID_LEN)?;
     validate_pagination(&input.pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         contribution_contributor_anchor(&input.actor_did),
         LinkTypes::ContributorToContribution,
     )?;
@@ -420,7 +572,7 @@ pub fn get_contributions_by_contributor(input: ActorQueryInput) -> ExternResult<
 #[hdk_extern]
 pub fn get_all_attestations(pagination: PaginationInput) -> ExternResult<PaginatedRecords> {
     validate_pagination(&pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         ALL_ATTESTATIONS_ANCHOR.into(),
         LinkTypes::AllAttestations,
     )?;
@@ -434,7 +586,7 @@ pub fn get_all_attestations(pagination: PaginationInput) -> ExternResult<Paginat
 pub fn get_attestations_from_source(input: EdgeQueryInput) -> ExternResult<PaginatedRecords> {
     validate_query_value("subject_ref", &input.subject_ref, MAX_SUBJECT_REF_LEN)?;
     validate_pagination(&input.pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         attestation_source_anchor(&input.subject_ref),
         LinkTypes::SourceToAttestation,
     )?;
@@ -448,7 +600,7 @@ pub fn get_attestations_from_source(input: EdgeQueryInput) -> ExternResult<Pagin
 pub fn get_attestations_to_target(input: EdgeQueryInput) -> ExternResult<PaginatedRecords> {
     validate_query_value("subject_ref", &input.subject_ref, MAX_SUBJECT_REF_LEN)?;
     validate_pagination(&input.pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         attestation_target_anchor(&input.subject_ref),
         LinkTypes::TargetToAttestation,
     )?;
@@ -462,7 +614,7 @@ pub fn get_attestations_to_target(input: EdgeQueryInput) -> ExternResult<Paginat
 pub fn get_attestations_by_attestor(input: ActorQueryInput) -> ExternResult<PaginatedRecords> {
     validate_query_value("actor_did", &input.actor_did, MAX_ID_LEN)?;
     validate_pagination(&input.pagination)?;
-    let records = resolve_action_index(
+    let records = resolve_anchor_index(
         attestation_attestor_anchor(&input.actor_did),
         LinkTypes::AttestorToAttestation,
     )?;
@@ -470,6 +622,92 @@ pub fn get_attestations_by_attestor(input: ActorQueryInput) -> ExternResult<Pagi
         filter_attestations(records, |claim| claim.attestor_did == input.actor_did),
         input.pagination,
     ))
+}
+
+#[hdk_extern]
+pub fn get_all_responses(pagination: PaginationInput) -> ExternResult<PaginatedRecords> {
+    validate_pagination(&pagination)?;
+    let records = resolve_anchor_index(ALL_RESPONSES_ANCHOR.into(), LinkTypes::AllResponses)?;
+    Ok(paginate(filter_responses(records, |_| true), pagination))
+}
+
+#[hdk_extern]
+pub fn get_responses_for_action(input: ResponseQueryInput) -> ExternResult<PaginatedRecords> {
+    validate_pagination(&input.pagination)?;
+    Ok(paginate(
+        responses_for_action(&input.subject_action)?,
+        input.pagination,
+    ))
+}
+
+#[hdk_extern]
+pub fn get_responses_by_responder(input: ActorQueryInput) -> ExternResult<PaginatedRecords> {
+    validate_query_value("actor_did", &input.actor_did, MAX_ID_LEN)?;
+    validate_pagination(&input.pagination)?;
+    let records = resolve_anchor_index(
+        response_responder_anchor(&input.actor_did),
+        LinkTypes::ResponderToResponse,
+    )?;
+    Ok(paginate(
+        filter_responses(records, |response| response.responder_did == input.actor_did),
+        input.pagination,
+    ))
+}
+
+fn author_state_conflict(retraction_count: usize, superseding_actions: usize) -> bool {
+    (retraction_count > 0 && superseding_actions > 0) || superseding_actions > 1
+}
+
+#[hdk_extern]
+pub fn get_evidence_response_view(subject_action: ActionHash) -> ExternResult<EvidenceResponseView> {
+    let subject = get(subject_action.clone(), GetOptions::default())?
+        .ok_or_else(|| guest("lineage evidence subject action was not found"))?;
+
+    if contribution_payload(&subject).is_none() && attestation_payload(&subject).is_none() {
+        return Err(guest(
+            "lineage evidence subject must be a valid contribution or lineage attestation",
+        ));
+    }
+
+    let responses = responses_for_action(&subject_action)?;
+    let mut corroborations = Vec::new();
+    let mut contests = Vec::new();
+    let mut retractions = Vec::new();
+    let mut supersessions = Vec::new();
+    let mut superseding_seen = HashSet::<ActionHash>::new();
+    let mut superseding_actions = Vec::new();
+
+    for record in responses {
+        let Some(response) = response_payload(&record) else {
+            continue;
+        };
+        match response.disposition {
+            ResponseDisposition::Corroborate => corroborations.push(record),
+            ResponseDisposition::Contest => contests.push(record),
+            ResponseDisposition::Retract => retractions.push(record),
+            ResponseDisposition::Supersede => {
+                if let Some(replacement) = response.replacement_action {
+                    if superseding_seen.insert(replacement.clone()) {
+                        superseding_actions.push(replacement);
+                    }
+                }
+                supersessions.push(record);
+            }
+        }
+    }
+
+    let author_state_conflict =
+        author_state_conflict(retractions.len(), superseding_actions.len());
+
+    Ok(EvidenceResponseView {
+        subject,
+        corroborations,
+        contests,
+        retractions,
+        supersessions,
+        superseding_actions,
+        author_state_conflict,
+    })
 }
 
 #[cfg(test)]
@@ -500,6 +738,20 @@ mod tests {
             confidence_bps: 5_000,
             evidence_refs: vec![],
             rationale: "Test claim".into(),
+        }
+    }
+
+    fn response(actor: &str, id: &str) -> LineageResponse {
+        LineageResponse {
+            schema_version: LINEAGE_SCHEMA_VERSION,
+            id: id.into(),
+            responder_did: actor.into(),
+            subject_action: ActionHash::from_raw_36(vec![3u8; 36]),
+            disposition: ResponseDisposition::Contest,
+            confidence_bps: Some(5_000),
+            evidence_refs: vec![],
+            rationale: "Test response".into(),
+            replacement_action: None,
         }
     }
 
@@ -539,6 +791,21 @@ mod tests {
     }
 
     #[test]
+    fn response_ids_are_scoped_to_responder() {
+        let item = response("did:mycelix:alice", "same-id");
+        assert!(response_matches_id(
+            &item,
+            "did:mycelix:alice",
+            "same-id"
+        ));
+        assert!(!response_matches_id(
+            &item,
+            "did:mycelix:bob",
+            "same-id"
+        ));
+    }
+
+    #[test]
     fn pagination_rejects_zero_and_oversize_limits() {
         assert!(validate_pagination(&PaginationInput { offset: 0, limit: 0 }).is_err());
         assert!(validate_pagination(&PaginationInput {
@@ -549,6 +816,15 @@ mod tests {
     }
 
     #[test]
+    fn author_state_conflicts_are_not_silently_resolved() {
+        assert!(!author_state_conflict(0, 0));
+        assert!(!author_state_conflict(1, 0));
+        assert!(!author_state_conflict(0, 1));
+        assert!(author_state_conflict(1, 1));
+        assert!(author_state_conflict(0, 2));
+    }
+
+    #[test]
     fn source_and_target_queries_remain_distinct() {
         let claim = attestation(
             "did:mycelix:alice",
@@ -556,8 +832,6 @@ mod tests {
             "artifact:source",
             "artifact:target",
         );
-        assert_eq!(claim.source_ref, "artifact:source");
-        assert_eq!(claim.target_ref, "artifact:target");
         assert_ne!(
             attestation_source_anchor(&claim.source_ref),
             attestation_target_anchor(&claim.target_ref)
