@@ -1,0 +1,143 @@
+name: Identity Historical Activation Time Policy Authority Bootstrap Property Wire V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-subject-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-property-wire-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-property-wire-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-bootstrap-property-wire-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert strict version-first property wire boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: property-wire runtime dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: property-wire must use workspace mycelix-crypto')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-subject-policy':
+              raise SystemExit('ERROR: scope dependency path drifted')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-declaration-policy':
+              raise SystemExit('ERROR: declaration dependency path drifted')
+
+          dev = manifest.get('dev-dependencies', {})
+          if set(dev) != {'sha2'} or dev['sha2'].get('workspace') is not True:
+              raise SystemExit(f'ERROR: property-wire dev dependency drift: {sorted(dev)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'BOOTSTRAP_PROPERTY_MAGIC_V2',
+              'b"MXTPABV2"',
+              'BOOTSTRAP_PROPERTY_FAMILY_V2',
+              'BOOTSTRAP_PROPERTY_ENVELOPE_VERSION_V2',
+              'BOOTSTRAP_PROPERTY_OBJECT_KIND_V2',
+              'BOOTSTRAP_PROPERTY_HEADER_LEN_V2: usize = 20',
+              'BOOTSTRAP_PROPERTY_MAX_PAYLOAD_LEN_V2: usize = 4096',
+              'encode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'decode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'UnsupportedEnvelopeVersion',
+              'UnsupportedDeclarationFormatVersion',
+              'PayloadLengthMismatch',
+              'UnknownScopeBits',
+              'TrailingPayloadBytes',
+              'frozen_full_scope_property_envelope_is_stable',
+              'canonical_roundtrip_preserves_declaration_identity',
+              'future_envelope_version_fails_before_payload_interpretation',
+              'future_declaration_version_fails_before_semantic_fields',
+              'payload_length_mismatch_and_trailing_bytes_fail_closed',
+              'unknown_scope_bits_fail_closed',
+              'unexpected_field_order_fails_closed',
+              '0xac, 0x5a, 0x2d, 0x63',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: property-wire invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          envelope_check = production.index('if envelope_version != BOOTSTRAP_PROPERTY_ENVELOPE_VERSION_V2')
+          payload_len_read = production.index('let payload_len = usize::try_from(header.read_u32()?')
+          if envelope_check > payload_len_read:
+              raise SystemExit('ERROR: envelope version is not rejected before payload interpretation')
+
+          declaration_check = production.index('if declaration_format_version != BOOTSTRAP_DECLARATION_FORMAT_VERSION_V2')
+          first_semantic = production.index('let constitution_id = str::from_utf8')
+          if declaration_check > first_semantic:
+              raise SystemExit('ERROR: declaration format version is not rejected before semantic field decoding')
+
+          lower = production.lower()
+          for forbidden in [
+              'serde::', 'serialize', 'deserialize',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(',
+              'serializedbytes', 'unsafebytes',
+              'authority_domain_sha256',
+              'exacthistoricalactivationtimepolicyauthoritykeygenerationv2',
+              'exacthistoricalactivationtimepolicyauthoritybootstrapsubjectv2',
+              'pub struct authorized', 'pub struct qualified',
+              'from_trusted_configuration', 'is_authorized',
+              'verify_strict', '.verify(', 'positive_evidence', 'trust_score',
+              'sys_time(', 'std::time',
+              '.expect(', '.unwrap(', 'panic!(', 'unreachable!(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/authority/semantic shortcut leaked into property-wire theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/Cargo.toml -- --check
+
+      - name: Test canonical declaration parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/Cargo.toml
+
+      - name: Test strict property wire
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/Cargo.toml
+
+      - name: Check property wire for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/Cargo.toml --target wasm32-unknown-unknown
