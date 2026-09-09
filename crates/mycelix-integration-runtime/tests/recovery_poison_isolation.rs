@@ -75,7 +75,7 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
                 params![
                     poisoned_entry,
                     attempt_id.as_str(),
-                    br#"{"outcome":"fixture"}"#.as_slice(),
+                    br#"{\"outcome\":\"fixture\"}"#.as_slice(),
                     112 + sequence,
                 ],
             )
@@ -93,5 +93,14 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
     assert_eq!(
         claimed[0].entry_id, fresh_entry,
         "recovery failure must remain isolated to the poisoned entry"
+    );
+
+    let quarantine = store
+        .quarantine_reason(poisoned_entry)
+        .expect("quarantine state must remain inspectable");
+    assert_eq!(
+        quarantine.as_deref(),
+        Some("execution-observation-history-exhausted-before-stale-recovery"),
+        "poison isolation must remain a durable visible safety state rather than silently dropping the blocked entry"
     );
 }
