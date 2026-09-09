@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Non-authoritative bootstrap-root subject and scope identity for historical time-policy authority"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
