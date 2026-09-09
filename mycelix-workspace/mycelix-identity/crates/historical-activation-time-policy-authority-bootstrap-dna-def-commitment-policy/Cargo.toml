@@ -1,0 +1,21 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact DnaDef commitment for prepared historical time-policy authority bootstrap modifiers"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+holo_hash = { workspace = true, features = ["hashing"] }
+holochain_zome_types = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy = { path = "../historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy = { path = "../historical-activation-time-policy-authority-bootstrap-subject-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy = { path = "../historical-activation-time-policy-authority-bootstrap-declaration-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy = { path = "../historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy" }
+sha2 = { workspace = true }

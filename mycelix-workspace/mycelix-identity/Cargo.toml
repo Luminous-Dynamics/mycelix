@@ -75,6 +75,8 @@ members = [
     "crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy",
     # Exact DnaModifiers construction from the prepared constitutional properties
     "crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy",
+    # Exact DnaDef commitment binding prepared constitutional modifiers into Holochain DNA identity
+    "crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy",
     # Exact Holochain Record provenance observer (unprovisioned)
     "zomes/identity_security_observer_v2/coordinator",
     # Append-only verifier-key generation lifecycle integrity
