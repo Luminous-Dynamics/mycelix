@@ -436,7 +436,6 @@ impl InboundStage {
                 | (Projected, DomainAccepted)
                 | (Projected, DomainRejected)
                 | (DomainAccepted, Reconciled)
-                | (DomainAccepted, Finalized)
                 | (Reconciled, Finalized)
         )
     }
@@ -475,7 +474,6 @@ impl OutboundStage {
                 | (Executing, Rejected)
                 | (Executing, Ambiguous)
                 | (Confirmed, Reconciled)
-                | (Confirmed, Finalized)
                 | (Ambiguous, Reconciled)
                 | (Reconciled, Finalized)
         )
@@ -714,6 +712,13 @@ mod tests {
     }
 
     #[test]
+    fn inbound_finalization_requires_reconciliation() {
+        assert!(InboundStage::DomainAccepted.allows_transition_to(InboundStage::Reconciled));
+        assert!(!InboundStage::DomainAccepted.allows_transition_to(InboundStage::Finalized));
+        assert!(InboundStage::Reconciled.allows_transition_to(InboundStage::Finalized));
+    }
+
+    #[test]
     fn outbound_state_machine_requires_durable_outbox_before_execution() {
         assert!(OutboundStage::Approved.allows_transition_to(OutboundStage::OutboxCommitted));
         assert!(!OutboundStage::Approved.allows_transition_to(OutboundStage::Executing));
@@ -721,6 +726,14 @@ mod tests {
         assert!(OutboundStage::Executing.allows_transition_to(OutboundStage::Ambiguous));
         assert!(!OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Executing));
         assert!(OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Reconciled));
+    }
+
+    #[test]
+    fn outbound_finalization_requires_reconciliation() {
+        assert!(OutboundStage::Confirmed.allows_transition_to(OutboundStage::Reconciled));
+        assert!(!OutboundStage::Confirmed.allows_transition_to(OutboundStage::Finalized));
+        assert!(OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Reconciled));
+        assert!(OutboundStage::Reconciled.allows_transition_to(OutboundStage::Finalized));
     }
 
     #[test]
