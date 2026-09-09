@@ -1,0 +1,128 @@
+name: Effect Safety Kernel
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-effect-safety/**'
+      - 'crates/mycelix-execution-action-digest/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - '.github/workflows/effect-safety-kernel.yml'
+  push:
+    branches:
+      - 'response-authority-5-effect-safety-kernel'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: effect-safety-kernel-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Current policy and adapter mechanism qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-effect-safety/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-effect-safety/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-effect-safety/Cargo.toml --all-targets -- -D warnings
+      - name: Shared dependency compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-execution-action-digest/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+      - name: Proof-domain and effect-containment audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-effect-safety/src/lib.rs').read_text()
+          compact = ''.join(src.split())
+          lowered = src.lower()
+
+          required = [
+              'pub struct EffectSafetyPolicy',
+              'pub struct VerifiedEffectSafetyPolicyRecordProof',
+              'pub struct VerifiedEffectSafetyPolicyAdoptionProof',
+              'pub struct VerifiedEffectAdapterQualification',
+              'pub struct QualifiedEffectSafetyPolicy',
+              'AuthoritySubjectKind::EffectSafetyPolicy',
+              'qualify_current_freshness(',
+              'freshness.snapshot.effective_at_ms < policy.valid_from_ms',
+              'adapter.adapter_profile != policy.adapter_profile',
+              'adapter.adapter_release_digest != policy.adapter_release_digest',
+              'adapter.adapter_release_profile != policy.adapter_release_profile',
+              '!adapter.exact_action_digest_enforced',
+              'policy.requires_idempotency && !adapter.supports_idempotency',
+              'policy.requires_attempt_fencing && !adapter.supports_attempt_fencing',
+              'policy.requires_precondition_fence && !adapter.supports_precondition_fence',
+              'policy.requires_compensation && !adapter.supports_compensation',
+              'MAX_ADAPTER_ATTESTATION_LEASE_MS: u64 = 5_000',
+              '.min(record_proof.valid_until_ms)',
+              '.min(adoption_proof.valid_until_ms)',
+              '.min(current.lease_until_ms)',
+              '.min(adapter.valid_until_ms)',
+              'ACTIONS_DIGEST_PROFILE_V1',
+          ]
+          for token in required:
+              assert token in src, token
+
+          # Automatic effects must require policy-level and mechanism-level
+          # replay/race protection plus a currently enabled adapter.
+          assert 'UnsafeAutomaticEffectPolicy' in src
+          assert 'AutomaticEffectsUnavailable' in src
+          assert 'external_effects_enabled' in src
+
+          # Stable current qualification uses policy identity + generation
+          # currentness; dynamic proof invocation data lives in evidence only.
+          current_fn = src.split('fn qualification_digest(', 1)[1].split('fn evidence_digest(', 1)[0]
+          assert 'policy_digest' in current_fn
+          assert 'current.freshness_digest' in current_fn
+          for forbidden in ['verification_ref', 'verified_at_ms', 'valid_until_ms', 'adapter_verifier_ref']:
+              assert forbidden not in current_fn, forbidden
+
+          # Positive object must remain non-deserializable and explicitly cannot
+          # prove receipt origin or execute an effect.
+          before = src.split('pub struct QualifiedEffectSafetyPolicy', 1)[0][-260:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+          for marker in [
+              'record_proof_origin_verified_here',
+              'adoption_proof_origin_verified_here',
+              'freshness_origin_verified_here',
+              'adapter_origin_verified_here',
+              'attempt_fenced_here',
+              'grants_execution_authority',
+          ]:
+              assert f'{marker}(&self)->bool{{false}}' in compact, marker
+          assert 'mechanism_requirements_satisfied_here(&self)->bool{true}' in compact
+          assert 'current_policy_semantics_bound_here(&self)->bool{true}' in compact
+
+          for forbidden in [
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'create_link(',
+              'execute_actions',
+              'dispatch(',
+              'reqwest',
+              'tokio::net',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          print('PASS: effect safety composes independent policy/currentness/mechanism facts without creating effect authority')
+          PY
