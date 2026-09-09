@@ -64,7 +64,7 @@ jobs:
           # governance execution-plan rule.
           for token in [
               'mycelix-governance-execution-authority-v1-blake3-exact-json',
-              'mycelix-governance-execution-authority-v1\\0',
+              r'mycelix-governance-execution-authority-v1\0',
               'hasher.update(&(proposal_id.len() as u64).to_le_bytes())',
               'hasher.update(proposal_id.as_bytes())',
               'hasher.update(&(actions.len() as u64).to_le_bytes())',
@@ -100,7 +100,7 @@ jobs:
           ]
           for token in required:
               assert token in intent, token
-          assert 'returntrue' in compact.split('exact_action_bytes_bound_here', 1)[1][:180]
+          assert 'exact_action_bytes_bound_here(&self)->bool{true}' in compact
           for marker in [
               'grants_execution_authority',
               'provider_origin_verified_here',
@@ -108,8 +108,7 @@ jobs:
               'effect_safety_satisfied_here',
               'attempt_fenced_here',
           ]:
-              tail = compact.split(marker, 1)[1][:180]
-              assert 'returnfalse' in tail, marker
+              assert f'{marker}(&self)->bool{{false}}' in compact, marker
 
           # Exact payload bytes must stay opaque here. Adapter interpretation is
           # delegated to later effect-safety qualification.
