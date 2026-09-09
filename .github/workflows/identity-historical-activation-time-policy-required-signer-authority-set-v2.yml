@@ -1,0 +1,136 @@
+name: Identity Historical Activation Time Policy Required Signer Authority Set V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-required-signer-authority-set-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-authority-subject-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-required-signer-authority-set-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-required-signer-authority-set-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-required-signer-authority-set-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-required-signer-authority-set-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert closed signer authority requirement boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-required-signer-authority-set-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-policy-authenticated-lineage-policy',
+              'mycelix-historical-activation-time-policy-authority-key-generation-policy',
+              'mycelix-historical-activation-time-policy-lineage-policy',
+              'mycelix-historical-activation-time-policy-transition-ed25519-authenticity',
+              'mycelix-historical-activation-time-policy-transition-policy',
+              'mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy',
+              'mycelix-identity-authority-domain-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: required-signer runtime dependency drift: {sorted(deps)}')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: required-signer theorem must use workspace sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalActivationTimePolicyRequiredSignerAuthoritySetV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_REQUIRED_SIGNER_AUTHORITY_SET_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-required-signer-authority-set:v2\\0',
+              'qualify_cryptographically_authenticated_historical_activation_time_policy_lineage_v2',
+              'same_authenticated_lineage_v2',
+              'validate_policy_authority_key_generation_against_transition_v2',
+              'qualify_historical_activation_time_policy_transition_signer_authority_subject_v2',
+              'DuplicateSignerGeneration',
+              'MissingSignerGeneration',
+              'UnexpectedSignerGeneration',
+              'required_signer_subjects.sort_by',
+              '0xba, 0x71, 0xdb, 0x21',
+              '0xd0, 0xd7, 0x57, 0x85',
+              '0xeb, 0xf7, 0xbc, 0xe8',
+              '0xd8, 0xc2, 0xea, 0xe0',
+              'rotated_two_transition_lineage_requires_both_signer_subjects',
+              'missing_rotated_generation_fails_closed',
+              'qualified_set_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: required-signer invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct QualifiedHistoricalActivationTimePolicyRequiredSignerAuthoritySetV2')
+          result_end = text.index('impl QualifiedHistoricalActivationTimePolicyRequiredSignerAuthoritySetV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub required_signer_subjects:',
+              'pub required_authority_set_digest_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: required-signer set is caller-forgeable: {field}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          executable = '\n'.join(
+              line for line in production.splitlines()
+              if not line.lstrip().startswith('//')
+          ).lower()
+          for forbidden in [
+              'use hdk', 'hdk::', '#[hdk_extern]', 'sys_time(', 'std::time',
+              'qualifiedcurrentoperationalauthority', 'verifiedauthorityfreshness',
+              'is_authorized', 'current=true', 'positive_evidence',
+              'max_by_key', 'sort_by_key(|generation| generation.key_generation()',
+          ]:
+              if forbidden in executable:
+                  raise SystemExit(f'ERROR: generic/currentness/winner authority leaked into required signer set: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-required-signer-authority-set-policy/Cargo.toml -- --check
+
+      - name: Test authenticated lineage
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/Cargo.toml
+
+      - name: Test signer authority subject
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-signer-authority-subject-policy/Cargo.toml
+
+      - name: Test required signer authority set
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-required-signer-authority-set-policy/Cargo.toml
+
+      - name: Check required signer set for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-required-signer-authority-set-policy/Cargo.toml --target wasm32-unknown-unknown
