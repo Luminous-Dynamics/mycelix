@@ -1,0 +1,120 @@
+name: Identity Historical Activation Time Policy Transition Ed25519 Authenticity V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-ed25519-authenticity-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-ed25519-authenticity-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-transition-ed25519-authenticity-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert strict Ed25519 transition authenticity boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-transition-ed25519-authenticity'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'ed25519-dalek',
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-transition-crypto-request-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: authenticity runtime dependency drift: {sorted(deps)}')
+          dalek = deps['ed25519-dalek']
+          if dalek.get('version') != '=2.2.0' or dalek.get('default-features') is not False:
+              raise SystemExit('ERROR: Ed25519 backend must stay pinned to dalek =2.2.0 with default features disabled')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: authenticity adapter must use workspace crypto/sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'CryptographicallyAuthenticatedHistoricalActivationTimePolicyTransitionV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_TRANSITION_ED25519_AUTHENTICITY_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-transition-ed25519-authenticity:v2\\0',
+              'authenticate_historical_activation_time_policy_transition_ed25519_v2',
+              'request.algorithm() != AlgorithmId::Ed25519',
+              'VerifyingKey::from_bytes',
+              '.verify_strict(request.transition_signing_digest_sha256(), &signature)',
+              'AlgorithmPendingQualification',
+              '0x40, 0xb4, 0xf4, 0xb9',
+              '0x51, 0x40, 0x02, 0x25',
+              '0x22, 0xd4, 0xaa, 0x8e',
+              '0xbb, 0xdc, 0x2d, 0x4d',
+              'tampered_transition_signature_fails_strict_verification',
+              'hybrid_transition_never_falls_back_to_ed25519_component_verification',
+              'authenticated_transition_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: transition authenticity invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct CryptographicallyAuthenticatedHistoricalActivationTimePolicyTransitionV2')
+          result_end = text.index('impl CryptographicallyAuthenticatedHistoricalActivationTimePolicyTransitionV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub transition_signing_digest_sha256:',
+              'pub crypto_request_digest_sha256:',
+              'pub authenticity_digest_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: authenticity capability is caller-forgeable: {field}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'pqcrypto', 'dilithium', 'hybrid_sig', 'mycelix_crypto::traits',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'sys_time(', 'std::time',
+              'historical_activation_time_policy_lineage_policy',
+              'policy_current', 'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: PQ/runtime/lineage/currentness authority leaked into transition authenticity: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/Cargo.toml -- --check
+
+      - name: Test prepared transition request
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/Cargo.toml
+
+      - name: Test strict transition authenticity
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/Cargo.toml
