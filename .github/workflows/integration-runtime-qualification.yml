@@ -149,7 +149,7 @@ jobs:
           grep -Fq 'reconciliation_history(entry_id)' "$terminal_test"
           grep -Fq 'OutboundStage::Finalized' "$terminal_test"
 
-      - name: Enforce unknown preservation and append-only reconciliation
+      - name: Enforce unknown preservation and terminal evidence subject binding
         shell: bash
         run: |
           set -euo pipefail
@@ -163,6 +163,10 @@ jobs:
           test -f "$post_resolution"
           grep -Fq 'contradictory_reconciliation_after_finalization_is_preserved_without_state_rewrite' "$post_resolution"
           grep -Fq 'late_same_attempt_provider_result_after_finalization_is_preserved_as_non_applying_evidence' "$post_resolution"
+          grep -Fq 'wrong_operation_reconciliation_after_finalization_is_rejected_without_history_append' "$post_resolution"
+          grep -Fq 'wrong_attempt_provider_result_after_finalization_is_rejected' "$post_resolution"
+          grep -Fq 'ReconciliationOperationMismatch' "$post_resolution"
+          grep -Fq 'AttemptFenceMismatch' "$post_resolution"
           grep -Fq 'ExecutionRecordDisposition::RecordedForStaleAttempt' "$post_resolution"
           grep -Fq 'OutboundStage::Finalized' "$post_resolution"
 
