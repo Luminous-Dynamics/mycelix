@@ -20,6 +20,7 @@
 //! - [`coverage`] — GDOP/PDOP geometric dilution of precision
 //! - [`kalman`] — Extended Kalman Filter for continuous tracking
 //! - [`qualification`] — theorem dependency/requirement meta-structure
+//! - [`qualification_hardening`] — bounded non-recursive qualification evaluation
 
 pub mod bodies;
 pub mod coverage;
@@ -35,6 +36,7 @@ pub mod kalman;
 pub mod measurements;
 pub mod navigation_runtime;
 pub mod qualification;
+pub mod qualification_hardening;
 pub mod ranging;
 pub mod space_navigation;
 #[allow(clippy::needless_range_loop)]
@@ -59,6 +61,11 @@ pub use qualification::{
     FacetStatus, QualificationError, QualificationFacet, QualificationManifest,
     QualificationRequirementProfile, RequirementEvaluation, TheoremDefinition, TheoremId,
     TheoremRegistry, UnacceptableFacet,
+};
+pub use qualification_hardening::{
+    EstablishmentBlocker, EstablishmentBlockerKind, EstablishmentExplanation,
+    HardenedTheoremRegistry, QualificationHardeningError, QualificationLimits,
+    QualificationResource,
 };
 pub use ranging::{RangeEstimate, RangingMethod};
 pub use space_navigation::{SpaceNavigationEstimate, SpaceNavigationEstimator};
