@@ -1,0 +1,117 @@
+name: Response Authority Binding
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-authority-binding/**'
+      - 'crates/mycelix-core-types/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/response-authority-binding.yml'
+  push:
+    branches:
+      - 'response-authority-1-prepared-resolution'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-authority-binding-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Prepared response authority resolution
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-response-authority-binding/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-response-authority-binding/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-response-authority-binding/Cargo.toml --all-targets -- -D warnings
+      - name: Dependency compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-core-types/Cargo.toml --features serde
+          cargo check --manifest-path crates/mycelix-authority-freshness/Cargo.toml --all-targets
+      - name: Authority separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-response-authority-binding/src/lib.rs').read_text()
+          cargo = Path('crates/mycelix-response-authority-binding/Cargo.toml').read_text()
+
+          required = [
+              'PreparedResponseAuthorityResolution',
+              'ResponseAuthorityBindingCandidate',
+              'prepare_response_authority_resolution(',
+              'validate_decision_binding(',
+              'AuthoritySubjectRef',
+              'identity_digest()',
+              'RequirementNotOnSelectedOption',
+              'DecisionDidNotSelectOption',
+              'ControlPlaneSubjectForbidden',
+              'MutableMappingEvidence',
+              'DuplicateAuthoritySubject',
+              'grants_execution_authority(&self) -> bool',
+          ]
+          for token in required:
+              assert token in src, token
+
+          # Discovery/mapping input is transportable, but prepared output is not
+          # accepted back through Deserialize as a positive object.
+          before_candidate = src.split('pub struct ResponseAuthorityBindingCandidate', 1)[0][-180:]
+          assert 'Serialize, Deserialize' in before_candidate
+          before_prepared = src.split('pub struct PreparedResponseAuthorityResolution', 1)[0][-220:]
+          assert 'Serialize)]' in before_prepared
+          assert 'Deserialize' not in before_prepared
+
+          # The bridge may identify subjects but must not resolve or mint live authority.
+          lowered = src.lower()
+          for forbidden in [
+              'qualifiedcurrentoperationalauthority',
+              'qualifiedoperationalsubjectfreshness',
+              'verifiedauthorityfreshness',
+              'qualify_current_operational_authority(',
+              'qualify_operational_subject_freshness(',
+              'resolve_current_operational_freshness',
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'execute_actions',
+              'dispatch',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          assert 'mycelix-authority-current-operational' not in cargo
+          assert 'mycelix-authority-operational-freshness' not in cargo
+          assert 'mycelix-authority-operational-deployment-fence' not in cargo
+
+          # Operational response requirements cannot be satisfied by control-plane subjects.
+          for token in [
+              'AuthorityCoveragePolicy',
+              'CoverageTrustContextPolicy',
+              'WitnessTrustPolicy',
+          ]:
+              assert token in src, token
+
+          # Mapping provenance must be immutable; mapping itself remains non-authoritative.
+          assert 'content_digest.is_none()' in src
+          assert 'institution adopted the mapping' in lowered
+          assert 'does **not** prove' in lowered
+
+          print('PASS: response bridge prepares exact authority subjects without resolving or minting execution authority')
+          PY

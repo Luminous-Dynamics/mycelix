@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-response-authority-binding"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Pure semantic binding from Mycelix response requirements to exact authority subjects"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-core-types = { path = "../mycelix-core-types", features = ["serde"] }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+
+[dev-dependencies]
+serde_json = "1"
