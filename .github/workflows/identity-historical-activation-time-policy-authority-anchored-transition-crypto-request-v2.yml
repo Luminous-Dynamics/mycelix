@@ -1,0 +1,79 @@
+name: Identity Historical Activation Time Policy Authority-Anchored Transition Crypto Request V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-anchored-transition-crypto-request-v2.yml'
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert anchored crypto-request boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          assert member in workspace
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-anchored-transition-policy',
+              'mycelix-historical-activation-time-policy-authority-key-generation-policy',
+              'mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy',
+              'sha2',
+          }
+          assert set(deps) == expected, sorted(deps)
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text[:text.index('#[cfg(test)]')]
+          for token in [
+              'PreparedAuthorityAnchoredHistoricalActivationTimePolicyTransitionCryptoRequestV2',
+              'anchored.anchored_transition_signing_digest_sha256()',
+              'qualify_historical_activation_time_policy_transition_signer_authority_subject_v2',
+              'SignerSubjectMismatch',
+              'SignatureAlgorithmMismatch',
+              'SignatureLengthInvalid',
+              'SignatureAllZero',
+              '0x40,0x92,0xc5,0xf7',
+              'old_base_transition_signature_is_not_reusable',
+          ]:
+              assert token in text, token
+          for forbidden in [
+              'verify_strict', '.verify(', 'ed25519_dalek', 'pqcrypto',
+              'use hdk', 'hdk::', 'std::time', 'sys_time(',
+              'QualifiedCurrentOperationalAuthority', 'project_authority_state_at_causal_position',
+              'positive_evidence',
+          ]:
+              assert forbidden.lower() not in production.lower(), forbidden
+          print('PASS: anchored request freezes exact message/key/signature tuple without authenticating it')
+          PY
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/Cargo.toml -- --check
+      - name: Test anchored transition
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-policy/Cargo.toml
+      - name: Test anchored request
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/Cargo.toml
+      - name: Check wasm
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/Cargo.toml --target wasm32-unknown-unknown
