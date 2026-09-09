@@ -24,11 +24,18 @@ pub mod bodies;
 pub mod coverage;
 pub mod dead_reckoning;
 pub mod fusion;
+// These fixed-size numerical kernels intentionally retain explicit row/column
+// index notation. It maps directly to the documented matrix equations and is
+// easier to audit for transposition/indexing errors than iterator rewrites.
+// Keep this exception local to the numerical modules rather than weakening the
+// workspace-wide `-D warnings` qualification gate.
+#[allow(clippy::needless_range_loop)]
 pub mod kalman;
 pub mod measurements;
 pub mod navigation_runtime;
 pub mod ranging;
 pub mod space_navigation;
+#[allow(clippy::needless_range_loop)]
 pub mod trilateration;
 
 pub use bodies::{CelestialBody, Earth, Mars, Moon};

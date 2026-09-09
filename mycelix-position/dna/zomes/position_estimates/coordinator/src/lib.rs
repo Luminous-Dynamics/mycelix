@@ -6,7 +6,7 @@
 //! from range measurements and anchor locations stored in sibling zomes.
 
 use hdk::prelude::*;
-use mycelix_position_shared::{PositionEstimateEntry, PositionQuality, PositionTimestamp};
+use mycelix_position_shared::PositionEstimateEntry;
 use position_estimates_integrity::*;
 
 fn anchor_for_node(node_id: &str) -> ExternResult<AnyLinkableHash> {
