@@ -26,6 +26,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
 
 jobs:
   qualify:
@@ -49,23 +50,15 @@ jobs:
             crates/mycelix-integration-core
             crates/mycelix-integration-runtime
 
-      - name: Check formatting
-        run: cargo fmt --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all --check
-
-      - name: Compile tests without running
-        run: cargo test --manifest-path crates/mycelix-integration-runtime/Cargo.toml --no-run
-
-      - name: Run runtime tests
-        run: cargo test --manifest-path crates/mycelix-integration-runtime/Cargo.toml
-
-      - name: Clippy runtime and core dependency
-        run: cargo clippy --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all-targets -- -D warnings
-
-      - name: Enforce execution-safety constitution
+      - name: Verify constitutional and crate boundaries
         shell: bash
         run: |
           set -euo pipefail
           constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
+          manifest="$RUNTIME_MANIFEST"
+          facade='crates/mycelix-integration-runtime/src/v31.rs'
+          legacy='crates/mycelix-integration-runtime/src/lib.rs'
+
           test -f "$constitution"
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
           grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
@@ -77,207 +70,67 @@ jobs:
           grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
           grep -Fq 'Execution history and admission MUST be bounded' "$constitution"
 
-      - name: Enforce no provider or Holochain SDK dependency in runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          manifest='crates/mycelix-integration-runtime/Cargo.toml'
-          forbidden='(^|[[:space:]])(hdk|hdi|stripe|aws-sdk|odoo|mercury)[[:space:]]*='
-          if grep -Eiq "$forbidden" "$manifest"; then
-            echo 'Provider/Holochain dependency found in integration runtime:'
-            grep -Ein "$forbidden" "$manifest" || true
-            exit 1
-          fi
-
-      - name: Enforce prepared-attempt before dispatch
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'OutboundStage::AttemptPrepared' "$source"
-          grep -Fq 'OutboundStage::DispatchStarted' "$source"
-          grep -Fq 'pub struct ExecutionClaim' "$source"
-          grep -Fq 'pub struct DispatchStarted' "$source"
-          grep -Fq 'mark_dispatch_started' "$source"
-          grep -Fq 'AttemptFenceMismatch' "$source"
-          grep -Fq 'LeaseExpired' "$source"
-          grep -Fq 'checked_add(lease_duration_ms)' "$source"
-          if grep -Fq 'OutboundStage::Executing' "$source"; then
-            echo 'Runtime regressed to the old claim==dispatch Executing state.'
-            exit 1
-          fi
-
-      - name: Enforce pre-dispatch reclaim and post-dispatch ambiguity
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'pre_dispatch_requeued' "$source"
-          grep -Fq 'post_dispatch_marked_ambiguous' "$source"
-          grep -Fq 'pre_dispatch_crash_is_reclaimable_even_for_irreversible_work' "$source"
-          grep -Fq 'post_dispatch_crash_becomes_ambiguous_without_inferring_idempotency_support' "$source"
-          grep -Fq 'ReconciliationStrategy::ManualReview' "$source"
-          if grep -Fq 'ReconciliationStrategy::IdempotencyKey' "$source"; then
-            echo 'INT-03 must not infer provider idempotency/reconciliation support from key presence.'
-            exit 1
-          fi
-
-      - name: Enforce exact attempt and operation fencing
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'attempt_id: &ExecutionAttemptId' "$source"
-          grep -Fq 'stale_attempt_cannot_complete_a_new_attempt_even_with_same_worker_id' "$source"
-          grep -Fq 'outcome.operation()' "$source"
-          grep -Fq 'OutcomeOperationMismatch' "$source"
-          grep -Fq 'rejected_outcome_for_another_operation_is_rejected' "$source"
-          grep -Fq 'RecordedForStaleAttempt' "$source"
-          grep -Fq 'late_response_after_post_dispatch_timeout_is_evidence_not_state_rewrite' "$source"
-
-      - name: Enforce distinct terminal no-effect causes
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          terminal_test='crates/mycelix-integration-runtime/tests/rejected_terminal.rs'
-          test -f "$terminal_test"
-          grep -Fq 'RejectedBeforeCommit' "$source"
-          grep -Fq 'definite_pre_commit_rejection_closes_without_fabricated_reconciliation' "$terminal_test"
-          grep -Fq 'OutboundStage::RejectedBeforeCommit' "$terminal_test"
-          grep -Fq 'OutboundStage::Reconciled' "$terminal_test"
-          grep -Fq 'reconciliation_history(entry_id)' "$terminal_test"
-          grep -Fq 'OutboundStage::Finalized' "$terminal_test"
-
-      - name: Enforce unknown preservation and terminal evidence subject binding
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          post_resolution='crates/mycelix-integration-runtime/tests/post_resolution_evidence.rs'
-          grep -Fq 'integration_reconciliation_history' "$source"
-          grep -Fq 'INSERT INTO integration_reconciliation_history' "$source"
-          grep -Fq 'reconciliation.is_conclusive()' "$source"
-          grep -Fq 'still_ambiguous_does_not_finalize_and_history_is_append_only' "$source"
-          grep -Fq 'reconciliation_history' "$source"
-          test -f "$post_resolution"
-          grep -Fq 'contradictory_reconciliation_after_finalization_is_preserved_without_state_rewrite' "$post_resolution"
-          grep -Fq 'late_same_attempt_provider_result_after_finalization_is_preserved_as_non_applying_evidence' "$post_resolution"
-          grep -Fq 'wrong_operation_reconciliation_after_finalization_is_rejected_without_history_append' "$post_resolution"
-          grep -Fq 'wrong_attempt_provider_result_after_finalization_is_rejected' "$post_resolution"
-          grep -Fq 'ReconciliationOperationMismatch' "$post_resolution"
-          grep -Fq 'AttemptFenceMismatch' "$post_resolution"
-          grep -Fq 'ExecutionRecordDisposition::RecordedForStaleAttempt' "$post_resolution"
-          grep -Fq 'OutboundStage::Finalized' "$post_resolution"
-
-      - name: Enforce non-materializing execution claims
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          python3 - <<'PY'
-          from pathlib import Path
-          text = Path('crates/mycelix-integration-runtime/src/lib.rs').read_text()
-          start = text.index('pub struct ExecutionClaim')
-          end = text.index('\n}', start) + 2
-          claim = text[start:end]
-          forbidden = ('command_bytes', 'authority_commitment')
-          present = [name for name in forbidden if name in claim]
-          if present:
-              raise SystemExit(f'ExecutionClaim exposes capability-adjacent material: {present}')
-          PY
-          grep -Fq 'claim_returns_metadata_not_executable_command_bytes' "$source"
-
-      - name: Enforce bounded admission profile
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          observation_budget='crates/mycelix-integration-runtime/tests/execution_observation_budget.rs'
-          attempt_budget='crates/mycelix-integration-runtime/tests/attempt_budget.rs'
-          grep -Fq 'MAX_INBOUND_PAYLOAD_BYTES' "$source"
-          grep -Fq 'MAX_COMMAND_BYTES' "$source"
-          grep -Fq 'MAX_SERIALIZED_OUTCOME_BYTES' "$source"
-          grep -Fq 'MAX_SERIALIZED_RECONCILIATION_BYTES' "$source"
-          grep -Fq 'MAX_RECONCILIATION_HISTORY_PER_ENTRY' "$source"
-          grep -Fq 'MAX_EXECUTION_OBSERVATIONS_PER_ENTRY' "$source"
-          grep -Fq 'MAX_EXECUTION_ATTEMPTS_PER_ENTRY' "$source"
-          grep -Fq 'AttemptBudgetExceeded' "$source"
-          test -f "$observation_budget"
-          grep -Fq 'crash_generated_ambiguity_consumes_the_same_observation_budget' "$observation_budget"
-          grep -Fq 'ExecutionObservationHistoryLimit' "$observation_budget"
-          grep -Fq 'OutboundStage::Ambiguous' "$observation_budget"
-          test -f "$attempt_budget"
-          grep -Fq 'MAX_ATTEMPTS_V01: u32 = 1_024' "$attempt_budget"
-          grep -Fq 'attempt_generation_is_explicitly_bounded_persistent_and_never_reused' "$attempt_budget"
-          grep -Fq 'REOPEN_AFTER_ATTEMPT' "$attempt_budget"
-          grep -Fq 'RuntimeError::AttemptBudgetExceeded' "$attempt_budget"
-          grep -Fq 'limit == MAX_ATTEMPTS_V01' "$attempt_budget"
-
-      - name: Enforce fail-safe runtime schema migration
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'RUNTIME_SCHEMA_VERSION: i64 = 2' "$source"
-          grep -Fq 'migrate_implicit_v1_to_v2' "$source"
-          grep -Fq 'legacy_executing_stage_migrates_to_ambiguous_not_attempt_prepared' "$source"
-          grep -Fq 'WHEN 4 THEN 8' "$source"
-          grep -Fq 'PRAGMA user_version = 2' "$source"
-
-      - name: Enforce reconciliation-before-finalization invariant
-        shell: bash
-        run: |
-          set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          grep -Fq 'record_reconciliation' "$source"
-          grep -Fq 'finalize_outbound' "$source"
-          grep -Fq 'confirmed_effect_requires_conclusive_reconciliation_before_finalization' "$source"
-
-      - name: Enforce v3 public semantic facade
-        shell: bash
-        run: |
-          set -euo pipefail
-          manifest='crates/mycelix-integration-runtime/Cargo.toml'
-          facade='crates/mycelix-integration-runtime/src/v3.rs'
-          migration='crates/mycelix-integration-runtime/tests/legacy_rejection_migration.rs'
-          expired='crates/mycelix-integration-runtime/tests/expired_attempt_fence.rs'
-          provider_binding='crates/mycelix-integration-runtime/tests/provider_operation_binding.rs'
-          causal_time='crates/mycelix-integration-runtime/tests/causal_time_ordering.rs'
-          poison='crates/mycelix-integration-runtime/tests/recovery_poison_isolation.rs'
-
-          grep -Fq 'path = "src/v3.rs"' "$manifest"
+          grep -Fq 'path = "src/v31.rs"' "$manifest"
           test -f "$facade"
-          grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V3' "$facade"
+          test -f "$legacy"
+
+          grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
+          grep -Fq 'integration_runtime_operation_binding' "$facade"
+          grep -Fq 'provider_operation_bindings' "$facade"
           grep -Fq 'preflight_semantic_identity' "$facade"
-          grep -Fq 'semantic migration underdetermined' "$facade"
           grep -Fq 'require_operation_compatible' "$facade"
           grep -Fq 'require_causal_time' "$facade"
           grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
           grep -Fq 'quarantine_reason' "$facade"
-          grep -Fq 'snapshot.stage == OutboundStage::DispatchStarted' "$facade"
           grep -Fq 'now_ms >= deadline' "$facade"
 
-          test -f "$migration"
-          grep -Fq 'implicit_v1_generic_rejection_requires_manual_semantic_migration' "$migration"
-          grep -Fq 'v2_stage7_rejection_requires_manual_semantic_migration' "$migration"
-          test -f "$expired"
-          grep -Fq 'expired_post_dispatch_attempt_cannot_complete_current_workflow_before_recovery' "$expired"
-          test -f "$provider_binding"
-          grep -Fq 'provider_operation' "$provider_binding"
-          test -f "$causal_time"
-          grep -Fq 'claim_time_cannot_precede_durable_intent_creation' "$causal_time"
-          grep -Fq 'finalization_times_cannot_move_backward' "$causal_time"
-          test -f "$poison"
-          grep -Fq 'history_exhausted_stale_entry_does_not_block_unrelated_claims' "$poison"
-
-      - name: Enforce no provider execution API in INT-03
-        shell: bash
-        run: |
-          set -euo pipefail
-          legacy='crates/mycelix-integration-runtime/src/lib.rs'
-          facade='crates/mycelix-integration-runtime/src/v3.rs'
-          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$legacy" "$facade"; then
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$facade" "$legacy"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
             exit 1
           fi
+
+      - name: Enforce provider-neutral transitive dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --manifest-path "$RUNTIME_MANIFEST" -e normal --prefix none)"
+          if printf '%s\n' "$tree" | grep -Eiq '^(hdk|hdi|reqwest|tokio|stripe|aws-sdk|odoo|mercury)( |$)'; then
+            echo 'Forbidden provider/network/Holochain dependency entered INT-03 normal dependency closure:'
+            printf '%s\n' "$tree" | grep -Ei '^(hdk|hdi|reqwest|tokio|stripe|aws-sdk|odoo|mercury)( |$)' || true
+            exit 1
+          fi
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path "$RUNTIME_MANIFEST" --all --check
+
+      - name: Compile all tests without running
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST" --no-run
+
+      - name: Run full runtime test corpus
+        run: cargo test --manifest-path "$RUNTIME_MANIFEST"
+
+      - name: Run semantic migration and identity qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test legacy_rejection_migration
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test v3_semantic_identity
+
+      - name: Run attempt and stale-fence qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test attempt_budget
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test attempt_budget_liveness
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test expired_attempt_fence
+
+      - name: Run exact-operation identity qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_history_binding
+
+      - name: Run causal-time and failure-isolation qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test causal_time_ordering
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test recovery_poison_isolation
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test execution_observation_budget
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test post_resolution_evidence
+
+      - name: Clippy runtime and core dependency
+        run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --all-targets -- -D warnings
