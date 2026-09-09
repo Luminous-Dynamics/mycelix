@@ -6,12 +6,10 @@
 //! These types are the Mycelix payload contract for environmental facts and
 //! model products. They deliberately do not define an AI/world-interface
 //! envelope (Symthaea already owns that boundary), nor do they define physical
-//! risk scores. Their job is narrower: make the measurement, provenance,
-//! space/time validity, uncertainty, and epistemic classification of a datum
-//! explicit and independently validatable.
+//! risk scores or execution authority.
 
 use crate::EpistemicClassification;
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -27,14 +25,17 @@ pub const MAX_LICENSE_BYTES: usize = 128;
 
 /// Relationship between a datum and reality.
 ///
-/// This classification is intentionally orthogonal to [`EpistemicClassification`].
-/// `EvidenceClass` answers *what kind of product is this?* while E/N/M/H answers
-/// *how should its epistemic/normative/material status be interpreted?*
+/// This is intentionally orthogonal to [`EpistemicClassification`].
+/// `EvidenceClass` answers *what kind of product is this?* while E/N/M/H is a
+/// contextual interpretation that may be attached later when a use-case
+/// actually supplies normative/material meaning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum EvidenceClass {
-    /// Directly observed by a sensor, human witness, instrument, or source record.
+    /// A human, community, organization, or external authority reported it.
+    Reported,
+    /// Directly observed by a sensor or instrument.
     Observed,
     /// Deterministically transformed from one or more source observations.
     Derived,
@@ -47,14 +48,11 @@ pub enum EvidenceClass {
 }
 
 /// A scalar measurement with an explicit unit identifier.
-///
-/// `unit` is an opaque identifier at this boundary (for example `Cel`, `K`,
-/// `mm/d`, or a UCUM code). Unit conversion belongs in a dedicated adapter,
-/// not in the evidence record itself.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Measurement {
     pub value: f64,
+    /// Opaque unit identifier. UCUM-compatible identifiers are preferred.
     pub unit: String,
 }
 
@@ -95,30 +93,15 @@ impl GeoPoint {
     pub fn validate(&self) -> Result<(), PlanetaryEvidenceError> {
         require_finite("spatial.latitude", self.latitude)?;
         require_finite("spatial.longitude", self.longitude)?;
-        if !(-90.0..=90.0).contains(&self.latitude) {
-            return Err(PlanetaryEvidenceError::OutOfRange {
-                field: "spatial.latitude",
-                min: -90.0,
-                max: 90.0,
-                actual: self.latitude,
-            });
-        }
-        if !(-180.0..=180.0).contains(&self.longitude) {
-            return Err(PlanetaryEvidenceError::OutOfRange {
-                field: "spatial.longitude",
-                min: -180.0,
-                max: 180.0,
-                actual: self.longitude,
-            });
-        }
-        Ok(())
+        require_range("spatial.latitude", self.latitude, -90.0, 90.0)?;
+        require_range("spatial.longitude", self.longitude, -180.0, 180.0)
     }
 }
 
 /// Geographic support of one datum.
 ///
-/// Bounding boxes permit `west > east` so regions that cross the antimeridian
-/// remain representable without a second special-case type.
+/// Bounding boxes permit `west > east`, allowing antimeridian-crossing regions
+/// without a special secondary geometry type.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -130,7 +113,7 @@ pub enum SpatialExtent {
         north: f64,
         east: f64,
     },
-    /// Stable external or Mycelix region identifier when geometry is resolved elsewhere.
+    /// Stable external or Mycelix region identifier when geometry resolves elsewhere.
     RegionId(String),
 }
 
@@ -144,46 +127,14 @@ impl SpatialExtent {
                 north,
                 east,
             } => {
-                for (field, value) in [
-                    ("spatial.south", *south),
-                    ("spatial.west", *west),
-                    ("spatial.north", *north),
-                    ("spatial.east", *east),
-                ] {
-                    require_finite(field, value)?;
-                }
-                if *south < -90.0 || *south > 90.0 {
-                    return Err(PlanetaryEvidenceError::OutOfRange {
-                        field: "spatial.south",
-                        min: -90.0,
-                        max: 90.0,
-                        actual: *south,
-                    });
-                }
-                if *north < -90.0 || *north > 90.0 {
-                    return Err(PlanetaryEvidenceError::OutOfRange {
-                        field: "spatial.north",
-                        min: -90.0,
-                        max: 90.0,
-                        actual: *north,
-                    });
-                }
-                if *west < -180.0 || *west > 180.0 {
-                    return Err(PlanetaryEvidenceError::OutOfRange {
-                        field: "spatial.west",
-                        min: -180.0,
-                        max: 180.0,
-                        actual: *west,
-                    });
-                }
-                if *east < -180.0 || *east > 180.0 {
-                    return Err(PlanetaryEvidenceError::OutOfRange {
-                        field: "spatial.east",
-                        min: -180.0,
-                        max: 180.0,
-                        actual: *east,
-                    });
-                }
+                require_finite("spatial.south", *south)?;
+                require_finite("spatial.west", *west)?;
+                require_finite("spatial.north", *north)?;
+                require_finite("spatial.east", *east)?;
+                require_range("spatial.south", *south, -90.0, 90.0)?;
+                require_range("spatial.north", *north, -90.0, 90.0)?;
+                require_range("spatial.west", *west, -180.0, 180.0)?;
+                require_range("spatial.east", *east, -180.0, 180.0)?;
                 if south > north {
                     return Err(PlanetaryEvidenceError::InvalidInterval(
                         "spatial south must not exceed north",
@@ -197,7 +148,6 @@ impl SpatialExtent {
 }
 
 /// Time interval over which a datum is valid, in Unix seconds.
-///
 /// Equal bounds represent an instantaneous observation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -232,8 +182,7 @@ impl TemporalExtent {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Uncertainty {
-    /// Uncertainty is not supplied. This is explicit rather than silently
-    /// treating the measurement as exact.
+    /// Explicitly unknown/not supplied; never interpreted as exact certainty.
     Unspecified,
     /// Closed interval with optional stated coverage probability in [0, 1].
     Interval {
@@ -263,14 +212,7 @@ impl Uncertainty {
                 }
                 if let Some(confidence) = confidence {
                     require_finite("uncertainty.confidence", *confidence)?;
-                    if !(0.0..=1.0).contains(confidence) {
-                        return Err(PlanetaryEvidenceError::OutOfRange {
-                            field: "uncertainty.confidence",
-                            min: 0.0,
-                            max: 1.0,
-                            actual: *confidence,
-                        });
-                    }
+                    require_range("uncertainty.confidence", *confidence, 0.0, 1.0)?;
                 }
                 Ok(())
             }
@@ -291,10 +233,6 @@ impl Uncertainty {
 }
 
 /// Reference to the source artifact from which a planetary datum derives.
-///
-/// The source payload itself may live in STAC, SensorThings, EDR, WIS2,
-/// another Mycelix hApp, or an external object store. The evidence plane keeps
-/// a stable source/resource identity and, where available, a content digest.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ExternalEvidenceRef {
@@ -313,10 +251,25 @@ impl ExternalEvidenceRef {
         require_text("evidence.resource_id", &self.resource_id, MAX_RESOURCE_BYTES)?;
         if let Some(digest) = &self.content_digest {
             require_text("evidence.content_digest", digest, MAX_DIGEST_BYTES)?;
-            if !digest.contains(':') {
+            let Some((algorithm, value)) = digest.split_once(':') else {
                 return Err(PlanetaryEvidenceError::MalformedField {
                     field: "evidence.content_digest",
                     reason: "digest must be algorithm-qualified (for example sha256:<hex>)",
+                });
+            };
+            if algorithm.trim().is_empty() || value.trim().is_empty() {
+                return Err(PlanetaryEvidenceError::MalformedField {
+                    field: "evidence.content_digest",
+                    reason: "digest algorithm and value must both be non-empty",
+                });
+            }
+            if !algorithm
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'+'))
+            {
+                return Err(PlanetaryEvidenceError::MalformedField {
+                    field: "evidence.content_digest",
+                    reason: "digest algorithm contains unsupported characters",
                 });
             }
         }
@@ -329,10 +282,11 @@ impl ExternalEvidenceRef {
 
 /// Canonical Mycelix environmental datum.
 ///
-/// This type intentionally remains a payload rather than an authority-bearing
-/// action. Symthaea can wrap it in its world-interface observation envelope;
-/// Mycelix hApps can persist/reference it; Sol Atlas can render it. None of
-/// those consumers are allowed to infer execution authority from its presence.
+/// This remains a payload rather than an authority-bearing action. The
+/// contextual E/N/M/H classification is optional because normative scope and
+/// materiality are properties of a claim *in context*, not intrinsic sensor
+/// metadata. Consumers that use an observation for governance, risk, or a
+/// high-consequence decision should attach an explicit classification.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EnvironmentalObservation {
@@ -345,7 +299,7 @@ pub struct EnvironmentalObservation {
     pub temporal: TemporalExtent,
     pub uncertainty: Uncertainty,
     pub evidence: Vec<ExternalEvidenceRef>,
-    pub epistemic: EpistemicClassification,
+    pub epistemic: Option<EpistemicClassification>,
 }
 
 impl EnvironmentalObservation {
@@ -359,7 +313,6 @@ impl EnvironmentalObservation {
         temporal: TemporalExtent,
         uncertainty: Uncertainty,
         evidence: Vec<ExternalEvidenceRef>,
-        epistemic: EpistemicClassification,
     ) -> Result<Self, PlanetaryEvidenceError> {
         let observation = Self {
             schema_version: PLANETARY_EVIDENCE_SCHEMA_VERSION,
@@ -371,10 +324,16 @@ impl EnvironmentalObservation {
             temporal,
             uncertainty,
             evidence,
-            epistemic,
+            epistemic: None,
         };
         observation.validate()?;
         Ok(observation)
+    }
+
+    /// Attach contextual E/N/M/H semantics without changing the evidence payload.
+    pub fn with_epistemic(mut self, epistemic: EpistemicClassification) -> Self {
+        self.epistemic = Some(epistemic);
+        self
     }
 
     pub fn validate(&self) -> Result<(), PlanetaryEvidenceError> {
@@ -399,8 +358,13 @@ impl EnvironmentalObservation {
                 max: MAX_EVIDENCE_REFS,
             });
         }
+
+        let mut unique = HashSet::with_capacity(self.evidence.len());
         for evidence in &self.evidence {
             evidence.validate()?;
+            if !unique.insert(evidence) {
+                return Err(PlanetaryEvidenceError::DuplicateEvidenceRef);
+            }
         }
         Ok(())
     }
@@ -427,6 +391,7 @@ pub enum PlanetaryEvidenceError {
         reason: &'static str,
     },
     MissingEvidence,
+    DuplicateEvidenceRef,
     TooManyEvidenceRefs {
         actual: usize,
         max: usize,
@@ -451,6 +416,7 @@ impl fmt::Display for PlanetaryEvidenceError {
             Self::InvalidInterval(reason) => write!(f, "invalid interval: {reason}"),
             Self::MalformedField { field, reason } => write!(f, "malformed {field}: {reason}"),
             Self::MissingEvidence => write!(f, "environmental observation requires evidence"),
+            Self::DuplicateEvidenceRef => write!(f, "environmental observation contains duplicate evidence references"),
             Self::TooManyEvidenceRefs { actual, max } => {
                 write!(f, "environmental observation has {actual} evidence refs; maximum is {max}")
             }
@@ -468,6 +434,24 @@ fn require_finite(field: &'static str, value: f64) -> Result<(), PlanetaryEviden
         Ok(())
     } else {
         Err(PlanetaryEvidenceError::NonFinite(field))
+    }
+}
+
+fn require_range(
+    field: &'static str,
+    value: f64,
+    min: f64,
+    max: f64,
+) -> Result<(), PlanetaryEvidenceError> {
+    if (min..=max).contains(&value) {
+        Ok(())
+    } else {
+        Err(PlanetaryEvidenceError::OutOfRange {
+            field,
+            min,
+            max,
+            actual: value,
+        })
     }
 }
 
@@ -526,14 +510,29 @@ mod tests {
                 confidence: Some(0.95),
             },
             vec![evidence()],
-            epistemic(),
         )
         .unwrap()
     }
 
     #[test]
-    fn valid_observation_passes_validation() {
-        valid_observation().validate().unwrap();
+    fn valid_observation_passes_without_contextual_epistemics() {
+        let observation = valid_observation();
+        observation.validate().unwrap();
+        assert!(observation.epistemic.is_none());
+    }
+
+    #[test]
+    fn contextual_epistemics_can_be_attached_explicitly() {
+        let observation = valid_observation().with_epistemic(epistemic());
+        assert_eq!(
+            observation.epistemic.as_ref().unwrap().empirical,
+            EmpiricalLevel::Measurable
+        );
+    }
+
+    #[test]
+    fn reported_and_observed_remain_distinct() {
+        assert_ne!(EvidenceClass::Reported, EvidenceClass::Observed);
     }
 
     #[test]
@@ -556,13 +555,14 @@ mod tests {
 
     #[test]
     fn bounding_box_accepts_antimeridian_crossing() {
-        let extent = SpatialExtent::BoundingBox {
+        SpatialExtent::BoundingBox {
             south: -10.0,
             west: 170.0,
             north: 10.0,
             east: -170.0,
-        };
-        extent.validate().unwrap();
+        }
+        .validate()
+        .unwrap();
     }
 
     #[test]
@@ -572,36 +572,44 @@ mod tests {
 
     #[test]
     fn uncertainty_rejects_invalid_bounds_and_confidence() {
-        assert!(
-            Uncertainty::Interval {
-                lower: 2.0,
-                upper: 1.0,
-                confidence: Some(0.95),
-            }
-            .validate()
-            .is_err()
-        );
-        assert!(
-            Uncertainty::Interval {
-                lower: 1.0,
-                upper: 2.0,
-                confidence: Some(1.1),
-            }
-            .validate()
-            .is_err()
-        );
+        assert!(Uncertainty::Interval {
+            lower: 2.0,
+            upper: 1.0,
+            confidence: Some(0.95),
+        }
+        .validate()
+        .is_err());
+        assert!(Uncertainty::Interval {
+            lower: 1.0,
+            upper: 2.0,
+            confidence: Some(1.1),
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
-    fn evidence_digest_must_name_algorithm() {
-        let mut reference = evidence();
-        reference.content_digest = Some("deadbeef".into());
+    fn evidence_digest_requires_non_empty_algorithm_and_value() {
+        for malformed in ["deadbeef", ":deadbeef", "sha256:"] {
+            let mut reference = evidence();
+            reference.content_digest = Some(malformed.into());
+            assert!(matches!(
+                reference.validate(),
+                Err(PlanetaryEvidenceError::MalformedField {
+                    field: "evidence.content_digest",
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn observation_requires_unique_evidence() {
+        let mut observation = valid_observation();
+        observation.evidence.push(evidence());
         assert!(matches!(
-            reference.validate(),
-            Err(PlanetaryEvidenceError::MalformedField {
-                field: "evidence.content_digest",
-                ..
-            })
+            observation.validate(),
+            Err(PlanetaryEvidenceError::DuplicateEvidenceRef)
         ));
     }
 
@@ -615,19 +623,10 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn evidence_class_is_not_physical_risk() {
-        let observation = valid_observation();
-        assert_eq!(observation.class, EvidenceClass::Observed);
-        // The epistemic classifier remains a separate field; no physical-risk
-        // value exists in this payload contract by design.
-        assert_eq!(observation.epistemic.empirical, EmpiricalLevel::Measurable);
-    }
-
     #[cfg(feature = "serde")]
     #[test]
     fn serde_round_trip_preserves_observation() {
-        let observation = valid_observation();
+        let observation = valid_observation().with_epistemic(epistemic());
         let encoded = serde_json::to_string(&observation).unwrap();
         let decoded: EnvironmentalObservation = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, observation);
