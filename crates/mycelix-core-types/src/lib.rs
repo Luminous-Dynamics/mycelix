@@ -15,6 +15,7 @@
 //! - **Planetary Authority**: Evidence-bound authority evaluations without capability minting
 //! - **Planetary Outcomes**: Execution receipts and measured outcome lineage
 //! - **Response Lifecycle**: Monotonic binding across proposal, decision, authority, execution, and outcomes
+//! - **Concrete Lifecycle Semantics**: Decision/authority/option continuity without authority promotion
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
 //! - **WisdomEngine**: Full Stack Wisdom / Holistic Epistemics architecture with
@@ -164,6 +165,7 @@ pub mod planetary_evidence;
 pub mod planetary_lineage;
 pub mod planetary_loop;
 pub mod planetary_loop_binding;
+pub mod planetary_loop_semantics;
 pub mod planetary_outcome;
 pub mod planetary_product;
 pub mod planetary_response;
@@ -182,6 +184,7 @@ pub use planetary_evidence::*;
 pub use planetary_lineage::*;
 pub use planetary_loop::*;
 pub use planetary_loop_binding::*;
+pub use planetary_loop_semantics::*;
 pub use planetary_outcome::*;
 pub use planetary_product::*;
 pub use planetary_response::*;
