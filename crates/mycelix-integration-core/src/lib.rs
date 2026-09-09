@@ -96,6 +96,7 @@ id_type!(VerificationProfileId);
 id_type!(CorrelationId);
 id_type!(CausationId);
 id_type!(IdempotencyKey);
+id_type!(ExecutionAttemptId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -271,6 +272,16 @@ pub enum SideEffectClass {
     Irreversible,
 }
 
+impl SideEffectClass {
+    /// Whether an unknown post-dispatch result must be reconciled before replay.
+    ///
+    /// Reversible/compensatable describe repair options, not proof that a
+    /// possibly-committed operation is safe to execute again.
+    pub fn requires_reconciliation_if_ambiguous(self) -> bool {
+        self != Self::ReadOnly
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RetryPolicyClass {
@@ -304,7 +315,7 @@ pub struct IntegrationCommand<C> {
     pub payload: C,
 }
 
-/// Exact external-operation identity known to the integration plane.
+/// Exact logical external operation known to the integration plane.
 ///
 /// `provider_operation` is optional because ambiguity can exist before the
 /// provider returns a durable operation identifier.
@@ -353,6 +364,7 @@ pub struct ExternalRejection {
 pub enum ExternalExecutionOutcome {
     Confirmed(ExternalReceipt),
     Rejected {
+        operation: ExternalOperationRef,
         reason: ExternalRejection,
     },
     Ambiguous {
@@ -362,12 +374,20 @@ pub enum ExternalExecutionOutcome {
 }
 
 impl ExternalExecutionOutcome {
+    /// Every outcome is about one exact logical operation.
+    pub fn operation(&self) -> &ExternalOperationRef {
+        match self {
+            Self::Confirmed(receipt) => &receipt.operation,
+            Self::Rejected { operation, .. } | Self::Ambiguous { operation, .. } => operation,
+        }
+    }
+
     pub fn requires_reconciliation_before_reexecution(
         &self,
         side_effect_class: SideEffectClass,
     ) -> bool {
         matches!(self, Self::Ambiguous { .. })
-            && matches!(side_effect_class, SideEffectClass::Irreversible)
+            && side_effect_class.requires_reconciliation_if_ambiguous()
     }
 }
 
@@ -388,12 +408,26 @@ pub enum ReconciliationDisposition {
     Rejected,
 }
 
+impl ReconciliationDisposition {
+    /// `StillAmbiguous` records a reconciliation observation but does not close
+    /// the uncertainty state or permit finalization.
+    pub fn is_conclusive(self) -> bool {
+        !matches!(self, Self::StillAmbiguous)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReconciliationResult {
     pub operation: ExternalOperationRef,
     pub disposition: ReconciliationDisposition,
     pub evidence: ContentCommitment,
     pub reconciled_at_ms: i64,
+}
+
+impl ReconciliationResult {
+    pub fn is_conclusive(&self) -> bool {
+        self.disposition.is_conclusive()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -448,7 +482,8 @@ pub enum OutboundStage {
     AuthorityChecked,
     Approved,
     OutboxCommitted,
-    Executing,
+    AttemptPrepared,
+    DispatchStarted,
     Confirmed,
     Rejected,
     Ambiguous,
@@ -459,8 +494,8 @@ pub enum OutboundStage {
 impl OutboundStage {
     pub fn allows_transition_to(self, next: Self) -> bool {
         use OutboundStage::{
-            Ambiguous, Approved, AuthorityChecked, Confirmed, Executing, Finalized,
-            OutboxCommitted, Proposed, Reconciled, Rejected,
+            Ambiguous, Approved, AttemptPrepared, AuthorityChecked, Confirmed, DispatchStarted,
+            Finalized, OutboxCommitted, Proposed, Reconciled, Rejected,
         };
 
         matches!(
@@ -469,10 +504,12 @@ impl OutboundStage {
                 | (AuthorityChecked, Approved)
                 | (AuthorityChecked, Rejected)
                 | (Approved, OutboxCommitted)
-                | (OutboxCommitted, Executing)
-                | (Executing, Confirmed)
-                | (Executing, Rejected)
-                | (Executing, Ambiguous)
+                | (OutboxCommitted, AttemptPrepared)
+                | (AttemptPrepared, OutboxCommitted)
+                | (AttemptPrepared, DispatchStarted)
+                | (DispatchStarted, Confirmed)
+                | (DispatchStarted, Rejected)
+                | (DispatchStarted, Ambiguous)
                 | (Confirmed, Reconciled)
                 | (Ambiguous, Reconciled)
                 | (Reconciled, Finalized)
@@ -602,6 +639,14 @@ mod tests {
         id("stripe-prod-eu-1", ConnectorInstanceId::new)
     }
 
+    fn operation(command: &str) -> ExternalOperationRef {
+        ExternalOperationRef {
+            command_id: id(command, IntegrationCommandId::new),
+            connector_instance: connector(),
+            provider_operation: None,
+        }
+    }
+
     fn subject() -> ExternalObjectRef {
         ExternalObjectRef {
             system: system(),
@@ -624,6 +669,18 @@ mod tests {
             content_commitment: ContentCommitment::sha256(b"raw-provider-body"),
             correlation_id: Some(id("corr-1", CorrelationId::new)),
             causation_id: None,
+        }
+    }
+
+    fn ambiguous(command: &str) -> ExternalExecutionOutcome {
+        ExternalExecutionOutcome::Ambiguous {
+            operation: operation(command),
+            reconciliation_hint: ReconciliationHint {
+                strategy: ReconciliationStrategy::ManualReview,
+                object: None,
+                idempotency_key: None,
+                earliest_retry_at_ms: None,
+            },
         }
     }
 
@@ -692,23 +749,39 @@ mod tests {
     }
 
     #[test]
-    fn irreversible_ambiguous_execution_requires_reconciliation() {
-        let outcome = ExternalExecutionOutcome::Ambiguous {
-            operation: ExternalOperationRef {
-                command_id: id("cmd-1", IntegrationCommandId::new),
-                connector_instance: connector(),
-                provider_operation: None,
-            },
-            reconciliation_hint: ReconciliationHint {
-                strategy: ReconciliationStrategy::IdempotencyKey,
-                object: Some(subject()),
-                idempotency_key: Some(id("idem-1", IdempotencyKey::new)),
-                earliest_retry_at_ms: None,
+    fn every_execution_outcome_binds_exact_operation() {
+        let rejected = ExternalExecutionOutcome::Rejected {
+            operation: operation("cmd-rejected"),
+            reason: ExternalRejection {
+                code: id("declined", ExternalRejectionCode::new),
+                detail_commitment: None,
+                rejected_at_ms: 100,
             },
         };
+        assert_eq!(rejected.operation().command_id.as_str(), "cmd-rejected");
+        assert_eq!(ambiguous("cmd-amb").operation().command_id.as_str(), "cmd-amb");
+    }
 
-        assert!(outcome.requires_reconciliation_before_reexecution(SideEffectClass::Irreversible));
+    #[test]
+    fn every_side_effecting_ambiguous_execution_requires_reconciliation() {
+        let outcome = ambiguous("cmd-1");
         assert!(!outcome.requires_reconciliation_before_reexecution(SideEffectClass::ReadOnly));
+        assert!(outcome.requires_reconciliation_before_reexecution(SideEffectClass::Reversible));
+        assert!(outcome.requires_reconciliation_before_reexecution(SideEffectClass::Compensatable));
+        assert!(outcome.requires_reconciliation_before_reexecution(SideEffectClass::Irreversible));
+    }
+
+    #[test]
+    fn still_ambiguous_is_not_conclusive() {
+        let result = ReconciliationResult {
+            operation: operation("cmd-unknown"),
+            disposition: ReconciliationDisposition::StillAmbiguous,
+            evidence: ContentCommitment::sha256(b"inconclusive lookup"),
+            reconciled_at_ms: 200,
+        };
+        assert!(!result.is_conclusive());
+        assert!(ReconciliationDisposition::ConfirmsEffect.is_conclusive());
+        assert!(ReconciliationDisposition::ConfirmsNoEffect.is_conclusive());
     }
 
     #[test]
@@ -743,17 +816,20 @@ mod tests {
     }
 
     #[test]
-    fn outbound_state_machine_requires_durable_outbox_before_execution() {
+    fn outbound_state_machine_separates_claim_from_dispatch() {
         assert!(OutboundStage::Approved.allows_transition_to(OutboundStage::OutboxCommitted));
-        assert!(!OutboundStage::Approved.allows_transition_to(OutboundStage::Executing));
-        assert!(OutboundStage::OutboxCommitted.allows_transition_to(OutboundStage::Executing));
-        assert!(OutboundStage::Executing.allows_transition_to(OutboundStage::Ambiguous));
-        assert!(!OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Executing));
-        assert!(OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Reconciled));
+        assert!(OutboundStage::OutboxCommitted.allows_transition_to(OutboundStage::AttemptPrepared));
+        assert!(!OutboundStage::OutboxCommitted.allows_transition_to(OutboundStage::DispatchStarted));
+        assert!(OutboundStage::AttemptPrepared.allows_transition_to(OutboundStage::OutboxCommitted));
+        assert!(OutboundStage::AttemptPrepared.allows_transition_to(OutboundStage::DispatchStarted));
+        assert!(!OutboundStage::AttemptPrepared.allows_transition_to(OutboundStage::Confirmed));
+        assert!(OutboundStage::DispatchStarted.allows_transition_to(OutboundStage::Confirmed));
+        assert!(OutboundStage::DispatchStarted.allows_transition_to(OutboundStage::Ambiguous));
+        assert!(!OutboundStage::Ambiguous.allows_transition_to(OutboundStage::DispatchStarted));
     }
 
     #[test]
-    fn outbound_finalization_requires_reconciliation() {
+    fn outbound_finalization_requires_conclusive_reconciliation_stage() {
         assert!(OutboundStage::Confirmed.allows_transition_to(OutboundStage::Reconciled));
         assert!(!OutboundStage::Confirmed.allows_transition_to(OutboundStage::Finalized));
         assert!(OutboundStage::Ambiguous.allows_transition_to(OutboundStage::Reconciled));
@@ -791,14 +867,9 @@ mod tests {
             },
         };
 
-        let json = match serde_json::to_string(&outcome) {
-            Ok(json) => json,
-            Err(error) => panic!("serialization must succeed: {error}"),
-        };
-        let decoded: ExternalExecutionOutcome = match serde_json::from_str(&json) {
-            Ok(value) => value,
-            Err(error) => panic!("deserialization must succeed: {error}"),
-        };
+        let json = serde_json::to_string(&outcome).expect("serialization must succeed");
+        let decoded: ExternalExecutionOutcome =
+            serde_json::from_str(&json).expect("deserialization must succeed");
         assert_eq!(outcome, decoded);
     }
 
