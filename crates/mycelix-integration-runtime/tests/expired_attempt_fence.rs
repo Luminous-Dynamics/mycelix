@@ -1,7 +1,7 @@
 use mycelix_integration_core::{
-    ConnectorInstanceId, ContentCommitment, ExternalExecutionOutcome, ExternalObjectRef,
-    ExternalOpaqueId, ExternalOperationRef, ExternalReceipt, ExternalSystemId, IdempotencyKey,
-    IntegrationCommandId, OutboundStage, SideEffectClass,
+    ConnectorInstanceId, ContentCommitment, ExternalExecutionOutcome, ExternalOpaqueId,
+    ExternalOperationRef, ExternalReceipt, IdempotencyKey, IntegrationCommandId, OutboundStage,
+    SideEffectClass,
 };
 use mycelix_integration_runtime::{
     DurableOutboundIntent, EnqueueDisposition, ExecutionRecordDisposition, SqliteIntegrationStore,
