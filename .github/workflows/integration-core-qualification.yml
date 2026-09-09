@@ -97,20 +97,44 @@ jobs:
           grep -Fq '(Confirmed, Reconciled)' "$source"
           grep -Fq '(Ambiguous, Reconciled)' "$source"
           grep -Fq '(Reconciled, Finalized)' "$source"
+          grep -Fq 'StillAmbiguous' "$source"
+          grep -Fq 'pub fn is_conclusive' "$source"
 
-      - name: Enforce durable-outbox execution boundary
+      - name: Enforce claim-before-dispatch boundary
         shell: bash
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-core/src/lib.rs'
 
           grep -Fq '(Approved, OutboxCommitted)' "$source"
-          grep -Fq '(OutboxCommitted, Executing)' "$source"
+          grep -Fq '(OutboxCommitted, AttemptPrepared)' "$source"
+          grep -Fq '(AttemptPrepared, OutboxCommitted)' "$source"
+          grep -Fq '(AttemptPrepared, DispatchStarted)' "$source"
+          grep -Fq '(DispatchStarted, Confirmed)' "$source"
+          grep -Fq '(DispatchStarted, Rejected)' "$source"
+          grep -Fq '(DispatchStarted, Ambiguous)' "$source"
 
-          if grep -Fq '(Approved, Executing)' "$source"; then
-            echo 'Outbound state machine permits execution before durable outbox commitment.'
+          if grep -Fq '(Approved, DispatchStarted)' "$source" || \
+             grep -Fq '(OutboxCommitted, DispatchStarted)' "$source" || \
+             grep -Fq '(AttemptPrepared, Confirmed)' "$source"; then
+            echo 'Outbound state machine permits dispatch/result without the required attempt boundary.'
             exit 1
           fi
+
+      - name: Enforce exact operation and ambiguity semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq 'id_type!(ExecutionAttemptId)' "$source"
+          grep -Fq 'Rejected {' "$source"
+          grep -Fq 'operation: ExternalOperationRef' "$source"
+          grep -Fq 'pub fn operation(&self) -> &ExternalOperationRef' "$source"
+          grep -Fq 'requires_reconciliation_if_ambiguous' "$source"
+          grep -Fq 'SideEffectClass::Reversible' "$source"
+          grep -Fq 'SideEffectClass::Compensatable' "$source"
+          grep -Fq 'SideEffectClass::Irreversible' "$source"
 
       - name: Enforce core claim-boundary vocabulary
         shell: bash
