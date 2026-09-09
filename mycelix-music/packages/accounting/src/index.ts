@@ -3,3 +3,6 @@ export * from './ledger.js';
 export * from './statements.js';
 export * from './merkle.js';
 export * from './reconciliation.js';
+export * from './lineage.js';
+export * from './settlement.js';
+export * from './netting.js';
