@@ -1,5 +1,5 @@
 use mycelix_integration_runtime::{
-    SqliteIntegrationStore, RUNTIME_SEMANTIC_PROFILE_V3,
+    SqliteIntegrationStore, RUNTIME_SEMANTIC_PROFILE_V31,
 };
 use rusqlite::Connection;
 
@@ -9,7 +9,7 @@ fn semantic_profile_is_durable_reopen_stable_and_fail_closed_on_tamper() {
     let path = temp.path().join("semantic-profile.sqlite");
 
     {
-        let _store = SqliteIntegrationStore::open(&path).expect("new v3 store must open");
+        let _store = SqliteIntegrationStore::open(&path).expect("new v3.1 store must open");
     }
 
     {
@@ -21,7 +21,7 @@ fn semantic_profile_is_durable_reopen_stable_and_fail_closed_on_tamper() {
                 |row| row.get(0),
             )
             .expect("semantic producer identity must be durable");
-        assert_eq!(stored, RUNTIME_SEMANTIC_PROFILE_V3);
+        assert_eq!(stored, RUNTIME_SEMANTIC_PROFILE_V31);
     }
 
     let _reopened = SqliteIntegrationStore::open(&path)
