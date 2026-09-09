@@ -1,0 +1,115 @@
+name: Response Attempt Store
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-attempt-store/**'
+      - 'crates/mycelix-response-attempt-identity/**'
+      - 'crates/mycelix-response-current-executor/**'
+      - 'crates/mycelix-response-effect-safety/**'
+      - '.github/workflows/response-attempt-store.yml'
+  push:
+    branches:
+      - 'response-authority-9-durable-attempt-reservation'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-attempt-store-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Crash-durable one-attempt reservation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-response-attempt-store/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-response-attempt-store/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-response-attempt-store/Cargo.toml --all-targets -- -D warnings
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-response-attempt-identity/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-response-current-executor/Cargo.toml --all-targets
+
+      - name: Durability and no-effect audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('crates/mycelix-response-attempt-store/src/lib.rs').read_text()
+          inv = Path('crates/mycelix-response-attempt-store/INVARIANTS.md').read_text().lower()
+          compact = ''.join(src.split())
+          lowered = src.lower()
+
+          for token in [
+              'TrustedResponseAttemptStore',
+              'local_lock: Mutex<()>',
+              'libc::LOCK_EX',
+              'libc::O_NOFOLLOW',
+              'temp.sync_all()',
+              'fs::hard_link(&temp_path, final_path)',
+              'sync_directory(&self.root)',
+              'PublishOutcome::AlreadyExists',
+              'record.attempt_nonce',
+              'record.attempt_ref.clone()',
+              'prepared.attempt_identity_digest() != record.attempt_identity_digest',
+              'prepared.response_current_executor_digest() != record.response_current_executor_digest',
+              'prepared.response_safety_digest() != record.response_safety_digest',
+              'ExistingAttemptRequiresReconciliation',
+          ]:
+              assert token.replace(' ', '') in compact, token
+
+          # Journal key must be stable effect identity, not authority generation.
+          assert 'record_path(effect)' in src
+          assert 'effect_identity_digest' in src
+          assert 'current_executor_authority_digest' not in src.split('fn record_path', 1)[1].split('fn read_record', 1)[0]
+
+          prefix = src.split('pub struct DurablyReservedResponseAttempt', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          for token in [
+              'durably_reserved_here(&self) -> bool',
+              'filesystem_integrity_checked_here(&self) -> bool',
+              'coordinator_stability_fenced_here(&self) -> bool',
+              'coordinator_update_excluded_here(&self) -> bool',
+              'effect_started_here(&self) -> bool',
+              'grants_execution_authority(&self) -> bool',
+          ]:
+              assert token in src, token
+
+          for forbidden in [
+              'pub fn mark_effect_started',
+              'pub fn perform_effect',
+              '#[hdk_extern]',
+              'call_zome(',
+              'execute_actions(',
+              'reqwest',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          for phrase in [
+              'stable effect key, not authority generation',
+              'one final record per effect key',
+              'journal before any future effect',
+              'ambiguity fails closed',
+              'same-attempt reconciliation only',
+              'no effect-start state in v0.1',
+              'durability is not update atomicity',
+              'no automatic retry from uncertainty',
+          ]:
+              assert phrase in inv, phrase
+
+          print('PASS: exact response attempt is durably reserved once; ambiguity reconciles same attempt and no effect path exists')
+          PY
