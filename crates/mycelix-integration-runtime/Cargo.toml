@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-integration-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Durable inbox, outbox, lease recovery, and reconciliation runtime for Mycelix integrations"
+
+[dependencies]
+mycelix-integration-core = { path = "../mycelix-integration-core" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.13"
