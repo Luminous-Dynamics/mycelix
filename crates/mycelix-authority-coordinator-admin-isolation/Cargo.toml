@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-authority-coordinator-admin-isolation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Linux network-namespace isolation theorem for the Mycelix Holochain coordinator Admin control plane"
+
+[dependencies]
+blake3 = "1"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-coordinator-conductor-process = { path = "../mycelix-authority-coordinator-conductor-process" }
