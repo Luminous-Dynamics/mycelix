@@ -22,7 +22,8 @@ queue claim != dispatch
 local dispatch != provider commit
 provider commit != world postcondition
 reconciliation attempt != resolution
-rejection != ambiguity
+authority denial != provider rejection-before-commit
+rejection-before-commit != ambiguity
 ```
 
 ## 2. I-11 — Claim MUST be distinct from external dispatch
@@ -34,7 +35,7 @@ The minimum outbound causal sequence is:
 ```text
 Proposed
   -> AuthorityChecked
-       |-- denied -------------------------> Rejected (terminal)
+       |-- denied -------------------------> AuthorityDenied -> Finalized
        v
      Approved
        v
@@ -43,7 +44,7 @@ Proposed
   AttemptPrepared
        v
   DispatchStarted
-       |-- definite no-effect rejection ---> Rejected (terminal)
+       |-- definite pre-commit rejection --> RejectedBeforeCommit -> Finalized
        |-- confirmed effect ---------------> Confirmed ----+
        |-- commit uncertainty -------------> Ambiguous ----+--> Reconciled -> Finalized
 ```
@@ -57,13 +58,14 @@ No implementation may silently collapse:
 ```text
 OutboxCommitted -> DispatchStarted
 AttemptPrepared -> Confirmed
-AttemptPrepared -> Rejected
+AttemptPrepared -> RejectedBeforeCommit
 AttemptPrepared -> Ambiguous
+AuthorityChecked -> RejectedBeforeCommit
 ```
 
 without an equivalent durable intermediate theorem proving the same causal distinction.
 
-`Rejected` is a terminal denial/no-effect disposition, not a synonym for `Reconciled`. A rejection MUST NOT be used when commit state is uncertain.
+`AuthorityDenied` and `RejectedBeforeCommit` are distinct no-effect causes. Neither is a synonym for `Reconciled`, and neither may be used when commit state is uncertain.
 
 ## 3. I-12 — Each attempt MUST have an exact fence identity
 
@@ -76,13 +78,13 @@ Each outbound attempt MUST have a distinct, durable attempt/fence identity bound
 
 A completion for attempt N MUST NOT complete attempt N+1, even when the same worker identity is reused after restart.
 
+An attempt whose lease/fence is no longer current MUST NOT complete the current workflow merely because recovery has not run yet. A late result for that stale attempt SHOULD be preserved as evidence, and a post-dispatch stale attempt MUST preserve commit uncertainty.
+
 Attempt/fence identity is not necessarily secret and MUST NOT be treated as authority. Its purpose is causal exclusion of stale work.
 
-A late result for an old attempt SHOULD be preserved as evidence. It MUST NOT silently rewrite a newer attempt or an already-established `Ambiguous` state.
+## 4. I-13 — Every provider execution outcome MUST bind one exact logical operation
 
-## 4. I-13 — Every execution outcome MUST bind one exact logical operation
-
-`Confirmed`, `Rejected`, and `Ambiguous` outcomes MUST all identify the exact logical external operation they describe.
+`Confirmed`, `RejectedBeforeCommit`, and `Ambiguous` provider outcomes MUST all identify the exact logical external operation they describe.
 
 At minimum this identity MUST bind:
 
@@ -92,31 +94,32 @@ At minimum this identity MUST bind:
 
 A rejection or receipt for command B MUST NOT be attachable to command A merely because both used the same provider or worker.
 
-Connector-local transport errors that cannot establish an exact provider outcome remain errors/uncertainty; they MUST NOT be converted into an unrelated `Rejected` result.
+Connector-local transport errors that cannot establish an exact provider outcome remain errors/uncertainty; they MUST NOT be converted into an unrelated `RejectedBeforeCommit` result.
 
-### I-13A — `Rejected` MUST mean definite denial/no intended effect
+### I-13A — Authority denial and provider rejection-before-commit MUST remain distinct
 
-A provider-side `Rejected` outcome is valid only when the qualified provider execution profile gives that response semantics strong enough to establish that the intended external effect was not committed.
+`AuthorityDenied` means the owning Mycelix authority/policy path denied the operation before an external dispatch was authorized. It is not a provider response and MUST NOT carry provider-rejection semantics.
 
-Examples include an authenticated, operation-bound rejection that the provider contract defines as pre-commit denial. If an error response may coexist with a committed, partially committed, or indeterminate effect, the outcome MUST be represented as `Ambiguous`, `PartiallyCommitted`, or another explicit non-no-effect state rather than `Rejected`.
+`RejectedBeforeCommit` means a qualified provider execution profile establishes that the exact dispatched operation was rejected before committing any external effect.
 
-Similarly, a local authority/policy denial before dispatch may enter terminal `Rejected` because the provider call was never authorized to begin.
+A provider-side `RejectedBeforeCommit` outcome is valid only when the qualified provider profile gives the response semantics strong enough to establish no intended effect was committed. If an error response may coexist with a committed, partially committed, or indeterminate effect, the outcome MUST be represented as `Ambiguous`, `PartiallyCommitted`, or another explicit non-no-effect state.
 
 Therefore:
 
 ```text
-Rejected == operationally terminal denial/no-effect disposition
-Rejected != reconciliation
-Rejected != transport error
-Rejected != commit unknown
-Rejected != provider receipt of world success
+AuthorityDenied != RejectedBeforeCommit
+AuthorityDenied != provider response
+RejectedBeforeCommit != reconciliation
+RejectedBeforeCommit != transport error
+RejectedBeforeCommit != commit unknown
+RejectedBeforeCommit != provider receipt of world success
 ```
 
-An implementation MAY wrap or archive a terminal rejection in a separate workflow-closure record, but it MUST NOT route it through `Reconciled` merely to reach a generic terminal state or thereby imply reconciliation evidence exists.
+Both `AuthorityDenied` and `RejectedBeforeCommit` may close operationally without fabricated reconciliation because each establishes a distinct no-effect path under its own semantics. Historical records MUST preserve which cause occurred.
 
 ## 5. I-14 — Ambiguity MUST preserve unknown commit state
 
-After `DispatchStarted`, timeout, lost response, process loss, or equivalent uncertainty MUST NOT imply `NotCommitted`.
+After `DispatchStarted`, timeout, lost response, process loss, expired attempt lease, or equivalent uncertainty MUST NOT imply `NotCommitted`.
 
 For every side-effecting operation:
 
@@ -340,12 +343,14 @@ In addition to the parent RFC's connector conformance suite, `MYCELIX-INTEGRATIO
 
 - crash before dispatch -> reclaim without ambiguity;
 - crash after dispatch -> ambiguity;
+- response after attempt lease expiry -> historical evidence + ambiguity, never current completion;
 - stale attempt completion after a new attempt exists;
 - same worker ID reused across attempts;
 - late provider response after timeout;
 - rejection for a different operation;
-- definite no-effect rejection remains terminal without fabricated reconciliation;
-- provider error with uncertain/partial commit cannot be represented as `Rejected`;
+- authority denial remains distinguishable from provider rejection-before-commit;
+- definite provider rejection-before-commit closes without fabricated reconciliation;
+- provider error with uncertain/partial commit cannot be represented as `RejectedBeforeCommit`;
 - `StillAmbiguous` repeated multiple times;
 - contradictory reconciliation observations;
 - idempotency key present but provider contract absent;
