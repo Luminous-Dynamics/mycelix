@@ -9,3 +9,4 @@ export * from './netting.js';
 export * from './audit.js';
 export * from './interop.js';
 export * from './recovery.js';
+export * from './projection.js';
