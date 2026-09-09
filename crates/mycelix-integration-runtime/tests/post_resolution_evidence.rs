@@ -1,10 +1,11 @@
 use mycelix_integration_core::{
-    ConnectorInstanceId, ContentCommitment, ExternalExecutionOutcome, ExternalOpaqueId,
-    ExternalOperationRef, ExternalReceipt, IdempotencyKey, IntegrationCommandId, OutboundStage,
-    ReconciliationDisposition, ReconciliationResult, SideEffectClass,
+    ConnectorInstanceId, ContentCommitment, ExecutionAttemptId, ExternalExecutionOutcome,
+    ExternalOpaqueId, ExternalOperationRef, ExternalReceipt, IdempotencyKey, IntegrationCommandId,
+    OutboundStage, ReconciliationDisposition, ReconciliationResult, SideEffectClass,
 };
 use mycelix_integration_runtime::{
-    DurableOutboundIntent, EnqueueDisposition, ExecutionRecordDisposition, SqliteIntegrationStore,
+    DurableOutboundIntent, EnqueueDisposition, ExecutionRecordDisposition, RuntimeError,
+    SqliteIntegrationStore,
 };
 
 fn connector() -> ConnectorInstanceId {
@@ -65,11 +66,7 @@ fn reconciliation(
     }
 }
 
-fn finalized_fixture() -> (
-    SqliteIntegrationStore,
-    i64,
-    mycelix_integration_core::ExecutionAttemptId,
-) {
+fn finalized_fixture() -> (SqliteIntegrationStore, i64, ExecutionAttemptId) {
     let mut store = SqliteIntegrationStore::in_memory().expect("store must open");
     let entry_id = match store.enqueue_outbound(&intent()).expect("enqueue must succeed") {
         EnqueueDisposition::Inserted(entry_id) => entry_id,
@@ -156,6 +153,65 @@ fn late_same_attempt_provider_result_after_finalization_is_preserved_as_non_appl
         disposition,
         ExecutionRecordDisposition::RecordedForStaleAttempt
     );
+    assert_eq!(
+        store.outbox_snapshot(entry_id).expect("snapshot").stage,
+        OutboundStage::Finalized
+    );
+}
+
+#[test]
+fn wrong_operation_reconciliation_after_finalization_is_rejected_without_history_append() {
+    let (mut store, entry_id, _) = finalized_fixture();
+    let before = store
+        .reconciliation_history(entry_id)
+        .expect("history before invalid evidence");
+    assert_eq!(before.len(), 1);
+
+    let wrong = ReconciliationResult {
+        operation: ExternalOperationRef {
+            command_id: IntegrationCommandId::new("different-command")
+                .expect("fixture command must be valid"),
+            connector_instance: connector(),
+            provider_operation: None,
+        },
+        disposition: ReconciliationDisposition::ConfirmsNoEffect,
+        evidence: ContentCommitment::sha256(b"wrong-operation-evidence"),
+        reconciled_at_ms: 220,
+    };
+
+    assert!(matches!(
+        store.record_reconciliation(entry_id, &wrong, 220),
+        Err(RuntimeError::ReconciliationOperationMismatch { entry_id: id }) if id == entry_id
+    ));
+    assert_eq!(
+        store
+            .reconciliation_history(entry_id)
+            .expect("history after invalid evidence")
+            .len(),
+        1
+    );
+    assert_eq!(
+        store.outbox_snapshot(entry_id).expect("snapshot").stage,
+        OutboundStage::Finalized
+    );
+}
+
+#[test]
+fn wrong_attempt_provider_result_after_finalization_is_rejected() {
+    let (mut store, entry_id, _) = finalized_fixture();
+    let wrong_attempt = ExecutionAttemptId::new("wrong-attempt")
+        .expect("fixture attempt id must be valid");
+
+    assert!(matches!(
+        store.record_execution(
+            entry_id,
+            &wrong_attempt,
+            "worker-history",
+            &confirmed("receipt-wrong-attempt", 230),
+            230,
+        ),
+        Err(RuntimeError::AttemptFenceMismatch { entry_id: id }) if id == entry_id
+    ));
     assert_eq!(
         store.outbox_snapshot(entry_id).expect("snapshot").stage,
         OutboundStage::Finalized
