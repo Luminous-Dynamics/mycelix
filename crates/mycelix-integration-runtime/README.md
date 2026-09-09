@@ -8,29 +8,18 @@ It is deliberately **not** a connector, provider SDK wrapper, authority oracle, 
 
 The reference implementation uses SQLite to make failure and restart semantics executable before distributed infrastructure or provider SDKs are introduced.
 
-It owns:
+The active crate root is now `src/v3.rs`. It wraps the earlier v2 engine in `src/lib.rs` and adds the semantic safeguards that must exist at the public boundary before INT-04:
 
-- durable normalized inbound insertion;
-- duplicate-vs-identity-collision detection;
-- durable outbound intent storage;
-- prepared execution attempts with bounded leases;
-- exact attempt/fence identities;
-- an explicit local `DispatchStarted` boundary;
-- conservative crash recovery;
-- exact-operation provider outcomes;
-- append-only execution observations;
-- append-only reconciliation history, including post-resolution evidence;
-- reconciliation checkpoints;
-- reconciliation-before-finalization for effect-bearing or uncertain outcomes;
-- direct closure for proven no-effect outcomes;
-- bounded payload/history/attempt admission;
-- fail-safe storage-schema migration.
+- durable semantic-producer/profile identity separate from SQLite schema identity;
+- fail-closed migration when legacy rejection cause is underdetermined;
+- provider-operation identity refinement that cannot substitute `Some(B)` for established `Some(A)`;
+- per-entry Mycelix runtime causal-time monotonicity;
+- lease expiry that independently removes current completion power even before recovery runs;
+- entry-local quarantine so one poisoned recovery record cannot globally block unrelated work.
 
-It does **not** own provider APIs, webhook authentication, Holochain calls, institutional authority, capability minting, provider idempotency claims, provider payload materialization, domain acceptance, or physical postcondition truth.
+The legacy v2 engine remains intentionally intact underneath the facade so its already-frozen crash, retry, bounded-history, attempt-budget, and state-machine regressions continue to run.
 
-## Distinct denial, claim, dispatch, and outcome states
-
-The runtime consumes the provider-neutral causal model from INT-02:
+## Causal execution vocabulary
 
 ```text
 AuthorityChecked
@@ -68,32 +57,91 @@ Compensatable != SafeBlindRetry
 IdempotencyKeyPresent != EndpointIdempotencyGuarantee
 ```
 
-A worker crash before `DispatchStarted` proves this runtime never crossed its local external-call boundary, so the attempt can be reclaimed even for an irreversible command. After `DispatchStarted`, absence of a response does not prove the provider did nothing; the result becomes `Ambiguous` and remains non-executable until qualified reconciliation resolves it.
+## Storage semantics v3
 
-A provider response is `RejectedBeforeCommit` only when a qualified provider profile can establish that the exact operation did not commit an external effect. Ordinary transport failures or ambiguous provider errors must remain `Ambiguous`.
+SQLite `PRAGMA user_version` describes structural storage compatibility. It does **not** identify which integration semantics produced a durable row.
 
-## Exact attempt fencing and explicit attempt budget
+The public v3 facade therefore persists:
+
+```text
+mycelix-integration-runtime/semantic-profile-v3
+```
+
+in `integration_runtime_semantics` for file-backed stores.
+
+```text
+same table shape
+    != same semantic meaning
+
+same integer stage
+    != same semantic cause
+
+syntactic readability
+    != semantic equivalence
+```
+
+This matters because pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An old generic rejection cannot truthfully be relabeled as either `AuthorityDenied` or `RejectedBeforeCommit` without additional provenance.
+
+The v3 open path therefore fails closed on underdetermined legacy rejection rows and on unknown/tampered semantic producer IDs. New v3 stores persist the producer identity and prove it across reopen.
+
+## Exact attempt fencing and finite attempt generation
 
 Each claim receives a distinct `ExecutionAttemptId` derived from the outbox entry and monotonically increasing attempt generation. Reusing a worker ID is insufficient to complete another attempt.
 
-The v0.1 reference profile admits at most **1024 attempts per outbox entry**. Attempt generation is durable across restarts and fails closed with `AttemptBudgetExceeded` before attempt 1025 can be minted. Exhaustion does not mean success, rejection, ambiguity, or fresh authority.
+The v0.1 reference profile admits at most **1024 attempts per outbox entry**. Attempt generation is durable across restarts and fails closed with `AttemptBudgetExceeded` before attempt 1025 can be minted.
+
+Exhausted older commands are skipped while unrelated eligible work exists, so the safety bound does not become a head-of-line denial-of-service mechanism.
+
+## Lease expiry is independently authoritative for currentness
+
+An exact attempt fence can cease to be current even if the recovery sweep has not run yet.
+
+For a post-dispatch attempt:
 
 ```text
-AttemptBudgetExceeded
-    != provider outcome
-    != reconciliation
-    != execution authority
+now >= lease_until
+    -> current completion power is gone
+    -> state is conservatively demoted to Ambiguous
+    -> exact late provider result remains historical evidence
+    -X-> direct current Confirmed / RejectedBeforeCommit
 ```
 
-The attempt budget is a declared reference-profile resource bound, not an accidental integer ceiling.
+Expiry affects current workflow authority, not whether the later response is worth preserving.
+
+## Provider-operation identity refines monotonically
+
+`ExternalOperationRef.provider_operation` may begin as `None` before the provider exposes a stable operation ID. Once established, it cannot be silently replaced or erased:
+
+```text
+None -> Some(A)      may refine
+Some(A) -> Some(A)   compatible
+Some(A) -> Some(B)   conflict / reject
+Some(A) -> None      cannot erase the binding
+```
+
+Command + connector equality is not enough to treat two different provider operation IDs as the same exact operation.
+
+## Per-entry runtime causal time
+
+Runtime transition/observation time is locally monotonic for each outbox entry:
+
+```text
+claim >= durable creation
+DispatchStarted >= claim
+runtime result observation >= dispatch
+reconciliation >= prior runtime transition
+finalization >= reconciliation
+```
+
+Clock rollback fails closed instead of strengthening an old fence or creating impossible causal order.
+
+This does **not** impose Mycelix clock order on remote provider source timestamps. Provider clocks remain separate evidence and may differ because of skew or transport delay.
 
 ## Historical evidence is append-only
 
-Current state transition and historical evidence admission are separate operations.
+Current state transition and historical evidence admission remain separate operations.
 
-An exact late provider result for the same attempt may arrive after `Ambiguous`, `Reconciled`, or `Finalized`. The runtime appends it to execution-observation history as non-applying evidence and does not rewrite current state.
-
-Likewise, an exact-operation reconciliation result that arrives after `Reconciled` or `Finalized` is appended to reconciliation history without mutating the terminal state, even when it contradicts the earlier resolution.
+Exact late same-attempt provider observations may remain appendable after `Ambiguous`, `Reconciled`, or `Finalized` as non-applying evidence. Exact-operation reconciliation after resolution/finalization is likewise preserved without rewriting terminal state.
 
 ```text
 historical observation append
@@ -103,30 +151,23 @@ Finalized
     != history closed to new evidence
 ```
 
-Wrong-operation and wrong-attempt evidence remain rejected. Later contradictory evidence is therefore preserved for a future review/reopen/impact layer instead of being silently discarded or allowed to mutate history.
+Wrong-operation and wrong-attempt evidence remain rejected.
 
-## Shared bounded evidence budgets
+## Bounded history and entry-local quarantine
 
-Both ordinary provider observations and internally generated crash ambiguity consume the same per-entry execution-observation budget. Internal recovery has no unbounded side channel.
+Provider observations and internally generated crash ambiguity share the same per-entry execution-observation budget. Internal code has no unbounded bypass.
 
-The v0.1 SQLite profile bounds:
+If a stale post-dispatch entry cannot record the ambiguity observation because its execution-observation budget is already exhausted, v3 isolates that entry in durable `integration_runtime_quarantine` state and removes it from the normal stale-recovery scan.
 
-- inbound normalized payload bytes;
-- durable command bytes;
-- serialized provider outcomes;
-- serialized reconciliation results;
-- execution-observation history;
-- reconciliation history;
-- execution attempt generations;
-- worker identifiers and claim batch size.
+```text
+entry A safety failure
+    -> A quarantined / unresolved / inspectable
 
-Budget exhaustion fails closed and does not promote epistemic or execution state.
+entry B independent eligible work
+    -> still progresses
+```
 
-## Unknown is preserved
-
-`ReconciliationDisposition::StillAmbiguous` is a reconciliation observation, not a resolution. It stays in `OutboundStage::Ambiguous`, cannot enable `Finalized`, and is appended to history.
-
-The outbox row may cache the latest applicable reconciliation for inspection, but append-only histories are the durable causal record. Post-resolution observations do not overwrite that cached historical decision.
+`quarantine_reason(entry_id)` exposes the durable reason. Quarantine never means success, no-effect, reconciliation, or permission to retry.
 
 ## Authority and payload-materialization boundary
 
@@ -163,38 +204,25 @@ queue presence != permission to act
 
 ## Provider idempotency remains external
 
-The runtime may persist an idempotency key, but key presence does not prove the provider honors it, scopes it correctly, retains it long enough, exposes it for reconciliation, or returns semantically equivalent replay results.
+The runtime may persist an idempotency key, but key presence does not prove provider support, scope, retention, payload equivalence, failover behavior, or query/reconciliation capability.
 
-Those properties belong to a versioned qualified provider profile. Crash recovery therefore defaults to `ManualReview` rather than inferring idempotency support from persisted data.
-
-## Storage evolution
-
-Runtime schema v2 adds prepared-attempt/dispatch state and append-only histories.
-
-The original reference schema had no `PRAGMA user_version` and encoded numeric stage `4` as `Executing`. In v2, numeric `4` means `AttemptPrepared`. Reinterpreting an old stage-4 row as merely prepared would be unsafe because the old representation cannot prove whether dispatch occurred, so migration maps legacy `Executing` conservatively to v2 `Ambiguous`.
-
-Existing v2 numeric meanings are preserved as the vocabulary becomes more precise: the former definite provider-rejection slot maps to `RejectedBeforeCommit`; the newly distinguished `AuthorityDenied` receives a new numeric slot rather than reinterpreting old stored rows.
-
-Unknown future runtime schema versions fail closed.
+Those properties belong to a versioned qualified provider profile. Crash recovery therefore defaults conservatively to `ManualReview` rather than inferring idempotency support from persisted data.
 
 ## Qualification target
 
-Before INT-03 is promoted, exact-head hosted qualification should establish at least:
+Promotion requires one exact-head hosted qualification that establishes both the legacy engine invariants and the active v3 facade, including:
 
-1. inbound duplicate/id-collision semantics;
-2. immutable command/connector binding;
-3. non-materializing execution claims;
-4. pre-dispatch safe reclaim and post-dispatch ambiguity;
-5. exact attempt fencing, including same-worker reuse;
-6. exact-operation binding for every provider outcome;
-7. distinct `AuthorityDenied` and `RejectedBeforeCommit` semantics;
-8. shared bounded execution-observation history, including crash-generated ambiguity;
-9. `StillAmbiguous` preservation and append-only reconciliation;
-10. post-`Reconciled`/`Finalized` exact evidence remains appendable without state rewrite;
-11. the 1024-attempt budget persists across SQLite reopen and attempt 1025 fails with `AttemptBudgetExceeded`;
-12. `Confirmed`/`Ambiguous` require conclusive reconciliation before finalization, while proven no-effect paths can close directly;
-13. idempotency-key presence does not create provider capability semantics;
-14. legacy `Executing` storage migrates to `Ambiguous`, not `AttemptPrepared`;
-15. persisted state survives reopen under the versioned schema.
+1. formatting, compilation, full tests, and Clippy with warnings denied;
+2. non-materializing claims and exact attempt fencing;
+3. pre-dispatch safe reclaim and post-dispatch ambiguity;
+4. bounded persistent attempts plus unrelated-work liveness;
+5. append-only bounded observation/reconciliation histories;
+6. fail-closed legacy semantic migration;
+7. durable/reopen-stable semantic producer identity and tamper rejection;
+8. expired post-dispatch fence demotion before completion;
+9. provider-operation substitution rejection;
+10. per-entry causal-time rollback rejection;
+11. poison-entry isolation with durable quarantine visibility;
+12. no provider execution API in INT-03.
 
-A green hosted run establishes execution of that exact source under the workflow profile. It does not establish provider correctness, current execution authority, exactly-once effects, or physical-world postconditions.
+A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, institutional legitimacy, or physical-world postconditions.
