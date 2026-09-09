@@ -23,6 +23,7 @@
 //! - [`qualification_hardening`] — bounded non-recursive qualification evaluation
 //! - [`qualification_admission`] — pre-parse wire admission + durable aggregate budgets
 //! - [`qualification_envelope`] — version-first canonical qualification wire grammar
+//! - [`qualification_digest`] — provider-neutral exact-byte digest identity contract
 
 pub mod bodies;
 pub mod coverage;
@@ -39,6 +40,7 @@ pub mod measurements;
 pub mod navigation_runtime;
 pub mod qualification;
 pub mod qualification_admission;
+pub mod qualification_digest;
 pub mod qualification_envelope;
 pub mod qualification_hardening;
 pub mod ranging;
@@ -72,6 +74,13 @@ pub use qualification_admission::{
     QUALIFICATION_ADMISSION_PROFILE_SCHEMA_V1, QualificationAdmissionError,
     QualificationAdmissionProfileV1, admit_qualification_bytes,
     canonical_qualification_admission_profile_preimage_v1,
+};
+pub use qualification_digest::{
+    DigestIdentifierField, QUALIFICATION_DIGEST_PROFILE_PREIMAGE_V1,
+    QUALIFICATION_DIGEST_PROFILE_SCHEMA_V1, QualificationDigestError, QualificationDigestProfileV1,
+    QualificationDigestProvider, QualificationDigestProviderError, QualificationDigestValueV1,
+    QualificationEnvelopeDigestV1, canonical_qualification_digest_profile_preimage_v1,
+    digest_admitted_qualification_envelope_v1,
 };
 pub use qualification_envelope::{
     DecodedQualificationEnvelope, QUALIFICATION_ENVELOPE_ENCODING_V1,
