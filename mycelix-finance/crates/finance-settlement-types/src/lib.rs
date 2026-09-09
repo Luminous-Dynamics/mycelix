@@ -7,7 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 
+mod authority;
 mod settlement;
+pub use authority::*;
 pub use settlement::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
