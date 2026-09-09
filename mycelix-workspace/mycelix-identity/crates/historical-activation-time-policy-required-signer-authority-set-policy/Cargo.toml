@@ -1,0 +1,26 @@
+[package]
+name = "mycelix-historical-activation-time-policy-required-signer-authority-set-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Closed signer authority subject requirements for authenticated historical time-policy lineages"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-historical-activation-time-policy-authenticated-lineage-policy = { path = "../historical-activation-time-policy-authenticated-lineage-policy" }
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+mycelix-historical-activation-time-policy-lineage-policy = { path = "../historical-activation-time-policy-lineage-policy" }
+mycelix-historical-activation-time-policy-transition-ed25519-authenticity = { path = "../historical-activation-time-policy-transition-ed25519-authenticity" }
+mycelix-historical-activation-time-policy-transition-policy = { path = "../historical-activation-time-policy-transition-policy" }
+mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy = { path = "../historical-activation-time-policy-transition-signer-authority-subject-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+mycelix-historical-activation-time-policy-transition-crypto-request-policy = { path = "../historical-activation-time-policy-transition-crypto-request-policy" }
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
