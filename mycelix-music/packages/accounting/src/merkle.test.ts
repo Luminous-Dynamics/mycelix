@@ -26,6 +26,39 @@ describe('accounting Merkle commitments', () => {
     expect(verifyMerkleInclusionProof({ ...obligations[1], amountMinor: 201n }, proof, commitment.root)).toBe(false);
   });
 
+  it('rejects structurally malformed proof depth and digest shapes', () => {
+    const commitment = buildMerkleCommitment(obligations);
+    const proof = buildMerkleInclusionProof(obligations, 1);
+    expect(verifyMerkleInclusionProof(obligations[1], {
+      ...proof,
+      steps: proof.steps.slice(0, -1),
+    }, commitment.root)).toBe(false);
+    expect(verifyMerkleInclusionProof(obligations[1], proof, 'not-a-sha256-root')).toBe(false);
+    expect(verifyMerkleInclusionProof(obligations[1], {
+      ...proof,
+      steps: [{ ...proof.steps[0]!, hash: 'bad' }, ...proof.steps.slice(1)],
+    }, commitment.root)).toBe(false);
+  });
+
+  it('rejects a proof whose sibling side contradicts the tree position', () => {
+    const commitment = buildMerkleCommitment(obligations);
+    const proof = buildMerkleInclusionProof(obligations, 1);
+    expect(verifyMerkleInclusionProof(obligations[1], {
+      ...proof,
+      steps: [{ ...proof.steps[0]!, side: 'right' }, ...proof.steps.slice(1)],
+    }, commitment.root)).toBe(false);
+  });
+
+  it('validates duplicate-last topology for odd-width levels', () => {
+    const commitment = buildMerkleCommitment(obligations);
+    const proof = buildMerkleInclusionProof(obligations, 2);
+    expect(verifyMerkleInclusionProof(obligations[2], proof, commitment.root)).toBe(true);
+    expect(verifyMerkleInclusionProof(obligations[2], {
+      ...proof,
+      steps: [{ ...proof.steps[0]!, hash: '0'.repeat(64) }, ...proof.steps.slice(1)],
+    }, commitment.root)).toBe(false);
+  });
+
   it('binds roots and exact counts into statement metadata', () => {
     const statement = createStatementCommitment({
       statementId: 'statement:s92',
