@@ -1,0 +1,118 @@
+name: Identity Historical Activation Time Policy Authority-Anchored Authenticated Lineage V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-anchored-authenticated-lineage-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-anchored-authenticated-lineage-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-authority-anchored-authenticated-lineage-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert closed anchored-authenticated lineage boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-transition-policy',
+              'mycelix-historical-activation-time-policy-lineage-policy',
+              'mycelix-historical-activation-time-policy-authority-anchored-transition-policy',
+              'mycelix-historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity',
+              'mycelix-identity-authority-domain-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: anchored-lineage runtime dependency drift: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedAuthorityAnchoredAuthenticatedHistoricalActivationTimePolicyLineageV2',
+              'HistoricalActivationTimePolicyCausalAuthorityRequirementV2',
+              'qualify_observed_historical_activation_time_policy_lineage_v2',
+              'qualify_authority_anchored_authenticated_historical_activation_time_policy_lineage_v2',
+              'AnchorCountMismatch',
+              'AuthenticityCountMismatch',
+              'DuplicateAnchoredBaseTransition',
+              'DuplicateAuthenticity',
+              'MissingAnchoredTransition',
+              'MissingAuthenticity',
+              'authority_state_generation',
+              'authority_state_transition_digest',
+              'authenticity_digest_sha256',
+              'ordered.sort_by_key',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: anchored-lineage invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'use hdk', 'hdk::', '#[hdk_extern]', 'sys_time(', 'std::time',
+              'project_authority_state_at_causal_position', 'qualifiedactivecausalauthority',
+              'qualifiedcurrentoperationalauthority', 'verifiedauthorityfreshness',
+              'positive_evidence', 'max_by_key',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: generic/runtime/currentness authority leaked into Identity anchored lineage: {forbidden!r}')
+
+          result_start = text.index('pub struct QualifiedAuthorityAnchoredAuthenticatedHistoricalActivationTimePolicyLineageV2')
+          result_end = text.index('impl QualifiedAuthorityAnchoredAuthenticatedHistoricalActivationTimePolicyLineageV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub requirements:',
+              'pub qualification_digest_sha256:',
+              'pub terminal_policy_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: anchored-lineage result is caller-forgeable: {field}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/Cargo.toml -- --check
+
+      - name: Test anchored authenticated lineage
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/Cargo.toml
+
+      - name: Check anchored authenticated lineage for wasm32
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/Cargo.toml --target wasm32-unknown-unknown
