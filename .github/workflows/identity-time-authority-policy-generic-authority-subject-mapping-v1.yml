@@ -1,0 +1,99 @@
+name: Identity Time Authority Policy Generic Subject Mapping V1
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/identity-authority-domain-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/**'
+      - '.github/workflows/identity-time-authority-policy-generic-authority-subject-mapping-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/**'
+      - '.github/workflows/identity-time-authority-policy-generic-authority-subject-mapping-v1.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-policy-mapping-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert deterministic authority-scoped policy mapping boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-authority-policy',
+              'mycelix-identity-authority-domain-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: policy mapping runtime dependency drift: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text[:text.index('#[cfg(test)]')]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalActivationTimeAuthorityPolicyGenericAuthoritySubjectMappingV1',
+              'QualifiedIdentityAuthorityDomainV2',
+              'GENERIC_AUTHORITY_SUBJECT_KIND_V1',
+              '"SigningPolicy"',
+              'GENERIC_AUTHORITY_NAMESPACE_V1',
+              'authority_domain.digest_sha256()',
+              'policy.policy_digest_sha256()',
+              'TIME_AUTHORITY_POLICY_AUTHORITY_SCOPED_SUBJECT_PROFILE_V1',
+              'TIME_AUTHORITY_POLICY_AUTHORITY_SCOPED_SUBJECT_DOMAIN_V1',
+              '0x94, 0xce, 0xfc, 0xa9',
+              '0x44, 0xef, 0x06, 0x95',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: authority-scoped time-policy mapping invariant missing: {needle!r}')
+
+          lower = production.lower()
+          for forbidden in [
+              'mycelix_authority_freshness', 'mycelix-authority-freshness',
+              'qualifiedactivecausalauthority', 'qualifiedcurrentoperationalauthority',
+              'verifiedauthorityfreshness', 'authoritysubjectref', 'authoritysubjectkind',
+              'use hdk', 'hdk::', 'sys_time(', 'std::time',
+              'verify_strict', '.verify(', 'is_authorized', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: generic currentness implementation leaked into pure policy mapping theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/Cargo.toml -- --check
+
+      - name: Test policy mapping theorem
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/Cargo.toml
+
+      - name: Check policy mapping theorem for wasm32
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/Cargo.toml --target wasm32-unknown-unknown
