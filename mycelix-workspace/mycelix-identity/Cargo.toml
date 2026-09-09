@@ -73,6 +73,8 @@ members = [
     "crates/historical-activation-time-policy-authenticated-lineage-policy",
     # Canonical semantic authority subject for each time-policy transition signer generation
     "crates/historical-activation-time-policy-transition-signer-authority-subject-policy",
+    # Canonical mapping of the Identity signer subject into generic authority subject semantics
+    "crates/historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy",
     # Closed signer-authority subject requirements for authenticated time-policy lineage
     "crates/historical-activation-time-policy-required-signer-authority-set-policy",
     # Signed causal authority-state anchor for historical time-policy transitions
