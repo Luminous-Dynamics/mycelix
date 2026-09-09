@@ -1,0 +1,114 @@
+name: Response Executor Authority Convergence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-identity/**'
+      - 'crates/mycelix-authority-delegation-policy/**'
+      - 'crates/mycelix-authority-delegation/**'
+      - 'crates/mycelix-governance-authority/**'
+      - 'crates/mycelix-governance-threshold-qualification/**'
+      - 'crates/mycelix-governance-executor-designation/**'
+      - 'crates/mycelix-governance-executor-lineage/**'
+      - 'crates/mycelix-governance-current-executor-authority/**'
+      - 'crates/mycelix-governance-executor-provider-contract/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/response-executor-authority-convergence.yml'
+  push:
+    branches:
+      - 'response-authority-c2-executor-semantics-convergence'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-executor-authority-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Executor semantics on active authority foundations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format imported executor crates
+        run: |
+          for manifest in \
+            crates/mycelix-authority-identity/Cargo.toml \
+            crates/mycelix-authority-delegation-policy/Cargo.toml \
+            crates/mycelix-authority-delegation/Cargo.toml \
+            crates/mycelix-governance-authority/Cargo.toml \
+            crates/mycelix-governance-threshold-qualification/Cargo.toml \
+            crates/mycelix-governance-executor-designation/Cargo.toml \
+            crates/mycelix-governance-executor-lineage/Cargo.toml \
+            crates/mycelix-governance-current-executor-authority/Cargo.toml \
+            crates/mycelix-governance-executor-provider-contract/Cargo.toml; do
+            cargo fmt --manifest-path "$manifest" -- --check
+          done
+      - name: Test executor authority chain
+        run: |
+          cargo test --manifest-path crates/mycelix-authority-identity/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-authority-delegation-policy/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-authority-delegation/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-authority/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-threshold-qualification/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-executor-designation/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-executor-lineage/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets
+      - name: Warnings-denied executor chain
+        run: |
+          cargo clippy --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets -- -D warnings
+      - name: Active-foundation convergence audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          freshness = Path('crates/mycelix-authority-freshness/src/lib.rs').read_text()
+          current = Path('crates/mycelix-governance-current-executor-authority/src/lib.rs').read_text()
+          provider = Path('crates/mycelix-governance-executor-provider-contract/src/lib.rs').read_text()
+
+          # Active freshness must retain the later control-plane extension.
+          for token in [
+              'AuthorityCoveragePolicy',
+              'CoverageTrustContextPolicy',
+              'WitnessTrustPolicy',
+          ]:
+              assert token in freshness, token
+
+          # Executor semantics still use the original stable kinds/codes rather than
+          # defining a second freshness vocabulary.
+          for token in [
+              'AuthoritySubjectKind::AuthorityGrant',
+              'AuthoritySubjectKind::ThresholdAuthorization',
+              'AuthoritySubjectKind::ExecutorDesignation',
+              'qualify_current_freshness(',
+          ]:
+              assert token in current, token
+
+          # Positive current executor authority remains local/non-deserializable.
+          before = current.split('pub struct QualifiedCurrentExecutorAuthority', 1)[0][-220:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+
+          # The provider projection is transport data, not authority by deserialization.
+          assert 'pub struct CurrentExecutorAuthorityProjection' in provider
+          assert 'qualify_current_executor_authority(' in provider
+          assert 'executor_authority_ref(' in provider
+
+          for forbidden in ['#[hdk_extern]', 'hdk::', 'create_entry(', 'call_remote(', 'execute_actions']:
+              assert forbidden not in current.lower(), forbidden
+              assert forbidden not in provider.lower(), forbidden
+
+          print('PASS: rich executor semantics compile against active extended freshness without replacing shared foundations')
+          PY
