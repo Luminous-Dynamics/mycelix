@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Domain-independent constitutional bootstrap declaration for historical time-policy authority"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy = { path = "../historical-activation-time-policy-authority-bootstrap-subject-policy" }
+sha2 = { workspace = true }
