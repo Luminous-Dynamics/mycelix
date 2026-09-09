@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-authority-coordinator-admin-mutation-exclusion"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Shared Linux exclusion boundary for Holochain Admin coordinator mutation and Mycelix response critical sections"
+
+[dependencies]
+blake3 = "1"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+holochain_client = "=0.8.1"
+holochain_types = "=0.6.1"
+mycelix-authority-coordinator-admin-isolation = { path = "../mycelix-authority-coordinator-admin-isolation" }
+mycelix-authority-coordinator-conductor-process = { path = "../mycelix-authority-coordinator-conductor-process" }
+mycelix-response-attempt-store = { path = "../mycelix-response-attempt-store" }
