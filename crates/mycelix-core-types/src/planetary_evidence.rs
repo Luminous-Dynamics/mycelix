@@ -5,8 +5,8 @@
 //!
 //! These types are the Mycelix payload contract for environmental facts and
 //! model products. They deliberately do not define an AI/world-interface
-//! envelope (Symthaea already owns that boundary), nor do they define physical
-//! risk scores or execution authority.
+//! envelope (Symthaea already owns that boundary), physical risk scores, or
+//! execution authority.
 
 use crate::EpistemicClassification;
 use std::{collections::HashSet, fmt};
@@ -147,28 +147,34 @@ impl SpatialExtent {
     }
 }
 
-/// Time interval over which a datum is valid, in Unix seconds.
-/// Equal bounds represent an instantaneous observation.
+/// Temporal support of a datum.
+///
+/// Unknown time is explicit. Adapters must not substitute ingestion time for an
+/// absent observation/event time merely to satisfy the schema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct TemporalExtent {
-    pub start: i64,
-    pub end: i64,
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum TemporalExtent {
+    Unspecified,
+    Instant(i64),
+    Interval { start: i64, end: i64 },
 }
 
 impl TemporalExtent {
     pub fn new(start: i64, end: i64) -> Result<Self, PlanetaryEvidenceError> {
-        let extent = Self { start, end };
+        let extent = Self::Interval { start, end };
         extent.validate()?;
         Ok(extent)
     }
 
     pub fn instant(at: i64) -> Self {
-        Self { start: at, end: at }
+        Self::Instant(at)
     }
 
     pub fn validate(&self) -> Result<(), PlanetaryEvidenceError> {
-        if self.start > self.end {
+        if let Self::Interval { start, end } = self
+            && start > end
+        {
             return Err(PlanetaryEvidenceError::InvalidInterval(
                 "temporal start must not exceed end",
             ));
@@ -280,13 +286,17 @@ impl ExternalEvidenceRef {
     }
 }
 
-/// Canonical Mycelix environmental datum.
+/// Canonical Mycelix environmental datum or event assertion.
 ///
-/// This remains a payload rather than an authority-bearing action. The
-/// contextual E/N/M/H classification is optional because normative scope and
-/// materiality are properties of a claim *in context*, not intrinsic sensor
-/// metadata. Consumers that use an observation for governance, risk, or a
-/// high-consequence decision should attach an explicit classification.
+/// `measurement = None` is valid for evidence-backed events whose existence or
+/// state is meaningful but for which the source does not provide a canonical
+/// scalar. Consumers must never manufacture a numeric value simply to fill the
+/// field. Likewise, unknown observation time is represented as
+/// [`TemporalExtent::Unspecified`].
+///
+/// This remains a payload rather than an authority-bearing action. Contextual
+/// E/N/M/H classification is optional because normative scope and materiality
+/// belong to a claim in context, not intrinsically to raw sensor metadata.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EnvironmentalObservation {
@@ -294,7 +304,7 @@ pub struct EnvironmentalObservation {
     pub id: String,
     pub phenomenon: String,
     pub class: EvidenceClass,
-    pub measurement: Measurement,
+    pub measurement: Option<Measurement>,
     pub spatial: SpatialExtent,
     pub temporal: TemporalExtent,
     pub uncertainty: Uncertainty,
@@ -308,7 +318,7 @@ impl EnvironmentalObservation {
         id: impl Into<String>,
         phenomenon: impl Into<String>,
         class: EvidenceClass,
-        measurement: Measurement,
+        measurement: Option<Measurement>,
         spatial: SpatialExtent,
         temporal: TemporalExtent,
         uncertainty: Uncertainty,
@@ -330,7 +340,7 @@ impl EnvironmentalObservation {
         Ok(observation)
     }
 
-    /// Attach contextual E/N/M/H semantics without changing the evidence payload.
+    /// Attach contextual E/N/M/H semantics without changing source evidence.
     pub fn with_epistemic(mut self, epistemic: EpistemicClassification) -> Self {
         self.epistemic = Some(epistemic);
         self
@@ -344,7 +354,9 @@ impl EnvironmentalObservation {
         }
         require_text("observation.id", &self.id, MAX_ID_BYTES)?;
         require_text("observation.phenomenon", &self.phenomenon, MAX_ID_BYTES)?;
-        self.measurement.validate()?;
+        if let Some(measurement) = &self.measurement {
+            measurement.validate()?;
+        }
         self.spatial.validate()?;
         self.temporal.validate()?;
         self.uncertainty.validate()?;
@@ -416,7 +428,9 @@ impl fmt::Display for PlanetaryEvidenceError {
             Self::InvalidInterval(reason) => write!(f, "invalid interval: {reason}"),
             Self::MalformedField { field, reason } => write!(f, "malformed {field}: {reason}"),
             Self::MissingEvidence => write!(f, "environmental observation requires evidence"),
-            Self::DuplicateEvidenceRef => write!(f, "environmental observation contains duplicate evidence references"),
+            Self::DuplicateEvidenceRef => {
+                write!(f, "environmental observation contains duplicate evidence references")
+            }
             Self::TooManyEvidenceRefs { actual, max } => {
                 write!(f, "environmental observation has {actual} evidence refs; maximum is {max}")
             }
@@ -501,7 +515,7 @@ mod tests {
             "obs:jhb:temperature:1",
             "air_temperature",
             EvidenceClass::Observed,
-            Measurement::new(43.2, "Cel").unwrap(),
+            Some(Measurement::new(43.2, "Cel").unwrap()),
             SpatialExtent::Point(GeoPoint::new(-26.2041, 28.0473).unwrap()),
             TemporalExtent::instant(1_788_825_600),
             Uncertainty::Interval {
@@ -519,6 +533,23 @@ mod tests {
         let observation = valid_observation();
         observation.validate().unwrap();
         assert!(observation.epistemic.is_none());
+    }
+
+    #[test]
+    fn event_without_scalar_or_time_is_explicitly_representable() {
+        let event = EnvironmentalObservation::new(
+            "event:volcano:kilauea",
+            "volcanic_activity",
+            EvidenceClass::Reported,
+            None,
+            SpatialExtent::Point(GeoPoint::new(19.421, -155.287).unwrap()),
+            TemporalExtent::Unspecified,
+            Uncertainty::Unspecified,
+            vec![evidence()],
+        )
+        .unwrap();
+        assert!(event.measurement.is_none());
+        assert_eq!(event.temporal, TemporalExtent::Unspecified);
     }
 
     #[test]
