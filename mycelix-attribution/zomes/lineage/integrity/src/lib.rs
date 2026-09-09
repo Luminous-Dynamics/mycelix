@@ -3,13 +3,16 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Contribution-lineage evidence for Mycelix Attribution.
 //!
-//! V1 is deliberately evidence-only. A contribution record or lineage attestation does
-//! not create ownership, payment, reputation, governance weight, execution authority,
-//! or control over downstream artifacts.
+//! V1 is deliberately evidence-only. A contribution record, lineage attestation, or
+//! response does not create ownership, payment, reputation, governance weight,
+//! execution authority, or control over downstream artifacts.
 //!
 //! Index links are discovery aids only. CL-02 binds every index to the exact target
 //! record semantics at DHT validation time, and coordinator queries re-read target
 //! records and verify payload semantics again before returning them.
+//!
+//! CL-03 adds immutable responses to evidence: independent corroboration/contest and
+//! author-only retraction/supersession. Historical evidence is never edited or deleted.
 
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -64,7 +67,19 @@ pub enum LineageRelation {
     Other,
 }
 
-/// Bounded reference to evidence supporting a contribution or lineage claim.
+/// How a responder relates to an existing contribution or lineage-attestation record.
+///
+/// `Corroborate` and `Contest` must be independent of the subject author in v1.
+/// `Retract` and `Supersede` are reserved to the original subject author.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum ResponseDisposition {
+    Corroborate,
+    Contest,
+    Retract,
+    Supersede,
+}
+
+/// Bounded reference to evidence supporting a contribution, claim, or response.
 /// Shape is validated here; truth/availability qualification belongs to later layers.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceRef {
@@ -103,16 +118,41 @@ pub struct LineageAttestation {
     pub rationale: String,
 }
 
+/// Immutable response to one existing contribution or lineage attestation.
+///
+/// The response always targets the exact subject `ActionHash`, not a mutable caller ID.
+/// A supersession points to an already-valid replacement action of the same entry family.
+/// Query layers must surface all valid responses; they must not collapse them into a
+/// protocol-global truth/reputation score.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct LineageResponse {
+    pub schema_version: u16,
+    pub id: String,
+    pub responder_did: String,
+    pub subject_action: ActionHash,
+    pub disposition: ResponseDisposition,
+    /// Required for independent corroboration/contest; absent for retract/supersede.
+    pub confidence_bps: Option<u16>,
+    pub evidence_refs: Vec<EvidenceRef>,
+    pub rationale: String,
+    /// Required only for `Supersede`.
+    pub replacement_action: Option<ActionHash>,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     Anchor(Anchor),
     ContributionRecord(ContributionRecord),
     LineageAttestation(LineageAttestation),
+    LineageResponse(LineageResponse),
 }
 
 /// Discovery indexes only. A link never independently establishes the semantic property
 /// named by its variant; integrity and consumers both validate the target payload.
+///
+/// Response indexes are intentionally deferred to the next CL-03 coordinator tranche.
 #[hdk_link_types]
 pub enum LinkTypes {
     AllContributions,
@@ -124,6 +164,12 @@ pub enum LinkTypes {
     SourceToAttestation,
     TargetToAttestation,
     AttestorToAttestation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EvidenceRecordKind {
+    Contribution,
+    Attestation,
 }
 
 fn invalid(message: impl Into<String>) -> ValidateCallbackResult {
@@ -216,6 +262,54 @@ pub fn validate_attestation_fields(attestation: &LineageAttestation) -> Result<(
     Ok(())
 }
 
+pub fn validate_response_fields(response: &LineageResponse) -> Result<(), String> {
+    validate_schema(response.schema_version)?;
+    validate_required_bounded("id", &response.id, MAX_ID_LEN)?;
+    validate_required_bounded("responder_did", &response.responder_did, MAX_ID_LEN)?;
+    validate_required_bounded("rationale", &response.rationale, MAX_RATIONALE_LEN)?;
+    validate_evidence_refs(&response.evidence_refs)?;
+
+    if response.replacement_action.as_ref() == Some(&response.subject_action) {
+        return Err("replacement_action must differ from subject_action".into());
+    }
+
+    match response.disposition {
+        ResponseDisposition::Corroborate | ResponseDisposition::Contest => {
+            let Some(confidence) = response.confidence_bps else {
+                return Err("corroborate/contest responses require confidence_bps".into());
+            };
+            if confidence > MAX_CONFIDENCE_BPS {
+                return Err(format!(
+                    "confidence_bps must be within 0..={MAX_CONFIDENCE_BPS}"
+                ));
+            }
+            if response.replacement_action.is_some() {
+                return Err(
+                    "corroborate/contest responses must not specify replacement_action".into(),
+                );
+            }
+        }
+        ResponseDisposition::Retract => {
+            if response.confidence_bps.is_some() {
+                return Err("retract responses must not specify confidence_bps".into());
+            }
+            if response.replacement_action.is_some() {
+                return Err("retract responses must not specify replacement_action".into());
+            }
+        }
+        ResponseDisposition::Supersede => {
+            if response.confidence_bps.is_some() {
+                return Err("supersede responses must not specify confidence_bps".into());
+            }
+            if response.replacement_action.is_none() {
+                return Err("supersede responses require replacement_action".into());
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn validate_create_contribution(
     action: &Create,
     record: &ContributionRecord,
@@ -240,6 +334,91 @@ pub fn validate_create_attestation(
         return invalid(error);
     }
     ValidateCallbackResult::Valid
+}
+
+fn evidence_record_kind(record: &Record) -> Option<EvidenceRecordKind> {
+    match record.entry().to_app_option::<ContributionRecord>() {
+        Ok(Some(payload)) if validate_contribution_fields(&payload).is_ok() => {
+            return Some(EvidenceRecordKind::Contribution);
+        }
+        _ => {}
+    }
+    match record.entry().to_app_option::<LineageAttestation>() {
+        Ok(Some(payload)) if validate_attestation_fields(&payload).is_ok() => {
+            Some(EvidenceRecordKind::Attestation)
+        }
+        _ => None,
+    }
+}
+
+fn record_author_did(record: &Record) -> String {
+    format!("did:mycelix:{}", record.action().author())
+}
+
+fn validate_create_response(
+    action: &Create,
+    response: &LineageResponse,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(error) = validate_response_fields(response) {
+        return Ok(invalid(error));
+    }
+    if let Err(error) = require_claimant_is_author(&response.responder_did, &action.author) {
+        return Ok(invalid(error));
+    }
+
+    let subject = must_get_valid_record(response.subject_action.clone())?;
+    let Some(subject_kind) = evidence_record_kind(&subject) else {
+        return Ok(invalid(
+            "lineage response subject must be a valid contribution or lineage attestation",
+        ));
+    };
+    let subject_author = record_author_did(&subject);
+
+    match response.disposition {
+        ResponseDisposition::Corroborate | ResponseDisposition::Contest => {
+            if response.responder_did == subject_author {
+                return Ok(invalid(
+                    "corroborate/contest responses must be independent of the subject author; use retract/supersede for self-correction",
+                ));
+            }
+        }
+        ResponseDisposition::Retract => {
+            if response.responder_did != subject_author {
+                return Ok(invalid(
+                    "only the original subject author may retract lineage evidence",
+                ));
+            }
+        }
+        ResponseDisposition::Supersede => {
+            if response.responder_did != subject_author {
+                return Ok(invalid(
+                    "only the original subject author may supersede lineage evidence",
+                ));
+            }
+            let replacement_hash = response
+                .replacement_action
+                .clone()
+                .expect("field validation requires replacement_action for Supersede");
+            let replacement = must_get_valid_record(replacement_hash)?;
+            let Some(replacement_kind) = evidence_record_kind(&replacement) else {
+                return Ok(invalid(
+                    "superseding replacement must be a valid contribution or lineage attestation",
+                ));
+            };
+            if replacement_kind != subject_kind {
+                return Ok(invalid(
+                    "superseding replacement must use the same evidence entry family as the subject",
+                ));
+            }
+            if record_author_did(&replacement) != subject_author {
+                return Ok(invalid(
+                    "superseding replacement must be authored by the original subject author",
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_anchor(anchor: &Anchor) -> ValidateCallbackResult {
@@ -346,14 +525,10 @@ fn attestation_anchor_for(link_type: &LinkTypes, claim: &LineageAttestation) -> 
     }
 }
 
-fn wrong_target_type(link_type: &LinkTypes) -> ValidateCallbackResult {
-    invalid(format!(
-        "lineage index {:?} points to the wrong entry type",
-        link_type
-    ))
-}
-
-fn validate_expected_anchor(base: EntryHash, expected: String) -> ExternResult<ValidateCallbackResult> {
+fn validate_expected_anchor(
+    base: EntryHash,
+    expected: String,
+) -> ExternResult<ValidateCallbackResult> {
     if expected.len() > MAX_ANCHOR_LEN {
         return Ok(invalid("derived lineage anchor exceeds MAX_ANCHOR_LEN"));
     }
@@ -367,10 +542,6 @@ fn validate_expected_anchor(base: EntryHash, expected: String) -> ExternResult<V
 }
 
 /// Bind index shape, author, target type, and anchor semantics at DHT validation time.
-///
-/// `must_get_valid_record` deliberately makes the index depend on a target record that
-/// the visible network considers valid. If the dependency is unavailable, Holochain
-/// returns an unresolved dependency rather than accepting an unverifiable index.
 fn validate_create_index_link(
     link_type: LinkTypes,
     action: CreateLink,
@@ -410,24 +581,29 @@ fn validate_create_index_link(
         return validate_expected_anchor(base, expected);
     }
 
-    Ok(wrong_target_type(&link_type))
+    Ok(invalid(
+        "lineage index points to the wrong entry type for this index family",
+    ))
 }
 
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
-            OpEntry::CreateEntry { app_entry, action } => Ok(match app_entry {
-                EntryTypes::Anchor(anchor) => validate_anchor(&anchor),
+            OpEntry::CreateEntry { app_entry, action } => match app_entry {
+                EntryTypes::Anchor(anchor) => Ok(validate_anchor(&anchor)),
                 EntryTypes::ContributionRecord(record) => {
-                    validate_create_contribution(&action, &record)
+                    Ok(validate_create_contribution(&action, &record))
                 }
                 EntryTypes::LineageAttestation(attestation) => {
-                    validate_create_attestation(&action, &attestation)
+                    Ok(validate_create_attestation(&action, &attestation))
                 }
-            }),
+                EntryTypes::LineageResponse(response) => {
+                    validate_create_response(&action, &response)
+                }
+            },
             OpEntry::UpdateEntry { .. } => Ok(invalid(
-                "lineage evidence is immutable in v1; publish a correction/supersession entry instead",
+                "lineage evidence is immutable in v1; publish an append-only response instead",
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -509,6 +685,28 @@ mod tests {
             confidence_bps: 8_000,
             evidence_refs: vec![evidence()],
             rationale: "Beta imports and extends Alpha's parser API.".into(),
+        }
+    }
+
+    fn response(disposition: ResponseDisposition) -> LineageResponse {
+        LineageResponse {
+            schema_version: LINEAGE_SCHEMA_VERSION,
+            id: "response:1".into(),
+            responder_did: author_did(),
+            subject_action: ActionHash::from_raw_36(vec![3u8; 36]),
+            disposition: disposition.clone(),
+            confidence_bps: match disposition {
+                ResponseDisposition::Corroborate | ResponseDisposition::Contest => Some(7_500),
+                ResponseDisposition::Retract | ResponseDisposition::Supersede => None,
+            },
+            evidence_refs: vec![evidence()],
+            rationale: "Evidence-bearing response".into(),
+            replacement_action: match disposition {
+                ResponseDisposition::Supersede => {
+                    Some(ActionHash::from_raw_36(vec![4u8; 36]))
+                }
+                _ => None,
+            },
         }
     }
 
@@ -608,6 +806,45 @@ mod tests {
         let mut claim = attestation();
         claim.confidence_bps = 0;
         assert_eq!(validate_attestation_fields(&claim), Ok(()));
+    }
+
+    #[test]
+    fn contest_requires_explicit_confidence() {
+        let mut item = response(ResponseDisposition::Contest);
+        item.confidence_bps = None;
+        assert!(validate_response_fields(&item)
+            .unwrap_err()
+            .contains("require confidence_bps"));
+    }
+
+    #[test]
+    fn retract_rejects_confidence_and_replacement() {
+        let mut item = response(ResponseDisposition::Retract);
+        item.confidence_bps = Some(5_000);
+        assert!(validate_response_fields(&item)
+            .unwrap_err()
+            .contains("must not specify confidence_bps"));
+
+        let mut item = response(ResponseDisposition::Retract);
+        item.replacement_action = Some(ActionHash::from_raw_36(vec![9u8; 36]));
+        assert!(validate_response_fields(&item)
+            .unwrap_err()
+            .contains("must not specify replacement_action"));
+    }
+
+    #[test]
+    fn supersede_requires_distinct_replacement() {
+        let mut item = response(ResponseDisposition::Supersede);
+        item.replacement_action = None;
+        assert!(validate_response_fields(&item)
+            .unwrap_err()
+            .contains("require replacement_action"));
+
+        let mut item = response(ResponseDisposition::Supersede);
+        item.replacement_action = Some(item.subject_action.clone());
+        assert!(validate_response_fields(&item)
+            .unwrap_err()
+            .contains("must differ"));
     }
 
     #[test]
