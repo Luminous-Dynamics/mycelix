@@ -71,7 +71,8 @@ jobs:
           install -m 0644 "$RUNNER_TEMP/pulse-backend-lock/Cargo.lock" "$dest"
           test "$(sha256sum "$dest" | cut -d' ' -f1)" = "$LOCK_SHA256"
           git diff --check
-          test "$(git diff --name-only)" = "$dest"
+          test -z "$(git diff --name-only)"
+          test "$(git ls-files --others --exclude-standard)" = "$dest"
       - name: Commit self-cleaned lock materialization
         run: |
           set -euo pipefail
