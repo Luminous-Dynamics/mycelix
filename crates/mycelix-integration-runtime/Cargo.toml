@@ -5,6 +5,9 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Durable inbox, outbox, lease recovery, and reconciliation runtime for Mycelix integrations"
 
+[lib]
+path = "src/v3.rs"
+
 [dependencies]
 mycelix-integration-core = { path = "../mycelix-integration-core" }
 rusqlite = { version = "0.32", features = ["bundled"] }
