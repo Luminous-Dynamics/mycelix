@@ -11,6 +11,8 @@
 //! - **Planetary Lineage**: Validated provenance DAGs for derived/model products
 //! - **Physical Risk**: Evidence-decomposed hazard/exposure/vulnerability composition
 //! - **Planetary Response**: Evidence-bound intervention proposals without execution authority
+//! - **Planetary Decisions**: Auditable choice and dissent records without execution authority
+//! - **Planetary Authority**: Evidence-bound authority evaluations without capability minting
 //! - **Planetary Outcomes**: Execution receipts and measured outcome lineage
 //! - **Response Lifecycle**: Monotonic binding across proposal, decision, authority, execution, and outcomes
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
@@ -156,6 +158,8 @@ pub mod epistemic;
 pub mod harmonic;
 pub mod k_vector;
 pub mod moral;
+pub mod planetary_authority;
+pub mod planetary_decision;
 pub mod planetary_evidence;
 pub mod planetary_lineage;
 pub mod planetary_loop;
@@ -172,6 +176,8 @@ pub use epistemic::*;
 pub use harmonic::*;
 pub use k_vector::*;
 pub use moral::*;
+pub use planetary_authority::*;
+pub use planetary_decision::*;
 pub use planetary_evidence::*;
 pub use planetary_lineage::*;
 pub use planetary_loop::*;
