@@ -61,12 +61,12 @@ jobs:
               'policy_jurisdiction != intent.jurisdiction()',
               'policy.adapter_profile != intent.adapter_profile()',
               '.filter(|subject| *subject != safety.subject())',
-              'intent.provider_valid_until_ms().min(safety.valid_until_ms())',
               'all_declared_authority_subjects_satisfied',
               'automatic_effects_allowed',
           ]
           for token in required:
               assert token in src, token
+          assert 'intent.provider_valid_until_ms().min(safety.valid_until_ms())' in compact
 
           # Stable composition identity must bind exact response/action/executor
           # semantics and the exact current safety qualification, not dynamic
