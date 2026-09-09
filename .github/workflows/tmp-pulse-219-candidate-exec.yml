@@ -11,7 +11,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: '-D warnings'
-  EXPECTED_CANDIDATE_SHA: b3e07217e2915cc6706ba8ebe997a0b7d3cc8add
+  EXPECTED_CANDIDATE_SHA: bb9019986c1b0bedb914b01a888aedb2fbc19c42
 
 jobs:
   execute-candidate:
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: b3e07217e2915cc6706ba8ebe997a0b7d3cc8add
+          ref: bb9019986c1b0bedb914b01a888aedb2fbc19c42
           fetch-depth: 2
           submodules: recursive
           persist-credentials: false
