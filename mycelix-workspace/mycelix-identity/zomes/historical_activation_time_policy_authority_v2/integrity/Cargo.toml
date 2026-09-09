@@ -1,0 +1,18 @@
+[package]
+name = "historical_activation_time_policy_authority_v2_integrity"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Hash-bound Identity V2 policy-authority constitution integrity admission"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hdi = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy = { path = "../../../crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy = { path = "../../../crates/historical-activation-time-policy-authority-bootstrap-subject-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy = { path = "../../../crates/historical-activation-time-policy-authority-bootstrap-declaration-policy" }

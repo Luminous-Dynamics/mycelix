@@ -1,0 +1,131 @@
+name: Identity Historical Activation Time Policy Authority Constitution Integrity V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/**'
+      - 'mycelix-workspace/mycelix-identity/zomes/historical_activation_time_policy_authority_v2/integrity/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-constitution-integrity-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/zomes/historical_activation_time_policy_authority_v2/integrity/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-constitution-integrity-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-policy-authority-constitution-integrity-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert hash-bound genesis constitution boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'zomes/historical_activation_time_policy_authority_v2/integrity'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'hdi',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: integrity runtime dependency drift: {sorted(deps)}')
+          if deps['hdi'].get('workspace') is not True:
+              raise SystemExit('ERROR: integrity zome must use workspace hdi')
+          parent = deps['mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy']
+          if parent.get('path') != '../../../crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy':
+              raise SystemExit('ERROR: #428 property-wire dependency path drifted')
+
+          dev = manifest.get('dev-dependencies', {})
+          expected_dev = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy',
+          }
+          if set(dev) != expected_dev:
+              raise SystemExit(f'ERROR: integrity dev dependency drift: {sorted(dev)}')
+          if dev['mycelix-crypto'].get('workspace') is not True:
+              raise SystemExit('ERROR: integrity test crypto must use workspace pin')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'IDENTITY_V2_POLICY_AUTHORITY_CONSTITUTION_ID',
+              '"mycelix-identity-v2-policy-authority"',
+              'IDENTITY_V2_POLICY_AUTHORITY_CONSTITUTION_VERSION: u32 = 1',
+              'validate_identity_v2_policy_authority_genesis_property',
+              'let declaration = decode_historical_activation_time_policy_authority_bootstrap_property_v2(',
+              'pub fn genesis_self_check',
+              'let info = dna_info()?;',
+              'info.modifiers.properties.bytes(),',
+              'ConstitutionIdMismatch',
+              'ConstitutionVersionMismatch',
+              'future_envelope_version_fails_before_constitution_semantics',
+              'malformed_magic_fails_closed',
+              'genesis_reads_only_host_committed_property_bytes_and_mints_no_authority',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: constitution-integrity invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          decode_call = production.index('let declaration = decode_historical_activation_time_policy_authority_bootstrap_property_v2(')
+          constitution = production.index('if declaration.constitution_id()')
+          if decode_call > constitution:
+              raise SystemExit('ERROR: constitution semantics checked before #428 wire admission')
+
+          lower = production.lower()
+          for forbidden in [
+              'info.hash', 'get_raw_39', 'authority_domain', 'must_get_',
+              'use hdk::', 'hdk::prelude',
+              'serializedbytes::', 'unsafebytes',
+              'serde_json',
+              'from_trusted_configuration', 'is_authorized',
+              'verify_strict', '.verify(', 'ed_25519',
+              'positive_evidence', 'trust_score',
+              'sys_time(', 'std::time', 'random_bytes(',
+              'pub struct authorized', 'pub struct qualified',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime-domain/coordinator/authority shortcut leaked into integrity genesis theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/zomes/historical_activation_time_policy_authority_v2/integrity/Cargo.toml -- --check
+
+      - name: Test strict property-wire parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/Cargo.toml
+
+      - name: Test constitution integrity admission
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/zomes/historical_activation_time_policy_authority_v2/integrity/Cargo.toml
+
+      - name: Check integrity zome for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/zomes/historical_activation_time_policy_authority_v2/integrity/Cargo.toml --target wasm32-unknown-unknown
