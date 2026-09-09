@@ -13,14 +13,16 @@ use crate::{
 };
 
 /// Verify that a lifecycle ledger and an execution receipt are rooted in the
-/// same response proposal and selected option.
+/// same immutable response proposal and selected option.
 pub fn validate_lifecycle_execution_binding(
     ledger: &ResponseLifecycleLedger,
     proposal: &ResponseProposal,
     execution: &ExecutionReceipt,
 ) -> Result<(), LifecycleBindingError> {
     ledger.validate().map_err(LifecycleBindingError::Lifecycle)?;
-    proposal.validate().map_err(|error| LifecycleBindingError::Proposal(error.to_string()))?;
+    proposal
+        .validate()
+        .map_err(|error| LifecycleBindingError::Proposal(error.to_string()))?;
     execution
         .validate_against_proposal(proposal)
         .map_err(|error| LifecycleBindingError::Execution(error.to_string()))?;
@@ -29,6 +31,10 @@ pub fn validate_lifecycle_execution_binding(
         || ledger.proposal.id != proposal.id
     {
         return Err(LifecycleBindingError::ProposalRootMismatch);
+    }
+
+    if execution.response.proposal_digest != ledger.proposal.digest {
+        return Err(LifecycleBindingError::ProposalDigestMismatch);
     }
 
     let Some(bound_execution) = ledger.execution.as_ref() else {
@@ -59,6 +65,7 @@ pub enum LifecycleBindingError {
     Proposal(String),
     Execution(String),
     ProposalRootMismatch,
+    ProposalDigestMismatch,
     ExecutionNotBound,
     ExecutionMismatch,
 }
@@ -71,6 +78,9 @@ impl core::fmt::Display for LifecycleBindingError {
             Self::Execution(error) => write!(f, "invalid execution receipt: {error}"),
             Self::ProposalRootMismatch => {
                 write!(f, "lifecycle proposal root does not match response proposal")
+            }
+            Self::ProposalDigestMismatch => {
+                write!(f, "execution proposal digest does not match lifecycle proposal digest")
             }
             Self::ExecutionNotBound => write!(f, "lifecycle does not bind an execution receipt"),
             Self::ExecutionMismatch => {
