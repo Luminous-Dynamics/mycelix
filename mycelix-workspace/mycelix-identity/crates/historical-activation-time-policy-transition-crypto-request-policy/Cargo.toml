@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-historical-activation-time-policy-transition-crypto-request-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Prepared cryptographic request for historical time-policy authority transitions"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+mycelix-historical-activation-time-policy-transition-policy = { path = "../historical-activation-time-policy-transition-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
