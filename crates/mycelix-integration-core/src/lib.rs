@@ -465,7 +465,6 @@ impl InboundStage {
         matches!(
             (self, next),
             (Received, Authenticated)
-                | (Received, Verified)
                 | (Received, Rejected)
                 | (Authenticated, Duplicate)
                 | (Authenticated, Decoded)
