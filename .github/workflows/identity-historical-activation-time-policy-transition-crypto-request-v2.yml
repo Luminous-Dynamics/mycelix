@@ -1,0 +1,119 @@
+name: Identity Historical Activation Time Policy Transition Crypto Request V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-key-generation-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-crypto-request-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-transition-crypto-request-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-time-policy-transition-crypto-request-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert prepared transition crypto boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-transition-crypto-request-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-key-generation-policy',
+              'mycelix-historical-activation-time-policy-transition-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: transition-request runtime dependency drift: {sorted(deps)}')
+          if deps['mycelix-crypto'].get('workspace') is not True or deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: transition request must use workspace crypto/sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'PreparedHistoricalActivationTimePolicyTransitionCryptoRequestV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_TRANSITION_CRYPTO_REQUEST_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-transition-crypto-request:v2\\0',
+              'prepare_historical_activation_time_policy_transition_crypto_request_v2',
+              'validate_policy_authority_key_generation_against_transition_v2',
+              'signature.algorithm != key_generation.algorithm()',
+              'signature.signature_bytes.len() != key_generation.algorithm().signature_size()',
+              'SignatureAllZero',
+              '0xba, 0xb3, 0xcd, 0x7c',
+              '0x49, 0x78, 0x90, 0xdd',
+              'signature_algorithm_substitution_fails_closed',
+              'prepared_request_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: transition request invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct PreparedHistoricalActivationTimePolicyTransitionCryptoRequestV2')
+          result_end = text.index('impl PreparedHistoricalActivationTimePolicyTransitionCryptoRequestV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub public_key_bytes:',
+              'pub signature_bytes:',
+              'pub crypto_request_digest_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: transition crypto request is caller-forgeable: {field}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'ed25519_dalek', 'verify_strict', '.verify(', 'pqcrypto', 'dilithium',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'sys_time(', 'std::time',
+              'policy_current', 'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: crypto/runtime/currentness authority leaked into prepared transition request: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/Cargo.toml -- --check
+
+      - name: Test policy-authority generation
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-key-generation-policy/Cargo.toml
+
+      - name: Test prepared transition request
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/Cargo.toml
+
+      - name: Check prepared request for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-crypto-request-policy/Cargo.toml --target wasm32-unknown-unknown
