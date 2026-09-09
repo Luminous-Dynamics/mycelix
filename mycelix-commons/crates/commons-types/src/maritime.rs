@@ -52,6 +52,9 @@ pub enum MaritimeEvidenceKind {
 pub struct MaritimeEvidenceEnvelope {
     pub schema_version: u8,
     pub platform_id: String,
+    /// Monotonic software/evidence lineage generation for this platform chain.
+    /// A successor may remain in the same generation or advance it, but may not
+    /// regress to an older generation.
     pub generation: u64,
     pub sequence: u64,
     pub observed_at_us: u64,
@@ -185,6 +188,12 @@ impl MaritimeEvidenceEnvelope {
         if self.platform_id != previous.platform_id {
             return Err("cannot chain maritime events from different platforms".into());
         }
+        if self.generation < previous.generation {
+            return Err(format!(
+                "successor generation must be at least {}, got {}",
+                previous.generation, self.generation
+            ));
+        }
         let expected_sequence = previous
             .sequence
             .checked_add(1)
@@ -276,6 +285,12 @@ pub fn verify_maritime_successor(
     next.validate()?;
     if previous.platform_id != next.platform_id {
         return Err("platform_id changed within maritime event chain".into());
+    }
+    if next.generation < previous.generation {
+        return Err(format!(
+            "generation regression: predecessor {}, successor {}",
+            previous.generation, next.generation
+        ));
     }
     let expected_sequence = previous
         .sequence
@@ -378,11 +393,24 @@ mod tests {
     }
 
     #[test]
-    fn generation_transition_can_stay_in_same_chain() {
+    fn generation_can_stay_constant_or_advance_but_never_regress() {
         let first = event(9);
-        let mut next = event(10);
-        next.generation = 8;
-        let next = next.chain_after(&first).unwrap();
-        assert_eq!(verify_maritime_successor(&first, &next), Ok(()));
+
+        let same = event(10).chain_after(&first).unwrap();
+        assert_eq!(verify_maritime_successor(&first, &same), Ok(()));
+
+        let mut advanced = event(10);
+        advanced.generation = 8;
+        let advanced = advanced.chain_after(&first).unwrap();
+        assert_eq!(verify_maritime_successor(&first, &advanced), Ok(()));
+
+        let mut regressed = event(10);
+        regressed.generation = 6;
+        assert!(regressed.chain_after(&first).is_err());
+
+        let mut forged_regression = same;
+        forged_regression.generation = 6;
+        forged_regression.previous_event_digest = Some(first.content_digest().unwrap());
+        assert!(verify_maritime_successor(&first, &forged_regression).is_err());
     }
 }
