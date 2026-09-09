@@ -8,13 +8,16 @@
 //! - Anchor utilities for consistent indexing
 //! - Bridge types for cross-domain communication
 //! - Geographic types shared across domains
+//! - Mission-neutral maritime evidence carried by existing bridge events
 
 pub mod anchors;
 pub mod batch;
 pub mod bridge_types;
 pub mod geo;
+pub mod maritime;
 
 pub use anchors::*;
 pub use batch::*;
 pub use bridge_types::*;
 pub use geo::*;
+pub use maritime::*;
