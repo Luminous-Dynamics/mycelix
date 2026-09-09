@@ -11,7 +11,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: '-D warnings'
-  EXPECTED_CANDIDATE_SHA: 706a4b6fee4ad5871900b8c420adf93059748ffd
+  EXPECTED_CANDIDATE_SHA: b3e07217e2915cc6706ba8ebe997a0b7d3cc8add
 
 jobs:
   execute-candidate:
@@ -21,11 +21,10 @@ jobs:
       JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
       HOLOCHAIN_STUB_MODE: 'true'
       CREDENTIAL_ENCRYPTION_SECRET: ci-credential-encryption-secret-at-least-32-characters-long
-      MYCELIX_DATA_DIR: ${{ runner.temp }}/pulse-backend-data
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: 706a4b6fee4ad5871900b8c420adf93059748ffd
+          ref: b3e07217e2915cc6706ba8ebe997a0b7d3cc8add
           submodules: recursive
           persist-credentials: false
       - name: Bind exact candidate head
@@ -71,6 +70,8 @@ jobs:
           sha256sum Cargo.lock > "$RUNNER_TEMP/pulse-backend-lock.sha256"
       - name: Pulse backend tests
         working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        env:
+          MYCELIX_DATA_DIR: ${{ runner.temp }}/pulse-backend-data
         run: cargo test --locked
       - name: Verify Pulse backend lock unchanged
         working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
