@@ -234,12 +234,50 @@ jobs:
           grep -Fq 'finalize_outbound' "$source"
           grep -Fq 'confirmed_effect_requires_conclusive_reconciliation_before_finalization' "$source"
 
+      - name: Enforce v3 public semantic facade
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='crates/mycelix-integration-runtime/Cargo.toml'
+          facade='crates/mycelix-integration-runtime/src/v3.rs'
+          migration='crates/mycelix-integration-runtime/tests/legacy_rejection_migration.rs'
+          expired='crates/mycelix-integration-runtime/tests/expired_attempt_fence.rs'
+          provider_binding='crates/mycelix-integration-runtime/tests/provider_operation_binding.rs'
+          causal_time='crates/mycelix-integration-runtime/tests/causal_time_ordering.rs'
+          poison='crates/mycelix-integration-runtime/tests/recovery_poison_isolation.rs'
+
+          grep -Fq 'path = "src/v3.rs"' "$manifest"
+          test -f "$facade"
+          grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V3' "$facade"
+          grep -Fq 'preflight_semantic_identity' "$facade"
+          grep -Fq 'semantic migration underdetermined' "$facade"
+          grep -Fq 'require_operation_compatible' "$facade"
+          grep -Fq 'require_causal_time' "$facade"
+          grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
+          grep -Fq 'quarantine_reason' "$facade"
+          grep -Fq 'snapshot.stage == OutboundStage::DispatchStarted' "$facade"
+          grep -Fq 'now_ms >= deadline' "$facade"
+
+          test -f "$migration"
+          grep -Fq 'implicit_v1_generic_rejection_requires_manual_semantic_migration' "$migration"
+          grep -Fq 'v2_stage7_rejection_requires_manual_semantic_migration' "$migration"
+          test -f "$expired"
+          grep -Fq 'expired_post_dispatch_attempt_cannot_complete_current_workflow_before_recovery' "$expired"
+          test -f "$provider_binding"
+          grep -Fq 'provider_operation' "$provider_binding"
+          test -f "$causal_time"
+          grep -Fq 'claim_time_cannot_precede_durable_intent_creation' "$causal_time"
+          grep -Fq 'finalization_times_cannot_move_backward' "$causal_time"
+          test -f "$poison"
+          grep -Fq 'history_exhausted_stale_entry_does_not_block_unrelated_claims' "$poison"
+
       - name: Enforce no provider execution API in INT-03
         shell: bash
         run: |
           set -euo pipefail
-          source='crates/mycelix-integration-runtime/src/lib.rs'
-          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$source"; then
+          legacy='crates/mycelix-integration-runtime/src/lib.rs'
+          facade='crates/mycelix-integration-runtime/src/v3.rs'
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$legacy" "$facade"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
             exit 1
           fi
