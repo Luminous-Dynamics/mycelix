@@ -5,3 +5,4 @@ export * from './merkle.js';
 export * from './reconciliation.js';
 export * from './lineage.js';
 export * from './settlement.js';
+export * from './netting.js';
