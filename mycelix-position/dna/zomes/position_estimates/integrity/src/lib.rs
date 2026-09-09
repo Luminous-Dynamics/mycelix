@@ -3,7 +3,9 @@
 //! Position estimates integrity zome: validates fused position entries.
 
 use hdi::prelude::*;
-use mycelix_position_shared::{PositionEstimateEntry, validate_geodetic, validate_node_id};
+use mycelix_position_shared::{
+    PositionEstimateEntry, validate_covariance_3x3, validate_geodetic, validate_node_id,
+};
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -51,17 +53,8 @@ fn validate_create_position_estimate(
     if let Err(e) = validate_geodetic(est.latitude_deg, est.longitude_deg, est.altitude_m) {
         return Ok(ValidateCallbackResult::Invalid(e));
     }
-    if est.covariance.len() != 9 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Covariance must have 9 elements (3×3), got {}",
-            est.covariance.len()
-        )));
-    }
-    // Check diagonal is positive (valid covariance)
-    if est.covariance[0] < 0.0 || est.covariance[4] < 0.0 || est.covariance[8] < 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Covariance diagonal must be non-negative".to_string(),
-        ));
+    if let Err(e) = validate_covariance_3x3(&est.covariance) {
+        return Ok(ValidateCallbackResult::Invalid(e));
     }
     // Bind the estimate to its committer. Unlike anchor_registry/ranging,
     // store_position_estimate's coordinator does NOT derive computed_by from

@@ -5,6 +5,7 @@
 use hdi::prelude::*;
 use mycelix_position_shared::{
     AnchorCertification, AnchorNode, validate_geodetic, validate_node_id,
+    validate_positive_finite,
 };
 
 #[hdk_entry_types]
@@ -65,11 +66,8 @@ fn validate_create_anchor_node(
     if let Err(e) = validate_geodetic(node.latitude_deg, node.longitude_deg, node.altitude_m) {
         return Ok(ValidateCallbackResult::Invalid(e));
     }
-    if node.accuracy_m <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Accuracy must be positive, got {}",
-            node.accuracy_m
-        )));
+    if let Err(e) = validate_positive_finite("Accuracy", node.accuracy_m) {
+        return Ok(ValidateCallbackResult::Invalid(e));
     }
     if node.accuracy_m > 100_000.0 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -97,10 +95,8 @@ fn validate_create_anchor_certification(
     if let Err(e) = validate_node_id(&cert.anchor_node_id) {
         return Ok(ValidateCallbackResult::Invalid(e));
     }
-    if cert.verified_accuracy_m <= 0.0 {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Verified accuracy must be positive".to_string(),
-        ));
+    if let Err(e) = validate_positive_finite("Verified accuracy", cert.verified_accuracy_m) {
+        return Ok(ValidateCallbackResult::Invalid(e));
     }
     if cert.certification_method.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
