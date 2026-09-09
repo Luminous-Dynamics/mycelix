@@ -1,0 +1,119 @@
+name: Response Effect Safety
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-effect-safety/**'
+      - 'crates/mycelix-effect-safety/**'
+      - 'crates/mycelix-response-execution-intent/**'
+      - '.github/workflows/response-effect-safety.yml'
+  push:
+    branches:
+      - 'response-authority-6-response-effect-safety'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-effect-safety-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact response and current safety composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-response-effect-safety/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-response-effect-safety/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-response-effect-safety/Cargo.toml --all-targets -- -D warnings
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-effect-safety/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-response-execution-intent/Cargo.toml --all-targets
+      - name: Composition and containment audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-response-effect-safety/src/lib.rs').read_text()
+          compact = ''.join(src.split())
+          lowered = src.lower()
+
+          required = [
+              'pub struct QualifiedResponseEffectSafety',
+              'pub fn qualify_response_effect_safety(',
+              'subject == safety.subject()',
+              'policy.action_class != intent.action_class()',
+              'policy.actions_digest != intent.actions_digest()',
+              'policy.actions_digest_profile != intent.actions_digest_profile()',
+              'policy_jurisdiction != intent.jurisdiction()',
+              'policy.adapter_profile != intent.adapter_profile()',
+              '.filter(|subject| *subject != safety.subject())',
+              'intent.provider_valid_until_ms().min(safety.valid_until_ms())',
+              'all_declared_authority_subjects_satisfied',
+              'automatic_effects_allowed',
+          ]
+          for token in required:
+              assert token in src, token
+
+          # Stable composition identity must bind exact response/action/executor
+          # semantics and the exact current safety qualification, not dynamic
+          # verification timestamps.
+          q = src.split('fn qualification_digest(', 1)[1].split('fn evidence_digest(', 1)[0]
+          for token in [
+              'intent.proposal_id()',
+              'intent.proposal_digest()',
+              'intent.decision_id()',
+              'intent.option_id()',
+              'intent.actions_digest()',
+              'intent.actions_digest_profile()',
+              'intent.adapter_profile()',
+              'intent.executor_authority_ref()',
+              'subject_identity',
+              'safety.qualification_digest()',
+          ]:
+              assert token in q, token
+          for forbidden in ['verified_at_ms', 'valid_until_ms', 'safety.evidence_digest()']:
+              assert forbidden not in q, forbidden
+
+          before = src.split('pub struct QualifiedResponseEffectSafety', 1)[0][-260:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+          assert 'exact_action_and_adapter_safety_bound_here(&self)->bool{true}' in compact
+          assert 'effect_safety_subject_discharged_here(&self)->bool{true}' in compact
+          for marker in [
+              'proof_origins_verified_here',
+              'deployment_bound_here',
+              'attempt_fenced_here',
+              'grants_execution_authority',
+          ]:
+              assert f'{marker}(&self)->bool{{false}}' in compact, marker
+
+          for forbidden in [
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'create_link(',
+              'execute_actions',
+              'dispatch(',
+              'reqwest',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          print('PASS: response composition discharges only exact current effect safety and remains pre-effect')
+          PY
