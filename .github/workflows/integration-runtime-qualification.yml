@@ -175,6 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-runtime/src/lib.rs'
+          budget_test='crates/mycelix-integration-runtime/tests/execution_observation_budget.rs'
 
           grep -Fq 'MAX_INBOUND_PAYLOAD_BYTES' "$source"
           grep -Fq 'MAX_COMMAND_BYTES' "$source"
@@ -182,6 +183,10 @@ jobs:
           grep -Fq 'MAX_SERIALIZED_RECONCILIATION_BYTES' "$source"
           grep -Fq 'MAX_RECONCILIATION_HISTORY_PER_ENTRY' "$source"
           grep -Fq 'MAX_EXECUTION_OBSERVATIONS_PER_ENTRY' "$source"
+          test -f "$budget_test"
+          grep -Fq 'crash_generated_ambiguity_consumes_the_same_observation_budget' "$budget_test"
+          grep -Fq 'ExecutionObservationHistoryLimit' "$budget_test"
+          grep -Fq 'OutboundStage::Ambiguous' "$budget_test"
 
       - name: Enforce fail-safe runtime schema migration
         shell: bash
