@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-authority-coordinator-target-cell"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+description = "Pinned crash-durable exact target CellId selection for Mycelix coordinator admission"
+
+[dependencies]
+blake3 = "1"
+holochain_client = "=0.8.1"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+mycelix-authority-coordinator-deployment-composer = { path = "../mycelix-authority-coordinator-deployment-composer" }
+mycelix-authority-coordinator-native-attestor = { path = "../mycelix-authority-coordinator-native-attestor" }

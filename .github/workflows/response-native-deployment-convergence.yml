@@ -1,0 +1,108 @@
+name: Response Native Deployment Convergence
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-effect-safety/**'
+      - 'crates/mycelix-authority-coordinator-stability-fence/**'
+      - 'crates/mycelix-authority-coordinator-target-cell/**'
+      - 'crates/mycelix-authority-coordinator-conductor-process/**'
+      - 'crates/mycelix-authority-coordinator-native-observation-composer/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy-root/**'
+      - 'crates/mycelix-authority-coordinator-release-key-policy-state/**'
+      - 'crates/mycelix-authority-coordinator-release-hybrid-verifier/**'
+      - 'crates/mycelix-authority-coordinator-release-registry/**'
+      - 'crates/mycelix-authority-coordinator-release-registry-state/**'
+      - '.github/workflows/response-native-deployment-convergence.yml'
+  push:
+    branches:
+      - 'response-authority-c2-native-deployment-convergence'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-native-deployment-convergence-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Response safety + native deployment provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Response safety remains compatible
+        run: |
+          cargo check --manifest-path crates/mycelix-response-effect-safety/Cargo.toml --all-targets
+
+      - name: Native deployment provenance crates
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-coordinator-stability-fence/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-target-cell/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-conductor-process/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-native-observation-composer/Cargo.toml --all-targets
+
+      - name: Rooted current-release chain
+        run: |
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-key-policy/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-key-policy-root/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-key-policy-state/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-hybrid-verifier/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-registry/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-authority-coordinator-release-registry-state/Cargo.toml --all-targets
+
+      - name: Boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          response = Path('crates/mycelix-response-effect-safety/src/lib.rs').read_text().lower()
+          stability = Path('crates/mycelix-authority-coordinator-stability-fence/src/lib.rs').read_text().lower()
+          native = Path('crates/mycelix-authority-coordinator-native-observation-composer/src/lib.rs').read_text().lower()
+          stability_compact = ''.join(stability.split())
+          native_compact = ''.join(native.split())
+
+          # Response semantics must still stop before deployment/effect authority.
+          for token in [
+              'deployment_bound_here(&self) -> bool',
+              'attempt_fenced_here(&self) -> bool',
+              'grants_execution_authority(&self) -> bool',
+          ]:
+              assert token in response, token
+
+          # The later coordinator lineage must be present with exact attempt-bound
+          # before/after semantics and native process-fenced observation provenance.
+          for token in [
+              'pubstructcoordinatoradmissionsubject',
+              'pubstructqualifiedcoordinatorstabilityfence',
+              'post_observation.observed_at_ms<=pre_observed_at_ms',
+              'subject.binding_digest()',
+          ]:
+              assert token in stability_compact, token
+          for token in [
+              'pubasyncfnobserve_process_bound_coordinator_state',
+              '.begin_fence()',
+              'observe_local_coordinator_deployment',
+              '.finish()',
+              'qualifiedprocessboundcoordinatorobservations',
+          ]:
+              assert token in native_compact, token
+
+          # Neither imported theorem claims update atomicity or performs an effect.
+          for src in [stability, native]:
+              for forbidden in ['perform_external_effect', 'execute_actions(', 'call_zome(']:
+                  assert forbidden not in src, forbidden
+          assert 'stability observation theorem' in stability
+          assert 'historical only' in native
+          print('PASS: response safety converges with later native deployment provenance without laundering it into effect authority')
+          PY
