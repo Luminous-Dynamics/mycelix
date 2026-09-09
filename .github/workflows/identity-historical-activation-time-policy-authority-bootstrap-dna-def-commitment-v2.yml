@@ -1,0 +1,147 @@
+name: Identity Historical Activation Time Policy Authority Bootstrap DnaDef Commitment V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-dna-def-commitment-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-dna-def-commitment-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-bootstrap-dna-def-commitment-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact DnaDef commitment boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy'
+          root_manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          members = root_manifest['workspace']['members']
+          if member not in members:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          ws_deps = root_manifest['workspace']['dependencies']
+          if ws_deps.get('holo_hash') != '=0.6.1':
+              raise SystemExit('ERROR: holo_hash version drifted from =0.6.1')
+          if ws_deps.get('holochain_zome_types') != '=0.6.1':
+              raise SystemExit('ERROR: holochain_zome_types version drifted from =0.6.1')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'holo_hash',
+              'holochain_zome_types',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: DnaDef commitment runtime dependency drift: {sorted(deps)}')
+          if deps['holo_hash'].get('workspace') is not True:
+              raise SystemExit('ERROR: commitment theorem must use workspace holo_hash')
+          if deps['holo_hash'].get('features') != ['hashing']:
+              raise SystemExit('ERROR: commitment theorem must enable only holo_hash hashing feature')
+          if deps['holochain_zome_types'].get('workspace') is not True:
+              raise SystemExit('ERROR: commitment theorem must use workspace holochain_zome_types')
+          parent = deps['mycelix-historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy']
+          if parent.get('path') != '../historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy':
+              raise SystemExit('ERROR: #444 DnaModifiers dependency path drifted')
+
+          dev = manifest.get('dev-dependencies', {})
+          expected_dev = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy',
+              'sha2',
+          }
+          if set(dev) != expected_dev:
+              raise SystemExit(f'ERROR: DnaDef commitment dev dependency drift: {sorted(dev)}')
+          if dev['mycelix-crypto'].get('workspace') is not True or dev['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: test crypto/sha2 must use workspace pins')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'use holo_hash::{DnaHash, HashableContentExtSync};',
+              'use holochain_zome_types::prelude::DnaDef;',
+              'ExactHistoricalActivationTimePolicyAuthorityBootstrapDnaDefCommitmentV2',
+              'commit_historical_activation_time_policy_authority_bootstrap_dna_def_v2',
+              'dna_def.modifiers = modifiers.into_dna_modifiers();',
+              'let dna_hash = dna_def.to_hash();',
+              'self.dna_hash.get_raw_39()',
+              'exact_modifiers_are_committed_into_dna_definition_identity',
+              'same_hash_relevant_definition_is_hash_stable',
+              'network_seed_substitution_changes_dna_identity_without_rewriting_property',
+              'property_material_substitution_changes_dna_identity',
+              'dna_name_substitution_changes_dna_identity',
+              'coordinator_zome_substitution_is_outside_dna_hash_commitment',
+              'integrity_zome_substitution_changes_dna_hash_commitment',
+              'commitment_wrapper_is_opaque_and_has_no_runtime_authority_shortcut',
+              '0xac, 0x5a, 0x2d, 0x63',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: DnaDef commitment invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'unsafebytes', 'serializedbytes::',
+              'encode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'decode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'serde::', 'serde_json', 'holochain_serial!',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(',
+              'dnafile', 'dnabundle', 'verify_hash(',
+              'authority_domain_sha256',
+              'exacthistoricalactivationtimepolicyauthoritykeygenerationv2',
+              'exacthistoricalactivationtimepolicyauthoritybootstrapsubjectv2',
+              'pub struct authorized', 'pub struct qualified',
+              'from_trusted_configuration', 'is_authorized',
+              'verify_strict', '.verify(', 'positive_evidence', 'trust_score',
+              'sys_time(', 'std::time',
+              '.expect(', '.unwrap(', 'panic!(', 'unreachable!(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: runtime/authority/raw-property shortcut leaked into DnaDef commitment theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy/Cargo.toml -- --check
+
+      - name: Test exact DnaModifiers parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/Cargo.toml
+
+      - name: Test exact DnaDef commitment
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy/Cargo.toml
+
+      - name: Native check
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-def-commitment-policy/Cargo.toml
