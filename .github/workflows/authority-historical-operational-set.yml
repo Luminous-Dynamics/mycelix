@@ -1,0 +1,116 @@
+name: Authority Historical Operational Set
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-historical-operational-set/**'
+      - 'crates/mycelix-authority-historical-operational/**'
+      - '.github/workflows/authority-historical-operational-set.yml'
+  push:
+    branches:
+      - 'security/authority-historical-operational-set-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-historical-operational-set-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact closed historical operational authority set
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-authority-historical-operational-set
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-historical-operational-set/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-historical-operational-set/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-historical-operational-set/Cargo.toml --all-targets -- -D warnings
+
+      - name: Downstream historical authority compatibility
+        run: cargo check --manifest-path crates/mycelix-authority-historical-operational/Cargo.toml --all-targets
+
+      - name: Closed-set authority audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('crates/mycelix-authority-historical-operational-set')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'blake3', 'serde', 'mycelix-institutional-core',
+              'mycelix-authority-freshness',
+              'mycelix-authority-historical-operational',
+          }
+          assert set(deps) == expected, sorted(deps)
+
+          src = (root / 'src/lib.rs').read_text()
+          production = src[:src.index('#[cfg(test)]')]
+          required = [
+              'HistoricalOperationalAuthorityRequirement',
+              'QualifiedHistoricalOperationalAuthoritySet',
+              'MAX_HISTORICAL_OPERATIONAL_REQUIREMENTS: usize = 4096',
+              'BTreeMap::<RequirementKey',
+              'requirement.key()',
+              'proof.root_qualification_digest() != root_digest',
+              'proof.root_qualification_profile() != root_profile',
+              'proof.subject() != &requirement.subject',
+              'proof.target_generation() != requirement.target_generation',
+              'proof.selected_transition_digest() != requirement.target_transition_digest',
+              'DuplicateRequirement',
+              'DuplicateQualifiedProof',
+              'UnexpectedQualifiedProof',
+              'MissingQualifiedProof',
+              'derive_set_authority_digest(',
+              'derive_set_evidence_digest(',
+          ]
+          for token in required:
+              assert token in production, token
+
+          positive_before = production.split('pub struct QualifiedHistoricalOperationalAuthoritySet', 1)[0][-220:]
+          assert 'Serialize)]' in positive_before
+          assert 'Deserialize' not in positive_before
+
+          for forbidden in [
+              'QualifiedCurrentOperationalAuthority',
+              'VerifiedAuthorityFreshness',
+              'qualify_current_freshness(',
+              'project_current_authority_state(',
+              'project_authority_state_as_of(',
+              '#[hdk_extern]', 'hdk::', 'SystemTime', 'std::time',
+              'max_by_key', 'is_authorized', 'positive_evidence',
+          ]:
+              assert forbidden not in production, forbidden
+
+          inv = (root / 'INVARIANTS.md').read_text()
+          for phrase in [
+              'Exact closed-set bijection',
+              'Input order is never authority',
+              'One current verification root',
+              'Historical authority remains exact per coordinate',
+              'Conservative shared evidence horizon',
+          ]:
+              assert phrase in inv, phrase
+
+          print('PASS: exact closed historical operational authority requires one opaque proof per canonical subject/generation/transition requirement with no missing/extra/duplicate/cross-root shortcut')
+          PY
