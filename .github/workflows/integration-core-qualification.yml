@@ -67,6 +67,7 @@ jobs:
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
           grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
           grep -Fq 'Every execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Rejected` MUST mean definite denial/no intended effect' "$constitution"
           grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
           grep -Fq 'Idempotency MUST be a qualified provider property' "$constitution"
           grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
@@ -99,6 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-core/src/lib.rs'
+          rejected_test='crates/mycelix-integration-core/tests/rejected_terminal.rs'
 
           if grep -Fq '(DomainAccepted, Finalized)' "$source"; then
             echo 'Inbound state machine permits DomainAccepted -> Finalized without reconciliation.'
@@ -116,6 +118,10 @@ jobs:
           grep -Fq '(Reconciled, Finalized)' "$source"
           grep -Fq 'StillAmbiguous' "$source"
           grep -Fq 'pub fn is_conclusive' "$source"
+          test -f "$rejected_test"
+          grep -Fq 'rejected_is_a_terminal_no_effect_or_denial_stage' "$rejected_test"
+          grep -Fq 'OutboundStage::Rejected.allows_transition_to(OutboundStage::Reconciled)' "$rejected_test"
+          grep -Fq 'OutboundStage::Rejected.allows_transition_to(OutboundStage::Finalized)' "$rejected_test"
 
       - name: Enforce claim-before-dispatch boundary
         shell: bash
