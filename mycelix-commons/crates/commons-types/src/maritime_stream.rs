@@ -5,7 +5,8 @@
 //! Individual [`crate::MaritimeEvidenceEnvelope`] values are content-addressed,
 //! but a disconnected receiver also needs to know whether a newly observed record
 //! is the direct continuation it expected, an exact duplicate, stale replay, gap,
-//! or conflicting fork. This module provides that deterministic classification.
+//! generation regression, or conflicting fork. This module provides that
+//! deterministic classification.
 //!
 //! It is deliberately **not** a global consensus or fork-resolution protocol.
 //! A DHT may expose multiple valid branches; higher-level governance/evidence
@@ -17,9 +18,14 @@ use crate::MaritimeEvidenceEnvelope;
 use serde::{Deserialize, Serialize};
 
 /// Compact content-addressed head of one platform event stream.
+///
+/// `generation` is retained alongside sequence/digest so a restarted receiver
+/// can still reject a direct successor that regresses to an older software or
+/// evidence lineage generation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MaritimeStreamHead {
     pub platform_id: String,
+    pub generation: u64,
     pub sequence: u64,
     pub digest: String,
 }
@@ -35,6 +41,8 @@ pub enum MaritimeStreamDisposition {
     StaleReplay,
     /// Candidate skips one or more unseen sequence numbers.
     Gap,
+    /// Candidate is the direct next sequence but claims an older lineage generation.
+    GenerationRegression,
     /// Candidate conflicts at the current or next sequence/digest binding.
     Fork,
     /// Candidate belongs to a different platform stream.
@@ -54,29 +62,42 @@ impl MaritimeStreamHead {
         }
         Ok(Self {
             platform_id: root.platform_id.clone(),
+            generation: root.generation,
             sequence: root.sequence,
             digest: root.content_digest()?,
         })
     }
 
-    /// Rehydrate a retained head, validating the digest shape before use.
+    /// Rehydrate an independently retained head.
+    ///
+    /// The caller must persist the lineage generation together with sequence and
+    /// digest; dropping it would make generation rollback undetectable after a
+    /// restart. Inputs are required to be canonical rather than silently normalized.
     pub fn from_retained(
         platform_id: impl Into<String>,
+        generation: u64,
         sequence: u64,
         digest: impl Into<String>,
     ) -> Result<Self, String> {
         let platform_id = platform_id.into();
         let digest = digest.into();
-        if platform_id.trim().is_empty() {
-            return Err("retained maritime stream platform_id cannot be empty".into());
+        if !canonical_platform_id(&platform_id) {
+            return Err(
+                "retained maritime stream platform_id must be non-empty, unpadded, and control-free"
+                    .into(),
+            );
         }
-        if !is_blake3_hex(&digest) {
-            return Err("retained maritime stream digest must be 64 hexadecimal characters".into());
+        if !is_canonical_blake3_hex(&digest) {
+            return Err(
+                "retained maritime stream digest must be canonical lowercase 64-character hex"
+                    .into(),
+            );
         }
         Ok(Self {
             platform_id,
+            generation,
             sequence,
-            digest: digest.to_ascii_lowercase(),
+            digest,
         })
     }
 
@@ -114,6 +135,10 @@ impl MaritimeStreamHead {
             return Ok(MaritimeStreamDisposition::Gap);
         }
 
+        if candidate.generation < self.generation {
+            return Ok(MaritimeStreamDisposition::GenerationRegression);
+        }
+
         if candidate.previous_event_digest.as_deref() != Some(self.digest.as_str()) {
             return Ok(MaritimeStreamDisposition::Fork);
         }
@@ -123,14 +148,16 @@ impl MaritimeStreamHead {
 
     /// Classify and, only for a direct successor, advance this local cursor.
     ///
-    /// Duplicate/stale/gap/fork/wrong-platform observations leave the cursor
-    /// unchanged so recovery/reconciliation code must handle them explicitly.
+    /// Duplicate/stale/gap/generation-regression/fork/wrong-platform observations
+    /// leave the cursor unchanged so recovery/reconciliation code must handle them
+    /// explicitly.
     pub fn ingest(
         &mut self,
         candidate: &MaritimeEvidenceEnvelope,
     ) -> Result<MaritimeStreamDisposition, String> {
         let disposition = self.classify(candidate)?;
         if disposition == MaritimeStreamDisposition::Advance {
+            self.generation = candidate.generation;
             self.sequence = candidate.sequence;
             self.digest = candidate.content_digest()?;
         }
@@ -138,8 +165,15 @@ impl MaritimeStreamHead {
     }
 }
 
-fn is_blake3_hex(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+fn canonical_platform_id(value: &str) -> bool {
+    !value.is_empty() && value.trim() == value && !value.chars().any(char::is_control)
+}
+
+fn is_canonical_blake3_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[cfg(test)]
@@ -165,15 +199,42 @@ mod tests {
         let next = event(11).chain_after(&root).unwrap();
         let mut head = MaritimeStreamHead::from_root(&root).unwrap();
 
+        assert_eq!(head.generation, 7);
         assert_eq!(
             head.ingest(&next).unwrap(),
             MaritimeStreamDisposition::Advance
         );
         assert_eq!(head.sequence, 11);
+        assert_eq!(head.generation, 7);
         assert_eq!(
             head.ingest(&next).unwrap(),
             MaritimeStreamDisposition::Duplicate
         );
+        assert_eq!(head.sequence, 11);
+    }
+
+    #[test]
+    fn generation_advance_is_retained_and_regression_is_explicit() {
+        let root = event(10);
+        let mut advanced = event(11);
+        advanced.generation = 8;
+        let advanced = advanced.chain_after(&root).unwrap();
+        let mut head = MaritimeStreamHead::from_root(&root).unwrap();
+
+        assert_eq!(
+            head.ingest(&advanced).unwrap(),
+            MaritimeStreamDisposition::Advance
+        );
+        assert_eq!(head.generation, 8);
+
+        let mut regressed = event(12);
+        regressed.generation = 7;
+        regressed.previous_event_digest = Some(head.digest.clone());
+        assert_eq!(
+            head.ingest(&regressed).unwrap(),
+            MaritimeStreamDisposition::GenerationRegression
+        );
+        assert_eq!(head.generation, 8);
         assert_eq!(head.sequence, 11);
     }
 
@@ -226,9 +287,18 @@ mod tests {
     }
 
     #[test]
-    fn retained_head_requires_explicit_well_formed_identity_and_digest() {
-        assert!(MaritimeStreamHead::from_retained("", 1, "11".repeat(32)).is_err());
-        assert!(MaritimeStreamHead::from_retained("auv-01", 1, "xyz").is_err());
-        assert!(MaritimeStreamHead::from_retained("auv-01", 1, "AA".repeat(32)).is_ok());
+    fn retained_head_requires_generation_and_canonical_identity_digest() {
+        assert!(MaritimeStreamHead::from_retained("", 7, 1, "11".repeat(32)).is_err());
+        assert!(
+            MaritimeStreamHead::from_retained(" auv-01", 7, 1, "11".repeat(32)).is_err()
+        );
+        assert!(MaritimeStreamHead::from_retained("auv-01", 7, 1, "xyz").is_err());
+        assert!(
+            MaritimeStreamHead::from_retained("auv-01", 7, 1, "AA".repeat(32)).is_err()
+        );
+        let retained =
+            MaritimeStreamHead::from_retained("auv-01", 7, 1, "aa".repeat(32)).unwrap();
+        assert_eq!(retained.generation, 7);
+        assert_eq!(retained.digest, "aa".repeat(32));
     }
 }
