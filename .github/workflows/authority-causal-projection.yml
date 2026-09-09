@@ -1,0 +1,105 @@
+name: Authority Causal Projection
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-authority-causal-projection/**'
+      - 'crates/mycelix-authority-state-source/**'
+      - 'crates/mycelix-authority-freshness/**'
+      - 'crates/mycelix-institutional-core/**'
+      - '.github/workflows/authority-causal-projection.yml'
+  push:
+    branches:
+      - 'security/authority-state-causal-projection-v0.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authority-causal-projection-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact causal-position historical authority projection
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: crates/mycelix-authority-causal-projection
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-authority-causal-projection/Cargo.toml -- --check
+
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-authority-causal-projection/Cargo.toml --all-targets
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-authority-causal-projection/Cargo.toml --all-targets -- -D warnings
+
+      - name: Causal authority separation audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('crates/mycelix-authority-causal-projection')
+          manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'blake3',
+              'mycelix-authority-freshness',
+              'mycelix-authority-state-source',
+              'mycelix-institutional-core',
+          }
+          assert set(deps) == expected, sorted(deps)
+          assert deps['mycelix-authority-state-source'].get('path') == '../mycelix-authority-state-source'
+          assert deps['mycelix-authority-freshness'].get('path') == '../mycelix-authority-freshness'
+
+          src = (root / 'src/lib.rs').read_text()
+          production = src[:src.index('#[cfg(test)]')]
+          required = [
+              'project_authority_state_at_causal_position',
+              'project_current_authority_state',
+              'target_generation',
+              'target_transition_digest',
+              'current.lineage_digest()',
+              'current.selected_transition_digest()',
+              'TargetTransitionDigestMismatch',
+              'TargetBeyondCoveredHead',
+              'CAUSAL_PROJECTION_IDENTITY_PROFILE',
+          ]
+          for token in required:
+              assert token in production, token
+
+          for forbidden in [
+              'project_authority_state_as_of(',
+              'as_of_ms',
+              'max_by_key',
+              'sort_by_key',
+              'SystemTime',
+              'std::time',
+              'to_current_freshness_receipt',
+              'VerifiedAuthorityFreshness',
+              'phi',
+              'reputation',
+              'model_score',
+          ]:
+              assert forbidden not in production, forbidden
+
+          invariants = (root / 'INVARIANTS.md').read_text()
+          assert 'Full current source coverage comes first' in invariants
+          assert 'Causal coordinate, not wall clock' in invariants
+          assert 'Cross-lineage protocols must sign the anchor' in invariants
+          print('PASS: causal authority projection requires full covered lineage and exact signed generation/digest coordinates')
+          PY
