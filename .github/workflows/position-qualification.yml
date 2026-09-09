@@ -56,6 +56,7 @@ jobs:
           echo "runner_os=${RUNNER_OS}"
           echo "runner_arch=${RUNNER_ARCH}"
           echo "pure_wasm_profile=wasm32-unknown-unknown"
+          echo "positioning_crypto_wasm_profile=wasm32-unknown-unknown"
           echo "holochain_guest_wasm_profile=wasm32-unknown-unknown+getrandom_backend:custom"
           echo "--- checked out commit ---"
           git rev-parse HEAD
@@ -71,7 +72,10 @@ jobs:
           echo "--- committed inputs ---"
           sha256sum Cargo.lock
           sha256sum rust-toolchain.toml
+          sha256sum lib/positioning-crypto/Cargo.toml
           sha256sum ../.github/workflows/position-qualification.yml
+          echo "--- positioning-crypto resolved feature graph ---"
+          cargo tree -p positioning-crypto -e features --locked
 
       - name: Check formatting of changed Rust files
         shell: bash
@@ -128,12 +132,17 @@ jobs:
       - name: Check pure positioning WASM
         run: cargo check -p positioning --target wasm32-unknown-unknown --locked
 
+      # Concrete evidence crypto has the same no-host portability requirement,
+      # but remains a separate theorem from the provider-neutral math/core crate.
+      - name: Check positioning crypto WASM
+        run: cargo check -p positioning-crypto --target wasm32-unknown-unknown --locked
+
       # Holochain zomes run in the conductor's guest environment, not a browser
       # or WASI runtime. Current Holochain build guidance selects getrandom's
       # custom backend for wasm32-unknown-unknown zome builds. Keep that runtime
-      # profile scoped to the Holochain side so it cannot weaken the pure-crate
+      # profile scoped to the Holochain side so it cannot weaken either pure-crate
       # portability theorem above.
       - name: Check Holochain guest WASM
         env:
           RUSTFLAGS: '--cfg getrandom_backend="custom"'
-        run: cargo check --workspace --exclude positioning --target wasm32-unknown-unknown --locked
+        run: cargo check --workspace --exclude positioning --exclude positioning-crypto --target wasm32-unknown-unknown --locked
