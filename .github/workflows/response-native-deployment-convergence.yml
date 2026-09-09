@@ -69,6 +69,8 @@ jobs:
           response = Path('crates/mycelix-response-effect-safety/src/lib.rs').read_text().lower()
           stability = Path('crates/mycelix-authority-coordinator-stability-fence/src/lib.rs').read_text().lower()
           native = Path('crates/mycelix-authority-coordinator-native-observation-composer/src/lib.rs').read_text().lower()
+          stability_compact = ''.join(stability.split())
+          native_compact = ''.join(native.split())
 
           # Response semantics must still stop before deployment/effect authority.
           for token in [
@@ -81,20 +83,20 @@ jobs:
           # The later coordinator lineage must be present with exact attempt-bound
           # before/after semantics and native process-fenced observation provenance.
           for token in [
-              'pub struct coordinatoradmissionsubject',
-              'pub struct qualifiedcoordinatorstabilityfence',
-              'post_observation.observed_at_ms <= pre_observed_at_ms',
+              'pubstructcoordinatoradmissionsubject',
+              'pubstructqualifiedcoordinatorstabilityfence',
+              'post_observation.observed_at_ms<=pre_observed_at_ms',
               'subject.binding_digest()',
           ]:
-              assert token in stability.replace(' ', ''), token
+              assert token in stability_compact, token
           for token in [
-              'pub async fn observe_process_bound_coordinator_state',
+              'pubasyncfnobserve_process_bound_coordinator_state',
               '.begin_fence()',
               'observe_local_coordinator_deployment',
               '.finish()',
               'qualifiedprocessboundcoordinatorobservations',
           ]:
-              assert token.replace(' ', '') in native.replace(' ', ''), token
+              assert token in native_compact, token
 
           # Neither imported theorem claims update atomicity or performs an effect.
           for src in [stability, native]:
