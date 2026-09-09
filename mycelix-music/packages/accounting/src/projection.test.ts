@@ -66,6 +66,35 @@ describe('royalty statement compiler', () => {
     expect(statement.netPayable.amountMinor).toBe(0n);
   });
 
+  it('holds obligations observed after the settlement cutoff for the next epoch', () => {
+    const statement = compile([
+      obligation('obl:early', 300n, { observedAt: '2026-09-10T00:00:00Z' }),
+      obligation('obl:late', 200n, { observedAt: '2026-09-20T00:00:00Z' }),
+    ], {
+      settlementEpoch: {
+        ...epoch,
+        cutoff: '2026-09-15T23:59:59Z',
+      },
+    });
+    expect(statement.gross.amountMinor).toBe(500n);
+    expect(statement.held.amountMinor).toBe(200n);
+    expect(statement.netPayable.amountMinor).toBe(300n);
+  });
+
+  it('handles an all-post-cutoff statement without promoting any value to payable', () => {
+    const statement = compile([
+      obligation('obl:late', 500n, { observedAt: '2026-09-20T00:00:00Z' }),
+    ], {
+      settlementEpoch: {
+        ...epoch,
+        cutoff: '2026-09-15T23:59:59Z',
+      },
+    });
+    expect(statement.gross.amountMinor).toBe(500n);
+    expect(statement.held.amountMinor).toBe(500n);
+    expect(statement.netPayable.amountMinor).toBe(0n);
+  });
+
   it('counts value as paid only after settlement finality', () => {
     const obligations = [obligation('obl:1', 500n)];
     const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;

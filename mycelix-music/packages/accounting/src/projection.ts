@@ -5,6 +5,7 @@ import type { SettlementRecoveryState } from './recovery.js';
 import {
   SettlementEligibilityCode,
   assessCarryForward,
+  partitionObligationsAtCutoff,
   type RoyaltyObligation,
   type SettlementEpoch,
 } from './settlement.js';
@@ -121,15 +122,22 @@ export function compileRoyaltyStatement(
   }
 
   const gross = sumMoney(orderedObligations.map(item => item.amount), currency);
-  const assessment = assessCarryForward(orderedObligations, input.settlementEpoch);
-  const explicitlyHeld = sumMoney(
-    assessment.held.map(item => item.obligation.amount),
-    currency,
-  );
-  const thresholdHold = assessment.eligibility.code === SettlementEligibilityCode.BelowThreshold
-    ? assessment.carriedForward
-    : money(0n, currency);
-  const held = addMoney(explicitlyHeld, thresholdHold);
+  const cutoffPartition = partitionObligationsAtCutoff(orderedObligations, input.settlementEpoch);
+  const postCutoffHeld = sumMoney(cutoffPartition.nextEpoch.map(item => item.amount), currency);
+
+  let eligibilityHeld = money(0n, currency);
+  let thresholdHold = money(0n, currency);
+  if (cutoffPartition.inEpoch.length > 0) {
+    const assessment = assessCarryForward(cutoffPartition.inEpoch, input.settlementEpoch);
+    eligibilityHeld = sumMoney(
+      assessment.held.map(item => item.obligation.amount),
+      currency,
+    );
+    thresholdHold = assessment.eligibility.code === SettlementEligibilityCode.BelowThreshold
+      ? assessment.carriedForward
+      : money(0n, currency);
+  }
+  const held = addMoney(postCutoffHeld, addMoney(eligibilityHeld, thresholdHold));
 
   const orderedDeductions = [...(input.deductions ?? [])].sort((a, b) => a.id.localeCompare(b.id));
   const seenDeductions = new Set<string>();
@@ -156,6 +164,9 @@ export function compileRoyaltyStatement(
     for (const obligationId of evidence.batch.obligationIds) {
       if (!seenObligations.has(obligationId)) {
         throw new Error(`settlement batch references obligation outside statement: ${obligationId}`);
+      }
+      if (cutoffPartition.nextEpoch.some(obligation => obligation.id === obligationId)) {
+        throw new Error(`settlement batch references post-cutoff obligation: ${obligationId}`);
       }
       if (evidence.recovery.status === 'finalized') {
         if (finalizedObligationIds.has(obligationId)) {
