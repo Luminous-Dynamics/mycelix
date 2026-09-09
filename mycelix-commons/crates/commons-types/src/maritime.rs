@@ -59,6 +59,9 @@ pub struct MaritimeEvidenceEnvelope {
     pub payload_json: String,
     pub evidence_binding: String,
     /// Opaque references into Mycelix Position measurement/estimate evidence.
+    ///
+    /// V1 requires strict lexical ordering with no duplicates so independently
+    /// assembled reference sets have one digest representation.
     #[serde(default)]
     pub position_evidence_refs: Vec<String>,
     /// Content digest of the previous event. `None` marks a chain root.
@@ -96,18 +99,21 @@ impl MaritimeEvidenceEnvelope {
                 self.schema_version
             ));
         }
-        if self.platform_id.trim().is_empty() || self.platform_id.len() > MAX_PLATFORM_ID_BYTES {
-            return Err("platform_id is empty or oversized".into());
+        if !canonical_text(&self.platform_id, MAX_PLATFORM_ID_BYTES) {
+            return Err("platform_id is empty, oversized, padded, or contains control bytes".into());
         }
         if self.payload_json.len() > MAX_PAYLOAD_BYTES {
             return Err(format!("payload_json exceeds {} bytes", MAX_PAYLOAD_BYTES));
         }
+        if self.payload_json.trim() != self.payload_json {
+            return Err("payload_json must not contain outer whitespace".into());
+        }
         serde_json::from_str::<serde_json::Value>(&self.payload_json)
             .map_err(|_| "payload_json must contain valid JSON".to_string())?;
-        if self.evidence_binding.trim().is_empty()
-            || self.evidence_binding.len() > MAX_EVIDENCE_BINDING_BYTES
-        {
-            return Err("evidence_binding is empty or oversized".into());
+        if !canonical_text(&self.evidence_binding, MAX_EVIDENCE_BINDING_BYTES) {
+            return Err(
+                "evidence_binding is empty, oversized, padded, or contains control bytes".into(),
+            );
         }
         if self.position_evidence_refs.len() > MAX_REFERENCE_COUNT {
             return Err(format!(
@@ -116,14 +122,31 @@ impl MaritimeEvidenceEnvelope {
             ));
         }
         for reference in &self.position_evidence_refs {
-            if reference.trim().is_empty() || reference.len() > MAX_REFERENCE_BYTES {
-                return Err("position evidence reference is empty or oversized".into());
+            if !canonical_text(reference, MAX_REFERENCE_BYTES) {
+                return Err(
+                    "position evidence reference is empty, oversized, padded, or contains control bytes"
+                        .into(),
+                );
             }
         }
-        if self.previous_event_digest.as_ref().is_some_and(|digest| {
-            digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit())
-        }) {
-            return Err("previous_event_digest must be a 64-character hex digest".into());
+        if self
+            .position_evidence_refs
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(
+                "position evidence references must be strictly sorted and duplicate-free".into(),
+            );
+        }
+        if self
+            .previous_event_digest
+            .as_deref()
+            .is_some_and(|digest| !is_lower_hex_64(digest))
+        {
+            return Err(
+                "previous_event_digest must be a canonical lowercase 64-character hex digest"
+                    .into(),
+            );
         }
         Ok(())
     }
@@ -212,6 +235,20 @@ impl MaritimeEvidenceEnvelope {
     }
 }
 
+fn canonical_text(value: &str, max_bytes: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= max_bytes
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+}
+
+fn is_lower_hex_64(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn hash_bytes(hasher: &mut blake3::Hasher, bytes: &[u8]) {
     hasher.update(&(bytes.len() as u64).to_le_bytes());
     hasher.update(bytes);
@@ -286,9 +323,47 @@ mod tests {
         malformed.payload_json = "not-json".into();
         assert!(malformed.validate().is_err());
 
+        let mut padded_payload = event(0);
+        padded_payload.payload_json = " {\"severity\":\"healthy\"}".into();
+        assert!(padded_payload.validate().is_err());
+
         let mut missing = event(0);
         missing.evidence_binding.clear();
         assert!(missing.validate().is_err());
+    }
+
+    #[test]
+    fn canonical_identifiers_and_reference_sets_are_required() {
+        let mut padded_platform = event(0);
+        padded_platform.platform_id = " auv-01".into();
+        assert!(padded_platform.validate().is_err());
+
+        let mut padded_evidence = event(0);
+        padded_evidence.evidence_binding = "hal-evidence:abc ".into();
+        assert!(padded_evidence.validate().is_err());
+
+        let mut unsorted = event(0);
+        unsorted.position_evidence_refs = vec!["position:z".into(), "position:a".into()];
+        assert!(unsorted.validate().is_err());
+
+        let mut duplicate = event(0);
+        duplicate.position_evidence_refs = vec!["position:a".into(), "position:a".into()];
+        assert!(duplicate.validate().is_err());
+
+        let mut uppercase_predecessor = event(1);
+        uppercase_predecessor.previous_event_digest = Some("A".repeat(64));
+        assert!(uppercase_predecessor.validate().is_err());
+    }
+
+    #[test]
+    fn sorted_unique_position_references_are_digestible() {
+        let mut envelope = event(0);
+        envelope.position_evidence_refs = vec![
+            "mycelix-position:measurement:001".into(),
+            "mycelix-position:measurement:002".into(),
+        ];
+        assert_eq!(envelope.validate(), Ok(()));
+        assert_eq!(envelope.content_digest().unwrap().len(), 64);
     }
 
     #[test]
