@@ -84,7 +84,6 @@
 //! // Create patterns with domain associations
 //! let mut pattern = SymthaeaPattern::new(1, "web_dev", "use_caching", 0.8, 1000, 1);
 //! pattern.add_domain(web_id);
-//! bridge.on_pattern_learned(pattern);
 //!
 //! // Query patterns by domain (with optional related domains)
 //! let web_patterns = bridge.patterns_in_domain(web_id, false);
@@ -155,6 +154,7 @@ pub mod k_vector;
 pub mod moral;
 pub mod planetary_evidence;
 pub mod planetary_lineage;
+pub mod planetary_product;
 pub mod trust;
 pub mod wisdom_engine;
 
@@ -165,6 +165,7 @@ pub use k_vector::*;
 pub use moral::*;
 pub use planetary_evidence::*;
 pub use planetary_lineage::*;
+pub use planetary_product::*;
 pub use trust::*;
 pub use wisdom_engine::*;
 
