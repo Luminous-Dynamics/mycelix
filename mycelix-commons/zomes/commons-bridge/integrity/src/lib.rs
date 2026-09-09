@@ -153,8 +153,9 @@ fn validate_query_for_author(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_query(query)?;
-    if !matches!(fields, ValidateCallbackResult::Valid) {
-        return Ok(fields);
+    match fields {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
     if &query.requester != author {
         return Ok(ValidateCallbackResult::Invalid(
@@ -170,8 +171,9 @@ fn validate_event_for_author(
     author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_event(event)?;
-    if !matches!(fields, ValidateCallbackResult::Valid) {
-        return Ok(fields);
+    match fields {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
     if &event.source_agent != author {
         return Ok(ValidateCallbackResult::Invalid(
