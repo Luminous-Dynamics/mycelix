@@ -19,6 +19,7 @@
 //! - [`trilateration`] — Core positioning: N ranges → position estimate
 //! - [`coverage`] — GDOP/PDOP geometric dilution of precision
 //! - [`kalman`] — Extended Kalman Filter for continuous tracking
+//! - [`qualification`] — theorem dependency/requirement meta-structure
 
 pub mod bodies;
 pub mod coverage;
@@ -33,26 +34,32 @@ pub mod fusion;
 pub mod kalman;
 pub mod measurements;
 pub mod navigation_runtime;
+pub mod qualification;
 pub mod ranging;
 pub mod space_navigation;
 #[allow(clippy::needless_range_loop)]
 pub mod trilateration;
 
 pub use bodies::{CelestialBody, Earth, Mars, Moon};
-pub use coverage::{gdop, pdop, CoveragePoint};
-pub use dead_reckoning::{barometric_altitude, PdrConfig, PedestrianDeadReckoning};
+pub use coverage::{CoveragePoint, gdop, pdop};
+pub use dead_reckoning::{PdrConfig, PedestrianDeadReckoning, barometric_altitude};
 pub use fusion::{
-    covariance_intersection_3d, GaussianEstimate3D, PeerEstimate3D, PeerFusion3D,
-    PublishableEstimate3D,
+    GaussianEstimate3D, PeerEstimate3D, PeerFusion3D, PublishableEstimate3D,
+    covariance_intersection_3d,
 };
 pub use kalman::{FilterConfig, FilterState, PositionFilter};
 pub use measurements::{
     Measurement, MeasurementModality, MeasurementProvenance, MeasurementValue, ReferenceFrame,
 };
 pub use navigation_runtime::{
-    confidence_from_sigma, fix_age_s, DomainNavigator, MeasurementRouter, MeasurementRoutingPolicy,
-    MeasurementRoutingStats, NavigationFailoverMode, NavigationHealth,
+    DomainNavigator, MeasurementRouter, MeasurementRoutingPolicy, MeasurementRoutingStats,
+    NavigationFailoverMode, NavigationHealth, confidence_from_sigma, fix_age_s,
+};
+pub use qualification::{
+    FacetStatus, QualificationError, QualificationFacet, QualificationManifest,
+    QualificationRequirementProfile, RequirementEvaluation, TheoremDefinition, TheoremId,
+    TheoremRegistry, UnacceptableFacet,
 };
 pub use ranging::{RangeEstimate, RangingMethod};
 pub use space_navigation::{SpaceNavigationEstimate, SpaceNavigationEstimator};
-pub use trilateration::{trilaterate_2d, trilaterate_3d, PositionEstimate, TrilaterationError};
+pub use trilateration::{PositionEstimate, TrilaterationError, trilaterate_2d, trilaterate_3d};
