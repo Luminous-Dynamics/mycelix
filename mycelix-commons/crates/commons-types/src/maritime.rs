@@ -120,11 +120,9 @@ impl MaritimeEvidenceEnvelope {
                 return Err("position evidence reference is empty or oversized".into());
             }
         }
-        if self
-            .previous_event_digest
-            .as_ref()
-            .is_some_and(|digest| digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()))
-        {
+        if self.previous_event_digest.as_ref().is_some_and(|digest| {
+            digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit())
+        }) {
             return Err("previous_event_digest must be a 64-character hex digest".into());
         }
         Ok(())
@@ -153,7 +151,9 @@ impl MaritimeEvidenceEnvelope {
                 hasher.update(&[1]);
                 hash_bytes(&mut hasher, previous.as_bytes());
             }
-            None => hasher.update(&[0]),
+            None => {
+                hasher.update(&[0]);
+            }
         }
         Ok(hasher.finalize().to_hex().to_string())
     }
