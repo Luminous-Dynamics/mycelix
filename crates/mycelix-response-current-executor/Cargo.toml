@@ -1,0 +1,20 @@
+[package]
+name = "mycelix-response-current-executor"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Direct same-call current executor requalification for exact Mycelix response semantics"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+mycelix-authority-freshness = { path = "../mycelix-authority-freshness" }
+mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
+mycelix-governance-executor-designation = { path = "../mycelix-governance-executor-designation" }
+mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
+mycelix-governance-executor-provider-contract = { path = "../mycelix-governance-executor-provider-contract" }
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
+mycelix-response-effect-safety = { path = "../mycelix-response-effect-safety" }
