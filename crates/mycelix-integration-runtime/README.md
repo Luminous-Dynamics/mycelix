@@ -8,16 +8,16 @@ It is deliberately **not** a connector, provider SDK wrapper, authority oracle, 
 
 The reference implementation uses SQLite to make failure and restart semantics executable before distributed infrastructure or provider SDKs are introduced.
 
-The active crate root is now `src/v3.rs`. It wraps the earlier v2 engine in `src/lib.rs` and adds the semantic safeguards that must exist at the public boundary before INT-04:
+The active crate root is `src/v31.rs`. It wraps the preserved v2 causal engine in `src/lib.rs` and adds the semantic safeguards required before INT-04:
 
 - durable semantic-producer/profile identity separate from SQLite schema identity;
-- fail-closed migration when legacy rejection cause is underdetermined;
-- provider-operation identity refinement that cannot substitute `Some(B)` for established `Some(A)`;
+- fail-closed migration when legacy state meaning is underdetermined;
+- durable monotonic provider-operation identity, including bindings learned only from late historical evidence;
 - per-entry Mycelix runtime causal-time monotonicity;
-- lease expiry that independently removes current completion power even before recovery runs;
+- lease expiry that independently removes current completion power before recovery runs;
 - entry-local quarantine so one poisoned recovery record cannot globally block unrelated work.
 
-The legacy v2 engine remains intentionally intact underneath the facade so its already-frozen crash, retry, bounded-history, attempt-budget, and state-machine regressions continue to run.
+The legacy engine remains intentionally intact underneath the facade so its frozen crash, retry, bounded-history, attempt-budget, and state-machine regressions continue to run.
 
 ## Causal execution vocabulary
 
@@ -57,14 +57,14 @@ Compensatable != SafeBlindRetry
 IdempotencyKeyPresent != EndpointIdempotencyGuarantee
 ```
 
-## Storage semantics v3
+## Storage semantics v3.1
 
-SQLite `PRAGMA user_version` describes structural storage compatibility. It does **not** identify which integration semantics produced a durable row.
+SQLite `PRAGMA user_version` describes structural storage compatibility. It does **not** identify which integration semantics produced durable records.
 
-The public v3 facade therefore persists:
+The active facade therefore persists:
 
 ```text
-mycelix-integration-runtime/semantic-profile-v3
+mycelix-integration-runtime/semantic-profile-v3.1
 ```
 
 in `integration_runtime_semantics` for file-backed stores.
@@ -80,9 +80,11 @@ syntactic readability
     != semantic equivalence
 ```
 
-This matters because pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An old generic rejection cannot truthfully be relabeled as either `AuthorityDenied` or `RejectedBeforeCommit` without additional provenance.
+The semantic producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The runtime does not silently change durable semantics while retaining the old producer identity.
 
-The v3 open path therefore fails closed on underdetermined legacy rejection rows and on unknown/tampered semantic producer IDs. New v3 stores persist the producer identity and prove it across reopen.
+Pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An untagged non-empty legacy runtime therefore cannot be promoted into current semantics merely because its rows remain structurally readable. v3.1 fails closed and requires an explicit provenance-bearing migration/import path.
+
+Unknown or tampered semantic producer identities also fail closed on reopen.
 
 ## Exact attempt fencing and finite attempt generation
 
@@ -90,27 +92,25 @@ Each claim receives a distinct `ExecutionAttemptId` derived from the outbox entr
 
 The v0.1 reference profile admits at most **1024 attempts per outbox entry**. Attempt generation is durable across restarts and fails closed with `AttemptBudgetExceeded` before attempt 1025 can be minted.
 
-Exhausted older commands are skipped while unrelated eligible work exists, so the safety bound does not become a head-of-line denial-of-service mechanism.
+Exhausted older commands are skipped while unrelated eligible work exists, so bounded retry does not become head-of-line denial of service.
 
-## Lease expiry is independently authoritative for currentness
+## Lease expiry independently removes current completion power
 
-An exact attempt fence can cease to be current even if the recovery sweep has not run yet.
-
-For a post-dispatch attempt:
+A fence can stop being current even when the recovery sweep has not run yet.
 
 ```text
 now >= lease_until
     -> current completion power is gone
-    -> state is conservatively demoted to Ambiguous
+    -> post-dispatch state preserves Ambiguous
     -> exact late provider result remains historical evidence
     -X-> direct current Confirmed / RejectedBeforeCommit
 ```
 
-Expiry affects current workflow authority, not whether the later response is worth preserving.
+Expiry changes current workflow authority, not evidentiary existence.
 
-## Provider-operation identity refines monotonically
+## Provider-operation identity is durable and monotonic
 
-`ExternalOperationRef.provider_operation` may begin as `None` before the provider exposes a stable operation ID. Once established, it cannot be silently replaced or erased:
+`ExternalOperationRef.provider_operation` may begin as `None` before a provider exposes a stable operation ID. Once an accepted observation establishes `Some(A)`, that identity becomes durable protocol state in `integration_runtime_operation_binding`.
 
 ```text
 None -> Some(A)      may refine
@@ -119,7 +119,11 @@ Some(A) -> Some(B)   conflict / reject
 Some(A) -> None      cannot erase the binding
 ```
 
-Command + connector equality is not enough to treat two different provider operation IDs as the same exact operation.
+For file-backed stores, SQLite triggers establish/check the binding in the same transaction that appends provider execution or reconciliation evidence. This prevents a crash between evidence admission and identity binding from weakening the invariant.
+
+The binding survives finalization and reopen, including when `Some(A)` was learned only from late non-applying historical evidence. A later `Some(B)` remains a mismatch after restart.
+
+Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
 
 ## Per-entry runtime causal time
 
@@ -157,7 +161,7 @@ Wrong-operation and wrong-attempt evidence remain rejected.
 
 Provider observations and internally generated crash ambiguity share the same per-entry execution-observation budget. Internal code has no unbounded bypass.
 
-If a stale post-dispatch entry cannot record the ambiguity observation because its execution-observation budget is already exhausted, v3 isolates that entry in durable `integration_runtime_quarantine` state and removes it from the normal stale-recovery scan.
+If a stale post-dispatch entry cannot record its ambiguity observation because the observation budget is exhausted, v3.1 isolates that entry in durable `integration_runtime_quarantine` state and removes the stale lease from the normal recovery scan.
 
 ```text
 entry A safety failure
@@ -210,19 +214,20 @@ Those properties belong to a versioned qualified provider profile. Crash recover
 
 ## Qualification target
 
-Promotion requires one exact-head hosted qualification that establishes both the legacy engine invariants and the active v3 facade, including:
+Promotion requires one exact-head hosted qualification establishing the legacy engine invariants and the active v3.1 facade:
 
 1. formatting, compilation, full tests, and Clippy with warnings denied;
-2. non-materializing claims and exact attempt fencing;
-3. pre-dispatch safe reclaim and post-dispatch ambiguity;
-4. bounded persistent attempts plus unrelated-work liveness;
-5. append-only bounded observation/reconciliation histories;
-6. fail-closed legacy semantic migration;
-7. durable/reopen-stable semantic producer identity and tamper rejection;
-8. expired post-dispatch fence demotion before completion;
-9. provider-operation substitution rejection;
-10. per-entry causal-time rollback rejection;
-11. poison-entry isolation with durable quarantine visibility;
-12. no provider execution API in INT-03.
+2. provider-neutral normal transitive dependency closure;
+3. non-materializing claims and exact attempt fencing;
+4. pre-dispatch safe reclaim and post-dispatch ambiguity;
+5. bounded persistent attempts plus unrelated-work liveness;
+6. append-only bounded observation/reconciliation histories;
+7. fail-closed legacy semantic migration;
+8. durable/reopen-stable semantic producer identity and tamper rejection;
+9. expired post-dispatch fence demotion before completion;
+10. provider-operation substitution rejection, including historical-only binding across reopen;
+11. per-entry causal-time rollback rejection;
+12. poison-entry isolation with durable quarantine visibility;
+13. no provider execution API in INT-03.
 
 A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, institutional legitimacy, or physical-world postconditions.
