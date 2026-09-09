@@ -350,12 +350,33 @@ pub struct CreateMilestoneInput {
     pub target_date: i64,
 }
 
+fn validate_milestone_project_id(
+    resolved_project_id: &str,
+    requested_project_id: &str,
+) -> Result<(), String> {
+    if resolved_project_id != requested_project_id {
+        return Err(format!(
+            "Milestone project_id {requested_project_id:?} does not match resolved project id {resolved_project_id:?}"
+        ));
+    }
+    Ok(())
+}
+
 /// Create a new milestone for a project
 #[hdk_extern]
 pub fn create_milestone(input: CreateMilestoneInput) -> ExternResult<Record> {
-    // Verify project exists
-    let _project_record = get(input.project_action_hash.clone(), GetOptions::default())?
+    // Resolve and type-check the project before creating any milestone entry.
+    let project_record = get(input.project_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Project not found".into())))?;
+    let project: ClimateProject = project_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Project action hash does not resolve to a ClimateProject entry".into()
+        )))?;
+    validate_milestone_project_id(&project.id, &input.project_id)
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))?;
 
     let milestone = ProjectMilestone {
         project_id: input.project_id,
@@ -509,4 +530,24 @@ pub fn get_projects_summary(_: ()) -> ExternResult<ProjectsSummary> {
     }
 
     Ok(summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn milestone_project_id_preflight_accepts_exact_match() {
+        assert_eq!(
+            validate_milestone_project_id("project:heat:1", "project:heat:1"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn milestone_project_id_preflight_rejects_cross_project_request() {
+        let error = validate_milestone_project_id("project:heat:1", "project:other")
+            .expect_err("cross-project milestone request must fail before entry creation");
+        assert!(error.contains("does not match resolved project id"));
+    }
 }
