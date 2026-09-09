@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-execution-action-digest"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Shared exact-byte governance execution action digest for Mycelix"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+blake3 = "1"
+mycelix-institutional-core = { path = "../mycelix-institutional-core" }
