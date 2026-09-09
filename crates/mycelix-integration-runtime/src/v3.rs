@@ -341,7 +341,7 @@ impl SqliteIntegrationStore {
             return Err(RuntimeError::InvalidTimestamp);
         }
 
-        let mut conn = open_aux(path)?;
+        let conn = open_aux(path)?;
         ensure_quarantine_table(&conn)?;
         let poisoned = {
             let mut statement = conn.prepare(
@@ -451,7 +451,13 @@ fn established_provider_operation(snapshot: &OutboxSnapshot) -> Result<Option<St
 }
 
 fn preflight_semantic_identity(path: &Path) -> Result<(), RuntimeError> {
-    if !path.exists() || std::fs::metadata(path).map_or(true, |metadata| metadata.len() == 0) {
+    if !path.exists() {
+        return Ok(());
+    }
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return Ok(());
+    };
+    if metadata.len() == 0 {
         return Ok(());
     }
 
