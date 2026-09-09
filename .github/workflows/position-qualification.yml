@@ -1,0 +1,50 @@
+name: Position Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-position/**'
+      - '.github/workflows/position-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-position/**'
+      - '.github/workflows/position-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-position:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mycelix-position
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-position
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Check native workspace
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Test native workspace
+        run: cargo test --workspace --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Check WASM workspace
+        run: cargo check --workspace --target wasm32-unknown-unknown --locked
