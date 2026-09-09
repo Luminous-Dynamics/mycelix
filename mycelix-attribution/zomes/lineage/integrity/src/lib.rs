@@ -7,9 +7,9 @@
 //! not create ownership, payment, reputation, governance weight, execution authority,
 //! or control over downstream artifacts.
 //!
-//! CL-01 exposes entry semantics and DHT validation only. Link indexes and a coordinator
-//! API are intentionally disabled until a later tranche can validate their query and
-//! link-poisoning boundaries independently.
+//! Index links are discovery aids only. CL-02 binds every index to the exact target
+//! record semantics at DHT validation time, and coordinator queries re-read target
+//! records and verify payload semantics again before returning them.
 
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,14 @@ pub const MAX_EVIDENCE_KIND_LEN: usize = 64;
 pub const MAX_EVIDENCE_REF_LEN: usize = 2_048;
 pub const MAX_EVIDENCE_NOTE_LEN: usize = 2_000;
 pub const MAX_CONFIDENCE_BPS: u16 = 10_000;
+pub const MAX_ANCHOR_LEN: usize = 2_048;
+
+pub const ALL_CONTRIBUTIONS_ANCHOR: &str = "lineage:v1:contributions:all";
+pub const ALL_ATTESTATIONS_ANCHOR: &str = "lineage:v1:attestations:all";
+
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct Anchor(pub String);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ContributionKind {
@@ -57,10 +65,7 @@ pub enum LineageRelation {
 }
 
 /// Bounded reference to evidence supporting a contribution or lineage claim.
-///
-/// The integrity layer validates shape, not truth. A reference can identify content,
-/// a measurement, an external record, or another evidence artifact; availability and
-/// semantic qualification belong to later evidence-resolution layers.
+/// Shape is validated here; truth/availability qualification belongs to later layers.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceRef {
     pub kind: String,
@@ -69,9 +74,7 @@ pub struct EvidenceRef {
 }
 
 /// Self-authored description of a contribution, artifact, or enabling capability.
-///
-/// No payload timestamp is stored. The Holochain action timestamp is authoritative
-/// provenance, avoiding a second caller-controlled time claim.
+/// The Holochain action timestamp, rather than a caller-controlled field, is time provenance.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ContributionRecord {
@@ -85,11 +88,7 @@ pub struct ContributionRecord {
     pub evidence_refs: Vec<EvidenceRef>,
 }
 
-/// Self-authored claim that one subject bears a typed relationship to another.
-///
-/// Relations are contestable claims. `confidence_bps` expresses the attestor's stated
-/// confidence only; it is not protocol-level truth and must not be automatically
-/// aggregated into reputation, payment, governance, or authority.
+/// Self-authored, contestable source→target relationship claim.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct LineageAttestation {
@@ -107,26 +106,31 @@ pub struct LineageAttestation {
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
+    Anchor(Anchor),
     ContributionRecord(ContributionRecord),
     LineageAttestation(LineageAttestation),
 }
 
-/// Reserved for CL-02. CL-01 rejects every lineage link operation so indexes cannot
-/// become an accidental authority surface before canonical query filtering is defined.
+/// Discovery indexes only. A link never independently establishes the semantic property
+/// named by its variant; integrity and consumers both validate the target payload.
 #[hdk_link_types]
 pub enum LinkTypes {
-    ReservedIndex,
+    AllContributions,
+    ContributionById,
+    SubjectToContribution,
+    ContributorToContribution,
+    AllAttestations,
+    AttestationById,
+    SourceToAttestation,
+    TargetToAttestation,
+    AttestorToAttestation,
 }
 
 fn invalid(message: impl Into<String>) -> ValidateCallbackResult {
     ValidateCallbackResult::Invalid(message.into())
 }
 
-fn validate_required_bounded(
-    field: &str,
-    value: &str,
-    max_len: usize,
-) -> Result<(), String> {
+fn validate_required_bounded(field: &str, value: &str, max_len: usize) -> Result<(), String> {
     if value.trim().is_empty() {
         return Err(format!("{field} must not be empty"));
     }
@@ -160,21 +164,15 @@ fn validate_evidence_refs(evidence_refs: &[EvidenceRef]) -> Result<(), String> {
             "evidence_refs must contain at most {MAX_EVIDENCE_REFS} items"
         ));
     }
-
     for evidence in evidence_refs {
         validate_required_bounded("evidence.kind", &evidence.kind, MAX_EVIDENCE_KIND_LEN)?;
-        validate_required_bounded(
-            "evidence.reference",
-            &evidence.reference,
-            MAX_EVIDENCE_REF_LEN,
-        )?;
+        validate_required_bounded("evidence.reference", &evidence.reference, MAX_EVIDENCE_REF_LEN)?;
         validate_optional_bounded(
             "evidence.note",
             evidence.note.as_deref(),
             MAX_EVIDENCE_NOTE_LEN,
         )?;
     }
-
     Ok(())
 }
 
@@ -188,8 +186,6 @@ fn require_claimant_is_author(claimant_did: &str, author: &AgentPubKey) -> Resul
     Ok(())
 }
 
-/// Pure field validation separated from the action-author binding for focused tests and
-/// reuse by future coordinator preflight checks. DHT validation remains authoritative.
 pub fn validate_contribution_fields(record: &ContributionRecord) -> Result<(), String> {
     validate_schema(record.schema_version)?;
     validate_required_bounded("id", &record.id, MAX_ID_LEN)?;
@@ -207,7 +203,6 @@ pub fn validate_attestation_fields(attestation: &LineageAttestation) -> Result<(
     validate_required_bounded("attestor_did", &attestation.attestor_did, MAX_ID_LEN)?;
     validate_required_bounded("source_ref", &attestation.source_ref, MAX_SUBJECT_REF_LEN)?;
     validate_required_bounded("target_ref", &attestation.target_ref, MAX_SUBJECT_REF_LEN)?;
-
     if attestation.source_ref.trim() == attestation.target_ref.trim() {
         return Err("source_ref and target_ref must differ".into());
     }
@@ -216,7 +211,6 @@ pub fn validate_attestation_fields(attestation: &LineageAttestation) -> Result<(
             "confidence_bps must be within 0..={MAX_CONFIDENCE_BPS}"
         ));
     }
-
     validate_evidence_refs(&attestation.evidence_refs)?;
     validate_required_bounded("rationale", &attestation.rationale, MAX_RATIONALE_LEN)?;
     Ok(())
@@ -248,11 +242,183 @@ pub fn validate_create_attestation(
     ValidateCallbackResult::Valid
 }
 
+fn validate_anchor(anchor: &Anchor) -> ValidateCallbackResult {
+    match validate_required_bounded("anchor", &anchor.0, MAX_ANCHOR_LEN) {
+        Ok(()) => ValidateCallbackResult::Valid,
+        Err(error) => invalid(error),
+    }
+}
+
+/// Length-prefix components so caller-controlled delimiters cannot make two semantic
+/// component tuples hash to the same anchor string.
+fn component(value: &str) -> String {
+    format!("{}:{value}", value.len())
+}
+
+pub fn contribution_id_anchor(contributor_did: &str, id: &str) -> String {
+    format!(
+        "lineage:v1:contribution:id:{}:{}",
+        component(contributor_did),
+        component(id)
+    )
+}
+
+pub fn contribution_subject_anchor(subject_ref: &str) -> String {
+    format!(
+        "lineage:v1:contribution:subject:{}",
+        component(subject_ref)
+    )
+}
+
+pub fn contribution_contributor_anchor(contributor_did: &str) -> String {
+    format!(
+        "lineage:v1:contribution:contributor:{}",
+        component(contributor_did)
+    )
+}
+
+pub fn attestation_id_anchor(attestor_did: &str, id: &str) -> String {
+    format!(
+        "lineage:v1:attestation:id:{}:{}",
+        component(attestor_did),
+        component(id)
+    )
+}
+
+pub fn attestation_source_anchor(source_ref: &str) -> String {
+    format!(
+        "lineage:v1:attestation:source:{}",
+        component(source_ref)
+    )
+}
+
+pub fn attestation_target_anchor(target_ref: &str) -> String {
+    format!(
+        "lineage:v1:attestation:target:{}",
+        component(target_ref)
+    )
+}
+
+pub fn attestation_attestor_anchor(attestor_did: &str) -> String {
+    format!(
+        "lineage:v1:attestation:attestor:{}",
+        component(attestor_did)
+    )
+}
+
+fn validate_index_shape(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+) -> Result<(EntryHash, ActionHash), String> {
+    let base = EntryHash::try_from(base_address)
+        .map_err(|_| "lineage index base must be an EntryHash anchor".to_string())?;
+    let target = ActionHash::try_from(target_address)
+        .map_err(|_| "lineage index target must be an ActionHash".to_string())?;
+    if !tag.0.is_empty() {
+        return Err("lineage index links must use an empty tag".into());
+    }
+    Ok((base, target))
+}
+
+fn contribution_anchor_for(link_type: &LinkTypes, record: &ContributionRecord) -> Option<String> {
+    match link_type {
+        LinkTypes::AllContributions => Some(ALL_CONTRIBUTIONS_ANCHOR.into()),
+        LinkTypes::ContributionById => {
+            Some(contribution_id_anchor(&record.contributor_did, &record.id))
+        }
+        LinkTypes::SubjectToContribution => Some(contribution_subject_anchor(&record.subject_ref)),
+        LinkTypes::ContributorToContribution => {
+            Some(contribution_contributor_anchor(&record.contributor_did))
+        }
+        _ => None,
+    }
+}
+
+fn attestation_anchor_for(link_type: &LinkTypes, claim: &LineageAttestation) -> Option<String> {
+    match link_type {
+        LinkTypes::AllAttestations => Some(ALL_ATTESTATIONS_ANCHOR.into()),
+        LinkTypes::AttestationById => Some(attestation_id_anchor(&claim.attestor_did, &claim.id)),
+        LinkTypes::SourceToAttestation => Some(attestation_source_anchor(&claim.source_ref)),
+        LinkTypes::TargetToAttestation => Some(attestation_target_anchor(&claim.target_ref)),
+        LinkTypes::AttestorToAttestation => Some(attestation_attestor_anchor(&claim.attestor_did)),
+        _ => None,
+    }
+}
+
+fn wrong_target_type(link_type: &LinkTypes) -> ValidateCallbackResult {
+    invalid(format!(
+        "lineage index {:?} points to the wrong entry type",
+        link_type
+    ))
+}
+
+fn validate_expected_anchor(base: EntryHash, expected: String) -> ExternResult<ValidateCallbackResult> {
+    if expected.len() > MAX_ANCHOR_LEN {
+        return Ok(invalid("derived lineage anchor exceeds MAX_ANCHOR_LEN"));
+    }
+    let expected_hash = hash_entry(Anchor(expected))?;
+    if base != expected_hash {
+        return Ok(invalid(
+            "lineage index base does not match the canonical anchor derived from the target payload",
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Bind index shape, author, target type, and anchor semantics at DHT validation time.
+///
+/// `must_get_valid_record` deliberately makes the index depend on a target record that
+/// the visible network considers valid. If the dependency is unavailable, Holochain
+/// returns an unresolved dependency rather than accepting an unverifiable index.
+fn validate_create_index_link(
+    link_type: LinkTypes,
+    action: CreateLink,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: LinkTag,
+) -> ExternResult<ValidateCallbackResult> {
+    let (base, target) = match validate_index_shape(base_address, target_address, tag) {
+        Ok(parts) => parts,
+        Err(error) => return Ok(invalid(error)),
+    };
+
+    let target_record = must_get_valid_record(target)?;
+    if target_record.action().author() != &action.author {
+        return Ok(invalid(
+            "lineage index author must match the author of the indexed target record",
+        ));
+    }
+
+    if let Some(expected) = match target_record
+        .entry()
+        .to_app_option::<ContributionRecord>()
+    {
+        Ok(Some(record)) => contribution_anchor_for(&link_type, &record),
+        Ok(None) | Err(_) => None,
+    } {
+        return validate_expected_anchor(base, expected);
+    }
+
+    if let Some(expected) = match target_record
+        .entry()
+        .to_app_option::<LineageAttestation>()
+    {
+        Ok(Some(claim)) => attestation_anchor_for(&link_type, &claim),
+        Ok(None) | Err(_) => None,
+    } {
+        return validate_expected_anchor(base, expected);
+    }
+
+    Ok(wrong_target_type(&link_type))
+}
+
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => Ok(match app_entry {
+                EntryTypes::Anchor(anchor) => validate_anchor(&anchor),
                 EntryTypes::ContributionRecord(record) => {
                     validate_create_contribution(&action, &record)
                 }
@@ -265,8 +431,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             )),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { .. } | FlatOp::RegisterDeleteLink { .. } => Ok(invalid(
-            "lineage indexes are not enabled in CL-01",
+        FlatOp::RegisterCreateLink {
+            link_type,
+            action,
+            base_address,
+            target_address,
+            tag,
+        } => validate_create_index_link(link_type, action, base_address, target_address, tag),
+        FlatOp::RegisterDeleteLink { .. } => Ok(invalid(
+            "lineage index links are append-only in v1; delete-link operations are not permitted",
         )),
         FlatOp::RegisterUpdate(_) => Ok(invalid(
             "lineage evidence is immutable in v1; updates are not permitted",
@@ -308,7 +481,7 @@ mod tests {
         EvidenceRef {
             kind: "measurement".into(),
             reference: "blake3:abc123".into(),
-            note: Some("supports the claimed relationship; does not establish causality alone".into()),
+            note: Some("supports the claim; does not establish causality alone".into()),
         }
     }
 
@@ -438,10 +611,60 @@ mod tests {
     }
 
     #[test]
-    fn evidence_is_not_required_to_claim_more_certainty_than_available() {
-        let mut claim = attestation();
-        claim.evidence_refs.clear();
-        claim.confidence_bps = 1_500;
-        assert_eq!(validate_attestation_fields(&claim), Ok(()));
+    fn index_shape_accepts_action_target_and_empty_tag() {
+        let result = validate_index_shape(
+            AnyLinkableHash::from(EntryHash::from_raw_36(vec![1u8; 36])),
+            AnyLinkableHash::from(ActionHash::from_raw_36(vec![2u8; 36])),
+            LinkTag::new(Vec::<u8>::new()),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn index_shape_rejects_entry_target() {
+        let result = validate_index_shape(
+            AnyLinkableHash::from(EntryHash::from_raw_36(vec![1u8; 36])),
+            AnyLinkableHash::from(EntryHash::from_raw_36(vec![2u8; 36])),
+            LinkTag::new(Vec::<u8>::new()),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn index_shape_rejects_nonempty_tag() {
+        let result = validate_index_shape(
+            AnyLinkableHash::from(EntryHash::from_raw_36(vec![1u8; 36])),
+            AnyLinkableHash::from(ActionHash::from_raw_36(vec![2u8; 36])),
+            LinkTag::new(vec![1]),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn scoped_anchor_encoding_is_unambiguous() {
+        assert_ne!(
+            contribution_id_anchor("did:example:a:b", "c"),
+            contribution_id_anchor("did:example:a", "b:c")
+        );
+    }
+
+    #[test]
+    fn contribution_link_types_derive_only_contribution_anchors() {
+        let record = contribution();
+        assert_eq!(
+            contribution_anchor_for(&LinkTypes::AllContributions, &record),
+            Some(ALL_CONTRIBUTIONS_ANCHOR.into())
+        );
+        assert!(contribution_anchor_for(&LinkTypes::AllAttestations, &record).is_none());
+    }
+
+    #[test]
+    fn attestation_link_types_derive_only_attestation_anchors() {
+        let claim = attestation();
+        assert_eq!(
+            attestation_anchor_for(&LinkTypes::AllAttestations, &claim),
+            Some(ALL_ATTESTATIONS_ANCHOR.into())
+        );
+        assert!(attestation_anchor_for(&LinkTypes::AllContributions, &claim).is_none());
     }
 }
