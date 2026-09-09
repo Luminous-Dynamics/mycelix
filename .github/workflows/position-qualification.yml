@@ -83,8 +83,13 @@ jobs:
             base="$(git rev-parse HEAD^)"
           fi
 
+          # The job runs from mycelix-position/, while Git pathspecs are rooted
+          # at the repository. Ask Git from the repository root and emit paths
+          # relative to this working directory so both rustfmt and the final
+          # diff check operate on the exact changed Position Rust files.
           mapfile -t changed_rs < <(
-            git diff --name-only --diff-filter=ACMR "${base}" "${QUALIFICATION_SUBJECT_SHA}" -- mycelix-position \
+            git -C .. diff --name-only --diff-filter=ACMR --relative=mycelix-position \
+              "${base}" "${QUALIFICATION_SUBJECT_SHA}" -- mycelix-position \
               | grep '\.rs$' || true
           )
 
