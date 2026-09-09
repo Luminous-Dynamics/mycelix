@@ -1,0 +1,116 @@
+name: Temporary Pulse 219 Sealed Assembly
+
+on:
+  push:
+    branches:
+      - tmp/pulse-219-sealed-assembly
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    env:
+      BASE_HEAD: 0869bc9ba08fda11b9fdf442e7cc06895885ec7a
+      REPAIR_HEAD: 222ba5f27c8e7e1377c3ca904c1c5871c6dd5905
+      ARTIFACT_ID: '10075592501'
+      ARTIFACT_ZIP_SHA256: 9316da1ff2ccbc3fe2209fa9acb56a306e1672e42eece3d8639ca141efafcf13
+      BACKEND_LOCK_SHA256: 73f4b3654724c25736db619d41af0c2cb138a46d19c7553983d47885940c9c45
+      ARTIFACT_SOURCE_HEAD: 96e59ec4786b2a573d18cd9cbcefa432f618bf61
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Bind exact staging lineage
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "tmp/pulse-219-sealed-assembly"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_HEAD"
+      - name: Import proven source repair blobs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$REPAIR_HEAD"
+          for path in \
+            .github/scripts/check_holochain_cohort.py \
+            mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml; do
+            git checkout "$REPAIR_HEAD" -- "$path"
+          done
+          test "$(git hash-object .github/scripts/check_holochain_cohort.py)" = "09651aa2ad0d23a28b78a689b347d40856b87dbe"
+          test "$(git hash-object mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs)" = "0879e35a43dba7857b85532fd90be806d4178900"
+          test "$(git hash-object mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml)" = "b76d1a4bfcf045aac45213e5a44e15b06465f78e"
+      - name: Consume and verify sealed backend lock artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          capsule="$RUNNER_TEMP/pulse-backend-lock.zip"
+          evidence="$RUNNER_TEMP/pulse-backend-lock"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > "$capsule"
+          echo "$ARTIFACT_ZIP_SHA256  $capsule" | sha256sum --check -
+          rm -rf "$evidence"
+          mkdir -p "$evidence"
+          unzip -q "$capsule" -d "$evidence"
+          (cd "$evidence" && sha256sum --check evidence.sha256)
+          test "$(cat "$evidence/source-head.txt")" = "$ARTIFACT_SOURCE_HEAD"
+          echo "$BACKEND_LOCK_SHA256  $evidence/Cargo.lock" | sha256sum --check -
+          install -m 0644 "$evidence/Cargo.lock" mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock
+      - name: Bind exact backend lock into cohort quarantine
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("mycelix-workspace/holochain-cohort.toml")
+          text = path.read_text()
+          old = '''[[quarantine]]
+          path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+          reason = "Pulse backend is version-aligned with the canonical Rust 0.6.1/0.8.1 cohort, but stub-mode tests do not prove live conductor/API compatibility; keep it quarantined until that runtime boundary is qualified."
+          holochain_client = "0.8.1"
+          holochain_types = "0.6.1"
+          holochain_zome_types = "0.6.1"
+          holochain_keystore = "0.6.1"
+          '''
+          new = '''[[quarantine]]
+          path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml"
+          reason = "Pulse backend manifests use the canonical Rust 0.6.1/0.8.1 direct cohort, but its sealed resolved graph is intentionally mixed: compatible Holochain utility crates resolve at 0.6.3, and stub-mode tests do not prove live conductor/API compatibility. This exact lock freezes that known graph until the coherent 0.6.3 migration qualifies it."
+          lock_path = "mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock"
+          lock_sha256 = "73f4b3654724c25736db619d41af0c2cb138a46d19c7553983d47885940c9c45"
+          holochain_client = "0.8.1"
+          holochain_types = "0.6.1"
+          holochain_zome_types = "0.6.1"
+          holochain_keystore = "0.6.1"
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one backend quarantine block")
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Validate sealed source tree
+        run: |
+          set -euo pipefail
+          git diff --check
+          python3 -m py_compile .github/scripts/check_holochain_cohort.py
+          python3 .github/scripts/check_holochain_cohort.py
+          test "$(sha256sum mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock | cut -d' ' -f1)" = "$BACKEND_LOCK_SHA256"
+          cargo metadata --locked --format-version 1 \
+            --manifest-path mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml \
+            > "$RUNNER_TEMP/backend-metadata.json"
+          test "$(sha256sum mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock | cut -d' ' -f1)" = "$BACKEND_LOCK_SHA256"
+      - name: Commit self-cleaned sealed tree
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-pulse-219-sealed-assembly.yml
+          git add \
+            .github/scripts/check_holochain_cohort.py \
+            mycelix-workspace/holochain-cohort.toml \
+            mycelix-workspace/mycelix-pulse/happ/backend-rs/src/services/crypto.rs \
+            mycelix-workspace/mycelix-pulse/holochain/zomes/scheduler/coordinator/Cargo.toml
+          git add -f mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock
+          git diff --cached --check
+          git config user.name "Luminous Dynamics Qualification Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "ci(pulse): stage sealed backend qualification tree"
+          git push origin HEAD:tmp/pulse-219-sealed-assembly
