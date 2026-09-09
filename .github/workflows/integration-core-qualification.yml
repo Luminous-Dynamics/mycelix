@@ -7,6 +7,7 @@ on:
       - architecture/integration-plane-v1
     paths:
       - 'crates/mycelix-integration-core/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
       - '.github/workflows/integration-core-qualification.yml'
   push:
     branches:
@@ -15,6 +16,7 @@ on:
       - feat/integration-core-v1
     paths:
       - 'crates/mycelix-integration-core/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
       - '.github/workflows/integration-core-qualification.yml'
   workflow_dispatch:
 
@@ -55,6 +57,21 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-integration-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce execution-safety constitution
+        shell: bash
+        run: |
+          set -euo pipefail
+          constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
+          test -f "$constitution"
+          grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
+          grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
+          grep -Fq 'Every execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
+          grep -Fq 'Idempotency MUST be a qualified provider property' "$constitution"
+          grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
+          grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
+          grep -Fq 'Cross-layer immutable identity MUST be typed and verifiable' "$constitution"
 
       - name: Enforce transport-neutral dependency boundary
         shell: bash
