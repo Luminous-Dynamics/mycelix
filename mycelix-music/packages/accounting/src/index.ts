@@ -7,3 +7,4 @@ export * from './lineage.js';
 export * from './settlement.js';
 export * from './netting.js';
 export * from './audit.js';
+export * from './interop.js';
