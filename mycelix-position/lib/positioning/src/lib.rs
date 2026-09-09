@@ -21,6 +21,7 @@
 //! - [`kalman`] — Extended Kalman Filter for continuous tracking
 //! - [`qualification`] — theorem dependency/requirement meta-structure
 //! - [`qualification_hardening`] — bounded non-recursive qualification evaluation
+//! - [`qualification_admission`] — pre-parse wire admission + durable aggregate budgets
 
 pub mod bodies;
 pub mod coverage;
@@ -36,6 +37,7 @@ pub mod kalman;
 pub mod measurements;
 pub mod navigation_runtime;
 pub mod qualification;
+pub mod qualification_admission;
 pub mod qualification_hardening;
 pub mod ranging;
 pub mod space_navigation;
@@ -61,6 +63,13 @@ pub use qualification::{
     FacetStatus, QualificationError, QualificationFacet, QualificationManifest,
     QualificationRequirementProfile, RequirementEvaluation, TheoremDefinition, TheoremId,
     TheoremRegistry, UnacceptableFacet,
+};
+pub use qualification_admission::{
+    AdmissionAggregateResource, AdmissionLimitField, AdmittedQualificationBytes,
+    ProfiledQualificationRegistryV1, QUALIFICATION_ADMISSION_PROFILE_PREIMAGE_V1,
+    QUALIFICATION_ADMISSION_PROFILE_SCHEMA_V1, QualificationAdmissionError,
+    QualificationAdmissionProfileV1, admit_qualification_bytes,
+    canonical_qualification_admission_profile_preimage_v1,
 };
 pub use qualification_hardening::{
     EstablishmentBlocker, EstablishmentBlockerKind, EstablishmentExplanation,
