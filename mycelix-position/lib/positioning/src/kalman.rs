@@ -6,8 +6,10 @@
 //! Predict: constant-velocity model with configurable process noise.
 //! Update: range measurements from anchors (nonlinear observation model).
 //!
-//! Handles intermittent measurements (mesh radio packet loss) gracefully —
-//! uncertainty grows during predict-only phases but doesn't diverge.
+//! This module preserves the historical serde-compatible `Vec<f64>` covariance
+//! wire shape, but checked operations validate the expected 6×6 matrix before
+//! use and commit state transactionally only after the candidate result passes
+//! numerical validation.
 //!
 //! Important: this filter assumes conditionally independent measurement noise.
 //! Unknown cross-correlated peer state estimates should be fused with
@@ -18,28 +20,34 @@ use serde::{Deserialize, Serialize};
 
 /// EKF state dimension (3D position + 3D velocity).
 const STATE_DIM: usize = 6;
+const COVARIANCE_LEN: usize = STATE_DIM * STATE_DIM;
+const SYMMETRY_TOLERANCE: f64 = 1e-9;
+
+fn idx(row: usize, col: usize) -> usize {
+    row * STATE_DIM + col
+}
 
 /// Filter state at a given time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterState {
     /// State vector [x, y, z, vx, vy, vz] in meters and m/s.
     pub state: [f64; STATE_DIM],
-    /// 6×6 covariance matrix (row-major) stored as Vec for serde compat.
+    /// 6×6 covariance matrix (row-major) stored as Vec for serde compatibility.
     pub covariance: Vec<f64>,
     /// Timestamp of last update (arbitrary units, caller manages).
     pub last_update_time: f64,
-    /// Number of measurement updates applied.
+    /// Number of accepted measurement updates applied.
     pub update_count: u64,
 }
 
 /// Configuration for the position filter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterConfig {
-    /// Process noise for position (m²/s), controls how fast uncertainty grows.
+    /// Additive position process-noise density used by the current profile (m²/s).
     pub position_noise: f64,
-    /// Process noise for velocity (m²/s³).
+    /// Additive velocity process-noise density used by the current profile (m²/s³).
     pub velocity_noise: f64,
-    /// Maximum covariance diagonal before reset (m²).
+    /// Maximum accepted covariance diagonal (m²). Crossing this bound is an error.
     pub max_covariance: f64,
     /// Reject updates whose innovation exceeds this many sigma.
     pub innovation_gate_sigma: f64,
@@ -48,10 +56,193 @@ pub struct FilterConfig {
 impl Default for FilterConfig {
     fn default() -> Self {
         Self {
-            position_noise: 0.1,  // 0.1 m²/s — walking speed uncertainty
-            velocity_noise: 0.01, // 0.01 m²/s³
-            max_covariance: 1e8,  // 10 km max uncertainty before reset
+            position_noise: 0.1,
+            velocity_noise: 0.01,
+            max_covariance: 1e8,
             innovation_gate_sigma: 4.0,
+        }
+    }
+}
+
+/// Observable result of a checked measurement update.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FilterUpdateOutcome {
+    Accepted,
+    InnovationRejected,
+    /// Compatibility-only trust input of exactly zero is interpreted as a
+    /// source-admission rejection, never as modified statistical precision.
+    SourceRejected,
+}
+
+/// Typed errors for authority-facing EKF operations.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FilterError {
+    InvalidInitialState,
+    InvalidConfiguration,
+    InvalidCovarianceShape { have: usize, expected: usize },
+    NonFiniteState,
+    NonFiniteCovariance,
+    AsymmetricCovariance,
+    NegativeVariance { index: usize, value: f64 },
+    CovarianceLimitExceeded { index: usize, value: f64, max: f64 },
+    InvalidTimeStep { dt: f64 },
+    InvalidMeasurement { field: &'static str, value: f64 },
+    InvalidAnchor { component: usize, value: f64 },
+    InvalidTrustWeight { value: f64 },
+    DegenerateObservation,
+    NonFiniteComputation,
+    CounterOverflow,
+}
+
+impl std::fmt::Display for FilterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidInitialState => write!(f, "initial filter state is invalid"),
+            Self::InvalidConfiguration => write!(f, "filter configuration is invalid"),
+            Self::InvalidCovarianceShape { have, expected } => {
+                write!(f, "covariance has {have} elements; expected {expected}")
+            }
+            Self::NonFiniteState => write!(f, "filter state contains non-finite values"),
+            Self::NonFiniteCovariance => write!(f, "filter covariance contains non-finite values"),
+            Self::AsymmetricCovariance => write!(f, "filter covariance is not symmetric within tolerance"),
+            Self::NegativeVariance { index, value } => {
+                write!(f, "covariance diagonal {index} is negative: {value}")
+            }
+            Self::CovarianceLimitExceeded { index, value, max } => {
+                write!(f, "covariance diagonal {index}={value} exceeds configured maximum {max}")
+            }
+            Self::InvalidTimeStep { dt } => write!(f, "time step must be finite and positive, got {dt}"),
+            Self::InvalidMeasurement { field, value } => {
+                write!(f, "invalid measurement field {field}: {value}")
+            }
+            Self::InvalidAnchor { component, value } => {
+                write!(f, "anchor component {component} is invalid: {value}")
+            }
+            Self::InvalidTrustWeight { value } => {
+                write!(f, "trust weight must be finite and in [0,1], got {value}")
+            }
+            Self::DegenerateObservation => write!(f, "observation geometry is degenerate"),
+            Self::NonFiniteComputation => write!(f, "EKF computation produced non-finite arithmetic"),
+            Self::CounterOverflow => write!(f, "filter update counter overflow"),
+        }
+    }
+}
+
+impl std::error::Error for FilterError {}
+
+fn validate_config(config: &FilterConfig) -> Result<(), FilterError> {
+    if !config.position_noise.is_finite()
+        || config.position_noise < 0.0
+        || !config.velocity_noise.is_finite()
+        || config.velocity_noise < 0.0
+        || !config.max_covariance.is_finite()
+        || config.max_covariance <= 0.0
+        || !config.innovation_gate_sigma.is_finite()
+        || config.innovation_gate_sigma <= 0.0
+    {
+        return Err(FilterError::InvalidConfiguration);
+    }
+    Ok(())
+}
+
+fn validate_covariance(covariance: &[f64], max: f64) -> Result<(), FilterError> {
+    if covariance.len() != COVARIANCE_LEN {
+        return Err(FilterError::InvalidCovarianceShape {
+            have: covariance.len(),
+            expected: COVARIANCE_LEN,
+        });
+    }
+    if covariance.iter().any(|value| !value.is_finite()) {
+        return Err(FilterError::NonFiniteCovariance);
+    }
+    for row in 0..STATE_DIM {
+        for col in (row + 1)..STATE_DIM {
+            let a = covariance[idx(row, col)];
+            let b = covariance[idx(col, row)];
+            let scale = a.abs().max(b.abs()).max(1.0);
+            if (a - b).abs() > SYMMETRY_TOLERANCE * scale {
+                return Err(FilterError::AsymmetricCovariance);
+            }
+        }
+        let variance = covariance[idx(row, row)];
+        if variance < 0.0 {
+            return Err(FilterError::NegativeVariance {
+                index: row,
+                value: variance,
+            });
+        }
+        if variance > max {
+            return Err(FilterError::CovarianceLimitExceeded {
+                index: row,
+                value: variance,
+                max,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn validate_filter_state(state: &FilterState, config: &FilterConfig) -> Result<(), FilterError> {
+    validate_config(config)?;
+    if state.state.iter().any(|value| !value.is_finite()) || !state.last_update_time.is_finite() {
+        return Err(FilterError::NonFiniteState);
+    }
+    validate_covariance(&state.covariance, config.max_covariance)
+}
+
+fn mat_mul(a: &[f64], b: &[f64]) -> Result<Vec<f64>, FilterError> {
+    if a.len() != COVARIANCE_LEN || b.len() != COVARIANCE_LEN {
+        return Err(FilterError::InvalidCovarianceShape {
+            have: a.len().min(b.len()),
+            expected: COVARIANCE_LEN,
+        });
+    }
+    let mut out = vec![0.0; COVARIANCE_LEN];
+    for row in 0..STATE_DIM {
+        for col in 0..STATE_DIM {
+            let mut sum = 0.0;
+            for k in 0..STATE_DIM {
+                sum += a[idx(row, k)] * b[idx(k, col)];
+            }
+            if !sum.is_finite() {
+                return Err(FilterError::NonFiniteComputation);
+            }
+            out[idx(row, col)] = sum;
+        }
+    }
+    Ok(out)
+}
+
+fn transpose(matrix: &[f64]) -> Result<Vec<f64>, FilterError> {
+    if matrix.len() != COVARIANCE_LEN {
+        return Err(FilterError::InvalidCovarianceShape {
+            have: matrix.len(),
+            expected: COVARIANCE_LEN,
+        });
+    }
+    let mut out = vec![0.0; COVARIANCE_LEN];
+    for row in 0..STATE_DIM {
+        for col in 0..STATE_DIM {
+            out[idx(col, row)] = matrix[idx(row, col)];
+        }
+    }
+    Ok(out)
+}
+
+fn identity_matrix() -> Vec<f64> {
+    let mut out = vec![0.0; COVARIANCE_LEN];
+    for i in 0..STATE_DIM {
+        out[idx(i, i)] = 1.0;
+    }
+    out
+}
+
+fn symmetrize(matrix: &mut [f64]) {
+    for row in 0..STATE_DIM {
+        for col in (row + 1)..STATE_DIM {
+            let mean = 0.5 * (matrix[idx(row, col)] + matrix[idx(col, row)]);
+            matrix[idx(row, col)] = mean;
+            matrix[idx(col, row)] = mean;
         }
     }
 }
@@ -64,19 +255,32 @@ pub struct PositionFilter {
 }
 
 impl PositionFilter {
-    /// Create a new filter with an initial position guess.
-    pub fn new(initial_position: [f64; 3], initial_sigma_m: f64, config: FilterConfig) -> Self {
-        let mut covariance = vec![0.0_f64; STATE_DIM * STATE_DIM];
+    /// Checked constructor for authority-facing callers.
+    pub fn try_new(
+        initial_position: [f64; 3],
+        initial_sigma_m: f64,
+        config: FilterConfig,
+    ) -> Result<Self, FilterError> {
+        validate_config(&config)?;
+        if initial_position.iter().any(|value| !value.is_finite())
+            || !initial_sigma_m.is_finite()
+            || initial_sigma_m <= 0.0
+        {
+            return Err(FilterError::InvalidInitialState);
+        }
         let pos_var = initial_sigma_m * initial_sigma_m;
-        let vel_var = 10.0 * 10.0; // 10 m/s initial velocity uncertainty
-        covariance[0] = pos_var; // xx
-        covariance[STATE_DIM + 1] = pos_var; // yy
-        covariance[2 * STATE_DIM + 2] = pos_var; // zz
-        covariance[3 * STATE_DIM + 3] = vel_var; // vxvx
-        covariance[4 * STATE_DIM + 4] = vel_var; // vyvy
-        covariance[5 * STATE_DIM + 5] = vel_var; // vzvz
+        if !pos_var.is_finite() || pos_var > config.max_covariance {
+            return Err(FilterError::InvalidInitialState);
+        }
 
-        Self {
+        let mut covariance = vec![0.0_f64; COVARIANCE_LEN];
+        let vel_var = 100.0;
+        for i in 0..3 {
+            covariance[idx(i, i)] = pos_var;
+            covariance[idx(i + 3, i + 3)] = vel_var;
+        }
+
+        let filter = Self {
             state: FilterState {
                 state: [
                     initial_position[0],
@@ -84,127 +288,215 @@ impl PositionFilter {
                     initial_position[2],
                     0.0,
                     0.0,
-                    0.0, // zero initial velocity
+                    0.0,
                 ],
                 covariance,
                 last_update_time: 0.0,
                 update_count: 0,
             },
             config,
-        }
+        };
+        validate_filter_state(&filter.state, &filter.config)?;
+        Ok(filter)
     }
 
-    /// Predict step: propagate state forward by dt seconds.
+    /// Legacy constructor retained for source compatibility.
     ///
-    /// Uses constant-velocity model: x(t+dt) = x(t) + v(t) * dt
-    pub fn predict(&mut self, dt: f64) {
-        if dt <= 0.0 {
-            return;
+    /// New authority-facing code should use [`Self::try_new`]. This wrapper
+    /// panics on invalid construction rather than manufacturing a usable state.
+    pub fn new(initial_position: [f64; 3], initial_sigma_m: f64, config: FilterConfig) -> Self {
+        Self::try_new(initial_position, initial_sigma_m, config)
+            .expect("invalid PositionFilter construction; use try_new for fallible handling")
+    }
+
+    /// Checked constant-velocity prediction using the full covariance equation:
+    /// `P' = F P F^T + Q`.
+    pub fn predict_checked(&mut self, dt: f64) -> Result<(), FilterError> {
+        validate_filter_state(&self.state, &self.config)?;
+        if !dt.is_finite() || dt <= 0.0 {
+            return Err(FilterError::InvalidTimeStep { dt });
         }
 
-        // State transition: position += velocity * dt
-        self.state.state[0] += self.state.state[3] * dt;
-        self.state.state[1] += self.state.state[4] * dt;
-        self.state.state[2] += self.state.state[5] * dt;
+        let mut candidate_state = self.state.state;
+        candidate_state[0] += candidate_state[3] * dt;
+        candidate_state[1] += candidate_state[4] * dt;
+        candidate_state[2] += candidate_state[5] * dt;
+        if candidate_state.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
+        }
 
-        // Covariance propagation: P = F*P*F^T + Q
-        // F = [[I, dt*I], [0, I]]
-        // For simplicity, add process noise directly to diagonal
+        let mut f = identity_matrix();
+        f[idx(0, 3)] = dt;
+        f[idx(1, 4)] = dt;
+        f[idx(2, 5)] = dt;
+
+        let fp = mat_mul(&f, &self.state.covariance)?;
+        let ft = transpose(&f)?;
+        let mut candidate_covariance = mat_mul(&fp, &ft)?;
+
         let q_pos = self.config.position_noise * dt;
         let q_vel = self.config.velocity_noise * dt;
+        if !q_pos.is_finite() || !q_vel.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        for i in 0..3 {
+            candidate_covariance[idx(i, i)] += q_pos;
+            candidate_covariance[idx(i + 3, i + 3)] += q_vel;
+        }
+        symmetrize(&mut candidate_covariance);
+        validate_covariance(&candidate_covariance, self.config.max_covariance)?;
 
-        // Position uncertainty grows from velocity uncertainty
-        self.state.covariance[0] += q_pos + self.state.covariance[3 * STATE_DIM + 3] * dt * dt;
-        self.state.covariance[STATE_DIM + 1] +=
-            q_pos + self.state.covariance[4 * STATE_DIM + 4] * dt * dt;
-        self.state.covariance[2 * STATE_DIM + 2] +=
-            q_pos + self.state.covariance[5 * STATE_DIM + 5] * dt * dt;
-        // Velocity uncertainty grows
-        self.state.covariance[3 * STATE_DIM + 3] += q_vel;
-        self.state.covariance[4 * STATE_DIM + 4] += q_vel;
-        self.state.covariance[5 * STATE_DIM + 5] += q_vel;
-
-        // Cap covariance
-        for i in 0..STATE_DIM {
-            let idx = i * STATE_DIM + i;
-            self.state.covariance[idx] = self.state.covariance[idx].min(self.config.max_covariance);
+        let candidate_time = self.state.last_update_time + dt;
+        if !candidate_time.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
         }
 
-        self.state.last_update_time += dt;
+        self.state.state = candidate_state;
+        self.state.covariance = candidate_covariance;
+        self.state.last_update_time = candidate_time;
+        Ok(())
     }
 
-    fn update_linear_observation(
+    /// Legacy prediction wrapper. Invalid prediction input leaves state unchanged.
+    pub fn predict(&mut self, dt: f64) {
+        let _ = self.predict_checked(dt);
+    }
+
+    fn scalar_update_checked(
         &mut self,
-        state_index: usize,
+        h: [f64; STATE_DIM],
         observed_value: f64,
+        predicted_value: f64,
         variance: f64,
-    ) {
-        if state_index >= STATE_DIM || variance <= 0.0 || !observed_value.is_finite() {
-            return;
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        validate_filter_state(&self.state, &self.config)?;
+        if !observed_value.is_finite() {
+            return Err(FilterError::InvalidMeasurement {
+                field: "observed_value",
+                value: observed_value,
+            });
+        }
+        if !predicted_value.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        if !variance.is_finite() || variance <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "variance",
+                value: variance,
+            });
+        }
+        if h.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
         }
 
-        let innovation = observed_value - self.state.state[state_index];
-        let s = self.state.covariance[state_index * STATE_DIM + state_index] + variance;
-
-        if s.abs() < 1e-30 {
-            return;
-        }
-        if innovation.abs() > self.config.innovation_gate_sigma * s.sqrt() {
-            return;
+        let innovation = observed_value - predicted_value;
+        if !innovation.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
         }
 
-        let mut k = [0.0_f64; STATE_DIM];
-        for i in 0..STATE_DIM {
-            k[i] = self.state.covariance[i * STATE_DIM + state_index] / s;
-        }
-
-        for i in 0..STATE_DIM {
-            self.state.state[i] += k[i] * innovation;
-        }
-
-        let mut new_cov = self.state.covariance.clone();
-        for i in 0..STATE_DIM {
-            for j in 0..STATE_DIM {
-                new_cov[i * STATE_DIM + j] -=
-                    k[i] * self.state.covariance[state_index * STATE_DIM + j];
+        let mut ph_t = [0.0; STATE_DIM];
+        for row in 0..STATE_DIM {
+            for col in 0..STATE_DIM {
+                ph_t[row] += self.state.covariance[idx(row, col)] * h[col];
             }
         }
-        self.state.covariance = new_cov;
-        self.state.update_count += 1;
+        let mut s = variance;
+        for i in 0..STATE_DIM {
+            s += h[i] * ph_t[i];
+        }
+        if !s.is_finite() || s <= 0.0 {
+            return Err(FilterError::NonFiniteComputation);
+        }
+
+        if innovation.abs() > self.config.innovation_gate_sigma * s.sqrt() {
+            return Ok(FilterUpdateOutcome::InnovationRejected);
+        }
+
+        let mut k = [0.0; STATE_DIM];
+        for i in 0..STATE_DIM {
+            k[i] = ph_t[i] / s;
+        }
+        if k.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
+        }
+
+        let mut candidate_state = self.state.state;
+        for i in 0..STATE_DIM {
+            candidate_state[i] += k[i] * innovation;
+        }
+        if candidate_state.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
+        }
+
+        // Joseph stabilized covariance update:
+        // P' = (I-KH) P (I-KH)^T + K R K^T
+        let mut a = identity_matrix();
+        for row in 0..STATE_DIM {
+            for col in 0..STATE_DIM {
+                a[idx(row, col)] -= k[row] * h[col];
+            }
+        }
+        let ap = mat_mul(&a, &self.state.covariance)?;
+        let at = transpose(&a)?;
+        let mut candidate_covariance = mat_mul(&ap, &at)?;
+        for row in 0..STATE_DIM {
+            for col in 0..STATE_DIM {
+                candidate_covariance[idx(row, col)] += k[row] * variance * k[col];
+            }
+        }
+        symmetrize(&mut candidate_covariance);
+        validate_covariance(&candidate_covariance, self.config.max_covariance)?;
+
+        let next_count = self
+            .state
+            .update_count
+            .checked_add(1)
+            .ok_or(FilterError::CounterOverflow)?;
+
+        self.state.state = candidate_state;
+        self.state.covariance = candidate_covariance;
+        self.state.update_count = next_count;
+        Ok(FilterUpdateOutcome::Accepted)
     }
 
-    /// Update step: incorporate a range measurement from an anchor.
-    ///
-    /// # Arguments
-    /// - `anchor`: Known anchor position [x, y, z] in meters
-    /// - `measured_range`: Measured distance to anchor (meters)
-    /// - `range_sigma`: Measurement uncertainty (meters)
-    /// - `trust_weight`: Trust in this anchor (0-1)
-    pub fn update(
+    /// Checked range update whose mathematical precision is determined only by
+    /// `range_sigma`; source trust/reputation is deliberately not an argument.
+    pub fn update_range_checked(
         &mut self,
         anchor: &[f64; 3],
         measured_range: f64,
         range_sigma: f64,
-        trust_weight: f64,
-    ) {
-        if measured_range <= 0.0 || range_sigma <= 0.0 {
-            return;
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        for (component, value) in anchor.iter().copied().enumerate() {
+            if !value.is_finite() {
+                return Err(FilterError::InvalidAnchor { component, value });
+            }
         }
+        if !measured_range.is_finite() || measured_range <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "measured_range",
+                value: measured_range,
+            });
+        }
+        if !range_sigma.is_finite() || range_sigma <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "range_sigma",
+                value: range_sigma,
+            });
+        }
+        validate_filter_state(&self.state, &self.config)?;
 
-        let pos = &self.state.state[0..3];
-        let dx = pos[0] - anchor[0];
-        let dy = pos[1] - anchor[1];
-        let dz = pos[2] - anchor[2];
+        let dx = self.state.state[0] - anchor[0];
+        let dy = self.state.state[1] - anchor[1];
+        let dz = self.state.state[2] - anchor[2];
         let predicted_range = (dx * dx + dy * dy + dz * dz).sqrt();
-
+        if !predicted_range.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
+        }
         if predicted_range < 1e-10 {
-            return;
+            return Err(FilterError::DegenerateObservation);
         }
 
-        // Innovation (measurement residual)
-        let innovation = measured_range - predicted_range;
-
-        // Observation Jacobian H: d(range)/d(state) = [dx/r, dy/r, dz/r, 0, 0, 0]
         let h = [
             dx / predicted_range,
             dy / predicted_range,
@@ -213,171 +505,244 @@ impl PositionFilter {
             0.0,
             0.0,
         ];
-
-        // Effective measurement variance (trust-adjusted)
-        let effective_sigma = range_sigma / trust_weight.max(0.01).sqrt();
-        let r = effective_sigma * effective_sigma;
-
-        // Innovation covariance: S = H*P*H^T + R
-        let mut hp = [0.0_f64; STATE_DIM]; // H*P (1×6)
-        for j in 0..STATE_DIM {
-            for i in 0..STATE_DIM {
-                hp[j] += h[i] * self.state.covariance[i * STATE_DIM + j];
-            }
+        let variance = range_sigma * range_sigma;
+        if !variance.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
         }
-        let mut s = r;
-        for i in 0..STATE_DIM {
-            s += h[i] * hp[i];
-        }
-
-        if s.abs() < 1e-30 {
-            return;
-        }
-        if innovation.abs() > self.config.innovation_gate_sigma * s.sqrt() {
-            return;
-        }
-
-        // Kalman gain: K = P*H^T / S (6×1)
-        let mut k = [0.0_f64; STATE_DIM];
-        for i in 0..STATE_DIM {
-            let mut ph_i = 0.0;
-            for j in 0..STATE_DIM {
-                ph_i += self.state.covariance[i * STATE_DIM + j] * h[j];
-            }
-            k[i] = ph_i / s;
-        }
-
-        // State update: x = x + K * innovation
-        for i in 0..STATE_DIM {
-            self.state.state[i] += k[i] * innovation;
-        }
-
-        // Covariance update: P = (I - K*H) * P (Joseph form for stability)
-        let mut new_cov = vec![0.0_f64; STATE_DIM * STATE_DIM];
-        for i in 0..STATE_DIM {
-            for j in 0..STATE_DIM {
-                let mut sum = 0.0;
-                for m in 0..STATE_DIM {
-                    let ikm = if i == m { 1.0 } else { 0.0 } - k[i] * h[m];
-                    sum += ikm * self.state.covariance[m * STATE_DIM + j];
-                }
-                new_cov[i * STATE_DIM + j] = sum;
-            }
-        }
-        // Add K*R*K^T for numerical stability
-        for i in 0..STATE_DIM {
-            for j in 0..STATE_DIM {
-                new_cov[i * STATE_DIM + j] += k[i] * r * k[j];
-            }
-        }
-        self.state.covariance = new_cov;
-
-        self.state.update_count += 1;
+        self.scalar_update_checked(h, measured_range, predicted_range, variance)
     }
 
-    /// Update with an absolute position fix.
+    /// Checked compatibility entry point retaining the historical trust field.
+    ///
+    /// Trust acts only as a source-admission hint: zero rejects the source;
+    /// positive values do not modify sigma/covariance.
+    pub fn update_with_trust_checked(
+        &mut self,
+        anchor: &[f64; 3],
+        measured_range: f64,
+        range_sigma: f64,
+        trust_weight: f64,
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        if !trust_weight.is_finite() || !(0.0..=1.0).contains(&trust_weight) {
+            return Err(FilterError::InvalidTrustWeight {
+                value: trust_weight,
+            });
+        }
+        if trust_weight == 0.0 {
+            return Ok(FilterUpdateOutcome::SourceRejected);
+        }
+        self.update_range_checked(anchor, measured_range, range_sigma)
+    }
+
+    /// Legacy range-update wrapper. Prefer [`Self::update_range_checked`].
+    pub fn update(
+        &mut self,
+        anchor: &[f64; 3],
+        measured_range: f64,
+        range_sigma: f64,
+        trust_weight: f64,
+    ) {
+        let _ = self.update_with_trust_checked(anchor, measured_range, range_sigma, trust_weight);
+    }
+
+    fn update_linear_observation_checked(
+        &mut self,
+        state_index: usize,
+        observed_value: f64,
+        variance: f64,
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        if state_index >= STATE_DIM {
+            return Err(FilterError::InvalidMeasurement {
+                field: "state_index",
+                value: state_index as f64,
+            });
+        }
+        let mut h = [0.0; STATE_DIM];
+        h[state_index] = 1.0;
+        let predicted = self.state.state[state_index];
+        self.scalar_update_checked(h, observed_value, predicted, variance)
+    }
+
+    /// Checked absolute-position update.
+    ///
+    /// This compatibility profile still consumes only the diagonal of the
+    /// supplied 3×3 covariance. A later Q4 tranche will add a simultaneous
+    /// vector update that preserves off-diagonal measurement covariance.
+    pub fn update_absolute_position_checked(
+        &mut self,
+        position: [f64; 3],
+        covariance: [f64; 9],
+    ) -> Result<[FilterUpdateOutcome; 3], FilterError> {
+        if position.iter().any(|value| !value.is_finite())
+            || covariance.iter().any(|value| !value.is_finite())
+            || covariance[0] <= 0.0
+            || covariance[4] <= 0.0
+            || covariance[8] <= 0.0
+        {
+            return Err(FilterError::InvalidMeasurement {
+                field: "absolute_position",
+                value: f64::NAN,
+            });
+        }
+        let mut candidate = self.clone();
+        let outcomes = [
+            candidate.update_linear_observation_checked(0, position[0], covariance[0])?,
+            candidate.update_linear_observation_checked(1, position[1], covariance[4])?,
+            candidate.update_linear_observation_checked(2, position[2], covariance[8])?,
+        ];
+        *self = candidate;
+        Ok(outcomes)
+    }
+
     pub fn update_absolute_position(&mut self, position: [f64; 3], covariance: [f64; 9]) {
-        self.update_linear_observation(0, position[0], covariance[0]);
-        self.update_linear_observation(1, position[1], covariance[4]);
-        self.update_linear_observation(2, position[2], covariance[8]);
+        let _ = self.update_absolute_position_checked(position, covariance);
     }
 
-    /// Update with an absolute velocity fix.
+    /// Checked absolute-velocity update. See position counterpart for the
+    /// current diagonal-only measurement-covariance boundary.
+    pub fn update_absolute_velocity_checked(
+        &mut self,
+        velocity: [f64; 3],
+        covariance: [f64; 9],
+    ) -> Result<[FilterUpdateOutcome; 3], FilterError> {
+        if velocity.iter().any(|value| !value.is_finite())
+            || covariance.iter().any(|value| !value.is_finite())
+            || covariance[0] <= 0.0
+            || covariance[4] <= 0.0
+            || covariance[8] <= 0.0
+        {
+            return Err(FilterError::InvalidMeasurement {
+                field: "absolute_velocity",
+                value: f64::NAN,
+            });
+        }
+        let mut candidate = self.clone();
+        let outcomes = [
+            candidate.update_linear_observation_checked(3, velocity[0], covariance[0])?,
+            candidate.update_linear_observation_checked(4, velocity[1], covariance[4])?,
+            candidate.update_linear_observation_checked(5, velocity[2], covariance[8])?,
+        ];
+        *self = candidate;
+        Ok(outcomes)
+    }
+
     pub fn update_absolute_velocity(&mut self, velocity: [f64; 3], covariance: [f64; 9]) {
-        self.update_linear_observation(3, velocity[0], covariance[0]);
-        self.update_linear_observation(4, velocity[1], covariance[4]);
-        self.update_linear_observation(5, velocity[2], covariance[8]);
+        let _ = self.update_absolute_velocity_checked(velocity, covariance);
     }
 
-    /// Update with a direct depth observation in a down-positive frame.
+    pub fn update_depth_checked(
+        &mut self,
+        depth_m: f64,
+        sigma_m: f64,
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        if !depth_m.is_finite() || !sigma_m.is_finite() || sigma_m <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "depth",
+                value: depth_m,
+            });
+        }
+        let variance = sigma_m * sigma_m;
+        if !variance.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        self.update_linear_observation_checked(2, depth_m, variance)
+    }
+
     pub fn update_depth(&mut self, depth_m: f64, sigma_m: f64) {
-        self.update_linear_observation(2, depth_m, sigma_m * sigma_m);
+        let _ = self.update_depth_checked(depth_m, sigma_m);
     }
 
-    /// Update with a relative offset against a known absolute reference.
+    pub fn update_relative_position_checked(
+        &mut self,
+        reference_position: [f64; 3],
+        relative_position: [f64; 3],
+        covariance: [f64; 9],
+    ) -> Result<[FilterUpdateOutcome; 3], FilterError> {
+        if reference_position.iter().any(|value| !value.is_finite())
+            || relative_position.iter().any(|value| !value.is_finite())
+        {
+            return Err(FilterError::InvalidMeasurement {
+                field: "relative_position",
+                value: f64::NAN,
+            });
+        }
+        let absolute = [
+            reference_position[0] + relative_position[0],
+            reference_position[1] + relative_position[1],
+            reference_position[2] + relative_position[2],
+        ];
+        if absolute.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        self.update_absolute_position_checked(absolute, covariance)
+    }
+
     pub fn update_relative_position(
         &mut self,
         reference_position: [f64; 3],
         relative_position: [f64; 3],
         covariance: [f64; 9],
     ) {
-        let absolute = [
-            reference_position[0] + relative_position[0],
-            reference_position[1] + relative_position[1],
-            reference_position[2] + relative_position[2],
-        ];
-        self.update_absolute_position(absolute, covariance);
+        let _ = self.update_relative_position_checked(reference_position, relative_position, covariance);
     }
 
-    /// Get current position estimate.
     pub fn position(&self) -> [f64; 3] {
-        [
-            self.state.state[0],
-            self.state.state[1],
-            self.state.state[2],
-        ]
+        [self.state.state[0], self.state.state[1], self.state.state[2]]
     }
 
-    /// Get current velocity estimate.
     pub fn velocity(&self) -> [f64; 3] {
-        [
-            self.state.state[3],
-            self.state.state[4],
-            self.state.state[5],
-        ]
+        [self.state.state[3], self.state.state[4], self.state.state[5]]
     }
 
-    /// Update with barometric altitude measurement.
-    ///
-    /// # Arguments
-    /// - `pressure_hpa`: Current barometric pressure
-    /// - `reference_hpa`: Reference pressure at sea level (default 1013.25)
-    /// - `sigma_m`: Altitude measurement uncertainty (typically 1.0m absolute, 0.3m relative)
-    pub fn update_barometer(&mut self, pressure_hpa: f64, reference_hpa: f64, sigma_m: f64) {
-        if pressure_hpa < 100.0 || sigma_m <= 0.0 {
-            return;
+    pub fn update_barometer_checked(
+        &mut self,
+        pressure_hpa: f64,
+        reference_hpa: f64,
+        sigma_m: f64,
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        if !pressure_hpa.is_finite() || pressure_hpa < 100.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "pressure_hpa",
+                value: pressure_hpa,
+            });
+        }
+        if !reference_hpa.is_finite() || reference_hpa <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "reference_hpa",
+                value: reference_hpa,
+            });
+        }
+        if !sigma_m.is_finite() || sigma_m <= 0.0 {
+            return Err(FilterError::InvalidMeasurement {
+                field: "barometer_sigma",
+                value: sigma_m,
+            });
         }
         let measured_alt = crate::dead_reckoning::barometric_altitude(pressure_hpa, reference_hpa);
-
-        // Observation: z-component only. H = [0, 0, 1, 0, 0, 0]
-        let predicted_z = self.state.state[2];
-        let innovation = measured_alt - predicted_z;
-
-        let r = sigma_m * sigma_m;
-        let p_zz = self.state.covariance[2 * STATE_DIM + 2];
-        let s = p_zz + r;
-        if s.abs() < 1e-30 {
-            return;
+        if !measured_alt.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
         }
+        self.update_linear_observation_checked(2, measured_alt, sigma_m * sigma_m)
+    }
 
-        // Kalman gain for z-only observation
-        let mut k = [0.0_f64; STATE_DIM];
-        for i in 0..STATE_DIM {
-            k[i] = self.state.covariance[i * STATE_DIM + 2] / s;
-        }
-
-        // State update
-        for i in 0..STATE_DIM {
-            self.state.state[i] += k[i] * innovation;
-        }
-
-        // Covariance update (Joseph form for z-only)
-        let mut new_cov = self.state.covariance.clone();
-        for i in 0..STATE_DIM {
-            for j in 0..STATE_DIM {
-                new_cov[i * STATE_DIM + j] -= k[i] * self.state.covariance[2 * STATE_DIM + j];
-            }
-        }
-        self.state.covariance = new_cov;
-        self.state.update_count += 1;
+    pub fn update_barometer(&mut self, pressure_hpa: f64, reference_hpa: f64, sigma_m: f64) {
+        let _ = self.update_barometer_checked(pressure_hpa, reference_hpa, sigma_m);
     }
 
     /// Get 1-sigma position uncertainty (meters).
+    pub fn position_sigma_checked(&self) -> Result<f64, FilterError> {
+        validate_filter_state(&self.state, &self.config)?;
+        let variance = self.state.covariance[idx(0, 0)]
+            + self.state.covariance[idx(1, 1)]
+            + self.state.covariance[idx(2, 2)];
+        if !variance.is_finite() || variance < 0.0 {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        Ok(variance.sqrt())
+    }
+
     pub fn position_sigma(&self) -> f64 {
-        let var_x = self.state.covariance[0];
-        let var_y = self.state.covariance[STATE_DIM + 1];
-        let var_z = self.state.covariance[2 * STATE_DIM + 2];
-        (var_x + var_y + var_z).sqrt()
+        self.position_sigma_checked().unwrap_or(f64::INFINITY)
     }
 }
 
@@ -385,29 +750,137 @@ impl PositionFilter {
 mod tests {
     use super::*;
 
+    fn test_filter(sigma: f64) -> PositionFilter {
+        PositionFilter::try_new([0.0, 0.0, 0.0], sigma, FilterConfig::default()).unwrap()
+    }
+
+    fn assert_covariance_symmetric(filter: &PositionFilter) {
+        for row in 0..STATE_DIM {
+            for col in 0..STATE_DIM {
+                let a = filter.state.covariance[idx(row, col)];
+                let b = filter.state.covariance[idx(col, row)];
+                assert!((a - b).abs() < 1e-8, "P[{row},{col}]={a} vs P[{col},{row}]={b}");
+            }
+        }
+    }
+
+    #[test]
+    fn checked_constructor_rejects_invalid_state_or_config() {
+        assert!(PositionFilter::try_new([f64::NAN, 0.0, 0.0], 1.0, FilterConfig::default()).is_err());
+        assert!(PositionFilter::try_new([0.0; 3], 0.0, FilterConfig::default()).is_err());
+        let mut config = FilterConfig::default();
+        config.innovation_gate_sigma = f64::NAN;
+        assert!(PositionFilter::try_new([0.0; 3], 1.0, config).is_err());
+    }
+
     #[test]
     fn predict_moves_position() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 100.0, FilterConfig::default());
-        filter.state.state[3] = 1.0; // 1 m/s in x
-        filter.predict(10.0);
+        let mut filter = test_filter(100.0);
+        filter.state.state[3] = 1.0;
+        filter.predict_checked(10.0).unwrap();
         assert!((filter.position()[0] - 10.0).abs() < 0.01);
     }
 
     #[test]
+    fn predict_propagates_position_velocity_cross_covariance() {
+        let mut filter = test_filter(10.0);
+        assert_eq!(filter.state.covariance[idx(0, 3)], 0.0);
+        filter.predict_checked(2.0).unwrap();
+        let expected = 2.0 * 100.0;
+        assert!((filter.state.covariance[idx(0, 3)] - expected).abs() < 1e-9);
+        assert!((filter.state.covariance[idx(3, 0)] - expected).abs() < 1e-9);
+        assert_covariance_symmetric(&filter);
+    }
+
+    #[test]
+    fn invalid_predict_is_transactional() {
+        let mut filter = test_filter(10.0);
+        let before = filter.clone();
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(filter.predict_checked(bad).is_err());
+            assert_eq!(filter.state.state, before.state.state);
+            assert_eq!(filter.state.covariance, before.state.covariance);
+            assert_eq!(filter.state.last_update_time, before.state.last_update_time);
+        }
+    }
+
+    #[test]
     fn predict_increases_uncertainty() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 10.0, FilterConfig::default());
+        let mut filter = test_filter(10.0);
         let sigma_before = filter.position_sigma();
-        filter.predict(60.0); // 1 minute
+        filter.predict_checked(60.0).unwrap();
         assert!(filter.position_sigma() > sigma_before);
     }
 
     #[test]
-    fn update_reduces_uncertainty() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 1000.0, FilterConfig::default());
+    fn joseph_range_update_reduces_uncertainty_and_stays_symmetric() {
+        let mut filter = test_filter(1000.0);
         let sigma_before = filter.position_sigma();
-        // Anchor at (100, 0, 0), range 100m — consistent with origin
-        filter.update(&[100.0, 0.0, 0.0], 100.0, 1.0, 1.0);
+        let outcome = filter
+            .update_range_checked(&[100.0, 0.0, 0.0], 100.0, 1.0)
+            .unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::Accepted);
         assert!(filter.position_sigma() < sigma_before);
+        assert_covariance_symmetric(&filter);
+        assert!(filter.state.covariance.iter().all(|v| v.is_finite()));
+        for i in 0..STATE_DIM {
+            assert!(filter.state.covariance[idx(i, i)] >= 0.0);
+        }
+    }
+
+    #[test]
+    fn trust_compatibility_cannot_rewrite_precision() {
+        let mut high = test_filter(100.0);
+        let mut low = high.clone();
+        let high_outcome = high
+            .update_with_trust_checked(&[100.0, 0.0, 0.0], 90.0, 2.0, 1.0)
+            .unwrap();
+        let low_outcome = low
+            .update_with_trust_checked(&[100.0, 0.0, 0.0], 90.0, 2.0, 0.01)
+            .unwrap();
+        assert_eq!(high_outcome, low_outcome);
+        assert_eq!(high.state.state, low.state.state);
+        assert_eq!(high.state.covariance, low.state.covariance);
+    }
+
+    #[test]
+    fn zero_trust_is_admission_rejection_not_infinite_uncertainty() {
+        let mut filter = test_filter(100.0);
+        let before = filter.clone();
+        let outcome = filter
+            .update_with_trust_checked(&[100.0, 0.0, 0.0], 90.0, 2.0, 0.0)
+            .unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::SourceRejected);
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
+    }
+
+    #[test]
+    fn invalid_measurements_fail_without_mutation() {
+        let mut filter = test_filter(25.0);
+        let before = filter.clone();
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(filter.update_range_checked(&[100.0, 0.0, 0.0], bad, 1.0).is_err());
+            assert_eq!(filter.state.state, before.state.state);
+            assert_eq!(filter.state.covariance, before.state.covariance);
+        }
+        assert!(filter
+            .update_range_checked(&[f64::NAN, 0.0, 0.0], 100.0, 1.0)
+            .is_err());
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
+    }
+
+    #[test]
+    fn outlier_measurement_is_observably_gated() {
+        let mut filter = test_filter(25.0);
+        let before = filter.clone();
+        let outcome = filter
+            .update_range_checked(&[100.0, 0.0, 0.0], 10_000.0, 1.0)
+            .unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::InnovationRejected);
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
     }
 
     #[test]
@@ -419,121 +892,82 @@ mod tests {
             [0.0, 100.0, 0.0],
             [0.0, 0.0, 100.0],
         ];
-
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 200.0, FilterConfig::default());
-
-        // 20 rounds of measurements
+        let mut filter = test_filter(200.0);
         for _ in 0..20 {
-            filter.predict(1.0);
+            filter.predict_checked(1.0).unwrap();
             for anchor in &anchors {
                 let dx: f64 = true_pos[0] - anchor[0];
                 let dy: f64 = true_pos[1] - anchor[1];
                 let dz: f64 = true_pos[2] - anchor[2];
                 let range = (dx * dx + dy * dy + dz * dz).sqrt();
-                filter.update(anchor, range, 5.0, 1.0);
+                let _ = filter.update_range_checked(anchor, range, 5.0).unwrap();
             }
         }
-
         let pos = filter.position();
         let error = ((pos[0] - true_pos[0]).powi(2)
             + (pos[1] - true_pos[1]).powi(2)
             + (pos[2] - true_pos[2]).powi(2))
         .sqrt();
-        assert!(
-            error < 5.0,
-            "EKF should converge to within 5m, got {}m error",
-            error
-        );
-        assert!(
-            filter.position_sigma() < 50.0,
-            "Sigma should shrink: {}",
-            filter.position_sigma()
-        );
+        assert!(error < 5.0, "EKF error {error}m");
+        assert!(filter.position_sigma() < 50.0);
+        assert_covariance_symmetric(&filter);
     }
 
     #[test]
-    fn barometer_updates_altitude() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 100.0, FilterConfig::default());
-        let sigma_z_before = filter.state.covariance[2 * 6 + 2];
-        // Feed barometric reading at ~100m altitude
-        filter.update_barometer(1001.3, 1013.25, 1.0);
-        let sigma_z_after = filter.state.covariance[2 * 6 + 2];
-        assert!(
-            sigma_z_after < sigma_z_before,
-            "Barometer should reduce z uncertainty"
-        );
-        // Z state should move toward ~100m
-        assert!(
-            filter.position()[2].abs() > 10.0,
-            "Z should update: {}",
-            filter.position()[2]
-        );
-    }
-
-    #[test]
-    fn trust_weighting_affects_convergence() {
-        let good_anchor = [0.0, 0.0, 0.0]; // correct range = 50m
-        let bad_anchor = [100.0, 0.0, 0.0]; // correct range = 50m, but we'll give wrong range
-
-        let mut filter = PositionFilter::new([25.0, 0.0, 0.0], 100.0, FilterConfig::default());
-
-        for _ in 0..10 {
-            filter.predict(1.0);
-            filter.update(&good_anchor, 50.0, 1.0, 1.0); // correct, high trust
-            filter.update(&bad_anchor, 80.0, 1.0, 0.05); // wrong range, low trust
-        }
-
-        let pos = filter.position();
-        // Should be closer to 50 than to where bad measurement would pull it
-        assert!(
-            (pos[0] - 50.0).abs() < 10.0,
-            "Position {} should be near 50",
-            pos[0]
-        );
-    }
-
-    #[test]
-    fn outlier_measurement_is_gated() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 25.0, FilterConfig::default());
-        let sigma_before = filter.position_sigma();
-        filter.update(&[100.0, 0.0, 0.0], 10_000.0, 1.0, 1.0);
-        assert!(
-            (filter.position()[0]).abs() < 1.0,
-            "Outlier should be ignored"
-        );
-        assert!(filter.position_sigma() <= sigma_before + 1e-6);
+    fn checked_barometer_uses_joseph_scalar_update() {
+        let mut filter = test_filter(100.0);
+        let sigma_z_before = filter.state.covariance[idx(2, 2)];
+        let outcome = filter
+            .update_barometer_checked(1001.3, 1013.25, 1.0)
+            .unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::Accepted);
+        assert!(filter.state.covariance[idx(2, 2)] < sigma_z_before);
+        assert!(filter.position()[2].abs() > 10.0);
+        assert_covariance_symmetric(&filter);
     }
 
     #[test]
     fn absolute_position_update_pulls_state_toward_fix() {
-        let mut filter = PositionFilter::new([50.0, -20.0, 10.0], 100.0, FilterConfig::default());
-        filter.update_absolute_position(
-            [5.0, 2.0, -3.0],
-            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-        );
+        let mut filter = PositionFilter::try_new(
+            [50.0, -20.0, 10.0],
+            100.0,
+            FilterConfig::default(),
+        )
+        .unwrap();
+        filter
+            .update_absolute_position_checked(
+                [5.0, 2.0, -3.0],
+                [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            )
+            .unwrap();
         let pos = filter.position();
         assert!((pos[0] - 5.0).abs() < 1.0);
         assert!((pos[1] - 2.0).abs() < 1.0);
         assert!((pos[2] + 3.0).abs() < 1.0);
+        assert_covariance_symmetric(&filter);
     }
 
     #[test]
     fn absolute_velocity_update_pulls_state_toward_fix() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 0.0], 25.0, FilterConfig::default());
-        filter.update_absolute_velocity(
-            [1.5, -0.5, 0.25],
-            [0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04],
-        );
+        let mut filter = test_filter(25.0);
+        filter
+            .update_absolute_velocity_checked(
+                [1.5, -0.5, 0.25],
+                [0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04],
+            )
+            .unwrap();
         let vel = filter.velocity();
         assert!((vel[0] - 1.5).abs() < 0.5);
         assert!((vel[1] + 0.5).abs() < 0.5);
         assert!((vel[2] - 0.25).abs() < 0.5);
+        assert_covariance_symmetric(&filter);
     }
 
     #[test]
     fn depth_update_reduces_vertical_error() {
-        let mut filter = PositionFilter::new([0.0, 0.0, 40.0], 50.0, FilterConfig::default());
-        filter.update_depth(12.0, 0.5);
+        let mut filter = PositionFilter::try_new([0.0, 0.0, 40.0], 50.0, FilterConfig::default()).unwrap();
+        let outcome = filter.update_depth_checked(12.0, 0.5).unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::Accepted);
         assert!((filter.position()[2] - 12.0).abs() < 5.0);
     }
 }
