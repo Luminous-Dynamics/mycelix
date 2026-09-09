@@ -9,6 +9,7 @@ on:
     paths:
       - 'crates/mycelix-integration-core/**'
       - 'crates/mycelix-integration-runtime/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
       - '.github/workflows/integration-runtime-qualification.yml'
   push:
     branches:
@@ -16,6 +17,7 @@ on:
     paths:
       - 'crates/mycelix-integration-core/**'
       - 'crates/mycelix-integration-runtime/**'
+      - 'docs/rfcs/integration-plane-v1-execution-safety.md'
       - '.github/workflows/integration-runtime-qualification.yml'
   workflow_dispatch:
 
@@ -58,6 +60,20 @@ jobs:
 
       - name: Clippy runtime and core dependency
         run: cargo clippy --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce execution-safety constitution
+        shell: bash
+        run: |
+          set -euo pipefail
+          constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
+          test -f "$constitution"
+          grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
+          grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
+          grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
+          grep -Fq 'Reconciliation observations MUST be append-only and non-conclusive by default' "$constitution"
+          grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
+          grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
+          grep -Fq 'Execution history and admission MUST be bounded' "$constitution"
 
       - name: Enforce no provider or Holochain SDK dependency in runtime
         shell: bash
