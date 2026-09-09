@@ -25,6 +25,8 @@ use serde::{Deserialize, Serialize};
 /// EKF state dimension (3D position + 3D velocity).
 const STATE_DIM: usize = 6;
 const COVARIANCE_LEN: usize = STATE_DIM * STATE_DIM;
+const MEASUREMENT_DIM: usize = 3;
+const MEASUREMENT_COVARIANCE_LEN: usize = MEASUREMENT_DIM * MEASUREMENT_DIM;
 const SYMMETRY_TOLERANCE: f64 = 1e-9;
 /// Relative tolerance used to distinguish numerical roundoff from a materially
 /// negative covariance eigenvalue.
@@ -38,6 +40,10 @@ const JACOBI_MAX_ROTATIONS: usize = 256;
 
 fn idx(row: usize, col: usize) -> usize {
     row * STATE_DIM + col
+}
+
+fn idx3(row: usize, col: usize) -> usize {
+    row * MEASUREMENT_DIM + col
 }
 
 /// Filter state at a given time.
@@ -127,6 +133,8 @@ pub enum FilterError {
     CovarianceLimitExceeded { index: usize, value: f64, max: f64 },
     IndefiniteCovariance { min_eigenvalue: f64, tolerance: f64 },
     CovarianceQualificationIndeterminate,
+    InvalidMeasurementCovariance,
+    InnovationCovarianceIndeterminate,
     InvalidTimeStep { dt: f64 },
     InvalidMeasurement { field: &'static str, value: f64 },
     InvalidAnchor { component: usize, value: f64 },
@@ -164,6 +172,13 @@ impl std::fmt::Display for FilterError {
             ),
             Self::CovarianceQualificationIndeterminate => {
                 write!(f, "covariance PSD qualification did not converge")
+            }
+            Self::InvalidMeasurementCovariance => write!(
+                f,
+                "3D measurement covariance must be finite, symmetric, and positive definite"
+            ),
+            Self::InnovationCovarianceIndeterminate => {
+                write!(f, "3D innovation covariance could not be factored")
             }
             Self::InvalidTimeStep { dt } => {
                 write!(f, "time step must be finite and positive, got {dt}")
@@ -245,8 +260,7 @@ fn covariance_psd_status(covariance: &[f64]) -> CovariancePsdStatus {
     let matrix_scale = matrix
         .iter()
         .fold(0.0_f64, |scale, value| scale.max(value.abs()));
-    let convergence_tolerance =
-        JACOBI_RELATIVE_TOLERANCE * matrix_scale.max(1.0);
+    let convergence_tolerance = JACOBI_RELATIVE_TOLERANCE * matrix_scale.max(1.0);
 
     let mut converged = false;
     for _ in 0..JACOBI_MAX_ROTATIONS {
@@ -343,9 +357,8 @@ fn covariance_psd_status(covariance: &[f64]) -> CovariancePsdStatus {
         max_eigenvalue = max_eigenvalue.max(value);
     }
 
-    let tolerance = PSD_ABSOLUTE_TOLERANCE.max(
-        PSD_RELATIVE_TOLERANCE * max_eigenvalue.abs().max(1.0),
-    );
+    let tolerance =
+        PSD_ABSOLUTE_TOLERANCE.max(PSD_RELATIVE_TOLERANCE * max_eigenvalue.abs().max(1.0));
     if min_eigenvalue < -tolerance {
         CovariancePsdStatus::Invalid {
             min_eigenvalue,
@@ -448,6 +461,105 @@ fn symmetrize(matrix: &mut [f64]) {
             matrix[idx(col, row)] = mean;
         }
     }
+}
+
+fn cholesky_3x3(matrix: &[f64; MEASUREMENT_COVARIANCE_LEN]) -> Option<[f64; MEASUREMENT_COVARIANCE_LEN]> {
+    if matrix.iter().any(|value| !value.is_finite()) {
+        return None;
+    }
+    let scale = matrix
+        .iter()
+        .fold(0.0_f64, |current, value| current.max(value.abs()));
+    let tolerance = PSD_ABSOLUTE_TOLERANCE.max(PSD_RELATIVE_TOLERANCE * scale);
+    let mut lower = [0.0_f64; MEASUREMENT_COVARIANCE_LEN];
+
+    for row in 0..MEASUREMENT_DIM {
+        for col in 0..=row {
+            let mut residual = matrix[idx3(row, col)];
+            for k in 0..col {
+                residual -= lower[idx3(row, k)] * lower[idx3(col, k)];
+            }
+            if !residual.is_finite() {
+                return None;
+            }
+            if row == col {
+                if residual <= tolerance {
+                    return None;
+                }
+                lower[idx3(row, col)] = residual.sqrt();
+            } else {
+                let diagonal = lower[idx3(col, col)];
+                if !diagonal.is_finite() || diagonal <= 0.0 {
+                    return None;
+                }
+                let value = residual / diagonal;
+                if !value.is_finite() {
+                    return None;
+                }
+                lower[idx3(row, col)] = value;
+            }
+        }
+    }
+    Some(lower)
+}
+
+fn solve_cholesky_3x3(
+    lower: &[f64; MEASUREMENT_COVARIANCE_LEN],
+    rhs: [f64; MEASUREMENT_DIM],
+) -> Option<[f64; MEASUREMENT_DIM]> {
+    let mut y = [0.0_f64; MEASUREMENT_DIM];
+    for row in 0..MEASUREMENT_DIM {
+        let mut value = rhs[row];
+        for col in 0..row {
+            value -= lower[idx3(row, col)] * y[col];
+        }
+        let diagonal = lower[idx3(row, row)];
+        if !value.is_finite() || !diagonal.is_finite() || diagonal <= 0.0 {
+            return None;
+        }
+        y[row] = value / diagonal;
+        if !y[row].is_finite() {
+            return None;
+        }
+    }
+
+    let mut x = [0.0_f64; MEASUREMENT_DIM];
+    for row in (0..MEASUREMENT_DIM).rev() {
+        let mut value = y[row];
+        for col in (row + 1)..MEASUREMENT_DIM {
+            value -= lower[idx3(col, row)] * x[col];
+        }
+        let diagonal = lower[idx3(row, row)];
+        if !value.is_finite() || !diagonal.is_finite() || diagonal <= 0.0 {
+            return None;
+        }
+        x[row] = value / diagonal;
+        if !x[row].is_finite() {
+            return None;
+        }
+    }
+    Some(x)
+}
+
+fn validate_measurement_covariance(
+    covariance: &[f64; MEASUREMENT_COVARIANCE_LEN],
+) -> Result<(), FilterError> {
+    if covariance.iter().any(|value| !value.is_finite()) {
+        return Err(FilterError::InvalidMeasurementCovariance);
+    }
+    for row in 0..MEASUREMENT_DIM {
+        for col in (row + 1)..MEASUREMENT_DIM {
+            let a = covariance[idx3(row, col)];
+            let b = covariance[idx3(col, row)];
+            let scale = a.abs().max(b.abs()).max(1.0);
+            if (a - b).abs() > SYMMETRY_TOLERANCE * scale {
+                return Err(FilterError::InvalidMeasurementCovariance);
+            }
+        }
+    }
+    cholesky_3x3(covariance)
+        .map(|_| ())
+        .ok_or(FilterError::InvalidMeasurementCovariance)
 }
 
 /// Extended Kalman Filter for position tracking.
@@ -662,6 +774,138 @@ impl PositionFilter {
         Ok(FilterUpdateOutcome::Accepted)
     }
 
+    fn vector_linear_update_checked(
+        &mut self,
+        state_offset: usize,
+        observed: [f64; MEASUREMENT_DIM],
+        measurement_covariance: [f64; MEASUREMENT_COVARIANCE_LEN],
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        if state_offset + MEASUREMENT_DIM > STATE_DIM {
+            return Err(FilterError::InvalidMeasurement {
+                field: "state_offset",
+                value: state_offset as f64,
+            });
+        }
+        validate_filter_state(&self.state, &self.config)?;
+        if observed.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::InvalidMeasurement {
+                field: "vector_observation",
+                value: f64::NAN,
+            });
+        }
+        validate_measurement_covariance(&measurement_covariance)?;
+
+        let mut innovation = [0.0_f64; MEASUREMENT_DIM];
+        for axis in 0..MEASUREMENT_DIM {
+            innovation[axis] = observed[axis] - self.state.state[state_offset + axis];
+            if !innovation[axis].is_finite() {
+                return Err(FilterError::NonFiniteComputation);
+            }
+        }
+
+        // PH^T is simply the three covariance columns selected by the linear
+        // observation matrix H.
+        let mut ph_t = [[0.0_f64; MEASUREMENT_DIM]; STATE_DIM];
+        for row in 0..STATE_DIM {
+            for axis in 0..MEASUREMENT_DIM {
+                ph_t[row][axis] = self.state.covariance[idx(row, state_offset + axis)];
+            }
+        }
+
+        let mut innovation_covariance = [0.0_f64; MEASUREMENT_COVARIANCE_LEN];
+        for row in 0..MEASUREMENT_DIM {
+            for col in 0..MEASUREMENT_DIM {
+                innovation_covariance[idx3(row, col)] = self.state.covariance
+                    [idx(state_offset + row, state_offset + col)]
+                    + measurement_covariance[idx3(row, col)];
+            }
+        }
+        let innovation_factor = cholesky_3x3(&innovation_covariance)
+            .ok_or(FilterError::InnovationCovarianceIndeterminate)?;
+
+        let normalized_innovation = solve_cholesky_3x3(&innovation_factor, innovation)
+            .ok_or(FilterError::InnovationCovarianceIndeterminate)?;
+        let mut nis = 0.0_f64;
+        for axis in 0..MEASUREMENT_DIM {
+            nis += innovation[axis] * normalized_innovation[axis];
+        }
+        if !nis.is_finite() || nis < 0.0 {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        // Preserve the scalar gate's meaning as an RMS standardized innovation:
+        // mean(z^T S^-1 z) <= gate_sigma^2 for the 3-vector profile.
+        let gate = self.config.innovation_gate_sigma * self.config.innovation_gate_sigma
+            * MEASUREMENT_DIM as f64;
+        if !gate.is_finite() {
+            return Err(FilterError::NonFiniteComputation);
+        }
+        if nis > gate {
+            return Ok(FilterUpdateOutcome::InnovationRejected);
+        }
+
+        let mut gain = [[0.0_f64; MEASUREMENT_DIM]; STATE_DIM];
+        for row in 0..STATE_DIM {
+            gain[row] = solve_cholesky_3x3(&innovation_factor, ph_t[row])
+                .ok_or(FilterError::InnovationCovarianceIndeterminate)?;
+        }
+
+        let mut candidate_state = self.state.state;
+        for row in 0..STATE_DIM {
+            for axis in 0..MEASUREMENT_DIM {
+                candidate_state[row] += gain[row][axis] * innovation[axis];
+            }
+        }
+        if candidate_state.iter().any(|value| !value.is_finite()) {
+            return Err(FilterError::NonFiniteComputation);
+        }
+
+        // Vector Joseph update:
+        // P' = (I-KH) P (I-KH)^T + K R K^T
+        let mut a = identity_matrix();
+        for row in 0..STATE_DIM {
+            for axis in 0..MEASUREMENT_DIM {
+                a[idx(row, state_offset + axis)] -= gain[row][axis];
+            }
+        }
+        let ap = mat_mul(&a, &self.state.covariance)?;
+        let at = transpose(&a)?;
+        let mut candidate_covariance = mat_mul(&ap, &at)?;
+
+        let mut gain_times_r = [[0.0_f64; MEASUREMENT_DIM]; STATE_DIM];
+        for row in 0..STATE_DIM {
+            for col in 0..MEASUREMENT_DIM {
+                for k in 0..MEASUREMENT_DIM {
+                    gain_times_r[row][col] +=
+                        gain[row][k] * measurement_covariance[idx3(k, col)];
+                }
+            }
+        }
+        for row in 0..STATE_DIM {
+            for col in 0..STATE_DIM {
+                let mut krkt = 0.0_f64;
+                for axis in 0..MEASUREMENT_DIM {
+                    krkt += gain_times_r[row][axis] * gain[col][axis];
+                }
+                if !krkt.is_finite() {
+                    return Err(FilterError::NonFiniteComputation);
+                }
+                candidate_covariance[idx(row, col)] += krkt;
+            }
+        }
+        symmetrize(&mut candidate_covariance);
+        validate_covariance(&candidate_covariance, self.config.max_covariance)?;
+
+        let next_count = self
+            .state
+            .update_count
+            .checked_add(1)
+            .ok_or(FilterError::CounterOverflow)?;
+        self.state.state = candidate_state;
+        self.state.covariance = candidate_covariance;
+        self.state.update_count = next_count;
+        Ok(FilterUpdateOutcome::Accepted)
+    }
+
     /// Checked range update whose mathematical precision is determined only by
     /// `range_sigma`; source trust/reputation is deliberately not an argument.
     pub fn update_range_checked(
@@ -766,67 +1010,53 @@ impl PositionFilter {
         self.scalar_update_checked(h, observed_value, predicted, variance)
     }
 
-    /// Checked absolute-position update.
+    /// Canonical simultaneous absolute-position update preserving the complete
+    /// 3×3 measurement covariance, including cross-axis correlation.
+    pub fn update_absolute_position_vector_checked(
+        &mut self,
+        position: [f64; MEASUREMENT_DIM],
+        covariance: [f64; MEASUREMENT_COVARIANCE_LEN],
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        self.vector_linear_update_checked(0, position, covariance)
+    }
+
+    /// Source-compatible checked absolute-position entry point.
     ///
-    /// This compatibility profile still consumes only the diagonal of the
-    /// supplied 3×3 covariance. A later Q4 tranche will add a simultaneous
-    /// vector update that preserves off-diagonal measurement covariance.
+    /// The historical return shape is retained for callers stacked below #423,
+    /// but all three entries now describe one joint vector decision and the
+    /// filter update counter advances only once on acceptance.
     pub fn update_absolute_position_checked(
         &mut self,
         position: [f64; 3],
         covariance: [f64; 9],
     ) -> Result<[FilterUpdateOutcome; 3], FilterError> {
-        if position.iter().any(|value| !value.is_finite())
-            || covariance.iter().any(|value| !value.is_finite())
-            || covariance[0] <= 0.0
-            || covariance[4] <= 0.0
-            || covariance[8] <= 0.0
-        {
-            return Err(FilterError::InvalidMeasurement {
-                field: "absolute_position",
-                value: f64::NAN,
-            });
-        }
-        let mut candidate = self.clone();
-        let outcomes = [
-            candidate.update_linear_observation_checked(0, position[0], covariance[0])?,
-            candidate.update_linear_observation_checked(1, position[1], covariance[4])?,
-            candidate.update_linear_observation_checked(2, position[2], covariance[8])?,
-        ];
-        *self = candidate;
-        Ok(outcomes)
+        let outcome = self.update_absolute_position_vector_checked(position, covariance)?;
+        Ok([outcome; 3])
     }
 
     pub fn update_absolute_position(&mut self, position: [f64; 3], covariance: [f64; 9]) {
         let _ = self.update_absolute_position_checked(position, covariance);
     }
 
-    /// Checked absolute-velocity update. See position counterpart for the
-    /// current diagonal-only measurement-covariance boundary.
+    /// Canonical simultaneous absolute-velocity update preserving the complete
+    /// 3×3 measurement covariance, including cross-axis correlation.
+    pub fn update_absolute_velocity_vector_checked(
+        &mut self,
+        velocity: [f64; MEASUREMENT_DIM],
+        covariance: [f64; MEASUREMENT_COVARIANCE_LEN],
+    ) -> Result<FilterUpdateOutcome, FilterError> {
+        self.vector_linear_update_checked(3, velocity, covariance)
+    }
+
+    /// Source-compatible checked absolute-velocity entry point. See the
+    /// position counterpart for the joint-decision return-shape semantics.
     pub fn update_absolute_velocity_checked(
         &mut self,
         velocity: [f64; 3],
         covariance: [f64; 9],
     ) -> Result<[FilterUpdateOutcome; 3], FilterError> {
-        if velocity.iter().any(|value| !value.is_finite())
-            || covariance.iter().any(|value| !value.is_finite())
-            || covariance[0] <= 0.0
-            || covariance[4] <= 0.0
-            || covariance[8] <= 0.0
-        {
-            return Err(FilterError::InvalidMeasurement {
-                field: "absolute_velocity",
-                value: f64::NAN,
-            });
-        }
-        let mut candidate = self.clone();
-        let outcomes = [
-            candidate.update_linear_observation_checked(3, velocity[0], covariance[0])?,
-            candidate.update_linear_observation_checked(4, velocity[1], covariance[4])?,
-            candidate.update_linear_observation_checked(5, velocity[2], covariance[8])?,
-        ];
-        *self = candidate;
-        Ok(outcomes)
+        let outcome = self.update_absolute_velocity_vector_checked(velocity, covariance)?;
+        Ok([outcome; 3])
     }
 
     pub fn update_absolute_velocity(&mut self, velocity: [f64; 3], covariance: [f64; 9]) {
@@ -976,6 +1206,10 @@ mod tests {
 
     fn test_filter(sigma: f64) -> PositionFilter {
         PositionFilter::try_new([0.0, 0.0, 0.0], sigma, FilterConfig::default()).unwrap()
+    }
+
+    fn identity_measurement_covariance(variance: f64) -> [f64; 9] {
+        [variance, 0.0, 0.0, 0.0, variance, 0.0, 0.0, 0.0, variance]
     }
 
     fn assert_covariance_symmetric(filter: &PositionFilter) {
@@ -1236,7 +1470,7 @@ mod tests {
         filter
             .update_absolute_position_checked(
                 [5.0, 2.0, -3.0],
-                [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                identity_measurement_covariance(1.0),
             )
             .unwrap();
         let pos = filter.position();
@@ -1245,6 +1479,73 @@ mod tests {
         assert!((pos[2] + 3.0).abs() < 1.0);
         assert_covariance_symmetric(&filter);
         assert_covariance_psd(&filter);
+        assert_eq!(filter.state.update_count, 1);
+    }
+
+    #[test]
+    fn correlated_absolute_fix_changes_state_and_covariance() {
+        let mut diagonal = test_filter(1.0);
+        let mut correlated = diagonal.clone();
+        let observed = [1.0, -1.0, 0.5];
+        let diagonal_r = identity_measurement_covariance(1.0);
+        let correlated_r = [1.0, 0.8, 0.0, 0.8, 1.0, 0.0, 0.0, 0.0, 1.0];
+
+        assert_eq!(
+            diagonal
+                .update_absolute_position_vector_checked(observed, diagonal_r)
+                .unwrap(),
+            FilterUpdateOutcome::Accepted
+        );
+        assert_eq!(
+            correlated
+                .update_absolute_position_vector_checked(observed, correlated_r)
+                .unwrap(),
+            FilterUpdateOutcome::Accepted
+        );
+
+        assert_ne!(diagonal.state.state, correlated.state.state);
+        assert_ne!(diagonal.state.covariance, correlated.state.covariance);
+        assert_covariance_psd(&diagonal);
+        assert_covariance_psd(&correlated);
+    }
+
+    #[test]
+    fn invalid_full_measurement_covariance_fails_transactionally() {
+        let mut filter = test_filter(1.0);
+        let before = filter.clone();
+        let asymmetric = [1.0, 0.5, 0.0, 0.4, 1.0, 0.0, 0.0, 0.0, 1.0];
+        assert!(matches!(
+            filter.update_absolute_position_vector_checked([0.5, 0.0, 0.0], asymmetric),
+            Err(FilterError::InvalidMeasurementCovariance)
+        ));
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
+        assert_eq!(filter.state.update_count, before.state.update_count);
+
+        let indefinite = [1.0, 2.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        assert!(matches!(
+            filter.update_absolute_position_vector_checked([0.5, 0.0, 0.0], indefinite),
+            Err(FilterError::InvalidMeasurementCovariance)
+        ));
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
+        assert_eq!(filter.state.update_count, before.state.update_count);
+    }
+
+    #[test]
+    fn vector_innovation_gate_is_transactional() {
+        let mut filter = test_filter(1.0);
+        let before = filter.clone();
+        let outcome = filter
+            .update_absolute_position_vector_checked(
+                [10_000.0, -10_000.0, 10_000.0],
+                identity_measurement_covariance(1.0),
+            )
+            .unwrap();
+        assert_eq!(outcome, FilterUpdateOutcome::InnovationRejected);
+        assert_eq!(filter.state.state, before.state.state);
+        assert_eq!(filter.state.covariance, before.state.covariance);
+        assert_eq!(filter.state.update_count, before.state.update_count);
     }
 
     #[test]
@@ -1253,7 +1554,7 @@ mod tests {
         filter
             .update_absolute_velocity_checked(
                 [1.5, -0.5, 0.25],
-                [0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04],
+                identity_measurement_covariance(0.04),
             )
             .unwrap();
         let vel = filter.velocity();
@@ -1262,6 +1563,7 @@ mod tests {
         assert!((vel[2] - 0.25).abs() < 0.5);
         assert_covariance_symmetric(&filter);
         assert_covariance_psd(&filter);
+        assert_eq!(filter.state.update_count, 1);
     }
 
     #[test]
