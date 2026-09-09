@@ -105,12 +105,25 @@ function validateObservation(
   if (observation.railReceiptRef !== undefined && !observation.railReceiptRef.trim()) {
     throw new Error('railReceiptRef must be non-empty when present');
   }
+  if (observation.state === SettlementAttemptState.Finalized && !observation.railReceiptRef?.trim()) {
+    throw new Error('every finalized settlement observation requires a rail receipt reference');
+  }
+}
+
+function observationIdentity(observation: SettlementAttemptObservation): string {
+  return [
+    observation.observedAt,
+    observation.state,
+    observation.railReceiptRef ?? '',
+    observation.supersedesAttemptId ?? '',
+  ].join('\u0000');
 }
 
 interface AttemptHistory {
   readonly attemptId: string;
   readonly observations: readonly SettlementAttemptObservation[];
   readonly firstObservedAt: number;
+  readonly lastObservedAt: number;
   readonly finalState: SettlementAttemptState;
   readonly supersedesAttemptId?: string;
 }
@@ -129,29 +142,49 @@ function buildAttemptHistories(
 
   const histories: AttemptHistory[] = [];
   for (const [attemptId, raw] of byAttempt) {
-    const sorted = [...raw].sort((a, b) => {
+    const seenExact = new Set<string>();
+    const unique = raw.filter(observation => {
+      const identity = observationIdentity(observation);
+      if (seenExact.has(identity)) return false;
+      seenExact.add(identity);
+      return true;
+    });
+    const sorted = [...unique].sort((a, b) => {
       const time = parseTimestamp(a.observedAt) - parseTimestamp(b.observedAt);
       return time || a.state.localeCompare(b.state);
     });
 
+    const first = sorted[0]!;
     for (let index = 1; index < sorted.length; index += 1) {
       const previous = sorted[index - 1]!;
       const current = sorted[index]!;
-      if (previous.observedAt === current.observedAt && previous.state !== current.state) {
-        throw new Error(`conflicting settlement states at identical timestamp for attempt ${attemptId}`);
+      if (current.supersedesAttemptId !== undefined) {
+        throw new Error('supersedesAttemptId is permitted only on the first observation of an attempt');
       }
-      if (previous.state === current.state) continue; // idempotent replay of the same evidence
+      if (previous.observedAt === current.observedAt) {
+        throw new Error(`conflicting settlement evidence at identical timestamp for attempt ${attemptId}`);
+      }
+      if (previous.state === current.state) continue; // later observation of the same provider state
       if (!ALLOWED_TRANSITIONS[previous.state].includes(current.state)) {
         throw new Error(`invalid settlement transition ${previous.state} -> ${current.state}`);
       }
     }
 
-    const first = sorted[0]!;
+    const finalizedRefs = new Set(
+      sorted
+        .filter(observation => observation.state === SettlementAttemptState.Finalized)
+        .map(observation => observation.railReceiptRef!),
+    );
+    if (finalizedRefs.size > 1) {
+      throw new Error(`finalized rail receipt reference changed within attempt ${attemptId}`);
+    }
+
     const final = sorted[sorted.length - 1]!;
     histories.push(Object.freeze({
       attemptId,
       observations: Object.freeze(sorted),
       firstObservedAt: parseTimestamp(first.observedAt),
+      lastObservedAt: parseTimestamp(final.observedAt),
       finalState: final.state,
       supersedesAttemptId: first.supersedesAttemptId,
     }));
@@ -166,6 +199,9 @@ function buildAttemptHistories(
     }
     if (![SettlementAttemptState.Failed, SettlementAttemptState.Rejected].includes(prior.finalState)) {
       throw new Error('new settlement attempt is forbidden until the prior attempt is retryable');
+    }
+    if (current.firstObservedAt <= prior.lastObservedAt) {
+      throw new Error('retry attempt must begin after the prior terminal observation');
     }
   }
 
@@ -200,13 +236,10 @@ export function reconstructSettlementRecovery(
 
   switch (latest.finalState) {
     case SettlementAttemptState.Finalized:
-      if (!finalObservation.railReceiptRef?.trim()) {
-        throw new Error('finalized settlement requires a rail receipt reference');
-      }
       return Object.freeze({
         ...base,
         status: 'finalized',
-        finalReceiptRef: finalObservation.railReceiptRef,
+        finalReceiptRef: finalObservation.railReceiptRef!,
         obligationSetSettled: true,
       });
 

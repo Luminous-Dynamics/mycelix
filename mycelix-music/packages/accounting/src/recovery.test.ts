@@ -71,17 +71,44 @@ describe('settlement recovery', () => {
     expect(reconstructSettlementRecovery(batch, observations).status).toBe('in_flight');
   });
 
+  it('rejects an overlapping retry even when it names the failed attempt', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'),
+      obs(SettlementAttemptState.Failed, '2026-09-10T00:10:00Z'),
+      obs(SettlementAttemptState.Authorized, '2026-09-10T00:05:00Z', {
+        attemptId: 'attempt:2',
+        supersedesAttemptId: 'attempt:1',
+      }),
+    ])).toThrow(/after the prior terminal observation/);
+  });
+
   it('blocks retry after a reversal until reconciliation resolves ambiguity', () => {
     const observations = [
       obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'),
       obs(SettlementAttemptState.Submitted, '2026-09-10T00:01:00Z'),
       obs(SettlementAttemptState.Confirmed, '2026-09-10T00:02:00Z'),
-      obs(SettlementAttemptState.Reversed, '2026-09-10T00:03:00Z'),
+      obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      obs(SettlementAttemptState.Reversed, '2026-09-10T00:04:00Z'),
     ];
     const recovered = reconstructSettlementRecovery(batch, observations);
     expect(recovered.status).toBe('blocked_ambiguous');
     expect(recovered.obligationSetSettled).toBe(false);
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
+  });
+
+  it('rejects finalized evidence without a durable receipt even if later reversed', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Confirmed, '2026-09-10T00:02:00Z'),
+      obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z'),
+      obs(SettlementAttemptState.Reversed, '2026-09-10T00:04:00Z'),
+    ])).toThrow(/every finalized settlement observation requires/);
+  });
+
+  it('rejects a finalized receipt identity that changes on replay', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      obs(SettlementAttemptState.Finalized, '2026-09-10T00:04:00Z', { railReceiptRef: 'rail:receipt:8' }),
+    ])).toThrow(/receipt reference changed/);
   });
 
   it('rejects evidence bound to a different obligation set', () => {
