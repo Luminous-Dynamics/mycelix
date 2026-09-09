@@ -270,6 +270,109 @@ fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCall
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Creation policy for a climate project.
+///
+/// Field validation alone is insufficient because malicious authors can bypass
+/// the coordinator and author entries directly. Every project must therefore
+/// enter the DHT in the only valid initial lifecycle state.
+fn validate_create_project(project: &ClimateProject) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_climate_project(project)?;
+    if let ValidateCallbackResult::Invalid(_) = fields {
+        return Ok(fields);
+    }
+
+    if project.status != ProjectStatus::Proposed {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Climate project must be created in Proposed status".into(),
+        ));
+    }
+    if project.verifier_did.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Proposed climate project must not have a verifier".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Creation policy for a project milestone.
+///
+/// Completion is an authenticated state transition. A milestone cannot be
+/// authored directly in a completed/credited/verified state.
+fn validate_create_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCallbackResult> {
+    let fields = validate_milestone(milestone)?;
+    if let ValidateCallbackResult::Invalid(_) = fields {
+        return Ok(fields);
+    }
+
+    if milestone.completed_at.is_some()
+        || milestone.credits_issued.is_some()
+        || milestone.verified_by.is_some()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Project milestone must be created incomplete and without credits or verifier".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Pure relationship policy for the ProjectToMilestones link.
+///
+/// The DHT link is the authoritative association between a concrete project
+/// record and a concrete milestone record, so their logical IDs must agree.
+fn validate_project_milestone_binding(
+    project: &ClimateProject,
+    milestone: &ProjectMilestone,
+) -> ValidateCallbackResult {
+    if project.id != milestone.project_id {
+        return ValidateCallbackResult::Invalid(format!(
+            "Milestone project_id {:?} does not match linked project id {:?}",
+            milestone.project_id, project.id
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// Resolve and validate both ends of a ProjectToMilestones link at DHT
+/// integrity time. Both addresses must be action hashes pointing to the
+/// expected entry types; merely supplying an existing hash is not enough.
+fn validate_project_to_milestone_link(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let project_action_hash = ActionHash::try_from(base_address).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ProjectToMilestones base must be a ClimateProject action hash".into()
+        ))
+    })?;
+    let milestone_action_hash = ActionHash::try_from(target_address).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ProjectToMilestones target must be a ProjectMilestone action hash".into()
+        ))
+    })?;
+
+    let project_record = must_get_valid_record(project_action_hash)?;
+    let project: ClimateProject = project_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProjectToMilestones base is not a ClimateProject entry".into()
+        )))?;
+
+    let milestone_record = must_get_valid_record(milestone_action_hash)?;
+    let milestone: ProjectMilestone = milestone_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProjectToMilestones target is not a ProjectMilestone entry".into()
+        )))?;
+
+    Ok(validate_project_milestone_binding(&project, &milestone))
+}
+
 /// Pure state-machine policy for climate-project lifecycle updates.
 ///
 /// The project proposal is immutable after creation. Verification is performed
@@ -440,8 +543,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, .. } => match app_entry {
                 EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-                EntryTypes::ClimateProject(project) => validate_climate_project(&project),
-                EntryTypes::ProjectMilestone(milestone) => validate_milestone(&milestone),
+                EntryTypes::ClimateProject(project) => validate_create_project(&project),
+                EntryTypes::ProjectMilestone(milestone) => validate_create_milestone(&milestone),
             },
             OpEntry::UpdateEntry {
                 app_entry,
@@ -461,11 +564,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, .. } => match link_type {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            ..
+        } => match link_type {
+            LinkTypes::ProjectToMilestones => {
+                validate_project_to_milestone_link(base_address, target_address)
+            }
             LinkTypes::AnchorToProjects
             | LinkTypes::TypeToProjects
             | LinkTypes::StatusToProjects
-            | LinkTypes::ProjectToMilestones
             | LinkTypes::ProjectUpdates
             | LinkTypes::VerifierToProjects => Ok(ValidateCallbackResult::Valid),
         },
@@ -611,8 +721,49 @@ mod tests {
     }
 
     #[test]
+    fn project_creation_requires_proposed_unverified_state() {
+        assert_valid(validate_create_project(&valid_project()));
+
+        let mut project = valid_project();
+        project.status = ProjectStatus::Active;
+        assert_invalid_contains(validate_create_project(&project), "Proposed");
+
+        let mut project = valid_project();
+        project.verifier_did = Some("did:example:forged".into());
+        assert_invalid_contains(validate_create_project(&project), "must not have a verifier");
+    }
+
+    #[test]
     fn production_milestone_validator_accepts_valid_milestone() {
         assert_valid(validate_milestone(&valid_milestone()));
+    }
+
+    #[test]
+    fn milestone_creation_requires_incomplete_uncredited_state() {
+        assert_valid(validate_create_milestone(&valid_milestone()));
+
+        let mut milestone = valid_milestone();
+        milestone.completed_at = Some(milestone.target_date);
+        milestone.credits_issued = Some(10.0);
+        milestone.verified_by = Some("did:example:forged".into());
+        assert_invalid_contains(validate_create_milestone(&milestone), "must be created incomplete");
+    }
+
+    #[test]
+    fn project_milestone_binding_requires_exact_logical_project_id() {
+        let project = valid_project();
+        let milestone = valid_milestone();
+        assert!(matches!(
+            validate_project_milestone_binding(&project, &milestone),
+            ValidateCallbackResult::Valid
+        ));
+
+        let mut wrong = valid_milestone();
+        wrong.project_id = "project:other".into();
+        assert_transition_invalid(
+            validate_project_milestone_binding(&project, &wrong),
+            "does not match linked project id",
+        );
     }
 
     #[test]
