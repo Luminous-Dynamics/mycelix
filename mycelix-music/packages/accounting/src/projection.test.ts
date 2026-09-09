@@ -95,6 +95,23 @@ describe('royalty statement compiler', () => {
     expect(statement.netPayable.amountMinor).toBe(0n);
   });
 
+  it('rejects obligations observed after the immutable statement asOf', () => {
+    expect(() => compile([
+      obligation('obl:future', 500n, { observedAt: '2026-09-20T00:00:00Z' }),
+    ], {
+      asOf: '2026-09-15T00:00:00Z',
+      completeness: {
+        kind: 'partial',
+        through: {
+          usageObservedThrough: '2026-09-15T00:00:00Z',
+          rightsResolvedThrough: '2026-09-15T00:00:00Z',
+          settlementsObservedThrough: '2026-09-15T00:00:00Z',
+        },
+        missingSources: ['usage:future'],
+      },
+    })).toThrow(/observed after the statement asOf/);
+  });
+
   it('counts value as paid only after settlement finality', () => {
     const obligations = [obligation('obl:1', 500n)];
     const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;
@@ -129,6 +146,39 @@ describe('royalty statement compiler', () => {
     expect(compile(obligations, {
       settlements: [{ batch, recovery: finalized, settledAmount: money(500n, 'USD') }],
     }).paid.amountMinor).toBe(500n);
+  });
+
+  it('rejects settlement evidence from a different epoch even for the same obligations', () => {
+    const obligations = [obligation('obl:1', 500n)];
+    const otherEpoch = { ...epoch, id: 'epoch:other' };
+    const batch = buildDeterministicNettingBatches(obligations, otherEpoch)[0]!;
+    const recovery = reconstructSettlementRecovery(batch, [{
+      attemptId: 'attempt:1',
+      batchId: batch.batchId,
+      obligationSetRoot: batch.obligationSetRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-10-01T00:02:00Z',
+      railReceiptRef: 'rail:receipt:other',
+    }]);
+    expect(() => compile(obligations, {
+      settlements: [{ batch, recovery, settledAmount: money(500n, 'USD') }],
+    })).toThrow(/epoch mismatch/);
+  });
+
+  it('rejects settlement observations that occurred after statement asOf', () => {
+    const obligations = [obligation('obl:1', 500n)];
+    const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;
+    const recovery = reconstructSettlementRecovery(batch, [{
+      attemptId: 'attempt:1',
+      batchId: batch.batchId,
+      obligationSetRoot: batch.obligationSetRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-10-03T00:00:00Z',
+      railReceiptRef: 'rail:receipt:future',
+    }]);
+    expect(() => compile(obligations, {
+      settlements: [{ batch, recovery, settledAmount: money(500n, 'USD') }],
+    })).toThrow(/later than statement asOf/);
   });
 
   it('produces roots independent of source input order', () => {

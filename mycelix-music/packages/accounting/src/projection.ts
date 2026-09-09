@@ -88,13 +88,34 @@ function validateSettlementEvidence(
   evidence: StatementSettlementEvidence,
   beneficiaryId: string,
   currency: string,
+  settlementEpochId: string,
+  statementAsOf: number,
 ): void {
   const { batch, recovery, settledAmount } = evidence;
   if (batch.beneficiaryId !== beneficiaryId) throw new Error('settlement batch beneficiary mismatch');
   if (batch.currency !== currency) throw new Error('settlement batch currency mismatch');
+  if (batch.epochId !== settlementEpochId) throw new Error('settlement batch epoch mismatch');
   if (recovery.batchId !== batch.batchId || recovery.obligationSetRoot !== batch.obligationSetRoot) {
     throw new Error('settlement recovery is not bound to the supplied batch');
   }
+
+  if (recovery.status === 'finalized') {
+    if (!recovery.obligationSetSettled || !recovery.finalReceiptRef?.trim()) {
+      throw new Error('finalized settlement recovery requires settled=true and a final receipt reference');
+    }
+  } else if (recovery.obligationSetSettled) {
+    throw new Error('non-finalized settlement recovery cannot mark the obligation set settled');
+  }
+
+  if (recovery.status !== 'never_attempted' && !recovery.lastObservedAt) {
+    throw new Error('observed settlement recovery requires lastObservedAt');
+  }
+  if (recovery.lastObservedAt) {
+    const lastObservedAt = Date.parse(recovery.lastObservedAt);
+    if (!Number.isFinite(lastObservedAt)) throw new Error('settlement recovery lastObservedAt must be valid');
+    if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
+  }
+
   if (settledAmount.amountMinor < 0n) throw new Error('settled amount must be non-negative');
   assertSameCurrency(settledAmount, batch.grossAmount);
   if (settledAmount.amountMinor > batch.grossAmount.amountMinor) {
@@ -106,6 +127,9 @@ export function compileRoyaltyStatement(
   input: CompileRoyaltyStatementInput,
 ): Readonly<RoyaltyStatementSnapshot> {
   if (input.obligations.length === 0) throw new Error('statement compilation requires obligations');
+  const statementAsOf = Date.parse(input.asOf);
+  if (!Number.isFinite(statementAsOf)) throw new Error('statement asOf must be a valid timestamp');
+
   const orderedObligations = [...input.obligations].sort((a, b) => a.id.localeCompare(b.id));
   const seenObligations = new Set<string>();
   const currency = orderedObligations[0]!.amount.currency;
@@ -117,6 +141,9 @@ export function compileRoyaltyStatement(
     if (obligation.beneficiaryId !== input.beneficiaryId) throw new Error('statement obligation beneficiary mismatch');
     if (!withinPeriod(obligation.observedAt, input.period)) {
       throw new Error(`obligation ${obligation.id} falls outside the statement period`);
+    }
+    if (Date.parse(obligation.observedAt) > statementAsOf) {
+      throw new Error(`obligation ${obligation.id} was observed after the statement asOf`);
     }
     assertSameCurrency(obligation.amount, money(0n, currency));
   }
@@ -158,7 +185,13 @@ export function compileRoyaltyStatement(
   const finalizedObligationIds = new Set<string>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
-    validateSettlementEvidence(evidence, input.beneficiaryId, currency);
+    validateSettlementEvidence(
+      evidence,
+      input.beneficiaryId,
+      currency,
+      input.settlementEpoch.id,
+      statementAsOf,
+    );
     if (seenBatches.has(evidence.batch.batchId)) throw new Error(`duplicate settlement batch: ${evidence.batch.batchId}`);
     seenBatches.add(evidence.batch.batchId);
     for (const obligationId of evidence.batch.obligationIds) {
