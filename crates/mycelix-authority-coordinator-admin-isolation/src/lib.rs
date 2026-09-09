@@ -42,7 +42,8 @@ pub const BROKER_SNAPSHOT_PROFILE: &str =
     "mycelix-authority-coordinator-admin-broker-snapshot-v1-blake3-framed";
 pub const ISOLATION_PROFILE: &str =
     "mycelix-authority-coordinator-admin-isolation-v1-blake3-framed";
-pub const EXECUTABLE_PROFILE: &str = "mycelix-authority-coordinator-admin-broker-executable-v1-blake3-bytes";
+pub const EXECUTABLE_PROFILE: &str =
+    "mycelix-authority-coordinator-admin-broker-executable-v1-blake3-bytes";
 
 const DOMAIN_BINDING: &[u8] = b"mycelix/authority/coordinator-admin-broker-binding/v1";
 const DOMAIN_SNAPSHOT: &[u8] = b"mycelix/authority/coordinator-admin-broker-snapshot/v1";
@@ -200,6 +201,10 @@ impl QualifiedExclusiveAdminIsolation {
         self.network_namespace
     }
 
+    pub fn host_network_namespace(&self) -> NamespaceIdentity {
+        self.host_network_namespace
+    }
+
     pub fn member_pids(&self) -> &[u32] {
         &self.member_pids
     }
@@ -273,14 +278,15 @@ pub fn begin_exclusive_admin_isolation<'a>(
     }
 
     let broker_pre = observe_broker_process(broker_binding)?;
+    let network_namespace = broker_pre.network_namespace;
     let host_network_namespace = namespace_identity("/proc/1/ns/net")?;
-    if broker_pre.network_namespace == host_network_namespace {
+    if network_namespace == host_network_namespace {
         return Err(AdminIsolationError::HostNetworkNamespace);
     }
 
     let pre_interfaces = network_interfaces()?;
     require_loopback_only(&pre_interfaces)?;
-    let pre_member_pids = namespace_members(broker_pre.network_namespace)?;
+    let pre_member_pids = namespace_members(network_namespace)?;
     require_two_member_namespace(&pre_member_pids, broker_pre.pid)?;
 
     let started_at_ms = now_ms()?;
@@ -293,7 +299,7 @@ pub fn begin_exclusive_admin_isolation<'a>(
         binding: broker_binding.clone(),
         binding_digest,
         broker_pre,
-        network_namespace: broker_pre.network_namespace,
+        network_namespace,
         host_network_namespace,
         pre_member_pids,
         pre_interfaces,
@@ -498,7 +504,10 @@ fn namespace_members(namespace: NamespaceIdentity) -> Result<Vec<u32>, AdminIsol
     Ok(members)
 }
 
-fn require_two_member_namespace(members: &[u32], broker_pid: u32) -> Result<(), AdminIsolationError> {
+fn require_two_member_namespace(
+    members: &[u32],
+    broker_pid: u32,
+) -> Result<(), AdminIsolationError> {
     if members.len() != 2 || !members.contains(&broker_pid) {
         Err(AdminIsolationError::UnexpectedNamespaceMemberSet)
     } else {
@@ -545,9 +554,7 @@ fn process_start_time_ticks(path: &str) -> Result<u64, AdminIsolationError> {
 }
 
 fn parse_process_start_time_ticks(stat: &str) -> Result<u64, AdminIsolationError> {
-    let close = stat
-        .rfind(')')
-        .ok_or(AdminIsolationError::InvalidProcStat)?;
+    let close = stat.rfind(')').ok_or(AdminIsolationError::InvalidProcStat)?;
     let tail = stat
         .get(close + 1..)
         .ok_or(AdminIsolationError::InvalidProcStat)?;
@@ -626,7 +633,8 @@ fn now_ms() -> Result<u64, AdminIsolationError> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| AdminIsolationError::ClockBeforeUnixEpoch)?;
-    let value = u64::try_from(duration.as_millis()).map_err(|_| AdminIsolationError::ClockOverflow)?;
+    let value =
+        u64::try_from(duration.as_millis()).map_err(|_| AdminIsolationError::ClockOverflow)?;
     if value == 0 {
         Err(AdminIsolationError::ClockBeforeUnixEpoch)
     } else {
@@ -693,7 +701,9 @@ impl fmt::Display for AdminIsolationError {
             Self::InvalidText(field) => write!(f, "invalid {field}"),
             Self::InvalidDigest(field) => write!(f, "invalid {field}"),
             Self::InvalidAdminEndpoint => write!(f, "Admin endpoint must be non-zero loopback"),
-            Self::BrokerExecutablePathNotAbsolute => write!(f, "broker executable path is not absolute"),
+            Self::BrokerExecutablePathNotAbsolute => {
+                write!(f, "broker executable path is not absolute")
+            }
             Self::WrongBrokerExecutableProfile => write!(f, "wrong broker executable profile"),
             Self::InvalidBrokerProcess => write!(f, "invalid broker process"),
             Self::BrokerUidMismatch { expected, observed } => {
@@ -704,15 +714,32 @@ impl fmt::Display for AdminIsolationError {
             Self::InvalidBrokerExecutableLength => write!(f, "invalid broker executable length"),
             Self::InvalidProcStat => write!(f, "invalid Linux proc stat data"),
             Self::InvalidNamespaceIdentity => write!(f, "invalid network namespace identity"),
-            Self::HostNetworkNamespace => write!(f, "broker still occupies the host network namespace"),
-            Self::TooManyNamespaceMembers => write!(f, "network namespace member count exceeds v0.1 bound"),
-            Self::UnexpectedNamespaceMemberSet => write!(f, "network namespace is not exactly broker + conductor"),
-            Self::NonLoopbackInterfacePresent => write!(f, "isolated Admin namespace exposes a non-loopback interface"),
+            Self::HostNetworkNamespace => {
+                write!(f, "broker still occupies the host network namespace")
+            }
+            Self::TooManyNamespaceMembers => {
+                write!(f, "network namespace member count exceeds v0.1 bound")
+            }
+            Self::UnexpectedNamespaceMemberSet => {
+                write!(f, "network namespace is not exactly broker + conductor")
+            }
+            Self::NonLoopbackInterfacePresent => {
+                write!(f, "isolated Admin namespace exposes a non-loopback interface")
+            }
             Self::InvalidInterfaceTable => write!(f, "invalid network interface table"),
-            Self::BrokerProcessChanged => write!(f, "broker process identity changed during isolation interval"),
-            Self::NamespaceChanged => write!(f, "network namespace membership/interfaces changed during interval"),
-            Self::AdminEndpointMismatch => write!(f, "broker and conductor do not name the exact same Admin endpoint"),
-            Self::ConductorBindingMismatch => write!(f, "conductor fence does not match the pinned broker control-plane binding"),
+            Self::BrokerProcessChanged => {
+                write!(f, "broker process identity changed during isolation interval")
+            }
+            Self::NamespaceChanged => {
+                write!(f, "network namespace membership/interfaces changed during interval")
+            }
+            Self::AdminEndpointMismatch => {
+                write!(f, "broker and conductor do not name the exact same Admin endpoint")
+            }
+            Self::ConductorBindingMismatch => write!(
+                f,
+                "conductor fence does not match the pinned broker control-plane binding"
+            ),
             Self::InvalidInterval => write!(f, "invalid Admin-isolation interval"),
             Self::ClockBeforeUnixEpoch => write!(f, "system clock is before Unix epoch"),
             Self::ClockOverflow => write!(f, "system clock does not fit u64 milliseconds"),
