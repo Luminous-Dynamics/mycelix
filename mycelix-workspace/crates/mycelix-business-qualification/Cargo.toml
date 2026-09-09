@@ -1,0 +1,9 @@
+[package]
+name = "mycelix-business-qualification"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Reusable proof-carrying closure qualification algebra for Mycelix Business"
+
+[dependencies]
+mycelix-business-core = { path = "../mycelix-business-core" }
