@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           git rm .github/workflows/tmp-pulse-219-backend-lock-materialize.yml
-          git add mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock
+          git add -f mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock
           git diff --cached --check
           actual="$(git diff --cached --name-only | sort)"
           expected="$(printf '%s\n' \
