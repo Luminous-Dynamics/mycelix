@@ -1,0 +1,125 @@
+name: Integration Core Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - '.github/workflows/integration-core-qualification.yml'
+  push:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+      - feat/integration-core-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - '.github/workflows/integration-core-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Integration Core Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-integration-core
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-integration-core/Cargo.toml --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml --no-run
+
+      - name: Run tests
+        run: cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-integration-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce transport-neutral dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          manifest='crates/mycelix-integration-core/Cargo.toml'
+          source='crates/mycelix-integration-core/src'
+
+          forbidden_manifest='(^|[[:space:]])(hdk|hdi|reqwest|axum|hyper|tonic|sqlx|rusqlite|diesel|tokio|async-std|actix|rocket|stripe|aws-sdk|kube|rdkafka|lapin)[[:space:]]*='
+          if grep -Eiq "$forbidden_manifest" "$manifest"; then
+            echo 'Forbidden transport/provider/runtime/storage dependency found:'
+            grep -Ein "$forbidden_manifest" "$manifest" || true
+            exit 1
+          fi
+
+          forbidden_source='\b(hdk|hdi|reqwest|axum|hyper|tonic|sqlx|rusqlite|diesel|tokio|async_std|actix|rocket|rdkafka|lapin)::'
+          if grep -REIn "$forbidden_source" "$source"; then
+            echo 'Forbidden transport/provider/runtime/storage import found.'
+            exit 1
+          fi
+
+      - name: Enforce reconciliation-before-finalization state machines
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          if grep -Fq '(DomainAccepted, Finalized)' "$source"; then
+            echo 'Inbound state machine permits DomainAccepted -> Finalized without reconciliation.'
+            exit 1
+          fi
+
+          if grep -Fq '(Confirmed, Finalized)' "$source"; then
+            echo 'Outbound state machine permits Confirmed -> Finalized without reconciliation.'
+            exit 1
+          fi
+
+          grep -Fq '(DomainAccepted, Reconciled)' "$source"
+          grep -Fq '(Confirmed, Reconciled)' "$source"
+          grep -Fq '(Ambiguous, Reconciled)' "$source"
+          grep -Fq '(Reconciled, Finalized)' "$source"
+
+      - name: Enforce durable-outbox execution boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq '(Approved, OutboxCommitted)' "$source"
+          grep -Fq '(OutboxCommitted, Executing)' "$source"
+
+          if grep -Fq '(Approved, Executing)' "$source"; then
+            echo 'Outbound state machine permits execution before durable outbox commitment.'
+            exit 1
+          fi
+
+      - name: Enforce core claim-boundary vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq 'pub enum ExternalExecutionOutcome' "$source"
+          grep -Fq 'Ambiguous {' "$source"
+          grep -Fq 'pub enum SideEffectClass' "$source"
+          grep -Fq 'ReconcileBeforeReexecution' "$source"
+          grep -Fq 'pub trait IntegrationProjection' "$source"
