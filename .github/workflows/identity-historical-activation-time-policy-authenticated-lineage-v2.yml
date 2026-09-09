@@ -1,0 +1,125 @@
+name: Identity Historical Activation Time Policy Authenticated Lineage V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authenticated-lineage-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authenticated-lineage-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-authenticated-time-policy-lineage-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert authenticated lineage boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authenticated-lineage-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-policy-lineage-policy',
+              'mycelix-historical-activation-time-policy-transition-ed25519-authenticity',
+              'mycelix-historical-activation-time-policy-transition-policy',
+              'mycelix-identity-authority-domain-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: authenticated-lineage runtime dependency drift: {sorted(deps)}')
+          if deps['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: authenticated-lineage theorem must use workspace sha2')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedCryptographicallyAuthenticatedHistoricalActivationTimePolicyLineageV2',
+              'HISTORICAL_ACTIVATION_TIME_POLICY_AUTHENTICATED_LINEAGE_DOMAIN_V2',
+              'mycelix:identity:historical-activation-time-policy-authenticated-lineage:v2\\0',
+              'qualify_cryptographically_authenticated_historical_activation_time_policy_lineage_v2',
+              'qualify_observed_historical_activation_time_policy_lineage_v2',
+              'AuthenticationCountMismatch',
+              'DuplicateAuthenticatedTransition',
+              'MissingTransitionAuthenticity',
+              'UnknownTransitionAuthenticity',
+              'TransitionKeyGenerationMismatch',
+              'TransitionAlgorithmMismatch',
+              'ordered.sort_by_key(|transition| transition.transition_generation())',
+              '0x88, 0xa1, 0x7f, 0xaf',
+              '0x68, 0xed, 0x0c, 0x45',
+              '0x0b, 0x02, 0x12, 0xbc',
+              'missing_authentication_fails_closed',
+              'duplicate_authentication_fails_closed',
+              'authenticated_lineage_fields_are_private',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: authenticated-lineage invariant missing: {needle!r}')
+
+          result_start = text.index('pub struct QualifiedCryptographicallyAuthenticatedHistoricalActivationTimePolicyLineageV2')
+          result_end = text.index('impl QualifiedCryptographicallyAuthenticatedHistoricalActivationTimePolicyLineageV2', result_start)
+          result_body = text[result_start:result_end]
+          for field in [
+              'pub terminal_policy_sha256:',
+              'pub observed_lineage_digest_sha256:',
+              'pub authenticated_lineage_digest_sha256:',
+          ]:
+              if field in result_body:
+                  raise SystemExit(f'ERROR: authenticated-lineage capability is caller-forgeable: {field}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'ed25519_dalek', 'verify_strict', '.verify(', 'pqcrypto', 'dilithium',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'sys_time(', 'std::time',
+              'policy_current', 'policy_accepted', 'positive_evidence',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: crypto/runtime/currentness authority leaked into authenticated-lineage composition: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/Cargo.toml -- --check
+
+      - name: Test observed lineage
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-lineage-policy/Cargo.toml
+
+      - name: Test transition authenticity
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-transition-ed25519-authenticity/Cargo.toml
+
+      - name: Test authenticated lineage
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authenticated-lineage-policy/Cargo.toml
