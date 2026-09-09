@@ -22,6 +22,7 @@
 //! - [`qualification`] — theorem dependency/requirement meta-structure
 //! - [`qualification_hardening`] — bounded non-recursive qualification evaluation
 //! - [`qualification_admission`] — pre-parse wire admission + durable aggregate budgets
+//! - [`qualification_envelope`] — version-first canonical qualification wire grammar
 
 pub mod bodies;
 pub mod coverage;
@@ -38,6 +39,7 @@ pub mod measurements;
 pub mod navigation_runtime;
 pub mod qualification;
 pub mod qualification_admission;
+pub mod qualification_envelope;
 pub mod qualification_hardening;
 pub mod ranging;
 pub mod space_navigation;
@@ -70,6 +72,11 @@ pub use qualification_admission::{
     QUALIFICATION_ADMISSION_PROFILE_SCHEMA_V1, QualificationAdmissionError,
     QualificationAdmissionProfileV1, admit_qualification_bytes,
     canonical_qualification_admission_profile_preimage_v1,
+};
+pub use qualification_envelope::{
+    DecodedQualificationEnvelope, QUALIFICATION_ENVELOPE_ENCODING_V1,
+    QUALIFICATION_ENVELOPE_VERSION_V1, QualificationEnvelopeCodecV1, QualificationEnvelopeError,
+    QualificationEnvelopeKind, QualificationEnvelopeLimit, QualificationEnvelopePayload,
 };
 pub use qualification_hardening::{
     EstablishmentBlocker, EstablishmentBlockerKind, EstablishmentExplanation,
