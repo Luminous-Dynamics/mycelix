@@ -1,0 +1,72 @@
+name: Identity Historical Activation Time Policy Authority-Anchored Transition Ed25519 Authenticity V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity-v2.yml'
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert strict anchored authenticity boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          assert member in workspace
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'ed25519-dalek', 'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-anchored-transition-crypto-request-policy',
+              'sha2',
+          }
+          assert set(deps) == expected, sorted(deps)
+          assert deps['ed25519-dalek'].get('version') == '=2.2.0'
+          assert deps['ed25519-dalek'].get('default-features') is False
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text[:text.index('#[cfg(test)]')]
+          for token in [
+              'verify_strict(request.anchored_transition_signing_digest_sha256()',
+              'AlgorithmPendingQualification',
+              'CryptographicallyAuthenticatedAuthorityAnchoredHistoricalActivationTimePolicyTransitionV2',
+              '0xca,0xde,0x2c,0x67',
+              'old_base_transition_signature_fails_anchored_authenticity',
+          ]:
+              assert token in text, token
+          for forbidden in [
+              'mycelix_crypto::Verifier', 'pqcrypto', 'dilithium', 'ml_dsa',
+              'feature = "native"', 'features = ["native"]',
+              'project_authority_state_at_causal_position', 'QualifiedCurrentOperationalAuthority',
+              'use hdk', 'hdk::', 'sys_time(', 'std::time', 'positive_evidence',
+          ]:
+              assert forbidden.lower() not in production.lower(), forbidden
+          print('PASS: anchored authenticity owns strict Ed25519 backend and cannot promote authority/currentness')
+          PY
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+      - name: Format
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity/Cargo.toml -- --check
+      - name: Test anchored request
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-crypto-request-policy/Cargo.toml
+      - name: Test strict anchored authenticity
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity/Cargo.toml
