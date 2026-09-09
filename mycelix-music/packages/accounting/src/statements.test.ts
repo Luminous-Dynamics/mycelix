@@ -16,6 +16,12 @@ const watermark = {
   settlementsObservedThrough: '2026-10-08T12:00:00Z',
 } as const;
 
+const completeWatermark = {
+  usageObservedThrough: '2026-10-01T00:00:00Z',
+  rightsResolvedThrough: '2026-10-01T00:00:00Z',
+  settlementsObservedThrough: '2026-10-01T00:00:00Z',
+} as const;
+
 function statement(): RoyaltyStatementProjection {
   return {
     beneficiaryId: 'creator:alice',
@@ -46,6 +52,45 @@ describe('statement completeness', () => {
   it('rejects partial statements that name no missing source', () => {
     expect(() => assertCompletenessState({ kind: 'partial', through: watermark, missingSources: [] }))
       .toThrow(/missing source/);
+  });
+
+  it('rejects blank or duplicate missing-source identifiers', () => {
+    expect(() => assertCompletenessState({ kind: 'partial', through: watermark, missingSources: [' '] }))
+      .toThrow(/non-empty/);
+    expect(() => assertCompletenessState({
+      kind: 'partial',
+      through: watermark,
+      missingSources: ['dsp:a', 'dsp:a'],
+    })).toThrow(/unique/);
+  });
+
+  it('rejects a complete label when any watermark stops before the period end', () => {
+    expect(() => assertStatementArithmetic({
+      ...statement(),
+      completeness: { kind: 'complete', through: watermark },
+    })).toThrow(/through the period end/);
+  });
+
+  it('accepts complete only when every source class covers the period', () => {
+    expect(() => assertStatementArithmetic({
+      ...statement(),
+      completeness: { kind: 'complete', through: completeWatermark },
+    })).not.toThrow();
+  });
+
+  it('rejects a watermark that claims evidence later than the statement asOf', () => {
+    expect(() => assertStatementArithmetic({
+      ...statement(),
+      asOf: '2026-10-01T00:00:00Z',
+      completeness: {
+        kind: 'partial',
+        through: {
+          ...completeWatermark,
+          settlementsObservedThrough: '2026-10-01T00:00:01Z',
+        },
+        missingSources: ['rail:late'],
+      },
+    })).toThrow(/later than asOf/);
   });
 
   it('rejects arithmetic that would hide value', () => {

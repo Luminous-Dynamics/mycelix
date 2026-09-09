@@ -77,8 +77,36 @@ export function assertCompletenessState(state: CompletenessState): void {
     throw new Error('data watermarks must be valid timestamps');
   }
 
-  if (state.kind === 'partial' && state.missingSources.length === 0) {
-    throw new Error('partial completeness requires at least one missing source');
+  if (state.kind === 'partial') {
+    if (state.missingSources.length === 0) {
+      throw new Error('partial completeness requires at least one missing source');
+    }
+    const normalized = state.missingSources.map(source => source.trim());
+    if (normalized.some(source => !source)) {
+      throw new Error('partial completeness missing sources must be non-empty');
+    }
+    if (new Set(normalized).size !== normalized.length) {
+      throw new Error('partial completeness missing sources must be unique');
+    }
+  }
+}
+
+function assertCompletenessCoverage(statement: RoyaltyStatementProjection): void {
+  if (statement.completeness.kind === 'indeterminate') return;
+
+  const asOf = Date.parse(statement.asOf);
+  const periodEnd = Date.parse(statement.period.endExclusive);
+  const watermarks = [
+    statement.completeness.through.usageObservedThrough,
+    statement.completeness.through.rightsResolvedThrough,
+    statement.completeness.through.settlementsObservedThrough,
+  ].map(Date.parse);
+
+  if (watermarks.some(watermark => watermark > asOf)) {
+    throw new Error('statement data watermark cannot be later than asOf');
+  }
+  if (statement.completeness.kind === 'complete' && watermarks.some(watermark => watermark < periodEnd)) {
+    throw new Error('complete statement requires every data watermark through the period end');
   }
 }
 
@@ -87,6 +115,7 @@ export function assertStatementArithmetic(statement: RoyaltyStatementProjection)
   assertCompletenessState(statement.completeness);
   if (!statement.beneficiaryId.trim()) throw new Error('beneficiaryId must be non-empty');
   if (!Number.isFinite(Date.parse(statement.asOf))) throw new Error('asOf must be a valid timestamp');
+  assertCompletenessCoverage(statement);
   if (!statement.obligationRoot.trim() || !statement.adjustmentRoot.trim() || !statement.settlementRoot.trim()) {
     throw new Error('statement roots must be non-empty');
   }
