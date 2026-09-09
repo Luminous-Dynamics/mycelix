@@ -77,6 +77,100 @@ jobs:
           echo "--- positioning-crypto resolved feature graph ---"
           cargo tree -p positioning-crypto -e features --locked
 
+      - name: Verify positioning crypto dependency provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          expected_requirement = "=0.10.9"
+          expected_version = "0.10.9"
+          expected_source = "registry+https://github.com/rust-lang/crates.io-index"
+          expected_checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"positioning-crypto dependency provenance check failed: {message}")
+
+          manifest_path = Path("lib/positioning-crypto/Cargo.toml")
+          manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+          dependencies = manifest.get("dependencies")
+          if not isinstance(dependencies, dict):
+              fail("manifest has no [dependencies] table")
+
+          sha2_dependency = dependencies.get("sha2")
+          if not isinstance(sha2_dependency, dict):
+              fail("manifest must declare sha2 as an explicit dependency table")
+
+          allowed_dependency_keys = {"version", "default-features", "features"}
+          unexpected_keys = sorted(set(sha2_dependency) - allowed_dependency_keys)
+          if unexpected_keys:
+              fail(f"sha2 manifest declaration contains unapproved keys: {unexpected_keys}")
+          if sha2_dependency.get("version") != expected_requirement:
+              fail(
+                  "sha2 version requirement must be exactly "
+                  f"{expected_requirement!r}, got {sha2_dependency.get('version')!r}"
+              )
+          if sha2_dependency.get("default-features") is not False:
+              fail("sha2 default-features must be explicitly false")
+
+          explicit_features = sha2_dependency.get("features", [])
+          if explicit_features:
+              fail(f"sha2 explicit features are not approved: {explicit_features!r}")
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text(encoding="utf-8"))
+          packages = lock.get("package")
+          if not isinstance(packages, list):
+              fail("Cargo.lock has no package array")
+
+          approved_packages = [
+              package
+              for package in packages
+              if package.get("name") == "sha2"
+              and package.get("version") == expected_version
+          ]
+          if len(approved_packages) != 1:
+              fail(
+                  "expected exactly one sha2 0.10.9 lock entry, "
+                  f"found {len(approved_packages)}"
+              )
+
+          approved_package = approved_packages[0]
+          if approved_package.get("source") != expected_source:
+              fail(
+                  "sha2 0.10.9 source mismatch: "
+                  f"{approved_package.get('source')!r}"
+              )
+          if approved_package.get("checksum") != expected_checksum:
+              fail(
+                  "sha2 0.10.9 checksum mismatch: "
+                  f"{approved_package.get('checksum')!r}"
+              )
+
+          print(f"approved_sha2_requirement={expected_requirement}")
+          print(f"approved_sha2_version={expected_version}")
+          print(f"approved_sha2_source={expected_source}")
+          print(f"approved_sha2_checksum={expected_checksum}")
+          print("manifest_and_lock_provenance=verified")
+          PY
+
+          feature_graph="$(cargo tree -p positioning-crypto -e features --locked --color never)"
+          printf '%s\n' "--- verified positioning-crypto feature graph ---" "${feature_graph}"
+
+          if ! grep -Fq 'sha2 v0.10.9' <<<"${feature_graph}"; then
+            echo "Resolved positioning-crypto graph does not contain approved sha2 v0.10.9." >&2
+            exit 1
+          fi
+
+          if grep -Fq 'sha2 feature "std"' <<<"${feature_graph}"; then
+            echo "Resolved positioning-crypto graph unexpectedly enables sha2 std." >&2
+            exit 1
+          fi
+
+          echo "resolved_sha2_feature_surface=verified"
+
       - name: Check formatting of changed Rust files
         shell: bash
         run: |
