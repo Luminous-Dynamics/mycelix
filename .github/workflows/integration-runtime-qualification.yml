@@ -1,0 +1,101 @@
+name: Integration Runtime Qualification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - architecture/integration-plane-v1
+      - feat/integration-core-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-runtime-qualification.yml'
+  push:
+    branches:
+      - feat/integration-runtime-v1
+    paths:
+      - 'crates/mycelix-integration-core/**'
+      - 'crates/mycelix-integration-runtime/**'
+      - '.github/workflows/integration-runtime-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Integration Runtime Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/mycelix-integration-core
+            crates/mycelix-integration-runtime
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all --check
+
+      - name: Compile tests without running
+        run: cargo test --manifest-path crates/mycelix-integration-runtime/Cargo.toml --no-run
+
+      - name: Run runtime tests
+        run: cargo test --manifest-path crates/mycelix-integration-runtime/Cargo.toml
+
+      - name: Clippy runtime and core dependency
+        run: cargo clippy --manifest-path crates/mycelix-integration-runtime/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce no provider or Holochain SDK dependency in runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest='crates/mycelix-integration-runtime/Cargo.toml'
+          forbidden='(^|[[:space:]])(hdk|hdi|stripe|aws-sdk|odoo|mercury)[[:space:]]*='
+          if grep -Eiq "$forbidden" "$manifest"; then
+            echo 'Provider/Holochain dependency found in integration runtime:'
+            grep -Ein "$forbidden" "$manifest" || true
+            exit 1
+          fi
+
+      - name: Enforce crash ambiguity invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+          grep -Fq 'SideEffectClass::ReadOnly' "$source"
+          grep -Fq 'OutboundStage::Ambiguous' "$source"
+          grep -Fq 'side_effecting_marked_ambiguous' "$source"
+          grep -Fq 'recover_expired_claims' "$source"
+
+      - name: Enforce reconciliation-before-finalization invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+          grep -Fq 'record_reconciliation' "$source"
+          grep -Fq 'finalize_outbound' "$source"
+          grep -Fq 'confirmed_effect_must_reconcile_before_finalization' "$source"
+
+      - name: Enforce no provider execution API in INT-03
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$source"; then
+            echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
+            exit 1
+          fi
