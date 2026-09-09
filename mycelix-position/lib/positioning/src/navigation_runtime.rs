@@ -98,13 +98,22 @@ impl DomainNavigator {
             router: MeasurementRouter::new(MeasurementRoutingPolicy::AllSources),
         }
     }
+
     pub fn health(&self) -> NavigationHealth {
         self.health
     }
+
+    /// Return the configured failover policy without implying that failover
+    /// execution has occurred.
+    pub fn failover_mode(&self) -> NavigationFailoverMode {
+        self.failover
+    }
+
     pub fn update_fix(&mut self, timestamp_us: u64) {
         self.last_fix_us = timestamp_us;
         self.health = NavigationHealth::Good;
     }
+
     pub fn check_health(&mut self, current_us: u64) {
         let age = fix_age_s(self.last_fix_us, current_us);
         if age > 30.0 {
@@ -113,6 +122,7 @@ impl DomainNavigator {
             self.health = NavigationHealth::Degraded;
         }
     }
+
     pub fn router_mut(&mut self) -> &mut MeasurementRouter {
         &mut self.router
     }
@@ -144,13 +154,21 @@ pub fn confidence_from_sigma(sigma_m: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_fix_age() {
         assert!((fix_age_s(1_000_000, 2_000_000) - 1.0).abs() < 0.001);
     }
+
     #[test]
     fn test_confidence() {
         assert!(confidence_from_sigma(0.0) > 99.0);
         assert!(confidence_from_sigma(50.0) < 1.0);
+    }
+
+    #[test]
+    fn default_failover_policy_is_observable() {
+        let navigator = DomainNavigator::new();
+        assert_eq!(navigator.failover_mode(), NavigationFailoverMode::DeadReckoning);
     }
 }

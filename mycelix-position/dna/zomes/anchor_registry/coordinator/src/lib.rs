@@ -8,8 +8,7 @@
 use anchor_registry_integrity::*;
 use hdk::prelude::*;
 use mycelix_position_shared::{
-    AnchorCertification, AnchorNode, PositionError, PositionErrorCode, PositionTimestamp,
-    SurveyMethod,
+    AnchorCertification, AnchorNode, PositionTimestamp, SurveyMethod,
 };
 
 // ============================================================================

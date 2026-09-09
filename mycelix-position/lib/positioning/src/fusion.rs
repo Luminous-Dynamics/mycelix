@@ -228,12 +228,16 @@ pub fn covariance_intersection_3d(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_ci() {
         let a = GaussianEstimate3D::new([1.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
         let b = GaussianEstimate3D::new([3.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
         let c = covariance_intersection_3d(&a, &b, 0.5);
         assert!((c.mean[0] - 2.0).abs() < 0.01);
-        assert!(c.covariance_diag[0] < 1.0);
+        // For two equal unit covariances, information-form CI at omega=0.5
+        // preserves unit covariance; it must not manufacture information by
+        // pretending the unknown cross-correlation is zero.
+        assert!((c.covariance_diag[0] - 1.0).abs() < 1e-12);
     }
 }
