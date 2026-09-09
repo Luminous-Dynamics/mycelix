@@ -11,5 +11,6 @@ hdi = { workspace = true }
 holo_hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+blake3 = "1"
 mycelix-bridge-entry-types = { workspace = true }
 mycelix-bridge-common = { workspace = true }
