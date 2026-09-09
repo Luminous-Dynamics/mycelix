@@ -1,0 +1,137 @@
+name: Identity Historical Activation Time Policy Authority Bootstrap SerializedBytes V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-declaration-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-bootstrap-property-serialized-bytes-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact SerializedBytes preservation boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          root_manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          ws_deps = root_manifest['workspace']['dependencies']
+          if ws_deps.get('holochain_serialized_bytes') != '=0.0.57':
+              raise SystemExit('ERROR: Holochain SerializedBytes version drifted from =0.0.57')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'holochain_serialized_bytes',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: SerializedBytes bridge runtime dependency drift: {sorted(deps)}')
+          if deps['holochain_serialized_bytes'].get('workspace') is not True:
+              raise SystemExit('ERROR: bridge must use the pinned workspace SerializedBytes crate')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-declaration-policy':
+              raise SystemExit('ERROR: declaration dependency path drifted')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-property-wire-policy':
+              raise SystemExit('ERROR: wire dependency path drifted')
+
+          dev = manifest.get('dev-dependencies', {})
+          if set(dev) != {'sha2'} or dev['sha2'].get('workspace') is not True:
+              raise SystemExit(f'ERROR: bridge dev dependency drift: {sorted(dev)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'use holochain_serialized_bytes::{SerializedBytes, UnsafeBytes};',
+              'PreparedHistoricalActivationTimePolicyAuthorityBootstrapPropertiesV2',
+              'impl TryFrom<&CanonicalHistoricalActivationTimePolicyAuthorityBootstrapDeclarationV2>',
+              'SerializedBytes::from(UnsafeBytes::from(property_bytes))',
+              'PreparedHistoricalActivationTimePolicyAuthorityBootstrapPropertiesV2::try_from(declaration)',
+              'self.properties.bytes()',
+              'decode_historical_activation_time_policy_authority_bootstrap_property_v2(properties.bytes())',
+              'custom_byte_wrapper_preserves_exact_frozen_envelope',
+              'serialized_bytes_roundtrip_preserves_declaration_identity',
+              'messagepack_like_or_nested_bytes_do_not_bypass_wire_gate',
+              'prepared_wrapper_is_opaque_and_has_no_authority_constructor',
+              '0xac, 0x5a, 0x2d, 0x63',
+              'assert_eq!(expected.len(), 210)',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: SerializedBytes preservation invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          if production.count('UnsafeBytes::from(') != 1:
+              raise SystemExit('ERROR: UnsafeBytes must occur exactly once in production')
+          try_from_start = production.index('impl TryFrom<&CanonicalHistoricalActivationTimePolicyAuthorityBootstrapDeclarationV2>')
+          unsafe_use = production.index('UnsafeBytes::from(')
+          prepare_fn = production.index('pub fn prepare_historical_activation_time_policy_authority_bootstrap_properties_v2')
+          if not (try_from_start < unsafe_use < prepare_fn):
+              raise SystemExit('ERROR: UnsafeBytes must remain an implementation detail of the canonical TryFrom boundary')
+
+          lower = production.lower()
+          for forbidden in [
+              'serializedbytes::try_from', 'holochain_serial!',
+              'serde::', 'serde_json',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(',
+              'dnahash', 'authority_domain_sha256',
+              'exacthistoricalactivationtimepolicyauthoritykeygenerationv2',
+              'exacthistoricalactivationtimepolicyauthoritybootstrapsubjectv2',
+              'pub struct authorized', 'pub struct qualified',
+              'from_trusted_configuration', 'is_authorized',
+              'verify_strict', '.verify(', 'positive_evidence', 'trust_score',
+              'sys_time(', 'std::time',
+              '.expect(', '.unwrap(', 'panic!(', 'unreachable!(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: semantic/runtime/authority shortcut leaked into SerializedBytes bridge: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/Cargo.toml -- --check
+
+      - name: Test strict property-wire parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-wire-policy/Cargo.toml
+
+      - name: Test exact SerializedBytes preservation
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/Cargo.toml
+
+      - name: Check bridge for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/Cargo.toml --target wasm32-unknown-unknown

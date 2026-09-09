@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact Holochain SerializedBytes preservation for the historical time-policy authority bootstrap property wire"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+holochain_serialized_bytes = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy = { path = "../historical-activation-time-policy-authority-bootstrap-declaration-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-property-wire-policy = { path = "../historical-activation-time-policy-authority-bootstrap-property-wire-policy" }
+
+[dev-dependencies]
+sha2 = { workspace = true }
