@@ -4,103 +4,68 @@
 //! Projects Integrity Zome
 //!
 //! Defines entry types and validation for climate projects.
-//! Uses HDI 0.7.0-dev.1 with FlatOp validation pattern.
+//! Uses HDI 0.7.0 with FlatOp validation pattern.
 
 use hdi::prelude::*;
 use mycelix_bridge_entry_types::{check_link_author_match, did_for_author};
 
-/// Anchor entry for creating deterministic link bases
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq, Eq)]
 pub struct Anchor(pub String);
 
-/// Type of climate project
 #[hdk_entry_helper]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ProjectType {
-    /// Tree planting and forest restoration
     Reforestation,
-    /// Solar, wind, hydro, etc.
     RenewableEnergy,
-    /// Capturing methane from landfills, farms, etc.
     MethaneCapture,
-    /// Coastal and marine ecosystem restoration
     OceanRestoration,
-    /// Direct air capture of CO2
     DirectAirCapture,
 }
 
-/// Status of a climate project
 #[hdk_entry_helper]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ProjectStatus {
-    /// Initial proposal submitted
     Proposed,
-    /// Verified by third party
     Verified,
-    /// Actively generating credits
     Active,
-    /// Project has finished its term
     Completed,
 }
 
-/// Geographic location for a project
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct Location {
-    /// Country code (ISO 3166-1 alpha-2)
     pub country_code: String,
-    /// Region/state/province
     pub region: Option<String>,
-    /// Latitude in decimal degrees
     pub latitude: f64,
-    /// Longitude in decimal degrees
     pub longitude: f64,
 }
 
-/// A climate project that generates carbon credits
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ClimateProject {
-    /// Unique project identifier
     pub id: String,
-    /// Human-readable project name
     pub name: String,
-    /// Type of climate project
     pub project_type: ProjectType,
-    /// Geographic location
     pub location: Location,
-    /// Expected total credits over project lifetime
     pub expected_credits: f64,
-    /// Project start date (Unix timestamp)
     pub start_date: i64,
-    /// DID of the verifying organization
     pub verifier_did: Option<String>,
-    /// Current project status
     pub status: ProjectStatus,
 }
 
-/// A milestone in a climate project's lifecycle
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ProjectMilestone {
-    /// ID of the associated project
     pub project_id: String,
-    /// Milestone title
     pub title: String,
-    /// Detailed description
     pub description: String,
-    /// Target date (Unix timestamp)
     pub target_date: i64,
-    /// Actual completion date (Unix timestamp, if completed)
     pub completed_at: Option<i64>,
-    /// Credits issued upon completion
     pub credits_issued: Option<f64>,
-    /// DID of the verifier who approved this milestone
     pub verified_by: Option<String>,
 }
 
-/// Entry types for the projects zome
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
@@ -112,24 +77,16 @@ pub enum EntryTypes {
     ProjectMilestone(ProjectMilestone),
 }
 
-/// Link types for the projects zome
 #[hdk_link_types]
 pub enum LinkTypes {
-    /// Anchor to all projects
     AnchorToProjects,
-    /// Anchor to projects by type
     TypeToProjects,
-    /// Anchor to projects by status
     StatusToProjects,
-    /// Project to its milestones
     ProjectToMilestones,
-    /// Project updates chain
     ProjectUpdates,
-    /// Verifier to projects they verified
     VerifierToProjects,
 }
 
-/// Validate DIDs have proper format
 fn validate_did(did: &str) -> ExternResult<ValidateCallbackResult> {
     if did.is_empty() {
         return Ok(ValidateCallbackResult::Invalid("DID cannot be empty".to_string()));
@@ -142,43 +99,36 @@ fn validate_did(did: &str) -> ExternResult<ValidateCallbackResult> {
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a Location
 fn validate_location(location: &Location) -> ExternResult<ValidateCallbackResult> {
     if location.country_code.len() != 2 {
         return Ok(ValidateCallbackResult::Invalid(
             "Country code must be 2 characters (ISO 3166-1 alpha-2)".to_string(),
         ));
     }
-
     if !location.latitude.is_finite() || !location.longitude.is_finite() {
         return Ok(ValidateCallbackResult::Invalid(
             "Latitude and longitude must be finite".to_string(),
         ));
     }
-
     if location.latitude < -90.0 || location.latitude > 90.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Latitude must be between -90 and 90".to_string(),
         ));
     }
-
     if location.longitude < -180.0 || location.longitude > 180.0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Longitude must be between -180 and 180".to_string(),
         ));
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a ClimateProject entry
 fn validate_climate_project(project: &ClimateProject) -> ExternResult<ValidateCallbackResult> {
     if project.id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project ID cannot be empty".to_string(),
         ));
     }
-
     if project.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project name cannot be empty".to_string(),
@@ -207,18 +157,15 @@ fn validate_climate_project(project: &ClimateProject) -> ExternResult<ValidateCa
             return Ok(verifier_result);
         }
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate a ProjectMilestone entry
 fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCallbackResult> {
     if milestone.project_id.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Project ID cannot be empty".to_string(),
         ));
     }
-
     if milestone.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Milestone title cannot be empty".to_string(),
@@ -246,23 +193,20 @@ fn validate_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCall
     }
 
     if let Some(completed) = milestone.completed_at {
-        if completed < milestone.target_date - 31536000 {
+        if completed < milestone.target_date - 31_536_000 {
             return Ok(ValidateCallbackResult::Invalid(
                 "Completion date seems unreasonably early".to_string(),
             ));
         }
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Creation policy for a climate project.
 fn validate_create_project(project: &ClimateProject) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_climate_project(project)?;
     if let ValidateCallbackResult::Invalid(_) = fields {
         return Ok(fields);
     }
-
     if project.status != ProjectStatus::Proposed {
         return Ok(ValidateCallbackResult::Invalid(
             "Climate project must be created in Proposed status".into(),
@@ -273,17 +217,14 @@ fn validate_create_project(project: &ClimateProject) -> ExternResult<ValidateCal
             "Proposed climate project must not have a verifier".into(),
         ));
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Creation policy for a project milestone.
 fn validate_create_milestone(milestone: &ProjectMilestone) -> ExternResult<ValidateCallbackResult> {
     let fields = validate_milestone(milestone)?;
     if let ValidateCallbackResult::Invalid(_) = fields {
         return Ok(fields);
     }
-
     if milestone.completed_at.is_some()
         || milestone.credits_issued.is_some()
         || milestone.verified_by.is_some()
@@ -292,11 +233,9 @@ fn validate_create_milestone(milestone: &ProjectMilestone) -> ExternResult<Valid
             "Project milestone must be created incomplete and without credits or verifier".into(),
         ));
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Pure relationship policy for the ProjectToMilestones link.
 fn validate_project_milestone_binding(
     project: &ClimateProject,
     milestone: &ProjectMilestone,
@@ -310,7 +249,6 @@ fn validate_project_milestone_binding(
     ValidateCallbackResult::Valid
 }
 
-/// Resolve and validate both ends of a ProjectToMilestones link.
 fn validate_project_to_milestone_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
@@ -347,11 +285,6 @@ fn validate_project_to_milestone_link(
     Ok(validate_project_milestone_binding(&project, &milestone))
 }
 
-/// Compute the sole valid anchor text for a project index link.
-///
-/// Indexes are derived views of validated project state. Their base anchor must
-/// therefore be reproducible from the target record instead of trusted as
-/// caller-supplied metadata.
 fn expected_project_index_anchor(
     link_type: &LinkTypes,
     project: &ClimateProject,
@@ -369,8 +302,6 @@ fn expected_project_index_anchor(
     }
 }
 
-/// Validate a project index by resolving its target and recomputing the exact
-/// anchor hash from target state.
 fn validate_project_index_link(
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
@@ -402,11 +333,75 @@ fn validate_project_index_link(
             "Project index base does not match derived anchor {anchor_text:?}"
         )));
     }
-
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Pure state-machine policy for climate-project lifecycle updates.
+/// The audit edge must join records from the same logical project.
+fn validate_project_update_identity(
+    original: &ClimateProject,
+    updated: &ClimateProject,
+) -> ValidateCallbackResult {
+    if original.id != updated.id {
+        return ValidateCallbackResult::Invalid(
+            "ProjectUpdates link cannot cross logical project IDs".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
+/// Validate that a ProjectUpdates edge exactly mirrors the target Holochain
+/// Update action, rather than merely connecting two project-shaped records.
+fn validate_project_update_link(
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_action_hash = ActionHash::try_from(base_address).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ProjectUpdates base must be a ClimateProject action hash".into()
+        ))
+    })?;
+    let target_action_hash = ActionHash::try_from(target_address).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "ProjectUpdates target must be a ClimateProject update action hash".into()
+        ))
+    })?;
+
+    let base_record = must_get_valid_record(base_action_hash.clone())?;
+    let original: ClimateProject = base_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProjectUpdates base is not a ClimateProject entry".into()
+        )))?;
+
+    let target_record = must_get_valid_record(target_action_hash)?;
+    let updated: ClimateProject = target_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(e))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "ProjectUpdates target is not a ClimateProject entry".into()
+        )))?;
+
+    let identity = validate_project_update_identity(&original, &updated);
+    if let ValidateCallbackResult::Invalid(_) = identity {
+        return Ok(identity);
+    }
+
+    match &target_record.action().data {
+        ActionData::Update(update) if update.original_action_address == base_action_hash => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        ActionData::Update(_) => Ok(ValidateCallbackResult::Invalid(
+            "ProjectUpdates target update does not name the link base as its original action".into(),
+        )),
+        _ => Ok(ValidateCallbackResult::Invalid(
+            "ProjectUpdates target must be an actual Holochain Update action".into(),
+        )),
+    }
+}
+
 fn validate_project_transition(
     original: &ClimateProject,
     updated: &ClimateProject,
@@ -474,7 +469,6 @@ fn validate_update_project(
     if let ValidateCallbackResult::Invalid(_) = fields {
         return Ok(fields);
     }
-
     let original_record = must_get_valid_record(original_action_hash)?;
     let original: ClimateProject = original_record
         .entry()
@@ -483,7 +477,6 @@ fn validate_update_project(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original ClimateProject entry not found".to_string()
         )))?;
-
     Ok(validate_project_transition(
         &original,
         &updated,
@@ -491,7 +484,6 @@ fn validate_update_project(
     ))
 }
 
-/// Pure state-machine policy for milestone completion.
 fn validate_milestone_transition(
     original: &ProjectMilestone,
     updated: &ProjectMilestone,
@@ -506,7 +498,6 @@ fn validate_milestone_transition(
             "Project milestone definition is immutable after creation".into(),
         );
     }
-
     if original.completed_at.is_some()
         || original.credits_issued.is_some()
         || original.verified_by.is_some()
@@ -515,7 +506,6 @@ fn validate_milestone_transition(
             "Completed milestone cannot be completed or reassigned again".into(),
         );
     }
-
     if updated.completed_at.is_none() {
         return ValidateCallbackResult::Invalid(
             "Milestone completion must set completed_at".into(),
@@ -543,7 +533,6 @@ fn validate_update_milestone(
     if let ValidateCallbackResult::Invalid(_) = fields {
         return Ok(fields);
     }
-
     let original_record = must_get_valid_record(original_action_hash)?;
     let original: ProjectMilestone = original_record
         .entry()
@@ -552,7 +541,6 @@ fn validate_update_milestone(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Original ProjectMilestone entry not found".to_string()
         )))?;
-
     Ok(validate_milestone_transition(
         &original,
         &updated,
@@ -560,7 +548,6 @@ fn validate_update_milestone(
     ))
 }
 
-/// Main validation callback using FlatOp pattern
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
@@ -603,7 +590,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             | LinkTypes::VerifierToProjects => {
                 validate_project_index_link(base_address, target_address, &link_type)
             }
-            LinkTypes::ProjectUpdates => Ok(ValidateCallbackResult::Valid),
+            LinkTypes::ProjectUpdates => {
+                validate_project_update_link(base_address, target_address)
+            }
         },
         FlatOp::RegisterDeleteLink { link_type, action, .. } => match link_type {
             LinkTypes::ProjectToMilestones
@@ -679,20 +668,14 @@ mod tests {
 
     fn assert_invalid_contains(result: ExternResult<ValidateCallbackResult>, needle: &str) {
         match result.expect("validator should execute") {
-            ValidateCallbackResult::Invalid(reason) => assert!(
-                reason.contains(needle),
-                "expected rejection containing {needle:?}, got {reason:?}"
-            ),
+            ValidateCallbackResult::Invalid(reason) => assert!(reason.contains(needle)),
             other => panic!("expected invalid result, got {other:?}"),
         }
     }
 
     fn assert_transition_invalid(result: ValidateCallbackResult, needle: &str) {
         match result {
-            ValidateCallbackResult::Invalid(reason) => assert!(
-                reason.contains(needle),
-                "expected rejection containing {needle:?}, got {reason:?}"
-            ),
+            ValidateCallbackResult::Invalid(reason) => assert!(reason.contains(needle)),
             other => panic!("expected invalid result, got {other:?}"),
         }
     }
@@ -707,7 +690,6 @@ mod tests {
         let mut location = valid_location();
         location.latitude = 90.1;
         assert_invalid_contains(validate_location(&location), "Latitude");
-
         let mut location = valid_location();
         location.longitude = -180.1;
         assert_invalid_contains(validate_location(&location), "Longitude");
@@ -749,11 +731,9 @@ mod tests {
     #[test]
     fn project_creation_requires_proposed_unverified_state() {
         assert_valid(validate_create_project(&valid_project()));
-
         let mut project = valid_project();
         project.status = ProjectStatus::Active;
         assert_invalid_contains(validate_create_project(&project), "Proposed");
-
         let mut project = valid_project();
         project.verifier_did = Some("did:example:forged".into());
         assert_invalid_contains(validate_create_project(&project), "must not have a verifier");
@@ -780,13 +760,29 @@ mod tests {
     fn verifier_index_requires_and_uses_target_verifier() {
         let project = valid_project();
         assert!(expected_project_index_anchor(&LinkTypes::VerifierToProjects, &project).is_err());
-
         let mut verified = project;
         verified.status = ProjectStatus::Verified;
         verified.verifier_did = Some("did:example:verifier".into());
         assert_eq!(
             expected_project_index_anchor(&LinkTypes::VerifierToProjects, &verified).unwrap(),
             "verifier:did:example:verifier"
+        );
+    }
+
+    #[test]
+    fn project_update_identity_cannot_cross_projects() {
+        let original = valid_project();
+        let mut updated = original.clone();
+        updated.status = ProjectStatus::Verified;
+        assert!(matches!(
+            validate_project_update_identity(&original, &updated),
+            ValidateCallbackResult::Valid
+        ));
+
+        updated.id = "project:other".into();
+        assert_transition_invalid(
+            validate_project_update_identity(&original, &updated),
+            "cannot cross logical project IDs",
         );
     }
 
@@ -798,7 +794,6 @@ mod tests {
     #[test]
     fn milestone_creation_requires_incomplete_uncredited_state() {
         assert_valid(validate_create_milestone(&valid_milestone()));
-
         let mut milestone = valid_milestone();
         milestone.completed_at = Some(milestone.target_date);
         milestone.credits_issued = Some(10.0);
@@ -814,7 +809,6 @@ mod tests {
             validate_project_milestone_binding(&project, &milestone),
             ValidateCallbackResult::Valid
         ));
-
         let mut wrong = valid_milestone();
         wrong.project_id = "project:other".into();
         assert_transition_invalid(
@@ -906,7 +900,6 @@ mod tests {
         original.verifier_did = Some(did_for_author(&verifier));
         let mut updated = original.clone();
         updated.status = ProjectStatus::Active;
-
         assert!(matches!(
             validate_project_transition(&original, &updated, &verifier),
             ValidateCallbackResult::Valid
@@ -926,7 +919,6 @@ mod tests {
         original.verifier_did = Some(did_for_author(&verifier));
         let mut updated = original.clone();
         updated.status = ProjectStatus::Completed;
-
         assert!(matches!(
             validate_project_transition(&original, &updated, &verifier),
             ValidateCallbackResult::Valid
