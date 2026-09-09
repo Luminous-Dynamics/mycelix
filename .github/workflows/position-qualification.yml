@@ -6,7 +6,6 @@ on:
       - 'mycelix-position/**'
       - '.github/workflows/position-qualification.yml'
   push:
-    branches: [main]
     paths:
       - 'mycelix-position/**'
       - '.github/workflows/position-qualification.yml'
