@@ -69,7 +69,8 @@ jobs:
           test -f "$constitution"
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
           grep -Fq 'Each attempt MUST have an exact fence identity' "$constitution"
-          grep -Fq 'Rejected` MUST mean definite denial/no intended effect' "$constitution"
+          grep -Fq 'Every provider execution outcome MUST bind one exact logical operation' "$constitution"
+          grep -Fq 'Authority denial and provider rejection-before-commit MUST remain distinct' "$constitution"
           grep -Fq 'Ambiguity MUST preserve unknown commit state' "$constitution"
           grep -Fq 'Reconciliation observations MUST be append-only and non-conclusive by default' "$constitution"
           grep -Fq 'Durable intent and queue claims MUST NOT materialize current execution capability' "$constitution"
@@ -139,29 +140,37 @@ jobs:
           grep -Fq 'RecordedForStaleAttempt' "$source"
           grep -Fq 'late_response_after_post_dispatch_timeout_is_evidence_not_state_rewrite' "$source"
 
-      - name: Enforce terminal rejection without fabricated reconciliation
+      - name: Enforce distinct terminal no-effect causes
         shell: bash
         run: |
           set -euo pipefail
-          rejected_test='crates/mycelix-integration-runtime/tests/rejected_terminal.rs'
-          test -f "$rejected_test"
-          grep -Fq 'definite_rejection_is_terminal_without_fabricated_reconciliation' "$rejected_test"
-          grep -Fq 'OutboundStage::Rejected' "$rejected_test"
-          grep -Fq 'OutboundStage::Reconciled' "$rejected_test"
-          grep -Fq 'reconciliation_history(entry_id)' "$rejected_test"
-          grep -Fq 'OutboundStage::Finalized' "$rejected_test"
+          source='crates/mycelix-integration-runtime/src/lib.rs'
+          terminal_test='crates/mycelix-integration-runtime/tests/rejected_terminal.rs'
+          test -f "$terminal_test"
+          grep -Fq 'RejectedBeforeCommit' "$source"
+          grep -Fq 'definite_pre_commit_rejection_closes_without_fabricated_reconciliation' "$terminal_test"
+          grep -Fq 'OutboundStage::RejectedBeforeCommit' "$terminal_test"
+          grep -Fq 'OutboundStage::Reconciled' "$terminal_test"
+          grep -Fq 'reconciliation_history(entry_id)' "$terminal_test"
+          grep -Fq 'OutboundStage::Finalized' "$terminal_test"
 
       - name: Enforce unknown preservation and append-only reconciliation
         shell: bash
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-runtime/src/lib.rs'
+          post_resolution='crates/mycelix-integration-runtime/tests/post_resolution_evidence.rs'
 
           grep -Fq 'integration_reconciliation_history' "$source"
           grep -Fq 'INSERT INTO integration_reconciliation_history' "$source"
           grep -Fq 'reconciliation.is_conclusive()' "$source"
           grep -Fq 'still_ambiguous_does_not_finalize_and_history_is_append_only' "$source"
           grep -Fq 'reconciliation_history' "$source"
+          test -f "$post_resolution"
+          grep -Fq 'contradictory_reconciliation_after_finalization_is_preserved_without_state_rewrite' "$post_resolution"
+          grep -Fq 'late_same_attempt_provider_result_after_finalization_is_preserved_as_non_applying_evidence' "$post_resolution"
+          grep -Fq 'ExecutionRecordDisposition::RecordedForStaleAttempt' "$post_resolution"
+          grep -Fq 'OutboundStage::Finalized' "$post_resolution"
 
       - name: Enforce non-materializing execution claims
         shell: bash
@@ -188,7 +197,8 @@ jobs:
         run: |
           set -euo pipefail
           source='crates/mycelix-integration-runtime/src/lib.rs'
-          budget_test='crates/mycelix-integration-runtime/tests/execution_observation_budget.rs'
+          observation_budget='crates/mycelix-integration-runtime/tests/execution_observation_budget.rs'
+          attempt_budget='crates/mycelix-integration-runtime/tests/attempt_budget.rs'
 
           grep -Fq 'MAX_INBOUND_PAYLOAD_BYTES' "$source"
           grep -Fq 'MAX_COMMAND_BYTES' "$source"
@@ -196,10 +206,18 @@ jobs:
           grep -Fq 'MAX_SERIALIZED_RECONCILIATION_BYTES' "$source"
           grep -Fq 'MAX_RECONCILIATION_HISTORY_PER_ENTRY' "$source"
           grep -Fq 'MAX_EXECUTION_OBSERVATIONS_PER_ENTRY' "$source"
-          test -f "$budget_test"
-          grep -Fq 'crash_generated_ambiguity_consumes_the_same_observation_budget' "$budget_test"
-          grep -Fq 'ExecutionObservationHistoryLimit' "$budget_test"
-          grep -Fq 'OutboundStage::Ambiguous' "$budget_test"
+          grep -Fq 'MAX_EXECUTION_ATTEMPTS_PER_ENTRY' "$source"
+          grep -Fq 'AttemptBudgetExceeded' "$source"
+
+          test -f "$observation_budget"
+          grep -Fq 'crash_generated_ambiguity_consumes_the_same_observation_budget' "$observation_budget"
+          grep -Fq 'ExecutionObservationHistoryLimit' "$observation_budget"
+          grep -Fq 'OutboundStage::Ambiguous' "$observation_budget"
+
+          test -f "$attempt_budget"
+          grep -Fq 'MAX_ATTEMPTS_V01: u32 = 1_024' "$attempt_budget"
+          grep -Fq 'attempt_generation_is_explicitly_bounded_and_never_reused' "$attempt_budget"
+          grep -Fq 'attempt 1025' "$attempt_budget"
 
       - name: Enforce fail-safe runtime schema migration
         shell: bash
