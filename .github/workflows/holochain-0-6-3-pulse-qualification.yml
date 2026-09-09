@@ -1,0 +1,434 @@
+name: Holochain 0.6.3 Pulse Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/materialize_holochain_0_6_3_pulse.py'
+      - '.github/scripts/check_holochain_cohort.py'
+      - '.github/scripts/check_holochain_resolved_graph.py'
+      - '.github/scripts/holochain_release_family.py'
+      - '.github/scripts/capture_holochain_execution_capsule.py'
+      - '.github/workflows/holochain-0-6-3-pulse-qualification.yml'
+      - 'mycelix-workspace/holochain-cohort.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: holochain-0-6-3-pulse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  EXPECTED_PARENT_BRANCH: ci/pulse-holochain-qualification
+
+jobs:
+  qualify:
+    name: Materialize and qualify exact 0.6.3 Pulse canary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact qualification head
+        id: head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD_SHA"
+          echo "Checked-out qualification head: $actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Bind current parent branch, PR base, and ancestry
+        id: parent
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "$EXPECTED_PARENT_BRANCH:refs/remotes/origin/$EXPECTED_PARENT_BRANCH"
+          live_parent="$(git rev-parse "refs/remotes/origin/$EXPECTED_PARENT_BRANCH")"
+          expected_parent="${EVENT_BASE_SHA:-$live_parent}"
+          echo "Live parent branch head: $live_parent"
+          echo "Event/expected parent head: $expected_parent"
+          test "$live_parent" = "$expected_parent"
+          git merge-base --is-ancestor "$expected_parent" HEAD
+          echo "sha=$expected_parent" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare evidence directory
+        run: mkdir -p "$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+
+      - name: Install Nix
+        id: install_nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Install pinned Rust toolchain
+        id: install_rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable action code
+        with:
+          toolchain: 1.96.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Capture canonical qualification execution lineage
+        id: execution_capsule
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          test -f .github/scripts/capture_holochain_execution_capsule.py
+          python3 .github/scripts/capture_holochain_execution_capsule.py \
+            --output "$evidence/execution-capsule.json" \
+            --lineage-output "$evidence/execution-lineage.sha256" \
+            --runner-label ubuntu-24.04 \
+            --expected-rust 1.96.0 \
+            --expected-nix 2.35.2 \
+            --nix-installer-url https://releases.nixos.org/nix/nix-2.35.2/install \
+            --action checkout=11d5960a326750d5838078e36cf38b85af677262 \
+            --action install_nix=13d8dd58da0234aa297dedd986986ccb8e7f3e24 \
+            --action rust_toolchain=6bed0761d98439e5a578e2877258200ad565ba87 \
+            --action upload_artifact=ea165f8d65b6e75b540449e92b4886f43607fa02
+          test -s "$evidence/execution-capsule.json"
+          test "$(wc -c < "$evidence/execution-lineage.sha256")" -eq 65
+
+      - name: Materialize integrated canary
+        id: materialize
+        continue-on-error: true
+        run: python3 .github/scripts/materialize_holochain_0_6_3_pulse.py
+
+      - name: Regenerate Holonix lock with Nix
+        id: nix_lock
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace
+        run: nix flake lock --update-input holonix
+
+      - name: Verify aligned compatibility contract
+        id: contract
+        if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
+        continue-on-error: true
+        run: python3 .github/scripts/check_holochain_cohort.py
+
+      - name: Verify resolved Cargo Holochain cohorts
+        id: resolved_graph
+        if: steps.materialize.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/check_holochain_resolved_graph.py \
+            --output "$RUNNER_TEMP/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json"
+
+      - name: Freeze Cargo locks from resolved graph census
+        id: pulse_locks
+        if: steps.resolved_graph.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          python3 - "$evidence/resolved-holochain-graphs.json" \
+            "$evidence/pulse-cargo-locks.sha256" \
+            "$evidence/pulse-cargo-locks.txt" <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import sys
+
+          root = Path.cwd().resolve()
+          graph_path = Path(sys.argv[1])
+          hash_path = Path(sys.argv[2])
+          list_path = Path(sys.argv[3])
+          evidence = json.loads(graph_path.read_text())
+
+          if evidence.get('schema') != 2:
+              raise SystemExit(f"unexpected resolved graph evidence schema: {evidence.get('schema')!r}")
+          if evidence.get('surface_count') != 8:
+              raise SystemExit(f"expected 8 Pulse surfaces, got {evidence.get('surface_count')!r}")
+
+          lockfiles = evidence.get('lockfiles', [])
+          if not lockfiles:
+              raise SystemExit('resolved graph census reported no Cargo lockfiles')
+          if len(lockfiles) != evidence.get('unique_lockfile_count'):
+              raise SystemExit('resolved graph unique_lockfile_count mismatch')
+
+          hash_lines = []
+          normalized = []
+          for raw in lockfiles:
+              rel = Path(raw)
+              if rel.is_absolute() or '..' in rel.parts:
+                  raise SystemExit(f"unsafe lockfile path in graph evidence: {raw!r}")
+              path = (root / rel).resolve()
+              try:
+                  path.relative_to(root)
+              except ValueError as exc:
+                  raise SystemExit(f"lockfile escaped repository: {raw!r}") from exc
+              if not path.is_file() or path.stat().st_size == 0:
+                  raise SystemExit(f"missing/non-empty resolved lockfile: {raw}")
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              normalized.append(str(rel))
+              hash_lines.append(f"{digest}  {rel}")
+
+          list_path.write_text('\n'.join(normalized) + '\n')
+          hash_path.write_text('\n'.join(hash_lines) + '\n')
+          print(f"Frozen {len(normalized)} Cargo lockfiles from resolved graph census.")
+          PY
+          test -s "$evidence/pulse-cargo-locks.sha256"
+          test -s "$evidence/pulse-cargo-locks.txt"
+
+      - name: Verify Nix runtime cohort
+        id: nix_runtime
+        if: steps.materialize.outcome == 'success' && steps.nix_lock.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace
+        run: |
+          nix develop .#holochain --command bash -lc '
+            set -euo pipefail
+            holochain --version
+            hc --version
+          '
+
+      - name: Qualify active Pulse zome workspace
+        id: pulse_zomes
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --locked --workspace
+          cargo check --locked --workspace --target wasm32-unknown-unknown
+          cargo test --locked --workspace --lib
+
+      - name: Qualify standalone hApp integrity crate
+        id: happ_integrity
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/integrity
+        run: |
+          set -euo pipefail
+          cargo check --locked --target wasm32-unknown-unknown
+          cargo test --locked --lib
+
+      - name: Qualify Pulse backend API migration
+        id: backend
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/backend-rs
+        env:
+          JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+          HOLOCHAIN_STUB_MODE: 'true'
+        run: |
+          set -euo pipefail
+          cargo check --locked
+          cargo test --locked
+
+      - name: Qualify Pulse CLI API migration
+        id: cli
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/cli
+        run: |
+          set -euo pipefail
+          cargo check --locked
+          cargo test --locked
+
+      - name: Qualify simplified legacy DNA integrity
+        id: simple_integrity
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity
+        run: cargo check --locked --target wasm32-unknown-unknown
+
+      - name: Qualify simplified legacy DNA mail_messages
+        id: simple_messages
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages
+        run: cargo check --locked --target wasm32-unknown-unknown
+
+      - name: Qualify simplified legacy DNA trust_filter
+        id: simple_trust
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter
+        run: cargo check --locked --target wasm32-unknown-unknown
+
+      - name: Compile SweetConductor security harness
+        id: sweettest
+        if: steps.pulse_locks.outcome == 'success'
+        continue-on-error: true
+        working-directory: mycelix-workspace/mycelix-pulse/tests
+        run: cargo test --locked --test sweettest_mail_security --no-run
+
+      - name: Validate and seal generated canary
+        if: always()
+        id: patch
+        env:
+          QUALIFIED_HEAD_SHA: ${{ steps.head.outputs.sha }}
+          QUALIFIED_PARENT_SHA: ${{ steps.parent.outputs.sha }}
+        run: |
+          set -euo pipefail
+          evidence_dir="$RUNNER_TEMP/holochain-0.6.3-pulse-evidence"
+          mkdir -p "$evidence_dir"
+
+          test -s "$evidence_dir/execution-capsule.json"
+          test -s "$evidence_dir/execution-lineage.sha256"
+          test -s "$evidence_dir/resolved-holochain-graphs.json"
+          test -s "$evidence_dir/pulse-cargo-locks.sha256"
+          test -s "$evidence_dir/pulse-cargo-locks.txt"
+          sha256sum --check "$evidence_dir/pulse-cargo-locks.sha256"
+
+          mapfile -t untracked < <(git ls-files --others --exclude-standard)
+          if [ "${#untracked[@]}" -gt 0 ]; then
+            echo 'Capturing generated untracked files:'
+            printf '  %s\n' "${untracked[@]}"
+            git add -N -- "${untracked[@]}"
+          fi
+
+          git diff --check
+          git diff --name-only | sort > "$evidence_dir/changed-files.txt"
+
+          python3 - "$evidence_dir/changed-files.txt" <<'PY'
+          from pathlib import Path
+          import sys
+
+          changed = set(Path(sys.argv[1]).read_text().splitlines())
+          required = {
+              'mycelix-workspace/Cargo.toml',
+              'mycelix-workspace/flake.nix',
+              'mycelix-workspace/flake.lock',
+              'mycelix-workspace/holochain-cohort.toml',
+              'mycelix-workspace/mycelix-pulse/holochain/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/tests/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/cli/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.toml',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.toml',
+          }
+          optional_locks = {
+              'mycelix-workspace/mycelix-pulse/holochain/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/tests/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/integrity/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/backend-rs/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/cli/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/integrity/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/mail_messages/Cargo.lock',
+              'mycelix-workspace/mycelix-pulse/happ/dna/dna/zomes/trust_filter/Cargo.lock',
+          }
+          missing = sorted(required - changed)
+          unexpected = sorted(changed - required - optional_locks)
+          if missing or unexpected:
+              if missing:
+                  print('Missing required canary changes:')
+                  print('\n'.join(f'  {p}' for p in missing))
+              if unexpected:
+                  print('Unexpected canary changes:')
+                  print('\n'.join(f'  {p}' for p in unexpected))
+              raise SystemExit(1)
+          print(f'Closed canary file set OK: {len(changed)} changed files')
+          PY
+
+          git diff --binary > "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
+          test -s "$evidence_dir/holochain-0.6.3-pulse-canary.patch"
+          git status --short > "$evidence_dir/holochain-0.6.3-pulse-status.txt"
+          environment_lineage_sha256="$(cat "$evidence_dir/execution-lineage.sha256")"
+
+          {
+            echo "qualified_head_sha=$QUALIFIED_HEAD_SHA"
+            echo "qualified_parent_sha=$QUALIFIED_PARENT_SHA"
+            echo "qualified_parent_branch=$EXPECTED_PARENT_BRANCH"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event_name=${GITHUB_EVENT_NAME}"
+            echo "environment_lineage_sha256=$environment_lineage_sha256"
+            echo "product_materialization_authorized=false"
+            echo "authorization_reason=requires_root_fanout_qualification_and_separate_product_pr"
+          } > "$evidence_dir/qualification-metadata.txt"
+
+          sha256sum \
+            "$evidence_dir/holochain-0.6.3-pulse-canary.patch" \
+            "$evidence_dir/execution-capsule.json" \
+            "$evidence_dir/execution-lineage.sha256" \
+            "$evidence_dir/resolved-holochain-graphs.json" \
+            "$evidence_dir/pulse-cargo-locks.sha256" \
+            "$evidence_dir/pulse-cargo-locks.txt" \
+            mycelix-workspace/flake.lock \
+            mycelix-workspace/holochain-cohort.toml \
+            > "$evidence_dir/qualification-sha256.txt"
+
+          echo 'Generated canary files:'
+          cat "$evidence_dir/changed-files.txt"
+
+      - name: Preserve exact canary evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: holochain-0.6.3-pulse-canary-${{ steps.head.outputs.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-canary.patch
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/holochain-0.6.3-pulse-status.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/changed-files.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/execution-capsule.json
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/execution-lineage.sha256
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/resolved-holochain-graphs.json
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.sha256
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/pulse-cargo-locks.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-metadata.txt
+            ${{ runner.temp }}/holochain-0.6.3-pulse-evidence/qualification-sha256.txt
+            mycelix-workspace/flake.lock
+            mycelix-workspace/holochain-cohort.toml
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Qualification gate
+        if: always()
+        run: |
+          set -euo pipefail
+          failed=0
+          check() {
+            name="$1"
+            outcome="$2"
+            printf '%-24s %s\n' "$name" "$outcome"
+            if [ "$outcome" != success ]; then
+              failed=1
+            fi
+          }
+          check checkout '${{ steps.checkout.outcome }}'
+          check head '${{ steps.head.outcome }}'
+          check parent '${{ steps.parent.outcome }}'
+          check install_nix '${{ steps.install_nix.outcome }}'
+          check install_rust '${{ steps.install_rust.outcome }}'
+          check execution_capsule '${{ steps.execution_capsule.outcome }}'
+          check materialize '${{ steps.materialize.outcome }}'
+          check nix_lock '${{ steps.nix_lock.outcome }}'
+          check contract '${{ steps.contract.outcome }}'
+          check resolved_graph '${{ steps.resolved_graph.outcome }}'
+          check pulse_locks '${{ steps.pulse_locks.outcome }}'
+          check nix_runtime '${{ steps.nix_runtime.outcome }}'
+          check pulse_zomes '${{ steps.pulse_zomes.outcome }}'
+          check happ_integrity '${{ steps.happ_integrity.outcome }}'
+          check backend '${{ steps.backend.outcome }}'
+          check cli '${{ steps.cli.outcome }}'
+          check simple_integrity '${{ steps.simple_integrity.outcome }}'
+          check simple_messages '${{ steps.simple_messages.outcome }}'
+          check simple_trust '${{ steps.simple_trust.outcome }}'
+          check sweettest '${{ steps.sweettest.outcome }}'
+          check patch '${{ steps.patch.outcome }}'
+          if [ "$failed" -ne 0 ]; then
+            echo 'Holochain 0.6.3 Pulse canary is NOT QUALIFIED.'
+            exit 1
+          fi
+          echo 'Holochain 0.6.3 Pulse canary QUALIFIED; product materialization still requires root fanout qualification.'
