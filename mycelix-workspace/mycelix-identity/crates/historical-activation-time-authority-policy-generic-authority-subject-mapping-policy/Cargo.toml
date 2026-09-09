@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-historical-activation-time-authority-policy-generic-authority-subject-mapping-policy"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-crypto = { path = "../mycelix-crypto", default-features = false }
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
