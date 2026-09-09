@@ -193,15 +193,61 @@ impl PositionError {
 // VALIDATION HELPERS
 // ============================================================================
 
+/// Require one numeric spatial value to be finite.
+///
+/// IEEE-754 NaN values make ordinary ordered comparisons return false, so
+/// range checks alone are not sufficient validation for authority-bearing
+/// spatial evidence.
+pub fn validate_finite(name: &str, value: f64) -> Result<(), String> {
+    if !value.is_finite() {
+        return Err(format!("{} must be finite, got {}", name, value));
+    }
+    Ok(())
+}
+
+/// Require one numeric spatial value to be finite and strictly positive.
+pub fn validate_positive_finite(name: &str, value: f64) -> Result<(), String> {
+    validate_finite(name, value)?;
+    if value <= 0.0 {
+        return Err(format!("{} must be positive, got {}", name, value));
+    }
+    Ok(())
+}
+
+/// Validate the current 3×3 covariance representation.
+///
+/// This v0.1 helper closes the immediate malformed/non-finite surface while
+/// preserving the existing wire shape. A later spatial-truth tranche will
+/// replace the loose `Vec<f64>` representation with a typed covariance value
+/// and qualify symmetry/positive-semidefinite semantics explicitly.
+pub fn validate_covariance_3x3(covariance: &[f64]) -> Result<(), String> {
+    if covariance.len() != 9 {
+        return Err(format!(
+            "Covariance must have 9 elements (3×3), got {}",
+            covariance.len()
+        ));
+    }
+    for (index, value) in covariance.iter().enumerate() {
+        validate_finite(&format!("Covariance element {}", index), *value)?;
+    }
+    if covariance[0] < 0.0 || covariance[4] < 0.0 || covariance[8] < 0.0 {
+        return Err("Covariance diagonal must be non-negative".to_string());
+    }
+    Ok(())
+}
+
 /// Validate geodetic coordinates.
 pub fn validate_geodetic(lat: f64, lon: f64, alt: f64) -> Result<(), String> {
-    if lat < -90.0 || lat > 90.0 {
+    validate_finite("Latitude", lat)?;
+    validate_finite("Longitude", lon)?;
+    validate_finite("Altitude", alt)?;
+    if !(-90.0..=90.0).contains(&lat) {
         return Err(format!("Latitude {} out of range [-90, 90]", lat));
     }
-    if lon < -180.0 || lon > 180.0 {
+    if !(-180.0..=180.0).contains(&lon) {
         return Err(format!("Longitude {} out of range [-180, 180]", lon));
     }
-    if alt < -12_000.0 || alt > 100_000_000.0 {
+    if !(-12_000.0..=100_000_000.0).contains(&alt) {
         return Err(format!("Altitude {} out of range [-12km, 100,000km]", alt));
     }
     Ok(())
@@ -209,12 +255,8 @@ pub fn validate_geodetic(lat: f64, lon: f64, alt: f64) -> Result<(), String> {
 
 /// Validate a range measurement.
 pub fn validate_range(range_m: f64, sigma_m: f64) -> Result<(), String> {
-    if range_m <= 0.0 {
-        return Err(format!("Range must be positive, got {}", range_m));
-    }
-    if sigma_m <= 0.0 {
-        return Err(format!("Sigma must be positive, got {}", sigma_m));
-    }
+    validate_positive_finite("Range", range_m)?;
+    validate_positive_finite("Sigma", sigma_m)?;
     if range_m > 1_000_000.0 {
         return Err(format!("Range {} exceeds 1000km maximum", range_m));
     }
@@ -284,6 +326,15 @@ mod tests {
     }
 
     #[test]
+    fn validate_geodetic_rejects_non_finite_values() {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(validate_geodetic(value, 0.0, 0.0).is_err());
+            assert!(validate_geodetic(0.0, value, 0.0).is_err());
+            assert!(validate_geodetic(0.0, 0.0, value).is_err());
+        }
+    }
+
+    #[test]
     fn validate_range_valid() {
         assert!(validate_range(100.0, 5.0).is_ok());
     }
@@ -293,6 +344,41 @@ mod tests {
         assert!(validate_range(-1.0, 5.0).is_err());
         assert!(validate_range(100.0, 0.0).is_err());
         assert!(validate_range(2_000_000.0, 5.0).is_err());
+    }
+
+    #[test]
+    fn validate_range_rejects_non_finite_values() {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(validate_range(value, 1.0).is_err());
+            assert!(validate_range(1.0, value).is_err());
+        }
+    }
+
+    #[test]
+    fn validate_positive_finite_rejects_invalid_values() {
+        assert!(validate_positive_finite("value", 1.0).is_ok());
+        assert!(validate_positive_finite("value", 0.0).is_err());
+        assert!(validate_positive_finite("value", -1.0).is_err());
+        assert!(validate_positive_finite("value", f64::NAN).is_err());
+        assert!(validate_positive_finite("value", f64::INFINITY).is_err());
+        assert!(validate_positive_finite("value", f64::NEG_INFINITY).is_err());
+    }
+
+    #[test]
+    fn validate_covariance_3x3_rejects_malformed_or_non_finite_values() {
+        assert!(validate_covariance_3x3(&[1.0; 9]).is_ok());
+        assert!(validate_covariance_3x3(&[1.0; 8]).is_err());
+
+        let mut non_finite = [0.0; 9];
+        non_finite[3] = f64::NAN;
+        assert!(validate_covariance_3x3(&non_finite).is_err());
+
+        non_finite[3] = f64::INFINITY;
+        assert!(validate_covariance_3x3(&non_finite).is_err());
+
+        let mut negative_diagonal = [0.0; 9];
+        negative_diagonal[4] = -0.01;
+        assert!(validate_covariance_3x3(&negative_diagonal).is_err());
     }
 
     #[test]
