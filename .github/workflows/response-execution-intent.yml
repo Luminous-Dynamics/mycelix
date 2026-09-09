@@ -1,0 +1,139 @@
+name: Response Execution Intent
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-execution-action-digest/**'
+      - 'crates/mycelix-response-execution-intent/**'
+      - 'crates/mycelix-response-executor-coverage/**'
+      - 'crates/mycelix-response-authority-binding/**'
+      - 'crates/mycelix-governance-executor-provider-contract/**'
+      - '.github/workflows/response-execution-intent.yml'
+  push:
+    branches:
+      - 'response-authority-4-exact-execution-intent'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-execution-intent-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Exact selected-response action-byte binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: |
+          cargo fmt --manifest-path crates/mycelix-execution-action-digest/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-response-execution-intent/Cargo.toml -- --check
+      - name: Tests
+        run: |
+          cargo test --manifest-path crates/mycelix-execution-action-digest/Cargo.toml --all-targets
+          cargo test --manifest-path crates/mycelix-response-execution-intent/Cargo.toml --all-targets
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path crates/mycelix-execution-action-digest/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/mycelix-response-execution-intent/Cargo.toml --all-targets -- -D warnings
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-response-executor-coverage/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-governance-executor-provider-contract/Cargo.toml --all-targets
+      - name: Exact-byte and authority-separation audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          digest = Path('crates/mycelix-execution-action-digest/src/lib.rs').read_text()
+          intent = Path('crates/mycelix-response-execution-intent/src/lib.rs').read_text()
+          compact = ''.join(intent.split())
+          lowered = intent.lower()
+
+          # The shared digest must remain byte-compatible with the reviewed
+          # governance execution-plan rule.
+          for token in [
+              'mycelix-governance-execution-authority-v1-blake3-exact-json',
+              'mycelix-governance-execution-authority-v1\\0',
+              'hasher.update(&(proposal_id.len() as u64).to_le_bytes())',
+              'hasher.update(proposal_id.as_bytes())',
+              'hasher.update(&(actions.len() as u64).to_le_bytes())',
+              'hasher.update(actions.as_bytes())',
+              'MAX_ACTION_BYTES: usize = 4096',
+          ]:
+              assert token in digest, token
+          for forbidden in ['serde_json', '.trim().as_bytes()', 'canonicalize']:
+              assert forbidden not in digest, forbidden
+
+          # The intent theorem must re-run semantic coverage, require the exact
+          # registered digest profile and compare locally recomputed exact bytes
+          # to the executor-authorized digest.
+          required = [
+              'match_response_executor_coverage(',
+              'receipt.projection.actions_digest_profile != ACTIONS_DIGEST_PROFILE_V1',
+              'canonical_actions_json(',
+              'execution_authority_digest(prepared.proposal_id(), &actions_json)',
+              'digest != receipt.projection.actions_digest',
+              'response_proposal_digest',
+              'response_decision_id',
+              'response_option_id',
+              'authority_domain',
+              'action_class',
+              'adapter_profile',
+              'payload_utf8',
+              'exact_action_bytes_bound_here(&self) -> bool',
+              'grants_execution_authority(&self) -> bool',
+              'provider_origin_verified_here(&self) -> bool',
+              'deployment_bound_here(&self) -> bool',
+              'effect_safety_satisfied_here(&self) -> bool',
+              'attempt_fenced_here(&self) -> bool',
+          ]
+          for token in required:
+              assert token in intent, token
+          assert 'returntrue' in compact.split('exact_action_bytes_bound_here', 1)[1][:180]
+          for marker in [
+              'grants_execution_authority',
+              'provider_origin_verified_here',
+              'deployment_bound_here',
+              'effect_safety_satisfied_here',
+              'attempt_fenced_here',
+          ]:
+              tail = compact.split(marker, 1)[1][:180]
+              assert 'returnfalse' in tail, marker
+
+          # Exact payload bytes must stay opaque here. Adapter interpretation is
+          # delegated to later effect-safety qualification.
+          assert 'serde_json::from_str' not in intent
+          assert 'payload_utf8.trim' not in intent
+
+          # Positive result is local/non-deserializable and no effect runtime has
+          # been introduced.
+          before = intent.split('pub struct QualifiedResponseExecutionIntent', 1)[0][-260:]
+          assert 'Serialize)]' in before
+          assert 'Deserialize' not in before
+          for forbidden in [
+              '#[hdk_extern]',
+              'hdk::',
+              'call_remote(',
+              'create_entry(',
+              'update_entry(',
+              'delete_entry(',
+              'dispatch(',
+              'execute_actions',
+              'executionattemptid',
+              'create_link(',
+          ]:
+              assert forbidden not in lowered, forbidden
+
+          print('PASS: exact selected-response action bytes are bound without creating effect authority')
+          PY
