@@ -1,0 +1,13 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-demand-policy"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Closed Identity-side authority demand set for historical time-policy governance"
+
+[dependencies]
+mycelix-historical-activation-time-policy-authority-anchored-authenticated-lineage-policy = { path = "../historical-activation-time-policy-authority-anchored-authenticated-lineage-policy" }
+mycelix-historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy = { path = "../historical-activation-time-policy-transition-signer-generic-authority-subject-mapping-policy" }
+mycelix-historical-activation-time-authority-policy-generic-authority-subject-mapping-policy = { path = "../historical-activation-time-authority-policy-generic-authority-subject-mapping-policy" }
+mycelix-historical-activation-time-authority-policy-terminal-candidate-policy = { path = "../historical-activation-time-authority-policy-terminal-candidate-policy" }
+sha2 = { workspace = true }
