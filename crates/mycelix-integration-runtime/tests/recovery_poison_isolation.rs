@@ -63,7 +63,10 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
     // boundedness failure for this one entry must not become global queue denial.
     {
         let conn = Connection::open(&path).expect("raw fixture connection must open");
-        let tx = conn.unchecked_transaction().expect("fixture transaction must start");
+        let tx = conn
+            .unchecked_transaction()
+            .expect("fixture transaction must start");
+        let attempt_id = format!("{poisoned_entry}:1");
         for sequence in 0..EXECUTION_OBSERVATION_LIMIT {
             tx.execute(
                 "INSERT INTO integration_execution_observation (\n\
@@ -71,7 +74,7 @@ fn history_exhausted_stale_entry_does_not_block_unrelated_claims() {
                  ) VALUES (?1, ?2, ?3, ?4, 0)",
                 params![
                     poisoned_entry,
-                    "1:1",
+                    attempt_id.as_str(),
                     br#"{"outcome":"fixture"}"#.as_slice(),
                     112 + sequence,
                 ],
