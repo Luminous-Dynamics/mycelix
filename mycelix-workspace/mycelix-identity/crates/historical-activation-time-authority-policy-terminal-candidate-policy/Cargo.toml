@@ -1,0 +1,23 @@
+[package]
+name = "mycelix-historical-activation-time-authority-policy-terminal-candidate-policy"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+mycelix-historical-activation-time-authority-policy = { path = "../historical-activation-time-authority-policy" }
+mycelix-historical-activation-time-authority-policy-generic-authority-subject-mapping-policy = { path = "../historical-activation-time-authority-policy-generic-authority-subject-mapping-policy" }
+mycelix-historical-activation-time-policy-authority-anchored-authenticated-lineage-policy = { path = "../historical-activation-time-policy-authority-anchored-authenticated-lineage-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+ed25519-dalek = "=2.2.0"
+mycelix-crypto = { path = "../mycelix-crypto", default-features = false }
+mycelix-historical-activation-time-receipt-policy = { path = "../historical-activation-time-receipt-policy" }
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+mycelix-historical-activation-time-policy-transition-policy = { path = "../historical-activation-time-policy-transition-policy" }
+mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy = { path = "../historical-activation-time-policy-transition-signer-authority-subject-policy" }
+mycelix-historical-activation-time-policy-authority-anchored-transition-policy = { path = "../historical-activation-time-policy-authority-anchored-transition-policy" }
+mycelix-historical-activation-time-policy-authority-anchored-transition-crypto-request-policy = { path = "../historical-activation-time-policy-authority-anchored-transition-crypto-request-policy" }
+mycelix-historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity = { path = "../historical-activation-time-policy-authority-anchored-transition-ed25519-authenticity" }

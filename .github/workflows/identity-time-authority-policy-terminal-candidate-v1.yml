@@ -1,0 +1,99 @@
+name: Identity Time Authority Policy Terminal Candidate V1
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-generic-authority-subject-mapping-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-anchored-authenticated-lineage-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/**'
+      - '.github/workflows/identity-time-authority-policy-terminal-candidate-v1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/**'
+      - '.github/workflows/identity-time-authority-policy-terminal-candidate-v1.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-terminal-candidate-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert terminal-candidate separation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-authority-policy-terminal-candidate-policy'
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'mycelix-historical-activation-time-authority-policy',
+              'mycelix-historical-activation-time-authority-policy-generic-authority-subject-mapping-policy',
+              'mycelix-historical-activation-time-policy-authority-anchored-authenticated-lineage-policy',
+              'sha2',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: terminal candidate runtime dependency drift: {sorted(deps)}')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          production = text[:text.index('#[cfg(test)]')]
+          required = [
+              '#![forbid(unsafe_code)]',
+              'QualifiedHistoricalActivationTimeAuthorityPolicyTerminalCandidateV1',
+              'TerminalPolicyRevoked',
+              'terminal_policy_sha256()',
+              'policy.policy_digest_sha256()',
+              'mapping.authority_domain_sha256()',
+              'mapping.generic_identity_digest()',
+              'mapping.mapping_digest_sha256()',
+              '0x60, 0xf4, 0x16, 0xe1',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: terminal candidate invariant missing: {needle!r}')
+
+          lower = production.lower()
+          for forbidden in [
+              'mycelix_authority_freshness', 'mycelix-authority-freshness',
+              'qualifiedactivecausalauthority', 'qualifiedcurrentoperationalauthority',
+              'verifiedauthorityfreshness', 'authoritysubjectref', 'authoritysubjectkind',
+              'use hdk', 'hdk::', 'sys_time(', 'std::time',
+              'verify_strict', '.verify(', 'is_authorized', 'positive_evidence',
+              'max_by_key', 'latest', 'newest',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: currentness/selection implementation leaked into terminal candidate theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/Cargo.toml -- --check
+
+      - name: Test terminal candidate theorem
+        run: cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/Cargo.toml
+
+      - name: Check terminal candidate theorem for wasm32
+        run: cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-authority-policy-terminal-candidate-policy/Cargo.toml --target wasm32-unknown-unknown
