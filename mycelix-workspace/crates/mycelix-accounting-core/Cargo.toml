@@ -1,0 +1,11 @@
+[package]
+name = "mycelix-accounting-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Transport-neutral accounting, statement, and reconciliation primitives for Mycelix"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
