@@ -461,7 +461,10 @@ mod tests {
             &candidate(),
         )
         .unwrap_err();
-        assert!(matches!(error, ResponseAuthorityBindingError::DecisionBinding(_)));
+        assert_eq!(
+            error,
+            ResponseAuthorityBindingError::DecisionDidNotSelectOption
+        );
     }
 
     #[test]
