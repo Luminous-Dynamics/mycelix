@@ -1,0 +1,35 @@
+name: Temporary Pulse 219 Clippy Census
+
+on:
+  push:
+    branches:
+      - tmp/pulse-219-clippy-census
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: bb9019986c1b0bedb914b01a888aedb2fbc19c42
+          fetch-depth: 2
+          submodules: recursive
+          persist-credentials: false
+      - name: Bind exact candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "bb9019986c1b0bedb914b01a888aedb2fbc19c42"
+          test "$(git rev-parse HEAD^)" = "0869bc9ba08fda11b9fdf442e7cc06895885ec7a"
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.96.0
+          components: clippy
+      - name: Enumerate remaining default Clippy warnings without changing authority
+        working-directory: mycelix-workspace/mycelix-pulse/holochain
+        env:
+          RUSTFLAGS: ''
+        run: cargo clippy --locked --workspace --all-targets
