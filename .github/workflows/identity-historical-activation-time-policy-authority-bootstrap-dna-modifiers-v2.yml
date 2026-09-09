@@ -1,0 +1,133 @@
+name: Identity Historical Activation Time Policy Authority Bootstrap DnaModifiers V2
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/**'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-dna-modifiers-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-identity/Cargo.toml'
+      - 'mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/**'
+      - '.github/workflows/identity-historical-activation-time-policy-authority-bootstrap-dna-modifiers-v2.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify-bootstrap-dna-modifiers-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert exact DnaModifiers construction boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          root = Path('mycelix-workspace/mycelix-identity')
+          member = 'crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy'
+          root_manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          workspace = root_manifest['workspace']['members']
+          if member not in workspace:
+              raise SystemExit(f'ERROR: {member} is not an explicit Identity workspace member')
+
+          ws_deps = root_manifest['workspace']['dependencies']
+          if ws_deps.get('holochain_zome_types') != '=0.6.1':
+              raise SystemExit('ERROR: Holochain zome-types version drifted from =0.6.1')
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          deps = manifest.get('dependencies', {})
+          expected = {
+              'holochain_zome_types',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy',
+          }
+          if set(deps) != expected:
+              raise SystemExit(f'ERROR: DnaModifiers runtime dependency drift: {sorted(deps)}')
+          if deps['holochain_zome_types'].get('workspace') is not True:
+              raise SystemExit('ERROR: DnaModifiers theorem must use pinned workspace holochain_zome_types')
+          if deps['mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy'].get('path') != '../historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy':
+              raise SystemExit('ERROR: prepared-property dependency path drifted')
+
+          dev = manifest.get('dev-dependencies', {})
+          expected_dev = {
+              'mycelix-crypto',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy',
+              'mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy',
+              'sha2',
+          }
+          if set(dev) != expected_dev:
+              raise SystemExit(f'ERROR: DnaModifiers dev dependency drift: {sorted(dev)}')
+          if dev['mycelix-crypto'].get('workspace') is not True or dev['sha2'].get('workspace') is not True:
+              raise SystemExit('ERROR: test crypto/sha2 must use workspace pins')
+
+          text = (root / member / 'src/lib.rs').read_text()
+          required = [
+              '#![forbid(unsafe_code)]',
+              'use holochain_zome_types::prelude::DnaModifiers;',
+              'PreparedHistoricalActivationTimePolicyAuthorityBootstrapPropertiesV2',
+              'PreparedHistoricalActivationTimePolicyAuthorityBootstrapDnaModifiersV2',
+              'prepare_historical_activation_time_policy_authority_bootstrap_dna_modifiers_v2',
+              'properties: properties.into_serialized_bytes()',
+              'self.modifiers.properties.bytes()',
+              'exact_prepared_property_bytes_enter_dna_modifiers_unchanged',
+              'network_seed_is_preserved_without_rewriting_property_bytes',
+              'modifier_wrapper_is_opaque_and_cannot_reconstruct_properties',
+              '0xac, 0x5a, 0x2d, 0x63',
+          ]
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'ERROR: DnaModifiers invariant missing: {needle!r}')
+
+          production = text[:text.index('#[cfg(test)]')]
+          lower = production.lower()
+          for forbidden in [
+              'serializedbytes', 'unsafebytes', 'holochain_serialized_bytes',
+              'encode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'decode_historical_activation_time_policy_authority_bootstrap_property_v2',
+              'serde::', 'serde_json', 'holochain_serial!',
+              'use hdk', 'hdk::', '#[hdk_extern]', 'dna_info(',
+              'dnafile', 'dnahash', 'with_properties(', 'verify_hash(',
+              'authority_domain_sha256',
+              'exacthistoricalactivationtimepolicyauthoritykeygenerationv2',
+              'exacthistoricalactivationtimepolicyauthoritybootstrapsubjectv2',
+              'pub struct authorized', 'pub struct qualified',
+              'from_trusted_configuration', 'is_authorized',
+              'verify_strict', '.verify(', 'positive_evidence', 'trust_score',
+              'sys_time(', 'std::time',
+              '.expect(', '.unwrap(', 'panic!(', 'unreachable!(',
+          ]:
+              if forbidden in lower:
+                  raise SystemExit(f'ERROR: raw-byte/runtime/authority shortcut leaked into DnaModifiers theorem: {forbidden!r}')
+          PY
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-identity
+
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/Cargo.toml -- --check
+
+      - name: Test exact SerializedBytes parent
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy/Cargo.toml
+
+      - name: Test exact DnaModifiers construction
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/Cargo.toml
+
+      - name: Check DnaModifiers theorem for wasm32
+        run: |
+          cargo check --manifest-path mycelix-workspace/mycelix-identity/crates/historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy/Cargo.toml --target wasm32-unknown-unknown

@@ -1,0 +1,19 @@
+[package]
+name = "mycelix-historical-activation-time-policy-authority-bootstrap-dna-modifiers-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Exact DnaModifiers construction from prepared historical time-policy authority bootstrap properties"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+holochain_zome_types = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy = { path = "../historical-activation-time-policy-authority-bootstrap-property-serialized-bytes-policy" }
+
+[dev-dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-bootstrap-subject-policy = { path = "../historical-activation-time-policy-authority-bootstrap-subject-policy" }
+mycelix-historical-activation-time-policy-authority-bootstrap-declaration-policy = { path = "../historical-activation-time-policy-authority-bootstrap-declaration-policy" }
+sha2 = { workspace = true }
