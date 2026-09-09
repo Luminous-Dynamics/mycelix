@@ -1,0 +1,103 @@
+name: Response Current Executor
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-response-current-executor/**'
+      - 'crates/mycelix-response-effect-safety/**'
+      - 'crates/mycelix-governance-current-executor-authority/**'
+      - 'crates/mycelix-governance-executor-designation/**'
+      - 'crates/mycelix-governance-executor-lineage/**'
+      - '.github/workflows/response-current-executor.yml'
+  push:
+    branches:
+      - 'response-authority-7-direct-executor-requalification'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: response-current-executor-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Direct current executor requalification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.89.0'
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-response-current-executor/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path crates/mycelix-response-current-executor/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/mycelix-response-current-executor/Cargo.toml --all-targets -- -D warnings
+      - name: Upstream compatibility
+        run: |
+          cargo check --manifest-path crates/mycelix-response-effect-safety/Cargo.toml --all-targets
+          cargo check --manifest-path crates/mycelix-governance-current-executor-authority/Cargo.toml --all-targets
+
+      - name: Trust-boundary audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('crates/mycelix-response-current-executor/src/lib.rs').read_text()
+          prod = src.split('#[cfg(test)]', 1)[0]
+          compact = ''.join(prod.split())
+
+          for token in [
+              'qualify_current_executor_authority(',
+              'threshold.authorization.proposal_id.as_str() != response.proposal_id()',
+              'threshold.authorization.actions_digest != response.actions_digest()',
+              'threshold.actions_digest_profile != response.actions_digest_profile()',
+              'designation.required_capability.as_str() != response.action_class()',
+              'threshold_jurisdiction != response.jurisdiction()',
+              'designation_jurisdiction != response.jurisdiction()',
+              'executor_authority_ref(',
+              'current_ref != response.executor_authority_ref()',
+              'response.valid_until_ms().min(current.lease_until_ms())',
+          ]:
+              assert token.replace(' ', '') in compact, token
+
+          sig = prod.split('pub fn requalify_response_current_executor(', 1)[1].split(') -> Result', 1)[0]
+          for required in [
+              'VerifiedThresholdAuthorization',
+              'VerifiedAuthorityGrant',
+              'VerifiedExecutorDesignation',
+              'DelegationLineageEvidence',
+              'VerifiedAuthorityFreshness',
+          ]:
+              assert required in sig, required
+          assert 'VerifiedCurrentExecutorAuthorityReceipt' not in sig
+          assert 'CurrentExecutorAuthorityProjection' not in sig
+
+          prefix = src.split('pub struct QualifiedResponseCurrentExecutor', 1)[0].split('\n')[-8:]
+          assert not any('Deserialize' in line for line in prefix)
+          for token in [
+              'current_executor_requalified_here(&self) -> bool',
+              'wire_projection_used_here(&self) -> bool',
+              'source_origins_verified_here(&self) -> bool',
+              'deployment_bound_here(&self) -> bool',
+              'attempt_reserved_here(&self) -> bool',
+              'grants_execution_authority(&self) -> bool',
+          ]:
+              assert token in src, token
+
+          for forbidden in [
+              '#[hdk_extern]', 'hdk::', 'call_remote(', 'create_entry(',
+              'execute_actions(', 'perform_external_effect', 'dispatch(',
+          ]:
+              assert forbidden not in prod.lower(), forbidden
+
+          print('PASS: final response executor semantics are requalified from source evidence, not a provider wire projection')
+          PY
