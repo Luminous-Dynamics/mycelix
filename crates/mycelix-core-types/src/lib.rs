@@ -10,6 +10,7 @@
 //! - **Planetary Evidence**: Dependency-light environmental evidence payloads
 //! - **Planetary Lineage**: Validated provenance DAGs for derived/model products
 //! - **Physical Risk**: Evidence-decomposed hazard/exposure/vulnerability composition
+//! - **Planetary Response**: Evidence-bound intervention proposals without execution authority
 //! - **Harmonic Types**: Eight Harmonies integration for GIS v4
 //! - **Moral Uncertainty**: Tripartite moral uncertainty model
 //! - **WisdomEngine**: Full Stack Wisdom / Holistic Epistemics architecture with
@@ -156,6 +157,7 @@ pub mod moral;
 pub mod planetary_evidence;
 pub mod planetary_lineage;
 pub mod planetary_product;
+pub mod planetary_response;
 pub mod planetary_risk;
 pub mod trust;
 pub mod wisdom_engine;
@@ -168,6 +170,7 @@ pub use moral::*;
 pub use planetary_evidence::*;
 pub use planetary_lineage::*;
 pub use planetary_product::*;
+pub use planetary_response::*;
 pub use planetary_risk::*;
 pub use trust::*;
 pub use wisdom_engine::*;
