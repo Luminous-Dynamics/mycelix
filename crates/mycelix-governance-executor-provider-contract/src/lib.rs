@@ -8,9 +8,14 @@
 //! generation-bound current executor authority qualified by
 //! `mycelix-governance-current-executor-authority`.
 //!
+//! Provider protocol v0.2 additionally preserves the exact immutable executor
+//! designation record reference used by the generic freshness subject. This lets
+//! downstream consumers reconstruct the exact `ExecutorDesignation` subject
+//! identity without weakening the generation-sensitive current-authority alias.
+//!
 //! A runtime provider must construct this receipt from exact semantic inputs and
 //! authoritative freshness evidence. Callers do not get to choose the authority
-//! ref, current digest, or validity horizon.
+//! ref, current digest, designation record ref, or validity horizon.
 
 use mycelix_authority_freshness::{VerifiedAuthorityFreshness, BUNDLE_IDENTITY_PROFILE};
 use mycelix_authority_identity::AUTHORITY_GRANT_IDENTITY_PROFILE;
@@ -32,13 +37,13 @@ use mycelix_institutional_core::{
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub const PROTOCOL_VERSION: &str = "mycelix-governance-executor-authority-provider-v0.1";
+pub const PROTOCOL_VERSION: &str = "mycelix-governance-executor-authority-provider-v0.2";
 pub const EXECUTOR_AUTHORITY_REF_SCHEME: &str = "current-executor";
 
 const MAX_REF_BYTES: usize = 2048;
 const MAX_PROFILE_BYTES: usize = 128;
 
-/// Exact wire projection consumed by the lifecycle composition verifier.
+/// Exact wire projection consumed by lifecycle / response composition verifiers.
 ///
 /// This type is deserializable because it is a provider ABI, not authority by
 /// itself. A consumer must obtain it by directly calling the authoritative
@@ -58,6 +63,9 @@ pub struct CurrentExecutorAuthorityProjection {
     pub current_executor_authority_profile: String,
     pub semantic_executor_authority_digest: Digest32,
     pub semantic_executor_authority_profile: String,
+    /// Exact immutable designation record used as the generic
+    /// `AuthoritySubjectKind::ExecutorDesignation` subject ID.
+    pub executor_designation_record_ref: String,
     pub authority_grant_id: AuthorityGrantId,
     pub authority_grant_identity_digest: Digest32,
     pub authority_grant_identity_profile: String,
@@ -85,6 +93,7 @@ impl CurrentExecutorAuthorityProjection {
         require_profile(&self.actions_digest_profile)?;
         require_ref(&self.threshold_authorization_ref)?;
         require_ref(&self.executor_authority_ref)?;
+        require_ref(&self.executor_designation_record_ref)?;
         require_id(self.proposal_id.as_str())?;
         require_id(self.executor_principal.as_str())?;
         require_id(self.authority_grant_id.as_str())?;
@@ -162,7 +171,7 @@ impl VerifiedCurrentExecutorAuthorityReceipt {
 }
 
 /// Re-run exact current executor qualification and project it into the runtime
-/// provider ABI expected by the lifecycle verifier.
+/// provider ABI expected by lifecycle / response verifiers.
 #[allow(clippy::too_many_arguments)]
 pub fn qualify_executor_provider_receipt(
     threshold: &VerifiedThresholdAuthorization,
@@ -189,6 +198,7 @@ pub fn qualify_executor_provider_receipt(
 
     let provider_verification_ref = provider_verification_ref.into();
     require_ref(&provider_verification_ref)?;
+    require_ref(&designation_receipt.designation_record_ref)?;
 
     let authority_ref = executor_authority_ref(
         current.current_authority_digest(),
@@ -220,6 +230,7 @@ pub fn qualify_executor_provider_receipt(
         semantic_executor_authority_profile: current
             .executor_semantic_authority_profile()
             .to_string(),
+        executor_designation_record_ref: designation_receipt.designation_record_ref.clone(),
         authority_grant_id: current.authority_grant_id().clone(),
         authority_grant_identity_digest: current.authority_grant_identity_digest(),
         authority_grant_identity_profile: AUTHORITY_GRANT_IDENTITY_PROFILE.into(),
@@ -390,6 +401,7 @@ mod tests {
             current_executor_authority_profile: CURRENT_EXECUTOR_AUTHORITY_PROFILE.into(),
             semantic_executor_authority_digest: d(4),
             semantic_executor_authority_profile: EXECUTOR_LINEAGE_AUTHORITY_PROFILE.into(),
+            executor_designation_record_ref: "designation:executor:1".into(),
             authority_grant_id: AuthorityGrantId::new("grant:executor").unwrap(),
             authority_grant_identity_digest: d(5),
             authority_grant_identity_profile: AUTHORITY_GRANT_IDENTITY_PROFILE.into(),
@@ -433,6 +445,16 @@ mod tests {
     }
 
     #[test]
+    fn missing_designation_record_ref_is_rejected() {
+        let mut value = projection();
+        value.executor_designation_record_ref.clear();
+        assert_eq!(
+            value.validate().unwrap_err(),
+            ExecutorProviderContractError::InvalidReference
+        );
+    }
+
+    #[test]
     fn dynamic_provider_refresh_does_not_change_authority_ref() {
         let projection = projection();
         let older = VerifiedCurrentExecutorAuthorityReceipt {
@@ -452,6 +474,10 @@ mod tests {
         assert_eq!(
             older.projection.executor_authority_ref,
             newer.projection.executor_authority_ref
+        );
+        assert_eq!(
+            older.projection.executor_designation_record_ref,
+            newer.projection.executor_designation_record_ref
         );
         older.validate_at(250).unwrap();
         newer.validate_at(250).unwrap();
