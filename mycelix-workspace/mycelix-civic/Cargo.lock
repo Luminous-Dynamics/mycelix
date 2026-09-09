@@ -970,6 +970,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "justice-adjudication-reducer"
+version = "0.1.0"
+dependencies = [
+ "justice-finality-qualification",
+ "justice-resolution-verifier",
+]
+
+[[package]]
+name = "justice-finality-qualification"
+version = "0.1.0"
+dependencies = [
+ "justice-resolution-types",
+]
+
+[[package]]
+name = "justice-resolution-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "justice-resolution-verifier"
+version = "0.1.0"
+dependencies = [
+ "justice-finality-qualification",
+ "justice-resolution-types",
+]
+
+[[package]]
+name = "justice_adjudication_evidence"
+version = "0.1.0"
+dependencies = [
+ "hdk",
+ "justice_adjudication_evidence_integrity",
+ "justice_arbitration_integrity",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "justice_adjudication_evidence_integrity"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "holochain_serialized_bytes",
+ "justice_arbitration_integrity",
+ "serde",
+]
+
+[[package]]
 name = "justice_arbitration"
 version = "0.1.0"
 dependencies = [
@@ -1562,6 +1613,8 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "sovereign-profile"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"
 dependencies = [
  "serde",
 ]
