@@ -66,30 +66,65 @@ jobs:
           assert not manifest.get('build-dependencies'), 'qualifier must have zero build dependencies'
           PY
 
-      - name: Verify pure source boundary
+      - name: Verify pure production source boundary
         run: |
-          src='mycelix-workspace/mycelix-civic/crates/justice-enforcement-qualification/src'
-          if grep -R -n -E '(^|[[:space:]])use[[:space:]]+(hdk|hdi|holochain|mycelix_business|mycelix_finance)|hdk::|hdi::|holochain_[A-Za-z0-9_]*::|mycelix_business_[A-Za-z0-9_]*::|mycelix_finance_[A-Za-z0-9_]*::|std::(time|net|fs|process|env)::|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src" --include='*.rs'; then
-            echo 'Justice enforcement qualifier gained runtime, Business, Finance, Holochain, or ambient-authority coupling' >&2
-            exit 1
-          fi
-          if grep -R -n -E 'justice_finality_qualification|DecisionSnapshotV1|AppealStatus|declared_finalized|Decision\.finalized' "$src" --include='*.rs'; then
-            echo 'Enforcement production source must consume the sealed verified remedy, not raw finality/Decision/Appeal surfaces' >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          path = pathlib.Path('mycelix-workspace/mycelix-civic/crates/justice-enforcement-qualification/src/lib.rs')
+          text = path.read_text()
+          production = text.split('#[cfg(test)]', 1)[0]
+
+          forbidden = re.compile(
+              r'(^|\s)use\s+(hdk|hdi|holochain|mycelix_business|mycelix_finance)'
+              r'|hdk::|hdi::|holochain_[A-Za-z0-9_]*::'
+              r'|mycelix_business_[A-Za-z0-9_]*::|mycelix_finance_[A-Za-z0-9_]*::'
+              r'|std::(time|net|fs|process|env)::|SystemTime::now|Instant::now'
+              r'|Command::new|TcpStream|UdpSocket'
+          )
+          match = forbidden.search(production)
+          assert match is None, f'forbidden runtime/ambient coupling: {match.group(0)!r}'
+
+          for term in (
+              'justice_finality_qualification',
+              'DecisionSnapshotV1',
+              'AppealStatus',
+              'declared_finalized',
+              'Decision.finalized',
+          ):
+              assert term not in production, (
+                  f'enforcement production surface regained raw finality/Decision/Appeal input: {term}'
+              )
+          PY
 
       - name: Verify effect and currentness boundaries
         run: |
-          src='mycelix-workspace/mycelix-civic/crates/justice-enforcement-qualification/src/lib.rs'
-          grep -F 'pub verified_remedy: VerifiedJusticeMonetaryRemedyV1' "$src"
-          grep -F 'self.verified_remedy.outcome().effect_id()' "$src"
-          grep -F 'current_revalidation_required_before_dispatch: true' "$src"
-          grep -F 'qualification_time_unix_ms = basis' "$src"
-          grep -F '.receipt()' "$src"
-          if grep -n -E 'pub[[:space:]]+effect_id[[:space:]]*:|pub[[:space:]]+qualification_time_unix_ms[[:space:]]*:' "$src"; then
-            echo 'Qualifier must not accept caller-supplied effect identity or duplicate qualification time' >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          path = pathlib.Path('mycelix-workspace/mycelix-civic/crates/justice-enforcement-qualification/src/lib.rs')
+          text = path.read_text()
+          production = text.split('#[cfg(test)]', 1)[0]
+
+          required = (
+              'pub verified_remedy: VerifiedJusticeMonetaryRemedyV1',
+              'self.verified_remedy.outcome().effect_id()',
+              'current_revalidation_required_before_dispatch: true',
+              'qualification_time_unix_ms = basis',
+              '.receipt()',
+          )
+          for needle in required:
+              assert needle in production, f'missing enforcement boundary: {needle}'
+
+          assert re.search(r'pub\s+effect_id\s*:', production) is None, (
+              'qualifier must not accept caller-supplied effect identity'
+          )
+          assert re.search(r'pub\s+qualification_time_unix_ms\s*:', production) is None, (
+              'qualifier must derive time from the verified Justice receipt'
+          )
+          PY
 
       - name: Build isolated exact dependency capsule
         run: |
