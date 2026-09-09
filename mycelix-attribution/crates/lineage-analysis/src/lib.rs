@@ -96,6 +96,9 @@ pub struct ResponseStructureReport {
     pub unique_subject_count: usize,
     /// Subject actions for which no unambiguous author binding was provided.
     pub unmatched_subject_actions: Vec<String>,
+    /// Defensive observation. Qualified CL-03 semantics should prevent this for
+    /// corroboration, but the analyzer does not silently assume its input is perfect.
+    pub self_corroboration_subject_actions: Vec<String>,
     /// Only groups with repeated or mixed response behavior are surfaced here.
     pub responder_subject_patterns: Vec<ResponderSubjectPattern>,
     /// Reciprocal corroboration between actors: A corroborates a subject authored by B
@@ -156,6 +159,12 @@ impl std::fmt::Display for AnalysisError {
 
 impl std::error::Error for AnalysisError {}
 
+#[derive(Default)]
+struct EdgeAccumulator {
+    claim_count: usize,
+    attestors: BTreeSet<String>,
+}
+
 pub fn analyze_lineage(
     attestations: &[LineageAttestation],
 ) -> Result<LineageStructureReport, AnalysisError> {
@@ -168,7 +177,7 @@ pub fn analyze_lineage(
 
     let mut subjects = BTreeSet::new();
     let mut edges = BTreeSet::<(String, String)>::new();
-    let mut edge_claims = BTreeMap::<(String, String), Vec<String>>::new();
+    let mut edge_stats = BTreeMap::<(String, String), EdgeAccumulator>::new();
     let mut actor_counts = BTreeMap::<String, usize>::new();
 
     for (index, claim) in attestations.iter().enumerate() {
@@ -179,11 +188,11 @@ pub fn analyze_lineage(
 
         subjects.insert(claim.source_ref.clone());
         subjects.insert(claim.target_ref.clone());
-        edges.insert((claim.source_ref.clone(), claim.target_ref.clone()));
-        edge_claims
-            .entry((claim.source_ref.clone(), claim.target_ref.clone()))
-            .or_default()
-            .push(claim.attestor_did.clone());
+        let edge = (claim.source_ref.clone(), claim.target_ref.clone());
+        edges.insert(edge.clone());
+        let stats = edge_stats.entry(edge).or_default();
+        stats.claim_count += 1;
+        stats.attestors.insert(claim.attestor_did.clone());
         *actor_counts.entry(claim.attestor_did.clone()).or_default() += 1;
     }
 
@@ -192,45 +201,19 @@ pub fn analyze_lineage(
     let mut reciprocal_subject_pairs = BTreeSet::new();
     for (source, target) in &edges {
         if edges.contains(&(target.clone(), source.clone())) {
-            let pair = ordered_pair(source, target);
-            reciprocal_subject_pairs.insert(pair);
+            reciprocal_subject_pairs.insert(ordered_pair(source, target));
         }
     }
 
-    let repeated_edges = edge_claims
+    let repeated_edges = edge_stats
         .into_iter()
-        .filter_map(|((source_ref, target_ref), attestors)| {
-            if attestors.len() <= 1 {
-                return None;
-            }
-            let unique_attestors = attestors.into_iter().collect::<BTreeSet<_>>();
-            Some(RepeatedLineageEdge {
+        .filter_map(|((source_ref, target_ref), stats)| {
+            (stats.claim_count > 1).then(|| RepeatedLineageEdge {
                 source_ref,
                 target_ref,
-                claim_count: unique_attestors
-                    .iter()
-                    .map(|_| 0usize)
-                    .count(), // overwritten below; keeps deterministic set construction simple
-                unique_attestors: unique_attestors.into_iter().collect(),
+                claim_count: stats.claim_count,
+                unique_attestors: stats.attestors.into_iter().collect(),
             })
-        })
-        .collect::<Vec<_>>();
-
-    // Preserve total claim multiplicity, not merely unique-attestor multiplicity.
-    let mut repeated_counts = BTreeMap::<(String, String), usize>::new();
-    for claim in attestations {
-        *repeated_counts
-            .entry((claim.source_ref.clone(), claim.target_ref.clone()))
-            .or_default() += 1;
-    }
-    let repeated_edges = repeated_edges
-        .into_iter()
-        .map(|mut edge| {
-            edge.claim_count = repeated_counts
-                .get(&(edge.source_ref.clone(), edge.target_ref.clone()))
-                .copied()
-                .unwrap_or(0);
-            edge
         })
         .collect();
 
@@ -271,6 +254,7 @@ pub fn analyze_responses(
     let mut responder_counts = BTreeMap::<String, usize>::new();
     let mut unique_subjects = BTreeSet::new();
     let mut unmatched = BTreeSet::new();
+    let mut self_corroboration = BTreeSet::new();
     let mut grouped = BTreeMap::<(String, String), [usize; 4]>::new();
     let mut corroboration_edges = BTreeSet::<(String, String)>::new();
     let mut corroboration_actors = BTreeSet::new();
@@ -293,7 +277,10 @@ pub fn analyze_responses(
         counts[disposition_index(&response.disposition)] += 1;
 
         if let Some(author) = author_by_subject.get(&subject) {
-            if matches!(response.disposition, ResponseDisposition::Corroborate) {
+            if matches!(&response.disposition, ResponseDisposition::Corroborate) {
+                if author == &response.responder_did {
+                    self_corroboration.insert(subject.clone());
+                }
                 corroboration_actors.insert(response.responder_did.clone());
                 corroboration_actors.insert(author.clone());
                 corroboration_edges.insert((response.responder_did.clone(), author.clone()));
@@ -307,9 +294,7 @@ pub fn analyze_responses(
         .into_iter()
         .filter_map(|((subject_action, responder_did), counts)| {
             let total = counts.iter().sum::<usize>();
-            let mixed = counts[0] > 0 && counts[1] > 0;
-            let repeated_same = counts.iter().any(|count| *count > 1);
-            if total <= 1 && !mixed && !repeated_same {
+            if total <= 1 {
                 return None;
             }
             Some(ResponderSubjectPattern {
@@ -319,8 +304,8 @@ pub fn analyze_responses(
                 contest_count: counts[1],
                 retract_count: counts[2],
                 supersede_count: counts[3],
-                mixed_independent_position: mixed,
-                repeated_same_position: repeated_same,
+                mixed_independent_position: counts[0] > 0 && counts[1] > 0,
+                repeated_same_position: counts.iter().any(|count| *count > 1),
             })
         })
         .collect();
@@ -336,6 +321,7 @@ pub fn analyze_responses(
         response_count: responses.len(),
         unique_subject_count: unique_subjects.len(),
         unmatched_subject_actions: unmatched.into_iter().collect(),
+        self_corroboration_subject_actions: self_corroboration.into_iter().collect(),
         responder_subject_patterns,
         reciprocal_corroboration_pairs: reciprocal_pairs
             .into_iter()
@@ -419,7 +405,7 @@ fn actor_volume(counts: BTreeMap<String, usize>, total: usize) -> Vec<ActorVolum
 }
 
 /// Deterministic iterative Kosaraju SCC pass. Only components with >1 member are
-/// returned because integrity already forbids self-referential lineage edges.
+/// returned; single-node self-correlations are reported separately where relevant.
 fn strongly_connected_components(
     nodes: &BTreeSet<String>,
     edges: &BTreeSet<(String, String)>,
@@ -508,9 +494,7 @@ fn strongly_connected_components(
 #[cfg(test)]
 mod tests {
     use hdi::prelude::ActionHash;
-    use lineage_integrity::{
-        EvidenceRef, LineageRelation, LINEAGE_SCHEMA_VERSION,
-    };
+    use lineage_integrity::{EvidenceRef, LineageRelation, LINEAGE_SCHEMA_VERSION};
 
     use super::*;
 
@@ -539,7 +523,7 @@ mod tests {
         disposition: ResponseDisposition,
     ) -> LineageResponse {
         let independent = matches!(
-            disposition,
+            &disposition,
             ResponseDisposition::Corroborate | ResponseDisposition::Contest
         );
         LineageResponse {
@@ -686,6 +670,28 @@ mod tests {
         .unwrap();
         assert_eq!(report.unmatched_subject_actions, vec![subject.to_string()]);
         assert!(report.corroboration_cycle_components.is_empty());
+    }
+
+    #[test]
+    fn defensive_self_corroboration_is_observable_not_scored() {
+        let subject = action(7);
+        let report = analyze_responses(
+            &[response(
+                "did:a",
+                "1",
+                subject.clone(),
+                ResponseDisposition::Corroborate,
+            )],
+            &[SubjectAuthorBinding {
+                subject_action: subject.to_string(),
+                author_did: "did:a".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(
+            report.self_corroboration_subject_actions,
+            vec![subject.to_string()]
+        );
     }
 
     #[test]
