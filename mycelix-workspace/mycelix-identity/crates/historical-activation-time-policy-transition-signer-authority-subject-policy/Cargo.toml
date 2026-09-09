@@ -1,0 +1,17 @@
+[package]
+name = "mycelix-historical-activation-time-policy-transition-signer-authority-subject-policy"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Canonical semantic authority subject for historical time-policy transition signer generations"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+mycelix-crypto = { workspace = true }
+mycelix-historical-activation-time-policy-authority-key-generation-policy = { path = "../historical-activation-time-policy-authority-key-generation-policy" }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+mycelix-identity-authority-domain-policy = { path = "../identity-authority-domain-policy" }
