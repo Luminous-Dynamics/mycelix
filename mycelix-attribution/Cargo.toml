@@ -7,6 +7,7 @@ members = [
     "zomes/usage/coordinator",
     "zomes/reciprocity/integrity",
     "zomes/reciprocity/coordinator",
+    "zomes/lineage/integrity",
 ]
 exclude = ["tests", "cli", "verifier", "prover", "stark-common"]
 
