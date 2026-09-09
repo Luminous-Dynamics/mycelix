@@ -18,5 +18,6 @@ mycelix-institutional-core = { path = "../mycelix-institutional-core" }
 [dev-dependencies]
 mycelix-core-types = { path = "../mycelix-core-types", features = ["serde"] }
 mycelix-authority-identity = { path = "../mycelix-authority-identity" }
+mycelix-governance-authority = { path = "../mycelix-governance-authority" }
 mycelix-governance-current-executor-authority = { path = "../mycelix-governance-current-executor-authority" }
 mycelix-governance-executor-lineage = { path = "../mycelix-governance-executor-lineage" }
