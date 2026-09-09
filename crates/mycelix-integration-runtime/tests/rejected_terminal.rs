@@ -39,8 +39,8 @@ fn intent() -> DurableOutboundIntent {
     }
 }
 
-fn rejected() -> ExternalExecutionOutcome {
-    ExternalExecutionOutcome::Rejected {
+fn rejected_before_commit() -> ExternalExecutionOutcome {
+    ExternalExecutionOutcome::RejectedBeforeCommit {
         operation: operation(),
         reason: ExternalRejection {
             code: ExternalRejectionCode::new("definite-pre-commit-denial")
@@ -61,7 +61,7 @@ fn confirms_no_effect() -> ReconciliationResult {
 }
 
 #[test]
-fn definite_rejection_is_terminal_without_fabricated_reconciliation() {
+fn definite_pre_commit_rejection_closes_without_fabricated_reconciliation() {
     let mut store = SqliteIntegrationStore::in_memory().expect("store must open");
     let entry_id = match store.enqueue_outbound(&intent()).expect("enqueue must succeed") {
         EnqueueDisposition::Inserted(entry_id) => entry_id,
@@ -80,14 +80,14 @@ fn definite_rejection_is_terminal_without_fabricated_reconciliation() {
             entry_id,
             &claim.attempt_id,
             "worker-reject",
-            &rejected(),
+            &rejected_before_commit(),
             150,
         )
-        .expect("definite rejection must be recorded");
+        .expect("definite pre-commit rejection must be recorded");
 
     assert_eq!(
         store.outbox_snapshot(entry_id).expect("snapshot").stage,
-        OutboundStage::Rejected
+        OutboundStage::RejectedBeforeCommit
     );
     assert!(store
         .reconciliation_history(entry_id)
@@ -97,25 +97,20 @@ fn definite_rejection_is_terminal_without_fabricated_reconciliation() {
     assert!(matches!(
         store.record_reconciliation(entry_id, &confirms_no_effect(), 160),
         Err(RuntimeError::IllegalOutboundTransition {
-            from: OutboundStage::Rejected,
+            from: OutboundStage::RejectedBeforeCommit,
             to: OutboundStage::Reconciled,
         })
     ));
-
-    // The failed reconciliation attempt is rolled back; no fake evidence is kept.
     assert!(store
         .reconciliation_history(entry_id)
         .expect("history")
         .is_empty());
-    assert!(matches!(
-        store.finalize_outbound(entry_id, 170),
-        Err(RuntimeError::IllegalOutboundTransition {
-            from: OutboundStage::Rejected,
-            to: OutboundStage::Finalized,
-        })
-    ));
+
+    store
+        .finalize_outbound(entry_id, 170)
+        .expect("definite no-effect rejection may close directly");
     assert_eq!(
         store.outbox_snapshot(entry_id).expect("snapshot").stage,
-        OutboundStage::Rejected
+        OutboundStage::Finalized
     );
 }
