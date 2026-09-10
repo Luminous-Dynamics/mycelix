@@ -1,10 +1,15 @@
 import { addMoney, assertSameCurrency, money, type Money } from './money.js';
+import {
+  assertRoyaltyObligationAuthority,
+  type RoyaltyObligationAuthority,
+} from './obligation-authority.js';
 
-export interface RoyaltyObligation {
-  readonly id: string;
-  readonly beneficiaryId: string;
-  readonly amount: Money;
-  readonly observedAt: string;
+export interface RoyaltyObligation extends RoyaltyObligationAuthority {
+  /**
+   * Eligibility fields are a compatibility projection of current evidence, not
+   * part of the immutable debt principal. Changing them does not create a new
+   * royalty obligation authority root.
+   */
   readonly routeAvailable?: boolean;
   readonly rightsConflict?: boolean;
   readonly legalHold?: boolean;
@@ -51,9 +56,7 @@ export interface CarryForwardAssessment {
 }
 
 function validateObligation(obligation: RoyaltyObligation): void {
-  if (!obligation.id.trim() || !obligation.beneficiaryId.trim()) {
-    throw new Error('royalty obligation id and beneficiaryId must be non-empty');
-  }
+  assertRoyaltyObligationAuthority(obligation);
   if (obligation.amount.amountMinor < 0n) throw new Error('royalty obligation amount must be non-negative');
   if (!Number.isFinite(Date.parse(obligation.observedAt))) throw new Error('obligation observedAt must be valid');
 }
