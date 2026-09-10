@@ -2,10 +2,9 @@
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
 //! file-backed cross-handle freshness, atomic fresh-bootstrap classification,
-//! zero-history semantic bootstrap qualification, concrete structural-manifest
-//! validation, lock-first SQLite enforcement repair, and connector-checkpoint
-//! CAS semantics so process-local caches or check/write races cannot weaken
-//! durable causal meaning.
+//! zero-history semantic bootstrap qualification, one-transaction structural
+//! qualification/enforcement repair, and connector-checkpoint CAS semantics so
+//! process-local caches or check/write races cannot weaken durable causal meaning.
 
 #[path = "bootstrap_guard.rs"]
 mod bootstrap_guard;
@@ -18,7 +17,7 @@ mod v31;
 
 pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
 pub use storage_guard::{
-    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V4,
+    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V5,
 };
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
@@ -67,27 +66,14 @@ impl SqliteIntegrationStore {
             drop(bootstrap);
         }
 
-        // `user_version = 2` is only a declared generation. Before any derived
-        // index/trigger repair, qualify the concrete non-reconstructable SQLite
-        // table/key/FK/index substrate and reject unknown triggers on managed
-        // tables. This is point-in-time startup qualification, not tamper-proofness.
-        schema_manifest::validate_pre_repair_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
-
-        // Repair/reconstruct only after the concrete substrate is qualified.
+        // One IMMEDIATE transaction now owns pre-repair structural-manifest-v2
+        // qualification, semantic/schema checks, typed-history reconstruction,
+        // derived index/trigger replacement, enforcement-profile-v5 recording,
+        // and post-repair structural-manifest-v2 qualification before commit.
         storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
 
-        // Re-qualify the fully hardened representation before loading process
-        // caches: complete derived tables/indexes/triggers, exact enforcement
-        // singleton, and foreign-key integrity must now match the manifest.
-        schema_manifest::validate_hardened_file_store(
-            &path,
-            RUNTIME_SEMANTIC_PROFILE_V31,
-            RUNTIME_ENFORCEMENT_PROFILE_V4,
-        )?;
-
-        // Load process-local caches only after the durable store has passed
-        // bootstrap qualification, concrete structural qualification, repair,
-        // and post-repair structural qualification.
+        // Load process-local caches only after the complete durable hardening
+        // transaction commits successfully.
         let inner = v31::SqliteIntegrationStore::open(&path)?;
 
         Ok(Self {
