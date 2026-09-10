@@ -27,7 +27,7 @@ describe('settlement recovery', () => {
     const state = reconstructSettlementRecovery(batch, []);
     expect(state.status).toBe('never_attempted');
     expect(mayStartSettlementAttempt(state)).toBe(true);
-    expect(state.obligationSetSettled).toBe(false);
+    expect(state.railCoversBatchGross).toBe(false);
     expect(state.eligibilityAsOf).toBe(batch.eligibilityAsOf);
     expect(state.eligibilityEvidenceRoot).toBe(batch.eligibilityEvidenceRoot);
   });
@@ -38,7 +38,7 @@ describe('settlement recovery', () => {
     ])).toThrow(/cannot precede the eligibility snapshot/);
   });
 
-  it('is deterministic under replayed observations and derives whole-batch finality from receipt amount evidence', () => {
+  it('is deterministic under replayed observations and derives whole-batch rail coverage from receipt amount evidence', () => {
     const recovered = reconstructSettlementRecovery(batch, [
       obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
       obs(SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'),
@@ -46,20 +46,20 @@ describe('settlement recovery', () => {
       finalized('2026-10-01T00:03:00Z'),
     ]);
     expect(recovered.status).toBe('finalized');
-    expect(recovered.obligationSetSettled).toBe(true);
+    expect(recovered.railCoversBatchGross).toBe(true);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
     expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
   });
 
-  it('classifies partial rail finality without erasing residual debt or enabling retry', () => {
+  it('classifies partial rail finality without claiming gross coverage or enabling retry', () => {
     const recovered = reconstructSettlementRecovery(batch, [
       finalized('2026-10-01T00:03:00Z', { settledAmount: money(475n, 'USD') }),
     ]);
     expect(recovered.status).toBe('partial_finality');
-    expect(recovered.obligationSetSettled).toBe(false);
+    expect(recovered.railCoversBatchGross).toBe(false);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
     expect(recovered.finalSettledAmount).toEqual(money(475n, 'USD'));
-    expect(recovered.reason).toMatch(/residual allocation or reconciliation/);
+    expect(recovered.reason).toMatch(/allocation or reconciliation/);
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
   });
 
@@ -94,7 +94,7 @@ describe('settlement recovery', () => {
       obs(SettlementAttemptState.Reversed, '2026-10-01T00:04:00Z'),
     ]);
     expect(recovered.status).toBe('blocked_ambiguous');
-    expect(recovered.obligationSetSettled).toBe(false);
+    expect(recovered.railCoversBatchGross).toBe(false);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
     expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
