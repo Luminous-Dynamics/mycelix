@@ -82,6 +82,10 @@ grep -Fq 'db:accounting-lineage-source' "$package" \
   || fail "database package must expose serialized source installation"
 grep -Fq 'accounting-lineage-source.integration.ts' "$package" \
   || fail "live serialized-source test must be part of accounting guard regressions"
+grep -Fq "'mycelix-music/packages/database/prisma/accounting-*.sql'" "$workflow" \
+  || fail "persistence workflow must trigger for every accounting SQL source"
+grep -Fq "'mycelix-music/packages/database/src/accounting-*.ts'" "$workflow" \
+  || fail "persistence workflow must trigger for every accounting database TypeScript source"
 grep -Fq 'db:accounting-lineage-source --workspace=@mycelix/database' "$workflow" \
   || fail "exact-head persistence workflow must install serialized lineage source"
 grep -Fq 'check-lineage-source-invariants.sh' "$workflow" \
