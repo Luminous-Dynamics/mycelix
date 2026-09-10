@@ -235,7 +235,7 @@ export function compileRoyaltyStatement(
   return createStatementSnapshot({
     statementId: input.statementId,
     kind: input.kind,
-    predecessorStatementId: input.predecessorStatementId,
+    ...(input.predecessorStatementId === undefined ? {} : { predecessorStatementId: input.predecessorStatementId }),
     beneficiaryId: input.beneficiaryId,
     period: input.period,
     asOf: input.asOf,

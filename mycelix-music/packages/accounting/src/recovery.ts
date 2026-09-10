@@ -186,7 +186,7 @@ function buildAttemptHistories(
       firstObservedAt: parseTimestamp(first.observedAt),
       lastObservedAt: parseTimestamp(final.observedAt),
       finalState: final.state,
-      supersedesAttemptId: first.supersedesAttemptId,
+      ...(first.supersedesAttemptId === undefined ? {} : { supersedesAttemptId: first.supersedesAttemptId }),
     }));
   }
 

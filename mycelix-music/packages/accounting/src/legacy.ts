@@ -51,11 +51,16 @@ function parseMinorAmount(value: string): bigint {
 export function observeLegacyRoyaltyPayment(
   row: LegacyRoyaltyPaymentRow,
 ): Readonly<LegacyRoyaltyPaymentObservation> {
-  if (!row.id.trim() || !row.songId.trim() || !row.recipientAddress.trim()) {
+  const legacyPaymentId = row.id.trim();
+  const songId = row.songId.trim();
+  const recipientAddress = row.recipientAddress.trim();
+  const railReference = row.txHash.trim();
+  const periodLabel = row.period.trim();
+  if (!legacyPaymentId || !songId || !recipientAddress) {
     throw new Error('legacy royalty payment requires id, songId and recipientAddress');
   }
-  if (!row.txHash.trim()) throw new Error('legacy royalty payment requires a rail reference');
-  if (!row.period.trim()) throw new Error('legacy royalty payment requires a period label');
+  if (!railReference) throw new Error('legacy royalty payment requires a rail reference');
+  if (!periodLabel) throw new Error('legacy royalty payment requires a period label');
   if (!Number.isSafeInteger(row.playCount) || row.playCount < 0) {
     throw new Error('legacy royalty payment playCount must be a non-negative safe integer');
   }
@@ -63,21 +68,27 @@ export function observeLegacyRoyaltyPayment(
   const amount = money(parseMinorAmount(row.amount), row.currency);
   const observedPaidAt = normalizedTimestamp(row.paidAt);
   const committed = {
-    legacyPaymentId: row.id,
-    songId: row.songId,
-    recipientAddress: row.recipientAddress,
+    legacyPaymentId,
+    songId,
+    recipientAddress,
     amountMinor: amount.amountMinor,
     currency: amount.currency,
-    railReference: row.txHash,
-    periodLabel: row.period,
+    railReference,
+    periodLabel,
     playCount: row.playCount,
     observedPaidAt,
   };
 
   return Object.freeze({
     authority: 'receipt_projection_only',
-    ...committed,
+    legacyPaymentId,
+    songId,
+    recipientAddress,
     amount,
+    railReference,
+    periodLabel,
+    playCount: row.playCount,
+    observedPaidAt,
     observationRoot: buildMerkleCommitment([committed]).root,
     migrationWarning: 'does_not_create_or_extinguish_obligation',
   });
