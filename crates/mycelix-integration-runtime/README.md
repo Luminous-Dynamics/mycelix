@@ -13,7 +13,7 @@ The public crate root is `src/runtime.rs`:
 ```text
 src/runtime.rs         stable public boundary + cross-handle/atomic fences
       ↓
-src/storage_guard.rs   reconstructable storage enforcement + checkpoint CAS
+src/storage_guard.rs   lock-first admission + reconstructable storage enforcement + checkpoint CAS
       ↓
 src/v31.rs             storage-semantics v3.1 facade
       ↓
@@ -24,8 +24,10 @@ The layered boundary preserves the already-frozen v2 crash/retry/history machine
 
 - durable semantic-producer/profile identity separate from SQLite schema identity;
 - fail-closed migration when legacy state meaning is underdetermined;
+- lock-first validation of semantic profile **and structural schema version** before repair;
 - durable monotonic provider-operation identity, including late historical evidence;
-- deterministic reconstruction of derived provider-operation indexes from append-only history;
+- typed, subject-bound reconstruction of derived provider-operation indexes from append-only history;
+- orphan-history rejection;
 - per-entry Mycelix runtime causal-time monotonicity;
 - cross-handle freshness checks plus atomic SQLite causal-time write fences;
 - monotonic connector-wide reconciliation checkpoints with equal-time conflict detection;
@@ -94,11 +96,34 @@ syntactic readability
     != semantic equivalence
 ```
 
-The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs`/`storage_guard.rs` layers do not reinterpret that durable history; they strengthen reconstruction and enforcement of the already-declared v3.1 rules.
+The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs`/`storage_guard.rs` layers do not reinterpret that durable history; they strengthen admission, reconstruction, and enforcement of the already-declared v3.1 rules.
 
 Pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An untagged non-empty legacy runtime therefore cannot be promoted into current semantics merely because its rows remain structurally readable. v3.1 fails closed and requires an explicit provenance-bearing migration/import path.
 
 Unknown or tampered semantic producer identities also fail closed on reopen.
+
+## Lock-first structural admission
+
+For an already initialized file-backed runtime, `storage_guard.rs` acquires a SQLite `IMMEDIATE` transaction before it trusts or repairs durable enforcement state.
+
+Admission first checks the expected semantic producer identity and then the structural schema version. The v3.1 runtime currently requires:
+
+```text
+PRAGMA user_version = 2
+```
+
+Only after both checks succeed may startup validate history, rebuild derived indexes, replace security-critical triggers, and record the enforcement profile.
+
+```text
+semantic-profile-v3.1
++ unsupported structural schema
+    -> fail closed
+    -X-> repair derived indexes
+    -X-> replace triggers
+    -X-> rewrite enforcement metadata
+```
+
+The hostile structural-admission regression deliberately sets `user_version = 99`, weakens a causal trigger, and tampers enforcement metadata. Reopen must reject before repair, leaving those deliberately corrupted derived artifacts untouched. That test demonstrates ordering of admission and repair; it is not a claim that hostile storage should normally remain corrupted.
 
 ## Exact attempt fencing and finite attempt generation
 
@@ -135,9 +160,18 @@ Some(A) -> None      cannot erase the binding
 
 The append-only execution and reconciliation histories are the historical source material. `integration_runtime_operation_binding` is a **derived enforcement index**, not an independent source of truth.
 
-On file-backed reopen, `storage_guard.rs` holds an SQLite `IMMEDIATE` transaction, validates the stored history, rebuilds the derived binding table, atomically replaces the binding/causal triggers, records the expected enforcement profile, commits, and only then reloads the v3.1 runtime caches from the repaired database.
+On file-backed reopen, the runtime admits the structural/semantic substrate under an SQLite `IMMEDIATE` transaction, rejects orphan history, deserializes execution/reconciliation rows as exact INT-02 types, validates their embedded command/connector subject against the owning outbox entry, rebuilds the derived binding table, atomically replaces the binding/causal triggers, records the expected enforcement profile, commits, and only then reloads the v3.1 runtime caches from the repaired database.
+
+The inherited INT-02 ID types also validate through Serde, so typed history cannot smuggle identifiers that their public constructors would reject.
 
 ```text
+valid-looking JSON
+    != typed INT-02 history
+
+typed history
++ wrong outbox subject
+    -> reject
+
 missing derived row
     != no historical binding
 
@@ -152,19 +186,21 @@ history establishes Some(A) and Some(B)
     -X-> choose a winner
 ```
 
-This closes both cache-loss and stale-cache cases, including identities learned only from late non-applying historical evidence after finalization.
+This closes cache-loss, stale-cache, malformed-history, foreign-subject, and orphan-history cases, including identities learned only from late non-applying historical evidence after finalization.
 
 Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
 
 ## Enforcement machinery has its own identity
 
-Reconstructable SQLite security machinery is labeled separately from semantic history:
+Reconstructable SQLite admission/reconstruction/trigger machinery is labeled separately from semantic history:
 
 ```text
-mycelix-integration-runtime/enforcement-profile-v1
+mycelix-integration-runtime/enforcement-profile-v3
 ```
 
-A trigger name alone is not accepted as proof that the installed SQL implements the expected safety theorem. Reopen replaces the known security-critical trigger definitions inside the same `IMMEDIATE` startup transaction used for derived-state reconstruction.
+A trigger name alone is not accepted as proof that the installed SQL implements the expected safety theorem. Reopen replaces the known security-critical trigger definitions inside the same `IMMEDIATE` startup transaction used for typed derived-state reconstruction.
+
+Enforcement profile v3 includes lock-first structural admission in addition to the typed reconstruction, exact subject binding, orphan rejection, and trigger/index repair introduced by the preceding hardening work.
 
 ```text
 same trigger name
@@ -172,6 +208,9 @@ same trigger name
 
 semantic producer identity
     != enforcement implementation identity
+
+structural schema identity
+    != semantic producer identity
 ```
 
 This protects against stale/drifted local enforcement definitions. It is **not** a claim that SQLite is cryptographically tamper-proof against an attacker with unrestricted storage access.
@@ -323,21 +362,24 @@ Promotion requires one exact-head hosted qualification establishing the legacy e
 
 1. formatting, compilation, full tests, and Clippy with warnings denied;
 2. provider-neutral normal transitive dependency closure;
-3. non-materializing claims and exact attempt fencing;
-4. pre-dispatch safe reclaim and post-dispatch ambiguity;
-5. bounded persistent attempts plus unrelated-work liveness;
-6. append-only bounded observation/reconciliation histories;
-7. fail-closed legacy semantic migration;
-8. durable/reopen-stable semantic producer identity and tamper rejection;
-9. expired post-dispatch fence demotion before completion;
-10. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
-11. missing/stale derived provider-operation index reconstruction from append-only history;
-12. conflicting provider-operation history fails closed rather than selecting a winner;
-13. per-entry causal-time rollback rejection;
-14. atomic database rejection of backdated state/observation/reconciliation writes;
-15. reconciliation-checkpoint CAS, equal-time conflict rejection, cross-handle rollback rejection, and reopen stability;
-16. weakened same-name security trigger replacement plus enforcement-profile restoration;
-17. poison-entry isolation with durable quarantine visibility;
-18. no provider execution API in INT-03.
+3. inherited INT-02 identifier-deserialization validation;
+4. non-materializing claims and exact attempt fencing;
+5. pre-dispatch safe reclaim and post-dispatch ambiguity;
+6. bounded persistent attempts plus unrelated-work liveness;
+7. append-only bounded observation/reconciliation histories;
+8. fail-closed legacy semantic migration;
+9. durable/reopen-stable semantic producer identity and tamper rejection;
+10. lock-first structural-schema-v2 admission before any repair mutation;
+11. expired post-dispatch fence demotion before completion;
+12. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
+13. typed exact-subject reconstruction plus orphan-history rejection;
+14. missing/stale derived provider-operation index reconstruction from append-only history;
+15. conflicting provider-operation history fails closed rather than selecting a winner;
+16. per-entry causal-time rollback rejection;
+17. atomic database rejection of backdated state/observation/reconciliation writes;
+18. reconciliation-checkpoint CAS, equal-time conflict rejection, cross-handle rollback rejection, and reopen stability;
+19. weakened same-name security trigger replacement plus enforcement-profile-v3 restoration;
+20. poison-entry isolation with durable quarantine visibility;
+21. no provider execution API in INT-03.
 
 A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, provider-history completeness, institutional legitimacy, storage tamper-proofness, or physical-world postconditions.
