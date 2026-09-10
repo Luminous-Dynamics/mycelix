@@ -49,20 +49,20 @@ fn replay_gap_fork_regression_and_wrong_platform_never_advance_retained_head() {
     let mut gap = MaritimeEvidenceEnvelope::new(
         "auv-01",
         7,
-        head.sequence + 2,
+        head.sequence() + 2,
         next.observed_at_us + 2_000_000,
         MaritimeEvidenceKind::CommunicationsState,
         r#"{"link":"restored"}"#,
         next.evidence_binding.clone(),
     );
-    gap.previous_event_digest = Some(head.digest.clone());
+    gap.previous_event_digest = Some(head.digest().to_owned());
     assert_eq!(head.ingest(&gap).unwrap(), MaritimeStreamDisposition::Gap);
     assert_eq!(head, retained_after_advance);
 
     let mut fork = MaritimeEvidenceEnvelope::new(
         "auv-01",
         7,
-        head.sequence + 1,
+        head.sequence() + 1,
         next.observed_at_us + 3_000_000,
         MaritimeEvidenceKind::CommunicationsState,
         r#"{"link":"conflicting"}"#,
@@ -75,13 +75,13 @@ fn replay_gap_fork_regression_and_wrong_platform_never_advance_retained_head() {
     let mut regression = MaritimeEvidenceEnvelope::new(
         "auv-01",
         6,
-        head.sequence + 1,
+        head.sequence() + 1,
         next.observed_at_us + 4_000_000,
         MaritimeEvidenceKind::HealthObservation,
         r#"{"severity":"healthy"}"#,
         next.evidence_binding.clone(),
     );
-    regression.previous_event_digest = Some(head.digest.clone());
+    regression.previous_event_digest = Some(head.digest().to_owned());
     assert_eq!(
         head.ingest(&regression).unwrap(),
         MaritimeStreamDisposition::GenerationRegression
@@ -91,13 +91,13 @@ fn replay_gap_fork_regression_and_wrong_platform_never_advance_retained_head() {
     let mut wrong_platform = MaritimeEvidenceEnvelope::new(
         "auv-02",
         7,
-        head.sequence + 1,
+        head.sequence() + 1,
         next.observed_at_us + 5_000_000,
         MaritimeEvidenceKind::HealthObservation,
         r#"{"severity":"healthy"}"#,
         next.evidence_binding.clone(),
     );
-    wrong_platform.previous_event_digest = Some(head.digest.clone());
+    wrong_platform.previous_event_digest = Some(head.digest().to_owned());
     assert_eq!(
         head.ingest(&wrong_platform).unwrap(),
         MaritimeStreamDisposition::WrongPlatform
@@ -113,10 +113,10 @@ fn restart_preserves_replay_and_generation_rollback_protection() {
     assert_eq!(head.ingest(&next).unwrap(), MaritimeStreamDisposition::Advance);
 
     let mut restarted = MaritimeStreamHead::from_retained(
-        head.platform_id.clone(),
-        head.generation,
-        head.sequence,
-        head.digest.clone(),
+        head.platform_id().to_owned(),
+        head.generation(),
+        head.sequence(),
+        head.digest().to_owned(),
     )
     .unwrap();
     let retained = restarted.clone();
@@ -135,13 +135,13 @@ fn restart_preserves_replay_and_generation_rollback_protection() {
     let mut regressed = MaritimeEvidenceEnvelope::new(
         "auv-01",
         6,
-        restarted.sequence + 1,
+        restarted.sequence() + 1,
         next.observed_at_us + 1_000_000,
         MaritimeEvidenceKind::HealthObservation,
         r#"{"severity":"healthy"}"#,
         next.evidence_binding,
     );
-    regressed.previous_event_digest = Some(restarted.digest.clone());
+    regressed.previous_event_digest = Some(restarted.digest().to_owned());
     assert_eq!(
         restarted.ingest(&regressed).unwrap(),
         MaritimeStreamDisposition::GenerationRegression
