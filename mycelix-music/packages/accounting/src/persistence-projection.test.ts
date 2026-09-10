@@ -93,6 +93,18 @@ describe('canonical accounting persistence projections', () => {
     expect(first.eligibilityAsOf).toBe('2026-09-10T00:00:00.000Z');
   });
 
+  it('refuses to project settlement evidence from before its eligibility snapshot', () => {
+    expect(() => projectSettlementObservationRecord('settlement-observation:early', {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:01:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Submitted,
+      observedAt: '2026-09-10T00:00:59Z',
+    })).toThrow(/predate its eligibility snapshot/);
+  });
+
   it('requires finalized rail observations to retain receipt identity', () => {
     expect(() => projectSettlementObservationRecord('settlement-observation:1', {
       attemptId: 'attempt:1',

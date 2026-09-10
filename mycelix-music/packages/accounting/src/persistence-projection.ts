@@ -186,6 +186,9 @@ export function projectSettlementObservationRecord(
   const eligibilityAsOf = timestamp('settlement eligibilityAsOf', observation.eligibilityAsOf);
   const eligibilityEvidenceRoot = digest('settlement eligibilityEvidenceRoot', observation.eligibilityEvidenceRoot);
   const observedAt = timestamp('settlement observedAt', observation.observedAt);
+  if (Date.parse(observedAt) < Date.parse(eligibilityAsOf)) {
+    throw new Error('settlement observation cannot predate its eligibility snapshot');
+  }
   const railReceiptRef = observation.railReceiptRef === undefined
     ? undefined
     : required('railReceiptRef', observation.railReceiptRef);
