@@ -14,10 +14,11 @@ The active public crate root is `src/runtime.rs`:
 src/runtime.rs
       |
       +-> bootstrap_guard.rs
-      |      zero-history semantic-bootstrap qualification
+      |      bootstrap-profile-v1
+      |      unversioned ownership + zero-history qualification
       |
       +-> storage_guard.rs
-      |      one-transaction structural qualification + repair
+      |      one-transaction initialized-store hardening
       |             |
       |             +-> schema_manifest.rs
       |                    structural-manifest-v2
@@ -32,7 +33,7 @@ src/lib.rs
 
 The layered boundary preserves the established crash/retry/history machinery while making durable meaning explicit and fail-closed.
 
-## Four independent storage identities
+## Five independent storage identities
 
 INT-03 does not use one version marker as proof of every other property.
 
@@ -46,6 +47,9 @@ declared SQLite generation
 concrete SQLite structure
   = mycelix-integration-runtime/structural-manifest-v2
 
+bootstrap admission rules
+  = mycelix-integration-runtime/bootstrap-profile-v1
+
 enforcement / reconstruction machinery
   = mycelix-integration-runtime/enforcement-profile-v5
 ```
@@ -53,42 +57,72 @@ enforcement / reconstruction machinery
 Therefore:
 
 ```text
+schema emptiness != bootstrap authority
 same schema version != same concrete structure
 same structure != same semantic producer
+bootstrap eligibility != initialized-store enforcement
 same trigger name != same enforcement semantics
 valid storage != CurrentExecutionAuthority
 ```
 
 The inherited INT-02 identifier types also validate through Serde, so typed historical records cannot smuggle identifiers that their public constructors would reject.
 
-## Fresh bootstrap is not semantic migration
+## Fresh bootstrap is not database annexation
 
-Fresh SQLite initialization has two locked qualification phases before legacy schema bootstrap is allowed.
+`bootstrap-profile-v1` distinguishes a genuinely fresh database from an unversioned or partially initialized database that merely looks convenient to reuse.
 
-`storage_guard::prepare_and_classify_file_store()` first acquires an `IMMEDIATE` transaction and marks a genuinely fresh SQLite file with structural-v2 intent before partial legacy DDL can be mistaken for legacy v1.
-
-`bootstrap_guard::qualify_file_store_bootstrap()` then permits automatic semantic bootstrap only when there is no durable runtime evidence to reinterpret. It checks the known runtime tables and relevant `sqlite_sequence` activity.
+Before the legacy classifier may touch a `user_version = 0` database, `bootstrap_guard::prepare_unversioned_file_store()` acquires a SQLite `IMMEDIATE` transaction and checks for user schema objects.
 
 ```text
-structural-v2
+user_version = 0
++ no user table/index/trigger/view
+    -> may stamp structural-v2 bootstrap intent
+
+user_version = 0
++ any user schema object
+    -> do not mutate
+    -> strict admission / fail closed
+```
+
+The check excludes SQLite-owned `sqlite_%` objects but treats every user table, index, trigger, or view as evidence that the file is not a pristine Mycelix bootstrap target.
+
+This closes the earlier ambiguity where `no integration_outbox` could accidentally mean “safe to adopt.” An unversioned historical Mycelix fragment and an unrelated empty SQLite application database both remain unmodified; their `user_version` stays 0 and no Mycelix semantic singleton is created.
+
+## Partial-v2 bootstrap recovery is schema-qualified
+
+A structural-v2 database is not automatically a Mycelix bootstrap candidate either. Before semantic bootstrap metadata may be completed, the existing user schema must contain only recognized Mycelix bootstrap objects.
+
+Recognized bootstrap surfaces are the managed runtime tables, the expected runtime indexes, and the expected managed trigger names. User views and foreign tables/indexes/triggers are not bootstrap-qualified.
+
+```text
+user_version = 2
++ only recognized Mycelix bootstrap objects
 + zero durable runtime rows
 + no relevant prior AUTOINCREMENT activity
 + semantic producer absent/empty OR exact v3.1
-    -> bootstrap may resume
+    -> partial bootstrap may resume
 
-any durable runtime evidence
-+ absent/wrong semantic producer
-    -> fail closed
-
-foreign semantic producer
-    -> fail closed
+user_version = 2
++ foreign user schema
+    -> no semantic adoption
+    -> strict admission / fail closed
 ```
 
-An empty outbox alone is not evidence of a pristine runtime. Bootstrap recovery is not migration authority, and zero-history admission is not cryptographic proof that storage was never modified.
+The zero-history qualifier also checks the known durable runtime tables and relevant `sqlite_sequence` activity. An empty outbox alone is therefore insufficient.
+
+```text
+schema marker exists != schema complete
+outbox empty != runtime empty
+zero live rows != no prior sequence history
+bootstrap recovery != migration authority
+bootstrap recovery != foreign-database adoption authority
+```
+
+These checks are local admission rules, not cryptographic proof that storage was never modified.
 
 ## Concrete structural-manifest-v2
 
-`PRAGMA user_version = 2` is only a declaration. Before reconstruction, INT-03 qualifies the actual SQLite structures it relies on.
+`PRAGMA user_version = 2` is only a declaration. Before initialized-store reconstruction, INT-03 qualifies the actual SQLite structures it relies on.
 
 `structural-manifest-v2` checks the relevant table columns/order/types/nullability/defaults/PK positions, rowid/AUTOINCREMENT behavior, exact singleton checks, UNIQUE and primary-key index sets, foreign-key relationships/actions, required named indexes, managed-trigger identities, optional quarantine shape, and post-hardening foreign-key integrity.
 
@@ -114,7 +148,7 @@ This is structural qualification, not cryptographic storage attestation.
 
 ## Atomic startup hardening — enforcement profile v5
 
-For an initialized file-backed runtime, the critical storage hardening section is now one SQLite `IMMEDIATE` transaction:
+For an initialized file-backed runtime, the critical storage hardening section is one SQLite `IMMEDIATE` transaction:
 
 ```text
 BEGIN IMMEDIATE
@@ -132,16 +166,15 @@ BEGIN IMMEDIATE
 COMMIT
 ```
 
-The pre- and post-manifest checks run on the **same transaction object** as reconstruction and trigger replacement. A competing SQLite writer cannot commit a schema mutation between the qualified pre-state and the repair/post-qualification phases.
+The pre- and post-manifest checks run on the **same transaction object** as reconstruction and trigger replacement. A competing SQLite writer cannot commit a schema mutation between the qualified pre-state and repair/post-qualification phases.
 
-Process-local v3.1 caches are loaded only after this transaction commits successfully.
+`hardening_transaction_atomicity.rs` additionally forces a post-manifest failure after repair has begun and proves the attempted trigger/profile updates roll back with the transaction.
+
+Process-local v3.1 caches are loaded only after the durable hardening transaction commits successfully.
 
 ```text
-atomic startup hardening
-    != lifetime storage integrity
-
-SQLite write exclusion
-    != cryptographic tamper resistance
+atomic startup hardening != lifetime storage integrity
+SQLite write exclusion != cryptographic tamper resistance
 ```
 
 ## Typed history is evidence; derived indexes are machinery
@@ -281,7 +314,17 @@ valid database != permission to act
 
 Promotion requires one **exact-head hosted** qualification of the current source. The workflow includes formatting, compile-without-run, the full runtime corpus, Clippy with warnings denied, provider-neutral dependency closure, inherited INT-02 identifier validation, and named adversarial families covering bootstrap, semantic migration, structural manifests, attempts/fences, operation identity, typed history, causal time, checkpoints, reconstruction, enforcement repair, and poison isolation.
 
-The workflow also ratchets the atomic v5 source ordering:
+Bootstrap qualification explicitly freezes:
+
+- concurrent pristine first-open convergence;
+- unversioned historical Mycelix state remains unstamped and untagged;
+- an unrelated unversioned schema remains unstamped even when empty;
+- an unrelated structural-v2 schema receives no Mycelix semantic identity;
+- partial-v2 recovery for empty/exact semantic metadata;
+- durable-history and prior-AUTOINCREMENT rejection;
+- foreign semantic-profile preservation.
+
+The workflow separately ratchets the atomic v5 initialized-store ordering:
 
 ```text
 BEGIN IMMEDIATE
