@@ -193,3 +193,56 @@ fn derived_binding_index_is_reconstructed_from_append_only_history() {
         ExecutionRecordDisposition::RecordedForStaleAttempt
     );
 }
+
+#[test]
+fn conflicting_append_only_provider_operation_history_fails_closed() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("conflicting-history.sqlite");
+    let entry_id;
+    let attempt_id;
+
+    {
+        let mut store = SqliteIntegrationStore::open(&path).expect("store must open");
+        (entry_id, attempt_id) = finalized_without_provider_operation(&mut store);
+        store
+            .record_execution(
+                entry_id,
+                &attempt_id,
+                "derived-index-worker",
+                &confirmed(Some("provider-op-a"), "receipt-history-a", 150),
+                150,
+            )
+            .expect("history A must be accepted");
+    }
+
+    // Simulate offline storage corruption by bypassing only the derived binding
+    // trigger. The causal trigger remains active, so the forged row still uses a
+    // valid later Mycelix timestamp. Startup must refuse to synthesize a winner.
+    {
+        let conn = Connection::open(&path).expect("raw connection must open");
+        conn.execute_batch(
+            "DROP TRIGGER integration_bind_execution_operation_before;\n\
+             DROP TRIGGER integration_bind_execution_operation_after;",
+        )
+        .expect("test must bypass the derived binding guard");
+        let conflicting = serde_json::to_vec(&confirmed(
+            Some("provider-op-b"),
+            "receipt-history-b",
+            160,
+        ))
+        .expect("fixture outcome must serialize");
+        conn.execute(
+            "INSERT INTO integration_execution_observation (\n\
+                entry_id, attempt_id, outcome_json, observed_at_ms, applied_to_current\n\
+             ) VALUES (?1, ?2, ?3, ?4, 0)",
+            params![entry_id, attempt_id.as_str(), conflicting, 160_i64],
+        )
+        .expect("test must inject contradictory append-only evidence");
+    }
+
+    assert!(matches!(
+        SqliteIntegrationStore::open(&path),
+        Err(RuntimeError::StoredIdentifier(message))
+            if message.contains("conflicting provider-operation history")
+    ));
+}
