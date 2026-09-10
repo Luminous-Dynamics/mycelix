@@ -35,6 +35,14 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
     `);
     assert.deepEqual(triggers.map(row => row.tableName), [...GUARDED_TABLES]);
 
+    const causalityTriggers = await prisma.$queryRawUnsafe<Array<{ count: number }>>(`
+      SELECT COUNT(*)::int AS "count"
+      FROM pg_trigger
+      WHERE tgname = 'royalty_eligibility_causality_guard'
+        AND NOT tgisinternal
+    `);
+    assert.equal(causalityTriggers[0]?.count, 1);
+
     const requiredConstraints = [
       'royalty_deduction_canonical_shape',
       'royalty_eligibility_digest_shape',
@@ -50,7 +58,7 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
     const constraints = await prisma.$queryRawUnsafe<Array<{ constraintName: string }>>(`
       SELECT conname AS "constraintName"
       FROM pg_constraint
-      WHERE conname = ANY(ARRAY[${requiredConstraints.map(name => `'${name}'`).join(',')}])
+      WHERE conname::text = ANY(ARRAY[${requiredConstraints.map(name => `'${name}'`).join(',')}]::text[])
       ORDER BY conname
     `);
     assert.deepEqual(constraints.map(row => row.constraintName), [...requiredConstraints].sort());
@@ -84,6 +92,18 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
         ('guard:eligibility:1', 'guard:obligation:1', 'awaiting_payee_route',
          'route unavailable', 'route-registry:v1', '2026-09-10T00:01:00Z', '${ROOT.eligibility}')
     `);
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyEligibilityObservation"
+          ("id", "obligationId", "code", "sourceRef", "observedAt", "observationRoot")
+        VALUES
+          ('guard:eligibility:predates', 'guard:obligation:1', 'eligible',
+           'route-registry:v0', '2026-09-09T23:59:59Z', '${ROOT.invalidMoney}')
+      `),
+      /royalty_eligibility_after_obligation/,
+      'direct SQL must not persist eligibility evidence that predates its obligation',
+    );
 
     await assert.rejects(
       prisma.$executeRawUnsafe(`

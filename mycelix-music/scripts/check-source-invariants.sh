@@ -36,7 +36,6 @@ for forbidden in artist song_duration strategy_id amount_owed; do
   fi
 done
 
-# Historical Prisma payments are rail receipts/projections, never the debt ledger.
 legacy_payment=$(sed -n '/^model RoyaltyPayment {/,/^}/p' packages/database/prisma/schema.prisma)
 [[ -n "$legacy_payment" ]] || fail "legacy RoyaltyPayment model unexpectedly missing"
 if grep -Eq '^[[:space:]]+(status|payoutStatus|owedAmount|debtBalance|settled)[[:space:]]' <<<"$legacy_payment"; then
@@ -49,7 +48,6 @@ grep -Fq 'obligationSetSettled: true' packages/accounting/src/recovery.ts \
 grep -Fq 'compileRoyaltyStatement' packages/accounting/src/projection.ts \
   || fail "royalty statements must be compiled projections"
 
-# Creator accounting authority tables must remain immutable snapshots/events.
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \
@@ -68,7 +66,6 @@ done
 
 grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
   || fail "accounting append-only database trigger must reject UPDATE and DELETE"
-
 grep -Fq 'test:accounting-guards' packages/database/package.json \
   || fail "database package must expose the live append-only guard regression"
 grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
@@ -76,8 +73,6 @@ grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
 grep -Fq 'test:accounting-guards' ../.github/workflows/music-accounting-persistence.yml \
   || fail "persistence qualification must prove runtime mutation rejection"
 
-# Settlement execution must retain the exact eligibility snapshot that admitted
-# the obligation set. Compiler-only outcomes are never source observations.
 settlement_record=$(sed -n '/^model SettlementAttemptObservationRecord {/,/^}/p' packages/database/prisma/schema.prisma)
 for field in eligibilityAsOf eligibilityEvidenceRoot; do
   grep -Eq "^[[:space:]]+${field}[[:space:]]" <<<"$settlement_record" \
@@ -94,8 +89,9 @@ done
 
 grep -Fq 'isObservableSettlementEligibilityCode' packages/accounting/src/persistence-projection.ts \
   || fail "accounting persistence projection must reject compiler-only eligibility states"
+grep -Fq 'predates obligation' packages/accounting/src/settlement.ts \
+  || fail "eligibility reconstruction must reject evidence that predates its debt"
 
-# Direct SQL must enforce the same source/shape/causality/finality boundary as application code.
 for constraint in \
   royalty_deduction_canonical_shape \
   royalty_eligibility_digest_shape \
@@ -111,12 +107,16 @@ do
   grep -Fq "$constraint" packages/database/prisma/accounting-append-only.sql \
     || fail "creator accounting database constraint missing: $constraint"
 done
+grep -Fq 'royalty_eligibility_causality_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "database must enforce eligibility observation chronology against its obligation"
 grep -Fq 'CHECK ("observedAt" >= "eligibilityAsOf")' packages/database/prisma/accounting-append-only.sql \
   || fail "settlement persistence must reject evidence that predates eligibilityAsOf"
 grep -Fq 'btrim("railReceiptRef")' packages/database/prisma/accounting-append-only.sql \
   || fail "settlement finality must require a non-empty durable rail receipt"
 grep -Fq "'below_threshold'" packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must attempt a compiler-only eligibility insert"
+grep -Fq "'guard:eligibility:predates'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt pre-obligation eligibility evidence"
 grep -Fq "'teleported'" packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must attempt an invalid settlement state"
 grep -Fq "'not-a-digest'" packages/database/src/accounting-append-only.integration.ts \

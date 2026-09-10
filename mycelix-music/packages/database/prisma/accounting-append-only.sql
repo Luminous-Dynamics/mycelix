@@ -15,6 +15,26 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION enforce_royalty_eligibility_obligation_causality()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  obligation_observed_at timestamp;
+BEGIN
+  SELECT "observedAt"
+    INTO obligation_observed_at
+    FROM "RoyaltyObligationRecord"
+   WHERE "id" = NEW."obligationId";
+
+  IF FOUND AND NEW."observedAt" < obligation_observed_at THEN
+    RAISE EXCEPTION 'royalty_eligibility_after_obligation: eligibility observation % predates obligation %', NEW."id", NEW."obligationId"
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 -- Source eligibility observations may only assert externally observable facts.
 -- Compiler outcomes such as below_threshold and awaiting_eligibility_evidence
 -- are derived projection state and therefore may never enter the evidence log.
@@ -134,6 +154,11 @@ ALTER TABLE "RoyaltyStatementSnapshotRecord"
 ALTER TABLE "RoyaltyStatementSnapshotRecord"
   ADD CONSTRAINT royalty_statement_period_order
   CHECK ("periodStart" < "periodEnd");
+
+DROP TRIGGER IF EXISTS royalty_eligibility_causality_guard ON "RoyaltyEligibilityObservation";
+CREATE TRIGGER royalty_eligibility_causality_guard
+BEFORE INSERT ON "RoyaltyEligibilityObservation"
+FOR EACH ROW EXECUTE FUNCTION enforce_royalty_eligibility_obligation_causality();
 
 DO $$
 DECLARE
