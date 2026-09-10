@@ -2,51 +2,34 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Append-only creator accounting persistence boundary.
+ * Append-only creator-accounting persistence boundary.
  *
- * The store deliberately exposes no update/delete operations. Replaying the
- * same record is idempotent; reusing an authority ID with different immutable
- * content fails closed. PostgreSQL triggers provide the second line of defense.
+ * This store exposes no update/delete operations. Exact-content replay is
+ * idempotent; an authority ID reused with different immutable content fails
+ * closed. PostgreSQL triggers and CHECK constraints provide a second line of defense.
  */
 
 const DIGEST_RE = /^[0-9a-f]{64}$/;
 const MINOR_RE = /^(0|[1-9][0-9]*)$/;
 
-const ELIGIBILITY_CODES = new Set([
-  'eligible',
-  'below_threshold',
-  'awaiting_payee_route',
-  'rights_conflict',
-  'legal_hold',
-  'tax_documentation_required',
-  'awaiting_fx_quote',
-  'dormant_beneficiary',
-] as const);
-
-const SETTLEMENT_STATES = new Set([
-  'authorized',
-  'submitted',
-  'accepted',
-  'confirmed',
-  'finalized',
-  'failed',
-  'rejected',
-  'reversed',
-  'disputed',
-] as const);
-
-const STATEMENT_KINDS = new Set(['periodic', 'supplemental', 'adjustment', 'reconciliation'] as const);
-const COMPLETENESS_KINDS = new Set(['complete', 'partial', 'indeterminate'] as const);
-
 export type EligibilityCode =
   | 'eligible'
-  | 'below_threshold'
   | 'awaiting_payee_route'
   | 'rights_conflict'
   | 'legal_hold'
   | 'tax_documentation_required'
   | 'awaiting_fx_quote'
   | 'dormant_beneficiary';
+
+const ELIGIBILITY_CODES: ReadonlySet<string> = new Set<EligibilityCode>([
+  'eligible',
+  'awaiting_payee_route',
+  'rights_conflict',
+  'legal_hold',
+  'tax_documentation_required',
+  'awaiting_fx_quote',
+  'dormant_beneficiary',
+]);
 
 export type SettlementObservationState =
   | 'authorized'
@@ -58,6 +41,13 @@ export type SettlementObservationState =
   | 'rejected'
   | 'reversed'
   | 'disputed';
+
+const SETTLEMENT_STATES: ReadonlySet<string> = new Set<SettlementObservationState>([
+  'authorized', 'submitted', 'accepted', 'confirmed', 'finalized',
+  'failed', 'rejected', 'reversed', 'disputed',
+]);
+const STATEMENT_KINDS = new Set(['periodic', 'supplemental', 'adjustment', 'reconciliation'] as const);
+const COMPLETENESS_KINDS = new Set(['complete', 'partial', 'indeterminate'] as const);
 
 export type StatementSnapshotKind = 'periodic' | 'supplemental' | 'adjustment' | 'reconciliation';
 export type StatementCompletenessKind = 'complete' | 'partial' | 'indeterminate';
@@ -100,6 +90,8 @@ export interface SettlementAttemptObservationRecordInput {
   readonly attemptId: string;
   readonly batchId: string;
   readonly obligationSetRoot: string;
+  readonly eligibilityAsOf: Date | string;
+  readonly eligibilityEvidenceRoot: string;
   readonly state: SettlementObservationState;
   readonly observedAt: Date | string;
   readonly railReceiptRef?: string;
@@ -133,13 +125,12 @@ interface ImmutableDelegate {
   findUnique(args: { where: { id: string } }): Promise<Record<string, unknown> | null>;
   create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
 }
-
 interface StatementDelegate {
   findUnique(args: { where: { statementId: string } }): Promise<Record<string, unknown> | null>;
   create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
 }
 
-/** Minimal structural surface implemented by PrismaClient and by test doubles. */
+/** Minimal structural surface implemented by PrismaClient and test doubles. */
 export interface AccountingAuthorityPrismaClient {
   readonly royaltyObligationRecord: unknown;
   readonly royaltyEligibilityObservation: unknown;
@@ -153,32 +144,24 @@ function required(label: string, value: string): string {
   if (!normalized) throw new Error(`${label} must be non-empty`);
   return normalized;
 }
-
-function currency(value: string): string {
-  return required('currency', value).toUpperCase();
-}
-
+function currency(value: string): string { return required('currency', value).toUpperCase(); }
 function minor(label: string, value: string): string {
   const normalized = value.trim();
   if (!MINOR_RE.test(normalized)) throw new Error(`${label} must be a canonical non-negative integer string`);
   return normalized;
 }
-
 function digest(label: string, value: string): string {
   const normalized = value.trim();
   if (!DIGEST_RE.test(normalized)) throw new Error(`${label} must be a lowercase SHA-256 digest`);
   return normalized;
 }
-
 function timestamp(label: string, value: Date | string): Date {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
   if (!Number.isFinite(date.getTime())) throw new Error(`${label} must be a valid timestamp`);
   return date;
 }
-
 function optionalRef(label: string, value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return required(label, value);
+  return value === undefined ? undefined : required(label, value);
 }
 
 function canonical(value: unknown): string {
@@ -201,10 +184,7 @@ function canonical(value: unknown): string {
   }
   throw new Error(`unsupported immutable record value: ${typeof value}`);
 }
-
-function assertJson(value: unknown): void {
-  canonical(value);
-}
+function assertJson(value: unknown): void { canonical(value); }
 
 function immutableDelegate(value: unknown, label: string): ImmutableDelegate {
   const delegate = value as Partial<ImmutableDelegate> | null;
@@ -213,7 +193,6 @@ function immutableDelegate(value: unknown, label: string): ImmutableDelegate {
   }
   return delegate as ImmutableDelegate;
 }
-
 function statementDelegate(value: unknown): StatementDelegate {
   const delegate = value as Partial<StatementDelegate> | null;
   if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
@@ -245,7 +224,6 @@ async function appendById(
     assertImmutableReplay(label, data.id, existing, data);
     return existing;
   }
-
   try {
     return await delegate.create({ data });
   } catch (error) {
@@ -267,7 +245,6 @@ async function appendStatement(
     assertImmutableReplay('royalty statement snapshot', data.statementId, existing, data);
     return existing;
   }
-
   try {
     return await delegate.create({ data });
   } catch (error) {
@@ -295,17 +272,13 @@ export class AccountingAuthorityStore {
       economicTermsRef: required('economicTermsRef', input.economicTermsRef),
       obligationRoot: digest('obligationRoot', input.obligationRoot),
     };
-    return appendById(
-      immutableDelegate(this.client.royaltyObligationRecord, 'royaltyObligationRecord'),
-      'royalty obligation',
-      data,
-    );
+    return appendById(immutableDelegate(this.client.royaltyObligationRecord, 'royaltyObligationRecord'), 'royalty obligation', data);
   }
 
-  async appendEligibilityObservation(
-    input: RoyaltyEligibilityObservationInput,
-  ): Promise<Record<string, unknown>> {
-    if (!ELIGIBILITY_CODES.has(input.code)) throw new Error(`unsupported eligibility code: ${input.code}`);
+  async appendEligibilityObservation(input: RoyaltyEligibilityObservationInput): Promise<Record<string, unknown>> {
+    if (!ELIGIBILITY_CODES.has(input.code)) {
+      throw new Error(`unsupported source eligibility code: ${String(input.code)}`);
+    }
     const reason = optionalRef('eligibility reason', input.reason);
     const data = {
       id: required('eligibility observation id', input.id),
@@ -316,11 +289,7 @@ export class AccountingAuthorityStore {
       observedAt: timestamp('eligibility observedAt', input.observedAt),
       observationRoot: digest('eligibility observationRoot', input.observationRoot),
     };
-    return appendById(
-      immutableDelegate(this.client.royaltyEligibilityObservation, 'royaltyEligibilityObservation'),
-      'royalty eligibility observation',
-      data,
-    );
+    return appendById(immutableDelegate(this.client.royaltyEligibilityObservation, 'royaltyEligibilityObservation'), 'royalty eligibility observation', data);
   }
 
   async appendDeduction(input: RoyaltyDeductionRecordInput): Promise<Record<string, unknown>> {
@@ -334,20 +303,19 @@ export class AccountingAuthorityStore {
       observedAt: timestamp('deduction observedAt', input.observedAt),
       deductionRoot: digest('deductionRoot', input.deductionRoot),
     };
-    return appendById(
-      immutableDelegate(this.client.royaltyDeductionRecord, 'royaltyDeductionRecord'),
-      'royalty deduction',
-      data,
-    );
+    return appendById(immutableDelegate(this.client.royaltyDeductionRecord, 'royaltyDeductionRecord'), 'royalty deduction', data);
   }
 
-  async appendSettlementObservation(
-    input: SettlementAttemptObservationRecordInput,
-  ): Promise<Record<string, unknown>> {
-    if (!SETTLEMENT_STATES.has(input.state)) throw new Error(`unsupported settlement state: ${input.state}`);
+  async appendSettlementObservation(input: SettlementAttemptObservationRecordInput): Promise<Record<string, unknown>> {
+    if (!SETTLEMENT_STATES.has(input.state)) throw new Error(`unsupported settlement state: ${String(input.state)}`);
     const railReceiptRef = optionalRef('railReceiptRef', input.railReceiptRef);
     if (input.state === 'finalized' && railReceiptRef === undefined) {
       throw new Error('finalized settlement observation requires railReceiptRef');
+    }
+    const eligibilityAsOf = timestamp('settlement eligibilityAsOf', input.eligibilityAsOf);
+    const observedAt = timestamp('settlement observedAt', input.observedAt);
+    if (observedAt.getTime() < eligibilityAsOf.getTime()) {
+      throw new Error('settlement observation cannot predate its eligibility snapshot');
     }
     const supersedesAttemptId = optionalRef('supersedesAttemptId', input.supersedesAttemptId);
     const data = {
@@ -355,33 +323,25 @@ export class AccountingAuthorityStore {
       attemptId: required('settlement attemptId', input.attemptId),
       batchId: required('settlement batchId', input.batchId),
       obligationSetRoot: digest('settlement obligationSetRoot', input.obligationSetRoot),
+      eligibilityAsOf,
+      eligibilityEvidenceRoot: digest('settlement eligibilityEvidenceRoot', input.eligibilityEvidenceRoot),
       state: input.state,
-      observedAt: timestamp('settlement observedAt', input.observedAt),
+      observedAt,
       ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
       ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
       observationRoot: digest('settlement observationRoot', input.observationRoot),
     };
-    return appendById(
-      immutableDelegate(this.client.settlementAttemptObservationRecord, 'settlementAttemptObservationRecord'),
-      'settlement attempt observation',
-      data,
-    );
+    return appendById(immutableDelegate(this.client.settlementAttemptObservationRecord, 'settlementAttemptObservationRecord'), 'settlement attempt observation', data);
   }
 
-  async appendStatementSnapshot(
-    input: RoyaltyStatementSnapshotRecordInput,
-  ): Promise<Record<string, unknown>> {
+  async appendStatementSnapshot(input: RoyaltyStatementSnapshotRecordInput): Promise<Record<string, unknown>> {
     if (!STATEMENT_KINDS.has(input.kind)) throw new Error(`unsupported statement kind: ${input.kind}`);
     if (!COMPLETENESS_KINDS.has(input.completenessKind)) {
       throw new Error(`unsupported statement completeness kind: ${input.completenessKind}`);
     }
     const predecessorStatementId = optionalRef('predecessorStatementId', input.predecessorStatementId);
-    if (input.kind === 'periodic' && predecessorStatementId !== undefined) {
-      throw new Error('periodic statement snapshot cannot name a predecessor');
-    }
-    if (input.kind !== 'periodic' && predecessorStatementId === undefined) {
-      throw new Error('non-periodic statement snapshot requires a predecessor');
-    }
+    if (input.kind === 'periodic' && predecessorStatementId !== undefined) throw new Error('periodic statement snapshot cannot name a predecessor');
+    if (input.kind !== 'periodic' && predecessorStatementId === undefined) throw new Error('non-periodic statement snapshot requires a predecessor');
 
     const periodStart = timestamp('statement periodStart', input.periodStart);
     const periodEnd = timestamp('statement periodEnd', input.periodEnd);
@@ -396,9 +356,7 @@ export class AccountingAuthorityStore {
     if (BigInt(grossMinor) !== BigInt(heldMinor) + BigInt(deductionMinor) + BigInt(netPayableMinor)) {
       throw new Error('statement snapshot does not conserve gross value');
     }
-    if (BigInt(paidMinor) > BigInt(netPayableMinor)) {
-      throw new Error('statement snapshot paidMinor cannot exceed netPayableMinor');
-    }
+    if (BigInt(paidMinor) > BigInt(netPayableMinor)) throw new Error('statement snapshot paidMinor cannot exceed netPayableMinor');
     assertJson(input.completenessData);
 
     const data = {
@@ -422,9 +380,6 @@ export class AccountingAuthorityStore {
       completenessData: input.completenessData,
       snapshotRoot: digest('statement snapshotRoot', input.snapshotRoot),
     };
-    return appendStatement(
-      statementDelegate(this.client.royaltyStatementSnapshotRecord),
-      data,
-    );
+    return appendStatement(statementDelegate(this.client.royaltyStatementSnapshotRecord), data);
   }
 }

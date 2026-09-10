@@ -11,17 +11,16 @@ const GUARDED_TABLES = [
 ] as const;
 
 const ROOT = {
-  obligation: '1'.repeat(64),
-  eligibility: '2'.repeat(64),
-  deduction: '3'.repeat(64),
-  settlement: '4'.repeat(64),
-  statementObligation: '5'.repeat(64),
-  statementAdjustment: '6'.repeat(64),
-  statementSettlement: '7'.repeat(64),
-  statementSnapshot: '8'.repeat(64),
+  obligation: '1'.repeat(64), eligibility: '2'.repeat(64), deduction: '3'.repeat(64),
+  settlement: '4'.repeat(64), settlementEligibility: '9'.repeat(64),
+  invalidEligibility: 'a'.repeat(64), invalidSettlement: 'b'.repeat(64),
+  invalidState: 'c'.repeat(64), invalidFinality: 'd'.repeat(64), validFinality: 'e'.repeat(64),
+  invalidMoney: 'f'.repeat(64), invalidShape: '0'.repeat(64),
+  statementObligation: '5'.repeat(64), statementAdjustment: '6'.repeat(64),
+  statementSettlement: '7'.repeat(64), statementSnapshot: '8'.repeat(64),
 } as const;
 
-test('PostgreSQL enforces creator accounting authority as append-only', async () => {
+test('PostgreSQL enforces creator accounting authority as append-only and causally valid', async () => {
   assert.ok(process.env.DATABASE_URL, 'DATABASE_URL is required for the PostgreSQL authority integration test');
   const prisma = new PrismaClient();
 
@@ -36,7 +35,34 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
     `);
     assert.deepEqual(triggers.map(row => row.tableName), [...GUARDED_TABLES]);
 
-    // Every authority/evidence table must still accept its append operation.
+    const causalityTriggers = await prisma.$queryRawUnsafe<Array<{ count: number }>>(`
+      SELECT COUNT(*)::int AS "count"
+      FROM pg_trigger
+      WHERE tgname = 'royalty_eligibility_causality_guard'
+        AND NOT tgisinternal
+    `);
+    assert.equal(causalityTriggers[0]?.count, 1);
+
+    const requiredConstraints = [
+      'royalty_deduction_canonical_shape',
+      'royalty_eligibility_digest_shape',
+      'royalty_eligibility_observable_code',
+      'royalty_obligation_canonical_shape',
+      'royalty_statement_canonical_shape',
+      'royalty_statement_period_order',
+      'settlement_finalized_requires_receipt',
+      'settlement_observation_after_eligibility',
+      'settlement_observation_digest_shape',
+      'settlement_observation_state_code',
+    ] as const;
+    const constraints = await prisma.$queryRawUnsafe<Array<{ constraintName: string }>>(`
+      SELECT conname AS "constraintName"
+      FROM pg_constraint
+      WHERE conname::text = ANY(ARRAY[${requiredConstraints.map(name => `'${name}'`).join(',')}]::text[])
+      ORDER BY conname
+    `);
+    assert.deepEqual(constraints.map(row => row.constraintName), [...requiredConstraints].sort());
+
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyObligationRecord"
         ("id", "beneficiaryId", "amountMinor", "currency", "observedAt",
@@ -46,6 +72,19 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
          'usage:epoch:1', 'rights:resolution:1', 'terms:v1', '${ROOT.obligation}')
     `);
 
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyObligationRecord"
+          ("id", "beneficiaryId", "amountMinor", "currency", "observedAt",
+           "usageEvidenceRef", "rightsResolutionRef", "economicTermsRef", "obligationRoot")
+        VALUES
+          ('guard:obligation:negative', 'creator:alice', '-1', 'USD', '2026-09-10T00:00:01Z',
+           'usage:epoch:bad', 'rights:resolution:1', 'terms:v1', '${ROOT.invalidMoney}')
+      `),
+      /royalty_obligation_canonical_shape/,
+      'direct SQL must not persist negative or non-canonical obligation money',
+    );
+
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyEligibilityObservation"
         ("id", "obligationId", "code", "reason", "sourceRef", "observedAt", "observationRoot")
@@ -53,6 +92,30 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
         ('guard:eligibility:1', 'guard:obligation:1', 'awaiting_payee_route',
          'route unavailable', 'route-registry:v1', '2026-09-10T00:01:00Z', '${ROOT.eligibility}')
     `);
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyEligibilityObservation"
+          ("id", "obligationId", "code", "sourceRef", "observedAt", "observationRoot")
+        VALUES
+          ('guard:eligibility:predates', 'guard:obligation:1', 'eligible',
+           'route-registry:v0', '2026-09-09T23:59:59Z', '${ROOT.invalidMoney}')
+      `),
+      /royalty_eligibility_after_obligation/,
+      'direct SQL must not persist eligibility evidence that predates its obligation',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyEligibilityObservation"
+          ("id", "obligationId", "code", "sourceRef", "observedAt", "observationRoot")
+        VALUES
+          ('guard:eligibility:compiler-only', 'guard:obligation:1', 'below_threshold',
+           'compiler:forged', '2026-09-10T00:01:30Z', '${ROOT.invalidEligibility}')
+      `),
+      /royalty_eligibility_observable_code/,
+      'direct SQL must not persist compiler-only eligibility state',
+    );
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyDeductionRecord"
@@ -64,11 +127,87 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "SettlementAttemptObservationRecord"
-        ("id", "attemptId", "batchId", "obligationSetRoot", "state", "observedAt", "observationRoot")
+        ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+         "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
       VALUES
         ('guard:settlement:1', 'attempt:1', 'batch:1', '${ROOT.obligation}',
-         'submitted', '2026-09-10T00:03:00Z', '${ROOT.settlement}')
+         '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'submitted',
+         '2026-09-10T00:03:00Z', '${ROOT.settlement}')
     `);
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:pre-snapshot', 'attempt:2', 'batch:2', '${ROOT.obligation}',
+           '2026-09-10T00:05:00Z', '${ROOT.settlementEligibility}', 'submitted',
+           '2026-09-10T00:04:59Z', '${ROOT.invalidSettlement}')
+      `),
+      /settlement_observation_after_eligibility/,
+      'direct SQL must not persist settlement evidence before its eligibility snapshot',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:unknown-state', 'attempt:3', 'batch:3', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'teleported',
+           '2026-09-10T00:03:30Z', '${ROOT.invalidState}')
+      `),
+      /settlement_observation_state_code/,
+      'direct SQL must not invent settlement states',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:no-receipt', 'attempt:4', 'batch:4', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+           '2026-09-10T00:04:00Z', '${ROOT.invalidFinality}')
+      `),
+      /settlement_finalized_requires_receipt/,
+      'direct SQL must not claim finality without durable receipt identity',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:bad-root', 'attempt:6', 'batch:6', 'not-a-digest',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'submitted',
+           '2026-09-10T00:04:15Z', '${ROOT.invalidShape}')
+      `),
+      /settlement_observation_digest_shape/,
+      'direct SQL must not persist malformed settlement commitment roots',
+    );
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "SettlementAttemptObservationRecord"
+        ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+         "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef", "observationRoot")
+      VALUES
+        ('guard:settlement:finalized', 'attempt:5', 'batch:5', '${ROOT.obligation}',
+         '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+         '2026-09-10T00:04:30Z', 'rail:receipt:final', '${ROOT.validFinality}')
+    `);
+
+    const settlementSnapshot = await prisma.$queryRawUnsafe<Array<{ eligibilityAsOf: Date; eligibilityEvidenceRoot: string }>>(`
+      SELECT "eligibilityAsOf", "eligibilityEvidenceRoot"
+      FROM "SettlementAttemptObservationRecord"
+      WHERE "id" = 'guard:settlement:1'
+    `);
+    assert.equal(settlementSnapshot[0]?.eligibilityAsOf.toISOString(), '2026-09-10T00:02:30.000Z');
+    assert.equal(settlementSnapshot[0]?.eligibilityEvidenceRoot, ROOT.settlementEligibility);
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyStatementSnapshotRecord"
@@ -83,6 +222,23 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
          '350', '300', 'USD', 'complete', '{"kind":"complete"}'::jsonb, '${ROOT.statementSnapshot}')
     `);
 
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyStatementSnapshotRecord"
+          ("statementId", "kind", "beneficiaryId", "periodStart", "periodEnd", "asOf",
+           "obligationRoot", "adjustmentRoot", "settlementRoot", "grossMinor", "heldMinor",
+           "deductionMinor", "netPayableMinor", "paidMinor", "currency", "completenessKind",
+           "completenessData", "snapshotRoot")
+        VALUES
+          ('guard:statement:nonconserving', 'periodic', 'creator:alice', '2026-09-01T00:00:00Z',
+           '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z', '${ROOT.invalidEligibility}',
+           '${ROOT.invalidSettlement}', '${ROOT.invalidState}', '500', '100', '50',
+           '349', '300', 'USD', 'complete', '{"kind":"complete"}'::jsonb, '${ROOT.invalidFinality}')
+      `),
+      /royalty_statement_canonical_shape/,
+      'direct SQL must not persist a non-conserving statement snapshot',
+    );
+
     const mutationTargets = [
       { table: 'RoyaltyObligationRecord', key: 'id', value: 'guard:obligation:1' },
       { table: 'RoyaltyEligibilityObservation', key: 'id', value: 'guard:eligibility:1' },
@@ -93,16 +249,12 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
 
     for (const target of mutationTargets) {
       await assert.rejects(
-        prisma.$executeRawUnsafe(
-          `UPDATE "${target.table}" SET "createdAt" = "createdAt" WHERE "${target.key}" = '${target.value}'`,
-        ),
+        prisma.$executeRawUnsafe(`UPDATE "${target.table}" SET "createdAt" = "createdAt" WHERE "${target.key}" = '${target.value}'`),
         /append-only.*UPDATE is forbidden/s,
         `${target.table} UPDATE must be rejected by the PostgreSQL trigger`,
       );
       await assert.rejects(
-        prisma.$executeRawUnsafe(
-          `DELETE FROM "${target.table}" WHERE "${target.key}" = '${target.value}'`,
-        ),
+        prisma.$executeRawUnsafe(`DELETE FROM "${target.table}" WHERE "${target.key}" = '${target.value}'`),
         /append-only.*DELETE is forbidden/s,
         `${target.table} DELETE must be rejected by the PostgreSQL trigger`,
       );

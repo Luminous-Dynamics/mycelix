@@ -9,7 +9,10 @@ import {
   projectStatementSnapshotRecord,
 } from './persistence-projection.js';
 import { SettlementAttemptState } from './recovery.js';
-import { SettlementEligibilityCode } from './settlement.js';
+import {
+  SettlementEligibilityCode,
+  type SettlementEligibilityObservation,
+} from './settlement.js';
 import { createStatementSnapshot, StatementKind } from './statements.js';
 
 function obligation(usageEvidenceRef: string) {
@@ -35,16 +38,27 @@ describe('canonical accounting persistence projections', () => {
   });
 
   it('derives eligibility evidence roots from source and observation time', () => {
-    const base = {
+    const base: SettlementEligibilityObservation = {
       id: 'eligibility:1',
       obligationId: 'obl:1',
       code: SettlementEligibilityCode.AwaitingPayeeRoute,
       sourceRef: 'payee-route-registry:v1',
       observedAt: '2026-09-10T00:00:00Z',
-    } as const;
+    };
     const first = projectEligibilityObservationRecord(base);
     const second = projectEligibilityObservationRecord({ ...base, sourceRef: 'payee-route-registry:v2' });
     expect(first.observationRoot).not.toBe(second.observationRoot);
+  });
+
+  it('refuses compiler-only eligibility results as source evidence', () => {
+    const forged = {
+      id: 'eligibility:forged',
+      obligationId: 'obl:1',
+      code: SettlementEligibilityCode.BelowThreshold,
+      sourceRef: 'source:forged',
+      observedAt: '2026-09-10T00:00:00Z',
+    } as unknown as SettlementEligibilityObservation;
+    expect(() => projectEligibilityObservationRecord(forged)).toThrow(/compiler-only code/);
   });
 
   it('derives deduction roots from both basis and authority reference', () => {
@@ -60,11 +74,44 @@ describe('canonical accounting persistence projections', () => {
     expect(first.deductionRoot).not.toBe(second.deductionRoot);
   });
 
+  it('binds persisted settlement evidence to the exact eligibility snapshot', () => {
+    const base = {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Submitted,
+      observedAt: '2026-09-10T00:01:00Z',
+    } as const;
+    const first = projectSettlementObservationRecord('settlement-observation:1', base);
+    const second = projectSettlementObservationRecord('settlement-observation:1', {
+      ...base,
+      eligibilityEvidenceRoot: 'c'.repeat(64),
+    });
+    expect(first.observationRoot).not.toBe(second.observationRoot);
+    expect(first.eligibilityAsOf).toBe('2026-09-10T00:00:00.000Z');
+  });
+
+  it('refuses to project settlement evidence from before its eligibility snapshot', () => {
+    expect(() => projectSettlementObservationRecord('settlement-observation:early', {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:01:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Submitted,
+      observedAt: '2026-09-10T00:00:59Z',
+    })).toThrow(/predate its eligibility snapshot/);
+  });
+
   it('requires finalized rail observations to retain receipt identity', () => {
     expect(() => projectSettlementObservationRecord('settlement-observation:1', {
       attemptId: 'attempt:1',
       batchId: 'batch:1',
       obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
       state: SettlementAttemptState.Finalized,
       observedAt: '2026-09-10T00:00:00Z',
     })).toThrow(/requires railReceiptRef/);
