@@ -95,11 +95,17 @@ done
 grep -Fq 'isObservableSettlementEligibilityCode' packages/accounting/src/persistence-projection.ts \
   || fail "accounting persistence projection must reject compiler-only eligibility states"
 
-# Direct SQL must enforce the same source/causality/finality boundary as application code.
+# Direct SQL must enforce the same source/shape/causality/finality boundary as application code.
 for constraint in \
+  royalty_deduction_canonical_shape \
+  royalty_eligibility_digest_shape \
   royalty_eligibility_observable_code \
+  royalty_obligation_canonical_shape \
+  royalty_statement_canonical_shape \
+  royalty_statement_period_order \
   settlement_finalized_requires_receipt \
   settlement_observation_after_eligibility \
+  settlement_observation_digest_shape \
   settlement_observation_state_code
 do
   grep -Fq "$constraint" packages/database/prisma/accounting-append-only.sql \
@@ -113,6 +119,12 @@ grep -Fq "'below_threshold'" packages/database/src/accounting-append-only.integr
   || fail "live database regression must attempt a compiler-only eligibility insert"
 grep -Fq "'teleported'" packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must attempt an invalid settlement state"
+grep -Fq "'not-a-digest'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt a malformed commitment root"
+grep -Fq "'guard:obligation:negative'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt negative obligation money"
+grep -Fq "'guard:statement:nonconserving'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt a non-conserving statement"
 grep -Fq 'settlement_finalized_requires_receipt' packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must prove receipt-backed settlement finality"
 grep -Fq 'settlement_observation_after_eligibility' packages/database/src/accounting-append-only.integration.ts \
