@@ -2,8 +2,14 @@ import { buildMerkleCommitment, type Digest } from './merkle.js';
 import { assertRoyaltyObligationAuthority, type RoyaltyObligationAuthority } from './obligation-authority.js';
 import type { StatementDeduction } from './projection.js';
 import { SettlementAttemptState, type SettlementAttemptObservation } from './recovery.js';
-import { SettlementEligibilityCode } from './settlement.js';
+import {
+  isObservableSettlementEligibilityCode,
+  type ObservableSettlementEligibilityCode,
+  type SettlementEligibilityObservation,
+} from './settlement.js';
 import { assertStatementArithmetic, type RoyaltyStatementSnapshot } from './statements.js';
+
+const DIGEST_RE = /^[0-9a-f]{64}$/;
 
 export interface PersistedRoyaltyObligationRecord {
   readonly id: string;
@@ -20,7 +26,7 @@ export interface PersistedRoyaltyObligationRecord {
 export interface PersistedEligibilityObservationRecord {
   readonly id: string;
   readonly obligationId: string;
-  readonly code: SettlementEligibilityCode;
+  readonly code: ObservableSettlementEligibilityCode;
   readonly reason?: string;
   readonly sourceRef: string;
   readonly observedAt: string;
@@ -43,6 +49,8 @@ export interface PersistedSettlementObservationRecord {
   readonly attemptId: string;
   readonly batchId: string;
   readonly obligationSetRoot: Digest;
+  readonly eligibilityAsOf: string;
+  readonly eligibilityEvidenceRoot: Digest;
   readonly state: SettlementAttemptState;
   readonly observedAt: string;
   readonly railReceiptRef?: string;
@@ -72,18 +80,15 @@ export interface PersistedStatementSnapshotRecord {
   readonly snapshotRoot: Digest;
 }
 
-export interface EligibilityObservationInput {
-  readonly id: string;
-  readonly obligationId: string;
-  readonly code: SettlementEligibilityCode;
-  readonly reason?: string;
-  readonly sourceRef: string;
-  readonly observedAt: string;
-}
-
 function required(label: string, value: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${label} must be non-empty`);
+  return normalized;
+}
+
+function digest(label: string, value: string): Digest {
+  const normalized = required(label, value);
+  if (!DIGEST_RE.test(normalized)) throw new Error(`${label} must be a lowercase SHA-256 digest`);
   return normalized;
 }
 
@@ -115,8 +120,11 @@ export function projectRoyaltyObligationRecord(
 }
 
 export function projectEligibilityObservationRecord(
-  input: EligibilityObservationInput,
+  input: SettlementEligibilityObservation,
 ): Readonly<PersistedEligibilityObservationRecord> {
+  if (!isObservableSettlementEligibilityCode(input.code)) {
+    throw new Error(`eligibility observation cannot persist compiler-only code: ${String(input.code)}`);
+  }
   const id = required('eligibility observation id', input.id);
   const obligationId = required('eligibility obligationId', input.obligationId);
   const sourceRef = required('eligibility sourceRef', input.sourceRef);
@@ -174,7 +182,9 @@ export function projectSettlementObservationRecord(
   const id = required('settlement observation id', idInput);
   const attemptId = required('settlement attemptId', observation.attemptId);
   const batchId = required('settlement batchId', observation.batchId);
-  const obligationSetRoot = required('settlement obligationSetRoot', observation.obligationSetRoot) as Digest;
+  const obligationSetRoot = digest('settlement obligationSetRoot', observation.obligationSetRoot);
+  const eligibilityAsOf = timestamp('settlement eligibilityAsOf', observation.eligibilityAsOf);
+  const eligibilityEvidenceRoot = digest('settlement eligibilityEvidenceRoot', observation.eligibilityEvidenceRoot);
   const observedAt = timestamp('settlement observedAt', observation.observedAt);
   const railReceiptRef = observation.railReceiptRef === undefined
     ? undefined
@@ -190,6 +200,8 @@ export function projectSettlementObservationRecord(
     attemptId,
     batchId,
     obligationSetRoot,
+    eligibilityAsOf,
+    eligibilityEvidenceRoot,
     state: observation.state,
     observedAt,
     ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
@@ -197,7 +209,7 @@ export function projectSettlementObservationRecord(
   });
   return Object.freeze({
     ...committed,
-    observationRoot: singleRecordRoot('settlement_attempt_observation_v1', committed),
+    observationRoot: singleRecordRoot('settlement_attempt_observation_v2', committed),
   });
 }
 
