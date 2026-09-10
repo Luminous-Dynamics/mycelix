@@ -36,6 +36,19 @@ for forbidden in artist song_duration strategy_id amount_owed; do
   fi
 done
 
+# Historical Prisma payments are rail receipts/projections, never the debt ledger.
+legacy_payment=$(sed -n '/^model RoyaltyPayment {/,/^}/p' packages/database/prisma/schema.prisma)
+[[ -n "$legacy_payment" ]] || fail "legacy RoyaltyPayment model unexpectedly missing"
+if grep -Eq '^[[:space:]]+(status|payoutStatus|owedAmount|debtBalance|settled)[[:space:]]' <<<"$legacy_payment"; then
+  fail "legacy RoyaltyPayment must not acquire obligation/status authority"
+fi
+grep -Fq "authority: 'receipt_projection_only'" packages/accounting/src/legacy.ts \
+  || fail "legacy royalty payments must remain receipt-only evidence"
+grep -Fq 'obligationSetSettled: true' packages/accounting/src/recovery.ts \
+  || fail "settlement finality must be reconstructed from durable evidence"
+grep -Fq 'compileRoyaltyStatement' packages/accounting/src/projection.ts \
+  || fail "royalty statements must be compiled projections"
+
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
 fi

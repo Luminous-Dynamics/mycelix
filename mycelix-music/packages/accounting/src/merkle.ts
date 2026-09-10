@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 const LEAF_DOMAIN = 'mycelix-accounting-merkle-leaf-v1\0';
 const NODE_DOMAIN = 'mycelix-accounting-merkle-node-v1\0';
 const EMPTY_DOMAIN = 'mycelix-accounting-merkle-empty-v1\0';
+const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 export type Digest = string;
 
@@ -31,6 +32,10 @@ export function canonicalAccountingValue(value: unknown): string {
 
 function sha256(text: string): Digest {
   return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+function isSha256Digest(value: string): boolean {
+  return SHA256_HEX.test(value);
 }
 
 export function hashAccountingLeaf(value: unknown): Digest {
@@ -67,6 +72,16 @@ function nextLevel(level: readonly Digest[]): Digest[] {
   return next;
 }
 
+function expectedProofDepth(count: number): number {
+  let width = count;
+  let depth = 0;
+  while (width > 1) {
+    width = Math.ceil(width / 2);
+    depth += 1;
+  }
+  return depth;
+}
+
 export function buildMerkleCommitment(values: readonly unknown[]): MerkleCommitment {
   if (values.length === 0) return Object.freeze({ root: sha256(EMPTY_DOMAIN), count: 0 });
   let level = values.map(hashAccountingLeaf);
@@ -78,7 +93,7 @@ export function buildMerkleInclusionProof(
   values: readonly unknown[],
   index: number,
 ): MerkleInclusionProof {
-  if (!Number.isInteger(index) || index < 0 || index >= values.length) {
+  if (!Number.isSafeInteger(index) || index < 0 || index >= values.length) {
     throw new Error('Merkle inclusion index out of range');
   }
 
@@ -104,12 +119,29 @@ export function verifyMerkleInclusionProof(
   proof: MerkleInclusionProof,
   expectedRoot: Digest,
 ): boolean {
-  if (proof.count <= 0 || proof.index < 0 || proof.index >= proof.count) return false;
+  if (!isSha256Digest(expectedRoot)) return false;
+  if (!Number.isSafeInteger(proof.count) || proof.count <= 0) return false;
+  if (!Number.isSafeInteger(proof.index) || proof.index < 0 || proof.index >= proof.count) return false;
+  if (proof.steps.length !== expectedProofDepth(proof.count)) return false;
+
   let current = hashAccountingLeaf(value);
+  let cursor = proof.index;
+  let width = proof.count;
+
   for (const step of proof.steps) {
+    if ((step.side !== 'left' && step.side !== 'right') || !isSha256Digest(step.hash)) return false;
+
+    const expectedSide = cursor % 2 === 1 ? 'left' : 'right';
+    if (step.side !== expectedSide) return false;
+
+    // The construction duplicates the final node when a level has odd width.
+    if (cursor % 2 === 0 && cursor + 1 >= width && step.hash !== current) return false;
+
     current = step.side === 'left'
       ? hashNode(step.hash, current)
       : hashNode(current, step.hash);
+    cursor = Math.floor(cursor / 2);
+    width = Math.ceil(width / 2);
   }
   return current === expectedRoot;
 }

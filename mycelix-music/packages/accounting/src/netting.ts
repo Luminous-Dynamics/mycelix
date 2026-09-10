@@ -22,11 +22,24 @@ function groupKey(obligation: RoyaltyObligation): string {
   return `${obligation.beneficiaryId}\u0000${obligation.amount.currency}`;
 }
 
+function assertUniqueObligationIds(obligations: readonly RoyaltyObligation[]): void {
+  const seen = new Set<string>();
+  for (const obligation of obligations) {
+    if (seen.has(obligation.id)) throw new Error(`duplicate netting obligation id: ${obligation.id}`);
+    seen.add(obligation.id);
+  }
+}
+
+function sameObligationIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
 export function buildDeterministicNettingBatches(
   obligations: readonly RoyaltyObligation[],
   epoch: SettlementEpoch,
 ): readonly DeterministicNettingBatch[] {
   if (obligations.length === 0) return Object.freeze([]);
+  assertUniqueObligationIds(obligations);
   const { inEpoch } = partitionObligationsAtCutoff(obligations, epoch);
   const groups = new Map<string, RoyaltyObligation[]>();
   for (const obligation of inEpoch) {
@@ -69,4 +82,31 @@ export function buildDeterministicNettingBatches(
   }
 
   return Object.freeze(batches);
+}
+
+/**
+ * Reconstruct a supplied batch from authoritative obligations and the epoch.
+ * A serialized/queued batch is transport data, not accounting authority.
+ */
+export function assertDeterministicNettingBatch(
+  batch: DeterministicNettingBatch,
+  authoritativeObligations: readonly RoyaltyObligation[],
+  epoch: SettlementEpoch,
+): void {
+  const expected = buildDeterministicNettingBatches(authoritativeObligations, epoch)
+    .find(candidate => candidate.beneficiaryId === batch.beneficiaryId && candidate.currency === batch.currency);
+  if (!expected) throw new Error('netting batch has no authoritative payable obligation set');
+
+  const exact = batch.batchId === expected.batchId
+    && batch.epochId === expected.epochId
+    && batch.beneficiaryId === expected.beneficiaryId
+    && batch.currency === expected.currency
+    && batch.obligationSetRoot === expected.obligationSetRoot
+    && batch.grossAmount.currency === expected.grossAmount.currency
+    && batch.grossAmount.amountMinor === expected.grossAmount.amountMinor
+    && sameObligationIds(batch.obligationIds, expected.obligationIds);
+
+  if (!exact) {
+    throw new Error('netting batch does not match deterministic authoritative reconstruction');
+  }
 }
