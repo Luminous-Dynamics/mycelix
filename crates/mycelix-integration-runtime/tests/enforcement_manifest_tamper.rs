@@ -3,7 +3,7 @@ use mycelix_integration_core::{
 };
 use mycelix_integration_runtime::{
     DurableOutboundIntent, EnqueueDisposition, SqliteIntegrationStore,
-    RUNTIME_ENFORCEMENT_PROFILE_V2,
+    RUNTIME_ENFORCEMENT_PROFILE_V3,
 };
 use rusqlite::{params, Connection};
 
@@ -88,7 +88,7 @@ fn reopen_replaces_weakened_trigger_definition_before_use() {
             |row| row.get(0),
         )
         .expect("enforcement profile must exist");
-    assert_eq!(profile, RUNTIME_ENFORCEMENT_PROFILE_V2);
+    assert_eq!(profile, RUNTIME_ENFORCEMENT_PROFILE_V3);
 
     assert!(
         conn.execute(
