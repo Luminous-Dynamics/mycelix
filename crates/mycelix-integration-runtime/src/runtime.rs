@@ -1,9 +1,10 @@
 //! Stable public runtime boundary for INT-03.
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This thin shell adds
-//! file-backed cross-handle freshness checks so a process-local cache cannot
-//! weaken causal-time or exact-provider-operation guarantees when another
-//! process advances the same SQLite database.
+//! file-backed cross-handle freshness checks and SQLite write fences so a
+//! process-local cache or check/write race cannot weaken causal-time or
+//! exact-provider-operation guarantees when another process advances the same
+//! database.
 
 #[path = "v31.rs"]
 mod v31;
@@ -19,7 +20,10 @@ use mycelix_integration_core::{
     ReconcileCursor, ReconciliationResult,
 };
 use rusqlite::{params, Connection, OptionalExtension};
-use std::{path::{Path, PathBuf}, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 const OUTBOX_COMMITTED_STAGE_V2: i64 = 3;
 const MAX_EXECUTION_ATTEMPTS_V01: i64 = 1_024;
@@ -33,6 +37,7 @@ impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
         let inner = v31::SqliteIntegrationStore::open(&path)?;
+        ensure_atomic_causal_fences(&path)?;
         Ok(Self {
             inner,
             path: Some(path),
@@ -239,6 +244,76 @@ impl SqliteIntegrationStore {
             Err(RuntimeError::OutcomeOperationMismatch { entry_id })
         }
     }
+}
+
+fn ensure_atomic_causal_fences(path: &Path) -> Result<(), RuntimeError> {
+    let conn = open_aux(path)?;
+    conn.execute_batch(
+        r#"
+        CREATE TRIGGER IF NOT EXISTS integration_causal_outbox_update_before
+        BEFORE UPDATE OF updated_at_ms ON integration_outbox
+        WHEN NEW.updated_at_ms < COALESCE(
+            (
+                SELECT MAX(ts) FROM (
+                    SELECT OLD.updated_at_ms AS ts
+                    UNION ALL
+                    SELECT observed_at_ms FROM integration_execution_observation
+                    WHERE entry_id = OLD.entry_id
+                    UNION ALL
+                    SELECT recorded_at_ms FROM integration_reconciliation_history
+                    WHERE entry_id = OLD.entry_id
+                )
+            ),
+            NEW.updated_at_ms
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'runtime causal time rollback');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS integration_causal_execution_observation_before
+        BEFORE INSERT ON integration_execution_observation
+        WHEN NEW.observed_at_ms < COALESCE(
+            (
+                SELECT MAX(ts) FROM (
+                    SELECT updated_at_ms AS ts FROM integration_outbox
+                    WHERE entry_id = NEW.entry_id
+                    UNION ALL
+                    SELECT observed_at_ms FROM integration_execution_observation
+                    WHERE entry_id = NEW.entry_id
+                    UNION ALL
+                    SELECT recorded_at_ms FROM integration_reconciliation_history
+                    WHERE entry_id = NEW.entry_id
+                )
+            ),
+            NEW.observed_at_ms
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'runtime causal time rollback');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS integration_causal_reconciliation_before
+        BEFORE INSERT ON integration_reconciliation_history
+        WHEN NEW.recorded_at_ms < COALESCE(
+            (
+                SELECT MAX(ts) FROM (
+                    SELECT updated_at_ms AS ts FROM integration_outbox
+                    WHERE entry_id = NEW.entry_id
+                    UNION ALL
+                    SELECT observed_at_ms FROM integration_execution_observation
+                    WHERE entry_id = NEW.entry_id
+                    UNION ALL
+                    SELECT recorded_at_ms FROM integration_reconciliation_history
+                    WHERE entry_id = NEW.entry_id
+                )
+            ),
+            NEW.recorded_at_ms
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'runtime causal time rollback');
+        END;
+        "#,
+    )?;
+    Ok(())
 }
 
 fn load_durable_causal_frontier(
