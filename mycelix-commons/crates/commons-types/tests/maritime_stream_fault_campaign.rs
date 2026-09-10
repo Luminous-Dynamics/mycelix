@@ -148,3 +148,34 @@ fn restart_preserves_replay_and_generation_rollback_protection() {
     );
     assert_eq!(restarted, retained);
 }
+
+#[test]
+fn terminal_sequence_cannot_wrap_into_a_false_successor() {
+    let terminal = MaritimeEvidenceEnvelope::new(
+        "auv-01",
+        7,
+        u64::MAX,
+        1_700_000_030_000_000,
+        MaritimeEvidenceKind::HealthObservation,
+        r#"{"severity":"healthy"}"#,
+        "terminal-sequence-evidence",
+    );
+    let mut head = MaritimeStreamHead::from_root(&terminal).unwrap();
+    let retained = head.clone();
+
+    let wrapped = MaritimeEvidenceEnvelope::new(
+        "auv-01",
+        8,
+        0,
+        1_700_000_031_000_000,
+        MaritimeEvidenceKind::RecoveryEvent,
+        r#"{"state":"restarted"}"#,
+        "new-lineage-evidence",
+    );
+    assert_eq!(
+        head.ingest(&wrapped).unwrap(),
+        MaritimeStreamDisposition::StaleReplay
+    );
+    assert_eq!(head, retained);
+    assert!(wrapped.chain_after(&terminal).is_err());
+}
