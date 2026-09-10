@@ -72,6 +72,13 @@ describe('settlement eligibility evidence and carry-forward', () => {
     expect(reconstructed.observation?.id).toBe('elig:ready');
   });
 
+  it('rejects eligibility evidence that claims to observe a debt before the debt exists', () => {
+    const debt = obligation('o1', 600n, '2026-09-20T00:00:00Z');
+    expect(() => reconstructSettlementEligibility(debt, [
+      observation('elig:impossible', 'o1', SettlementEligibilityCode.Eligible, '2026-09-19T23:59:59Z'),
+    ], epoch.eligibilityAsOf)).toThrow(/predates obligation/);
+  });
+
   it('does not allow future eligibility evidence to leak backward', () => {
     const debt = obligation('o1', 600n);
     const reconstructed = reconstructSettlementEligibility(debt, [

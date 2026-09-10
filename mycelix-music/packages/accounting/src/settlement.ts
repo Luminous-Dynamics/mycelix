@@ -194,8 +194,18 @@ export function reconstructSettlementEligibility(
   validateObligation(obligation);
   const asOf = canonicalTimestamp('eligibility asOf', asOfInput);
   const asOfMs = Date.parse(asOf);
-  const relevant = normalizedObservationSet(observations)
-    .filter(observation => observation.obligationId === obligation.id && Date.parse(observation.observedAt) <= asOfMs)
+  const obligationObservedAtMs = Date.parse(obligation.observedAt);
+  const matching = normalizedObservationSet(observations)
+    .filter(observation => observation.obligationId === obligation.id);
+
+  for (const observation of matching) {
+    if (Date.parse(observation.observedAt) < obligationObservedAtMs) {
+      throw new Error(`eligibility observation ${observation.id} predates obligation ${obligation.id}`);
+    }
+  }
+
+  const relevant = matching
+    .filter(observation => Date.parse(observation.observedAt) <= asOfMs)
     .sort((left, right) => Date.parse(left.observedAt) - Date.parse(right.observedAt) || left.id.localeCompare(right.id));
 
   if (relevant.length === 0) {
