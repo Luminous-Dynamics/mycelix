@@ -15,7 +15,7 @@
 //! linear continuation.
 
 use crate::MaritimeEvidenceEnvelope;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 const MAX_PLATFORM_ID_BYTES: usize = 256;
 
@@ -24,12 +24,36 @@ const MAX_PLATFORM_ID_BYTES: usize = 256;
 /// `generation` is retained alongside sequence/digest so a restarted receiver
 /// can still reject a direct successor that regresses to an older software or
 /// evidence lineage generation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Fields are private and deserialization validates the same canonical shape as
+/// [`Self::from_retained`]. Persisted state therefore cannot bypass restart-time
+/// platform/digest validation by constructing this positive cursor directly.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MaritimeStreamHead {
-    pub platform_id: String,
-    pub generation: u64,
-    pub sequence: u64,
-    pub digest: String,
+    platform_id: String,
+    generation: u64,
+    sequence: u64,
+    digest: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MaritimeStreamHeadWire {
+    platform_id: String,
+    generation: u64,
+    sequence: u64,
+    digest: String,
+}
+
+impl<'de> Deserialize<'de> for MaritimeStreamHead {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = MaritimeStreamHeadWire::deserialize(deserializer)?;
+        Self::from_retained(wire.platform_id, wire.generation, wire.sequence, wire.digest)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 /// Deterministic classification of an incoming record relative to a local head.
@@ -100,6 +124,26 @@ impl MaritimeStreamHead {
             sequence,
             digest,
         })
+    }
+
+    /// Platform stream this retained head belongs to.
+    pub fn platform_id(&self) -> &str {
+        &self.platform_id
+    }
+
+    /// Highest accepted lineage generation at this head.
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Highest accepted sequence at this head.
+    pub const fn sequence(&self) -> u64 {
+        self.sequence
+    }
+
+    /// Canonical BLAKE3 content digest of the accepted head record.
+    pub fn digest(&self) -> &str {
+        &self.digest
     }
 
     /// Classify an incoming envelope without mutating this head.
@@ -203,18 +247,18 @@ mod tests {
         let next = event(11).chain_after(&root).unwrap();
         let mut head = MaritimeStreamHead::from_root(&root).unwrap();
 
-        assert_eq!(head.generation, 7);
+        assert_eq!(head.generation(), 7);
         assert_eq!(
             head.ingest(&next).unwrap(),
             MaritimeStreamDisposition::Advance
         );
-        assert_eq!(head.sequence, 11);
-        assert_eq!(head.generation, 7);
+        assert_eq!(head.sequence(), 11);
+        assert_eq!(head.generation(), 7);
         assert_eq!(
             head.ingest(&next).unwrap(),
             MaritimeStreamDisposition::Duplicate
         );
-        assert_eq!(head.sequence, 11);
+        assert_eq!(head.sequence(), 11);
     }
 
     #[test]
@@ -229,17 +273,17 @@ mod tests {
             head.ingest(&advanced).unwrap(),
             MaritimeStreamDisposition::Advance
         );
-        assert_eq!(head.generation, 8);
+        assert_eq!(head.generation(), 8);
 
         let mut regressed = event(12);
         regressed.generation = 7;
-        regressed.previous_event_digest = Some(head.digest.clone());
+        regressed.previous_event_digest = Some(head.digest().to_owned());
         assert_eq!(
             head.ingest(&regressed).unwrap(),
             MaritimeStreamDisposition::GenerationRegression
         );
-        assert_eq!(head.generation, 8);
-        assert_eq!(head.sequence, 11);
+        assert_eq!(head.generation(), 8);
+        assert_eq!(head.sequence(), 11);
     }
 
     #[test]
@@ -259,12 +303,12 @@ mod tests {
         );
 
         let mut gap = event(14);
-        gap.previous_event_digest = Some(head.digest.clone());
+        gap.previous_event_digest = Some(head.digest().to_owned());
         assert_eq!(head.ingest(&gap).unwrap(), MaritimeStreamDisposition::Gap);
 
         let mut wrong = event(12);
         wrong.platform_id = "auv-02".into();
-        wrong.previous_event_digest = Some(head.digest.clone());
+        wrong.previous_event_digest = Some(head.digest().to_owned());
         assert_eq!(
             head.ingest(&wrong).unwrap(),
             MaritimeStreamDisposition::WrongPlatform
@@ -297,8 +341,13 @@ mod tests {
             MaritimeStreamHead::from_retained(" auv-01", 7, 1, "11".repeat(32)).is_err()
         );
         assert!(
-            MaritimeStreamHead::from_retained("x".repeat(MAX_PLATFORM_ID_BYTES + 1), 7, 1, "11".repeat(32))
-                .is_err()
+            MaritimeStreamHead::from_retained(
+                "x".repeat(MAX_PLATFORM_ID_BYTES + 1),
+                7,
+                1,
+                "11".repeat(32)
+            )
+            .is_err()
         );
         assert!(MaritimeStreamHead::from_retained("auv-01", 7, 1, "xyz").is_err());
         assert!(
@@ -306,7 +355,35 @@ mod tests {
         );
         let retained =
             MaritimeStreamHead::from_retained("auv-01", 7, 1, "aa".repeat(32)).unwrap();
-        assert_eq!(retained.generation, 7);
-        assert_eq!(retained.digest, "aa".repeat(32));
+        assert_eq!(retained.generation(), 7);
+        assert_eq!(retained.digest(), "aa".repeat(32));
+    }
+
+    #[test]
+    fn deserialization_cannot_bypass_retained_head_validation() {
+        let valid = r#"{"platform_id":"auv-01","generation":7,"sequence":1,"digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#;
+        let restored: MaritimeStreamHead = serde_json::from_str(valid).unwrap();
+        assert_eq!(restored.platform_id(), "auv-01");
+        assert_eq!(restored.generation(), 7);
+        assert_eq!(restored.sequence(), 1);
+
+        let oversized = format!(
+            r#"{{"platform_id":"{}","generation":7,"sequence":1,"digest":"{}"}}"#,
+            "x".repeat(MAX_PLATFORM_ID_BYTES + 1),
+            "aa".repeat(32)
+        );
+        assert!(serde_json::from_str::<MaritimeStreamHead>(&oversized).is_err());
+
+        let uppercase_digest = format!(
+            r#"{{"platform_id":"auv-01","generation":7,"sequence":1,"digest":"{}"}}"#,
+            "AA".repeat(32)
+        );
+        assert!(serde_json::from_str::<MaritimeStreamHead>(&uppercase_digest).is_err());
+
+        let unknown_field = format!(
+            r#"{{"platform_id":"auv-01","generation":7,"sequence":1,"digest":"{}","trusted":true}}"#,
+            "aa".repeat(32)
+        );
+        assert!(serde_json::from_str::<MaritimeStreamHead>(&unknown_field).is_err());
     }
 }
