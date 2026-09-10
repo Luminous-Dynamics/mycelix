@@ -3,6 +3,7 @@ name: Music Accounting Persistence Qualification
 on:
   pull_request:
     paths:
+      - 'mycelix-music/packages/accounting/**'
       - 'mycelix-music/packages/database/prisma/schema.prisma'
       - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
       - 'mycelix-music/packages/database/src/accounting-authority.ts'
@@ -14,6 +15,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'mycelix-music/packages/accounting/**'
       - 'mycelix-music/packages/database/prisma/schema.prisma'
       - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
       - 'mycelix-music/packages/database/src/accounting-authority.ts'
@@ -57,6 +59,14 @@ jobs:
       - name: Install committed dependency graph
         working-directory: mycelix-music
         run: npm ci --ignore-scripts
+
+      - name: Type-check canonical accounting authority
+        working-directory: mycelix-music
+        run: npm run type-check --workspace=@mycelix/accounting
+
+      - name: Run accounting authority regressions
+        working-directory: mycelix-music
+        run: npm test --workspace=@mycelix/accounting
 
       - name: Generate Prisma authority client
         working-directory: mycelix-music
