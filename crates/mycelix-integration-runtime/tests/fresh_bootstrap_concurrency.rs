@@ -1,6 +1,6 @@
 use mycelix_integration_runtime::{
-    RuntimeError, SqliteIntegrationStore, RUNTIME_ENFORCEMENT_PROFILE_V5,
-    RUNTIME_SEMANTIC_PROFILE_V31,
+    RuntimeError, SqliteIntegrationStore, RUNTIME_BOOTSTRAP_PROFILE_V1,
+    RUNTIME_ENFORCEMENT_PROFILE_V5, RUNTIME_SEMANTIC_PROFILE_V31,
 };
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Barrier};
@@ -12,6 +12,11 @@ fn concurrent_first_openers_converge_on_one_valid_runtime() {
     let path = temp.path().join("concurrent-first-open.sqlite");
     let worker_count = 8;
     let barrier = Arc::new(Barrier::new(worker_count));
+
+    assert_eq!(
+        RUNTIME_BOOTSTRAP_PROFILE_V1,
+        "mycelix-integration-runtime/bootstrap-profile-v1"
+    );
 
     let handles: Vec<_> = (0..worker_count)
         .map(|_| {
@@ -33,6 +38,70 @@ fn concurrent_first_openers_converge_on_one_valid_runtime() {
 
     let _store = SqliteIntegrationStore::open(&path).expect("converged runtime must reopen");
     assert_runtime_identity(&path);
+}
+
+#[test]
+fn unversioned_historical_mycelix_state_is_not_stamped_or_promoted() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("unversioned-historical-mycelix.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE integration_inbound (
+                event_id TEXT PRIMARY KEY
+            );
+            INSERT INTO integration_inbound (event_id) VALUES ('historical-event');
+            "#,
+        )
+        .expect("historical unversioned fixture must be created");
+        assert_schema_version(&conn, 0);
+    }
+
+    expect_unversioned_foreign_store_rejection(&path);
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    assert_schema_version(&conn, 0);
+    let row_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM integration_inbound", [], |row| row.get(0))
+        .expect("historical state must remain readable");
+    assert_eq!(row_count, 1);
+    assert_semantic_table_absent(&conn);
+}
+
+#[test]
+fn unrelated_unversioned_schema_is_not_annexed_even_when_empty() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("unrelated-unversioned.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            "#,
+        )
+        .expect("unrelated schema fixture must be created");
+        assert_schema_version(&conn, 0);
+    }
+
+    expect_unversioned_foreign_store_rejection(&path);
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    assert_schema_version(&conn, 0);
+    let table_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("unrelated schema must remain readable");
+    assert_eq!(table_count, 1);
+    assert_semantic_table_absent(&conn);
 }
 
 #[test]
@@ -256,6 +325,17 @@ fn create_partial_outbox_schema(conn: &Connection) {
     .expect("partial outbox schema must be created");
 }
 
+fn expect_unversioned_foreign_store_rejection(path: &std::path::Path) {
+    match SqliteIntegrationStore::open(path) {
+        Err(RuntimeError::StoredIdentifier(message)) => {
+            assert!(message.contains("structural-manifest-v2"));
+            assert!(message.contains("observed 0"));
+        }
+        Err(other) => panic!("unexpected unversioned foreign-store error: {other:?}"),
+        Ok(_) => panic!("unversioned database with existing user schema must not be adopted"),
+    }
+}
+
 fn expect_missing_semantic_rejection(path: &std::path::Path) {
     match SqliteIntegrationStore::open(path) {
         Err(RuntimeError::StoredIdentifier(message)) => {
@@ -278,6 +358,13 @@ fn assert_semantic_table_absent(conn: &Connection) {
     assert_eq!(semantic_table, 0);
 }
 
+fn assert_schema_version(conn: &Connection, expected: i64) {
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .expect("user_version must be readable");
+    assert_eq!(version, expected);
+}
+
 fn assert_execution_table_exists(path: &std::path::Path) {
     let conn = Connection::open(path).expect("verification connection must open");
     let execution_table: i64 = conn
@@ -293,10 +380,7 @@ fn assert_execution_table_exists(path: &std::path::Path) {
 
 fn assert_runtime_identity(path: &std::path::Path) {
     let conn = Connection::open(path).expect("identity verification connection must open");
-    let version: i64 = conn
-        .query_row("PRAGMA user_version", [], |row| row.get(0))
-        .expect("user_version must be readable");
-    assert_eq!(version, 2);
+    assert_schema_version(&conn, 2);
 
     let semantic_profile: String = conn
         .query_row(
