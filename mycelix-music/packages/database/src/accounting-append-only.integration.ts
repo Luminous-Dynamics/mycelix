@@ -11,14 +11,10 @@ const GUARDED_TABLES = [
 ] as const;
 
 const ROOT = {
-  obligation: '1'.repeat(64),
-  eligibility: '2'.repeat(64),
-  deduction: '3'.repeat(64),
-  settlement: '4'.repeat(64),
-  statementObligation: '5'.repeat(64),
-  statementAdjustment: '6'.repeat(64),
-  statementSettlement: '7'.repeat(64),
-  statementSnapshot: '8'.repeat(64),
+  obligation: '1'.repeat(64), eligibility: '2'.repeat(64), deduction: '3'.repeat(64),
+  settlement: '4'.repeat(64), settlementEligibility: '9'.repeat(64),
+  statementObligation: '5'.repeat(64), statementAdjustment: '6'.repeat(64),
+  statementSettlement: '7'.repeat(64), statementSnapshot: '8'.repeat(64),
 } as const;
 
 test('PostgreSQL enforces creator accounting authority as append-only', async () => {
@@ -36,7 +32,6 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
     `);
     assert.deepEqual(triggers.map(row => row.tableName), [...GUARDED_TABLES]);
 
-    // Every authority/evidence table must still accept its append operation.
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyObligationRecord"
         ("id", "beneficiaryId", "amountMinor", "currency", "observedAt",
@@ -64,11 +59,21 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "SettlementAttemptObservationRecord"
-        ("id", "attemptId", "batchId", "obligationSetRoot", "state", "observedAt", "observationRoot")
+        ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+         "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
       VALUES
         ('guard:settlement:1', 'attempt:1', 'batch:1', '${ROOT.obligation}',
-         'submitted', '2026-09-10T00:03:00Z', '${ROOT.settlement}')
+         '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'submitted',
+         '2026-09-10T00:03:00Z', '${ROOT.settlement}')
     `);
+
+    const settlementSnapshot = await prisma.$queryRawUnsafe<Array<{ eligibilityAsOf: Date; eligibilityEvidenceRoot: string }>>(`
+      SELECT "eligibilityAsOf", "eligibilityEvidenceRoot"
+      FROM "SettlementAttemptObservationRecord"
+      WHERE "id" = 'guard:settlement:1'
+    `);
+    assert.equal(settlementSnapshot[0]?.eligibilityAsOf.toISOString(), '2026-09-10T00:02:30.000Z');
+    assert.equal(settlementSnapshot[0]?.eligibilityEvidenceRoot, ROOT.settlementEligibility);
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyStatementSnapshotRecord"
@@ -93,16 +98,12 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
 
     for (const target of mutationTargets) {
       await assert.rejects(
-        prisma.$executeRawUnsafe(
-          `UPDATE "${target.table}" SET "createdAt" = "createdAt" WHERE "${target.key}" = '${target.value}'`,
-        ),
+        prisma.$executeRawUnsafe(`UPDATE "${target.table}" SET "createdAt" = "createdAt" WHERE "${target.key}" = '${target.value}'`),
         /append-only.*UPDATE is forbidden/s,
         `${target.table} UPDATE must be rejected by the PostgreSQL trigger`,
       );
       await assert.rejects(
-        prisma.$executeRawUnsafe(
-          `DELETE FROM "${target.table}" WHERE "${target.key}" = '${target.value}'`,
-        ),
+        prisma.$executeRawUnsafe(`DELETE FROM "${target.table}" WHERE "${target.key}" = '${target.value}'`),
         /append-only.*DELETE is forbidden/s,
         `${target.table} DELETE must be rejected by the PostgreSQL trigger`,
       );
