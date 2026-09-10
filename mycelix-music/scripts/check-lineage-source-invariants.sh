@@ -67,8 +67,8 @@ advisory_lock_line=$(grep -n -F 'await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQ
 (( table_lock_line < advisory_lock_line )) \
   || fail "snapshot must freeze tables before taking advisory writer lock"
 
-grep -Fq 'clock_timestamp() AS "observedThrough"' "$adapter" \
-  || fail "snapshot must bind the serialized database observation time"
+grep -Fq 'clock_timestamp()::text AS "observedThrough"' "$adapter" \
+  || fail "snapshot must bind and canonically normalize serialized database observation time"
 grep -Fq 'MAX("ingestSeq")' "$adapter" \
   || fail "snapshot must bind the committed ingestion high-water mark"
 grep -Fq 'unregistered eligible evidence' "$adapter" \
