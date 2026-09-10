@@ -9,14 +9,14 @@
 
 #[path = "bootstrap_guard.rs"]
 mod bootstrap_guard;
-#[path = "schema_guard.rs"]
-mod schema_guard;
+#[path = "schema_manifest.rs"]
+mod schema_manifest;
 #[path = "storage_guard.rs"]
 mod storage_guard;
 #[path = "v31.rs"]
 mod v31;
 
-pub use schema_guard::RUNTIME_STRUCTURAL_MANIFEST_V1;
+pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
 pub use storage_guard::{
     ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V4,
 };
@@ -71,7 +71,7 @@ impl SqliteIntegrationStore {
         // index/trigger repair, qualify the concrete non-reconstructable SQLite
         // table/key/FK/index substrate and reject unknown triggers on managed
         // tables. This is point-in-time startup qualification, not tamper-proofness.
-        schema_guard::validate_pre_repair_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+        schema_manifest::validate_pre_repair_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
 
         // Repair/reconstruct only after the concrete substrate is qualified.
         storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
@@ -79,7 +79,7 @@ impl SqliteIntegrationStore {
         // Re-qualify the fully hardened representation before loading process
         // caches: complete derived tables/indexes/triggers, exact enforcement
         // singleton, and foreign-key integrity must now match the manifest.
-        schema_guard::validate_hardened_file_store(
+        schema_manifest::validate_hardened_file_store(
             &path,
             RUNTIME_SEMANTIC_PROFILE_V31,
             RUNTIME_ENFORCEMENT_PROFILE_V4,
