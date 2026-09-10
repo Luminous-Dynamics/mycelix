@@ -16,6 +16,8 @@ export interface SettlementAttemptObservation {
   readonly attemptId: string;
   readonly batchId: string;
   readonly obligationSetRoot: string;
+  readonly eligibilityAsOf: string;
+  readonly eligibilityEvidenceRoot: string;
   readonly state: SettlementAttemptState;
   readonly observedAt: string;
   readonly railReceiptRef?: string;
@@ -33,6 +35,8 @@ export type SettlementRecoveryStatus =
 export interface SettlementRecoveryState {
   readonly batchId: string;
   readonly obligationSetRoot: string;
+  readonly eligibilityAsOf: string;
+  readonly eligibilityEvidenceRoot: string;
   readonly status: SettlementRecoveryStatus;
   readonly activeAttemptId?: string;
   readonly lastObservedAt?: string;
@@ -102,6 +106,12 @@ function validateObservation(
   if (observation.obligationSetRoot !== batch.obligationSetRoot) {
     throw new Error('settlement observation obligationSetRoot mismatch');
   }
+  if (observation.eligibilityAsOf !== batch.eligibilityAsOf) {
+    throw new Error('settlement observation eligibilityAsOf mismatch');
+  }
+  if (observation.eligibilityEvidenceRoot !== batch.eligibilityEvidenceRoot) {
+    throw new Error('settlement observation eligibilityEvidenceRoot mismatch');
+  }
   parseTimestamp(observation.observedAt);
   if (observation.railReceiptRef !== undefined && !observation.railReceiptRef.trim()) {
     throw new Error('railReceiptRef must be non-empty when present');
@@ -115,6 +125,8 @@ function observationIdentity(observation: SettlementAttemptObservation): string 
   return [
     observation.observedAt,
     observation.state,
+    observation.eligibilityAsOf,
+    observation.eligibilityEvidenceRoot,
     observation.railReceiptRef ?? '',
     observation.supersedesAttemptId ?? '',
   ].join('\u0000');
@@ -166,7 +178,7 @@ function buildAttemptHistories(
       if (previous.observedAt === current.observedAt) {
         throw new Error(`conflicting settlement evidence at identical timestamp for attempt ${attemptId}`);
       }
-      if (previous.state === current.state) continue; // later observation of the same provider state
+      if (previous.state === current.state) continue;
       if (!ALLOWED_TRANSITIONS[previous.state].includes(current.state)) {
         throw new Error(`invalid settlement transition ${previous.state} -> ${current.state}`);
       }
@@ -220,13 +232,25 @@ export function reconstructSettlementRecovery(
   batch: DeterministicNettingBatch,
   observations: readonly SettlementAttemptObservation[],
 ): Readonly<SettlementRecoveryState> {
-  if (!batch.batchId.trim() || !batch.obligationSetRoot.trim()) {
+  if (
+    !batch.batchId.trim()
+    || !batch.obligationSetRoot.trim()
+    || !batch.eligibilityEvidenceRoot.trim()
+    || !Number.isFinite(Date.parse(batch.eligibilityAsOf))
+  ) {
     throw new Error('settlement batch identity must be complete');
   }
+
+  const identity = {
+    batchId: batch.batchId,
+    obligationSetRoot: batch.obligationSetRoot,
+    eligibilityAsOf: batch.eligibilityAsOf,
+    eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot,
+  } as const;
+
   if (observations.length === 0) {
     return Object.freeze({
-      batchId: batch.batchId,
-      obligationSetRoot: batch.obligationSetRoot,
+      ...identity,
       status: 'never_attempted',
       obligationSetSettled: false,
     });
@@ -236,8 +260,7 @@ export function reconstructSettlementRecovery(
   const latest = histories[histories.length - 1]!;
   const finalObservation = latest.observations[latest.observations.length - 1]!;
   const base = {
-    batchId: batch.batchId,
-    obligationSetRoot: batch.obligationSetRoot,
+    ...identity,
     activeAttemptId: latest.attemptId,
     lastObservedAt: finalObservation.observedAt,
   } as const;
