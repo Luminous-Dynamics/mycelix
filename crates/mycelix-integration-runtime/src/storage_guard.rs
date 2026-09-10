@@ -21,10 +21,11 @@ const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 /// Identity of the reconstructable SQLite enforcement machinery used by INT-03.
 ///
 /// This is deliberately separate from the durable semantic producer identity:
-/// changing trigger/reconstruction enforcement does not reinterpret historical
-/// records, but an opened store must know which enforcement contract is active.
-pub const RUNTIME_ENFORCEMENT_PROFILE_V2: &str =
-    "mycelix-integration-runtime/enforcement-profile-v2";
+/// changing admission/reconstruction/trigger enforcement does not reinterpret
+/// historical records, but an opened store must know which enforcement contract
+/// is active.
+pub const RUNTIME_ENFORCEMENT_PROFILE_V3: &str =
+    "mycelix-integration-runtime/enforcement-profile-v3";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconciliationCheckpointSnapshot {
@@ -685,7 +686,7 @@ fn record_enforcement_profile(tx: &Transaction<'_>) -> Result<(), RuntimeError> 
         "INSERT INTO integration_runtime_enforcement (singleton, enforcement_profile)\n\
          VALUES (1, ?1)\n\
          ON CONFLICT(singleton) DO UPDATE SET enforcement_profile = excluded.enforcement_profile",
-        params![RUNTIME_ENFORCEMENT_PROFILE_V2],
+        params![RUNTIME_ENFORCEMENT_PROFILE_V3],
     )?;
     Ok(())
 }
