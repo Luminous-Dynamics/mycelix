@@ -568,6 +568,30 @@ model SettlementAttemptObservationRecord {
   @@index([eligibilityEvidenceRoot, observedAt])
 }
 
+model SettlementAllocationRecord {
+  allocationId            String   @id
+  batchId                 String
+  obligationSetRoot       String
+  eligibilityAsOf         DateTime
+  eligibilityEvidenceRoot String
+  beneficiaryId           String
+  currency                String
+  railReceiptRef          String
+  creatorPaidMinor        String
+  deductionRoots          Json
+  deductionTotalMinor     String
+  residualHeldMinor       String
+  residualAuthorityRef    String?
+  allocatedAt             DateTime
+  obligationSetDischarged Boolean
+  allocationRoot          String   @unique
+  createdAt               DateTime @default(now())
+
+  @@index([batchId, allocatedAt])
+  @@index([beneficiaryId, allocatedAt])
+  @@index([eligibilityEvidenceRoot, allocatedAt])
+}
+
 model RoyaltyStatementSnapshotRecord {
   statementId            String   @id
   kind                   String
@@ -635,7 +659,7 @@ model Report {
   resolvedAt  DateTime?
   resolution  String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([status])
   @@index([targetType, targetId])
