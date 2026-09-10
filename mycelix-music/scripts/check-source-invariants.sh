@@ -65,14 +65,35 @@ do
   grep -Fq "'$model'" packages/database/prisma/accounting-append-only.sql \
     || fail "append-only PostgreSQL guard missing for $model"
 done
+
 grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
   || fail "accounting append-only database trigger must reject UPDATE and DELETE"
+
 grep -Fq 'test:accounting-guards' packages/database/package.json \
   || fail "database package must expose the live append-only guard regression"
 grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
   || fail "persistence qualification must exercise PostgreSQL"
 grep -Fq 'test:accounting-guards' ../.github/workflows/music-accounting-persistence.yml \
   || fail "persistence qualification must prove runtime mutation rejection"
+
+# Settlement execution must retain the exact eligibility snapshot that admitted
+# the obligation set. Compiler-only outcomes are never source observations.
+settlement_record=$(sed -n '/^model SettlementAttemptObservationRecord {/,/^}/p' packages/database/prisma/schema.prisma)
+for field in eligibilityAsOf eligibilityEvidenceRoot; do
+  grep -Eq "^[[:space:]]+${field}[[:space:]]" <<<"$settlement_record" \
+    || fail "settlement persistence missing eligibility snapshot field: $field"
+  grep -Fq "$field" packages/database/src/accounting-authority.ts \
+    || fail "append store drops eligibility snapshot field: $field"
+done
+
+for compiler_only in below_threshold awaiting_eligibility_evidence; do
+  if grep -Fq "'$compiler_only'" packages/database/src/accounting-authority.ts; then
+    fail "compiler-only eligibility state leaked into database source vocabulary: $compiler_only"
+  fi
+done
+
+grep -Fq 'isObservableSettlementEligibilityCode' packages/accounting/src/persistence-projection.ts \
+  || fail "accounting persistence projection must reject compiler-only eligibility states"
 
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
