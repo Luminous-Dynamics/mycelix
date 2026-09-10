@@ -1,9 +1,9 @@
 //! Stable public runtime boundary for INT-03.
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
-//! file-backed cross-handle freshness, lock-first SQLite enforcement repair,
-//! and connector-checkpoint CAS semantics so process-local caches or
-//! check/write races cannot weaken durable causal meaning.
+//! file-backed cross-handle freshness, atomic fresh-bootstrap classification,
+//! lock-first SQLite enforcement repair, and connector-checkpoint CAS semantics
+//! so process-local caches or check/write races cannot weaken durable causal meaning.
 
 #[path = "storage_guard.rs"]
 mod storage_guard;
@@ -11,7 +11,7 @@ mod storage_guard;
 mod v31;
 
 pub use storage_guard::{
-    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V3,
+    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V4,
 };
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
@@ -43,18 +43,23 @@ impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
 
-        if storage_guard::is_initialized_file_store(&path)? {
-            // Existing initialized stores are admitted lock-first: acquire the
-            // SQLite write lock and validate semantic/history/enforcement state
-            // before v3.1 opens and loads process-local security caches.
-            storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
-        } else {
-            // Fresh/uninitialized files need one bootstrap open to create the
-            // structural + semantic substrate. That handle is discarded before
-            // enforcement repair, and no public runtime is exposed yet.
-            let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
-            drop(bootstrap);
-            storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+        match storage_guard::prepare_and_classify_file_store(&path)? {
+            storage_guard::FileStoreAdmission::Initialized => {
+                // Existing/non-bootstrapable stores are admitted lock-first:
+                // validate semantic + structural identity and repair enforcement
+                // before v3.1 can load process-local security caches.
+                storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+            }
+            storage_guard::FileStoreAdmission::NeedsBootstrap => {
+                // A truly fresh database already carries structural-v2 intent
+                // from the atomic classifier, so partial schema creation cannot
+                // masquerade as implicit legacy v1 to a concurrent opener.
+                // Bootstrap remains non-authoritative: no public handle exists
+                // until semantic/structural admission and enforcement repair pass.
+                let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
+                drop(bootstrap);
+                storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+            }
         }
 
         // Load process-local caches only after the durable store has been
