@@ -36,68 +36,68 @@ fn concurrent_first_openers_converge_on_one_valid_runtime() {
 }
 
 #[test]
-fn empty_partial_v2_bootstrap_resumes_without_legacy_migration() {
+fn empty_partial_v2_bootstrap_with_empty_semantic_table_resumes() {
     let temp = tempfile::tempdir().expect("tempdir must be created");
-    let path = temp.path().join("partial-v2-bootstrap.sqlite");
+    let path = temp.path().join("partial-v2-empty-semantic.sqlite");
 
     {
         let conn = Connection::open(&path).expect("partial bootstrap connection must open");
+        conn.execute_batch("PRAGMA user_version = 2;")
+            .expect("structural intent must be writable");
+        create_partial_outbox_schema(&conn);
         conn.execute_batch(
             r#"
-            PRAGMA user_version = 2;
-
-            CREATE TABLE integration_outbox (
-                entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                command_id TEXT NOT NULL UNIQUE,
-                connector_instance TEXT NOT NULL,
-                command_commitment_algorithm INTEGER NOT NULL,
-                command_commitment_digest BLOB NOT NULL,
-                authority_commitment_algorithm INTEGER NOT NULL,
-                authority_commitment_digest BLOB NOT NULL,
-                side_effect_class INTEGER NOT NULL,
-                idempotency_key TEXT,
-                command_bytes BLOB NOT NULL,
-                stage INTEGER NOT NULL,
-                worker_id TEXT,
-                lease_until_ms INTEGER,
-                attempt_count INTEGER NOT NULL DEFAULT 0,
-                current_attempt_id TEXT,
-                dispatch_started_at_ms INTEGER,
-                outcome_json BLOB,
-                reconciliation_json BLOB,
-                created_at_ms INTEGER NOT NULL,
-                updated_at_ms INTEGER NOT NULL
-            );
-
             CREATE TABLE integration_runtime_semantics (
                 singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
                 semantic_profile TEXT NOT NULL
             );
             "#,
         )
-        .expect("partial structural-v2 fixture must be created");
+        .expect("empty semantic table fixture must be created");
     }
 
     let _store = SqliteIntegrationStore::open(&path)
-        .expect("empty structural-v2 bootstrap must be safely resumable");
+        .expect("zero-history structural-v2 bootstrap must be safely resumable");
     assert_runtime_identity(&path);
-
-    let conn = Connection::open(&path).expect("verification connection must open");
-    let execution_table: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master\n\
-             WHERE type = 'table' AND name = 'integration_execution_observation'",
-            [],
-            |row| row.get(0),
-        )
-        .expect("schema catalog query must succeed");
-    assert_eq!(execution_table, 1);
+    assert_execution_table_exists(&path);
 }
 
 #[test]
-fn nonempty_untagged_store_is_not_promoted_as_incomplete_bootstrap() {
+fn empty_partial_v2_bootstrap_with_exact_semantic_profile_resumes() {
     let temp = tempfile::tempdir().expect("tempdir must be created");
-    let path = temp.path().join("nonempty-untagged.sqlite");
+    let path = temp.path().join("partial-v2-exact-semantic.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("partial bootstrap connection must open");
+        conn.execute_batch("PRAGMA user_version = 2;")
+            .expect("structural intent must be writable");
+        create_partial_outbox_schema(&conn);
+        conn.execute_batch(
+            r#"
+            CREATE TABLE integration_runtime_semantics (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                semantic_profile TEXT NOT NULL
+            );
+            "#,
+        )
+        .expect("semantic table fixture must be created");
+        conn.execute(
+            "INSERT INTO integration_runtime_semantics (singleton, semantic_profile) VALUES (1, ?1)",
+            [RUNTIME_SEMANTIC_PROFILE_V31],
+        )
+        .expect("exact semantic bootstrap identity must be installed");
+    }
+
+    let _store = SqliteIntegrationStore::open(&path)
+        .expect("exact-profile zero-history partial bootstrap must resume");
+    assert_runtime_identity(&path);
+    assert_execution_table_exists(&path);
+}
+
+#[test]
+fn nonempty_untagged_outbox_is_not_promoted_as_incomplete_bootstrap() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("nonempty-untagged-outbox.sqlite");
 
     {
         let conn = Connection::open(&path).expect("fixture connection must open");
@@ -108,22 +108,165 @@ fn nonempty_untagged_store_is_not_promoted_as_incomplete_bootstrap() {
             INSERT INTO integration_outbox (entry_id) VALUES (1);
             "#,
         )
-        .expect("nonempty untagged fixture must be created");
+        .expect("nonempty untagged outbox fixture must be created");
     }
 
-    match SqliteIntegrationStore::open(&path) {
-        Err(RuntimeError::StoredIdentifier(message)) => {
-            assert!(message.contains("no semantic producer identity"));
-        }
-        Err(other) => panic!("unexpected error for nonempty untagged store: {other:?}"),
-        Ok(_) => panic!("nonempty untagged store must never be auto-promoted"),
-    }
+    expect_missing_semantic_rejection(&path);
 
     let conn = Connection::open(&path).expect("verification connection must open");
     let row_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM integration_outbox", [], |row| row.get(0))
         .expect("outbox count must remain readable");
     assert_eq!(row_count, 1);
+    assert_semantic_table_absent(&conn);
+}
+
+#[test]
+fn inbound_only_untagged_state_is_not_promoted_as_empty_bootstrap() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("inbound-only-untagged.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            PRAGMA user_version = 2;
+            CREATE TABLE integration_inbound (event_id TEXT PRIMARY KEY);
+            INSERT INTO integration_inbound (event_id) VALUES ('historical-event');
+            "#,
+        )
+        .expect("inbound-only durable fixture must be created");
+    }
+
+    expect_missing_semantic_rejection(&path);
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    let row_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM integration_inbound", [], |row| row.get(0))
+        .expect("inbound history must remain readable");
+    assert_eq!(row_count, 1);
+    assert_semantic_table_absent(&conn);
+}
+
+#[test]
+fn deleted_autoincrement_activity_blocks_automatic_semantic_adoption() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("deleted-autoincrement-history.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            PRAGMA user_version = 2;
+            CREATE TABLE integration_outbox (
+                entry_id INTEGER PRIMARY KEY AUTOINCREMENT
+            );
+            INSERT INTO integration_outbox DEFAULT VALUES;
+            DELETE FROM integration_outbox;
+            "#,
+        )
+        .expect("deleted-history trace fixture must be created");
+    }
+
+    expect_missing_semantic_rejection(&path);
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    let live_rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM integration_outbox", [], |row| row.get(0))
+        .expect("outbox count must remain readable");
+    assert_eq!(live_rows, 0);
+    let sequence: i64 = conn
+        .query_row(
+            "SELECT seq FROM sqlite_sequence WHERE name = 'integration_outbox'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("prior AUTOINCREMENT activity must remain visible");
+    assert!(sequence > 0);
+    assert_semantic_table_absent(&conn);
+}
+
+#[test]
+fn wrong_semantic_profile_is_never_rewritten_by_bootstrap_recovery() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("wrong-semantic-empty.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            PRAGMA user_version = 2;
+            CREATE TABLE integration_runtime_semantics (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                semantic_profile TEXT NOT NULL
+            );
+            INSERT INTO integration_runtime_semantics (singleton, semantic_profile)
+            VALUES (1, 'foreign-runtime/semantic-profile-v1');
+            "#,
+        )
+        .expect("wrong semantic profile fixture must be created");
+    }
+
+    match SqliteIntegrationStore::open(&path) {
+        Err(RuntimeError::StoredIdentifier(message)) => {
+            assert!(message.contains("unsupported integration runtime semantic profile"));
+        }
+        Err(other) => panic!("unexpected wrong-profile error: {other:?}"),
+        Ok(_) => panic!("wrong semantic producer must never be rewritten by bootstrap recovery"),
+    }
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    let profile: String = conn
+        .query_row(
+            "SELECT semantic_profile FROM integration_runtime_semantics WHERE singleton = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("foreign semantic identity must remain readable");
+    assert_eq!(profile, "foreign-runtime/semantic-profile-v1");
+}
+
+fn create_partial_outbox_schema(conn: &Connection) {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE integration_outbox (
+            entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            command_id TEXT NOT NULL UNIQUE,
+            connector_instance TEXT NOT NULL,
+            command_commitment_algorithm INTEGER NOT NULL,
+            command_commitment_digest BLOB NOT NULL,
+            authority_commitment_algorithm INTEGER NOT NULL,
+            authority_commitment_digest BLOB NOT NULL,
+            side_effect_class INTEGER NOT NULL,
+            idempotency_key TEXT,
+            command_bytes BLOB NOT NULL,
+            stage INTEGER NOT NULL,
+            worker_id TEXT,
+            lease_until_ms INTEGER,
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            current_attempt_id TEXT,
+            dispatch_started_at_ms INTEGER,
+            outcome_json BLOB,
+            reconciliation_json BLOB,
+            created_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL
+        );
+        "#,
+    )
+    .expect("partial outbox schema must be created");
+}
+
+fn expect_missing_semantic_rejection(path: &std::path::Path) {
+    match SqliteIntegrationStore::open(path) {
+        Err(RuntimeError::StoredIdentifier(message)) => {
+            assert!(message.contains("no semantic producer identity"));
+        }
+        Err(other) => panic!("unexpected error for historical untagged store: {other:?}"),
+        Ok(_) => panic!("historical untagged store must never be auto-promoted"),
+    }
+}
+
+fn assert_semantic_table_absent(conn: &Connection) {
     let semantic_table: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master\n\
@@ -133,6 +276,19 @@ fn nonempty_untagged_store_is_not_promoted_as_incomplete_bootstrap() {
         )
         .expect("schema catalog query must succeed");
     assert_eq!(semantic_table, 0);
+}
+
+fn assert_execution_table_exists(path: &std::path::Path) {
+    let conn = Connection::open(path).expect("verification connection must open");
+    let execution_table: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master\n\
+             WHERE type = 'table' AND name = 'integration_execution_observation'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("schema catalog query must succeed");
+    assert_eq!(execution_table, 1);
 }
 
 fn assert_runtime_identity(path: &std::path::Path) {
