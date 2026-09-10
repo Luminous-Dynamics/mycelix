@@ -26,6 +26,10 @@ const MAX_EVIDENCE_BINDING_BYTES: usize = 1024;
 const MAX_PAYLOAD_BYTES: usize = 60 * 1024;
 const MAX_REFERENCE_COUNT: usize = 64;
 const MAX_REFERENCE_BYTES: usize = 512;
+/// `BridgeEventEntry.payload` is bounded by the shared bridge integrity contract.
+/// Maritime validation must apply this to the serialized envelope, not merely
+/// `payload_json`, because all wrapper metadata consumes the same outer budget.
+const MAX_BRIDGE_EVENT_PAYLOAD_BYTES: usize = 8 * 1024;
 
 /// Mission-neutral event classes. Weapon, target and engagement semantics are
 /// intentionally absent.
@@ -150,6 +154,18 @@ impl MaritimeEvidenceEnvelope {
                 "previous_event_digest must be a canonical lowercase 64-character hex digest"
                     .into(),
             );
+        }
+
+        // The existing Commons bridge validates the full BridgeEventEntry payload at 8 KiB.
+        // Measure the exact maritime envelope bytes that `to_commons_event` will place there;
+        // otherwise this type could report `Valid` for evidence the DHT integrity zome rejects.
+        let bridge_payload = serde_json::to_vec(self)
+            .map_err(|e| format!("failed to serialize maritime payload for size validation: {e}"))?;
+        if bridge_payload.len() > MAX_BRIDGE_EVENT_PAYLOAD_BYTES {
+            return Err(format!(
+                "serialized maritime envelope exceeds Commons bridge payload limit of {} bytes",
+                MAX_BRIDGE_EVENT_PAYLOAD_BYTES
+            ));
         }
         Ok(())
     }
@@ -320,7 +336,7 @@ mod tests {
             sequence,
             1_000_000 + sequence,
             MaritimeEvidenceKind::HealthObservation,
-            r#"{"severity":"healthy"}"#,
+            r#"{\"severity\":\"healthy\"}"#,
             "hal-evidence:abc",
         )
     }
@@ -382,13 +398,27 @@ mod tests {
     }
 
     #[test]
+    fn serialized_envelope_must_fit_existing_bridge_payload_limit() {
+        let mut envelope = event(0);
+        // The inner payload remains under its coarse 60 KiB bound but the complete
+        // serialized envelope cannot fit the generic bridge's 8 KiB payload field.
+        envelope.payload_json = serde_json::to_string(&"x".repeat(8 * 1024)).unwrap();
+        assert!(envelope.payload_json.len() < MAX_PAYLOAD_BYTES);
+        let error = envelope.validate().unwrap_err();
+        assert!(error.contains("Commons bridge payload limit"), "got: {error}");
+        assert!(envelope
+            .to_commons_event(AgentPubKey::from_raw_36(vec![0u8; 36]), Timestamp::from_micros(0))
+            .is_err());
+    }
+
+    #[test]
     fn successor_binds_exact_predecessor_and_detects_tampering() {
         let first = event(41);
         let second = event(42).chain_after(&first).unwrap();
         assert_eq!(verify_maritime_successor(&first, &second), Ok(()));
 
         let mut tampered = first.clone();
-        tampered.payload_json = r#"{"severity":"unsafe"}"#.into();
+        tampered.payload_json = r#"{\"severity\":\"unsafe\"}"#.into();
         assert!(verify_maritime_successor(&tampered, &second).is_err());
     }
 
