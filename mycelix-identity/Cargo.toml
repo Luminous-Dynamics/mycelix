@@ -9,6 +9,8 @@ members = [
     "crates/eidas-zkp",
     # Canonical non-authoritative DID <-> external evidence-key provenance
     "crates/identity-provenance",
+    # DID-authored publication boundary for external evidence keys
+    "zomes/key_provenance/integrity",
     # Zomes
     "zomes/did_registry/integrity",
     "zomes/did_registry/coordinator",
