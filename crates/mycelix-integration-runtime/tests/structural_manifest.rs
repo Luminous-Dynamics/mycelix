@@ -1,5 +1,5 @@
 use mycelix_integration_runtime::{
-    RuntimeError, SqliteIntegrationStore, RUNTIME_ENFORCEMENT_PROFILE_V4,
+    RuntimeError, SqliteIntegrationStore, RUNTIME_ENFORCEMENT_PROFILE_V5,
     RUNTIME_STRUCTURAL_MANIFEST_V2,
 };
 use rusqlite::Connection;
@@ -136,7 +136,7 @@ fn initialize(path: &std::path::Path) {
             |row| row.get(0),
         )
         .expect("enforcement profile must exist");
-    assert_eq!(profile, RUNTIME_ENFORCEMENT_PROFILE_V4);
+    assert_eq!(profile, RUNTIME_ENFORCEMENT_PROFILE_V5);
 }
 
 fn assert_schema_version_two(conn: &Connection) {
