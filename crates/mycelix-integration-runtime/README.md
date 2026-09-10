@@ -6,16 +6,18 @@ It is deliberately **not** a connector, provider SDK wrapper, authority oracle, 
 
 ## v0.1 reference boundary
 
-The reference implementation uses SQLite to make failure, restart, and multi-handle semantics executable before distributed infrastructure or provider SDKs are introduced.
+The reference implementation uses SQLite to make failure, restart, multi-handle, and storage-repair semantics executable before distributed infrastructure or provider SDKs are introduced.
 
 The public crate root is `src/runtime.rs`:
 
 ```text
-src/runtime.rs   stable public boundary + cross-handle/atomic fences
+src/runtime.rs         stable public boundary + cross-handle/atomic fences
       ↓
-src/v31.rs       storage-semantics v3.1 facade
+src/storage_guard.rs   reconstructable storage enforcement + checkpoint CAS
       ↓
-src/lib.rs       preserved v2 SQLite causal engine
+src/v31.rs             storage-semantics v3.1 facade
+      ↓
+src/lib.rs             preserved v2 SQLite causal engine
 ```
 
 The layered boundary preserves the already-frozen v2 crash/retry/history machinery while adding the semantic and concurrency safeguards required before INT-04:
@@ -23,8 +25,11 @@ The layered boundary preserves the already-frozen v2 crash/retry/history machine
 - durable semantic-producer/profile identity separate from SQLite schema identity;
 - fail-closed migration when legacy state meaning is underdetermined;
 - durable monotonic provider-operation identity, including late historical evidence;
+- deterministic reconstruction of derived provider-operation indexes from append-only history;
 - per-entry Mycelix runtime causal-time monotonicity;
 - cross-handle freshness checks plus atomic SQLite causal-time write fences;
+- monotonic connector-wide reconciliation checkpoints with equal-time conflict detection;
+- explicit enforcement-profile identity plus atomic trigger replacement on reopen;
 - lease expiry that independently removes current completion power before recovery runs;
 - entry-local quarantine so one poisoned recovery record cannot globally block unrelated work.
 
@@ -89,7 +94,7 @@ syntactic readability
     != semantic equivalence
 ```
 
-The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs` layer does not change that durable meaning; it strengthens enforcement of the already-declared v3.1 causal rules.
+The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs`/`storage_guard.rs` layers do not reinterpret that durable history; they strengthen reconstruction and enforcement of the already-declared v3.1 rules.
 
 Pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An untagged non-empty legacy runtime therefore cannot be promoted into current semantics merely because its rows remain structurally readable. v3.1 fails closed and requires an explicit provenance-bearing migration/import path.
 
@@ -117,9 +122,9 @@ now >= lease_until
 
 Expiry changes current workflow authority, not evidentiary existence.
 
-## Provider-operation identity is durable and monotonic
+## Provider-operation identity: evidence first, derived index second
 
-`ExternalOperationRef.provider_operation` may begin as `None` before a provider exposes a stable operation ID. Once accepted evidence establishes `Some(A)`, that identity becomes durable protocol state in `integration_runtime_operation_binding`.
+`ExternalOperationRef.provider_operation` may begin as `None` before a provider exposes a stable operation ID. Once accepted evidence establishes `Some(A)`, that exact identity becomes part of the durable historical record.
 
 ```text
 None -> Some(A)      may refine
@@ -128,11 +133,48 @@ Some(A) -> Some(B)   conflict / reject
 Some(A) -> None      cannot erase the binding
 ```
 
-For file-backed stores, SQLite triggers establish/check the binding in the same transaction that appends provider execution or reconciliation evidence. This prevents a crash between evidence admission and identity binding from weakening the invariant.
+The append-only execution and reconciliation histories are the historical source material. `integration_runtime_operation_binding` is a **derived enforcement index**, not an independent source of truth.
 
-The stable public boundary re-reads the durable binding before each file-backed outcome/reconciliation write, so another open process cannot hide a newly learned binding behind a stale process-local cache.
+On file-backed reopen, `storage_guard.rs` holds an SQLite `IMMEDIATE` transaction, validates the stored history, rebuilds the derived binding table, atomically replaces the binding/causal triggers, records the expected enforcement profile, commits, and only then reloads the v3.1 runtime caches from the repaired database.
 
-The binding survives finalization and reopen, including when `Some(A)` was learned only from late non-applying historical evidence. Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
+```text
+missing derived row
+    != no historical binding
+
+wrong stale derived row
+    -> rebuild from consistent history
+
+history establishes only Some(A)
+    -> derived index becomes Some(A)
+
+history establishes Some(A) and Some(B)
+    -> fail closed
+    -X-> choose a winner
+```
+
+This closes both cache-loss and stale-cache cases, including identities learned only from late non-applying historical evidence after finalization.
+
+Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
+
+## Enforcement machinery has its own identity
+
+Reconstructable SQLite security machinery is labeled separately from semantic history:
+
+```text
+mycelix-integration-runtime/enforcement-profile-v1
+```
+
+A trigger name alone is not accepted as proof that the installed SQL implements the expected safety theorem. Reopen replaces the known security-critical trigger definitions inside the same `IMMEDIATE` startup transaction used for derived-state reconstruction.
+
+```text
+same trigger name
+    != same trigger semantics
+
+semantic producer identity
+    != enforcement implementation identity
+```
+
+This protects against stale/drifted local enforcement definitions. It is **not** a claim that SQLite is cryptographically tamper-proof against an attacker with unrestricted storage access.
 
 ## Per-entry causal time and atomic fencing
 
@@ -166,6 +208,43 @@ fresh precheck + database trigger
 ```
 
 This is a per-entry Mycelix causal coordinate, not a global clock. Remote provider source timestamps remain separate evidence and are not forced into this ordering.
+
+## Reconciliation checkpoint currentness
+
+Connector-wide reconciliation checkpoints use a Mycelix local transition timestamp as their anti-rollback coordinate. Provider cursor values remain opaque.
+
+```text
+no stored checkpoint
+    -> insert
+
+new_time < stored_time
+    -> reject rollback
+
+new_time == stored_time
++ exact same cursor + commitment
+    -> idempotent
+
+new_time == stored_time
++ different cursor or commitment
+    -> conflict / fail closed
+
+new_time > stored_time
+    -> may advance
+```
+
+The file-backed implementation performs the read/compare/write under one SQLite `IMMEDIATE` transaction, so two open writers cannot race an older or equal-time conflicting checkpoint into storage. In-memory stores implement the same public contract.
+
+`load_reconciliation_checkpoint_snapshot()` returns both the `ReconcileCursor` and `updated_at_ms` so callers do not have to confuse “a cursor exists” with “this is the locally current checkpoint.”
+
+The runtime does **not** lexically or numerically sort arbitrary provider cursor strings. A later Mycelix checkpoint may legitimately contain a cursor whose textual representation sorts before the prior one.
+
+```text
+checkpoint currentness
+    != provider completeness
+
+checkpoint timestamp
+    != provider event timestamp
+```
 
 ## Historical evidence is append-only
 
@@ -240,7 +319,7 @@ Those properties belong to a versioned qualified provider profile. Crash recover
 
 ## Qualification target
 
-Promotion requires one exact-head hosted qualification establishing the legacy engine, v3.1 semantics, and the stable public concurrency boundary:
+Promotion requires one exact-head hosted qualification establishing the legacy engine, v3.1 semantics, stable public concurrency boundary, and reconstructable storage guard:
 
 1. formatting, compilation, full tests, and Clippy with warnings denied;
 2. provider-neutral normal transitive dependency closure;
@@ -252,9 +331,13 @@ Promotion requires one exact-head hosted qualification establishing the legacy e
 8. durable/reopen-stable semantic producer identity and tamper rejection;
 9. expired post-dispatch fence demotion before completion;
 10. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
-11. per-entry causal-time rollback rejection;
-12. atomic database rejection of backdated state/observation/reconciliation writes;
-13. poison-entry isolation with durable quarantine visibility;
-14. no provider execution API in INT-03.
+11. missing/stale derived provider-operation index reconstruction from append-only history;
+12. conflicting provider-operation history fails closed rather than selecting a winner;
+13. per-entry causal-time rollback rejection;
+14. atomic database rejection of backdated state/observation/reconciliation writes;
+15. reconciliation-checkpoint CAS, equal-time conflict rejection, cross-handle rollback rejection, and reopen stability;
+16. weakened same-name security trigger replacement plus enforcement-profile restoration;
+17. poison-entry isolation with durable quarantine visibility;
+18. no provider execution API in INT-03.
 
-A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, institutional legitimacy, or physical-world postconditions.
+A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, provider-history completeness, institutional legitimacy, storage tamper-proofness, or physical-world postconditions.
