@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import {
   SettlementEligibilityCode,
   assessCarryForward,
@@ -15,7 +16,17 @@ const epoch = {
 } as const;
 
 function obligation(id: string, amountMinor: bigint, observedAt = '2026-09-20T00:00:00Z'): RoyaltyObligation {
-  return { id, beneficiaryId: 'creator:alice', amount: money(amountMinor), observedAt, routeAvailable: true };
+  return createRoyaltyObligationAuthority({
+    id,
+    beneficiaryId: 'creator:alice',
+    amount: money(amountMinor),
+    observedAt,
+    provenance: {
+      usageEvidenceRef: `usage:${id}`,
+      rightsResolutionRef: `rights:${id}`,
+      economicTermsRef: 'terms:v1',
+    },
+  });
 }
 
 describe('settlement eligibility and carry-forward', () => {
@@ -51,5 +62,20 @@ describe('settlement eligibility and carry-forward', () => {
     ], epoch);
     expect(partition.inEpoch.map(item => item.id)).toEqual(['early']);
     expect(partition.nextEpoch.map(item => item.id)).toEqual(['late']);
+  });
+
+  it('rejects principal tampering without a matching authority root', () => {
+    const valid = obligation('o1', 500n);
+    expect(() => classifySettlementEligibility({
+      ...valid,
+      amount: money(501n),
+    })).toThrow(/authorityRoot does not match immutable provenance/);
+  });
+
+  it('does not change the debt authority root when only eligibility changes', () => {
+    const valid = obligation('o1', 500n);
+    const held = { ...valid, routeAvailable: false };
+    expect(held.authorityRoot).toBe(valid.authorityRoot);
+    expect(classifySettlementEligibility(held).code).toBe(SettlementEligibilityCode.AwaitingPayeeRoute);
   });
 });

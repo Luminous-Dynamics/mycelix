@@ -62,6 +62,7 @@ export function buildDeterministicNettingBatches(
 
     const committedLines = payable.map(obligation => ({
       id: obligation.id,
+      authorityRoot: obligation.authorityRoot,
       beneficiaryId: obligation.beneficiaryId,
       amountMinor: obligation.amount.amountMinor,
       currency: obligation.amount.currency,

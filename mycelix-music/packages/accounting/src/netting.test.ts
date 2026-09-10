@@ -4,6 +4,7 @@ import {
   buildDeterministicNettingBatches,
 } from './netting.js';
 import { money } from './money.js';
+import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import { type RoyaltyObligation } from './settlement.js';
 
 const epoch = {
@@ -12,12 +13,19 @@ const epoch = {
   minimumPayout: money(500n),
 } as const;
 
-function obligation(id: string, amountMinor: bigint, routeAvailable = true): RoyaltyObligation {
+function obligation(id: string, amountMinor: bigint, routeAvailable = true, usageRef = `usage:${id}`): RoyaltyObligation {
   return {
-    id,
-    beneficiaryId: 'creator:alice',
-    amount: money(amountMinor),
-    observedAt: '2026-09-20T00:00:00Z',
+    ...createRoyaltyObligationAuthority({
+      id,
+      beneficiaryId: 'creator:alice',
+      amount: money(amountMinor),
+      observedAt: '2026-09-20T00:00:00Z',
+      provenance: {
+        usageEvidenceRef: usageRef,
+        rightsResolutionRef: `rights:${id}`,
+        economicTermsRef: 'terms:v1',
+      },
+    }),
     routeAvailable,
   };
 }
@@ -58,5 +66,12 @@ describe('deterministic netting', () => {
       ...batch,
       grossAmount: money(601n),
     }, obligations, epoch)).toThrow(/deterministic authoritative reconstruction/);
+  });
+
+  it('changes batch identity when immutable provenance changes', () => {
+    const first = buildDeterministicNettingBatches([obligation('o1', 600n, true, 'usage:epoch:a')], epoch)[0]!;
+    const second = buildDeterministicNettingBatches([obligation('o1', 600n, true, 'usage:epoch:b')], epoch)[0]!;
+    expect(second.obligationSetRoot).not.toBe(first.obligationSetRoot);
+    expect(second.batchId).not.toBe(first.batchId);
   });
 });

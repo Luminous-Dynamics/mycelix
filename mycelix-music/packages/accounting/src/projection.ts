@@ -61,10 +61,14 @@ function withinPeriod(observedAt: string, period: AccountingPeriod): boolean {
 function committedObligation(obligation: RoyaltyObligation): Readonly<Record<string, unknown>> {
   return Object.freeze({
     id: obligation.id,
+    authorityRoot: obligation.authorityRoot,
     beneficiaryId: obligation.beneficiaryId,
     amountMinor: obligation.amount.amountMinor,
     currency: obligation.amount.currency,
     observedAt: obligation.observedAt,
+    usageEvidenceRef: obligation.provenance.usageEvidenceRef,
+    rightsResolutionRef: obligation.provenance.rightsResolutionRef,
+    economicTermsRef: obligation.provenance.economicTermsRef,
     routeAvailable: obligation.routeAvailable ?? true,
     rightsConflict: obligation.rightsConflict ?? false,
     legalHold: obligation.legalHold ?? false,

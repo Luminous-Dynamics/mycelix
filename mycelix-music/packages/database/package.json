@@ -9,11 +9,16 @@
   "scripts": {
     "build": "tsc",
     "db:generate": "prisma generate",
+    "db:validate": "prisma validate --schema prisma/schema.prisma",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
+    "db:accounting-guards": "prisma db execute --file prisma/accounting-append-only.sql --schema prisma/schema.prisma",
     "db:seed": "tsx src/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "type-check:accounting-authority": "tsc -p tsconfig.accounting-authority.json",
+    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts",
+    "test:accounting-guards": "tsx --test src/accounting-append-only.integration.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0"

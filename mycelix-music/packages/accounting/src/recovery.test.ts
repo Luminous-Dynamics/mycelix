@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDeterministicNettingBatches } from './netting.js';
 import { money } from './money.js';
+import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import {
   SettlementAttemptState,
   mayStartSettlementAttempt,
@@ -9,12 +10,17 @@ import {
 } from './recovery.js';
 import type { RoyaltyObligation, SettlementEpoch } from './settlement.js';
 
-const obligation: RoyaltyObligation = {
+const obligation: RoyaltyObligation = createRoyaltyObligationAuthority({
   id: 'obl:1',
   beneficiaryId: 'did:example:artist',
   amount: money(500n, 'USD'),
   observedAt: '2026-09-01T00:00:00Z',
-};
+  provenance: {
+    usageEvidenceRef: 'usage:obl:1',
+    rightsResolutionRef: 'rights:obl:1',
+    economicTermsRef: 'terms:v1',
+  },
+});
 const epoch: SettlementEpoch = {
   id: 'epoch:2026-09',
   cutoff: '2026-09-30T23:59:59Z',

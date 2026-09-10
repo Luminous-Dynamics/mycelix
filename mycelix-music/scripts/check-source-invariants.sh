@@ -49,6 +49,31 @@ grep -Fq 'obligationSetSettled: true' packages/accounting/src/recovery.ts \
 grep -Fq 'compileRoyaltyStatement' packages/accounting/src/projection.ts \
   || fail "royalty statements must be compiled projections"
 
+# Creator accounting authority tables must remain immutable snapshots/events.
+for model in \
+  RoyaltyObligationRecord \
+  RoyaltyEligibilityObservation \
+  RoyaltyDeductionRecord \
+  SettlementAttemptObservationRecord \
+  RoyaltyStatementSnapshotRecord
+do
+  block=$(sed -n "/^model ${model} {/,/^}/p" packages/database/prisma/schema.prisma)
+  [[ -n "$block" ]] || fail "creator accounting authority model missing: $model"
+  if grep -Eq '^[[:space:]]+updatedAt[[:space:]]' <<<"$block"; then
+    fail "append-only creator accounting model cannot contain updatedAt: $model"
+  fi
+  grep -Fq "'$model'" packages/database/prisma/accounting-append-only.sql \
+    || fail "append-only PostgreSQL guard missing for $model"
+done
+grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
+  || fail "accounting append-only database trigger must reject UPDATE and DELETE"
+grep -Fq 'test:accounting-guards' packages/database/package.json \
+  || fail "database package must expose the live append-only guard regression"
+grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
+  || fail "persistence qualification must exercise PostgreSQL"
+grep -Fq 'test:accounting-guards' ../.github/workflows/music-accounting-persistence.yml \
+  || fail "persistence qualification must prove runtime mutation rejection"
+
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
 fi
