@@ -50,9 +50,7 @@ fn validate_token(value: &str) -> Result<(), ValidationError> {
 
 macro_rules! id_type {
     ($name:ident) => {
-        #[derive(
-            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
         #[serde(transparent)]
         pub struct $name(String);
 
@@ -65,6 +63,16 @@ macro_rules! id_type {
 
             pub fn as_str(&self) -> &str {
                 &self.0
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                let value = String::deserialize(deserializer)?;
+                Self::new(value).map_err(serde::de::Error::custom)
             }
         }
 
@@ -703,6 +711,42 @@ mod tests {
             ExternalSystemId::new("bad\nvalue"),
             Err(ValidationError::ContainsControl)
         );
+    }
+
+    #[test]
+    fn id_deserialization_preserves_constructor_invariants() {
+        let valid: ExternalSystemId =
+            serde_json::from_str("\"stripe\"").expect("valid identifier must deserialize");
+        assert_eq!(valid.as_str(), "stripe");
+        assert_eq!(
+            serde_json::to_string(&valid).expect("valid identifier must serialize"),
+            "\"stripe\""
+        );
+
+        assert!(serde_json::from_str::<ExternalSystemId>("\"\"").is_err());
+        let control_json = serde_json::to_string("bad\nvalue").expect("fixture must serialize");
+        assert!(serde_json::from_str::<ExternalSystemId>(&control_json).is_err());
+
+        let oversized = "x".repeat(MAX_TOKEN_LEN + 1);
+        let oversized_json = serde_json::to_string(&oversized).expect("fixture must serialize");
+        assert!(serde_json::from_str::<ExternalSystemId>(&oversized_json).is_err());
+    }
+
+    #[test]
+    fn nested_identifier_deserialization_cannot_bypass_validation() {
+        let invalid_command = serde_json::json!({
+            "command_id": "",
+            "connector_instance": "stripe-prod-eu-1",
+            "provider_operation": null
+        });
+        assert!(serde_json::from_value::<ExternalOperationRef>(invalid_command).is_err());
+
+        let invalid_provider = serde_json::json!({
+            "command_id": "cmd-1",
+            "connector_instance": "stripe-prod-eu-1",
+            "provider_operation": "bad\nprovider"
+        });
+        assert!(serde_json::from_value::<ExternalOperationRef>(invalid_provider).is_err());
     }
 
     #[test]

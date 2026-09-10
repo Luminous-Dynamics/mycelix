@@ -26,6 +26,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: integration-core-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   qualify:
     name: Integration Core Qualification
@@ -57,6 +61,23 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --manifest-path crates/mycelix-integration-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Enforce validated identifier deserialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='crates/mycelix-integration-core/src/lib.rs'
+
+          grep -Fq "impl<'de> Deserialize<'de> for \$name" "$source"
+          grep -Fq 'let value = String::deserialize(deserializer)?;' "$source"
+          grep -Fq 'Self::new(value).map_err(serde::de::Error::custom)' "$source"
+          grep -Fq 'id_deserialization_preserves_constructor_invariants' "$source"
+          grep -Fq 'nested_identifier_deserialization_cannot_bypass_validation' "$source"
+
+          if grep -Fq 'Hash, Serialize, Deserialize' "$source"; then
+            echo 'Validated identifier newtypes must not derive unchecked Deserialize.'
+            exit 1
+          fi
 
       - name: Enforce execution-safety constitution
         shell: bash
