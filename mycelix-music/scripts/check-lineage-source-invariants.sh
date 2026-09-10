@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  echo "lineage source invariant failed: $1" >&2
+  exit 1
+}
+
+sql=packages/database/prisma/accounting-lineage-source.sql
+adapter=packages/database/src/accounting-lineage-source.ts
+integration=packages/database/src/accounting-lineage-source.integration.ts
+workflow=../.github/workflows/music-accounting-persistence.yml
+package=packages/database/package.json
+schema=packages/database/prisma/schema.prisma
+
+[[ -f "$sql" ]] || fail "serialized lineage source SQL is missing"
+[[ -f "$adapter" ]] || fail "lineage source adapter is missing"
+[[ -f "$integration" ]] || fail "live lineage source regression is missing"
+
+# Cursor order must reflect serialized committed-source order. A free-running
+# sequence can reserve numbers in one order and commit them in another.
+if grep -Eqi 'CREATE[[:space:]]+SEQUENCE|nextval[[:space:]]*\(' "$sql"; then
+  fail "lineage ingestion cursor must not use a free-running PostgreSQL sequence"
+fi
+grep -Fq "pg_advisory_xact_lock" "$sql" \
+  || fail "lineage source must serialize writers and snapshots with a transaction advisory lock"
+grep -Fq "lock_music_accounting_allocation_lineage_source" "$sql" \
+  || fail "shared lineage source lock function is missing"
+grep -Fq 'SELECT COALESCE(MAX("ingestSeq"), 0) + 1' "$sql" \
+  || fail "ingestion cursor must be assigned as MAX+1 while holding the shared lock"
+grep -Fq 'settlement_allocation_lineage_writer_lock' "$sql" \
+  || fail "allocation inserts must acquire the shared lineage source lock"
+grep -Fq 'settlement_allocation_successor_link_writer_lock' "$sql" \
+  || fail "successor-link inserts must acquire the shared lineage source lock"
+grep -Fq 'settlement_allocation_ingest_register' "$sql" \
+  || fail "allocation inserts must register in the serialized ingestion namespace"
+grep -Fq 'settlement_allocation_successor_link_ingest_register' "$sql" \
+  || fail "successor-link inserts must register in the serialized ingestion namespace"
+grep -Fq 'settlement_allocation_lineage_ingest_cursor_is_database_assigned' "$sql" \
+  || fail "callers must not be able to choose ingestion cursor values"
+grep -Fq 'settlement_allocation_lineage_ingest_append_only_guard' "$sql" \
+  || fail "ingestion registry must reject UPDATE and DELETE"
+grep -Fq 'settlement_allocation_successor_link_append_only_guard' "$sql" \
+  || fail "successor links must reject UPDATE and DELETE"
+
+# Application writers must not take the advisory lock before INSERT. PostgreSQL
+# acquires ROW EXCLUSIVE before firing the trigger; pre-locking in application
+# code would invert snapshot lock order and can deadlock.
+append_link_block=$(sed -n '/async appendSuccessorLink(/,/async captureSnapshot(/p' "$adapter")
+if grep -Fq 'queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL)' <<<"$append_link_block"; then
+  fail "successor-link application writer must rely on trigger lock ordering rather than pre-locking"
+fi
+
+# The cursor is operational completeness evidence, not part of immutable
+# economic allocation authority. Never mutate/backfill allocation roots to add it.
+allocation_model=$(sed -n '/^model SettlementAllocationRecord {/,/^}/p' "$schema")
+[[ -n "$allocation_model" ]] || fail "SettlementAllocationRecord model is missing"
+if grep -Fq 'ingestSeq' <<<"$allocation_model"; then
+  fail "ingestion cursor must not be embedded in SettlementAllocationRecord authority"
+fi
+
+# Snapshot capture freezes all source tables before taking the advisory writer
+# lock. PostgreSQL obtains ROW EXCLUSIVE before firing INSERT triggers, so the
+# reverse order can deadlock with a writer already waiting inside its trigger.
+grep -Fq 'LINEAGE_SNAPSHOT_TABLE_LOCK_SQL' "$adapter" \
+  || fail "snapshot adapter must freeze lineage source tables"
+grep -Fq 'IN SHARE MODE' "$adapter" \
+  || fail "snapshot source table lock must use SHARE mode"
+grep -Fq 'LINEAGE_WRITER_LOCK_SQL' "$adapter" \
+  || fail "snapshot adapter must share the database writer lock"
+table_lock_line=$(grep -n -F 'await tx.$executeRawUnsafe(LINEAGE_SNAPSHOT_TABLE_LOCK_SQL);' "$adapter" | cut -d: -f1 | tail -1)
+advisory_lock_line=$(grep -n -F 'await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL);' "$adapter" | cut -d: -f1 | tail -1)
+[[ -n "$table_lock_line" && -n "$advisory_lock_line" ]] \
+  || fail "snapshot lock acquisition statements are missing"
+(( table_lock_line < advisory_lock_line )) \
+  || fail "snapshot must freeze tables before taking advisory writer lock"
+
+grep -Fq 'clock_timestamp()::text AS "observedThrough"' "$adapter" \
+  || fail "snapshot must bind and canonically normalize serialized database observation time"
+grep -Fq 'MAX("ingestSeq")' "$adapter" \
+  || fail "snapshot must bind the committed ingestion high-water mark"
+grep -Fq 'unregistered eligible evidence' "$adapter" \
+  || fail "snapshot must fail closed on eligible source rows missing from registry"
+grep -Fq 'r."ingestSeq" <= $3::bigint' "$adapter" \
+  || fail "snapshot rows must be bounded by the captured high-water mark"
+
+# Qualification must install and exercise this source against real PostgreSQL,
+# including a privileged trigger-bypass omission attack.
+grep -Fq 'db:accounting-lineage-source' "$package" \
+  || fail "database package must expose serialized source installation"
+grep -Fq 'accounting-lineage-source.integration.ts' "$package" \
+  || fail "live serialized-source test must be part of accounting guard regressions"
+grep -Fq "'mycelix-music/packages/database/prisma/accounting-*.sql'" "$workflow" \
+  || fail "persistence workflow must trigger for every accounting SQL source"
+grep -Fq "'mycelix-music/packages/database/src/accounting-*.ts'" "$workflow" \
+  || fail "persistence workflow must trigger for every accounting database TypeScript source"
+grep -Fq 'db:accounting-lineage-source --workspace=@mycelix/database' "$workflow" \
+  || fail "exact-head persistence workflow must install serialized lineage source"
+grep -Fq 'check-lineage-source-invariants.sh' "$workflow" \
+  || fail "exact-head persistence workflow must enforce lineage source invariants"
+grep -Fq 'session_replication_role = replica' "$integration" \
+  || fail "live regression must simulate a privileged trigger-bypass omission"
+grep -Fq 'unregistered eligible evidence' "$integration" \
+  || fail "live regression must prove privileged omission is detected"
+grep -Fq 'cursor_is_database_assigned' "$integration" \
+  || fail "live regression must attack caller-selected ingestion cursor"
+grep -Fq 'ingestion cursor must preserve serialized source order' "$integration" \
+  || fail "live regression must prove monotonic source ordering"
+
+echo "lineage source invariants passed"
