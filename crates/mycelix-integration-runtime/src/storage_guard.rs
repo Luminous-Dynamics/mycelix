@@ -11,6 +11,13 @@ use std::{
     time::Duration,
 };
 
+/// Structural SQLite schema accepted by the v3.1 runtime before repair.
+///
+/// This mirrors the v3.1 structural contract. The runtime qualification workflow
+/// ratchets both declarations to the same value so future schema revisions must
+/// update admission and the semantic facade together.
+const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
+
 /// Identity of the reconstructable SQLite enforcement machinery used by INT-03.
 ///
 /// This is deliberately separate from the durable semantic producer identity:
@@ -45,9 +52,10 @@ pub(crate) fn is_initialized_file_store(path: &Path) -> Result<bool, RuntimeErro
 
 /// Atomically admits and repairs an initialized file-backed runtime.
 ///
-/// The write lock is acquired before semantic identity, history, derived-state,
-/// or trigger enforcement is trusted. Append-only typed history is the source
-/// material; indexes and triggers are reconstructable enforcement machinery.
+/// The write lock is acquired before structural/semantic identity, history,
+/// derived-state, or trigger enforcement is trusted. Append-only typed history
+/// is the source material; indexes and triggers are reconstructable enforcement
+/// machinery.
 pub(crate) fn harden_file_store(
     path: &Path,
     expected_semantic_profile: &str,
@@ -56,6 +64,7 @@ pub(crate) fn harden_file_store(
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
     require_semantic_profile(&tx, expected_semantic_profile)?;
+    require_structural_schema_version(&tx)?;
     ensure_binding_table(&tx)?;
     require_no_orphan_history(&tx)?;
     let bindings = collect_typed_provider_operation_bindings(&tx)?;
@@ -226,6 +235,16 @@ fn require_semantic_profile(
             "integration runtime semantic metadata exists without a producer identity".to_owned(),
         )),
     }
+}
+
+fn require_structural_schema_version(tx: &Transaction<'_>) -> Result<(), RuntimeError> {
+    let stored: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if stored != EXPECTED_STRUCTURAL_SCHEMA_V2 {
+        return Err(RuntimeError::StoredIdentifier(format!(
+            "unsupported integration runtime structural schema: {stored}; expected {EXPECTED_STRUCTURAL_SCHEMA_V2}"
+        )));
+    }
+    Ok(())
 }
 
 fn ensure_binding_table(tx: &Transaction<'_>) -> Result<(), RuntimeError> {
