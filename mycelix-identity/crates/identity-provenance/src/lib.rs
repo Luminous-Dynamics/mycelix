@@ -7,8 +7,8 @@
 //! This crate intentionally does not perform cryptographic verification and does
 //! not assign trust. It defines the exact semantic bytes that a Mycelix DID
 //! controller can publish and an external signer (for example Xenia) can attest.
-//! A future Holochain integrity zome can bind DID authorship to the committing
-//! agent while an off-chain verifier independently verifies the Xenia signature.
+//! Holochain integrity can bind DID authorship to the committing agent while an
+//! off-chain verifier independently verifies Xenia signatures.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -16,8 +16,15 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod key_lifecycle;
 mod xenia_metadata;
 
+pub use key_lifecycle::{
+    KEY_SIDE_LIFECYCLE_DOMAIN, KEY_SIDE_LIFECYCLE_SCHEMA, KeySideBindingLifecycleArtifact,
+    KeySideLifecycleDisposition, KeySideLifecycleError, MAX_KEY_SIDE_LIFECYCLE_REASON_LEN,
+    XENIA_KEY_LIFECYCLE_ARTIFACT_DOMAIN, XENIA_KEY_LIFECYCLE_ARTIFACT_SCHEMA,
+    validate_key_side_lifecycle_xenia_observation,
+};
 pub use xenia_metadata::{
     XeniaAttestationObservation, XeniaBindingMismatch, validate_associated_key_use,
     validate_xenia_attestation_observation,
