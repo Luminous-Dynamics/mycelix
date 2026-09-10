@@ -8,7 +8,12 @@ import {
   reconstructSettlementRecovery,
   type SettlementAttemptObservation,
 } from './recovery.js';
-import type { RoyaltyObligation, SettlementEpoch } from './settlement.js';
+import {
+  SettlementEligibilityCode,
+  type RoyaltyObligation,
+  type SettlementEligibilityObservation,
+  type SettlementEpoch,
+} from './settlement.js';
 
 const obligation: RoyaltyObligation = createRoyaltyObligationAuthority({
   id: 'obl:1',
@@ -24,9 +29,17 @@ const obligation: RoyaltyObligation = createRoyaltyObligationAuthority({
 const epoch: SettlementEpoch = {
   id: 'epoch:2026-09',
   cutoff: '2026-09-30T23:59:59Z',
+  eligibilityAsOf: '2026-10-01T00:00:00Z',
   minimumPayout: money(100n, 'USD'),
 };
-const batch = buildDeterministicNettingBatches([obligation], epoch)[0]!;
+const eligibility: SettlementEligibilityObservation = {
+  id: 'eligibility:obl:1',
+  obligationId: obligation.id,
+  code: SettlementEligibilityCode.Eligible,
+  sourceRef: 'eligibility-authority:v1',
+  observedAt: '2026-09-30T12:00:00Z',
+};
+const batch = buildDeterministicNettingBatches([obligation], epoch, [eligibility])[0]!;
 
 function obs(
   state: SettlementAttemptState,
