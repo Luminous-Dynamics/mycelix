@@ -13,5 +13,6 @@ export * from './projection.js';
 export * from './legacy.js';
 export * from './disclosure.js';
 export * from './obligation-authority.js';
+export * from './deduction-authority.js';
 export * from './persistence-projection.js';
 export * from './persistence-verification.js';

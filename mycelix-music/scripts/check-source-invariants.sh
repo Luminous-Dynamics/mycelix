@@ -65,6 +65,31 @@ grep -Fq 'cannot exceed batch gross amount' packages/accounting/src/recovery.ts 
 grep -Fq 'receipt-backed settlement amounts exceed statement net payable value' packages/accounting/src/projection.ts \
   || fail "statement paid value must remain bounded by statement net payable"
 
+# Deductions are canonical root-bearing accounting authorities before persistence.
+grep -Fq "export type StatementDeduction = RoyaltyDeductionAuthority;" packages/accounting/src/projection.ts \
+  || fail "statement deduction must be the canonical deduction authority type"
+grep -Fq 'createRoyaltyDeductionAuthority' packages/accounting/src/deduction-authority.ts \
+  || fail "canonical deduction authority constructor missing"
+grep -Fq 'assertRoyaltyDeductionAuthority' packages/accounting/src/deduction-authority.ts \
+  || fail "deduction authority root verifier missing"
+grep -Fq "recordType: 'royalty_deduction_v1'" packages/accounting/src/deduction-authority.ts \
+  || fail "deduction authority root domain missing"
+grep -Fq "evidenceKind: 'royalty_deduction_authority_v1'" packages/accounting/src/projection.ts \
+  || fail "statement adjustment root must commit deduction authorities"
+grep -Fq 'deductionRoot: deduction.deductionRoot' packages/accounting/src/projection.ts \
+  || fail "statement adjustment root must bind exact deduction roots"
+deduction_projector=$(sed -n '/^export function projectDeductionRecord(/,/^): Readonly<PersistedDeductionRecord> {/p' packages/accounting/src/persistence-projection.ts)
+[[ -n "$deduction_projector" ]] || fail "deduction persistence projector signature missing"
+if grep -Fq 'authorityRef:' <<<"$deduction_projector"; then
+  fail "deduction persistence must not accept a parallel authorityRef argument"
+fi
+grep -Fq 'assertRoyaltyDeductionAuthority(deduction)' packages/accounting/src/persistence-projection.ts \
+  || fail "deduction persistence must verify precomputed authority"
+grep -Fq 'deductionRoot: deduction.deductionRoot' packages/accounting/src/persistence-projection.ts \
+  || fail "deduction persistence must serialize the accounting authority root"
+grep -Fq 'createRoyaltyDeductionAuthority' packages/accounting/src/persistence-verification.ts \
+  || fail "deduction replay must reconstruct canonical authority"
+
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \

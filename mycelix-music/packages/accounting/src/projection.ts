@@ -1,3 +1,4 @@
+import { assertRoyaltyDeductionAuthority, type RoyaltyDeductionAuthority } from './deduction-authority.js';
 import { buildMerkleCommitment } from './merkle.js';
 import { addMoney, assertSameCurrency, money, subtractMoney, type Money } from './money.js';
 import {
@@ -23,13 +24,8 @@ import {
   type StatementKind,
 } from './statements.js';
 
-export interface StatementDeduction {
-  readonly id: string;
-  readonly beneficiaryId: string;
-  readonly amount: Money;
-  readonly basis: string;
-  readonly observedAt: string;
-}
+/** Compatibility name for the canonical, root-bearing deduction authority. */
+export type StatementDeduction = RoyaltyDeductionAuthority;
 
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
@@ -85,12 +81,10 @@ function validateDeduction(
   currency: string,
   statementAsOf: number,
 ): void {
-  if (!deduction.id.trim() || !deduction.basis.trim()) throw new Error('statement deduction requires id and basis');
+  assertRoyaltyDeductionAuthority(deduction);
   if (deduction.beneficiaryId !== beneficiaryId) throw new Error('statement deduction beneficiary mismatch');
-  if (deduction.amount.amountMinor < 0n) throw new Error('statement deduction must be non-negative');
   assertSameCurrency(deduction.amount, money(0n, currency));
   const observedAt = Date.parse(deduction.observedAt);
-  if (!Number.isFinite(observedAt)) throw new Error('statement deduction observedAt must be valid');
   if (observedAt > statementAsOf) throw new Error('statement deduction was observed after the statement asOf');
 }
 
@@ -246,12 +240,9 @@ export function compileRoyaltyStatement(
 
   const obligationRoot = buildMerkleCommitment(orderedObligations.map(committedObligation)).root;
   const adjustmentRoot = buildMerkleCommitment(orderedDeductions.map(deduction => ({
+    evidenceKind: 'royalty_deduction_authority_v1',
     id: deduction.id,
-    beneficiaryId: deduction.beneficiaryId,
-    amountMinor: deduction.amount.amountMinor,
-    currency: deduction.amount.currency,
-    basis: deduction.basis,
-    observedAt: deduction.observedAt,
+    deductionRoot: deduction.deductionRoot,
   }))).root;
   const settlementRoot = buildMerkleCommitment([
     {

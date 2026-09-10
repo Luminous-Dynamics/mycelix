@@ -1,3 +1,4 @@
+import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { canonicalAccountingValue } from './merkle.js';
 import { money } from './money.js';
 import type { DeterministicNettingBatch } from './netting.js';
@@ -125,14 +126,15 @@ export function verifyPersistedDeduction(
   record: VerifiablePersistedDeductionRecord,
 ): Readonly<StatementDeduction> {
   const observedAt = canonicalTimestamp('persisted deduction observedAt', record.observedAt);
-  const deduction: StatementDeduction = Object.freeze({
+  const deduction = createRoyaltyDeductionAuthority({
     id: record.id,
     beneficiaryId: record.beneficiaryId,
     amount: money(canonicalMinor('persisted deduction amountMinor', record.amountMinor), record.currency),
     basis: record.basis,
+    authorityRef: record.authorityRef,
     observedAt,
   });
-  const expected = projectDeductionRecord(deduction, record.authorityRef);
+  const expected = projectDeductionRecord(deduction);
   const normalized = { ...record, observedAt } as Readonly<Record<string, unknown>>;
   assertProjectedFields('persisted deduction', normalized, expected as unknown as Readonly<Record<string, unknown>>);
   return deduction;
