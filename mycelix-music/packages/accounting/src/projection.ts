@@ -28,14 +28,12 @@ export interface StatementDeduction {
   readonly beneficiaryId: string;
   readonly amount: Money;
   readonly basis: string;
-  /** Time the authoritative deduction evidence became observable to this projection. */
   readonly observedAt: string;
 }
 
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
   readonly recovery: SettlementRecoveryState;
-  /** Exact value represented by the rail receipt, after rail-specific deductions. */
   readonly settledAmount: Money;
 }
 
@@ -111,7 +109,12 @@ function validateSettlementEvidence(
   if (recovery.batchId !== batch.batchId || recovery.obligationSetRoot !== batch.obligationSetRoot) {
     throw new Error('settlement recovery is not bound to the supplied batch');
   }
-
+  if (
+    recovery.eligibilityAsOf !== batch.eligibilityAsOf
+    || recovery.eligibilityEvidenceRoot !== batch.eligibilityEvidenceRoot
+  ) {
+    throw new Error('settlement recovery is not bound to the supplied eligibility snapshot');
+  }
   if (recovery.status === 'finalized') {
     if (!recovery.obligationSetSettled || !recovery.finalReceiptRef?.trim()) {
       throw new Error('finalized settlement recovery requires settled=true and a final receipt reference');
@@ -119,7 +122,6 @@ function validateSettlementEvidence(
   } else if (recovery.obligationSetSettled) {
     throw new Error('non-finalized settlement recovery cannot mark the obligation set settled');
   }
-
   if (recovery.status !== 'never_attempted' && !recovery.lastObservedAt) {
     throw new Error('observed settlement recovery requires lastObservedAt');
   }
@@ -128,7 +130,6 @@ function validateSettlementEvidence(
     if (!Number.isFinite(lastObservedAt)) throw new Error('settlement recovery lastObservedAt must be valid');
     if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
   }
-
   if (settledAmount.amountMinor < 0n) throw new Error('settled amount must be non-negative');
   assertSameCurrency(settledAmount, batch.grossAmount);
   if (settledAmount.amountMinor > batch.grossAmount.amountMinor) {
@@ -144,14 +145,11 @@ export function compileRoyaltyStatement(
   if (!Number.isFinite(statementAsOf)) throw new Error('statement asOf must be a valid timestamp');
   const eligibilityAsOf = Date.parse(input.settlementEpoch.eligibilityAsOf);
   if (!Number.isFinite(eligibilityAsOf)) throw new Error('settlement eligibilityAsOf must be a valid timestamp');
-  if (eligibilityAsOf > statementAsOf) {
-    throw new Error('settlement eligibilityAsOf cannot be later than statement asOf');
-  }
+  if (eligibilityAsOf > statementAsOf) throw new Error('settlement eligibilityAsOf cannot be later than statement asOf');
 
   const orderedObligations = [...input.obligations].sort((a, b) => a.id.localeCompare(b.id));
   const seenObligations = new Set<string>();
   const currency = orderedObligations[0]!.amount.currency;
-
   for (const obligation of orderedObligations) {
     if (!obligation.id.trim()) throw new Error('obligation id must be non-empty');
     if (seenObligations.has(obligation.id)) throw new Error(`duplicate obligation id: ${obligation.id}`);
@@ -179,15 +177,8 @@ export function compileRoyaltyStatement(
   let eligibilityHeld = money(0n, currency);
   let thresholdHold = money(0n, currency);
   if (cutoffPartition.inEpoch.length > 0) {
-    const assessment = assessCarryForward(
-      cutoffPartition.inEpoch,
-      input.settlementEpoch,
-      input.eligibilityObservations,
-    );
-    eligibilityHeld = sumMoney(
-      assessment.held.map(item => item.obligation.amount),
-      currency,
-    );
+    const assessment = assessCarryForward(cutoffPartition.inEpoch, input.settlementEpoch, input.eligibilityObservations);
+    eligibilityHeld = sumMoney(assessment.held.map(item => item.obligation.amount), currency);
     thresholdHold = assessment.eligibility.code === SettlementEligibilityCode.BelowThreshold
       ? assessment.carriedForward
       : money(0n, currency);
@@ -213,25 +204,12 @@ export function compileRoyaltyStatement(
   const finalizedObligationIds = new Set<string>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
-    assertDeterministicNettingBatch(
-      evidence.batch,
-      orderedObligations,
-      input.settlementEpoch,
-      input.eligibilityObservations,
-    );
-    validateSettlementEvidence(
-      evidence,
-      input.beneficiaryId,
-      currency,
-      input.settlementEpoch.id.trim(),
-      statementAsOf,
-    );
+    assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch, input.eligibilityObservations);
+    validateSettlementEvidence(evidence, input.beneficiaryId, currency, input.settlementEpoch.id.trim(), statementAsOf);
     if (seenBatches.has(evidence.batch.batchId)) throw new Error(`duplicate settlement batch: ${evidence.batch.batchId}`);
     seenBatches.add(evidence.batch.batchId);
     for (const obligationId of evidence.batch.obligationIds) {
-      if (!seenObligations.has(obligationId)) {
-        throw new Error(`settlement batch references obligation outside statement: ${obligationId}`);
-      }
+      if (!seenObligations.has(obligationId)) throw new Error(`settlement batch references obligation outside statement: ${obligationId}`);
       if (cutoffPartition.nextEpoch.some(obligation => obligation.id === obligationId)) {
         throw new Error(`settlement batch references post-cutoff obligation: ${obligationId}`);
       }
@@ -244,9 +222,7 @@ export function compileRoyaltyStatement(
     }
     if (evidence.recovery.status === 'finalized') paid = addMoney(paid, evidence.settledAmount);
   }
-  if (paid.amountMinor > netPayable.amountMinor) {
-    throw new Error('finalized settlement receipts exceed statement net payable value');
-  }
+  if (paid.amountMinor > netPayable.amountMinor) throw new Error('finalized settlement receipts exceed statement net payable value');
 
   const obligationRoot = buildMerkleCommitment(orderedObligations.map(committedObligation)).root;
   const adjustmentRoot = buildMerkleCommitment(orderedDeductions.map(deduction => ({
