@@ -116,7 +116,10 @@ function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonical(record[key])}`).join(',')}}`;
+    return `{${Object.keys(record).sort().map(key => {
+      if (record[key] === undefined) throw new Error('lineage source comparison forbids undefined');
+      return `${JSON.stringify(key)}:${canonical(record[key])}`;
+    }).join(',')}}`;
   }
   throw new Error(`unsupported lineage source comparison value: ${typeof value}`);
 }
@@ -158,7 +161,7 @@ export class AccountingAllocationLineageSource {
   async appendSuccessorLink(input: SettlementAllocationSuccessorLinkRecordInput): Promise<void> {
     const expected = normalizeLink(input);
     await this.client.$transaction(async tx => {
-      await tx.$executeRawUnsafe(LINEAGE_LOCK_SQL);
+      await tx.$queryRawUnsafe(LINEAGE_LOCK_SQL);
       await tx.$executeRawUnsafe(
         `INSERT INTO "SettlementAllocationSuccessorLinkRecord"
           ("linkId", "batchId", "predecessorAllocationId", "predecessorAllocationRoot",
@@ -189,7 +192,7 @@ export class AccountingAllocationLineageSource {
     const asOf = timestamp('allocation lineage snapshot asOf', input.asOf);
 
     return this.client.$transaction(async tx => {
-      await tx.$executeRawUnsafe(LINEAGE_LOCK_SQL);
+      await tx.$queryRawUnsafe(LINEAGE_LOCK_SQL);
       const clockRows = await tx.$queryRawUnsafe<Array<{ observedThrough: Date }>>(
         `SELECT clock_timestamp() AS "observedThrough"`,
       );
