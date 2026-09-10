@@ -15,6 +15,31 @@ BEGIN
 END;
 $$;
 
+-- Source eligibility observations may only assert externally observable facts.
+-- Compiler outcomes such as below_threshold and awaiting_eligibility_evidence
+-- are derived projection state and therefore may never enter the evidence log.
+ALTER TABLE "RoyaltyEligibilityObservation"
+  DROP CONSTRAINT IF EXISTS royalty_eligibility_observable_code;
+ALTER TABLE "RoyaltyEligibilityObservation"
+  ADD CONSTRAINT royalty_eligibility_observable_code
+  CHECK ("code" IN (
+    'eligible',
+    'awaiting_payee_route',
+    'rights_conflict',
+    'legal_hold',
+    'tax_documentation_required',
+    'awaiting_fx_quote',
+    'dormant_beneficiary'
+  ));
+
+-- A settlement attempt cannot rely on an eligibility snapshot that did not yet
+-- exist when the attempt observation was emitted.
+ALTER TABLE "SettlementAttemptObservationRecord"
+  DROP CONSTRAINT IF EXISTS settlement_observation_after_eligibility;
+ALTER TABLE "SettlementAttemptObservationRecord"
+  ADD CONSTRAINT settlement_observation_after_eligibility
+  CHECK ("observedAt" >= "eligibilityAsOf");
+
 DO $$
 DECLARE
   table_name text;
