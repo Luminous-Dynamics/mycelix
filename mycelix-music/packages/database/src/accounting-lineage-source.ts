@@ -185,7 +185,12 @@ export class AccountingAllocationLineageSource {
         expected.linkId,
       );
       if (rows.length !== 1) throw new Error('settlement allocation successor link insert did not produce exactly one durable row');
-      assertExactLink(rows[0]!, expected);
+      const row = rows[0]!;
+      const normalized = {
+        ...row,
+        linkedAt: timestamp('persisted allocation successor linkedAt', row.linkedAt as Date | string),
+      };
+      assertExactLink(normalized, expected);
     });
   }
 
@@ -204,13 +209,10 @@ export class AccountingAllocationLineageSource {
       await tx.$executeRawUnsafe(LINEAGE_SNAPSHOT_TABLE_LOCK_SQL);
       await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL);
 
-      const clockRows = await tx.$queryRawUnsafe<Array<{ observedThrough: Date }>>(
-        `SELECT clock_timestamp() AS "observedThrough"`,
+      const clockRows = await tx.$queryRawUnsafe<Array<{ observedThrough: Date | string }>>(
+        `SELECT clock_timestamp()::text AS "observedThrough"`,
       );
-      const observedThrough = clockRows[0]?.observedThrough;
-      if (!(observedThrough instanceof Date) || !Number.isFinite(observedThrough.getTime())) {
-        throw new Error('allocation lineage snapshot source clock is unavailable');
-      }
+      const observedThrough = timestamp('allocation lineage snapshot source clock', clockRows[0]?.observedThrough ?? '');
       if (asOf.getTime() > observedThrough.getTime()) {
         throw new Error('allocation lineage snapshot asOf cannot be later than serialized source observation time');
       }
@@ -296,7 +298,18 @@ export class AccountingAllocationLineageSource {
         highWaterMark,
       );
 
-      for (const record of [...allocations, ...links]) canonicalUint('allocation lineage snapshot ingestSeq', record.ingestSeq);
+      const normalizedAllocations = allocations.map(record => Object.freeze({
+        ...record,
+        eligibilityAsOf: timestamp('allocation lineage snapshot allocation eligibilityAsOf', record.eligibilityAsOf),
+        allocatedAt: timestamp('allocation lineage snapshot allocation allocatedAt', record.allocatedAt),
+      }));
+      const normalizedLinks = links.map(record => Object.freeze({
+        ...record,
+        linkedAt: timestamp('allocation lineage snapshot successor linkedAt', record.linkedAt),
+      }));
+      for (const record of [...normalizedAllocations, ...normalizedLinks]) {
+        canonicalUint('allocation lineage snapshot ingestSeq', record.ingestSeq);
+      }
       return Object.freeze({
         sourceRef: this.sourceRef,
         sourceInstanceId: this.sourceInstanceId,
@@ -304,8 +317,8 @@ export class AccountingAllocationLineageSource {
         asOf: asOf.toISOString(),
         observedThrough: observedThrough.toISOString(),
         highWaterMark,
-        allocations: Object.freeze(allocations.map(record => Object.freeze({ ...record }))),
-        links: Object.freeze(links.map(record => Object.freeze({ ...record }))),
+        allocations: Object.freeze(normalizedAllocations),
+        links: Object.freeze(normalizedLinks),
       });
     });
   }
