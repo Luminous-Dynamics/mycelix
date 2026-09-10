@@ -6,24 +6,35 @@ It is deliberately **not** a connector, provider SDK wrapper, authority oracle, 
 
 ## v0.1 reference boundary
 
-The reference implementation uses SQLite to make failure, restart, multi-handle, and storage-repair semantics executable before distributed infrastructure or provider SDKs are introduced.
+The reference implementation uses SQLite to make failure, restart, multi-handle, bootstrap, and storage-repair semantics executable before distributed infrastructure or provider SDKs are introduced.
 
 The public crate root is `src/runtime.rs`:
 
 ```text
-src/runtime.rs         stable public boundary + cross-handle/atomic fences
-      ↓
-src/storage_guard.rs   lock-first admission + reconstructable storage enforcement + checkpoint CAS
-      ↓
-src/v31.rs             storage-semantics v3.1 facade
-      ↓
-src/lib.rs             preserved v2 SQLite causal engine
+src/runtime.rs
+      |
+      +-> src/storage_guard.rs
+      |      atomic structural bootstrap preparation
+      |
+      +-> src/bootstrap_guard.rs
+      |      zero-history semantic bootstrap qualification
+      |
+      +-> src/v31.rs
+      |      storage-semantics v3.1 facade / bootstrap if qualified
+      |
+      +-> src/storage_guard.rs
+      |      strict admission + reconstructable enforcement + checkpoint CAS
+      v
+src/lib.rs
+      preserved v2 SQLite causal engine
 ```
 
 The layered boundary preserves the already-frozen v2 crash/retry/history machinery while adding the semantic and concurrency safeguards required before INT-04:
 
 - durable semantic-producer/profile identity separate from SQLite schema identity;
 - fail-closed migration when legacy state meaning is underdetermined;
+- atomic structural-v2 pre-marking before fresh schema DDL becomes visible;
+- zero-history semantic bootstrap qualification across all known durable runtime tables;
 - lock-first validation of semantic profile **and structural schema version** before repair;
 - durable monotonic provider-operation identity, including late historical evidence;
 - typed, subject-bound reconstruction of derived provider-operation indexes from append-only history;
@@ -96,15 +107,107 @@ syntactic readability
     != semantic equivalence
 ```
 
-The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs`/`storage_guard.rs` layers do not reinterpret that durable history; they strengthen admission, reconstruction, and enforcement of the already-declared v3.1 rules.
+The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs`, `bootstrap_guard.rs`, and `storage_guard.rs` layers do not reinterpret that durable history; they strengthen bootstrap qualification, admission, reconstruction, and enforcement of the already-declared v3.1 rules.
 
 Pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An untagged non-empty legacy runtime therefore cannot be promoted into current semantics merely because its rows remain structurally readable. v3.1 fails closed and requires an explicit provenance-bearing migration/import path.
 
 Unknown or tampered semantic producer identities also fail closed on reopen.
 
+## Fresh bootstrap is not semantic migration
+
+Fresh SQLite initialization previously had a subtle crash/concurrency ambiguity: the legacy schema builder creates several tables before its final `PRAGMA user_version = 2`. A second opener or a crash between those statements could observe an `integration_outbox` table while `user_version` was still zero and mistake a half-built fresh v2 database for implicit legacy v1.
+
+The stable shell now separates bootstrap into two locked qualification phases.
+
+### Phase A — structural bootstrap preparation
+
+`storage_guard::prepare_and_classify_file_store()` acquires a SQLite `IMMEDIATE` transaction before legacy schema creation. A truly fresh file is marked with structural-v2 intent before any runtime table can become visible:
+
+```text
+fresh empty SQLite
+    -> BEGIN IMMEDIATE
+    -> PRAGMA user_version = 2
+    -> COMMIT
+    -> candidate for bootstrap qualification
+```
+
+That structural marker is **not** semantic producer identity and is not proof that schema creation completed.
+
+### Phase B — zero-history semantic bootstrap qualification
+
+`bootstrap_guard::qualify_file_store_bootstrap()` reacquires an `IMMEDIATE` transaction and may establish the exact v3.1 semantic producer only if there is no durable runtime state to reinterpret.
+
+The qualifier checks the known durable record surfaces:
+
+```text
+integration_inbound
+integration_outbox
+integration_execution_observation
+integration_reconciliation_history
+integration_reconcile_checkpoint
+integration_runtime_operation_binding
+integration_runtime_quarantine
+integration_runtime_enforcement
+```
+
+It also checks `sqlite_sequence` for prior AUTOINCREMENT activity on outbox/execution/reconciliation histories. That catches the important case where rows were inserted and later deleted but the local sequence still demonstrates prior runtime activity.
+
+Automatic semantic bootstrap is allowed only when:
+
+```text
+PRAGMA user_version = 2
++ no rows in any existing durable runtime table
++ no recorded AUTOINCREMENT activity for causal history tables
++ semantic producer absent/empty OR exactly semantic-profile-v3.1
+```
+
+If the base structural tables are incomplete under those conditions, bootstrap may resume. If all required base tables already exist, the store proceeds directly to strict admission.
+
+This deliberately supports both crash windows:
+
+```text
+structural-v2 + partial schema + empty semantic table + zero history
+    -> safely complete semantic bootstrap
+    -> resume schema creation
+
+structural-v2 + partial schema + exact semantic profile + zero history
+    -> safely resume schema creation
+```
+
+But the negative cases are different:
+
+```text
+any durable runtime row + missing semantic identity
+    -> fail closed
+
+prior AUTOINCREMENT activity + missing semantic identity
+    -> fail closed
+
+foreign semantic profile, even with zero rows
+    -> fail closed
+```
+
+Therefore:
+
+```text
+outbox empty
+    != runtime empty
+
+schema marker exists
+    != schema complete
+
+semantic table exists
+    != semantic producer established
+
+bootstrap recovery
+    != migration authority
+```
+
+The zero-history check is a local admission rule, **not** a cryptographic proof that storage has never contained data or that an unrestricted attacker could not erase all traces. INT-03 still does not claim tamper-proof storage.
+
 ## Lock-first structural admission
 
-For an already initialized file-backed runtime, `storage_guard.rs` acquires a SQLite `IMMEDIATE` transaction before it trusts or repairs durable enforcement state.
+For an initialized file-backed runtime, `storage_guard.rs` acquires a SQLite `IMMEDIATE` transaction before it trusts or repairs durable enforcement state.
 
 Admission first checks the expected semantic producer identity and then the structural schema version. The v3.1 runtime currently requires:
 
@@ -192,15 +295,15 @@ Provider-operation identity is **not** provider authority, success, reconciliati
 
 ## Enforcement machinery has its own identity
 
-Reconstructable SQLite admission/reconstruction/trigger machinery is labeled separately from semantic history:
+Reconstructable SQLite bootstrap/admission/reconstruction/trigger machinery is labeled separately from semantic history:
 
 ```text
-mycelix-integration-runtime/enforcement-profile-v3
+mycelix-integration-runtime/enforcement-profile-v4
 ```
 
 A trigger name alone is not accepted as proof that the installed SQL implements the expected safety theorem. Reopen replaces the known security-critical trigger definitions inside the same `IMMEDIATE` startup transaction used for typed derived-state reconstruction.
 
-Enforcement profile v3 includes lock-first structural admission in addition to the typed reconstruction, exact subject binding, orphan rejection, and trigger/index repair introduced by the preceding hardening work.
+Enforcement profile v4 includes atomic fresh structural preparation and zero-history semantic bootstrap qualification in addition to lock-first structural admission, typed reconstruction, exact subject binding, orphan rejection, and trigger/index repair.
 
 ```text
 same trigger name
@@ -211,9 +314,12 @@ semantic producer identity
 
 structural schema identity
     != semantic producer identity
+
+bootstrap eligibility
+    != execution authority
 ```
 
-This protects against stale/drifted local enforcement definitions. It is **not** a claim that SQLite is cryptographically tamper-proof against an attacker with unrestricted storage access.
+This protects against the enumerated stale/drifted local enforcement cases. It is **not** a claim that SQLite is cryptographically tamper-proof against an attacker with unrestricted storage access.
 
 ## Per-entry causal time and atomic fencing
 
@@ -358,28 +464,34 @@ Those properties belong to a versioned qualified provider profile. Crash recover
 
 ## Qualification target
 
-Promotion requires one exact-head hosted qualification establishing the legacy engine, v3.1 semantics, stable public concurrency boundary, and reconstructable storage guard:
+Promotion requires one exact-head hosted qualification establishing the legacy engine, v3.1 semantics, stable public concurrency boundary, bootstrap qualification, and reconstructable storage guard:
 
 1. formatting, compilation, full tests, and Clippy with warnings denied;
 2. provider-neutral normal transitive dependency closure;
 3. inherited INT-02 identifier-deserialization validation;
-4. non-materializing claims and exact attempt fencing;
-5. pre-dispatch safe reclaim and post-dispatch ambiguity;
-6. bounded persistent attempts plus unrelated-work liveness;
-7. append-only bounded observation/reconciliation histories;
-8. fail-closed legacy semantic migration;
-9. durable/reopen-stable semantic producer identity and tamper rejection;
-10. lock-first structural-schema-v2 admission before any repair mutation;
-11. expired post-dispatch fence demotion before completion;
-12. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
-13. typed exact-subject reconstruction plus orphan-history rejection;
-14. missing/stale derived provider-operation index reconstruction from append-only history;
-15. conflicting provider-operation history fails closed rather than selecting a winner;
-16. per-entry causal-time rollback rejection;
-17. atomic database rejection of backdated state/observation/reconciliation writes;
-18. reconciliation-checkpoint CAS, equal-time conflict rejection, cross-handle rollback rejection, and reopen stability;
-19. weakened same-name security trigger replacement plus enforcement-profile-v3 restoration;
-20. poison-entry isolation with durable quarantine visibility;
-21. no provider execution API in INT-03.
+4. concurrent first-open convergence on one valid runtime;
+5. crash-like partial-v2 bootstrap recovery with an empty or exact semantic profile;
+6. rejection of non-empty untagged outbox state as bootstrap;
+7. rejection of inbound-only untagged state as bootstrap;
+8. rejection of prior deleted AUTOINCREMENT activity as pristine bootstrap;
+9. rejection/preservation of a foreign semantic producer even when the store is otherwise empty;
+10. non-materializing claims and exact attempt fencing;
+11. pre-dispatch safe reclaim and post-dispatch ambiguity;
+12. bounded persistent attempts plus unrelated-work liveness;
+13. append-only bounded observation/reconciliation histories;
+14. fail-closed legacy semantic migration;
+15. durable/reopen-stable semantic producer identity and tamper rejection;
+16. lock-first structural-schema-v2 admission before any repair mutation;
+17. expired post-dispatch fence demotion before completion;
+18. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
+19. typed exact-subject reconstruction plus orphan-history rejection;
+20. missing/stale derived provider-operation index reconstruction from append-only history;
+21. conflicting provider-operation history fails closed rather than selecting a winner;
+22. per-entry causal-time rollback rejection;
+23. atomic database rejection of backdated state/observation/reconciliation writes;
+24. reconciliation-checkpoint CAS, equal-time conflict rejection, cross-handle rollback rejection, and reopen stability;
+25. weakened same-name security trigger replacement plus enforcement-profile-v4 restoration;
+26. poison-entry isolation with durable quarantine visibility;
+27. no provider execution API in INT-03.
 
 A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, provider-history completeness, institutional legitimacy, storage tamper-proofness, or physical-world postconditions.
