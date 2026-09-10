@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createSelectiveDisclosureBundle, verifySelectiveDisclosureBundle } from './disclosure.js';
+import {
+  createSelectiveDisclosureBundle,
+  verifyAuthorizedSelectiveDisclosure,
+  verifySelectiveDisclosureBundle,
+  verifySelectiveDisclosureProof,
+} from './disclosure.js';
 import { buildMerkleCommitment } from './merkle.js';
 
 const lines = [
@@ -19,20 +24,41 @@ const policy = {
   expiresAt: '2026-10-01T00:00:00Z',
 };
 
+function bundle() {
+  return createSelectiveDisclosureBundle({
+    statementId: 'statement:1',
+    section: 'obligations',
+    expectedRoot: root,
+    lines,
+    indexes: [2, 0],
+    policy,
+    disclosedAt: '2026-09-10T00:00:00Z',
+  });
+}
+
 describe('selective statement disclosure', () => {
   it('reveals only selected lines with independently verifiable inclusion proofs', () => {
-    const bundle = createSelectiveDisclosureBundle({
-      statementId: 'statement:1',
-      section: 'obligations',
-      expectedRoot: root,
-      lines,
-      indexes: [2, 0],
-      policy,
-      disclosedAt: '2026-09-10T00:00:00Z',
-    });
-    expect(bundle.items.map(item => item.index)).toEqual([0, 2]);
-    expect(bundle.proofKind).toBe('merkle_inclusion_not_zero_knowledge');
-    expect(verifySelectiveDisclosureBundle(bundle)).toBe(true);
+    const disclosed = bundle();
+    expect(disclosed.items.map(item => item.index)).toEqual([0, 2]);
+    expect(disclosed.proofKind).toBe('merkle_inclusion_not_zero_knowledge');
+    expect(verifySelectiveDisclosureProof(disclosed)).toBe(true);
+    expect(verifySelectiveDisclosureBundle(disclosed)).toBe(true);
+  });
+
+  it('separates proof validity from authorization validity', () => {
+    const disclosed = bundle();
+    const wrongAudience = { ...disclosed, audience: 'auditor:attacker' };
+    expect(verifySelectiveDisclosureProof(wrongAudience)).toBe(true);
+    expect(verifyAuthorizedSelectiveDisclosure(wrongAudience, policy)).toBe(false);
+    expect(verifyAuthorizedSelectiveDisclosure(disclosed, policy)).toBe(true);
+  });
+
+  it('requires the authenticated policy to have been active when disclosure was issued', () => {
+    const disclosed = bundle();
+    expect(verifyAuthorizedSelectiveDisclosure(disclosed, {
+      ...policy,
+      notBefore: '2026-09-11T00:00:00Z',
+    })).toBe(false);
   });
 
   it('refuses lines that do not reproduce the authoritative statement root', () => {
@@ -67,5 +93,17 @@ describe('selective statement disclosure', () => {
       policy,
       disclosedAt: '2026-10-01T00:00:00Z',
     })).toThrow(/not active/);
+  });
+
+  it('rejects an empty allowed-section policy', () => {
+    expect(() => createSelectiveDisclosureBundle({
+      statementId: 'statement:1',
+      section: 'obligations',
+      expectedRoot: root,
+      lines,
+      indexes: [0],
+      policy: { ...policy, allowedSections: [] },
+      disclosedAt: '2026-09-10T00:00:00Z',
+    })).toThrow(/at least one section/);
   });
 });

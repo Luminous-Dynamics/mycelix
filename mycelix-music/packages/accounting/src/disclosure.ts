@@ -56,6 +56,7 @@ export function assertDisclosurePolicy(policy: DisclosurePolicy, now: string): v
   if (!Number.isSafeInteger(policy.maxItemsPerSection) || policy.maxItemsPerSection <= 0) {
     throw new Error('disclosure policy maxItemsPerSection must be a positive safe integer');
   }
+  if (policy.allowedSections.length === 0) throw new Error('disclosure policy must allow at least one section');
   if (new Set(policy.allowedSections).size !== policy.allowedSections.length) {
     throw new Error('disclosure policy sections must be unique');
   }
@@ -131,9 +132,20 @@ export function createSelectiveDisclosureBundle(input: {
   });
 }
 
-export function verifySelectiveDisclosureBundle(bundle: SelectiveDisclosureBundle): boolean {
+/** Verify only Merkle inclusion and bundle structure. This does not authorize disclosure. */
+export function verifySelectiveDisclosureProof(bundle: SelectiveDisclosureBundle): boolean {
   if (bundle.protocolVersion !== 1 || bundle.proofKind !== 'merkle_inclusion_not_zero_knowledge') return false;
-  if (!bundle.statementId.trim() || !bundle.sectionRoot.trim() || bundle.sectionCount <= 0) return false;
+  if (
+    !bundle.statementId.trim()
+    || !bundle.sectionRoot.trim()
+    || !bundle.policyId.trim()
+    || !bundle.audience.trim()
+    || !bundle.purpose.trim()
+    || !Number.isFinite(Date.parse(bundle.disclosedAt))
+    || !Number.isSafeInteger(bundle.sectionCount)
+    || bundle.sectionCount <= 0
+  ) return false;
+
   const seen = new Set<number>();
   for (const item of bundle.items) {
     if (seen.has(item.index)) return false;
@@ -142,4 +154,37 @@ export function verifySelectiveDisclosureBundle(bundle: SelectiveDisclosureBundl
     if (!verifyMerkleInclusionProof(item.value, item.proof, bundle.sectionRoot)) return false;
   }
   return bundle.items.length > 0;
+}
+
+/**
+ * Verify that a cryptographically valid bundle matches an externally
+ * authenticated policy that was active when the disclosure was issued.
+ * The supplied policy must itself be authenticated by the caller; this
+ * function does not turn an unsigned policy descriptor into a credential.
+ */
+export function verifyAuthorizedSelectiveDisclosure(
+  bundle: SelectiveDisclosureBundle,
+  authenticatedPolicy: DisclosurePolicy,
+): boolean {
+  if (!verifySelectiveDisclosureProof(bundle)) return false;
+  try {
+    assertDisclosurePolicy(authenticatedPolicy, bundle.disclosedAt);
+  } catch {
+    return false;
+  }
+
+  return bundle.policyId === authenticatedPolicy.policyId
+    && bundle.statementId === authenticatedPolicy.statementId
+    && bundle.audience === authenticatedPolicy.audience
+    && bundle.purpose === authenticatedPolicy.purpose
+    && authenticatedPolicy.allowedSections.includes(bundle.section)
+    && bundle.items.length <= authenticatedPolicy.maxItemsPerSection;
+}
+
+/**
+ * Backward-compatible proof-only verifier. Prefer the explicitly named
+ * `verifySelectiveDisclosureProof` or `verifyAuthorizedSelectiveDisclosure`.
+ */
+export function verifySelectiveDisclosureBundle(bundle: SelectiveDisclosureBundle): boolean {
+  return verifySelectiveDisclosureProof(bundle);
 }
