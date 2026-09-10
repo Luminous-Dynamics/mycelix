@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildDeterministicNettingBatches } from './netting.js';
+import {
+  assertDeterministicNettingBatch,
+  buildDeterministicNettingBatches,
+} from './netting.js';
 import { money } from './money.js';
 import { type RoyaltyObligation } from './settlement.js';
 
@@ -39,5 +42,21 @@ describe('deterministic netting', () => {
 
   it('does not erase a below-threshold obligation by creating a zero batch', () => {
     expect(buildDeterministicNettingBatches([obligation('dust', 2n)], epoch)).toEqual([]);
+  });
+
+  it('rejects duplicate obligation ids before value can be double-netted', () => {
+    expect(() => buildDeterministicNettingBatches([
+      obligation('duplicate', 300n),
+      obligation('duplicate', 300n),
+    ], epoch)).toThrow(/duplicate netting obligation id/);
+  });
+
+  it('rejects a serialized batch whose economic fields differ from reconstruction', () => {
+    const obligations = [obligation('o1', 600n)];
+    const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;
+    expect(() => assertDeterministicNettingBatch({
+      ...batch,
+      grossAmount: money(601n),
+    }, obligations, epoch)).toThrow(/deterministic authoritative reconstruction/);
   });
 });

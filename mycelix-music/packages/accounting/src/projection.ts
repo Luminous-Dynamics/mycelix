@@ -1,6 +1,9 @@
 import { buildMerkleCommitment } from './merkle.js';
 import { addMoney, assertSameCurrency, money, subtractMoney, type Money } from './money.js';
-import type { DeterministicNettingBatch } from './netting.js';
+import {
+  assertDeterministicNettingBatch,
+  type DeterministicNettingBatch,
+} from './netting.js';
 import type { SettlementRecoveryState } from './recovery.js';
 import {
   SettlementEligibilityCode,
@@ -185,6 +188,9 @@ export function compileRoyaltyStatement(
   const finalizedObligationIds = new Set<string>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
+    // A queued/serialized batch is not authority. Recompute the one batch that
+    // these exact obligations and this epoch are permitted to produce.
+    assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch);
     validateSettlementEvidence(
       evidence,
       input.beneficiaryId,

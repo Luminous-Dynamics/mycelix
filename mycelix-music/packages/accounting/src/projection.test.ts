@@ -148,6 +148,39 @@ describe('royalty statement compiler', () => {
     }).paid.amountMinor).toBe(500n);
   });
 
+  it('rejects a forged batch even when its recovery evidence is internally consistent', () => {
+    const obligations = [obligation('obl:1', 500n)];
+    const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;
+    const forgedBatch = { ...batch, grossAmount: money(501n, 'USD') };
+    const recovery = reconstructSettlementRecovery(forgedBatch, [{
+      attemptId: 'attempt:forged',
+      batchId: forgedBatch.batchId,
+      obligationSetRoot: forgedBatch.obligationSetRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-10-01T00:02:00Z',
+      railReceiptRef: 'rail:receipt:forged',
+    }]);
+    expect(() => compile(obligations, {
+      settlements: [{ batch: forgedBatch, recovery, settledAmount: money(500n, 'USD') }],
+    })).toThrow(/deterministic authoritative reconstruction/);
+  });
+
+  it('rejects a batch that omits a payable obligation from the authoritative set', () => {
+    const obligations = [obligation('obl:1', 300n), obligation('obl:2', 300n)];
+    const partialBatch = buildDeterministicNettingBatches([obligations[0]!], epoch)[0]!;
+    const recovery = reconstructSettlementRecovery(partialBatch, [{
+      attemptId: 'attempt:partial',
+      batchId: partialBatch.batchId,
+      obligationSetRoot: partialBatch.obligationSetRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-10-01T00:02:00Z',
+      railReceiptRef: 'rail:receipt:partial',
+    }]);
+    expect(() => compile(obligations, {
+      settlements: [{ batch: partialBatch, recovery, settledAmount: money(300n, 'USD') }],
+    })).toThrow(/deterministic authoritative reconstruction/);
+  });
+
   it('rejects settlement evidence from a different epoch even for the same obligations', () => {
     const obligations = [obligation('obl:1', 500n)];
     const otherEpoch = { ...epoch, id: 'epoch:other' };
@@ -162,7 +195,7 @@ describe('royalty statement compiler', () => {
     }]);
     expect(() => compile(obligations, {
       settlements: [{ batch, recovery, settledAmount: money(500n, 'USD') }],
-    })).toThrow(/epoch mismatch/);
+    })).toThrow(/epoch mismatch|authoritative reconstruction/);
   });
 
   it('rejects settlement observations that occurred after statement asOf', () => {
