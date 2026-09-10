@@ -4,6 +4,15 @@ use std::{path::Path, time::Duration};
 
 const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 
+/// Identity of the fresh-store/bootstrap-admission rules.
+///
+/// This is intentionally separate from semantic producer, structural manifest,
+/// and initialized-store enforcement identities. v1 requires an unversioned
+/// database to contain no user schema objects before Mycelix may stamp it as a
+/// fresh structural-v2 bootstrap candidate.
+pub const RUNTIME_BOOTSTRAP_PROFILE_V1: &str =
+    "mycelix-integration-runtime/bootstrap-profile-v1";
+
 const REQUIRED_STRUCTURAL_TABLES: &[&str] = &[
     "integration_inbound",
     "integration_outbox",
@@ -22,6 +31,50 @@ const DURABLE_RECORD_TABLES: &[&str] = &[
     "integration_runtime_quarantine",
     "integration_runtime_enforcement",
 ];
+
+/// Atomically handles the special `user_version = 0` bootstrap boundary before
+/// the legacy coarse classifier is allowed to inspect the file.
+///
+/// A database is eligible for Mycelix structural-v2 adoption only when it is
+/// genuinely schema-empty: no user table, index, trigger, or view exists. This
+/// prevents an unrelated or historical unversioned SQLite database from being
+/// mutated merely because it happens not to contain `integration_outbox`.
+///
+/// `Some(NeedsBootstrap)` means this transaction proved schema-emptiness and
+/// stamped structural-v2 intent. `Some(Initialized)` means unversioned but not
+/// pristine and therefore must fail strict admission without mutation. `None`
+/// delegates nonzero structural versions to the existing classifier.
+pub(crate) fn prepare_unversioned_file_store(
+    path: &Path,
+) -> Result<Option<FileStoreAdmission>, RuntimeError> {
+    let mut conn = open_aux(path)?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+    let structural_version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if structural_version != 0 {
+        tx.commit()?;
+        return Ok(None);
+    }
+
+    let has_user_schema: bool = tx.query_row(
+        "SELECT EXISTS(\n\
+             SELECT 1 FROM sqlite_master\n\
+             WHERE name NOT LIKE 'sqlite_%'\n\
+               AND type IN ('table', 'index', 'trigger', 'view')\n\
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if has_user_schema {
+        tx.commit()?;
+        return Ok(Some(FileStoreAdmission::Initialized));
+    }
+
+    tx.pragma_update(None, "user_version", EXPECTED_STRUCTURAL_SCHEMA_V2)?;
+    tx.commit()?;
+    Ok(Some(FileStoreAdmission::NeedsBootstrap))
+}
 
 /// Refines the coarse structural bootstrap classification under a second
 /// `IMMEDIATE` transaction before legacy v3.1 initialization is allowed to run.
