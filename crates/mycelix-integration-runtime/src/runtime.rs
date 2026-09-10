@@ -1,7 +1,7 @@
 //! Stable public runtime boundary for INT-03.
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
-//! file-backed cross-handle freshness, atomic fresh-bootstrap classification,
+//! file-backed cross-handle freshness, explicit bootstrap-admission identity,
 //! zero-history semantic bootstrap qualification, one-transaction structural
 //! qualification/enforcement repair, and connector-checkpoint CAS semantics so
 //! process-local caches or check/write races cannot weaken durable causal meaning.
@@ -15,6 +15,7 @@ mod storage_guard;
 #[path = "v31.rs"]
 mod v31;
 
+pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1;
 pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2;
 pub use storage_guard::{
     ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V5,
@@ -49,7 +50,14 @@ impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
 
-        let coarse = storage_guard::prepare_and_classify_file_store(&path)?;
+        // Every unversioned database is decided under an IMMEDIATE transaction
+        // before the older coarse classifier can mutate it. Only a database with
+        // no user schema objects at all may be stamped as a fresh structural-v2
+        // bootstrap candidate; ambiguous/foreign version-0 databases stay intact.
+        let coarse = match bootstrap_guard::prepare_unversioned_file_store(&path)? {
+            Some(admission) => admission,
+            None => storage_guard::prepare_and_classify_file_store(&path)?,
+        };
         let admission = bootstrap_guard::qualify_file_store_bootstrap(
             &path,
             RUNTIME_SEMANTIC_PROFILE_V31,
