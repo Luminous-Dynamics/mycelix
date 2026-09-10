@@ -16,9 +16,16 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod binding_graph;
 mod key_lifecycle;
 mod xenia_metadata;
 
+pub use binding_graph::{
+    BindingFork, BindingLifecycleAnalysisError, BindingLifecycleObservation,
+    BindingLifecycleReport, CrossPlaneDisagreement, CrossPlaneSupersessionAgreement,
+    LifecycleDisposition, LifecyclePlane, MAX_BINDING_LIFECYCLE_OBSERVATIONS,
+    MAX_LIFECYCLE_EVIDENCE_REF_LEN, analyze_binding_lifecycle,
+};
 pub use key_lifecycle::{
     KEY_SIDE_LIFECYCLE_DOMAIN, KEY_SIDE_LIFECYCLE_SCHEMA, KeySideBindingLifecycleArtifact,
     KeySideLifecycleDisposition, KeySideLifecycleError, MAX_KEY_SIDE_LIFECYCLE_REASON_LEN,
