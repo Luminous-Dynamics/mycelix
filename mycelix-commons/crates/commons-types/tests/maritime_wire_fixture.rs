@@ -42,6 +42,18 @@ fn canonical_maritime_root_fixture_round_trips_and_pins_digest() {
 }
 
 #[test]
+fn v1_wire_rejects_unknown_fields_instead_of_ignoring_future_semantics() {
+    let mut value: serde_json::Value = serde_json::from_str(ROOT_FIXTURE).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .insert("authority_override".into(), serde_json::Value::Bool(true));
+    let encoded = serde_json::to_string(&value).unwrap();
+
+    assert!(serde_json::from_str::<MaritimeEvidenceEnvelope>(&encoded).is_err());
+}
+
+#[test]
 fn canonical_chained_fixture_binds_exact_root_and_pins_digest() {
     let root: MaritimeEvidenceEnvelope = serde_json::from_str(ROOT_FIXTURE).unwrap();
     let chained: MaritimeEvidenceEnvelope = serde_json::from_str(CHAINED_FIXTURE).unwrap();
