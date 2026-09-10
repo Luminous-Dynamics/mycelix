@@ -83,14 +83,22 @@ jobs:
           test -f "$legacy"
 
           grep -Fq 'mod storage_guard' "$boundary"
-          grep -Fq 'storage_guard::harden_file_store' "$boundary"
+          grep -Fq 'storage_guard::is_initialized_file_store' "$boundary"
+          grep -Fq 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)' "$boundary"
           grep -Fq 'load_reconciliation_checkpoint_snapshot' "$boundary"
           grep -Fq 'require_fresh_causal_time' "$boundary"
           grep -Fq 'require_fresh_operation_binding' "$boundary"
 
-          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V1' "$guard"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V2' "$guard"
           grep -Fq 'TransactionBehavior::Immediate' "$guard"
+          grep -Fq 'require_semantic_profile' "$guard"
+          grep -Fq 'require_no_orphan_history' "$guard"
+          grep -Fq 'collect_typed_provider_operation_bindings' "$guard"
+          grep -Fq 'serde_json::from_slice' "$guard"
+          grep -Fq 'validate_operation_subject' "$guard"
           grep -Fq 'rebuild_provider_operation_bindings' "$guard"
+          grep -Fq 'integration_validate_execution_subject_before' "$guard"
+          grep -Fq 'integration_validate_reconciliation_subject_before' "$guard"
           grep -Fq 'DROP TRIGGER IF EXISTS integration_bind_execution_operation_before' "$guard"
           grep -Fq 'DROP TRIGGER IF EXISTS integration_causal_outbox_update_before' "$guard"
           grep -Fq 'checkpoint_file_cas' "$guard"
@@ -142,6 +150,8 @@ jobs:
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_binding
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_history_binding
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test cross_handle_consistency
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test typed_history_subject_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test orphan_history_rejection
 
       - name: Run causal-time and failure-isolation qualification
         run: |
