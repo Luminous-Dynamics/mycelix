@@ -1,6 +1,6 @@
 use crate::RuntimeError;
-use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
-use std::{collections::BTreeSet, path::Path, time::Duration};
+use rusqlite::{params, OptionalExtension, Transaction};
+use std::collections::BTreeSet;
 
 /// Concrete SQLite structural qualification profile for INT-03.
 ///
@@ -188,31 +188,32 @@ const fn col(
     }
 }
 
-pub(crate) fn validate_pre_repair_file_store(
-    path: &Path,
+/// Qualify the immutable/non-reconstructable substrate while the caller holds
+/// the startup write transaction. Known reconstructable trigger definitions may
+/// drift because the hardener replaces them; unknown managed-table triggers may
+/// not execute during repair.
+pub(crate) fn validate_pre_repair_transaction(
+    tx: &Transaction<'_>,
     expected_semantic_profile: &str,
 ) -> Result<(), RuntimeError> {
-    let mut conn = open_aux(path)?;
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    validate_base_manifest(&tx, expected_semantic_profile)?;
-    validate_optional_derived_tables(&tx)?;
-    require_trigger_allowlist(&tx, false)?;
-    validate_named_indexes(&tx)?;
-    tx.commit()?;
+    validate_base_manifest(tx, expected_semantic_profile)?;
+    validate_optional_derived_tables(tx)?;
+    require_trigger_allowlist(tx, false)?;
+    validate_named_indexes(tx)?;
     Ok(())
 }
 
-pub(crate) fn validate_hardened_file_store(
-    path: &Path,
+/// Qualify the fully reconstructed representation inside the same startup write
+/// transaction, immediately before commit.
+pub(crate) fn validate_hardened_transaction(
+    tx: &Transaction<'_>,
     expected_semantic_profile: &str,
     expected_enforcement_profile: &str,
 ) -> Result<(), RuntimeError> {
-    let mut conn = open_aux(path)?;
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    validate_base_manifest(&tx, expected_semantic_profile)?;
+    validate_base_manifest(tx, expected_semantic_profile)?;
 
     validate_exact_table(
-        &tx,
+        tx,
         "integration_runtime_operation_binding",
         BINDING_COLUMNS,
         false,
@@ -221,7 +222,7 @@ pub(crate) fn validate_hardened_file_store(
         &[fk("integration_outbox", "entry_id", "entry_id")],
     )?;
     validate_exact_table(
-        &tx,
+        tx,
         "integration_runtime_enforcement",
         ENFORCEMENT_COLUMNS,
         false,
@@ -230,15 +231,15 @@ pub(crate) fn validate_hardened_file_store(
         &[],
     )?;
     require_exact_singleton_profile(
-        &tx,
+        tx,
         "integration_runtime_enforcement",
         "enforcement_profile",
         expected_enforcement_profile,
     )?;
 
-    if transaction_table_exists(&tx, "integration_runtime_quarantine")? {
+    if transaction_table_exists(tx, "integration_runtime_quarantine")? {
         validate_exact_table(
-            &tx,
+            tx,
             "integration_runtime_quarantine",
             QUARANTINE_COLUMNS,
             false,
@@ -248,10 +249,9 @@ pub(crate) fn validate_hardened_file_store(
         )?;
     }
 
-    require_trigger_allowlist(&tx, true)?;
-    validate_named_indexes(&tx)?;
-    require_no_foreign_key_violations(&tx)?;
-    tx.commit()?;
+    require_trigger_allowlist(tx, true)?;
+    validate_named_indexes(tx)?;
+    require_no_foreign_key_violations(tx)?;
     Ok(())
 }
 
@@ -346,7 +346,7 @@ fn validate_optional_derived_tables(tx: &Transaction<'_>) -> Result<(), RuntimeE
             &[],
             &[],
         )?;
-        require_at_most_one_singleton(&tx, "integration_runtime_enforcement")?;
+        require_at_most_one_singleton(tx, "integration_runtime_enforcement")?;
     }
     if transaction_table_exists(tx, "integration_runtime_quarantine")? {
         validate_exact_table(
@@ -411,6 +411,21 @@ fn validate_exact_table(
     if canonical.contains("AUTOINCREMENT") != expect_autoincrement {
         return Err(schema_error(format!(
             "table {table} AUTOINCREMENT contract differs from structural manifest"
+        )));
+    }
+    if count_sql_keyword(&sql, "COLLATE") != 0 {
+        return Err(schema_error(format!(
+            "table {table} has an unqualified COLLATE clause"
+        )));
+    }
+    if canonical.contains("ONCONFLICT") {
+        return Err(schema_error(format!(
+            "table {table} has an unqualified ON CONFLICT clause"
+        )));
+    }
+    if canonical.contains("DEFERRABLE") || canonical.contains("INITIALLYDEFERRED") {
+        return Err(schema_error(format!(
+            "table {table} has an unqualified deferrable constraint"
         )));
     }
 
@@ -800,11 +815,4 @@ fn schema_error(detail: String) -> RuntimeError {
         "{}: {detail}",
         RUNTIME_STRUCTURAL_MANIFEST_V2
     ))
-}
-
-fn open_aux(path: &Path) -> Result<Connection, RuntimeError> {
-    let conn = Connection::open(path)?;
-    conn.busy_timeout(Duration::from_secs(5))?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
-    Ok(conn)
 }
