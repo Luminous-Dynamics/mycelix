@@ -90,7 +90,7 @@ jobs:
           grep -Fq 'require_fresh_operation_binding' "$boundary"
 
           grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$guard"
-          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V2' "$guard"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V3' "$guard"
           grep -Fq 'TransactionBehavior::Immediate' "$guard"
           grep -Fq 'require_semantic_profile' "$guard"
           grep -Fq 'require_structural_schema_version' "$guard"
