@@ -23,42 +23,90 @@ describe('settlement recovery', () => {
     expect(state.eligibilityAsOf).toBe(batch.eligibilityAsOf);
     expect(state.eligibilityEvidenceRoot).toBe(batch.eligibilityEvidenceRoot);
   });
+
+  it('rejects execution evidence observed before the eligibility snapshot exists', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-09-30T23:59:58Z'),
+    ])).toThrow(/cannot precede the eligibility snapshot/);
+  });
+
   it('is deterministic under replayed observations', () => {
-    const recovered = reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obs(SettlementAttemptState.Submitted, '2026-09-10T00:01:00Z'), obs(SettlementAttemptState.Submitted, '2026-09-10T00:01:00Z'), obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z', { railReceiptRef: 'rail:receipt:7' })]);
+    const recovered = reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
+      obs(SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'),
+      obs(SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'),
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+    ]);
     expect(recovered.status).toBe('finalized');
     expect(recovered.obligationSetSettled).toBe(true);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
   });
+
   it('allows retry only after an explicitly superseded failure', () => {
-    const observations: SettlementAttemptObservation[] = [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obs(SettlementAttemptState.Failed, '2026-09-10T00:01:00Z'), obs(SettlementAttemptState.Authorized, '2026-09-10T01:00:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' })];
+    const observations: SettlementAttemptObservation[] = [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
+      obs(SettlementAttemptState.Failed, '2026-10-01T00:01:00Z'),
+      obs(SettlementAttemptState.Authorized, '2026-10-01T01:00:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' }),
+    ];
     expect(reconstructSettlementRecovery(batch, observations).status).toBe('in_flight');
   });
+
   it('rejects an initial attempt that claims a predecessor', () => {
-    expect(() => reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z', { supersedesAttemptId: 'attempt:missing' })])).toThrow(/initial settlement attempt cannot supersede/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z', { supersedesAttemptId: 'attempt:missing' }),
+    ])).toThrow(/initial settlement attempt cannot supersede/);
   });
+
   it('rejects an overlapping retry', () => {
-    expect(() => reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obs(SettlementAttemptState.Failed, '2026-09-10T00:10:00Z'), obs(SettlementAttemptState.Authorized, '2026-09-10T00:05:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' })])).toThrow(/after the prior terminal observation/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
+      obs(SettlementAttemptState.Failed, '2026-10-01T00:10:00Z'),
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:05:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' }),
+    ])).toThrow(/after the prior terminal observation/);
   });
+
   it('blocks retry after reversal while retaining finalized receipt evidence', () => {
-    const recovered = reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obs(SettlementAttemptState.Confirmed, '2026-09-10T00:02:00Z'), obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }), obs(SettlementAttemptState.Reversed, '2026-09-10T00:04:00Z')]);
+    const recovered = reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
+      obs(SettlementAttemptState.Confirmed, '2026-10-01T00:02:00Z'),
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      obs(SettlementAttemptState.Reversed, '2026-10-01T00:04:00Z'),
+    ]);
     expect(recovered.status).toBe('blocked_ambiguous');
     expect(recovered.obligationSetSettled).toBe(false);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
   });
+
   it('rejects finalized evidence without a durable receipt', () => {
-    expect(() => reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z')])).toThrow(/requires a rail receipt/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z'),
+    ])).toThrow(/requires a rail receipt/);
   });
+
   it('rejects a finalized receipt identity that changes on replay', () => {
-    expect(() => reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Finalized, '2026-09-10T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }), obs(SettlementAttemptState.Finalized, '2026-09-10T00:04:00Z', { railReceiptRef: 'rail:receipt:8' })])).toThrow(/receipt reference changed/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:04:00Z', { railReceiptRef: 'rail:receipt:8' }),
+    ])).toThrow(/receipt reference changed/);
   });
+
   it('rejects evidence bound to a different obligation set', () => {
-    expect(() => reconstructSettlementRecovery(batch, [{ ...obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obligationSetRoot: 'wrong-root' }])).toThrow(/obligationSetRoot mismatch/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      { ...obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'), obligationSetRoot: 'wrong-root' },
+    ])).toThrow(/obligationSetRoot mismatch/);
   });
+
   it('rejects evidence bound to a different eligibility snapshot', () => {
-    expect(() => reconstructSettlementRecovery(batch, [{ ...obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), eligibilityEvidenceRoot: 'f'.repeat(64) }])).toThrow(/eligibilityEvidenceRoot mismatch/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      { ...obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'), eligibilityEvidenceRoot: 'f'.repeat(64) },
+    ])).toThrow(/eligibilityEvidenceRoot mismatch/);
   });
+
   it('rejects a second attempt while the first is still in flight', () => {
-    expect(() => reconstructSettlementRecovery(batch, [obs(SettlementAttemptState.Authorized, '2026-09-10T00:00:00Z'), obs(SettlementAttemptState.Authorized, '2026-09-10T00:02:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' })])).toThrow(/prior attempt is retryable/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
+      obs(SettlementAttemptState.Authorized, '2026-10-01T00:02:00Z', { attemptId: 'attempt:2', supersedesAttemptId: 'attempt:1' }),
+    ])).toThrow(/prior attempt is retryable/);
   });
 });
