@@ -11,7 +11,7 @@ mod storage_guard;
 mod v31;
 
 pub use storage_guard::{
-    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V2,
+    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V3,
 };
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
