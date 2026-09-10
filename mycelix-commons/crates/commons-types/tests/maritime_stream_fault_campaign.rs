@@ -37,13 +37,21 @@ fn replay_gap_fork_regression_and_wrong_platform_never_advance_retained_head() {
     let next = direct_successor(&root);
     let mut head = MaritimeStreamHead::from_root(&root).unwrap();
 
-    assert_eq!(head.ingest(&next).unwrap(), MaritimeStreamDisposition::Advance);
+    assert_eq!(
+        head.ingest(&next).unwrap(),
+        MaritimeStreamDisposition::Advance
+    );
     let retained_after_advance = head.clone();
 
-    assert_eq!(head.ingest(&next).unwrap(), MaritimeStreamDisposition::Duplicate);
+    assert_eq!(
+        head.ingest(&next).unwrap(),
+        MaritimeStreamDisposition::Duplicate
+    );
     assert_eq!(head, retained_after_advance);
-
-    assert_eq!(head.ingest(&root).unwrap(), MaritimeStreamDisposition::StaleReplay);
+    assert_eq!(
+        head.ingest(&root).unwrap(),
+        MaritimeStreamDisposition::StaleReplay
+    );
     assert_eq!(head, retained_after_advance);
 
     let mut gap = MaritimeEvidenceEnvelope::new(
@@ -69,7 +77,10 @@ fn replay_gap_fork_regression_and_wrong_platform_never_advance_retained_head() {
         next.evidence_binding.clone(),
     );
     fork.previous_event_digest = Some("00".repeat(32));
-    assert_eq!(head.ingest(&fork).unwrap(), MaritimeStreamDisposition::Fork);
+    assert_eq!(
+        head.ingest(&fork).unwrap(),
+        MaritimeStreamDisposition::Fork
+    );
     assert_eq!(head, retained_after_advance);
 
     let mut regression = MaritimeEvidenceEnvelope::new(
@@ -110,7 +121,10 @@ fn restart_preserves_replay_and_generation_rollback_protection() {
     let root = root();
     let next = direct_successor(&root);
     let mut head = MaritimeStreamHead::from_root(&root).unwrap();
-    assert_eq!(head.ingest(&next).unwrap(), MaritimeStreamDisposition::Advance);
+    assert_eq!(
+        head.ingest(&next).unwrap(),
+        MaritimeStreamDisposition::Advance
+    );
 
     let mut restarted = MaritimeStreamHead::from_retained(
         head.platform_id().to_owned(),
