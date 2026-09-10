@@ -336,7 +336,7 @@ mod tests {
             sequence,
             1_000_000 + sequence,
             MaritimeEvidenceKind::HealthObservation,
-            r#"{\"severity\":\"healthy\"}"#,
+            r#"{"severity":"healthy"}"#,
             "hal-evidence:abc",
         )
     }
@@ -418,7 +418,7 @@ mod tests {
         assert_eq!(verify_maritime_successor(&first, &second), Ok(()));
 
         let mut tampered = first.clone();
-        tampered.payload_json = r#"{\"severity\":\"unsafe\"}"#.into();
+        tampered.payload_json = r#"{"severity":"unsafe"}"#.into();
         assert!(verify_maritime_successor(&tampered, &second).is_err());
     }
 
