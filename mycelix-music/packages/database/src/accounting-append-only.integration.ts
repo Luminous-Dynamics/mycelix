@@ -13,11 +13,12 @@ const GUARDED_TABLES = [
 const ROOT = {
   obligation: '1'.repeat(64), eligibility: '2'.repeat(64), deduction: '3'.repeat(64),
   settlement: '4'.repeat(64), settlementEligibility: '9'.repeat(64),
+  invalidEligibility: 'a'.repeat(64), invalidSettlement: 'b'.repeat(64),
   statementObligation: '5'.repeat(64), statementAdjustment: '6'.repeat(64),
   statementSettlement: '7'.repeat(64), statementSnapshot: '8'.repeat(64),
 } as const;
 
-test('PostgreSQL enforces creator accounting authority as append-only', async () => {
+test('PostgreSQL enforces creator accounting authority as append-only and causally valid', async () => {
   assert.ok(process.env.DATABASE_URL, 'DATABASE_URL is required for the PostgreSQL authority integration test');
   const prisma = new PrismaClient();
 
@@ -31,6 +32,20 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
       ORDER BY c.relname
     `);
     assert.deepEqual(triggers.map(row => row.tableName), [...GUARDED_TABLES]);
+
+    const constraints = await prisma.$queryRawUnsafe<Array<{ constraintName: string }>>(`
+      SELECT conname AS "constraintName"
+      FROM pg_constraint
+      WHERE conname IN (
+        'royalty_eligibility_observable_code',
+        'settlement_observation_after_eligibility'
+      )
+      ORDER BY conname
+    `);
+    assert.deepEqual(constraints.map(row => row.constraintName), [
+      'royalty_eligibility_observable_code',
+      'settlement_observation_after_eligibility',
+    ]);
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyObligationRecord"
@@ -49,6 +64,18 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
          'route unavailable', 'route-registry:v1', '2026-09-10T00:01:00Z', '${ROOT.eligibility}')
     `);
 
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "RoyaltyEligibilityObservation"
+          ("id", "obligationId", "code", "sourceRef", "observedAt", "observationRoot")
+        VALUES
+          ('guard:eligibility:compiler-only', 'guard:obligation:1', 'below_threshold',
+           'compiler:forged', '2026-09-10T00:01:30Z', '${ROOT.invalidEligibility}')
+      `),
+      /royalty_eligibility_observable_code/,
+      'direct SQL must not persist compiler-only eligibility state',
+    );
+
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyDeductionRecord"
         ("id", "beneficiaryId", "amountMinor", "currency", "basis", "authorityRef", "observedAt", "deductionRoot")
@@ -66,6 +93,20 @@ test('PostgreSQL enforces creator accounting authority as append-only', async ()
          '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'submitted',
          '2026-09-10T00:03:00Z', '${ROOT.settlement}')
     `);
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:pre-snapshot', 'attempt:2', 'batch:2', '${ROOT.obligation}',
+           '2026-09-10T00:05:00Z', '${ROOT.settlementEligibility}', 'submitted',
+           '2026-09-10T00:04:59Z', '${ROOT.invalidSettlement}')
+      `),
+      /settlement_observation_after_eligibility/,
+      'direct SQL must not persist settlement evidence before its eligibility snapshot',
+    );
 
     const settlementSnapshot = await prisma.$queryRawUnsafe<Array<{ eligibilityAsOf: Date; eligibilityEvidenceRoot: string }>>(`
       SELECT "eligibilityAsOf", "eligibilityEvidenceRoot"
