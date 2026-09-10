@@ -49,8 +49,8 @@ export interface SettlementRecoveryState {
   /** Exact amount attested by that finalized rail receipt, retained for audit after reversal/dispute. */
   readonly finalSettledAmount?: Money;
   readonly reason?: string;
-  /** True only when the latest rail finality proves the entire deterministic batch amount. */
-  readonly obligationSetSettled: boolean;
+  /** Rail evidence only: true when the finalized rail amount covers the batch gross. Never debt-discharge authority. */
+  readonly railCoversBatchGross: boolean;
 }
 
 const ALLOWED_TRANSITIONS: Readonly<Record<SettlementAttemptState, readonly SettlementAttemptState[]>> = {
@@ -201,7 +201,7 @@ export function reconstructSettlementRecovery(batch: DeterministicNettingBatch, 
     throw new Error('settlement batch identity must be complete');
   }
   const identity = { batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot, eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot } as const;
-  if (observations.length === 0) return Object.freeze({ ...identity, status: 'never_attempted', obligationSetSettled: false });
+  if (observations.length === 0) return Object.freeze({ ...identity, status: 'never_attempted', railCoversBatchGross: false });
 
   const histories = buildAttemptHistories(batch, observations);
   const latest = histories[histories.length - 1]!;
@@ -211,28 +211,19 @@ export function reconstructSettlementRecovery(batch: DeterministicNettingBatch, 
   switch (latest.finalState) {
     case SettlementAttemptState.Finalized: {
       const finalSettledAmount = latest.finalizedSettledAmount!;
-      const fullySettled = finalSettledAmount.amountMinor === batch.grossAmount.amountMinor;
-      if (fullySettled) {
-        return Object.freeze({
-          ...base,
-          status: 'finalized',
-          finalReceiptRef: latest.finalizedReceiptRef!,
-          finalSettledAmount,
-          obligationSetSettled: true,
-        });
-      }
+      const coversGross = finalSettledAmount.amountMinor === batch.grossAmount.amountMinor;
       return Object.freeze({
         ...base,
-        status: 'partial_finality',
+        status: coversGross ? 'finalized' : 'partial_finality',
         finalReceiptRef: latest.finalizedReceiptRef!,
         finalSettledAmount,
-        reason: 'rail finality covers less than the deterministic batch; residual allocation or reconciliation is required before debt can be settled',
-        obligationSetSettled: false,
+        ...(coversGross ? {} : { reason: 'rail finality covers less than the deterministic batch; allocation or reconciliation is required before economic discharge' }),
+        railCoversBatchGross: coversGross,
       });
     }
     case SettlementAttemptState.Failed:
     case SettlementAttemptState.Rejected:
-      return Object.freeze({ ...base, status: 'retryable', obligationSetSettled: false });
+      return Object.freeze({ ...base, status: 'retryable', railCoversBatchGross: false });
     case SettlementAttemptState.Reversed:
     case SettlementAttemptState.Disputed:
       return Object.freeze({
@@ -241,10 +232,10 @@ export function reconstructSettlementRecovery(batch: DeterministicNettingBatch, 
         ...(latest.finalizedReceiptRef === undefined ? {} : { finalReceiptRef: latest.finalizedReceiptRef }),
         ...(latest.finalizedSettledAmount === undefined ? {} : { finalSettledAmount: latest.finalizedSettledAmount }),
         reason: `rail state ${latest.finalState} requires reconciliation before any retry`,
-        obligationSetSettled: false,
+        railCoversBatchGross: false,
       });
     default:
-      return Object.freeze({ ...base, status: 'in_flight', obligationSetSettled: false });
+      return Object.freeze({ ...base, status: 'in_flight', railCoversBatchGross: false });
   }
 }
 

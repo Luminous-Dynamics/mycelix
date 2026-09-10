@@ -43,14 +43,17 @@ if grep -Eq '^[[:space:]]+(status|payoutStatus|owedAmount|debtBalance|settled)[[
 fi
 grep -Fq "authority: 'receipt_projection_only'" packages/accounting/src/legacy.ts \
   || fail "legacy royalty payments must remain receipt-only evidence"
-grep -Fq 'obligationSetSettled: true' packages/accounting/src/recovery.ts \
-  || fail "settlement finality must be reconstructed from durable evidence"
+grep -Fq 'railCoversBatchGross' packages/accounting/src/recovery.ts \
+  || fail "settlement recovery must report rail coverage rather than debt discharge"
+if grep -Fq 'obligationSetSettled' packages/accounting/src/recovery.ts; then
+  fail "rail recovery must not claim obligation-set settlement authority"
+fi
 grep -Fq 'compileRoyaltyStatement' packages/accounting/src/projection.ts \
   || fail "royalty statements must be compiled projections"
 
 # Paid value must derive from durable rail-finalized receipt evidence, never from
-# a parallel caller-supplied amount. Rail finality may be partial; debt settlement
-# may not silently erase the unpaid residual.
+# a parallel caller-supplied amount. Rail finality and economic discharge are
+# deliberately separate authorities.
 statement_settlement=$(sed -n '/^export interface StatementSettlementEvidence {/,/^}/p' packages/accounting/src/projection.ts)
 [[ -n "$statement_settlement" ]] || fail "statement settlement evidence interface missing"
 if grep -Fq 'settledAmount' <<<"$statement_settlement"; then
@@ -59,11 +62,25 @@ fi
 grep -Fq 'finalSettledAmount' packages/accounting/src/projection.ts \
   || fail "statement paid projection must derive from reconstructed final receipt amount"
 grep -Fq "'partial_finality'" packages/accounting/src/recovery.ts \
-  || fail "rail-finalized partial payment must remain distinct from whole-batch debt settlement"
+  || fail "rail-finalized partial payment must remain distinct from whole-batch rail coverage"
 grep -Fq 'cannot exceed batch gross amount' packages/accounting/src/recovery.ts \
   || fail "rail-finalized amount must never exceed deterministic batch gross"
 grep -Fq 'receipt-backed settlement amounts exceed statement net payable value' packages/accounting/src/projection.ts \
   || fail "statement paid value must remain bounded by statement net payable"
+
+# Only the conservation-bound allocation authority may claim economic discharge.
+grep -Fq 'createSettlementAllocationAuthority' packages/accounting/src/settlement-allocation.ts \
+  || fail "settlement allocation authority constructor missing"
+grep -Fq 'obligationSetDischarged' packages/accounting/src/settlement-allocation.ts \
+  || fail "settlement allocation must own obligation-set discharge authority"
+grep -Fq 'must conserve batch gross = creator paid + deductions + residual held' packages/accounting/src/settlement-allocation.ts \
+  || fail "settlement allocation conservation theorem missing"
+grep -Fq 'nonzero settlement residual requires residualAuthorityRef' packages/accounting/src/settlement-allocation.ts \
+  || fail "nonzero settlement residual must retain authority provenance"
+grep -Fq 'allocationRoot: evidence.allocation?.allocationRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit allocation authority"
+grep -Fq 'obligationSetDischarged: evidence.allocation?.obligationSetDischarged' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit allocation discharge result"
 
 # Deductions are canonical root-bearing accounting authorities before persistence.
 grep -Fq "export type StatementDeduction = RoyaltyDeductionAuthority;" packages/accounting/src/projection.ts \

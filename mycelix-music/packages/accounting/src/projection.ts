@@ -7,6 +7,10 @@ import {
 } from './netting.js';
 import type { SettlementRecoveryState } from './recovery.js';
 import {
+  assertSettlementAllocationAuthority,
+  type SettlementAllocationAuthority,
+} from './settlement-allocation.js';
+import {
   SettlementEligibilityCode,
   assertEligibilityObservationReferences,
   assessCarryForward,
@@ -30,6 +34,8 @@ export type StatementDeduction = RoyaltyDeductionAuthority;
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
   readonly recovery: SettlementRecoveryState;
+  /** Optional economic disposition. Only this object can claim obligation-set discharge. */
+  readonly allocation?: SettlementAllocationAuthority;
 }
 
 export interface CompileRoyaltyStatementInput {
@@ -98,6 +104,7 @@ function validateSettlementEvidence(
   currency: string,
   settlementEpochId: string,
   statementAsOf: number,
+  deductionsByRoot: ReadonlyMap<string, RoyaltyDeductionAuthority>,
 ): void {
   const { batch, recovery } = evidence;
   if (batch.beneficiaryId !== beneficiaryId) throw new Error('settlement batch beneficiary mismatch');
@@ -122,19 +129,14 @@ function validateSettlementEvidence(
     if (recovery.finalSettledAmount.amountMinor > batch.grossAmount.amountMinor) {
       throw new Error('receipt-backed settled amount cannot exceed batch gross amount');
     }
-    if (recovery.status === 'finalized') {
-      if (!recovery.obligationSetSettled) throw new Error('whole-batch finalized recovery must mark the obligation set settled');
-      if (recovery.finalSettledAmount.amountMinor !== batch.grossAmount.amountMinor) {
-        throw new Error('whole-batch finalized recovery must equal batch gross amount');
-      }
-    } else {
-      if (recovery.obligationSetSettled) throw new Error('partial finality cannot mark the obligation set settled');
-      if (recovery.finalSettledAmount.amountMinor >= batch.grossAmount.amountMinor) {
-        throw new Error('partial finality must be less than batch gross amount');
-      }
+    const expectedCoverage = recovery.finalSettledAmount.amountMinor === batch.grossAmount.amountMinor;
+    if (recovery.railCoversBatchGross !== expectedCoverage) {
+      throw new Error('settlement recovery rail coverage does not match finalized receipt amount');
     }
-  } else if (recovery.obligationSetSettled) {
-    throw new Error('non-final settlement recovery cannot mark the obligation set settled');
+    if (recovery.status === 'finalized' && !expectedCoverage) throw new Error('finalized recovery must cover batch gross');
+    if (recovery.status === 'partial_finality' && expectedCoverage) throw new Error('partial finality must be less than batch gross');
+  } else if (recovery.railCoversBatchGross) {
+    throw new Error('non-final rail recovery cannot claim batch-gross coverage');
   }
 
   if (recovery.status !== 'never_attempted' && !recovery.lastObservedAt) {
@@ -144,6 +146,17 @@ function validateSettlementEvidence(
     const lastObservedAt = Date.parse(recovery.lastObservedAt);
     if (!Number.isFinite(lastObservedAt)) throw new Error('settlement recovery lastObservedAt must be valid');
     if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
+  }
+
+  if (evidence.allocation !== undefined) {
+    const allocation = evidence.allocation;
+    if (Date.parse(allocation.allocatedAt) > statementAsOf) throw new Error('settlement allocation cannot be later than statement asOf');
+    const allocationDeductions = allocation.deductionRoots.map(root => {
+      const deduction = deductionsByRoot.get(root);
+      if (!deduction) throw new Error(`settlement allocation references deduction outside statement: ${root}`);
+      return deduction;
+    });
+    assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions: allocationDeductions });
   }
 }
 
@@ -197,10 +210,13 @@ export function compileRoyaltyStatement(
 
   const orderedDeductions = [...(input.deductions ?? [])].sort((a, b) => a.id.localeCompare(b.id));
   const seenDeductions = new Set<string>();
+  const deductionsByRoot = new Map<string, RoyaltyDeductionAuthority>();
   for (const deduction of orderedDeductions) {
     validateDeduction(deduction, input.beneficiaryId, currency, statementAsOf);
     if (seenDeductions.has(deduction.id)) throw new Error(`duplicate deduction id: ${deduction.id}`);
+    if (deductionsByRoot.has(deduction.deductionRoot)) throw new Error(`duplicate deduction root: ${deduction.deductionRoot}`);
     seenDeductions.add(deduction.id);
+    deductionsByRoot.set(deduction.deductionRoot, deduction);
   }
   const deductions = sumMoney(orderedDeductions.map(item => item.amount), currency);
   const distributableBeforeDeductions = subtractMoney(gross, held);
@@ -212,10 +228,11 @@ export function compileRoyaltyStatement(
   const orderedSettlements = [...(input.settlements ?? [])].sort((a, b) => a.batch.batchId.localeCompare(b.batch.batchId));
   const seenBatches = new Set<string>();
   const receiptBackedObligationIds = new Set<string>();
+  const allocatedDeductionRoots = new Set<string>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
     assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch, input.eligibilityObservations);
-    validateSettlementEvidence(evidence, input.beneficiaryId, currency, input.settlementEpoch.id.trim(), statementAsOf);
+    validateSettlementEvidence(evidence, input.beneficiaryId, currency, input.settlementEpoch.id.trim(), statementAsOf, deductionsByRoot);
     if (seenBatches.has(evidence.batch.batchId)) throw new Error(`duplicate settlement batch: ${evidence.batch.batchId}`);
     seenBatches.add(evidence.batch.batchId);
     for (const obligationId of evidence.batch.obligationIds) {
@@ -232,6 +249,12 @@ export function compileRoyaltyStatement(
     }
     if (hasReceiptBackedFinality(evidence.recovery)) {
       paid = addMoney(paid, evidence.recovery.finalSettledAmount!);
+    }
+    if (evidence.allocation !== undefined) {
+      for (const root of evidence.allocation.deductionRoots) {
+        if (allocatedDeductionRoots.has(root)) throw new Error(`deduction allocated to more than one settlement batch: ${root}`);
+        allocatedDeductionRoots.add(root);
+      }
     }
   }
   if (paid.amountMinor > netPayable.amountMinor) {
@@ -251,17 +274,19 @@ export function compileRoyaltyStatement(
       eligibilityEvidenceRoot: eligibilityEvidence.root,
     },
     ...orderedSettlements.map(evidence => ({
-      evidenceKind: 'settlement_execution_v3',
+      evidenceKind: 'settlement_execution_v4',
       batchId: evidence.batch.batchId,
       obligationSetRoot: evidence.batch.obligationSetRoot,
       eligibilityAsOf: evidence.batch.eligibilityAsOf,
       eligibilityEvidenceRoot: evidence.batch.eligibilityEvidenceRoot,
       obligationIds: [...evidence.batch.obligationIds].sort(),
       recoveryStatus: evidence.recovery.status,
-      obligationSetSettled: evidence.recovery.obligationSetSettled,
+      railCoversBatchGross: evidence.recovery.railCoversBatchGross,
       finalReceiptRef: evidence.recovery.finalReceiptRef ?? null,
       finalSettledAmountMinor: evidence.recovery.finalSettledAmount?.amountMinor ?? null,
       currency: evidence.recovery.finalSettledAmount?.currency ?? evidence.batch.currency,
+      allocationRoot: evidence.allocation?.allocationRoot ?? null,
+      obligationSetDischarged: evidence.allocation?.obligationSetDischarged ?? false,
     })),
   ]).root;
 

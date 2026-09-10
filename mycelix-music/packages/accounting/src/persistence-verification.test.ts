@@ -43,55 +43,41 @@ describe('persisted accounting evidence verification', () => {
 
   it('detects obligation content changed without recomputing its authority root', () => {
     const persisted = projectRoyaltyObligationRecord(obligation);
-    expect(() => verifyPersistedRoyaltyObligation({ ...persisted, amountMinor: '501' }))
-      .toThrow(/canonical projection at obligationRoot/);
+    expect(() => verifyPersistedRoyaltyObligation({ ...persisted, amountMinor: '501' })).toThrow(/canonical projection at obligationRoot/);
   });
 
   it('detects eligibility source provenance changed behind a stored evidence root', () => {
     const persisted = projectEligibilityObservationRecord(eligibility);
-    expect(() => verifyPersistedEligibilityObservation({ ...persisted, sourceRef: 'eligibility-authority:tampered' }))
-      .toThrow(/canonical projection at observationRoot/);
+    expect(() => verifyPersistedEligibilityObservation({ ...persisted, sourceRef: 'eligibility-authority:tampered' })).toThrow(/canonical projection at observationRoot/);
   });
 
   it('reconstructs deduction authority and detects authority substitution', () => {
     const authority = createRoyaltyDeductionAuthority({
-      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
-      basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:1', observedAt: '2026-09-10T00:02:00Z',
+      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'), basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:1', observedAt: '2026-09-10T00:02:00Z',
     });
     const persisted = projectDeductionRecord(authority);
     const verified = verifyPersistedDeduction({ ...persisted, observedAt: new Date(persisted.observedAt) });
     expect(verified.deductionRoot).toBe(authority.deductionRoot);
-    expect(() => verifyPersistedDeduction({ ...persisted, authorityRef: 'tax-authority:notice:other' }))
-      .toThrow(/canonical projection at deductionRoot/);
+    expect(() => verifyPersistedDeduction({ ...persisted, authorityRef: 'tax-authority:notice:other' })).toThrow(/canonical projection at deductionRoot/);
   });
 
   it('detects settlement eligibility-snapshot substitution', () => {
     const persisted = projectSettlementObservationRecord('settlement-observation:1', {
-      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Submitted, observedAt: '2026-09-10T00:04:00Z',
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64), eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64), state: SettlementAttemptState.Submitted, observedAt: '2026-09-10T00:04:00Z',
     });
-    expect(() => verifyPersistedSettlementObservation({ ...persisted, eligibilityEvidenceRoot: 'c'.repeat(64) }))
-      .toThrow(/canonical projection at observationRoot/);
+    expect(() => verifyPersistedSettlementObservation({ ...persisted, eligibilityEvidenceRoot: 'c'.repeat(64) })).toThrow(/canonical projection at observationRoot/);
   });
 
   it('detects a changed settled amount behind an unchanged observation root', () => {
     const persisted = projectSettlementObservationRecord('settlement-observation:final', {
-      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z',
-      railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64), eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64), state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z', railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
     });
-    expect(() => verifyPersistedSettlementObservation({ ...persisted, settledAmountMinor: '499' }))
-      .toThrow(/canonical projection at observationRoot/);
+    expect(() => verifyPersistedSettlementObservation({ ...persisted, settledAmountMinor: '499' })).toThrow(/canonical projection at observationRoot/);
   });
 
   it('rejects persisted finality that lacks receipt or amount identity', () => {
     const persisted = projectSettlementObservationRecord('settlement-observation:final', {
-      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z',
-      railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64), eligibilityAsOf: '2026-09-10T00:03:00Z', eligibilityEvidenceRoot: 'b'.repeat(64), state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z', railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
     });
     const noReceipt = { ...persisted } as Record<string, unknown>; delete noReceipt.railReceiptRef;
     expect(() => verifyPersistedSettlementObservation(noReceipt as unknown as typeof persisted)).toThrow(/requires railReceiptRef/);
@@ -99,42 +85,32 @@ describe('persisted accounting evidence verification', () => {
     expect(() => verifyPersistedSettlementObservation(noCurrency as unknown as typeof persisted)).toThrow(/requires both/);
   });
 
-  it('reconstructs finalized recovery from persisted whole-batch receipt amount evidence', () => {
+  it('reconstructs whole-batch rail coverage from persisted receipt amount evidence', () => {
     const batch = buildDeterministicNettingBatches([obligation], epoch, [eligibility])[0]!;
     const persisted = projectSettlementObservationRecord('settlement-observation:final', {
-      attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot,
-      eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot,
-      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z',
-      railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
+      attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot, eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot, state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z', railReceiptRef: 'rail:receipt:1', settledAmount: money(500n, 'USD'),
     });
     const recovered = verifyPersistedSettlementRecovery(batch, [{ ...persisted, observedAt: new Date(persisted.observedAt), eligibilityAsOf: new Date(persisted.eligibilityAsOf) }]);
     expect(recovered.status).toBe('finalized');
     expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
-    expect(recovered.obligationSetSettled).toBe(true);
+    expect(recovered.railCoversBatchGross).toBe(true);
   });
 
-  it('replays persisted partial rail finality while preserving unresolved residual debt', () => {
+  it('replays persisted partial rail finality without claiming debt discharge', () => {
     const batch = buildDeterministicNettingBatches([obligation], epoch, [eligibility])[0]!;
     const persisted = projectSettlementObservationRecord('settlement-observation:partial', {
-      attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot,
-      eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot,
-      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z',
-      railReceiptRef: 'rail:receipt:partial', settledAmount: money(475n, 'USD'),
+      attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot, eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot, state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:04:00Z', railReceiptRef: 'rail:receipt:partial', settledAmount: money(475n, 'USD'),
     });
     const recovered = verifyPersistedSettlementRecovery(batch, [persisted]);
     expect(recovered.status).toBe('partial_finality');
     expect(recovered.finalSettledAmount).toEqual(money(475n, 'USD'));
-    expect(recovered.obligationSetSettled).toBe(false);
-    expect(recovered.reason).toMatch(/residual allocation or reconciliation/);
+    expect(recovered.railCoversBatchGross).toBe(false);
+    expect(recovered.reason).toMatch(/allocation or reconciliation/);
   });
 
   it('rechecks statement arithmetic and immutable snapshot commitment', () => {
     const statement = createStatementSnapshot({
-      statementId: 'statement:1', kind: StatementKind.Periodic, beneficiaryId: 'creator:alice',
-      period: { startInclusive: '2026-09-01T00:00:00Z', endExclusive: '2026-10-01T00:00:00Z' }, asOf: '2026-10-02T00:00:00Z',
-      obligationRoot: 'a'.repeat(64), adjustmentRoot: 'b'.repeat(64), settlementRoot: 'c'.repeat(64),
-      gross: money(500n, 'USD'), held: money(100n, 'USD'), deductions: money(50n, 'USD'), netPayable: money(350n, 'USD'), paid: money(300n, 'USD'),
-      completeness: { kind: 'complete', through: { usageObservedThrough: '2026-10-01T00:00:00Z', rightsResolvedThrough: '2026-10-01T00:00:00Z', settlementsObservedThrough: '2026-10-01T00:00:00Z' } },
+      statementId: 'statement:1', kind: StatementKind.Periodic, beneficiaryId: 'creator:alice', period: { startInclusive: '2026-09-01T00:00:00Z', endExclusive: '2026-10-01T00:00:00Z' }, asOf: '2026-10-02T00:00:00Z', obligationRoot: 'a'.repeat(64), adjustmentRoot: 'b'.repeat(64), settlementRoot: 'c'.repeat(64), gross: money(500n, 'USD'), held: money(100n, 'USD'), deductions: money(50n, 'USD'), netPayable: money(350n, 'USD'), paid: money(300n, 'USD'), completeness: { kind: 'complete', through: { usageObservedThrough: '2026-10-01T00:00:00Z', rightsResolvedThrough: '2026-10-01T00:00:00Z', settlementsObservedThrough: '2026-10-01T00:00:00Z' } },
     });
     const persisted = projectStatementSnapshotRecord(statement);
     expect(verifyPersistedStatementSnapshot(persisted).statementId).toBe('statement:1');
