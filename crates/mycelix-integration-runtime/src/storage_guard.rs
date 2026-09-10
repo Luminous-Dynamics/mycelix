@@ -18,14 +18,20 @@ use std::{
 /// update admission and the semantic facade together.
 const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 
-/// Identity of the reconstructable SQLite enforcement machinery used by INT-03.
+/// Identity of the reconstructable SQLite bootstrap/admission/enforcement machinery.
 ///
 /// This is deliberately separate from the durable semantic producer identity:
-/// changing admission/reconstruction/trigger enforcement does not reinterpret
-/// historical records, but an opened store must know which enforcement contract
-/// is active.
-pub const RUNTIME_ENFORCEMENT_PROFILE_V3: &str =
-    "mycelix-integration-runtime/enforcement-profile-v3";
+/// changing bootstrap, admission, reconstruction, or trigger enforcement does
+/// not reinterpret historical records, but an opened store must know which
+/// enforcement contract is active.
+pub const RUNTIME_ENFORCEMENT_PROFILE_V4: &str =
+    "mycelix-integration-runtime/enforcement-profile-v4";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FileStoreAdmission {
+    NeedsBootstrap,
+    Initialized,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconciliationCheckpointSnapshot {
@@ -33,22 +39,68 @@ pub struct ReconciliationCheckpointSnapshot {
     pub updated_at_ms: i64,
 }
 
-/// Returns whether the file already contains the INT-03 runtime schema.
+/// Atomically prepares and classifies a file-backed runtime before any bootstrap.
 ///
-/// This is discovery only. No trust decision is made until `harden_file_store`
-/// acquires its `IMMEDIATE` transaction and validates the semantic producer ID.
-pub(crate) fn is_initialized_file_store(path: &Path) -> Result<bool, RuntimeError> {
-    if !path.exists() {
-        return Ok(false);
+/// A truly fresh database is stamped with structural-v2 intent while holding an
+/// `IMMEDIATE` transaction *before* legacy schema creation can expose a partial
+/// `integration_outbox` table. That prevents a concurrent opener or crash from
+/// misclassifying a half-built fresh v2 store as implicit legacy v1.
+///
+/// Structural-v2 stores with an outbox but no semantic producer row are only
+/// bootstrap-completable while the outbox is empty. Non-empty untagged stores,
+/// unsupported structural versions, and tagged stores are treated as initialized
+/// and must pass the strict admission path instead of being silently promoted.
+pub(crate) fn prepare_and_classify_file_store(
+    path: &Path,
+) -> Result<FileStoreAdmission, RuntimeError> {
+    let mut conn = open_aux(path)?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+    let structural_version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let has_outbox = transaction_table_exists(&tx, "integration_outbox")?;
+
+    if structural_version == 0 && !has_outbox {
+        tx.pragma_update(None, "user_version", EXPECTED_STRUCTURAL_SCHEMA_V2)?;
+        tx.commit()?;
+        return Ok(FileStoreAdmission::NeedsBootstrap);
     }
-    let metadata = std::fs::metadata(path).map_err(|error| {
-        RuntimeError::StoredIdentifier(format!("failed to inspect runtime store: {error}"))
+
+    if !has_outbox {
+        tx.commit()?;
+        return Ok(FileStoreAdmission::NeedsBootstrap);
+    }
+
+    if structural_version != EXPECTED_STRUCTURAL_SCHEMA_V2 {
+        tx.commit()?;
+        return Ok(FileStoreAdmission::Initialized);
+    }
+
+    let semantic_profile = if transaction_table_exists(&tx, "integration_runtime_semantics")? {
+        tx.query_row(
+            "SELECT semantic_profile FROM integration_runtime_semantics WHERE singleton = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?
+    } else {
+        None
+    };
+
+    if semantic_profile.is_some() {
+        tx.commit()?;
+        return Ok(FileStoreAdmission::Initialized);
+    }
+
+    let outbox_rows: i64 = tx.query_row("SELECT COUNT(*) FROM integration_outbox", [], |row| {
+        row.get(0)
     })?;
-    if metadata.len() == 0 {
-        return Ok(false);
+    tx.commit()?;
+
+    if outbox_rows == 0 {
+        Ok(FileStoreAdmission::NeedsBootstrap)
+    } else {
+        Ok(FileStoreAdmission::Initialized)
     }
-    let conn = open_aux(path)?;
-    table_exists(&conn, "integration_outbox")
 }
 
 /// Atomically admits and repairs an initialized file-backed runtime.
@@ -686,7 +738,7 @@ fn record_enforcement_profile(tx: &Transaction<'_>) -> Result<(), RuntimeError> 
         "INSERT INTO integration_runtime_enforcement (singleton, enforcement_profile)\n\
          VALUES (1, ?1)\n\
          ON CONFLICT(singleton) DO UPDATE SET enforcement_profile = excluded.enforcement_profile",
-        params![RUNTIME_ENFORCEMENT_PROFILE_V3],
+        params![RUNTIME_ENFORCEMENT_PROFILE_V4],
     )?;
     Ok(())
 }
@@ -728,17 +780,6 @@ fn validate_timestamp(value: i64) -> Result<(), RuntimeError> {
         return Err(RuntimeError::InvalidTimestamp);
     }
     Ok(())
-}
-
-fn table_exists(conn: &Connection, name: &str) -> Result<bool, RuntimeError> {
-    conn.query_row(
-        "SELECT EXISTS(\n\
-             SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1\n\
-         )",
-        params![name],
-        |row| row.get(0),
-    )
-    .map_err(RuntimeError::from)
 }
 
 fn transaction_table_exists(tx: &Transaction<'_>, name: &str) -> Result<bool, RuntimeError> {
