@@ -6,18 +6,27 @@ It is deliberately **not** a connector, provider SDK wrapper, authority oracle, 
 
 ## v0.1 reference boundary
 
-The reference implementation uses SQLite to make failure and restart semantics executable before distributed infrastructure or provider SDKs are introduced.
+The reference implementation uses SQLite to make failure, restart, and multi-handle semantics executable before distributed infrastructure or provider SDKs are introduced.
 
-The active crate root is `src/v31.rs`. It wraps the preserved v2 causal engine in `src/lib.rs` and adds the semantic safeguards required before INT-04:
+The public crate root is `src/runtime.rs`:
+
+```text
+src/runtime.rs   stable public boundary + cross-handle/atomic fences
+      ↓
+src/v31.rs       storage-semantics v3.1 facade
+      ↓
+src/lib.rs       preserved v2 SQLite causal engine
+```
+
+The layered boundary preserves the already-frozen v2 crash/retry/history machinery while adding the semantic and concurrency safeguards required before INT-04:
 
 - durable semantic-producer/profile identity separate from SQLite schema identity;
 - fail-closed migration when legacy state meaning is underdetermined;
-- durable monotonic provider-operation identity, including bindings learned only from late historical evidence;
+- durable monotonic provider-operation identity, including late historical evidence;
 - per-entry Mycelix runtime causal-time monotonicity;
+- cross-handle freshness checks plus atomic SQLite causal-time write fences;
 - lease expiry that independently removes current completion power before recovery runs;
 - entry-local quarantine so one poisoned recovery record cannot globally block unrelated work.
-
-The legacy engine remains intentionally intact underneath the facade so its frozen crash, retry, bounded-history, attempt-budget, and state-machine regressions continue to run.
 
 ## Causal execution vocabulary
 
@@ -61,7 +70,7 @@ IdempotencyKeyPresent != EndpointIdempotencyGuarantee
 
 SQLite `PRAGMA user_version` describes structural storage compatibility. It does **not** identify which integration semantics produced durable records.
 
-The active facade therefore persists:
+The v3.1 layer persists:
 
 ```text
 mycelix-integration-runtime/semantic-profile-v3.1
@@ -80,7 +89,7 @@ syntactic readability
     != semantic equivalence
 ```
 
-The semantic producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The runtime does not silently change durable semantics while retaining the old producer identity.
+The producer identity changed from the earlier draft v3 marker when provider-operation identity became first-class durable state. The newer `runtime.rs` layer does not change that durable meaning; it strengthens enforcement of the already-declared v3.1 causal rules.
 
 Pre-split INT-02 represented both authority denial and provider rejection with one generic `Rejected` state. An untagged non-empty legacy runtime therefore cannot be promoted into current semantics merely because its rows remain structurally readable. v3.1 fails closed and requires an explicit provenance-bearing migration/import path.
 
@@ -110,7 +119,7 @@ Expiry changes current workflow authority, not evidentiary existence.
 
 ## Provider-operation identity is durable and monotonic
 
-`ExternalOperationRef.provider_operation` may begin as `None` before a provider exposes a stable operation ID. Once an accepted observation establishes `Some(A)`, that identity becomes durable protocol state in `integration_runtime_operation_binding`.
+`ExternalOperationRef.provider_operation` may begin as `None` before a provider exposes a stable operation ID. Once accepted evidence establishes `Some(A)`, that identity becomes durable protocol state in `integration_runtime_operation_binding`.
 
 ```text
 None -> Some(A)      may refine
@@ -121,11 +130,11 @@ Some(A) -> None      cannot erase the binding
 
 For file-backed stores, SQLite triggers establish/check the binding in the same transaction that appends provider execution or reconciliation evidence. This prevents a crash between evidence admission and identity binding from weakening the invariant.
 
-The binding survives finalization and reopen, including when `Some(A)` was learned only from late non-applying historical evidence. A later `Some(B)` remains a mismatch after restart.
+The stable public boundary re-reads the durable binding before each file-backed outcome/reconciliation write, so another open process cannot hide a newly learned binding behind a stale process-local cache.
 
-Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
+The binding survives finalization and reopen, including when `Some(A)` was learned only from late non-applying historical evidence. Provider-operation identity is **not** provider authority, success, reconciliation, or a physical-world postcondition.
 
-## Per-entry runtime causal time
+## Per-entry causal time and atomic fencing
 
 Runtime transition/observation time is locally monotonic for each outbox entry:
 
@@ -137,9 +146,26 @@ reconciliation >= prior runtime transition
 finalization >= reconciliation
 ```
 
-Clock rollback fails closed instead of strengthening an old fence or creating impossible causal order.
+For file-backed stores, `runtime.rs` enforces this twice:
 
-This does **not** impose Mycelix clock order on remote provider source timestamps. Provider clocks remain separate evidence and may differ because of skew or transport delay.
+1. a fresh durable-frontier read provides an early deterministic rejection for stale handles;
+2. SQLite `BEFORE` triggers fence the actual write transaction, closing the race between that read and the write.
+
+The atomic fences cover:
+
+- `integration_outbox.updated_at_ms` updates;
+- `integration_execution_observation.observed_at_ms` inserts;
+- `integration_reconciliation_history.recorded_at_ms` inserts.
+
+```text
+fresh precheck
+    != atomic write guarantee
+
+fresh precheck + database trigger
+    -> stale concurrent write fails closed
+```
+
+This is a per-entry Mycelix causal coordinate, not a global clock. Remote provider source timestamps remain separate evidence and are not forced into this ordering.
 
 ## Historical evidence is append-only
 
@@ -214,7 +240,7 @@ Those properties belong to a versioned qualified provider profile. Crash recover
 
 ## Qualification target
 
-Promotion requires one exact-head hosted qualification establishing the legacy engine invariants and the active v3.1 facade:
+Promotion requires one exact-head hosted qualification establishing the legacy engine, v3.1 semantics, and the stable public concurrency boundary:
 
 1. formatting, compilation, full tests, and Clippy with warnings denied;
 2. provider-neutral normal transitive dependency closure;
@@ -225,9 +251,10 @@ Promotion requires one exact-head hosted qualification establishing the legacy e
 7. fail-closed legacy semantic migration;
 8. durable/reopen-stable semantic producer identity and tamper rejection;
 9. expired post-dispatch fence demotion before completion;
-10. provider-operation substitution rejection, including historical-only binding across reopen;
+10. provider-operation substitution rejection, including historical-only binding across reopen and cross-handle visibility;
 11. per-entry causal-time rollback rejection;
-12. poison-entry isolation with durable quarantine visibility;
-13. no provider execution API in INT-03.
+12. atomic database rejection of backdated state/observation/reconciliation writes;
+13. poison-entry isolation with durable quarantine visibility;
+14. no provider execution API in INT-03.
 
 A green hosted run proves only that the exact source satisfied that workflow profile. It does **not** establish provider correctness, current execution authority, exactly-once effects, global-clock correctness, institutional legitimacy, or physical-world postconditions.
