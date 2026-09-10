@@ -2,9 +2,12 @@
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
 //! file-backed cross-handle freshness, atomic fresh-bootstrap classification,
-//! lock-first SQLite enforcement repair, and connector-checkpoint CAS semantics
-//! so process-local caches or check/write races cannot weaken durable causal meaning.
+//! zero-history semantic bootstrap qualification, lock-first SQLite enforcement
+//! repair, and connector-checkpoint CAS semantics so process-local caches or
+//! check/write races cannot weaken durable causal meaning.
 
+#[path = "bootstrap_guard.rs"]
+mod bootstrap_guard;
 #[path = "storage_guard.rs"]
 mod storage_guard;
 #[path = "v31.rs"]
@@ -43,7 +46,14 @@ impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
 
-        match storage_guard::prepare_and_classify_file_store(&path)? {
+        let coarse = storage_guard::prepare_and_classify_file_store(&path)?;
+        let admission = bootstrap_guard::qualify_file_store_bootstrap(
+            &path,
+            RUNTIME_SEMANTIC_PROFILE_V31,
+            coarse,
+        )?;
+
+        match admission {
             storage_guard::FileStoreAdmission::Initialized => {
                 // Existing/non-bootstrapable stores are admitted lock-first:
                 // validate semantic + structural identity and repair enforcement
@@ -51,11 +61,11 @@ impl SqliteIntegrationStore {
                 storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
             }
             storage_guard::FileStoreAdmission::NeedsBootstrap => {
-                // A truly fresh database already carries structural-v2 intent
-                // from the atomic classifier, so partial schema creation cannot
-                // masquerade as implicit legacy v1 to a concurrent opener.
-                // Bootstrap remains non-authoritative: no public handle exists
-                // until semantic/structural admission and enforcement repair pass.
+                // Automatic bootstrap is now stronger than "outbox is empty":
+                // the bootstrap guard proved structural-v2, zero durable runtime
+                // records, no prior AUTOINCREMENT activity, and absent/exact
+                // semantic producer identity under an IMMEDIATE transaction.
+                // No public runtime is exposed until strict admission succeeds.
                 let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
                 drop(bootstrap);
                 storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
