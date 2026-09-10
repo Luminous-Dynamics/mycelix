@@ -1,4 +1,4 @@
-use mycelix_integration_runtime::{SqliteIntegrationStore, RuntimeError};
+use mycelix_integration_runtime::{RuntimeError, SqliteIntegrationStore};
 use rusqlite::Connection;
 
 #[test]
