@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDeterministicNettingBatches } from './netting.js';
 import { money } from './money.js';
+import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import { compileRoyaltyStatement } from './projection.js';
 import {
   SettlementAttemptState,
@@ -27,13 +28,25 @@ const epoch: SettlementEpoch = {
   minimumPayout: money(100n, 'USD'),
 };
 
-function obligation(id: string, amountMinor: bigint, extra: Partial<RoyaltyObligation> = {}): RoyaltyObligation {
+type ObligationOverride = Partial<Omit<RoyaltyObligation, 'id' | 'beneficiaryId' | 'amount' | 'authorityRoot' | 'provenance'>> & {
+  readonly usageEvidenceRef?: string;
+};
+
+function obligation(id: string, amountMinor: bigint, extra: ObligationOverride = {}): RoyaltyObligation {
+  const { usageEvidenceRef = `usage:${id}`, ...eligibility } = extra;
   return {
-    id,
-    beneficiaryId: 'artist:1',
-    amount: money(amountMinor, 'USD'),
-    observedAt: '2026-09-10T12:00:00Z',
-    ...extra,
+    ...createRoyaltyObligationAuthority({
+      id,
+      beneficiaryId: 'artist:1',
+      amount: money(amountMinor, 'USD'),
+      observedAt: eligibility.observedAt ?? '2026-09-10T12:00:00Z',
+      provenance: {
+        usageEvidenceRef,
+        rightsResolutionRef: `rights:${id}`,
+        economicTermsRef: 'terms:v1',
+      },
+    }),
+    ...eligibility,
   };
 }
 
@@ -244,6 +257,12 @@ describe('royalty statement compiler', () => {
     const a = compile([obligation('obl:b', 200n), obligation('obl:a', 300n)]);
     const b = compile([obligation('obl:a', 300n), obligation('obl:b', 200n)]);
     expect(a.obligationRoot).toBe(b.obligationRoot);
+  });
+
+  it('changes the statement obligation root when immutable provenance changes', () => {
+    const a = compile([obligation('obl:1', 500n, { usageEvidenceRef: 'usage:epoch:a' })]);
+    const b = compile([obligation('obl:1', 500n, { usageEvidenceRef: 'usage:epoch:b' })]);
+    expect(a.obligationRoot).not.toBe(b.obligationRoot);
   });
 
   it('rejects obligations outside the statement period instead of silently dropping them', () => {
