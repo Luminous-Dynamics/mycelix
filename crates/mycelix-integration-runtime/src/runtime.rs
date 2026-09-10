@@ -42,8 +42,15 @@ pub struct SqliteIntegrationStore {
 impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
-        let inner = v31::SqliteIntegrationStore::open(&path)?;
+
+        // The first open establishes/validates the structural + semantic v3.1
+        // substrate. It is deliberately dropped before derived-state repair so
+        // no process-local cache survives reconstruction of security indexes.
+        let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
+        drop(bootstrap);
         storage_guard::harden_file_store(&path)?;
+        let inner = v31::SqliteIntegrationStore::open(&path)?;
+
         Ok(Self {
             inner,
             path: Some(path),
