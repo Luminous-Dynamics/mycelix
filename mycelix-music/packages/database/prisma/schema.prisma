@@ -475,6 +475,7 @@ model RoyaltyShare {
   @@unique([userId, songId])
 }
 
+// Legacy rail-receipt projection. This model is not royalty debt authority.
 model RoyaltyPayment {
   id        String   @id @default(cuid())
   songId    String
@@ -491,6 +492,103 @@ model RoyaltyPayment {
 
   @@index([songId])
   @@index([recipientAddress])
+}
+
+// ============================================================
+// CREATOR ACCOUNTING AUTHORITY — APPEND-ONLY EVIDENCE
+// ============================================================
+// These records are immutable authority/evidence. Apply
+// `prisma/accounting-append-only.sql` after schema deployment to enforce the
+// no-UPDATE/no-DELETE invariant in PostgreSQL as well as in application code.
+
+model RoyaltyObligationRecord {
+  id                  String   @id
+  beneficiaryId       String
+  amountMinor         String
+  currency            String
+  observedAt          DateTime
+  usageEvidenceRef    String
+  rightsResolutionRef String
+  economicTermsRef    String
+  obligationRoot      String   @unique
+  createdAt           DateTime @default(now())
+
+  eligibilityObservations RoyaltyEligibilityObservation[]
+
+  @@index([beneficiaryId, observedAt])
+  @@index([currency, observedAt])
+}
+
+model RoyaltyEligibilityObservation {
+  id              String   @id
+  obligationId    String
+  obligation      RoyaltyObligationRecord @relation(fields: [obligationId], references: [id], onDelete: Restrict)
+  code            String
+  reason          String?
+  sourceRef       String
+  observedAt      DateTime
+  observationRoot String   @unique
+  createdAt       DateTime @default(now())
+
+  @@index([obligationId, observedAt])
+}
+
+model RoyaltyDeductionRecord {
+  id            String   @id
+  beneficiaryId String
+  amountMinor   String
+  currency      String
+  basis         String
+  authorityRef  String
+  observedAt    DateTime
+  deductionRoot String   @unique
+  createdAt     DateTime @default(now())
+
+  @@index([beneficiaryId, observedAt])
+}
+
+model SettlementAttemptObservationRecord {
+  id                  String   @id
+  attemptId           String
+  batchId             String
+  obligationSetRoot   String
+  state               String
+  observedAt          DateTime
+  railReceiptRef      String?
+  supersedesAttemptId String?
+  observationRoot     String   @unique
+  createdAt           DateTime @default(now())
+
+  @@index([batchId, observedAt])
+  @@index([attemptId, observedAt])
+}
+
+model RoyaltyStatementSnapshotRecord {
+  statementId            String   @id
+  kind                   String
+  predecessorStatementId String?
+  predecessor            RoyaltyStatementSnapshotRecord? @relation("RoyaltyStatementLineage", fields: [predecessorStatementId], references: [statementId], onDelete: Restrict)
+  successors             RoyaltyStatementSnapshotRecord[] @relation("RoyaltyStatementLineage")
+  beneficiaryId          String
+  periodStart            DateTime
+  periodEnd              DateTime
+  asOf                   DateTime
+  obligationRoot         String
+  adjustmentRoot         String
+  settlementRoot         String
+  grossMinor             String
+  heldMinor              String
+  deductionMinor         String
+  netPayableMinor        String
+  paidMinor              String
+  currency               String
+  completenessKind       String
+  completenessData       Json
+  snapshotRoot           String   @unique
+  createdAt              DateTime @default(now())
+
+  @@index([beneficiaryId, periodStart, periodEnd])
+  @@index([predecessorStatementId])
 }
 
 model Tip {
