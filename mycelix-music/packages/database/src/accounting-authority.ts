@@ -6,7 +6,7 @@
  *
  * This store exposes no update/delete operations. Exact-content replay is
  * idempotent; an authority ID reused with different immutable content fails
- * closed. PostgreSQL triggers provide a second line of defense.
+ * closed. PostgreSQL triggers and CHECK constraints provide a second line of defense.
  */
 
 const DIGEST_RE = /^[0-9a-f]{64}$/;
@@ -307,10 +307,15 @@ export class AccountingAuthorityStore {
   }
 
   async appendSettlementObservation(input: SettlementAttemptObservationRecordInput): Promise<Record<string, unknown>> {
-    if (!SETTLEMENT_STATES.has(input.state)) throw new Error(`unsupported settlement state: ${input.state}`);
+    if (!SETTLEMENT_STATES.has(input.state)) throw new Error(`unsupported settlement state: ${String(input.state)}`);
     const railReceiptRef = optionalRef('railReceiptRef', input.railReceiptRef);
     if (input.state === 'finalized' && railReceiptRef === undefined) {
       throw new Error('finalized settlement observation requires railReceiptRef');
+    }
+    const eligibilityAsOf = timestamp('settlement eligibilityAsOf', input.eligibilityAsOf);
+    const observedAt = timestamp('settlement observedAt', input.observedAt);
+    if (observedAt.getTime() < eligibilityAsOf.getTime()) {
+      throw new Error('settlement observation cannot predate its eligibility snapshot');
     }
     const supersedesAttemptId = optionalRef('supersedesAttemptId', input.supersedesAttemptId);
     const data = {
@@ -318,10 +323,10 @@ export class AccountingAuthorityStore {
       attemptId: required('settlement attemptId', input.attemptId),
       batchId: required('settlement batchId', input.batchId),
       obligationSetRoot: digest('settlement obligationSetRoot', input.obligationSetRoot),
-      eligibilityAsOf: timestamp('settlement eligibilityAsOf', input.eligibilityAsOf),
+      eligibilityAsOf,
       eligibilityEvidenceRoot: digest('settlement eligibilityEvidenceRoot', input.eligibilityEvidenceRoot),
       state: input.state,
-      observedAt: timestamp('settlement observedAt', input.observedAt),
+      observedAt,
       ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
       ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
       observationRoot: digest('settlement observationRoot', input.observationRoot),

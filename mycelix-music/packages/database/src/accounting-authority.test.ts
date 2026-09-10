@@ -4,6 +4,7 @@ import {
   AccountingAuthorityStore,
   type AccountingAuthorityPrismaClient,
   type RoyaltyEligibilityObservationInput,
+  type SettlementAttemptObservationRecordInput,
 } from './accounting-authority';
 
 const root = (character: string) => character.repeat(64);
@@ -62,6 +63,12 @@ const obligationInput = {
   rightsResolutionRef: 'rights:resolution:1', economicTermsRef: 'terms:1', obligationRoot: root('a'),
 } as const;
 
+const settlementInput = {
+  id: 'obs:submitted', attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: root('b'),
+  eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: root('c'),
+  state: 'submitted', observedAt: '2026-09-10T00:01:00Z', observationRoot: root('d'),
+} as const;
+
 test('same immutable authority record replays idempotently', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
   const first = await store.appendObligation(obligationInput);
@@ -87,26 +94,38 @@ test('compiler-only eligibility states cannot be persisted as source evidence', 
 
 test('settlement persistence retains the exact eligibility snapshot identity', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
-  const row = await store.appendSettlementObservation({
-    id: 'obs:submitted', attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: root('b'),
-    eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: root('c'),
-    state: 'submitted', observedAt: '2026-09-10T00:01:00Z', observationRoot: root('d'),
-  });
+  const row = await store.appendSettlementObservation(settlementInput);
   assert.equal(row.eligibilityEvidenceRoot, root('c'));
   assert.deepEqual(row.eligibilityAsOf, new Date('2026-09-10T00:00:00Z'));
   assert.equal(fake.settlement.createCalls, 1);
 });
 
+test('application store rejects settlement evidence before its eligibility snapshot', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  await assert.rejects(
+    store.appendSettlementObservation({
+      ...settlementInput,
+      id: 'obs:early',
+      eligibilityAsOf: '2026-09-10T00:02:00Z',
+      observedAt: '2026-09-10T00:01:59Z',
+    }),
+    /predate its eligibility snapshot/,
+  );
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
+test('runtime validation rejects settlement states outside the closed vocabulary', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  const forged = { ...settlementInput, state: 'teleported' } as unknown as SettlementAttemptObservationRecordInput;
+  await assert.rejects(store.appendSettlementObservation(forged), /unsupported settlement state/);
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
 test('same settlement observation id cannot be rebound to another eligibility snapshot', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
-  const base = {
-    id: 'obs:1', attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: root('b'),
-    eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: root('c'),
-    state: 'submitted' as const, observedAt: '2026-09-10T00:01:00Z', observationRoot: root('d'),
-  };
-  await store.appendSettlementObservation(base);
+  await store.appendSettlementObservation(settlementInput);
   await assert.rejects(
-    store.appendSettlementObservation({ ...base, eligibilityEvidenceRoot: root('e') }),
+    store.appendSettlementObservation({ ...settlementInput, eligibilityEvidenceRoot: root('e') }),
     /different immutable content at eligibilityEvidenceRoot/,
   );
 });
@@ -114,9 +133,8 @@ test('same settlement observation id cannot be rebound to another eligibility sn
 test('finalized settlement observation requires durable receipt identity', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
   await assert.rejects(store.appendSettlementObservation({
-    id: 'obs:final', attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: root('b'),
-    eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: root('c'),
-    state: 'finalized', observedAt: '2026-09-10T00:00:00Z', observationRoot: root('d'),
+    ...settlementInput,
+    id: 'obs:final', state: 'finalized', observedAt: '2026-09-10T00:02:00Z', observationRoot: root('e'),
   }), /requires railReceiptRef/);
 });
 
