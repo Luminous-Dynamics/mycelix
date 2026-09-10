@@ -3,6 +3,12 @@
   "component": "@mycelix/accounting",
   "authorityBoundary": "creator royalty accounting, statement projection, settlement recovery, audit and selective disclosure",
   "exactHeadRequired": true,
+  "headResolution": {
+    "pullRequest": "github.event.pull_request.head.sha",
+    "push": "github.sha",
+    "forbidSyntheticPullRequestMergeRef": true,
+    "verifyCommand": "test \"$(git rev-parse HEAD)\" = \"$QUALIFIED_HEAD_SHA\""
+  },
   "qualification": [
     {
       "id": "locked-install",
@@ -29,9 +35,10 @@
       "purpose": "run economic conservation, settlement recovery, statement, audit and disclosure regressions"
     }
   ],
-  "promotionRule": "Every qualification item must succeed on the exact proposed head commit. Missing, queued, skipped, stale, source-only, or ancestor evidence is not PASS.",
+  "promotionRule": "Every qualification item must succeed after the workflow has checked out and mechanically verified the exact proposed head commit. Missing, queued, skipped, stale, synthetic-merge-only, source-only, or ancestor evidence is not PASS.",
   "forbiddenClaims": [
     "A queued or absent workflow is green evidence.",
+    "A synthetic pull-request merge ref is exact-head evidence.",
     "A RoyaltyPayment row creates or extinguishes a royalty obligation.",
     "A worker queue is settlement authority.",
     "Submitted, accepted or confirmed rail state is final settlement.",

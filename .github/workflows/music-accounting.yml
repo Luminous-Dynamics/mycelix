@@ -18,13 +18,37 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: music-accounting-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   qualify:
     name: Creator Accounting Exact-Head Qualification
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # pull_request workflows normally expose a synthetic merge commit through
+      # GITHUB_SHA. Qualification authority belongs to the proposed branch head,
+      # never to that ephemeral merge ref.
+      QUALIFIED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact proposed head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(git rev-parse HEAD)"
+          if [ "$actual_head" != "$QUALIFIED_HEAD_SHA" ]; then
+            echo "qualification checkout mismatch: expected=$QUALIFIED_HEAD_SHA actual=$actual_head" >&2
+            exit 1
+          fi
+          echo "verified_qualified_head=$actual_head"
 
       - uses: actions/setup-node@v4
         with:
@@ -49,6 +73,9 @@ jobs:
         run: npm test --workspace=@mycelix/accounting
 
       - name: Record exact qualified head
+        shell: bash
         run: |
-          echo "qualified_head=${GITHUB_SHA}"
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD_SHA"
+          echo "qualified_head=$QUALIFIED_HEAD_SHA"
           echo "qualification_policy=mycelix-music/packages/accounting/promotion-policy.json"
