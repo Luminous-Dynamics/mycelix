@@ -1,4 +1,4 @@
-import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
+import { createRoyaltyDeductionAuthority, type RoyaltyDeductionAuthority } from './deduction-authority.js';
 import { canonicalAccountingValue } from './merkle.js';
 import { money } from './money.js';
 import type { DeterministicNettingBatch } from './netting.js';
@@ -7,11 +7,13 @@ import {
   projectDeductionRecord,
   projectEligibilityObservationRecord,
   projectRoyaltyObligationRecord,
+  projectSettlementAllocationRecord,
   projectSettlementObservationRecord,
   projectStatementSnapshotRecord,
   type PersistedDeductionRecord,
   type PersistedEligibilityObservationRecord,
   type PersistedRoyaltyObligationRecord,
+  type PersistedSettlementAllocationRecord,
   type PersistedSettlementObservationRecord,
   type PersistedStatementSnapshotRecord,
 } from './persistence-projection.js';
@@ -22,10 +24,12 @@ import {
   type SettlementAttemptObservation,
   type SettlementRecoveryState,
 } from './recovery.js';
+import { createSettlementAllocationAuthority, type SettlementAllocationAuthority } from './settlement-allocation.js';
 import type { SettlementEligibilityObservation } from './settlement.js';
 import { createStatementSnapshot, type RoyaltyStatementSnapshot } from './statements.js';
 
 const MINOR_RE = /^(0|[1-9][0-9]*)$/;
+const DIGEST_RE = /^[0-9a-f]{64}$/;
 const SETTLEMENT_STATES: ReadonlySet<string> = new Set(Object.values(SettlementAttemptState));
 
 type DateLike = string | Date;
@@ -40,6 +44,12 @@ export type VerifiablePersistedSettlementObservationRecord =
   Omit<PersistedSettlementObservationRecord, 'eligibilityAsOf' | 'observedAt'> & {
     readonly eligibilityAsOf: DateLike;
     readonly observedAt: DateLike;
+  };
+export type VerifiablePersistedSettlementAllocationRecord =
+  Omit<PersistedSettlementAllocationRecord, 'eligibilityAsOf' | 'allocatedAt'> & {
+    readonly eligibilityAsOf: DateLike;
+    readonly allocatedAt: DateLike;
+    readonly deductionRoots: unknown;
   };
 export type VerifiablePersistedStatementSnapshotRecord =
   Omit<PersistedStatementSnapshotRecord, 'periodStart' | 'periodEnd' | 'asOf'> & {
@@ -57,6 +67,18 @@ function canonicalTimestamp(label: string, value: DateLike): string {
 function canonicalMinor(label: string, value: string): bigint {
   if (!MINOR_RE.test(value)) throw new Error(`${label} must be a canonical non-negative integer string`);
   return BigInt(value);
+}
+
+function canonicalDigestArray(label: string, value: unknown): readonly string[] {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  const roots = value.map((item, index) => {
+    if (typeof item !== 'string' || !DIGEST_RE.test(item)) throw new Error(`${label}[${index}] must be a lowercase SHA-256 digest`);
+    return item;
+  });
+  const sorted = [...roots].sort();
+  if (roots.some((root, index) => root !== sorted[index])) throw new Error(`${label} must be canonically sorted`);
+  if (new Set(roots).size !== roots.length) throw new Error(`${label} must not contain duplicates`);
+  return Object.freeze(roots);
 }
 
 function sameCanonicalValue(left: unknown, right: unknown): boolean {
@@ -180,6 +202,36 @@ export function verifyPersistedSettlementRecovery(
 ): Readonly<SettlementRecoveryState> {
   const observations = records.map(verifyPersistedSettlementObservation);
   return reconstructSettlementRecovery(batch, observations);
+}
+
+export function verifyPersistedSettlementAllocation(
+  record: VerifiablePersistedSettlementAllocationRecord,
+  batch: DeterministicNettingBatch,
+  recovery: SettlementRecoveryState,
+  deductions: readonly RoyaltyDeductionAuthority[],
+): Readonly<SettlementAllocationAuthority> {
+  const eligibilityAsOf = canonicalTimestamp('persisted allocation eligibilityAsOf', record.eligibilityAsOf);
+  const allocatedAt = canonicalTimestamp('persisted allocation allocatedAt', record.allocatedAt);
+  const deductionRoots = canonicalDigestArray('persisted allocation deductionRoots', record.deductionRoots);
+  const expectedRoots = [...deductions].map(item => item.deductionRoot).sort();
+  if (deductionRoots.length !== expectedRoots.length || deductionRoots.some((root, index) => root !== expectedRoots[index])) {
+    throw new Error('persisted allocation deduction roots do not match authoritative deductions');
+  }
+  const allocation = createSettlementAllocationAuthority({
+    allocationId: record.allocationId,
+    batch,
+    recovery,
+    deductions,
+    residualHeld: money(canonicalMinor('persisted allocation residualHeldMinor', record.residualHeldMinor), record.currency),
+    ...(record.residualAuthorityRef === undefined ? {} : { residualAuthorityRef: record.residualAuthorityRef }),
+    allocatedAt,
+  });
+  const expected = projectSettlementAllocationRecord(allocation, batch, recovery, deductions);
+  const normalized = { ...record, eligibilityAsOf, allocatedAt, deductionRoots } as Readonly<Record<string, unknown>>;
+  assertProjectedFields('persisted settlement allocation', normalized, expected as unknown as Readonly<Record<string, unknown>>);
+  canonicalMinor('persisted allocation creatorPaidMinor', record.creatorPaidMinor);
+  canonicalMinor('persisted allocation deductionTotalMinor', record.deductionTotalMinor);
+  return allocation;
 }
 
 export function verifyPersistedStatementSnapshot(

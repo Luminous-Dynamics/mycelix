@@ -1,8 +1,10 @@
 import { assertRoyaltyDeductionAuthority, type RoyaltyDeductionAuthority } from './deduction-authority.js';
 import { buildMerkleCommitment, type Digest } from './merkle.js';
 import { money } from './money.js';
+import type { DeterministicNettingBatch } from './netting.js';
 import { assertRoyaltyObligationAuthority, type RoyaltyObligationAuthority } from './obligation-authority.js';
-import { SettlementAttemptState, type SettlementAttemptObservation } from './recovery.js';
+import { SettlementAttemptState, type SettlementAttemptObservation, type SettlementRecoveryState } from './recovery.js';
+import { assertSettlementAllocationAuthority, type SettlementAllocationAuthority } from './settlement-allocation.js';
 import {
   isObservableSettlementEligibilityCode,
   type ObservableSettlementEligibilityCode,
@@ -60,6 +62,25 @@ export interface PersistedSettlementObservationRecord {
   readonly settledCurrency?: string;
   readonly supersedesAttemptId?: string;
   readonly observationRoot: Digest;
+}
+
+export interface PersistedSettlementAllocationRecord {
+  readonly allocationId: string;
+  readonly batchId: string;
+  readonly obligationSetRoot: Digest;
+  readonly eligibilityAsOf: string;
+  readonly eligibilityEvidenceRoot: Digest;
+  readonly beneficiaryId: string;
+  readonly currency: string;
+  readonly railReceiptRef: string;
+  readonly creatorPaidMinor: string;
+  readonly deductionRoots: readonly Digest[];
+  readonly deductionTotalMinor: string;
+  readonly residualHeldMinor: string;
+  readonly residualAuthorityRef?: string;
+  readonly allocatedAt: string;
+  readonly obligationSetDischarged: boolean;
+  readonly allocationRoot: Digest;
 }
 
 export interface PersistedStatementSnapshotRecord {
@@ -190,7 +211,7 @@ export function projectSettlementObservationRecord(
   const settledAmount = observation.settledAmount === undefined
     ? undefined
     : money(observation.settledAmount.amountMinor, observation.settledAmount.currency);
-  if (settledAmount && settledAmount.amountMinor < 0n) throw new Error('settled amount must be non-negative');
+  if (settledAmount && settledAmount.amountMinor <= 0n) throw new Error('settled amount must be positive when present');
   if (observation.state === SettlementAttemptState.Finalized) {
     if (railReceiptRef === undefined) throw new Error('finalized settlement observation requires railReceiptRef');
     if (settledAmount === undefined) throw new Error('finalized settlement observation requires settledAmount');
@@ -217,6 +238,33 @@ export function projectSettlementObservationRecord(
     ...committed,
     ...(settledAmount === undefined ? {} : { settledAmountMinor: settledAmount.amountMinor.toString(10) }),
     observationRoot: singleRecordRoot('settlement_attempt_observation_v3', committed),
+  });
+}
+
+export function projectSettlementAllocationRecord(
+  allocation: SettlementAllocationAuthority,
+  batch: DeterministicNettingBatch,
+  recovery: SettlementRecoveryState,
+  deductions: readonly RoyaltyDeductionAuthority[],
+): Readonly<PersistedSettlementAllocationRecord> {
+  assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions });
+  return Object.freeze({
+    allocationId: allocation.allocationId,
+    batchId: allocation.batchId,
+    obligationSetRoot: allocation.obligationSetRoot,
+    eligibilityAsOf: allocation.eligibilityAsOf,
+    eligibilityEvidenceRoot: allocation.eligibilityEvidenceRoot,
+    beneficiaryId: allocation.beneficiaryId,
+    currency: allocation.currency,
+    railReceiptRef: allocation.railReceiptRef,
+    creatorPaidMinor: allocation.creatorPaid.amountMinor.toString(10),
+    deductionRoots: Object.freeze([...allocation.deductionRoots]),
+    deductionTotalMinor: allocation.deductionTotal.amountMinor.toString(10),
+    residualHeldMinor: allocation.residualHeld.amountMinor.toString(10),
+    ...(allocation.residualAuthorityRef === undefined ? {} : { residualAuthorityRef: allocation.residualAuthorityRef }),
+    allocatedAt: allocation.allocatedAt,
+    obligationSetDischarged: allocation.obligationSetDischarged,
+    allocationRoot: allocation.allocationRoot,
   });
 }
 

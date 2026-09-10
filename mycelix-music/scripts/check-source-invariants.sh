@@ -201,6 +201,55 @@ grep -Fq 'settlement_finality_evidence_shape' packages/database/src/accounting-a
 grep -Fq 'settlement_observation_after_eligibility' packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must prove settlement causality enforcement"
 
+# Settlement allocation is persisted as append-only authority evidence, but the
+# deterministic batch remains the sole source of batch gross for conservation replay.
+allocation_model=$(sed -n '/^model SettlementAllocationRecord {/,/^}/p' packages/database/prisma/schema.prisma)
+[[ -n "$allocation_model" ]] || fail "settlement allocation persistence model missing"
+grep -Eq '^[[:space:]]+allocationId[[:space:]]+String[[:space:]]+@id' <<<"$allocation_model" \
+  || fail "settlement allocation canonical identity must be allocationId"
+if grep -Eq '^[[:space:]]+updatedAt[[:space:]]' <<<"$allocation_model"; then
+  fail "settlement allocation authority must remain append-only"
+fi
+if grep -Fq 'batchGrossMinor' <<<"$allocation_model"; then
+  fail "settlement allocation persistence must not duplicate deterministic batch gross authority"
+fi
+for field in obligationSetRoot eligibilityAsOf eligibilityEvidenceRoot railReceiptRef creatorPaidMinor deductionRoots deductionTotalMinor residualHeldMinor allocatedAt obligationSetDischarged allocationRoot; do
+  grep -Eq "^[[:space:]]+${field}[[:space:]]" <<<"$allocation_model" \
+    || fail "settlement allocation persistence missing field: $field"
+done
+grep -Fq 'projectSettlementAllocationRecord' packages/accounting/src/persistence-projection.ts \
+  || fail "settlement allocation persistence projector missing"
+grep -Fq 'assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions })' packages/accounting/src/persistence-projection.ts \
+  || fail "allocation persistence must verify semantic authority before serialization"
+grep -Fq 'verifyPersistedSettlementAllocation' packages/accounting/src/persistence-verification.ts \
+  || fail "settlement allocation canonical replay verifier missing"
+grep -Fq 'persisted allocation deduction roots do not match authoritative deductions' packages/accounting/src/persistence-verification.ts \
+  || fail "allocation replay must bind the exact deduction authority set"
+grep -Fq 'appendSettlementAllocation' packages/database/src/accounting-authority.ts \
+  || fail "database append boundary missing settlement allocation support"
+grep -Fq 'digestArray' packages/database/src/accounting-authority.ts \
+  || fail "allocation append boundary must enforce canonical deduction-root arrays"
+grep -Fq 'discharge state must equal residualHeldMinor == 0' packages/database/src/accounting-authority.ts \
+  || fail "allocation append boundary must enforce residual/discharge equivalence"
+grep -Fq 'canonical_sha256_json_array' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL must enforce sorted unique allocation deduction roots"
+grep -Fq 'settlement_allocation_canonical_shape' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL allocation canonical-shape constraint missing"
+grep -Fq 'settlement_allocation_append_only_guard' packages/database/prisma/accounting-append-only.sql \
+  || fail "PostgreSQL allocation append-only trigger missing"
+grep -Fq 'BEFORE UPDATE OR DELETE ON "SettlementAllocationRecord"' packages/database/prisma/accounting-append-only.sql \
+  || fail "allocation table must reject UPDATE and DELETE"
+grep -Fq 'accounting-allocation-authority.test.ts' packages/database/package.json \
+  || fail "database test command must include allocation append-boundary regressions"
+grep -Fq 'accounting-allocation.integration.ts' packages/database/package.json \
+  || fail "database live guard command must include allocation PostgreSQL regressions"
+for attack in bad-root unsorted duplicate zero-payment residual-no-authority false-discharge predates; do
+  grep -Fq "guard:allocation:${attack}" packages/database/src/accounting-allocation.integration.ts \
+    || fail "live allocation database attack missing: $attack"
+done
+grep -Fq "column_name = 'batchGrossMinor'" packages/database/src/accounting-allocation.integration.ts \
+  || fail "live allocation regression must prove batch gross authority is not duplicated"
+
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
 fi

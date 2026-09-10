@@ -101,6 +101,25 @@ export interface SettlementAttemptObservationRecordInput {
   readonly observationRoot: string;
 }
 
+export interface SettlementAllocationRecordInput {
+  readonly allocationId: string;
+  readonly batchId: string;
+  readonly obligationSetRoot: string;
+  readonly eligibilityAsOf: Date | string;
+  readonly eligibilityEvidenceRoot: string;
+  readonly beneficiaryId: string;
+  readonly currency: string;
+  readonly railReceiptRef: string;
+  readonly creatorPaidMinor: string;
+  readonly deductionRoots: readonly string[];
+  readonly deductionTotalMinor: string;
+  readonly residualHeldMinor: string;
+  readonly residualAuthorityRef?: string;
+  readonly allocatedAt: Date | string;
+  readonly obligationSetDischarged: boolean;
+  readonly allocationRoot: string;
+}
+
 export interface RoyaltyStatementSnapshotRecordInput {
   readonly statementId: string;
   readonly kind: StatementSnapshotKind;
@@ -127,6 +146,10 @@ interface ImmutableDelegate {
   findUnique(args: { where: { id: string } }): Promise<Record<string, unknown> | null>;
   create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
 }
+interface AllocationDelegate {
+  findUnique(args: { where: { allocationId: string } }): Promise<Record<string, unknown> | null>;
+  create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+}
 interface StatementDelegate {
   findUnique(args: { where: { statementId: string } }): Promise<Record<string, unknown> | null>;
   create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
@@ -138,6 +161,7 @@ export interface AccountingAuthorityPrismaClient {
   readonly royaltyEligibilityObservation: unknown;
   readonly royaltyDeductionRecord: unknown;
   readonly settlementAttemptObservationRecord: unknown;
+  readonly settlementAllocationRecord: unknown;
   readonly royaltyStatementSnapshotRecord: unknown;
 }
 
@@ -156,6 +180,13 @@ function digest(label: string, value: string): string {
   const normalized = value.trim();
   if (!DIGEST_RE.test(normalized)) throw new Error(`${label} must be a lowercase SHA-256 digest`);
   return normalized;
+}
+function digestArray(label: string, values: readonly string[]): readonly string[] {
+  const roots = values.map((value, index) => digest(`${label}[${index}]`, value));
+  const sorted = [...roots].sort();
+  if (roots.some((value, index) => value !== sorted[index])) throw new Error(`${label} must be canonically sorted`);
+  if (new Set(roots).size !== roots.length) throw new Error(`${label} must not contain duplicates`);
+  return Object.freeze(roots);
 }
 function timestamp(label: string, value: Date | string): Date {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -195,6 +226,13 @@ function immutableDelegate(value: unknown, label: string): ImmutableDelegate {
   }
   return delegate as ImmutableDelegate;
 }
+function allocationDelegate(value: unknown): AllocationDelegate {
+  const delegate = value as Partial<AllocationDelegate> | null;
+  if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
+    throw new Error('settlementAllocationRecord Prisma delegate is unavailable; run prisma generate for the authority schema');
+  }
+  return delegate as AllocationDelegate;
+}
 function statementDelegate(value: unknown): StatementDelegate {
   const delegate = value as Partial<StatementDelegate> | null;
   if (!delegate || typeof delegate.findUnique !== 'function' || typeof delegate.create !== 'function') {
@@ -232,6 +270,27 @@ async function appendById(
     const raced = await delegate.findUnique({ where: { id: data.id } });
     if (raced) {
       assertImmutableReplay(label, data.id, raced, data);
+      return raced;
+    }
+    throw error;
+  }
+}
+
+async function appendAllocation(
+  delegate: AllocationDelegate,
+  data: Record<string, unknown> & { allocationId: string },
+): Promise<Record<string, unknown>> {
+  const existing = await delegate.findUnique({ where: { allocationId: data.allocationId } });
+  if (existing) {
+    assertImmutableReplay('settlement allocation', data.allocationId, existing, data);
+    return existing;
+  }
+  try {
+    return await delegate.create({ data });
+  } catch (error) {
+    const raced = await delegate.findUnique({ where: { allocationId: data.allocationId } });
+    if (raced) {
+      assertImmutableReplay('settlement allocation', data.allocationId, raced, data);
       return raced;
     }
     throw error;
@@ -323,6 +382,7 @@ export class AccountingAuthorityStore {
       if (settledAmountMinor === undefined || settledCurrency === undefined) {
         throw new Error('finalized settlement observation requires exact settled amount and currency');
       }
+      if (BigInt(settledAmountMinor) <= 0n) throw new Error('finalized settlement observation settled amount must be positive');
     } else if (settledAmountMinor !== undefined || settledCurrency !== undefined) {
       throw new Error('settled amount is permitted only on finalized settlement evidence');
     }
@@ -347,6 +407,53 @@ export class AccountingAuthorityStore {
       observationRoot: digest('settlement observationRoot', input.observationRoot),
     };
     return appendById(immutableDelegate(this.client.settlementAttemptObservationRecord, 'settlementAttemptObservationRecord'), 'settlement attempt observation', data);
+  }
+
+  async appendSettlementAllocation(input: SettlementAllocationRecordInput): Promise<Record<string, unknown>> {
+    const allocationId = required('settlement allocationId', input.allocationId);
+    const creatorPaidMinor = minor('settlement allocation creatorPaidMinor', input.creatorPaidMinor);
+    if (BigInt(creatorPaidMinor) <= 0n) throw new Error('settlement allocation creatorPaidMinor must be positive');
+    const deductionRoots = digestArray('settlement allocation deductionRoots', input.deductionRoots);
+    const deductionTotalMinor = minor('settlement allocation deductionTotalMinor', input.deductionTotalMinor);
+    if (deductionRoots.length === 0 && deductionTotalMinor !== '0') {
+      throw new Error('settlement allocation without deduction roots must have zero deductionTotalMinor');
+    }
+    const residualHeldMinor = minor('settlement allocation residualHeldMinor', input.residualHeldMinor);
+    const residualAuthorityRef = optionalRef('settlement allocation residualAuthorityRef', input.residualAuthorityRef);
+    if (residualHeldMinor === '0' && residualAuthorityRef !== undefined) {
+      throw new Error('zero settlement residual must not claim residualAuthorityRef');
+    }
+    if (residualHeldMinor !== '0' && residualAuthorityRef === undefined) {
+      throw new Error('nonzero settlement residual requires residualAuthorityRef');
+    }
+    const expectedDischarged = residualHeldMinor === '0';
+    if (input.obligationSetDischarged !== expectedDischarged) {
+      throw new Error('settlement allocation discharge state must equal residualHeldMinor == 0');
+    }
+    const eligibilityAsOf = timestamp('settlement allocation eligibilityAsOf', input.eligibilityAsOf);
+    const allocatedAt = timestamp('settlement allocation allocatedAt', input.allocatedAt);
+    if (allocatedAt.getTime() < eligibilityAsOf.getTime()) {
+      throw new Error('settlement allocation cannot predate its eligibility snapshot');
+    }
+    const data = {
+      allocationId,
+      batchId: required('settlement allocation batchId', input.batchId),
+      obligationSetRoot: digest('settlement allocation obligationSetRoot', input.obligationSetRoot),
+      eligibilityAsOf,
+      eligibilityEvidenceRoot: digest('settlement allocation eligibilityEvidenceRoot', input.eligibilityEvidenceRoot),
+      beneficiaryId: required('settlement allocation beneficiaryId', input.beneficiaryId),
+      currency: currency(input.currency),
+      railReceiptRef: required('settlement allocation railReceiptRef', input.railReceiptRef),
+      creatorPaidMinor,
+      deductionRoots,
+      deductionTotalMinor,
+      residualHeldMinor,
+      ...(residualAuthorityRef === undefined ? {} : { residualAuthorityRef }),
+      allocatedAt,
+      obligationSetDischarged: input.obligationSetDischarged,
+      allocationRoot: digest('settlement allocation allocationRoot', input.allocationRoot),
+    };
+    return appendAllocation(allocationDelegate(this.client.settlementAllocationRecord), data);
   }
 
   async appendStatementSnapshot(input: RoyaltyStatementSnapshotRecordInput): Promise<Record<string, unknown>> {

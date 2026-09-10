@@ -46,12 +46,14 @@ function client() {
   const eligibility = new FakeDelegate();
   const deduction = new FakeDelegate();
   const settlement = new FakeDelegate();
+  const allocation = new FakeDelegate();
   const statement = new FakeStatementDelegate();
   const prisma: AccountingAuthorityPrismaClient = {
     royaltyObligationRecord: obligation,
     royaltyEligibilityObservation: eligibility,
     royaltyDeductionRecord: deduction,
     settlementAttemptObservationRecord: settlement,
+    settlementAllocationRecord: allocation,
     royaltyStatementSnapshotRecord: statement,
   };
   return { prisma, obligation, eligibility, settlement };
@@ -152,6 +154,15 @@ test('finalized settlement observation requires exact amount and currency', asyn
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
   const { settledAmountMinor: _minor, settledCurrency: _currency, ...withoutAmount } = finalizedInput;
   await assert.rejects(store.appendSettlementObservation(withoutAmount), /requires exact settled amount and currency/);
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
+test('finalized settlement observation requires a positive amount before Prisma', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  await assert.rejects(
+    store.appendSettlementObservation({ ...finalizedInput, settledAmountMinor: '0' }),
+    /settled amount must be positive/,
+  );
   assert.equal(fake.settlement.createCalls, 0);
 });
 

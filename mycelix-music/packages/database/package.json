@@ -17,8 +17,8 @@
     "db:seed": "tsx src/seed.ts",
     "db:studio": "prisma studio",
     "type-check:accounting-authority": "tsc -p tsconfig.accounting-authority.json",
-    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts",
-    "test:accounting-guards": "tsx --test src/accounting-append-only.integration.ts"
+    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts src/accounting-allocation-authority.test.ts",
+    "test:accounting-guards": "tsx --test src/accounting-append-only.integration.ts src/accounting-allocation.integration.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0"

@@ -35,6 +35,40 @@ BEGIN
 END;
 $$;
 
+-- Allocation deduction roots are stored canonically as a strictly increasing
+-- JSON array of lowercase SHA-256 strings. Strict ordering also proves uniqueness.
+CREATE OR REPLACE FUNCTION canonical_sha256_json_array(value jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  element jsonb;
+  current_value text;
+  previous_value text := NULL;
+BEGIN
+  IF jsonb_typeof(value) <> 'array' THEN
+    RETURN false;
+  END IF;
+
+  FOR element IN SELECT * FROM jsonb_array_elements(value)
+  LOOP
+    IF jsonb_typeof(element) <> 'string' THEN
+      RETURN false;
+    END IF;
+    current_value := element #>> '{}';
+    IF current_value !~ '^[0-9a-f]{64}$' THEN
+      RETURN false;
+    END IF;
+    IF previous_value IS NOT NULL AND current_value <= previous_value THEN
+      RETURN false;
+    END IF;
+    previous_value := current_value;
+  END LOOP;
+  RETURN true;
+END;
+$$;
+
 -- Source eligibility observations may only assert externally observable facts.
 -- Compiler outcomes such as below_threshold and awaiting_eligibility_evidence
 -- are derived projection state and therefore may never enter the evidence log.
@@ -105,10 +139,9 @@ ALTER TABLE "SettlementAttemptObservationRecord"
     AND "observationRoot" ~ '^[0-9a-f]{64}$'
   );
 
--- Finality is an exact whole-batch claim. PostgreSQL can prove that finalized
--- rows carry canonical amount/currency evidence and that non-final rows do not.
--- Equality with deterministic batch gross is rechecked during canonical replay,
--- because the batch itself is a reconstruction rather than a database row.
+-- Rail finality may cover all or part of a deterministic batch. PostgreSQL can
+-- prove that finalized rows carry canonical amount/currency evidence and that
+-- non-final rows do not. Exact batch comparison is canonical replay authority.
 ALTER TABLE "SettlementAttemptObservationRecord"
   DROP CONSTRAINT IF EXISTS settlement_finalized_requires_receipt;
 ALTER TABLE "SettlementAttemptObservationRecord"
@@ -121,7 +154,7 @@ ALTER TABLE "SettlementAttemptObservationRecord"
         "railReceiptRef" IS NOT NULL
         AND btrim("railReceiptRef") <> ''
         AND "settledAmountMinor" IS NOT NULL
-        AND "settledAmountMinor" ~ '^(0|[1-9][0-9]*)$'
+        AND "settledAmountMinor" ~ '^[1-9][0-9]*$'
         AND "settledCurrency" IS NOT NULL
         AND btrim("settledCurrency") <> ''
       ELSE
@@ -137,6 +170,43 @@ ALTER TABLE "SettlementAttemptObservationRecord"
 ALTER TABLE "SettlementAttemptObservationRecord"
   ADD CONSTRAINT settlement_observation_after_eligibility
   CHECK ("observedAt" >= "eligibilityAsOf");
+
+-- Allocation rows preserve an already-created semantic authority. PostgreSQL
+-- enforces canonical local shape, residual provenance and discharge consistency.
+-- The full conservation theorem is re-proved on canonical replay against the
+-- deterministic batch and deduction authorities; batch gross is not duplicated here.
+ALTER TABLE "SettlementAllocationRecord"
+  DROP CONSTRAINT IF EXISTS settlement_allocation_canonical_shape;
+ALTER TABLE "SettlementAllocationRecord"
+  ADD CONSTRAINT settlement_allocation_canonical_shape
+  CHECK (
+    "obligationSetRoot" ~ '^[0-9a-f]{64}$'
+    AND "eligibilityEvidenceRoot" ~ '^[0-9a-f]{64}$'
+    AND "allocationRoot" ~ '^[0-9a-f]{64}$'
+    AND btrim("batchId") <> ''
+    AND btrim("beneficiaryId") <> ''
+    AND btrim("currency") <> ''
+    AND btrim("railReceiptRef") <> ''
+    AND canonical_sha256_json_array("deductionRoots")
+    AND "creatorPaidMinor" ~ '^[1-9][0-9]*$'
+    AND "deductionTotalMinor" ~ '^(0|[1-9][0-9]*)$'
+    AND (jsonb_array_length("deductionRoots") > 0 OR "deductionTotalMinor" = '0')
+    AND "residualHeldMinor" ~ '^(0|[1-9][0-9]*)$'
+    AND "allocatedAt" >= "eligibilityAsOf"
+    AND CASE
+      WHEN "residualHeldMinor" ~ '^(0|[1-9][0-9]*)$' THEN
+        CASE
+          WHEN "residualHeldMinor"::numeric = 0 THEN
+            "obligationSetDischarged" = true
+            AND "residualAuthorityRef" IS NULL
+          ELSE
+            "obligationSetDischarged" = false
+            AND "residualAuthorityRef" IS NOT NULL
+            AND btrim("residualAuthorityRef") <> ''
+        END
+      ELSE false
+    END
+  );
 
 -- Statements are projections, but persisted snapshots must still be incapable
 -- of representing malformed roots or non-conserving/non-canonical money. CASE
@@ -194,3 +264,8 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+DROP TRIGGER IF EXISTS settlement_allocation_append_only_guard ON "SettlementAllocationRecord";
+CREATE TRIGGER settlement_allocation_append_only_guard
+BEFORE UPDATE OR DELETE ON "SettlementAllocationRecord"
+FOR EACH ROW EXECUTE FUNCTION reject_music_accounting_authority_mutation();
