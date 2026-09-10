@@ -3,11 +3,10 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Integrity boundary for DID-authored external evidence-key provenance.
 //!
-//! V1 intentionally validates only the Mycelix/Holochain side of a two-sided
-//! association. The DHT can prove that the committing agent authored a binding
-//! for its deterministic `did:mycelix:<agent>` identifier. It does **not** verify
-//! the referenced Xenia signature in WASM and therefore never labels a publication
-//! as trusted or fully verified.
+//! The DHT proves the Mycelix side of an association: the committing agent authored
+//! a binding for its deterministic `did:mycelix:<agent>` identifier. Xenia signature
+//! verification remains external to WASM. Lifecycle is append-only: bindings are
+//! never rewritten or erased; controllers may publish retraction/supersession records.
 
 #![forbid(unsafe_code)]
 
@@ -16,6 +15,8 @@ use mycelix_identity_provenance::KeyDidBindingArtifact;
 
 /// Maximum UTF-8 byte length for an opaque external Xenia attestation locator.
 pub const MAX_XENIA_ATTESTATION_REF_LEN: usize = 1_024;
+/// Maximum UTF-8 byte length for an optional lifecycle explanation.
+pub const MAX_LIFECYCLE_REASON_LEN: usize = 512;
 
 /// DID-authored publication of one canonical external-key association artifact.
 ///
@@ -32,20 +33,48 @@ pub struct KeyDidBindingPublication {
     pub xenia_attestation_ref: String,
 }
 
+/// Append-only lifecycle operation for a previously valid key-binding publication.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BindingLifecycleDisposition {
+    /// The DID controller withdraws the association for future consumers.
+    Retract,
+    /// The DID controller points to a replacement publication for the same purpose/scope.
+    Supersede,
+}
+
+/// Immutable lifecycle evidence for a key-binding publication.
+///
+/// Multiple valid lifecycle records may coexist because concurrent authorship cannot be
+/// globally serialized at integrity-validation time. Consumers must surface conflicting
+/// records rather than silently choosing one.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct KeyBindingLifecycle {
+    /// Exact action hash of the publication being retracted or superseded.
+    pub target_publication: ActionHash,
+    /// Lifecycle operation.
+    pub disposition: BindingLifecycleDisposition,
+    /// Replacement publication for [`BindingLifecycleDisposition::Supersede`].
+    pub replacement_publication: Option<ActionHash>,
+    /// Optional human-readable explanation; evidence only, never authority.
+    pub reason: Option<String>,
+}
+
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     /// DID-side publication of an external evidence-key binding.
     KeyDidBindingPublication(KeyDidBindingPublication),
+    /// Append-only lifecycle evidence for a binding publication.
+    KeyBindingLifecycle(KeyBindingLifecycle),
 }
 
 /// Reserved index type for a later coordinator tranche.
 ///
-/// V1 rejects all link creation so no unqualified index can accidentally become
-/// an authority/query surface before its canonical base/target validation exists.
+/// Links remain rejected until their canonical bases/targets are separately reviewed.
 #[hdk_link_types]
 pub enum LinkTypes {
-    /// Future DID/fingerprint lookup index. Rejected in v1.
+    /// Future DID/fingerprint/lifecycle lookup index. Rejected in this tranche.
     BindingIndex,
 }
 
@@ -64,16 +93,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::KeyDidBindingPublication(publication) => {
                     validate_create_publication(EntryCreationAction::Create(action), publication)
                 }
+                EntryTypes::KeyBindingLifecycle(lifecycle) => {
+                    validate_create_lifecycle(EntryCreationAction::Create(action), lifecycle)
+                }
             },
-            OpEntry::UpdateEntry { .. } => invalid("Key provenance publications are immutable; publish a new lifecycle record in a future protocol version"),
+            OpEntry::UpdateEntry { .. } => invalid(
+                "Key provenance entries are append-only and cannot be updated",
+            ),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(_) => invalid("Key provenance publications cannot be updated"),
-        FlatOp::RegisterDelete(_) => invalid("Key provenance publications cannot be deleted"),
+        FlatOp::RegisterUpdate(_) => invalid("Key provenance entries cannot be updated"),
+        FlatOp::RegisterDelete(_) => invalid("Key provenance entries cannot be deleted"),
         FlatOp::RegisterCreateLink { .. } => invalid(
-            "Key provenance indexes are disabled in v1 until canonical defensive indexing is defined",
+            "Key provenance indexes are disabled until canonical defensive indexing is defined",
         ),
-        FlatOp::RegisterDeleteLink { .. } => invalid("Key provenance links cannot be deleted in v1"),
+        FlatOp::RegisterDeleteLink { .. } => invalid("Key provenance links cannot be deleted"),
         FlatOp::StoreRecord(_) | FlatOp::RegisterAgentActivity(_) => {
             Ok(ValidateCallbackResult::Valid)
         }
@@ -89,6 +123,66 @@ fn validate_create_publication(
         Ok(()) => ValidateCallbackResult::Valid,
         Err(reason) => ValidateCallbackResult::Invalid(reason),
     })
+}
+
+fn validate_create_lifecycle(
+    action: EntryCreationAction,
+    lifecycle: KeyBindingLifecycle,
+) -> ExternResult<ValidateCallbackResult> {
+    if let Err(reason) = validate_lifecycle_shape(&lifecycle) {
+        return Ok(ValidateCallbackResult::Invalid(reason));
+    }
+
+    let target_record = must_get_valid_record(lifecycle.target_publication.clone())?;
+    let target_publication = match decode_publication(&target_record) {
+        Ok(publication) => publication,
+        Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+    };
+
+    let author = action.author();
+    if target_record.action().author() != author {
+        return invalid("Only the author of a key-binding publication may retract or supersede it");
+    }
+
+    let author_did = format!("did:mycelix:{author}");
+    if target_publication.artifact.did != author_did {
+        return invalid("Target publication DID does not match lifecycle author");
+    }
+
+    if lifecycle.disposition == BindingLifecycleDisposition::Supersede {
+        let replacement_hash = lifecycle
+            .replacement_publication
+            .as_ref()
+            .expect("shape validation requires replacement for Supersede");
+        let replacement_record = must_get_valid_record(replacement_hash.clone())?;
+        let replacement = match decode_publication(&replacement_record) {
+            Ok(publication) => publication,
+            Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+        };
+
+        if replacement_record.action().author() != author {
+            return invalid("Replacement publication must have the same DID-controller author");
+        }
+        if replacement.artifact.did != target_publication.artifact.did {
+            return invalid("Replacement publication must bind the same DID");
+        }
+        if replacement.artifact.purpose != target_publication.artifact.purpose {
+            return invalid("Replacement publication must preserve association purpose");
+        }
+        if replacement.artifact.scope != target_publication.artifact.scope {
+            return invalid("Replacement publication must preserve association scope");
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn decode_publication(record: &Record) -> Result<KeyDidBindingPublication, String> {
+    match record.entry().to_app_option::<KeyDidBindingPublication>() {
+        Ok(Some(publication)) => Ok(publication),
+        Ok(None) => Err("Lifecycle target must contain a public key-binding publication".into()),
+        Err(_) => Err("Lifecycle target must decode as a key-binding publication".into()),
+    }
 }
 
 /// Pure structural validation used by the DHT callback and unit tests.
@@ -123,6 +217,37 @@ fn validate_publication_fields(
     }
 
     Ok(())
+}
+
+fn validate_lifecycle_shape(lifecycle: &KeyBindingLifecycle) -> Result<(), String> {
+    if let Some(reason) = &lifecycle.reason {
+        if reason.len() > MAX_LIFECYCLE_REASON_LEN {
+            return Err(format!(
+                "lifecycle reason exceeds maximum length {}",
+                MAX_LIFECYCLE_REASON_LEN
+            ));
+        }
+        if reason.trim() != reason {
+            return Err("lifecycle reason must not contain leading or trailing whitespace".into());
+        }
+    }
+
+    match (&lifecycle.disposition, &lifecycle.replacement_publication) {
+        (BindingLifecycleDisposition::Retract, None) => Ok(()),
+        (BindingLifecycleDisposition::Retract, Some(_)) => {
+            Err("Retract lifecycle record must not specify a replacement".into())
+        }
+        (BindingLifecycleDisposition::Supersede, None) => {
+            Err("Supersede lifecycle record requires a replacement publication".into())
+        }
+        (BindingLifecycleDisposition::Supersede, Some(replacement)) => {
+            if replacement == &lifecycle.target_publication {
+                Err("A key-binding publication cannot supersede itself".into())
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 fn invalid(message: impl Into<String>) -> ExternResult<ValidateCallbackResult> {
@@ -196,5 +321,49 @@ mod tests {
             xenia_attestation_ref: "xenia-attestation:blake3:abc123".into(),
         };
         assert!(validate_publication_fields(&publication, did).is_err());
+    }
+
+    #[test]
+    fn retraction_cannot_name_replacement() {
+        let target = ActionHash::from_raw_36(vec![1; 36]);
+        let replacement = ActionHash::from_raw_36(vec![2; 36]);
+        let lifecycle = KeyBindingLifecycle {
+            target_publication: target,
+            disposition: BindingLifecycleDisposition::Retract,
+            replacement_publication: Some(replacement),
+            reason: None,
+        };
+        assert!(validate_lifecycle_shape(&lifecycle).is_err());
+    }
+
+    #[test]
+    fn supersession_requires_distinct_replacement() {
+        let target = ActionHash::from_raw_36(vec![1; 36]);
+        let missing = KeyBindingLifecycle {
+            target_publication: target.clone(),
+            disposition: BindingLifecycleDisposition::Supersede,
+            replacement_publication: None,
+            reason: None,
+        };
+        assert!(validate_lifecycle_shape(&missing).is_err());
+
+        let self_replacement = KeyBindingLifecycle {
+            target_publication: target.clone(),
+            disposition: BindingLifecycleDisposition::Supersede,
+            replacement_publication: Some(target),
+            reason: None,
+        };
+        assert!(validate_lifecycle_shape(&self_replacement).is_err());
+    }
+
+    #[test]
+    fn bounded_canonical_reason_is_accepted() {
+        let lifecycle = KeyBindingLifecycle {
+            target_publication: ActionHash::from_raw_36(vec![1; 36]),
+            disposition: BindingLifecycleDisposition::Retract,
+            replacement_publication: None,
+            reason: Some("key retired".into()),
+        };
+        assert_eq!(validate_lifecycle_shape(&lifecycle), Ok(()));
     }
 }
