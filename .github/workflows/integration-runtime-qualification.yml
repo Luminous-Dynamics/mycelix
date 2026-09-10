@@ -28,6 +28,10 @@ env:
   CARGO_TERM_COLOR: always
   RUNTIME_MANIFEST: crates/mycelix-integration-runtime/Cargo.toml
 
+concurrency:
+  group: integration-runtime-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   qualify:
     name: Integration Runtime Qualification
