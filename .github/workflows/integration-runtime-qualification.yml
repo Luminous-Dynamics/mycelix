@@ -66,6 +66,7 @@ jobs:
           guard='crates/mycelix-integration-runtime/src/storage_guard.rs'
           facade='crates/mycelix-integration-runtime/src/v31.rs'
           legacy='crates/mycelix-integration-runtime/src/lib.rs'
+          atomic_hardening='crates/mycelix-integration-runtime/tests/hardening_transaction_atomicity.rs'
 
           test -f "$constitution"
           grep -Fq 'Claim MUST be distinct from external dispatch' "$constitution"
@@ -85,6 +86,7 @@ jobs:
           test -f "$guard"
           test -f "$facade"
           test -f "$legacy"
+          test -f "$atomic_hardening"
           test ! -f 'crates/mycelix-integration-runtime/src/schema_guard.rs'
 
           grep -Fq 'mod bootstrap_guard' "$boundary"
@@ -169,6 +171,11 @@ jobs:
           test "$profile_line" -lt "$post_line"
           test "$post_line" -lt "$commit_line"
 
+          grep -Fq 'post_manifest_failure_rolls_back_all_hardening_mutations' "$atomic_hardening"
+          grep -Fq 'pre-v5-rollback-marker' "$atomic_hardening"
+          grep -Fq 'foreign-key integrity violation' "$atomic_hardening"
+          grep -Fq 'failed post-manifest qualification must roll back trigger replacement' "$atomic_hardening"
+
           grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
           grep -Fq 'const STRUCTURAL_SCHEMA_V2: i64 = 2' "$facade"
           grep -Fq 'integration_runtime_operation_binding' "$facade"
@@ -218,6 +225,7 @@ jobs:
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test v3_semantic_identity
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test structural_schema_admission
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test structural_manifest
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test hardening_transaction_atomicity
 
       - name: Run attempt and stale-fence qualification
         run: |
