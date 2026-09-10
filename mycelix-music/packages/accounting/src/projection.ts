@@ -7,6 +7,10 @@ import {
 } from './netting.js';
 import type { SettlementRecoveryState } from './recovery.js';
 import {
+  requireCanonicalSettlementAllocationHead,
+  type SettlementAllocationLineageResolution,
+} from './settlement-allocation-lineage.js';
+import {
   assertSettlementAllocationAuthority,
   type SettlementAllocationAuthority,
 } from './settlement-allocation.js';
@@ -34,8 +38,8 @@ export type StatementDeduction = RoyaltyDeductionAuthority;
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
   readonly recovery: SettlementRecoveryState;
-  /** Optional economic disposition. Only this object can claim obligation-set discharge. */
-  readonly allocation?: SettlementAllocationAuthority;
+  /** Optional economic disposition. Only a resolver-minted canonical lineage may supply it. */
+  readonly allocationLineage?: SettlementAllocationLineageResolution;
 }
 
 export interface CompileRoyaltyStatementInput {
@@ -105,7 +109,12 @@ function validateSettlementEvidence(
   settlementEpochId: string,
   statementAsOf: number,
   deductionsByRoot: ReadonlyMap<string, RoyaltyDeductionAuthority>,
-): void {
+): SettlementAllocationAuthority | undefined {
+  const untrustedEvidence = evidence as unknown as Readonly<Record<string, unknown>>;
+  if ('allocation' in untrustedEvidence) {
+    throw new Error('direct settlement allocation evidence is forbidden; provide resolver-minted allocationLineage');
+  }
+
   const { batch, recovery } = evidence;
   if (batch.beneficiaryId !== beneficiaryId) throw new Error('settlement batch beneficiary mismatch');
   if (batch.currency !== currency) throw new Error('settlement batch currency mismatch');
@@ -148,16 +157,28 @@ function validateSettlementEvidence(
     if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
   }
 
-  if (evidence.allocation !== undefined) {
-    const allocation = evidence.allocation;
-    if (Date.parse(allocation.allocatedAt) > statementAsOf) throw new Error('settlement allocation cannot be later than statement asOf');
-    const allocationDeductions = allocation.deductionRoots.map(root => {
-      const deduction = deductionsByRoot.get(root);
-      if (!deduction) throw new Error(`settlement allocation references deduction outside statement: ${root}`);
-      return deduction;
-    });
-    assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions: allocationDeductions });
+  if (evidence.allocationLineage === undefined) return undefined;
+  const lineage = evidence.allocationLineage;
+  if (lineage.batchId !== batch.batchId) {
+    throw new Error('settlement allocation lineage is not bound to the supplied batch');
   }
+  if (Date.parse(lineage.boundary.asOf) !== statementAsOf) {
+    throw new Error('settlement allocation lineage boundary asOf must equal statement asOf');
+  }
+  const allocation = requireCanonicalSettlementAllocationHead(lineage);
+  if (allocation.allocationRoot !== lineage.headAllocationRoot) {
+    throw new Error('settlement allocation lineage head root mismatch');
+  }
+  if (Date.parse(allocation.allocatedAt) > statementAsOf) {
+    throw new Error('settlement allocation cannot be later than statement asOf');
+  }
+  const allocationDeductions = allocation.deductionRoots.map(root => {
+    const deduction = deductionsByRoot.get(root);
+    if (!deduction) throw new Error(`settlement allocation references deduction outside statement: ${root}`);
+    return deduction;
+  });
+  assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions: allocationDeductions });
+  return allocation;
 }
 
 export function compileRoyaltyStatement(
@@ -229,10 +250,18 @@ export function compileRoyaltyStatement(
   const seenBatches = new Set<string>();
   const receiptBackedObligationIds = new Set<string>();
   const allocatedDeductionRoots = new Set<string>();
+  const allocationsByBatch = new Map<string, SettlementAllocationAuthority>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
     assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch, input.eligibilityObservations);
-    validateSettlementEvidence(evidence, input.beneficiaryId, currency, input.settlementEpoch.id.trim(), statementAsOf, deductionsByRoot);
+    const allocation = validateSettlementEvidence(
+      evidence,
+      input.beneficiaryId,
+      currency,
+      input.settlementEpoch.id.trim(),
+      statementAsOf,
+      deductionsByRoot,
+    );
     if (seenBatches.has(evidence.batch.batchId)) throw new Error(`duplicate settlement batch: ${evidence.batch.batchId}`);
     seenBatches.add(evidence.batch.batchId);
     for (const obligationId of evidence.batch.obligationIds) {
@@ -250,8 +279,9 @@ export function compileRoyaltyStatement(
     if (hasReceiptBackedFinality(evidence.recovery)) {
       paid = addMoney(paid, evidence.recovery.finalSettledAmount!);
     }
-    if (evidence.allocation !== undefined) {
-      for (const root of evidence.allocation.deductionRoots) {
+    if (allocation !== undefined) {
+      allocationsByBatch.set(evidence.batch.batchId, allocation);
+      for (const root of allocation.deductionRoots) {
         if (allocatedDeductionRoots.has(root)) throw new Error(`deduction allocated to more than one settlement batch: ${root}`);
         allocatedDeductionRoots.add(root);
       }
@@ -273,21 +303,26 @@ export function compileRoyaltyStatement(
       eligibilityAsOf: eligibilityEvidence.asOf,
       eligibilityEvidenceRoot: eligibilityEvidence.root,
     },
-    ...orderedSettlements.map(evidence => ({
-      evidenceKind: 'settlement_execution_v4',
-      batchId: evidence.batch.batchId,
-      obligationSetRoot: evidence.batch.obligationSetRoot,
-      eligibilityAsOf: evidence.batch.eligibilityAsOf,
-      eligibilityEvidenceRoot: evidence.batch.eligibilityEvidenceRoot,
-      obligationIds: [...evidence.batch.obligationIds].sort(),
-      recoveryStatus: evidence.recovery.status,
-      railCoversBatchGross: evidence.recovery.railCoversBatchGross,
-      finalReceiptRef: evidence.recovery.finalReceiptRef ?? null,
-      finalSettledAmountMinor: evidence.recovery.finalSettledAmount?.amountMinor ?? null,
-      currency: evidence.recovery.finalSettledAmount?.currency ?? evidence.batch.currency,
-      allocationRoot: evidence.allocation?.allocationRoot ?? null,
-      obligationSetDischarged: evidence.allocation?.obligationSetDischarged ?? false,
-    })),
+    ...orderedSettlements.map(evidence => {
+      const allocation = allocationsByBatch.get(evidence.batch.batchId);
+      return {
+        evidenceKind: 'settlement_execution_v5',
+        batchId: evidence.batch.batchId,
+        obligationSetRoot: evidence.batch.obligationSetRoot,
+        eligibilityAsOf: evidence.batch.eligibilityAsOf,
+        eligibilityEvidenceRoot: evidence.batch.eligibilityEvidenceRoot,
+        obligationIds: [...evidence.batch.obligationIds].sort(),
+        recoveryStatus: evidence.recovery.status,
+        railCoversBatchGross: evidence.recovery.railCoversBatchGross,
+        finalReceiptRef: evidence.recovery.finalReceiptRef ?? null,
+        finalSettledAmountMinor: evidence.recovery.finalSettledAmount?.amountMinor ?? null,
+        currency: evidence.recovery.finalSettledAmount?.currency ?? evidence.batch.currency,
+        allocationLineageRoot: evidence.allocationLineage?.lineageRoot ?? null,
+        allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot ?? null,
+        allocationHeadRoot: allocation?.allocationRoot ?? null,
+        obligationSetDischarged: allocation?.obligationSetDischarged ?? false,
+      };
+    }),
   ]).root;
 
   return createStatementSnapshot({

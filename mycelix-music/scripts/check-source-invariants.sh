@@ -77,10 +77,56 @@ grep -Fq 'must conserve batch gross = creator paid + deductions + residual held'
   || fail "settlement allocation conservation theorem missing"
 grep -Fq 'nonzero settlement residual requires residualAuthorityRef' packages/accounting/src/settlement-allocation.ts \
   || fail "nonzero settlement residual must retain authority provenance"
-grep -Fq 'allocationRoot: evidence.allocation?.allocationRoot' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must commit allocation authority"
-grep -Fq 'obligationSetDischarged: evidence.allocation?.obligationSetDischarged' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must commit allocation discharge result"
+
+# Statements may consume allocation semantics only through a resolver-minted,
+# complete allocation lineage for the exact statement asOf. Direct allocation
+# input is rejected at runtime even from structurally permissive JS callers.
+if grep -Fq 'readonly allocation?:' <<<"$statement_settlement"; then
+  fail "statement compiler must not accept direct allocation authority"
+fi
+grep -Fq 'readonly allocationLineage?: SettlementAllocationLineageResolution;' <<<"$statement_settlement" \
+  || fail "statement settlement evidence must carry allocation lineage rather than direct allocation"
+grep -Fq 'direct settlement allocation evidence is forbidden; provide resolver-minted allocationLineage' packages/accounting/src/projection.ts \
+  || fail "statement compiler must reject legacy direct allocation evidence at runtime"
+grep -Fq 'requireCanonicalSettlementAllocationHead' packages/accounting/src/projection.ts \
+  || fail "statement compiler must require resolver-minted canonical allocation head"
+grep -Fq 'settlement allocation lineage boundary asOf must equal statement asOf' packages/accounting/src/projection.ts \
+  || fail "statement compiler must bind allocation lineage completeness to exact statement asOf"
+grep -Fq "evidenceKind: 'settlement_execution_v5'" packages/accounting/src/projection.ts \
+  || fail "statement settlement commitment must use lineage-aware v5 evidence domain"
+grep -Fq 'allocationLineageRoot: evidence.allocationLineage?.lineageRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit allocation lineage root"
+grep -Fq 'allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit allocation completeness boundary"
+grep -Fq 'allocationHeadRoot: allocation?.allocationRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit canonical allocation head"
+grep -Fq 'obligationSetDischarged: allocation?.obligationSetDischarged' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must derive discharge only from canonical allocation head"
+
+# Allocation lineage must be explicit, monotonic, completeness-bound and sealed
+# against structurally fabricated TypeScript resolution objects.
+grep -Fq 'const VERIFIED_LINEAGE_RESOLUTIONS = new WeakSet<object>();' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage canonical resolutions must carry private runtime provenance"
+grep -Fq "recordType: 'settlement_allocation_successor_link_v1'" packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation successor links must have a domain-separated commitment"
+grep -Fq "recordType: 'settlement_allocation_lineage_boundary_v1'" packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage completeness boundary commitment missing"
+grep -Fq 'complete settlement allocation lineage boundary must be observed through asOf' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "complete lineage coverage must reach requested asOf"
+grep -Fq 'settlement allocation successor must strictly reduce residual held value' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation successors must make strict residual progress"
+grep -Fq 'settlement allocation lineage fork detected' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage must fail closed on forks"
+grep -Fq 'settlement allocation lineage join detected' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage must fail closed on joins"
+grep -Fq "recordType: 'settlement_allocation_lineage_v2'" packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage root must bind completeness-aware v2 semantics"
+grep -Fq 'boundaryRoot: boundary.boundaryRoot' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "allocation lineage root must bind source completeness boundary"
+grep -Fq 'VERIFIED_LINEAGE_RESOLUTIONS.has(resolution as object)' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "canonical allocation head promotion must reject fabricated resolution objects"
+grep -Fq 'canonical head requires complete source coverage' packages/accounting/src/settlement-allocation-lineage.ts \
+  || fail "provisional allocation lineage must never become canonical discharge authority"
 
 # Deductions are canonical root-bearing accounting authorities before persistence.
 grep -Fq "export type StatementDeduction = RoyaltyDeductionAuthority;" packages/accounting/src/projection.ts \
