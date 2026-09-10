@@ -89,9 +89,12 @@ jobs:
           grep -Fq 'require_fresh_causal_time' "$boundary"
           grep -Fq 'require_fresh_operation_binding' "$boundary"
 
+          grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$guard"
           grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V2' "$guard"
           grep -Fq 'TransactionBehavior::Immediate' "$guard"
           grep -Fq 'require_semantic_profile' "$guard"
+          grep -Fq 'require_structural_schema_version' "$guard"
+          grep -Fq 'PRAGMA user_version' "$guard"
           grep -Fq 'require_no_orphan_history' "$guard"
           grep -Fq 'collect_typed_provider_operation_bindings' "$guard"
           grep -Fq 'serde_json::from_slice' "$guard"
@@ -104,10 +107,17 @@ jobs:
           grep -Fq 'checkpoint_file_cas' "$guard"
 
           grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
+          grep -Fq 'const STRUCTURAL_SCHEMA_V2: i64 = 2' "$facade"
           grep -Fq 'integration_runtime_operation_binding' "$facade"
           grep -Fq 'preflight_semantic_identity' "$facade"
           grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
           grep -Fq 'quarantine_reason' "$facade"
+
+          semantic_line="$(grep -nF 'require_semantic_profile(&tx, expected_semantic_profile)?;' "$guard" | head -n1 | cut -d: -f1)"
+          structural_line="$(grep -nF 'require_structural_schema_version(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          repair_line="$(grep -nF 'ensure_binding_table(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          test "$semantic_line" -lt "$structural_line"
+          test "$structural_line" -lt "$repair_line"
 
           if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$guard" "$facade" "$legacy"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
@@ -133,6 +143,11 @@ jobs:
 
       - name: Run full runtime test corpus
         run: cargo test --manifest-path "$RUNTIME_MANIFEST"
+
+      - name: Run inherited INT-02 identifier qualification
+        run: |
+          cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml id_deserialization_preserves_constructor_invariants
+          cargo test --manifest-path crates/mycelix-integration-core/Cargo.toml nested_identifier_deserialization_cannot_bypass_validation
 
       - name: Run semantic migration and identity qualification
         run: |
@@ -166,6 +181,7 @@ jobs:
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test reconciliation_checkpoint_monotonic
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test derived_index_reconstruction
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test enforcement_manifest_tamper
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test structural_schema_admission
 
       - name: Clippy runtime and core dependency
         run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --all-targets -- -D warnings
