@@ -1,14 +1,18 @@
 //! Stable public runtime boundary for INT-03.
 //!
-//! `v31` owns the v3.1 durable semantic/storage contract. This thin shell adds
-//! file-backed cross-handle freshness checks and SQLite write fences so a
-//! process-local cache or check/write race cannot weaken causal-time or
-//! exact-provider-operation guarantees when another process advances the same
-//! database.
+//! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
+//! file-backed cross-handle freshness, atomic SQLite enforcement repair, and
+//! connector-checkpoint CAS semantics so process-local caches or check/write
+//! races cannot weaken durable causal meaning.
 
+#[path = "storage_guard.rs"]
+mod storage_guard;
 #[path = "v31.rs"]
 mod v31;
 
+pub use storage_guard::{
+    ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V1,
+};
 pub use v31::{
     DispatchStarted, DurableOutboundIntent, EnqueueDisposition, ExecutionClaim,
     ExecutionRecordDisposition, InsertDisposition, OutboxSnapshot, PersistableInbound,
@@ -21,6 +25,7 @@ use mycelix_integration_core::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -31,16 +36,18 @@ const MAX_EXECUTION_ATTEMPTS_V01: i64 = 1_024;
 pub struct SqliteIntegrationStore {
     inner: v31::SqliteIntegrationStore,
     path: Option<PathBuf>,
+    in_memory_checkpoint_times_ms: BTreeMap<String, i64>,
 }
 
 impl SqliteIntegrationStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref().to_path_buf();
         let inner = v31::SqliteIntegrationStore::open(&path)?;
-        ensure_atomic_causal_fences(&path)?;
+        storage_guard::harden_file_store(&path)?;
         Ok(Self {
             inner,
             path: Some(path),
+            in_memory_checkpoint_times_ms: BTreeMap::new(),
         })
     }
 
@@ -48,6 +55,7 @@ impl SqliteIntegrationStore {
         Ok(Self {
             inner: v31::SqliteIntegrationStore::in_memory()?,
             path: None,
+            in_memory_checkpoint_times_ms: BTreeMap::new(),
         })
     }
 
@@ -143,16 +151,72 @@ impl SqliteIntegrationStore {
         cursor: &ReconcileCursor,
         updated_at_ms: i64,
     ) -> Result<(), RuntimeError> {
-        self.inner
-            .checkpoint_reconciliation(cursor, updated_at_ms)
+        if let Some(path) = &self.path {
+            return storage_guard::checkpoint_file_cas(path, cursor, updated_at_ms);
+        }
+
+        let key = cursor.connector_instance.as_str().to_owned();
+        let existing_cursor = self.inner.load_reconciliation_checkpoint(&cursor.connector_instance)?;
+        let existing = match existing_cursor.as_ref() {
+            Some(stored) => {
+                let stored_at_ms = self
+                    .in_memory_checkpoint_times_ms
+                    .get(&key)
+                    .copied()
+                    .ok_or_else(|| {
+                        RuntimeError::StoredIdentifier(
+                            "in-memory reconciliation checkpoint is missing its causal timestamp"
+                                .to_owned(),
+                        )
+                    })?;
+                Some((stored, stored_at_ms))
+            }
+            None => None,
+        };
+
+        let should_write =
+            storage_guard::validate_in_memory_checkpoint(existing, cursor, updated_at_ms)?;
+        if should_write {
+            self.inner
+                .checkpoint_reconciliation(cursor, updated_at_ms)?;
+            self.in_memory_checkpoint_times_ms.insert(key, updated_at_ms);
+        }
+        Ok(())
     }
 
     pub fn load_reconciliation_checkpoint(
         &self,
         connector_instance: &ConnectorInstanceId,
     ) -> Result<Option<ReconcileCursor>, RuntimeError> {
-        self.inner
-            .load_reconciliation_checkpoint(connector_instance)
+        Ok(self
+            .load_reconciliation_checkpoint_snapshot(connector_instance)?
+            .map(|snapshot| snapshot.cursor))
+    }
+
+    pub fn load_reconciliation_checkpoint_snapshot(
+        &self,
+        connector_instance: &ConnectorInstanceId,
+    ) -> Result<Option<ReconciliationCheckpointSnapshot>, RuntimeError> {
+        if let Some(path) = &self.path {
+            return storage_guard::load_checkpoint_snapshot(path, connector_instance);
+        }
+
+        let Some(cursor) = self.inner.load_reconciliation_checkpoint(connector_instance)? else {
+            return Ok(None);
+        };
+        let updated_at_ms = self
+            .in_memory_checkpoint_times_ms
+            .get(connector_instance.as_str())
+            .copied()
+            .ok_or_else(|| {
+                RuntimeError::StoredIdentifier(
+                    "in-memory reconciliation checkpoint is missing its causal timestamp".to_owned(),
+                )
+            })?;
+        Ok(Some(ReconciliationCheckpointSnapshot {
+            cursor,
+            updated_at_ms,
+        }))
     }
 
     pub fn outbox_snapshot(&self, entry_id: i64) -> Result<OutboxSnapshot, RuntimeError> {
@@ -244,76 +308,6 @@ impl SqliteIntegrationStore {
             Err(RuntimeError::OutcomeOperationMismatch { entry_id })
         }
     }
-}
-
-fn ensure_atomic_causal_fences(path: &Path) -> Result<(), RuntimeError> {
-    let conn = open_aux(path)?;
-    conn.execute_batch(
-        r#"
-        CREATE TRIGGER IF NOT EXISTS integration_causal_outbox_update_before
-        BEFORE UPDATE OF updated_at_ms ON integration_outbox
-        WHEN NEW.updated_at_ms < COALESCE(
-            (
-                SELECT MAX(ts) FROM (
-                    SELECT OLD.updated_at_ms AS ts
-                    UNION ALL
-                    SELECT observed_at_ms FROM integration_execution_observation
-                    WHERE entry_id = OLD.entry_id
-                    UNION ALL
-                    SELECT recorded_at_ms FROM integration_reconciliation_history
-                    WHERE entry_id = OLD.entry_id
-                )
-            ),
-            NEW.updated_at_ms
-        )
-        BEGIN
-            SELECT RAISE(ABORT, 'runtime causal time rollback');
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS integration_causal_execution_observation_before
-        BEFORE INSERT ON integration_execution_observation
-        WHEN NEW.observed_at_ms < COALESCE(
-            (
-                SELECT MAX(ts) FROM (
-                    SELECT updated_at_ms AS ts FROM integration_outbox
-                    WHERE entry_id = NEW.entry_id
-                    UNION ALL
-                    SELECT observed_at_ms FROM integration_execution_observation
-                    WHERE entry_id = NEW.entry_id
-                    UNION ALL
-                    SELECT recorded_at_ms FROM integration_reconciliation_history
-                    WHERE entry_id = NEW.entry_id
-                )
-            ),
-            NEW.observed_at_ms
-        )
-        BEGIN
-            SELECT RAISE(ABORT, 'runtime causal time rollback');
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS integration_causal_reconciliation_before
-        BEFORE INSERT ON integration_reconciliation_history
-        WHEN NEW.recorded_at_ms < COALESCE(
-            (
-                SELECT MAX(ts) FROM (
-                    SELECT updated_at_ms AS ts FROM integration_outbox
-                    WHERE entry_id = NEW.entry_id
-                    UNION ALL
-                    SELECT observed_at_ms FROM integration_execution_observation
-                    WHERE entry_id = NEW.entry_id
-                    UNION ALL
-                    SELECT recorded_at_ms FROM integration_reconciliation_history
-                    WHERE entry_id = NEW.entry_id
-                )
-            ),
-            NEW.recorded_at_ms
-        )
-        BEGIN
-            SELECT RAISE(ABORT, 'runtime causal time rollback');
-        END;
-        "#,
-    )?;
-    Ok(())
 }
 
 fn load_durable_causal_frontier(
