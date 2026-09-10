@@ -57,6 +57,7 @@ pub(crate) fn harden_file_store(
 
     require_semantic_profile(&tx, expected_semantic_profile)?;
     ensure_binding_table(&tx)?;
+    require_no_orphan_history(&tx)?;
     let bindings = collect_typed_provider_operation_bindings(&tx)?;
     rebuild_provider_operation_bindings(&tx, &bindings)?;
     replace_operation_subject_and_binding_triggers(&tx)?;
@@ -241,6 +242,41 @@ fn ensure_binding_table(tx: &Transaction<'_>) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+fn require_no_orphan_history(tx: &Transaction<'_>) -> Result<(), RuntimeError> {
+    let orphan_execution: Option<i64> = tx
+        .query_row(
+            "SELECT e.entry_id\n\
+             FROM integration_execution_observation e\n\
+             LEFT JOIN integration_outbox o ON o.entry_id = e.entry_id\n\
+             WHERE o.entry_id IS NULL LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(entry_id) = orphan_execution {
+        return Err(RuntimeError::StoredIdentifier(format!(
+            "orphan execution history references missing outbox entry {entry_id}"
+        )));
+    }
+
+    let orphan_reconciliation: Option<i64> = tx
+        .query_row(
+            "SELECT r.entry_id\n\
+             FROM integration_reconciliation_history r\n\
+             LEFT JOIN integration_outbox o ON o.entry_id = r.entry_id\n\
+             WHERE o.entry_id IS NULL LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(entry_id) = orphan_reconciliation {
+        return Err(RuntimeError::StoredIdentifier(format!(
+            "orphan reconciliation history references missing outbox entry {entry_id}"
+        )));
+    }
+    Ok(())
+}
+
 fn collect_typed_provider_operation_bindings(
     tx: &Transaction<'_>,
 ) -> Result<BTreeMap<i64, (String, i64)>, RuntimeError> {
@@ -378,8 +414,9 @@ fn observe_provider_binding(
         Entry::Vacant(slot) => {
             slot.insert((candidate.to_owned(), established_at_ms));
         }
-        Entry::Occupied(mut slot) if slot.get().0 == candidate => {
-            slot.get_mut().1 = slot.get().1.min(established_at_ms);
+        Entry::Occupied(mut slot) if slot.get().0.as_str() == candidate => {
+            let earliest = slot.get().1.min(established_at_ms);
+            slot.get_mut().1 = earliest;
         }
         Entry::Occupied(slot) => {
             return Err(RuntimeError::StoredIdentifier(format!(
