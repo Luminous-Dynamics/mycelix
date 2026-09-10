@@ -112,6 +112,32 @@ describe('royalty statement compiler', () => {
     })).toThrow(/observed after the statement asOf/);
   });
 
+  it('applies only deductions observable by the statement asOf', () => {
+    const statement = compile([obligation('obl:1', 500n)], {
+      deductions: [{
+        id: 'deduction:1',
+        beneficiaryId: 'artist:1',
+        amount: money(50n, 'USD'),
+        basis: 'tax:withholding:v1',
+        observedAt: '2026-10-01T12:00:00Z',
+      }],
+    });
+    expect(statement.deductions.amountMinor).toBe(50n);
+    expect(statement.netPayable.amountMinor).toBe(450n);
+  });
+
+  it('rejects deduction evidence observed after the immutable statement asOf', () => {
+    expect(() => compile([obligation('obl:1', 500n)], {
+      deductions: [{
+        id: 'deduction:future',
+        beneficiaryId: 'artist:1',
+        amount: money(50n, 'USD'),
+        basis: 'tax:withholding:v1',
+        observedAt: '2026-10-03T00:00:00Z',
+      }],
+    })).toThrow(/deduction was observed after the statement asOf/);
+  });
+
   it('counts value as paid only after settlement finality', () => {
     const obligations = [obligation('obl:1', 500n)];
     const batch = buildDeterministicNettingBatches(obligations, epoch)[0]!;

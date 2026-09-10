@@ -25,6 +25,8 @@ export interface StatementDeduction {
   readonly beneficiaryId: string;
   readonly amount: Money;
   readonly basis: string;
+  /** Time the authoritative deduction evidence became observable to this projection. */
+  readonly observedAt: string;
 }
 
 export interface StatementSettlementEvidence {
@@ -80,11 +82,19 @@ function sumMoney(values: readonly Money[], currency: string): Money {
   return total;
 }
 
-function validateDeduction(deduction: StatementDeduction, beneficiaryId: string, currency: string): void {
+function validateDeduction(
+  deduction: StatementDeduction,
+  beneficiaryId: string,
+  currency: string,
+  statementAsOf: number,
+): void {
   if (!deduction.id.trim() || !deduction.basis.trim()) throw new Error('statement deduction requires id and basis');
   if (deduction.beneficiaryId !== beneficiaryId) throw new Error('statement deduction beneficiary mismatch');
   if (deduction.amount.amountMinor < 0n) throw new Error('statement deduction must be non-negative');
   assertSameCurrency(deduction.amount, money(0n, currency));
+  const observedAt = Date.parse(deduction.observedAt);
+  if (!Number.isFinite(observedAt)) throw new Error('statement deduction observedAt must be valid');
+  if (observedAt > statementAsOf) throw new Error('statement deduction was observed after the statement asOf');
 }
 
 function validateSettlementEvidence(
@@ -172,7 +182,7 @@ export function compileRoyaltyStatement(
   const orderedDeductions = [...(input.deductions ?? [])].sort((a, b) => a.id.localeCompare(b.id));
   const seenDeductions = new Set<string>();
   for (const deduction of orderedDeductions) {
-    validateDeduction(deduction, input.beneficiaryId, currency);
+    validateDeduction(deduction, input.beneficiaryId, currency, statementAsOf);
     if (seenDeductions.has(deduction.id)) throw new Error(`duplicate deduction id: ${deduction.id}`);
     seenDeductions.add(deduction.id);
   }
@@ -227,6 +237,7 @@ export function compileRoyaltyStatement(
     amountMinor: deduction.amount.amountMinor,
     currency: deduction.amount.currency,
     basis: deduction.basis,
+    observedAt: deduction.observedAt,
   }))).root;
   const settlementRoot = buildMerkleCommitment(orderedSettlements.map(evidence => ({
     batchId: evidence.batch.batchId,
