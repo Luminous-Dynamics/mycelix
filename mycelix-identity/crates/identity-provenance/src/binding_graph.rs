@@ -171,8 +171,10 @@ pub struct BindingLifecycleReport {
 
 /// Analyze only lifecycle evidence transitively reachable from `origin`.
 ///
-/// Unrelated graph material is validated for basic bounded shape but is otherwise ignored
-/// so graph stuffing cannot change the report for an unrelated binding lineage.
+/// The global input count and basic observation shape are bounded/validated as a DoS
+/// boundary. Within that bound, unrelated graph material is semantically ignored: its
+/// duplicate evidence references, forks, cycles, or withdrawals cannot change the report
+/// for this origin. Evidence-reference uniqueness is enforced only in the reachable graph.
 pub fn analyze_binding_lifecycle(
     origin: &KeyDidBindingArtifact,
     observations: &[BindingLifecycleObservation],
@@ -189,14 +191,8 @@ pub fn analyze_binding_lifecycle(
 
     let origin_key = binding_key(origin)?;
     let mut by_target: HashMap<Vec<u8>, Vec<&BindingLifecycleObservation>> = HashMap::new();
-    let mut seen_refs = HashSet::new();
     for observation in observations {
         observation.validate()?;
-        if !seen_refs.insert(observation.evidence_ref.as_str()) {
-            return Err(BindingLifecycleAnalysisError::DuplicateEvidenceRef(
-                observation.evidence_ref.clone(),
-            ));
-        }
         by_target
             .entry(binding_key(&observation.target)?)
             .or_default()
@@ -226,6 +222,20 @@ pub fn analyze_binding_lifecycle(
                 .or_insert_with(|| replacement.clone());
             if !reachable_keys.contains(&replacement_key) {
                 queue.push_back(replacement_key);
+            }
+        }
+    }
+
+    // Evidence identifiers are meaningful only within the origin's reachable lineage.
+    // An unrelated subgraph may reuse its own local reference without being able to
+    // deny analysis of this origin.
+    let mut seen_reachable_refs = HashSet::new();
+    for source_key in &reachable_keys {
+        for observation in by_target.get(source_key).into_iter().flatten() {
+            if !seen_reachable_refs.insert(observation.evidence_ref.as_str()) {
+                return Err(BindingLifecycleAnalysisError::DuplicateEvidenceRef(
+                    observation.evidence_ref.clone(),
+                ));
             }
         }
     }
@@ -344,7 +354,8 @@ pub fn analyze_binding_lifecycle(
             let has_successor = successors
                 .get(node_key)
                 .is_some_and(|set| !set.is_empty());
-            let withdrawn = did_withdrawn_keys.contains(node_key) || key_withdrawn_keys.contains(node_key);
+            let withdrawn = did_withdrawn_keys.contains(node_key)
+                || key_withdrawn_keys.contains(node_key);
             if !has_successor && !withdrawn {
                 if let Some(node) = nodes.get(node_key) {
                     unwithdrawn_leaf_candidates.push(node.clone());
@@ -453,7 +464,9 @@ fn validate_evidence_ref(reference: &str) -> Result<(), BindingLifecycleAnalysis
     Ok(())
 }
 
-fn sort_bindings(bindings: &mut [KeyDidBindingArtifact]) -> Result<(), BindingLifecycleAnalysisError> {
+fn sort_bindings(
+    bindings: &mut [KeyDidBindingArtifact],
+) -> Result<(), BindingLifecycleAnalysisError> {
     let mut keyed = bindings
         .iter()
         .cloned()
@@ -519,7 +532,13 @@ fn sort_agreements(
         .iter()
         .cloned()
         .map(|agreement| {
-            Ok(((binding_key(&agreement.source)?, binding_key(&agreement.successor)?), agreement))
+            Ok((
+                (
+                    binding_key(&agreement.source)?,
+                    binding_key(&agreement.successor)?,
+                ),
+                agreement,
+            ))
         })
         .collect::<Result<Vec<_>, BindingLifecycleAnalysisError>>()?;
     keyed.sort_by(|a, b| a.0.cmp(&b.0));
@@ -586,8 +605,8 @@ pub enum BindingLifecycleAnalysisError {
     /// Evidence references must be whitespace-canonical.
     #[error("lifecycle evidence reference must not have leading/trailing whitespace")]
     NonCanonicalEvidenceRef,
-    /// Reusing one evidence reference for multiple normalized observations is ambiguous.
-    #[error("duplicate lifecycle evidence reference: {0}")]
+    /// Reusing one evidence reference inside the reachable lineage is ambiguous.
+    #[error("duplicate reachable lifecycle evidence reference: {0}")]
     DuplicateEvidenceRef(String),
     /// Withdrawal observations cannot name a successor.
     #[error("withdrawal observation must not include a replacement")]
@@ -671,7 +690,11 @@ mod tests {
         let origin = binding(1);
         let report = analyze_binding_lifecycle(
             &origin,
-            &[withdraw(LifecyclePlane::ExternalKey, origin.clone(), "xenia:1")],
+            &[withdraw(
+                LifecyclePlane::ExternalKey,
+                origin.clone(),
+                "xenia:1",
+            )],
         )
         .unwrap();
         assert!(report.unwithdrawn_leaf_candidates.is_empty());
@@ -683,8 +706,18 @@ mod tests {
         let a = binding(1);
         let b = binding(2);
         let observations = vec![
-            supersede(LifecyclePlane::DidController, a.clone(), b.clone(), "hc:1"),
-            supersede(LifecyclePlane::ExternalKey, a.clone(), b.clone(), "xenia:1"),
+            supersede(
+                LifecyclePlane::DidController,
+                a.clone(),
+                b.clone(),
+                "hc:1",
+            ),
+            supersede(
+                LifecyclePlane::ExternalKey,
+                a.clone(),
+                b.clone(),
+                "xenia:1",
+            ),
         ];
         let report = analyze_binding_lifecycle(&a, &observations).unwrap();
         assert_eq!(report.cross_plane_supersession_agreements.len(), 1);
@@ -713,7 +746,12 @@ mod tests {
         let b = binding(2);
         let observations = vec![
             withdraw(LifecyclePlane::DidController, a.clone(), "hc:withdraw"),
-            supersede(LifecyclePlane::ExternalKey, a.clone(), b, "xenia:rotate"),
+            supersede(
+                LifecyclePlane::ExternalKey,
+                a.clone(),
+                b,
+                "xenia:rotate",
+            ),
         ];
         let report = analyze_binding_lifecycle(&a, &observations).unwrap();
         assert_eq!(report.cross_plane_disagreements.len(), 1);
@@ -724,7 +762,12 @@ mod tests {
         let a = binding(1);
         let b = binding(2);
         let observations = vec![
-            supersede(LifecyclePlane::DidController, a.clone(), b.clone(), "hc:1"),
+            supersede(
+                LifecyclePlane::DidController,
+                a.clone(),
+                b.clone(),
+                "hc:1",
+            ),
             supersede(LifecyclePlane::DidController, b, a.clone(), "hc:2"),
         ];
         let report = analyze_binding_lifecycle(&a, &observations).unwrap();
@@ -739,7 +782,12 @@ mod tests {
         let unrelated_a = binding(8);
         let unrelated_b = binding(9);
         let observations = vec![
-            supersede(LifecyclePlane::DidController, a.clone(), b.clone(), "hc:main"),
+            supersede(
+                LifecyclePlane::DidController,
+                a.clone(),
+                b.clone(),
+                "hc:main",
+            ),
             supersede(
                 LifecyclePlane::DidController,
                 unrelated_a.clone(),
@@ -759,16 +807,53 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_evidence_reference_fails_closed() {
+    fn duplicate_reachable_evidence_reference_fails_closed() {
         let a = binding(1);
         let b = binding(2);
         let observations = vec![
-            supersede(LifecyclePlane::DidController, a.clone(), b.clone(), "same"),
+            supersede(
+                LifecyclePlane::DidController,
+                a.clone(),
+                b.clone(),
+                "same",
+            ),
             supersede(LifecyclePlane::ExternalKey, a.clone(), b, "same"),
         ];
         assert!(matches!(
             analyze_binding_lifecycle(&a, &observations),
             Err(BindingLifecycleAnalysisError::DuplicateEvidenceRef(_))
         ));
+    }
+
+    #[test]
+    fn duplicate_unrelated_evidence_reference_does_not_poison_origin() {
+        let a = binding(1);
+        let b = binding(2);
+        let unrelated_a = binding(8);
+        let unrelated_b = binding(9);
+        let unrelated_c = binding(10);
+        let observations = vec![
+            supersede(
+                LifecyclePlane::DidController,
+                a.clone(),
+                b.clone(),
+                "hc:main",
+            ),
+            supersede(
+                LifecyclePlane::DidController,
+                unrelated_a.clone(),
+                unrelated_b,
+                "unrelated:duplicate",
+            ),
+            supersede(
+                LifecyclePlane::ExternalKey,
+                unrelated_a,
+                unrelated_c,
+                "unrelated:duplicate",
+            ),
+        ];
+        let report = analyze_binding_lifecycle(&a, &observations).unwrap();
+        assert!(!report.cycle_detected);
+        assert_eq!(report.unwithdrawn_leaf_candidates, vec![b]);
     }
 }
