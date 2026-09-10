@@ -91,26 +91,27 @@ jobs:
           grep -Fq 'mod schema_manifest' "$boundary"
           grep -Fq 'mod storage_guard' "$boundary"
           grep -Fq 'pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2' "$boundary"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V5' "$boundary"
           grep -Fq 'storage_guard::prepare_and_classify_file_store(&path)' "$boundary"
           grep -Fq 'bootstrap_guard::qualify_file_store_bootstrap(' "$boundary"
-          grep -Fq 'schema_manifest::validate_pre_repair_file_store' "$boundary"
           grep -Fq 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)' "$boundary"
-          grep -Fq 'schema_manifest::validate_hardened_file_store' "$boundary"
           grep -Fq 'load_reconciliation_checkpoint_snapshot' "$boundary"
           grep -Fq 'require_fresh_causal_time' "$boundary"
           grep -Fq 'require_fresh_operation_binding' "$boundary"
 
+          if grep -Fq 'schema_manifest::validate_pre_repair_file_store' "$boundary" || \
+             grep -Fq 'schema_manifest::validate_hardened_file_store' "$boundary"; then
+            echo 'Public startup must not split structural qualification around the v5 hardener.'
+            exit 1
+          fi
+
           coarse_line="$(grep -nF 'let coarse = storage_guard::prepare_and_classify_file_store(&path)?;' "$boundary" | head -n1 | cut -d: -f1)"
           qualify_line="$(grep -nF 'let admission = bootstrap_guard::qualify_file_store_bootstrap(' "$boundary" | head -n1 | cut -d: -f1)"
-          pre_manifest_line="$(grep -nF 'schema_manifest::validate_pre_repair_file_store' "$boundary" | head -n1 | cut -d: -f1)"
           harden_line="$(grep -nF 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;' "$boundary" | head -n1 | cut -d: -f1)"
-          post_manifest_line="$(grep -nF 'schema_manifest::validate_hardened_file_store' "$boundary" | head -n1 | cut -d: -f1)"
           cache_line="$(grep -nF 'let inner = v31::SqliteIntegrationStore::open(&path)?;' "$boundary" | head -n1 | cut -d: -f1)"
           test "$coarse_line" -lt "$qualify_line"
-          test "$qualify_line" -lt "$pre_manifest_line"
-          test "$pre_manifest_line" -lt "$harden_line"
-          test "$harden_line" -lt "$post_manifest_line"
-          test "$post_manifest_line" -lt "$cache_line"
+          test "$qualify_line" -lt "$harden_line"
+          test "$harden_line" -lt "$cache_line"
 
           grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$bootstrap"
           grep -Fq 'DURABLE_RECORD_TABLES' "$bootstrap"
@@ -123,6 +124,8 @@ jobs:
 
           grep -Fq 'RUNTIME_STRUCTURAL_MANIFEST_V2' "$schema"
           grep -Fq 'structural-manifest-v2' "$schema"
+          grep -Fq 'validate_pre_repair_transaction' "$schema"
+          grep -Fq 'validate_hardened_transaction' "$schema"
           grep -Fq 'PRAGMA table_xinfo' "$schema"
           grep -Fq 'PRAGMA index_list' "$schema"
           grep -Fq 'PRAGMA foreign_key_list' "$schema"
@@ -136,8 +139,10 @@ jobs:
           grep -Fq 'UNIQUE/primary-key index set differs' "$schema"
 
           grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$guard"
-          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V4' "$guard"
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V5' "$guard"
           grep -Fq 'TransactionBehavior::Immediate' "$guard"
+          grep -Fq 'schema_manifest::validate_pre_repair_transaction(&tx, expected_semantic_profile)?;' "$guard"
+          grep -Fq 'schema_manifest::validate_hardened_transaction(' "$guard"
           grep -Fq 'require_semantic_profile' "$guard"
           grep -Fq 'require_structural_schema_version' "$guard"
           grep -Fq 'PRAGMA user_version' "$guard"
@@ -152,6 +157,18 @@ jobs:
           grep -Fq 'DROP TRIGGER IF EXISTS integration_causal_outbox_update_before' "$guard"
           grep -Fq 'checkpoint_file_cas' "$guard"
 
+          tx_line="$(grep -nF 'let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;' "$guard" | head -n1 | cut -d: -f1)"
+          pre_line="$(grep -nF 'schema_manifest::validate_pre_repair_transaction(&tx, expected_semantic_profile)?;' "$guard" | head -n1 | cut -d: -f1)"
+          repair_line="$(grep -nF 'ensure_binding_table(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          profile_line="$(grep -nF 'record_enforcement_profile(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
+          post_line="$(grep -nF 'schema_manifest::validate_hardened_transaction(' "$guard" | head -n1 | cut -d: -f1)"
+          commit_line="$(grep -nF 'tx.commit()?;' "$guard" | awk -F: -v start="$post_line" '$1 > start {print $1; exit}')"
+          test "$tx_line" -lt "$pre_line"
+          test "$pre_line" -lt "$repair_line"
+          test "$repair_line" -lt "$profile_line"
+          test "$profile_line" -lt "$post_line"
+          test "$post_line" -lt "$commit_line"
+
           grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
           grep -Fq 'const STRUCTURAL_SCHEMA_V2: i64 = 2' "$facade"
           grep -Fq 'integration_runtime_operation_binding' "$facade"
@@ -159,11 +176,10 @@ jobs:
           grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
           grep -Fq 'quarantine_reason' "$facade"
 
-          semantic_line="$(grep -nF 'require_semantic_profile(&tx, expected_semantic_profile)?;' "$guard" | head -n1 | cut -d: -f1)"
-          structural_line="$(grep -nF 'require_structural_schema_version(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
-          repair_line="$(grep -nF 'ensure_binding_table(&tx)?;' "$guard" | head -n1 | cut -d: -f1)"
-          test "$semantic_line" -lt "$structural_line"
-          test "$structural_line" -lt "$repair_line"
+          if grep -R -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V4' crates/mycelix-integration-runtime; then
+            echo 'Stale enforcement-profile-v4 reference remains after v5 atomic hardening.'
+            exit 1
+          fi
 
           if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$bootstrap" "$schema" "$guard" "$facade" "$legacy"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
