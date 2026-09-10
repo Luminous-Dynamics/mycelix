@@ -53,6 +53,7 @@ pub enum MaritimeEvidenceKind {
 /// (for example HAL admission evidence or an authenticated Xenia transcript).
 /// This type does not verify those systems' cryptography.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MaritimeEvidenceEnvelope {
     pub schema_version: u8,
     pub platform_id: String,
