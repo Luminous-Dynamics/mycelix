@@ -1,4 +1,4 @@
-use crate::RuntimeError;
+use crate::{schema_manifest, RuntimeError};
 use mycelix_integration_core::{
     ConnectorInstanceId, ContentCommitment, DigestAlgorithm, ExternalExecutionOutcome,
     ExternalOpaqueId, ExternalOperationRef, IntegrationCommandId, ReconcileCursor,
@@ -20,12 +20,11 @@ const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 
 /// Identity of the reconstructable SQLite bootstrap/admission/enforcement machinery.
 ///
-/// This is deliberately separate from the durable semantic producer identity:
-/// changing bootstrap, admission, reconstruction, or trigger enforcement does
-/// not reinterpret historical records, but an opened store must know which
-/// enforcement contract is active.
-pub const RUNTIME_ENFORCEMENT_PROFILE_V4: &str =
-    "mycelix-integration-runtime/enforcement-profile-v4";
+/// v5 adds one-transaction composition of pre-repair structural qualification,
+/// typed reconstruction/trigger replacement, and post-repair structural
+/// qualification. It remains distinct from durable semantic producer identity.
+pub const RUNTIME_ENFORCEMENT_PROFILE_V5: &str =
+    "mycelix-integration-runtime/enforcement-profile-v5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum FileStoreAdmission {
@@ -103,12 +102,14 @@ pub(crate) fn prepare_and_classify_file_store(
     }
 }
 
-/// Atomically admits and repairs an initialized file-backed runtime.
+/// Atomically admits, structurally qualifies, repairs, and re-qualifies an
+/// initialized file-backed runtime.
 ///
-/// The write lock is acquired before structural/semantic identity, history,
-/// derived-state, or trigger enforcement is trusted. Append-only typed history
-/// is the source material; indexes and triggers are reconstructable enforcement
-/// machinery.
+/// One SQLite `IMMEDIATE` transaction now spans the entire critical section:
+/// pre-repair structural manifest, semantic/schema checks, typed history
+/// reconstruction, derived-state replacement, trigger installation, enforcement
+/// profile update, and post-repair structural manifest. A competing raw SQLite
+/// writer cannot interleave a committed schema mutation between those phases.
 pub(crate) fn harden_file_store(
     path: &Path,
     expected_semantic_profile: &str,
@@ -116,6 +117,7 @@ pub(crate) fn harden_file_store(
     let mut conn = open_aux(path)?;
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
+    schema_manifest::validate_pre_repair_transaction(&tx, expected_semantic_profile)?;
     require_semantic_profile(&tx, expected_semantic_profile)?;
     require_structural_schema_version(&tx)?;
     ensure_binding_table(&tx)?;
@@ -125,6 +127,11 @@ pub(crate) fn harden_file_store(
     replace_operation_subject_and_binding_triggers(&tx)?;
     replace_causal_time_triggers(&tx)?;
     record_enforcement_profile(&tx)?;
+    schema_manifest::validate_hardened_transaction(
+        &tx,
+        expected_semantic_profile,
+        RUNTIME_ENFORCEMENT_PROFILE_V5,
+    )?;
 
     tx.commit()?;
     Ok(())
@@ -738,7 +745,7 @@ fn record_enforcement_profile(tx: &Transaction<'_>) -> Result<(), RuntimeError> 
         "INSERT INTO integration_runtime_enforcement (singleton, enforcement_profile)\n\
          VALUES (1, ?1)\n\
          ON CONFLICT(singleton) DO UPDATE SET enforcement_profile = excluded.enforcement_profile",
-        params![RUNTIME_ENFORCEMENT_PROFILE_V4],
+        params![RUNTIME_ENFORCEMENT_PROFILE_V5],
     )?;
     Ok(())
 }
