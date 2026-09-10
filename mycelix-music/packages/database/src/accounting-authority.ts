@@ -95,6 +95,8 @@ export interface SettlementAttemptObservationRecordInput {
   readonly state: SettlementObservationState;
   readonly observedAt: Date | string;
   readonly railReceiptRef?: string;
+  readonly settledAmountMinor?: string;
+  readonly settledCurrency?: string;
   readonly supersedesAttemptId?: string;
   readonly observationRoot: string;
 }
@@ -309,8 +311,20 @@ export class AccountingAuthorityStore {
   async appendSettlementObservation(input: SettlementAttemptObservationRecordInput): Promise<Record<string, unknown>> {
     if (!SETTLEMENT_STATES.has(input.state)) throw new Error(`unsupported settlement state: ${String(input.state)}`);
     const railReceiptRef = optionalRef('railReceiptRef', input.railReceiptRef);
-    if (input.state === 'finalized' && railReceiptRef === undefined) {
-      throw new Error('finalized settlement observation requires railReceiptRef');
+    const hasAmountMinor = input.settledAmountMinor !== undefined;
+    const hasCurrency = input.settledCurrency !== undefined;
+    if (hasAmountMinor !== hasCurrency) {
+      throw new Error('settled amount requires both settledAmountMinor and settledCurrency');
+    }
+    const settledAmountMinor = hasAmountMinor ? minor('settledAmountMinor', input.settledAmountMinor!) : undefined;
+    const settledCurrency = hasCurrency ? currency(input.settledCurrency!) : undefined;
+    if (input.state === 'finalized') {
+      if (railReceiptRef === undefined) throw new Error('finalized settlement observation requires railReceiptRef');
+      if (settledAmountMinor === undefined || settledCurrency === undefined) {
+        throw new Error('finalized settlement observation requires exact settled amount and currency');
+      }
+    } else if (settledAmountMinor !== undefined || settledCurrency !== undefined) {
+      throw new Error('settled amount is permitted only on finalized settlement evidence');
     }
     const eligibilityAsOf = timestamp('settlement eligibilityAsOf', input.eligibilityAsOf);
     const observedAt = timestamp('settlement observedAt', input.observedAt);
@@ -328,6 +342,7 @@ export class AccountingAuthorityStore {
       state: input.state,
       observedAt,
       ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
+      ...(settledAmountMinor === undefined ? {} : { settledAmountMinor, settledCurrency }),
       ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
       observationRoot: digest('settlement observationRoot', input.observationRoot),
     };

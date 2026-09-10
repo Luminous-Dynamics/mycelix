@@ -105,8 +105,8 @@ describe('canonical accounting persistence projections', () => {
     })).toThrow(/predate its eligibility snapshot/);
   });
 
-  it('requires finalized rail observations to retain receipt identity', () => {
-    expect(() => projectSettlementObservationRecord('settlement-observation:1', {
+  it('requires finalized rail observations to retain receipt and exact amount identity', () => {
+    expect(() => projectSettlementObservationRecord('settlement-observation:no-receipt', {
       attemptId: 'attempt:1',
       batchId: 'batch:1',
       obligationSetRoot: 'a'.repeat(64),
@@ -114,7 +114,45 @@ describe('canonical accounting persistence projections', () => {
       eligibilityEvidenceRoot: 'b'.repeat(64),
       state: SettlementAttemptState.Finalized,
       observedAt: '2026-09-10T00:00:00Z',
+      settledAmount: money(500n, 'USD'),
     })).toThrow(/requires railReceiptRef/);
+    expect(() => projectSettlementObservationRecord('settlement-observation:no-amount', {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-09-10T00:00:00Z',
+      railReceiptRef: 'rail:receipt:1',
+    })).toThrow(/requires settledAmount/);
+  });
+
+  it('commits finalized amount and currency into settlement observation root', () => {
+    const base = {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-09-10T00:01:00Z',
+      railReceiptRef: 'rail:receipt:1',
+    } as const;
+    const first = projectSettlementObservationRecord('settlement-observation:1', { ...base, settledAmount: money(500n, 'USD') });
+    const second = projectSettlementObservationRecord('settlement-observation:1', { ...base, settledAmount: money(499n, 'USD') });
+    expect(first.settledAmountMinor).toBe('500');
+    expect(first.settledCurrency).toBe('USD');
+    expect(first.observationRoot).not.toBe(second.observationRoot);
+  });
+
+  it('forbids settled amount on non-final settlement evidence', () => {
+    expect(() => projectSettlementObservationRecord('settlement-observation:confirmed', {
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Confirmed, observedAt: '2026-09-10T00:01:00Z',
+      settledAmount: money(500n, 'USD'),
+    })).toThrow(/only on finalized/);
   });
 
   it('derives a stable statement snapshot root from the immutable projection', () => {

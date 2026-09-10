@@ -1,4 +1,5 @@
 import { buildMerkleCommitment, type Digest } from './merkle.js';
+import { money } from './money.js';
 import { assertRoyaltyObligationAuthority, type RoyaltyObligationAuthority } from './obligation-authority.js';
 import type { StatementDeduction } from './projection.js';
 import { SettlementAttemptState, type SettlementAttemptObservation } from './recovery.js';
@@ -10,6 +11,7 @@ import {
 import { assertStatementArithmetic, type RoyaltyStatementSnapshot } from './statements.js';
 
 const DIGEST_RE = /^[0-9a-f]{64}$/;
+const SETTLEMENT_STATES: ReadonlySet<string> = new Set(Object.values(SettlementAttemptState));
 
 export interface PersistedRoyaltyObligationRecord {
   readonly id: string;
@@ -54,6 +56,8 @@ export interface PersistedSettlementObservationRecord {
   readonly state: SettlementAttemptState;
   readonly observedAt: string;
   readonly railReceiptRef?: string;
+  readonly settledAmountMinor?: string;
+  readonly settledCurrency?: string;
   readonly supersedesAttemptId?: string;
   readonly observationRoot: Digest;
 }
@@ -186,6 +190,9 @@ export function projectSettlementObservationRecord(
   const eligibilityAsOf = timestamp('settlement eligibilityAsOf', observation.eligibilityAsOf);
   const eligibilityEvidenceRoot = digest('settlement eligibilityEvidenceRoot', observation.eligibilityEvidenceRoot);
   const observedAt = timestamp('settlement observedAt', observation.observedAt);
+  if (!SETTLEMENT_STATES.has(observation.state)) {
+    throw new Error(`unsupported settlement state: ${String(observation.state)}`);
+  }
   if (Date.parse(observedAt) < Date.parse(eligibilityAsOf)) {
     throw new Error('settlement observation cannot predate its eligibility snapshot');
   }
@@ -195,8 +202,15 @@ export function projectSettlementObservationRecord(
   const supersedesAttemptId = observation.supersedesAttemptId === undefined
     ? undefined
     : required('supersedesAttemptId', observation.supersedesAttemptId);
-  if (observation.state === SettlementAttemptState.Finalized && railReceiptRef === undefined) {
-    throw new Error('finalized settlement observation requires railReceiptRef');
+  const settledAmount = observation.settledAmount === undefined
+    ? undefined
+    : money(observation.settledAmount.amountMinor, observation.settledAmount.currency);
+  if (settledAmount && settledAmount.amountMinor < 0n) throw new Error('settled amount must be non-negative');
+  if (observation.state === SettlementAttemptState.Finalized) {
+    if (railReceiptRef === undefined) throw new Error('finalized settlement observation requires railReceiptRef');
+    if (settledAmount === undefined) throw new Error('finalized settlement observation requires settledAmount');
+  } else if (settledAmount !== undefined) {
+    throw new Error('settledAmount is permitted only on finalized settlement evidence');
   }
   const committed = Object.freeze({
     id,
@@ -208,11 +222,16 @@ export function projectSettlementObservationRecord(
     state: observation.state,
     observedAt,
     ...(railReceiptRef === undefined ? {} : { railReceiptRef }),
+    ...(settledAmount === undefined ? {} : {
+      settledAmountMinor: settledAmount.amountMinor,
+      settledCurrency: settledAmount.currency,
+    }),
     ...(supersedesAttemptId === undefined ? {} : { supersedesAttemptId }),
   });
   return Object.freeze({
     ...committed,
-    observationRoot: singleRecordRoot('settlement_attempt_observation_v2', committed),
+    ...(settledAmount === undefined ? {} : { settledAmountMinor: settledAmount.amountMinor.toString(10) }),
+    observationRoot: singleRecordRoot('settlement_attempt_observation_v3', committed),
   });
 }
 

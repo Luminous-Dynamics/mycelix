@@ -69,6 +69,17 @@ const settlementInput = {
   state: 'submitted', observedAt: '2026-09-10T00:01:00Z', observationRoot: root('d'),
 } as const;
 
+const finalizedInput = {
+  ...settlementInput,
+  id: 'obs:final',
+  state: 'finalized',
+  observedAt: '2026-09-10T00:02:00Z',
+  railReceiptRef: 'rail:receipt:1',
+  settledAmountMinor: '500',
+  settledCurrency: 'usd',
+  observationRoot: root('e'),
+} as const;
+
 test('same immutable authority record replays idempotently', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
   const first = await store.appendObligation(obligationInput);
@@ -132,10 +143,44 @@ test('same settlement observation id cannot be rebound to another eligibility sn
 
 test('finalized settlement observation requires durable receipt identity', async () => {
   const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  const { railReceiptRef: _omit, ...withoutReceipt } = finalizedInput;
+  await assert.rejects(store.appendSettlementObservation(withoutReceipt), /requires railReceiptRef/);
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
+test('finalized settlement observation requires exact amount and currency', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  const { settledAmountMinor: _minor, settledCurrency: _currency, ...withoutAmount } = finalizedInput;
+  await assert.rejects(store.appendSettlementObservation(withoutAmount), /requires exact settled amount and currency/);
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
+test('non-final settlement evidence cannot carry a settled amount', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
   await assert.rejects(store.appendSettlementObservation({
     ...settlementInput,
-    id: 'obs:final', state: 'finalized', observedAt: '2026-09-10T00:02:00Z', observationRoot: root('e'),
-  }), /requires railReceiptRef/);
+    settledAmountMinor: '500',
+    settledCurrency: 'USD',
+  }), /only on finalized/);
+  assert.equal(fake.settlement.createCalls, 0);
+});
+
+test('valid finalized settlement normalizes and retains receipt amount evidence', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  const row = await store.appendSettlementObservation(finalizedInput);
+  assert.equal(row.railReceiptRef, 'rail:receipt:1');
+  assert.equal(row.settledAmountMinor, '500');
+  assert.equal(row.settledCurrency, 'USD');
+  assert.equal(fake.settlement.createCalls, 1);
+});
+
+test('same finalized observation id cannot be rebound to another settled amount', async () => {
+  const fake = client(); const store = new AccountingAuthorityStore(fake.prisma);
+  await store.appendSettlementObservation(finalizedInput);
+  await assert.rejects(
+    store.appendSettlementObservation({ ...finalizedInput, settledAmountMinor: '499' }),
+    /different immutable content at settledAmountMinor/,
+  );
 });
 
 test('statement persistence re-checks conservation before insert', async () => {

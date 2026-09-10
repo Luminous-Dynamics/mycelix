@@ -105,15 +105,29 @@ ALTER TABLE "SettlementAttemptObservationRecord"
     AND "observationRoot" ~ '^[0-9a-f]{64}$'
   );
 
--- Finality is never inferred from a status string alone: every finalized rail
--- observation must retain a non-empty durable receipt reference.
+-- Finality is an exact whole-batch claim. PostgreSQL can prove that finalized
+-- rows carry canonical amount/currency evidence and that non-final rows do not.
+-- Equality with deterministic batch gross is rechecked during canonical replay,
+-- because the batch itself is a reconstruction rather than a database row.
 ALTER TABLE "SettlementAttemptObservationRecord"
   DROP CONSTRAINT IF EXISTS settlement_finalized_requires_receipt;
 ALTER TABLE "SettlementAttemptObservationRecord"
-  ADD CONSTRAINT settlement_finalized_requires_receipt
+  DROP CONSTRAINT IF EXISTS settlement_finality_evidence_shape;
+ALTER TABLE "SettlementAttemptObservationRecord"
+  ADD CONSTRAINT settlement_finality_evidence_shape
   CHECK (
-    "state" <> 'finalized'
-    OR ("railReceiptRef" IS NOT NULL AND btrim("railReceiptRef") <> '')
+    CASE
+      WHEN "state" = 'finalized' THEN
+        "railReceiptRef" IS NOT NULL
+        AND btrim("railReceiptRef") <> ''
+        AND "settledAmountMinor" IS NOT NULL
+        AND "settledAmountMinor" ~ '^(0|[1-9][0-9]*)$'
+        AND "settledCurrency" IS NOT NULL
+        AND btrim("settledCurrency") <> ''
+      ELSE
+        "settledAmountMinor" IS NULL
+        AND "settledCurrency" IS NULL
+    END
   );
 
 -- A settlement attempt cannot rely on an eligibility snapshot that did not yet

@@ -14,6 +14,14 @@ function obs(state: SettlementAttemptState, observedAt: string, extra: Partial<S
   return { attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot, eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot, state, observedAt, ...extra };
 }
 
+function finalized(observedAt: string, extra: Partial<SettlementAttemptObservation> = {}): SettlementAttemptObservation {
+  return obs(SettlementAttemptState.Finalized, observedAt, {
+    railReceiptRef: 'rail:receipt:7',
+    settledAmount: money(500n, 'USD'),
+    ...extra,
+  });
+}
+
 describe('settlement recovery', () => {
   it('reconstructs a never-attempted batch without queue state while retaining eligibility identity', () => {
     const state = reconstructSettlementRecovery(batch, []);
@@ -30,16 +38,29 @@ describe('settlement recovery', () => {
     ])).toThrow(/cannot precede the eligibility snapshot/);
   });
 
-  it('is deterministic under replayed observations', () => {
+  it('is deterministic under replayed observations and derives whole-batch finality from receipt amount evidence', () => {
     const recovered = reconstructSettlementRecovery(batch, [
       obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
       obs(SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'),
       obs(SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'),
-      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      finalized('2026-10-01T00:03:00Z'),
     ]);
     expect(recovered.status).toBe('finalized');
     expect(recovered.obligationSetSettled).toBe(true);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
+    expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
+  });
+
+  it('classifies partial rail finality without erasing residual debt or enabling retry', () => {
+    const recovered = reconstructSettlementRecovery(batch, [
+      finalized('2026-10-01T00:03:00Z', { settledAmount: money(475n, 'USD') }),
+    ]);
+    expect(recovered.status).toBe('partial_finality');
+    expect(recovered.obligationSetSettled).toBe(false);
+    expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
+    expect(recovered.finalSettledAmount).toEqual(money(475n, 'USD'));
+    expect(recovered.reason).toMatch(/residual allocation or reconciliation/);
+    expect(mayStartSettlementAttempt(recovered)).toBe(false);
   });
 
   it('allows retry only after an explicitly superseded failure', () => {
@@ -65,30 +86,59 @@ describe('settlement recovery', () => {
     ])).toThrow(/after the prior terminal observation/);
   });
 
-  it('blocks retry after reversal while retaining finalized receipt evidence', () => {
+  it('blocks retry after reversal while retaining finalized receipt and amount evidence', () => {
     const recovered = reconstructSettlementRecovery(batch, [
       obs(SettlementAttemptState.Authorized, '2026-10-01T00:00:00Z'),
       obs(SettlementAttemptState.Confirmed, '2026-10-01T00:02:00Z'),
-      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+      finalized('2026-10-01T00:03:00Z'),
       obs(SettlementAttemptState.Reversed, '2026-10-01T00:04:00Z'),
     ]);
     expect(recovered.status).toBe('blocked_ambiguous');
     expect(recovered.obligationSetSettled).toBe(false);
     expect(recovered.finalReceiptRef).toBe('rail:receipt:7');
+    expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
     expect(mayStartSettlementAttempt(recovered)).toBe(false);
   });
 
   it('rejects finalized evidence without a durable receipt', () => {
     expect(() => reconstructSettlementRecovery(batch, [
-      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z'),
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { settledAmount: money(500n, 'USD') }),
     ])).toThrow(/requires a rail receipt/);
+  });
+
+  it('rejects finalized evidence without an exact settled amount', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
+    ])).toThrow(/requires an exact settled amount/);
+  });
+
+  it('rejects zero-value finalized evidence and excessive rail finality', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      finalized('2026-10-01T00:03:00Z', { settledAmount: money(0n, 'USD') }),
+    ])).toThrow(/must be positive/);
+    expect(() => reconstructSettlementRecovery(batch, [
+      finalized('2026-10-01T00:03:00Z', { settledAmount: money(501n, 'USD') }),
+    ])).toThrow(/cannot exceed batch gross amount/);
+  });
+
+  it('rejects settled amount on non-final evidence', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      obs(SettlementAttemptState.Confirmed, '2026-10-01T00:02:00Z', { settledAmount: money(500n, 'USD') }),
+    ])).toThrow(/only on finalized/);
   });
 
   it('rejects a finalized receipt identity that changes on replay', () => {
     expect(() => reconstructSettlementRecovery(batch, [
-      obs(SettlementAttemptState.Finalized, '2026-10-01T00:03:00Z', { railReceiptRef: 'rail:receipt:7' }),
-      obs(SettlementAttemptState.Finalized, '2026-10-01T00:04:00Z', { railReceiptRef: 'rail:receipt:8' }),
+      finalized('2026-10-01T00:03:00Z'),
+      finalized('2026-10-01T00:04:00Z', { railReceiptRef: 'rail:receipt:8' }),
     ])).toThrow(/receipt reference changed/);
+  });
+
+  it('rejects a finalized amount that changes on replay', () => {
+    expect(() => reconstructSettlementRecovery(batch, [
+      finalized('2026-10-01T00:03:00Z'),
+      finalized('2026-10-01T00:04:00Z', { settledAmount: money(499n, 'USD') }),
+    ])).toThrow(/settled amount changed/);
   });
 
   it('rejects evidence bound to a different obligation set', () => {

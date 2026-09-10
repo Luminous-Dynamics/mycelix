@@ -557,6 +557,8 @@ model SettlementAttemptObservationRecord {
   state                   String
   observedAt              DateTime
   railReceiptRef          String?
+  settledAmountMinor      String?
+  settledCurrency         String?
   supersedesAttemptId     String?
   observationRoot         String   @unique
   createdAt               DateTime @default(now())

@@ -48,6 +48,23 @@ grep -Fq 'obligationSetSettled: true' packages/accounting/src/recovery.ts \
 grep -Fq 'compileRoyaltyStatement' packages/accounting/src/projection.ts \
   || fail "royalty statements must be compiled projections"
 
+# Paid value must derive from durable rail-finalized receipt evidence, never from
+# a parallel caller-supplied amount. Rail finality may be partial; debt settlement
+# may not silently erase the unpaid residual.
+statement_settlement=$(sed -n '/^export interface StatementSettlementEvidence {/,/^}/p' packages/accounting/src/projection.ts)
+[[ -n "$statement_settlement" ]] || fail "statement settlement evidence interface missing"
+if grep -Fq 'settledAmount' <<<"$statement_settlement"; then
+  fail "statement compiler must not accept caller-supplied settledAmount authority"
+fi
+grep -Fq 'finalSettledAmount' packages/accounting/src/projection.ts \
+  || fail "statement paid projection must derive from reconstructed final receipt amount"
+grep -Fq "'partial_finality'" packages/accounting/src/recovery.ts \
+  || fail "rail-finalized partial payment must remain distinct from whole-batch debt settlement"
+grep -Fq 'cannot exceed batch gross amount' packages/accounting/src/recovery.ts \
+  || fail "rail-finalized amount must never exceed deterministic batch gross"
+grep -Fq 'receipt-backed settlement amounts exceed statement net payable value' packages/accounting/src/projection.ts \
+  || fail "statement paid value must remain bounded by statement net payable"
+
 for model in \
   RoyaltyObligationRecord \
   RoyaltyEligibilityObservation \
@@ -74,11 +91,11 @@ grep -Fq 'test:accounting-guards' ../.github/workflows/music-accounting-persiste
   || fail "persistence qualification must prove runtime mutation rejection"
 
 settlement_record=$(sed -n '/^model SettlementAttemptObservationRecord {/,/^}/p' packages/database/prisma/schema.prisma)
-for field in eligibilityAsOf eligibilityEvidenceRoot; do
+for field in eligibilityAsOf eligibilityEvidenceRoot settledAmountMinor settledCurrency; do
   grep -Eq "^[[:space:]]+${field}[[:space:]]" <<<"$settlement_record" \
-    || fail "settlement persistence missing eligibility snapshot field: $field"
+    || fail "settlement persistence missing evidence field: $field"
   grep -Fq "$field" packages/database/src/accounting-authority.ts \
-    || fail "append store drops eligibility snapshot field: $field"
+    || fail "append store drops settlement evidence field: $field"
 done
 
 for compiler_only in below_threshold awaiting_eligibility_evidence; do
@@ -91,6 +108,10 @@ grep -Fq 'isObservableSettlementEligibilityCode' packages/accounting/src/persist
   || fail "accounting persistence projection must reject compiler-only eligibility states"
 grep -Fq 'predates obligation' packages/accounting/src/settlement.ts \
   || fail "eligibility reconstruction must reject evidence that predates its debt"
+grep -Fq 'settlement_attempt_observation_v3' packages/accounting/src/persistence-projection.ts \
+  || fail "receipt amount must be covered by a versioned settlement observation commitment"
+grep -Fq 'verifyPersistedSettlementRecovery' packages/accounting/src/persistence-verification.ts \
+  || fail "persisted settlement observations must replay into authoritative recovery"
 
 for constraint in \
   royalty_deduction_canonical_shape \
@@ -99,7 +120,7 @@ for constraint in \
   royalty_obligation_canonical_shape \
   royalty_statement_canonical_shape \
   royalty_statement_period_order \
-  settlement_finalized_requires_receipt \
+  settlement_finality_evidence_shape \
   settlement_observation_after_eligibility \
   settlement_observation_digest_shape \
   settlement_observation_state_code
@@ -113,6 +134,10 @@ grep -Fq 'CHECK ("observedAt" >= "eligibilityAsOf")' packages/database/prisma/ac
   || fail "settlement persistence must reject evidence that predates eligibilityAsOf"
 grep -Fq 'btrim("railReceiptRef")' packages/database/prisma/accounting-append-only.sql \
   || fail "settlement finality must require a non-empty durable rail receipt"
+grep -Fq '"settledAmountMinor" IS NOT NULL' packages/database/prisma/accounting-append-only.sql \
+  || fail "settlement finality must require exact settled amount evidence"
+grep -Fq '"settledAmountMinor" IS NULL' packages/database/prisma/accounting-append-only.sql \
+  || fail "non-final settlement observations must not carry settled value"
 grep -Fq "'below_threshold'" packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must attempt a compiler-only eligibility insert"
 grep -Fq "'guard:eligibility:predates'" packages/database/src/accounting-append-only.integration.ts \
@@ -125,8 +150,12 @@ grep -Fq "'guard:obligation:negative'" packages/database/src/accounting-append-o
   || fail "live database regression must attempt negative obligation money"
 grep -Fq "'guard:statement:nonconserving'" packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must attempt a non-conserving statement"
-grep -Fq 'settlement_finalized_requires_receipt' packages/database/src/accounting-append-only.integration.ts \
-  || fail "live database regression must prove receipt-backed settlement finality"
+grep -Fq "'guard:settlement:no-amount'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt receipt-only finality without amount"
+grep -Fq "'guard:settlement:nonfinal-amount'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must reject settled value on non-final evidence"
+grep -Fq 'settlement_finality_evidence_shape' packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must prove receipt-and-amount-backed settlement finality"
 grep -Fq 'settlement_observation_after_eligibility' packages/database/src/accounting-append-only.integration.ts \
   || fail "live database regression must prove settlement causality enforcement"
 

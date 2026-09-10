@@ -26,6 +26,12 @@ function compile(obligations: readonly RoyaltyObligation[], extra: Partial<Param
 function settlementObservation(batch: DeterministicNettingBatch, state: SettlementAttemptState, observedAt: string, extra: Partial<SettlementAttemptObservation> = {}): SettlementAttemptObservation {
   return { attemptId: 'attempt:1', batchId: batch.batchId, obligationSetRoot: batch.obligationSetRoot, eligibilityAsOf: batch.eligibilityAsOf, eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot, state, observedAt, ...extra };
 }
+function finalizedObservation(batch: DeterministicNettingBatch, observedAt: string, amountMinor = batch.grossAmount.amountMinor): SettlementAttemptObservation {
+  return settlementObservation(batch, SettlementAttemptState.Finalized, observedAt, {
+    railReceiptRef: 'rail:receipt:1',
+    settledAmount: money(amountMinor, batch.currency),
+  });
+}
 
 describe('royalty statement compiler', () => {
   it('keeps an unavailable payout route as held debt rather than erasing it', () => {
@@ -66,25 +72,55 @@ describe('royalty statement compiler', () => {
   it('rejects deduction evidence observed after immutable statement asOf', () => {
     expect(() => compile([obligation('obl:1', 500n)], { deductions: [{ id: 'deduction:future', beneficiaryId: 'artist:1', amount: money(50n, 'USD'), basis: 'tax:withholding:v1', observedAt: '2026-10-03T00:00:00Z' }] })).toThrow(/deduction was observed after/);
   });
-  it('counts value as paid only after settlement finality', () => {
+  it('counts value as paid only from finalized receipt-backed whole-batch evidence', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const inFlight = reconstructSettlementRecovery(batch, [settlementObservation(batch, SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z')]);
-    expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: inFlight, settledAmount: money(500n, 'USD') }] }).paid.amountMinor).toBe(0n);
-    const finalized = reconstructSettlementRecovery(batch, [settlementObservation(batch, SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'), settlementObservation(batch, SettlementAttemptState.Finalized, '2026-10-01T00:02:00Z', { railReceiptRef: 'rail:receipt:1' })]);
-    expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: finalized, settledAmount: money(500n, 'USD') }] }).paid.amountMinor).toBe(500n);
+    expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: inFlight }] }).paid.amountMinor).toBe(0n);
+    const finalized = reconstructSettlementRecovery(batch, [settlementObservation(batch, SettlementAttemptState.Submitted, '2026-10-01T00:01:00Z'), finalizedObservation(batch, '2026-10-01T00:02:00Z')]);
+    expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: finalized }] }).paid.amountMinor).toBe(500n);
+  });
+  it('counts partial rail finality as paid while preserving residual debt for explicit allocation', () => {
+    const obligations = [obligation('obl:1', 500n)];
+    const eligibilityObservations = defaultEligibility(obligations);
+    const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
+    const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
+    expect(recovery.status).toBe('partial_finality');
+    expect(recovery.obligationSetSettled).toBe(false);
+    const statement = compile(obligations, {
+      eligibilityObservations,
+      deductions: [{ id: 'deduction:1', beneficiaryId: 'artist:1', amount: money(50n, 'USD'), basis: 'tax:withholding:v1', observedAt: '2026-10-01T12:00:00Z' }],
+      settlements: [{ batch, recovery }],
+    });
+    expect(statement.netPayable.amountMinor).toBe(450n);
+    expect(statement.paid.amountMinor).toBe(450n);
+  });
+  it('rejects receipt-backed paid value that exceeds statement net payable', () => {
+    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
+    const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 475n)]);
+    expect(() => compile(obligations, {
+      eligibilityObservations,
+      deductions: [{ id: 'deduction:1', beneficiaryId: 'artist:1', amount: money(50n, 'USD'), basis: 'tax:withholding:v1', observedAt: '2026-10-01T12:00:00Z' }],
+      settlements: [{ batch, recovery }],
+    })).toThrow(/exceed statement net payable/);
+  });
+  it('does not count historically finalized value as paid after reversal', () => {
+    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
+    const reversed = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z'), settlementObservation(batch, SettlementAttemptState.Reversed, '2026-10-01T00:03:00Z')]);
+    expect(reversed.finalSettledAmount?.amountMinor).toBe(500n);
+    expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: reversed }] }).paid.amountMinor).toBe(0n);
   });
   it('rejects recovery bound to a different eligibility snapshot', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!; const recovery = reconstructSettlementRecovery(batch, []);
-    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: { ...recovery, eligibilityEvidenceRoot: 'f'.repeat(64) }, settledAmount: money(500n, 'USD') }] })).toThrow(/eligibility snapshot/);
+    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: { ...recovery, eligibilityEvidenceRoot: 'f'.repeat(64) } }] })).toThrow(/eligibility snapshot/);
   });
   it('rejects forged batch economic fields', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!; const forgedBatch = { ...batch, grossAmount: money(501n, 'USD') };
-    const recovery = reconstructSettlementRecovery(forgedBatch, [{ attemptId: 'attempt:forged', batchId: forgedBatch.batchId, obligationSetRoot: forgedBatch.obligationSetRoot, eligibilityAsOf: forgedBatch.eligibilityAsOf, eligibilityEvidenceRoot: forgedBatch.eligibilityEvidenceRoot, state: SettlementAttemptState.Finalized, observedAt: '2026-10-01T00:02:00Z', railReceiptRef: 'rail:receipt:forged' }]);
-    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch: forgedBatch, recovery, settledAmount: money(500n, 'USD') }] })).toThrow(/deterministic authoritative reconstruction/);
+    const recovery = reconstructSettlementRecovery(forgedBatch, [{ attemptId: 'attempt:forged', batchId: forgedBatch.batchId, obligationSetRoot: forgedBatch.obligationSetRoot, eligibilityAsOf: forgedBatch.eligibilityAsOf, eligibilityEvidenceRoot: forgedBatch.eligibilityEvidenceRoot, state: SettlementAttemptState.Finalized, observedAt: '2026-10-01T00:02:00Z', railReceiptRef: 'rail:receipt:forged', settledAmount: money(501n, 'USD') }]);
+    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch: forgedBatch, recovery }] })).toThrow(/deterministic authoritative reconstruction/);
   });
   it('rejects settlement observations after statement asOf', () => {
-    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!; const recovery = reconstructSettlementRecovery(batch, [settlementObservation(batch, SettlementAttemptState.Finalized, '2026-10-03T00:00:00Z', { railReceiptRef: 'rail:receipt:future' })]);
-    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery, settledAmount: money(500n, 'USD') }] })).toThrow(/later than statement asOf/);
+    const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!; const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-03T00:00:00Z')]);
+    expect(() => compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery }] })).toThrow(/later than statement asOf/);
   });
   it('produces obligation roots independent of input order', () => {
     expect(compile([obligation('obl:b', 200n), obligation('obl:a', 300n)]).obligationRoot).toBe(compile([obligation('obl:a', 300n), obligation('obl:b', 200n)]).obligationRoot);
