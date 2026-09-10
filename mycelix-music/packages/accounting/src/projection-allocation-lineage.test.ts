@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { money } from './money.js';
@@ -6,13 +7,31 @@ import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import { compileRoyaltyStatement } from './projection.js';
 import { reconstructSettlementRecovery, SettlementAttemptState } from './recovery.js';
 import {
+  createSettlementAllocationLineageCheckpoint,
+  resolveCheckpointBackedSettlementAllocationLineage,
+  signSettlementAllocationLineageCheckpoint,
+  verifySettlementAllocationLineageCheckpoint,
+} from './settlement-allocation-lineage-checkpoint.js';
+import {
   createSettlementAllocationLineageBoundary,
   createSettlementAllocationSuccessorLink,
   resolveSettlementAllocationLineage,
+  type SettlementAllocationLineageResolution,
+  type SettlementAllocationSuccessorLink,
 } from './settlement-allocation-lineage.js';
-import { createSettlementAllocationAuthority } from './settlement-allocation.js';
+import { createSettlementAllocationAuthority, type SettlementAllocationAuthority } from './settlement-allocation.js';
 import { SettlementEligibilityCode, type SettlementEpoch } from './settlement.js';
 import { StatementKind } from './statements.js';
+
+const keyPair = generateKeyPairSync('ed25519');
+const privateKeyPem = keyPair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
+const publicKeyPem = keyPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const checkpointTrust = {
+  sourceRef: 'postgres:statement-lineage',
+  sourceInstanceId: 'cluster:test:statement-lineage',
+  signerKeyId: 'checkpoint-key:test',
+  publicKeyPem,
+} as const;
 
 const obligation = createRoyaltyObligationAuthority({
   id: 'obl:statement-lineage',
@@ -83,13 +102,30 @@ const link = createSettlementAllocationSuccessorLink({
   linkedAt: '2026-10-01T00:03:30Z',
 });
 const asOf = '2026-10-02T00:00:00Z';
-const boundary = createSettlementAllocationLineageBoundary({
-  asOf,
-  observedThrough: asOf,
-  coverage: 'complete',
-  sourceRef: 'allocation-store:snapshot:statement-lineage',
-});
-const lineage = resolveSettlementAllocationLineage([successor, initial], [link], boundary);
+
+function checkpointBackedLineage(
+  allocations: readonly SettlementAllocationAuthority[],
+  links: readonly SettlementAllocationSuccessorLink[],
+  options: { readonly asOf?: string; readonly checkpointId?: string; readonly highWaterMark?: string } = {},
+): SettlementAllocationLineageResolution {
+  const checkpointAsOf = options.asOf ?? asOf;
+  const unsigned = createSettlementAllocationLineageCheckpoint({
+    checkpointId: options.checkpointId ?? 'checkpoint:statement-lineage',
+    sourceRef: checkpointTrust.sourceRef,
+    sourceInstanceId: checkpointTrust.sourceInstanceId,
+    batchId: batch.batchId,
+    asOf: checkpointAsOf,
+    observedThrough: checkpointAsOf,
+    highWaterMark: options.highWaterMark ?? '100',
+    allocations,
+    links,
+  });
+  const signed = signSettlementAllocationLineageCheckpoint(unsigned, checkpointTrust.signerKeyId, privateKeyPem);
+  const verified = verifySettlementAllocationLineageCheckpoint(signed, checkpointTrust);
+  return resolveCheckpointBackedSettlementAllocationLineage(allocations, links, verified);
+}
+
+const lineage = checkpointBackedLineage([successor, initial], [link]);
 
 function compile(allocationLineage = lineage) {
   return compileRoyaltyStatement({
@@ -115,7 +151,7 @@ function compile(allocationLineage = lineage) {
 }
 
 describe('statement allocation-lineage authority', () => {
-  it('uses the resolver-selected successor head and commits the lineage history', () => {
+  it('uses the checkpoint-backed successor head and commits the lineage history', () => {
     expect(lineage.headAllocationRoot).toBe(successor.allocationRoot);
     expect(lineage.headAllocation.obligationSetDischarged).toBe(true);
     const statement = compile();
@@ -124,14 +160,11 @@ describe('statement allocation-lineage authority', () => {
     expect(statement.netPayable.amountMinor).toBe(425n);
   });
 
-  it('changes settlement commitment when observed allocation history changes', () => {
-    const predecessorBoundary = createSettlementAllocationLineageBoundary({
-      asOf,
-      observedThrough: asOf,
-      coverage: 'complete',
-      sourceRef: 'allocation-store:snapshot:predecessor-only',
+  it('changes settlement commitment when authenticated observed allocation history changes', () => {
+    const predecessorOnly = checkpointBackedLineage([initial], [], {
+      checkpointId: 'checkpoint:statement-lineage:predecessor-only',
+      highWaterMark: '99',
     });
-    const predecessorOnly = resolveSettlementAllocationLineage([initial], [], predecessorBoundary);
     const predecessorStatement = compile(predecessorOnly);
     const successorStatement = compile(lineage);
     expect(successorStatement.obligationRoot).toBe(predecessorStatement.obligationRoot);
@@ -139,19 +172,30 @@ describe('statement allocation-lineage authority', () => {
     expect(successorStatement.settlementRoot).not.toBe(predecessorStatement.settlementRoot);
   });
 
-  it('rejects a valid lineage resolved for a different statement instant', () => {
-    const wrongBoundary = createSettlementAllocationLineageBoundary({
+  it('rejects a checkpoint-backed lineage resolved for a different statement instant', () => {
+    const wrongLineage = checkpointBackedLineage([initial, successor], [link], {
       asOf: '2026-10-01T23:59:59Z',
-      observedThrough: '2026-10-01T23:59:59Z',
-      coverage: 'complete',
-      sourceRef: 'allocation-store:snapshot:wrong-asof',
+      checkpointId: 'checkpoint:statement-lineage:wrong-asof',
+      highWaterMark: '98',
     });
-    const wrongLineage = resolveSettlementAllocationLineage([initial, successor], [link], wrongBoundary);
     expect(() => compile(wrongLineage)).toThrow(/boundary asOf must equal statement asOf/);
   });
 
-  it('rejects a structural clone of a genuine canonical lineage resolution', () => {
-    const clonedLineage = { ...lineage };
-    expect(() => compile(clonedLineage)).toThrow(/must be produced by authoritative resolver/);
+  it('rejects a structural clone of a genuine checkpoint-backed lineage resolution', () => {
+    expect(() => compile({ ...lineage })).toThrow(/verified source checkpoint/);
+  });
+
+  it('rejects a direct caller-asserted complete lineage even when structurally valid', () => {
+    const directComplete = resolveSettlementAllocationLineage(
+      [initial, successor],
+      [link],
+      createSettlementAllocationLineageBoundary({
+        asOf,
+        observedThrough: asOf,
+        coverage: 'complete',
+        sourceRef: 'caller-asserted-complete',
+      }),
+    );
+    expect(() => compile(directComplete)).toThrow(/verified source checkpoint/);
   });
 });
