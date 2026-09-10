@@ -174,56 +174,6 @@ impl KeyDidBindingArtifact {
     }
 }
 
-/// A descriptive result from combining the two independent verification planes.
-///
-/// This type is intentionally constructor-only and non-deserializable. Callers
-/// should only construct it after independently verifying both Mycelix DID
-/// authorship and the Xenia artifact attestation over [`KeyDidBindingArtifact::canonical_bytes`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct VerifiedTwoSidedKeyDidBinding {
-    artifact: KeyDidBindingArtifact,
-    did_authorship_ref: String,
-    xenia_attestation_ref: String,
-}
-
-impl VerifiedTwoSidedKeyDidBinding {
-    /// Construct after both verification planes have succeeded.
-    ///
-    /// This function does not perform those external checks; its explicit naming
-    /// keeps the trust boundary visible to integration code.
-    pub fn from_verified_planes(
-        artifact: KeyDidBindingArtifact,
-        did_authorship_ref: impl Into<String>,
-        xenia_attestation_ref: impl Into<String>,
-    ) -> Result<Self, KeyDidBindingError> {
-        artifact.validate()?;
-        let did_authorship_ref = did_authorship_ref.into();
-        let xenia_attestation_ref = xenia_attestation_ref.into();
-        validate_bounded("did_authorship_ref", &did_authorship_ref, 1_024)?;
-        validate_bounded("xenia_attestation_ref", &xenia_attestation_ref, 1_024)?;
-        Ok(Self {
-            artifact,
-            did_authorship_ref,
-            xenia_attestation_ref,
-        })
-    }
-
-    /// Verified association artifact.
-    pub fn artifact(&self) -> &KeyDidBindingArtifact {
-        &self.artifact
-    }
-
-    /// Reference to the independently verified Mycelix authorship evidence.
-    pub fn did_authorship_ref(&self) -> &str {
-        &self.did_authorship_ref
-    }
-
-    /// Reference to the independently verified Xenia attestation evidence.
-    pub fn xenia_attestation_ref(&self) -> &str {
-        &self.xenia_attestation_ref
-    }
-}
-
 fn validate_xenia_signature_suite(label: &str) -> Result<(), KeyDidBindingError> {
     match label {
         "ed25519-rfc8032"
@@ -398,18 +348,10 @@ mod tests {
     }
 
     #[test]
-    fn verified_view_is_scope_exact_and_non_authoritative() {
+    fn scope_matching_is_exact() {
         let artifact = binding();
         assert!(artifact.applies_to_scope("symthaea-generativity-provenance"));
+        assert!(!artifact.applies_to_scope("symthaea-generativity"));
         assert!(!artifact.applies_to_scope("mycelix-governance"));
-
-        let verified = VerifiedTwoSidedKeyDidBinding::from_verified_planes(
-            artifact,
-            "holochain-action:abc",
-            "xenia-attestation:def",
-        )
-        .unwrap();
-        assert_eq!(verified.did_authorship_ref(), "holochain-action:abc");
-        assert_eq!(verified.xenia_attestation_ref(), "xenia-attestation:def");
     }
 }
