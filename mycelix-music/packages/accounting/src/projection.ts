@@ -34,7 +34,6 @@ export interface StatementDeduction {
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
   readonly recovery: SettlementRecoveryState;
-  readonly settledAmount: Money;
 }
 
 export interface CompileRoyaltyStatementInput {
@@ -95,6 +94,10 @@ function validateDeduction(
   if (observedAt > statementAsOf) throw new Error('statement deduction was observed after the statement asOf');
 }
 
+function hasReceiptBackedFinality(recovery: SettlementRecoveryState): boolean {
+  return recovery.status === 'finalized' || recovery.status === 'partial_finality';
+}
+
 function validateSettlementEvidence(
   evidence: StatementSettlementEvidence,
   beneficiaryId: string,
@@ -102,7 +105,7 @@ function validateSettlementEvidence(
   settlementEpochId: string,
   statementAsOf: number,
 ): void {
-  const { batch, recovery, settledAmount } = evidence;
+  const { batch, recovery } = evidence;
   if (batch.beneficiaryId !== beneficiaryId) throw new Error('settlement batch beneficiary mismatch');
   if (batch.currency !== currency) throw new Error('settlement batch currency mismatch');
   if (batch.epochId !== settlementEpochId) throw new Error('settlement batch epoch mismatch');
@@ -115,13 +118,31 @@ function validateSettlementEvidence(
   ) {
     throw new Error('settlement recovery is not bound to the supplied eligibility snapshot');
   }
-  if (recovery.status === 'finalized') {
-    if (!recovery.obligationSetSettled || !recovery.finalReceiptRef?.trim()) {
-      throw new Error('finalized settlement recovery requires settled=true and a final receipt reference');
+
+  if (hasReceiptBackedFinality(recovery)) {
+    if (!recovery.finalReceiptRef?.trim() || !recovery.finalSettledAmount) {
+      throw new Error('receipt-backed settlement recovery requires a final receipt and exact settled amount');
+    }
+    if (recovery.finalSettledAmount.amountMinor <= 0n) throw new Error('receipt-backed settled amount must be positive');
+    assertSameCurrency(recovery.finalSettledAmount, batch.grossAmount);
+    if (recovery.finalSettledAmount.amountMinor > batch.grossAmount.amountMinor) {
+      throw new Error('receipt-backed settled amount cannot exceed batch gross amount');
+    }
+    if (recovery.status === 'finalized') {
+      if (!recovery.obligationSetSettled) throw new Error('whole-batch finalized recovery must mark the obligation set settled');
+      if (recovery.finalSettledAmount.amountMinor !== batch.grossAmount.amountMinor) {
+        throw new Error('whole-batch finalized recovery must equal batch gross amount');
+      }
+    } else {
+      if (recovery.obligationSetSettled) throw new Error('partial finality cannot mark the obligation set settled');
+      if (recovery.finalSettledAmount.amountMinor >= batch.grossAmount.amountMinor) {
+        throw new Error('partial finality must be less than batch gross amount');
+      }
     }
   } else if (recovery.obligationSetSettled) {
-    throw new Error('non-finalized settlement recovery cannot mark the obligation set settled');
+    throw new Error('non-final settlement recovery cannot mark the obligation set settled');
   }
+
   if (recovery.status !== 'never_attempted' && !recovery.lastObservedAt) {
     throw new Error('observed settlement recovery requires lastObservedAt');
   }
@@ -129,11 +150,6 @@ function validateSettlementEvidence(
     const lastObservedAt = Date.parse(recovery.lastObservedAt);
     if (!Number.isFinite(lastObservedAt)) throw new Error('settlement recovery lastObservedAt must be valid');
     if (lastObservedAt > statementAsOf) throw new Error('settlement evidence cannot be later than statement asOf');
-  }
-  if (settledAmount.amountMinor < 0n) throw new Error('settled amount must be non-negative');
-  assertSameCurrency(settledAmount, batch.grossAmount);
-  if (settledAmount.amountMinor > batch.grossAmount.amountMinor) {
-    throw new Error('settled amount cannot exceed batch gross amount');
   }
 }
 
@@ -201,7 +217,7 @@ export function compileRoyaltyStatement(
 
   const orderedSettlements = [...(input.settlements ?? [])].sort((a, b) => a.batch.batchId.localeCompare(b.batch.batchId));
   const seenBatches = new Set<string>();
-  const finalizedObligationIds = new Set<string>();
+  const receiptBackedObligationIds = new Set<string>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
     assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch, input.eligibilityObservations);
@@ -213,16 +229,20 @@ export function compileRoyaltyStatement(
       if (cutoffPartition.nextEpoch.some(obligation => obligation.id === obligationId)) {
         throw new Error(`settlement batch references post-cutoff obligation: ${obligationId}`);
       }
-      if (evidence.recovery.status === 'finalized') {
-        if (finalizedObligationIds.has(obligationId)) {
-          throw new Error(`obligation appears in more than one finalized settlement: ${obligationId}`);
+      if (hasReceiptBackedFinality(evidence.recovery)) {
+        if (receiptBackedObligationIds.has(obligationId)) {
+          throw new Error(`obligation appears in more than one receipt-backed settlement: ${obligationId}`);
         }
-        finalizedObligationIds.add(obligationId);
+        receiptBackedObligationIds.add(obligationId);
       }
     }
-    if (evidence.recovery.status === 'finalized') paid = addMoney(paid, evidence.settledAmount);
+    if (hasReceiptBackedFinality(evidence.recovery)) {
+      paid = addMoney(paid, evidence.recovery.finalSettledAmount!);
+    }
   }
-  if (paid.amountMinor > netPayable.amountMinor) throw new Error('finalized settlement receipts exceed statement net payable value');
+  if (paid.amountMinor > netPayable.amountMinor) {
+    throw new Error('receipt-backed settlement amounts exceed statement net payable value');
+  }
 
   const obligationRoot = buildMerkleCommitment(orderedObligations.map(committedObligation)).root;
   const adjustmentRoot = buildMerkleCommitment(orderedDeductions.map(deduction => ({
@@ -240,16 +260,17 @@ export function compileRoyaltyStatement(
       eligibilityEvidenceRoot: eligibilityEvidence.root,
     },
     ...orderedSettlements.map(evidence => ({
-      evidenceKind: 'settlement_execution_v1',
+      evidenceKind: 'settlement_execution_v3',
       batchId: evidence.batch.batchId,
       obligationSetRoot: evidence.batch.obligationSetRoot,
       eligibilityAsOf: evidence.batch.eligibilityAsOf,
       eligibilityEvidenceRoot: evidence.batch.eligibilityEvidenceRoot,
       obligationIds: [...evidence.batch.obligationIds].sort(),
       recoveryStatus: evidence.recovery.status,
+      obligationSetSettled: evidence.recovery.obligationSetSettled,
       finalReceiptRef: evidence.recovery.finalReceiptRef ?? null,
-      settledAmountMinor: evidence.settledAmount.amountMinor,
-      currency: evidence.settledAmount.currency,
+      finalSettledAmountMinor: evidence.recovery.finalSettledAmount?.amountMinor ?? null,
+      currency: evidence.recovery.finalSettledAmount?.currency ?? evidence.batch.currency,
     })),
   ]).root;
 

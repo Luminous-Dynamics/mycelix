@@ -1,5 +1,6 @@
 import { canonicalAccountingValue } from './merkle.js';
 import { money } from './money.js';
+import type { DeterministicNettingBatch } from './netting.js';
 import { createRoyaltyObligationAuthority, type RoyaltyObligationAuthority } from './obligation-authority.js';
 import {
   projectDeductionRecord,
@@ -16,7 +17,9 @@ import {
 import type { StatementDeduction } from './projection.js';
 import {
   SettlementAttemptState,
+  reconstructSettlementRecovery,
   type SettlementAttemptObservation,
+  type SettlementRecoveryState,
 } from './recovery.js';
 import type { SettlementEligibilityObservation } from './settlement.js';
 import { createStatementSnapshot, type RoyaltyStatementSnapshot } from './statements.js';
@@ -143,6 +146,14 @@ export function verifyPersistedSettlementObservation(
   }
   const eligibilityAsOf = canonicalTimestamp('persisted settlement eligibilityAsOf', record.eligibilityAsOf);
   const observedAt = canonicalTimestamp('persisted settlement observedAt', record.observedAt);
+  const hasAmountMinor = record.settledAmountMinor !== undefined;
+  const hasCurrency = record.settledCurrency !== undefined;
+  if (hasAmountMinor !== hasCurrency) {
+    throw new Error('persisted settled amount requires both settledAmountMinor and settledCurrency');
+  }
+  const settledAmount = hasAmountMinor
+    ? money(canonicalMinor('persisted settledAmountMinor', record.settledAmountMinor!), record.settledCurrency!)
+    : undefined;
   const observation: SettlementAttemptObservation = Object.freeze({
     attemptId: record.attemptId,
     batchId: record.batchId,
@@ -152,22 +163,21 @@ export function verifyPersistedSettlementObservation(
     state: record.state,
     observedAt,
     ...(record.railReceiptRef === undefined ? {} : { railReceiptRef: record.railReceiptRef }),
+    ...(settledAmount === undefined ? {} : { settledAmount }),
     ...(record.supersedesAttemptId === undefined ? {} : { supersedesAttemptId: record.supersedesAttemptId }),
   });
   const expected = projectSettlementObservationRecord(record.id, observation);
   const normalized = { ...record, eligibilityAsOf, observedAt } as Readonly<Record<string, unknown>>;
   assertProjectedFields('persisted settlement observation', normalized, expected as unknown as Readonly<Record<string, unknown>>);
-  return Object.freeze({
-    attemptId: expected.attemptId,
-    batchId: expected.batchId,
-    obligationSetRoot: expected.obligationSetRoot,
-    eligibilityAsOf: expected.eligibilityAsOf,
-    eligibilityEvidenceRoot: expected.eligibilityEvidenceRoot,
-    state: expected.state,
-    observedAt: expected.observedAt,
-    ...(expected.railReceiptRef === undefined ? {} : { railReceiptRef: expected.railReceiptRef }),
-    ...(expected.supersedesAttemptId === undefined ? {} : { supersedesAttemptId: expected.supersedesAttemptId }),
-  });
+  return observation;
+}
+
+export function verifyPersistedSettlementRecovery(
+  batch: DeterministicNettingBatch,
+  records: readonly VerifiablePersistedSettlementObservationRecord[],
+): Readonly<SettlementRecoveryState> {
+  const observations = records.map(verifyPersistedSettlementObservation);
+  return reconstructSettlementRecovery(batch, observations);
 }
 
 export function verifyPersistedStatementSnapshot(

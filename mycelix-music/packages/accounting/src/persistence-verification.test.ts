@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildDeterministicNettingBatches } from './netting.js';
 import { money } from './money.js';
 import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import {
@@ -13,10 +14,11 @@ import {
   verifyPersistedEligibilityObservation,
   verifyPersistedRoyaltyObligation,
   verifyPersistedSettlementObservation,
+  verifyPersistedSettlementRecovery,
   verifyPersistedStatementSnapshot,
 } from './persistence-verification.js';
 import { SettlementAttemptState } from './recovery.js';
-import { SettlementEligibilityCode } from './settlement.js';
+import { SettlementEligibilityCode, type SettlementEpoch } from './settlement.js';
 import { createStatementSnapshot, StatementKind } from './statements.js';
 
 const obligation = createRoyaltyObligationAuthority({
@@ -30,6 +32,19 @@ const obligation = createRoyaltyObligationAuthority({
     economicTermsRef: 'terms:v1',
   },
 });
+const eligibility = {
+  id: 'elig:1',
+  obligationId: obligation.id,
+  code: SettlementEligibilityCode.Eligible,
+  sourceRef: 'eligibility-authority:v1',
+  observedAt: '2026-09-10T00:01:00Z',
+} as const;
+const epoch: SettlementEpoch = {
+  id: 'epoch:1',
+  cutoff: '2026-09-10T00:02:00Z',
+  eligibilityAsOf: '2026-09-10T00:03:00Z',
+  minimumPayout: money(100n, 'USD'),
+};
 
 describe('persisted accounting evidence verification', () => {
   it('reconstructs and verifies obligation authority from Prisma-style timestamps', () => {
@@ -48,13 +63,7 @@ describe('persisted accounting evidence verification', () => {
   });
 
   it('detects eligibility source provenance changed behind a stored evidence root', () => {
-    const persisted = projectEligibilityObservationRecord({
-      id: 'elig:1',
-      obligationId: obligation.id,
-      code: SettlementEligibilityCode.Eligible,
-      sourceRef: 'eligibility-authority:v1',
-      observedAt: '2026-09-10T00:01:00Z',
-    });
+    const persisted = projectEligibilityObservationRecord(eligibility);
     expect(() => verifyPersistedEligibilityObservation({ ...persisted, sourceRef: 'eligibility-authority:tampered' }))
       .toThrow(/canonical projection at observationRoot/);
   });
@@ -87,7 +96,7 @@ describe('persisted accounting evidence verification', () => {
     })).toThrow(/canonical projection at observationRoot/);
   });
 
-  it('rejects persisted finality that lacks a durable rail receipt', () => {
+  it('detects a changed settled amount behind an unchanged observation root', () => {
     const persisted = projectSettlementObservationRecord('settlement-observation:final', {
       attemptId: 'attempt:1',
       batchId: 'batch:1',
@@ -97,11 +106,75 @@ describe('persisted accounting evidence verification', () => {
       state: SettlementAttemptState.Finalized,
       observedAt: '2026-09-10T00:04:00Z',
       railReceiptRef: 'rail:receipt:1',
+      settledAmount: money(500n, 'USD'),
     });
-    const forged = { ...persisted } as Record<string, unknown>;
-    delete forged.railReceiptRef;
-    expect(() => verifyPersistedSettlementObservation(forged as unknown as typeof persisted))
+    expect(() => verifyPersistedSettlementObservation({ ...persisted, settledAmountMinor: '499' }))
+      .toThrow(/canonical projection at observationRoot/);
+  });
+
+  it('rejects persisted finality that lacks receipt or amount identity', () => {
+    const persisted = projectSettlementObservationRecord('settlement-observation:final', {
+      attemptId: 'attempt:1',
+      batchId: 'batch:1',
+      obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:03:00Z',
+      eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-09-10T00:04:00Z',
+      railReceiptRef: 'rail:receipt:1',
+      settledAmount: money(500n, 'USD'),
+    });
+    const noReceipt = { ...persisted } as Record<string, unknown>;
+    delete noReceipt.railReceiptRef;
+    expect(() => verifyPersistedSettlementObservation(noReceipt as unknown as typeof persisted))
       .toThrow(/requires railReceiptRef/);
+    const noCurrency = { ...persisted } as Record<string, unknown>;
+    delete noCurrency.settledCurrency;
+    expect(() => verifyPersistedSettlementObservation(noCurrency as unknown as typeof persisted))
+      .toThrow(/requires both/);
+  });
+
+  it('reconstructs finalized recovery from persisted whole-batch receipt amount evidence', () => {
+    const batch = buildDeterministicNettingBatches([obligation], epoch, [eligibility])[0]!;
+    const persisted = projectSettlementObservationRecord('settlement-observation:final', {
+      attemptId: 'attempt:1',
+      batchId: batch.batchId,
+      obligationSetRoot: batch.obligationSetRoot,
+      eligibilityAsOf: batch.eligibilityAsOf,
+      eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-09-10T00:04:00Z',
+      railReceiptRef: 'rail:receipt:1',
+      settledAmount: money(500n, 'USD'),
+    });
+    const recovered = verifyPersistedSettlementRecovery(batch, [{
+      ...persisted,
+      observedAt: new Date(persisted.observedAt),
+      eligibilityAsOf: new Date(persisted.eligibilityAsOf),
+    }]);
+    expect(recovered.status).toBe('finalized');
+    expect(recovered.finalSettledAmount).toEqual(money(500n, 'USD'));
+    expect(recovered.obligationSetSettled).toBe(true);
+  });
+
+  it('replays persisted partial rail finality while preserving unresolved residual debt', () => {
+    const batch = buildDeterministicNettingBatches([obligation], epoch, [eligibility])[0]!;
+    const persisted = projectSettlementObservationRecord('settlement-observation:partial', {
+      attemptId: 'attempt:1',
+      batchId: batch.batchId,
+      obligationSetRoot: batch.obligationSetRoot,
+      eligibilityAsOf: batch.eligibilityAsOf,
+      eligibilityEvidenceRoot: batch.eligibilityEvidenceRoot,
+      state: SettlementAttemptState.Finalized,
+      observedAt: '2026-09-10T00:04:00Z',
+      railReceiptRef: 'rail:receipt:partial',
+      settledAmount: money(475n, 'USD'),
+    });
+    const recovered = verifyPersistedSettlementRecovery(batch, [persisted]);
+    expect(recovered.status).toBe('partial_finality');
+    expect(recovered.finalSettledAmount).toEqual(money(475n, 'USD'));
+    expect(recovered.obligationSetSettled).toBe(false);
+    expect(recovered.reason).toMatch(/residual allocation or reconciliation/);
   });
 
   it('rechecks statement arithmetic and immutable snapshot commitment', () => {

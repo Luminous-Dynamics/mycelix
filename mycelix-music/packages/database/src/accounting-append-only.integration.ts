@@ -50,7 +50,7 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
       'royalty_obligation_canonical_shape',
       'royalty_statement_canonical_shape',
       'royalty_statement_period_order',
-      'settlement_finalized_requires_receipt',
+      'settlement_finality_evidence_shape',
       'settlement_observation_after_eligibility',
       'settlement_observation_digest_shape',
       'settlement_observation_state_code',
@@ -167,14 +167,57 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
       prisma.$executeRawUnsafe(`
         INSERT INTO "SettlementAttemptObservationRecord"
           ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
-           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+           "eligibilityEvidenceRoot", "state", "observedAt", "settledAmountMinor", "settledCurrency", "observationRoot")
         VALUES
           ('guard:settlement:no-receipt', 'attempt:4', 'batch:4', '${ROOT.obligation}',
            '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
-           '2026-09-10T00:04:00Z', '${ROOT.invalidFinality}')
+           '2026-09-10T00:04:00Z', '500', 'USD', '${ROOT.invalidFinality}')
       `),
-      /settlement_finalized_requires_receipt/,
+      /settlement_finality_evidence_shape/,
       'direct SQL must not claim finality without durable receipt identity',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef", "observationRoot")
+        VALUES
+          ('guard:settlement:no-amount', 'attempt:7', 'batch:7', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+           '2026-09-10T00:04:05Z', 'rail:receipt:no-amount', '${ROOT.invalidEligibility}')
+      `),
+      /settlement_finality_evidence_shape/,
+      'direct SQL must not claim finality without exact amount and currency evidence',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "settledAmountMinor", "settledCurrency", "observationRoot")
+        VALUES
+          ('guard:settlement:nonfinal-amount', 'attempt:8', 'batch:8', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'confirmed',
+           '2026-09-10T00:04:10Z', '500', 'USD', '${ROOT.invalidSettlement}')
+      `),
+      /settlement_finality_evidence_shape/,
+      'direct SQL must not attach settled value to a non-final observation',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef",
+           "settledAmountMinor", "settledCurrency", "observationRoot")
+        VALUES
+          ('guard:settlement:negative-amount', 'attempt:9', 'batch:9', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+           '2026-09-10T00:04:12Z', 'rail:receipt:negative', '-1', 'USD', '${ROOT.invalidState}')
+      `),
+      /settlement_finality_evidence_shape/,
+      'direct SQL must not persist a negative finalized settlement amount',
     );
 
     await assert.rejects(
@@ -194,11 +237,12 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
     await prisma.$executeRawUnsafe(`
       INSERT INTO "SettlementAttemptObservationRecord"
         ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
-         "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef", "observationRoot")
+         "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef",
+         "settledAmountMinor", "settledCurrency", "observationRoot")
       VALUES
         ('guard:settlement:finalized', 'attempt:5', 'batch:5', '${ROOT.obligation}',
          '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
-         '2026-09-10T00:04:30Z', 'rail:receipt:final', '${ROOT.validFinality}')
+         '2026-09-10T00:04:30Z', 'rail:receipt:final', '500', 'USD', '${ROOT.validFinality}')
     `);
 
     const settlementSnapshot = await prisma.$queryRawUnsafe<Array<{ eligibilityAsOf: Date; eligibilityEvidenceRoot: string }>>(`
@@ -208,6 +252,15 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
     `);
     assert.equal(settlementSnapshot[0]?.eligibilityAsOf.toISOString(), '2026-09-10T00:02:30.000Z');
     assert.equal(settlementSnapshot[0]?.eligibilityEvidenceRoot, ROOT.settlementEligibility);
+
+    const finalitySnapshot = await prisma.$queryRawUnsafe<Array<{ railReceiptRef: string; settledAmountMinor: string; settledCurrency: string }>>(`
+      SELECT "railReceiptRef", "settledAmountMinor", "settledCurrency"
+      FROM "SettlementAttemptObservationRecord"
+      WHERE "id" = 'guard:settlement:finalized'
+    `);
+    assert.equal(finalitySnapshot[0]?.railReceiptRef, 'rail:receipt:final');
+    assert.equal(finalitySnapshot[0]?.settledAmountMinor, '500');
+    assert.equal(finalitySnapshot[0]?.settledCurrency, 'USD');
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "RoyaltyStatementSnapshotRecord"

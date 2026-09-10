@@ -1,4 +1,5 @@
 import type { DeterministicNettingBatch } from './netting.js';
+import { assertSameCurrency, money, type Money } from './money.js';
 
 export enum SettlementAttemptState {
   Authorized = 'authorized',
@@ -21,6 +22,8 @@ export interface SettlementAttemptObservation {
   readonly state: SettlementAttemptState;
   readonly observedAt: string;
   readonly railReceiptRef?: string;
+  /** Exact rail-attested amount. Required only when state is Finalized. */
+  readonly settledAmount?: Money;
   /** Required on the first observation of a retry attempt. Forbidden on the initial attempt. */
   readonly supersedesAttemptId?: string;
 }
@@ -29,6 +32,7 @@ export type SettlementRecoveryStatus =
   | 'never_attempted'
   | 'in_flight'
   | 'retryable'
+  | 'partial_finality'
   | 'finalized'
   | 'blocked_ambiguous';
 
@@ -40,10 +44,12 @@ export interface SettlementRecoveryState {
   readonly status: SettlementRecoveryStatus;
   readonly activeAttemptId?: string;
   readonly lastObservedAt?: string;
-  /** Durable receipt from a finalized observation, retained through later reversal/dispute. */
+  /** Durable receipt from a finalized rail observation, retained through later reversal/dispute. */
   readonly finalReceiptRef?: string;
+  /** Exact amount attested by that finalized rail receipt, retained for audit after reversal/dispute. */
+  readonly finalSettledAmount?: Money;
   readonly reason?: string;
-  /** True only while the latest authoritative state remains Finalized. */
+  /** True only when the latest rail finality proves the entire deterministic batch amount. */
   readonly obligationSetSettled: boolean;
 }
 
@@ -77,13 +83,37 @@ function validateObservation(batch: DeterministicNettingBatch, observation: Sett
     throw new Error('settlement observation cannot precede the eligibility snapshot it executes against');
   }
   if (observation.railReceiptRef !== undefined && !observation.railReceiptRef.trim()) throw new Error('railReceiptRef must be non-empty when present');
-  if (observation.state === SettlementAttemptState.Finalized && !observation.railReceiptRef?.trim()) {
-    throw new Error('every finalized settlement observation requires a rail receipt reference');
+
+  if (observation.state === SettlementAttemptState.Finalized) {
+    if (!observation.railReceiptRef?.trim()) {
+      throw new Error('every finalized settlement observation requires a rail receipt reference');
+    }
+    if (observation.settledAmount === undefined) {
+      throw new Error('every finalized settlement observation requires an exact settled amount');
+    }
+    if (observation.settledAmount.amountMinor <= 0n) {
+      throw new Error('finalized settlement amount must be positive');
+    }
+    assertSameCurrency(observation.settledAmount, batch.grossAmount);
+    if (observation.settledAmount.amountMinor > batch.grossAmount.amountMinor) {
+      throw new Error('finalized settlement amount cannot exceed batch gross amount');
+    }
+  } else if (observation.settledAmount !== undefined) {
+    throw new Error('settledAmount is permitted only on finalized settlement evidence');
   }
 }
 
 function observationIdentity(observation: SettlementAttemptObservation): string {
-  return [observation.observedAt, observation.state, observation.eligibilityAsOf, observation.eligibilityEvidenceRoot, observation.railReceiptRef ?? '', observation.supersedesAttemptId ?? ''].join('\u0000');
+  return [
+    observation.observedAt,
+    observation.state,
+    observation.eligibilityAsOf,
+    observation.eligibilityEvidenceRoot,
+    observation.railReceiptRef ?? '',
+    observation.settledAmount?.amountMinor.toString(10) ?? '',
+    observation.settledAmount?.currency ?? '',
+    observation.supersedesAttemptId ?? '',
+  ].join('\u0000');
 }
 
 interface AttemptHistory {
@@ -94,6 +124,7 @@ interface AttemptHistory {
   readonly finalState: SettlementAttemptState;
   readonly supersedesAttemptId?: string;
   readonly finalizedReceiptRef?: string;
+  readonly finalizedSettledAmount?: Money;
 }
 
 function buildAttemptHistories(batch: DeterministicNettingBatch, observations: readonly SettlementAttemptObservation[]): readonly AttemptHistory[] {
@@ -129,9 +160,16 @@ function buildAttemptHistories(batch: DeterministicNettingBatch, observations: r
       if (!ALLOWED_TRANSITIONS[previous.state].includes(current.state)) throw new Error(`invalid settlement transition ${previous.state} -> ${current.state}`);
     }
 
-    const finalizedRefs = new Set(sorted.filter(observation => observation.state === SettlementAttemptState.Finalized).map(observation => observation.railReceiptRef!));
+    const finalized = sorted.filter(observation => observation.state === SettlementAttemptState.Finalized);
+    const finalizedRefs = new Set(finalized.map(observation => observation.railReceiptRef!));
     if (finalizedRefs.size > 1) throw new Error(`finalized rail receipt reference changed within attempt ${attemptId}`);
+    const finalizedAmounts = new Set(finalized.map(observation => `${observation.settledAmount!.currency}\u0000${observation.settledAmount!.amountMinor.toString(10)}`));
+    if (finalizedAmounts.size > 1) throw new Error(`finalized settled amount changed within attempt ${attemptId}`);
     const finalizedReceiptRef = finalizedRefs.values().next().value as string | undefined;
+    const finalizedAmount = finalized[0]?.settledAmount;
+    const finalizedSettledAmount = finalizedAmount === undefined
+      ? undefined
+      : money(finalizedAmount.amountMinor, finalizedAmount.currency);
     const final = sorted[sorted.length - 1]!;
     histories.push(Object.freeze({
       attemptId,
@@ -141,6 +179,7 @@ function buildAttemptHistories(batch: DeterministicNettingBatch, observations: r
       finalState: final.state,
       ...(first.supersedesAttemptId === undefined ? {} : { supersedesAttemptId: first.supersedesAttemptId }),
       ...(finalizedReceiptRef === undefined ? {} : { finalizedReceiptRef }),
+      ...(finalizedSettledAmount === undefined ? {} : { finalizedSettledAmount }),
     }));
   }
 
@@ -170,14 +209,40 @@ export function reconstructSettlementRecovery(batch: DeterministicNettingBatch, 
   const base = { ...identity, activeAttemptId: latest.attemptId, lastObservedAt: finalObservation.observedAt } as const;
 
   switch (latest.finalState) {
-    case SettlementAttemptState.Finalized:
-      return Object.freeze({ ...base, status: 'finalized', finalReceiptRef: latest.finalizedReceiptRef!, obligationSetSettled: true });
+    case SettlementAttemptState.Finalized: {
+      const finalSettledAmount = latest.finalizedSettledAmount!;
+      const fullySettled = finalSettledAmount.amountMinor === batch.grossAmount.amountMinor;
+      if (fullySettled) {
+        return Object.freeze({
+          ...base,
+          status: 'finalized',
+          finalReceiptRef: latest.finalizedReceiptRef!,
+          finalSettledAmount,
+          obligationSetSettled: true,
+        });
+      }
+      return Object.freeze({
+        ...base,
+        status: 'partial_finality',
+        finalReceiptRef: latest.finalizedReceiptRef!,
+        finalSettledAmount,
+        reason: 'rail finality covers less than the deterministic batch; residual allocation or reconciliation is required before debt can be settled',
+        obligationSetSettled: false,
+      });
+    }
     case SettlementAttemptState.Failed:
     case SettlementAttemptState.Rejected:
       return Object.freeze({ ...base, status: 'retryable', obligationSetSettled: false });
     case SettlementAttemptState.Reversed:
     case SettlementAttemptState.Disputed:
-      return Object.freeze({ ...base, status: 'blocked_ambiguous', ...(latest.finalizedReceiptRef === undefined ? {} : { finalReceiptRef: latest.finalizedReceiptRef }), reason: `rail state ${latest.finalState} requires reconciliation before any retry`, obligationSetSettled: false });
+      return Object.freeze({
+        ...base,
+        status: 'blocked_ambiguous',
+        ...(latest.finalizedReceiptRef === undefined ? {} : { finalReceiptRef: latest.finalizedReceiptRef }),
+        ...(latest.finalizedSettledAmount === undefined ? {} : { finalSettledAmount: latest.finalizedSettledAmount }),
+        reason: `rail state ${latest.finalState} requires reconciliation before any retry`,
+        obligationSetSettled: false,
+      });
     default:
       return Object.freeze({ ...base, status: 'in_flight', obligationSetSettled: false });
   }
