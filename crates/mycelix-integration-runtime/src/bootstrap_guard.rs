@@ -9,7 +9,8 @@ const EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2;
 /// This is intentionally separate from semantic producer, structural manifest,
 /// and initialized-store enforcement identities. v1 requires an unversioned
 /// database to contain no user schema objects before Mycelix may stamp it as a
-/// fresh structural-v2 bootstrap candidate.
+/// fresh structural-v2 bootstrap candidate, and partial-v2 recovery to contain
+/// only recognized Mycelix bootstrap objects before semantic metadata is written.
 pub const RUNTIME_BOOTSTRAP_PROFILE_V1: &str =
     "mycelix-integration-runtime/bootstrap-profile-v1";
 
@@ -30,6 +31,37 @@ const DURABLE_RECORD_TABLES: &[&str] = &[
     "integration_runtime_operation_binding",
     "integration_runtime_quarantine",
     "integration_runtime_enforcement",
+];
+
+const QUALIFIED_BOOTSTRAP_TABLES: &[&str] = &[
+    "integration_inbound",
+    "integration_outbox",
+    "integration_execution_observation",
+    "integration_reconciliation_history",
+    "integration_reconcile_checkpoint",
+    "integration_runtime_semantics",
+    "integration_runtime_operation_binding",
+    "integration_runtime_quarantine",
+    "integration_runtime_enforcement",
+];
+
+const QUALIFIED_BOOTSTRAP_INDEXES: &[&str] = &[
+    "integration_outbox_claim_idx",
+    "integration_outbox_lease_idx",
+    "integration_execution_observation_idx",
+    "integration_reconciliation_history_idx",
+];
+
+const QUALIFIED_BOOTSTRAP_TRIGGERS: &[&str] = &[
+    "integration_causal_outbox_update_before",
+    "integration_validate_execution_subject_before",
+    "integration_bind_execution_operation_before",
+    "integration_bind_execution_operation_after",
+    "integration_causal_execution_observation_before",
+    "integration_validate_reconciliation_subject_before",
+    "integration_bind_reconciliation_operation_before",
+    "integration_bind_reconciliation_operation_after",
+    "integration_causal_reconciliation_before",
 ];
 
 /// Atomically handles the special `user_version = 0` bootstrap boundary before
@@ -80,10 +112,11 @@ pub(crate) fn prepare_unversioned_file_store(
 /// `IMMEDIATE` transaction before legacy v3.1 initialization is allowed to run.
 ///
 /// Automatic semantic bootstrap is permitted only when the structural-v2 store
-/// has no durable runtime records, no prior AUTOINCREMENT activity, and its
-/// semantic producer metadata is absent/empty or already exactly the expected
-/// profile. This lets a crash-interrupted *empty* bootstrap resume without
-/// turning bootstrap recovery into a migration mechanism for historical data.
+/// contains only recognized Mycelix bootstrap schema objects, has no durable
+/// runtime records, no prior AUTOINCREMENT activity, and its semantic producer
+/// metadata is absent/empty or already exactly the expected profile. This lets
+/// a crash-interrupted *empty* bootstrap resume without turning bootstrap
+/// recovery into a migration or foreign-database adoption mechanism.
 pub(crate) fn qualify_file_store_bootstrap(
     path: &Path,
     expected_semantic_profile: &str,
@@ -94,6 +127,11 @@ pub(crate) fn qualify_file_store_bootstrap(
 
     let structural_version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     if structural_version != EXPECTED_STRUCTURAL_SCHEMA_V2 {
+        tx.commit()?;
+        return Ok(FileStoreAdmission::Initialized);
+    }
+
+    if first_unqualified_user_schema_object(&tx)?.is_some() {
         tx.commit()?;
         return Ok(FileStoreAdmission::Initialized);
     }
@@ -116,10 +154,10 @@ pub(crate) fn qualify_file_store_bootstrap(
         return Ok(FileStoreAdmission::Initialized);
     }
 
-    // With zero durable records, establishing the expected producer identity
-    // does not reinterpret historical state: there is no historical state to
-    // promote. Keeping this write in the same transaction closes the race where
-    // another opener observes an empty semantic table without its singleton row.
+    // With zero durable records and only recognized bootstrap schema objects,
+    // establishing the expected producer identity does not reinterpret foreign
+    // historical state. Keeping this write in the same transaction closes the
+    // race where another opener observes an empty semantic table without its row.
     ensure_expected_semantic_profile(&tx, expected_semantic_profile)?;
 
     let admission = if required_schema_complete {
@@ -129,6 +167,35 @@ pub(crate) fn qualify_file_store_bootstrap(
     };
     tx.commit()?;
     Ok(admission)
+}
+
+fn first_unqualified_user_schema_object(
+    tx: &Transaction<'_>,
+) -> Result<Option<(String, String)>, RuntimeError> {
+    let mut statement = tx.prepare(
+        "SELECT type, name FROM sqlite_master\n\
+         WHERE name NOT LIKE 'sqlite_%'\n\
+           AND type IN ('table', 'index', 'trigger', 'view')\n\
+         ORDER BY type ASC, name ASC",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    for row in rows {
+        let (object_type, name) = row?;
+        let qualified = match object_type.as_str() {
+            "table" => QUALIFIED_BOOTSTRAP_TABLES.contains(&name.as_str()),
+            "index" => QUALIFIED_BOOTSTRAP_INDEXES.contains(&name.as_str()),
+            "trigger" => QUALIFIED_BOOTSTRAP_TRIGGERS.contains(&name.as_str()),
+            "view" => false,
+            _ => false,
+        };
+        if !qualified {
+            return Ok(Some((object_type, name)));
+        }
+    }
+    Ok(None)
 }
 
 fn load_semantic_profile(tx: &Transaction<'_>) -> Result<Option<String>, RuntimeError> {
