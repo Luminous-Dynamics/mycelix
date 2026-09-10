@@ -1,0 +1,154 @@
+name: Business Core Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/crates/mycelix-business-core/**'
+      - 'mycelix-workspace/crates/mycelix-business-qualification/**'
+      - 'mycelix-workspace/crates/mycelix-business-terminal-qualification/**'
+      - 'mycelix-workspace/crates/mycelix-business-terminal-expectation/**'
+      - '.github/workflows/business-core-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: business-core-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Rust institutional contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify workspace discovery, toolchain, and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import fnmatch
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']
+          toolchain = tomllib.loads((root / 'rust-toolchain.toml').read_text())['toolchain']
+          core = 'crates/mycelix-business-core'
+          qualification = 'crates/mycelix-business-qualification'
+          terminal = 'crates/mycelix-business-terminal-qualification'
+          expectation = 'crates/mycelix-business-terminal-expectation'
+
+          assert toolchain['channel'] == '1.96.0'
+
+          members = workspace.get('members', [])
+          excludes = workspace.get('exclude', [])
+          for crate in (core, qualification, terminal, expectation):
+              assert any(fnmatch.fnmatch(crate, pattern) for pattern in members), f'{crate} is not a workspace member'
+              assert not any(fnmatch.fnmatch(crate, pattern) for pattern in excludes), f'{crate} is unexpectedly excluded'
+
+          core_manifest = tomllib.loads((root / core / 'Cargo.toml').read_text())
+          assert not core_manifest.get('dependencies')
+          assert not core_manifest.get('dev-dependencies')
+          assert not core_manifest.get('build-dependencies')
+
+          qualification_manifest = tomllib.loads((root / qualification / 'Cargo.toml').read_text())
+          qdeps = qualification_manifest.get('dependencies', {})
+          assert set(qdeps) == {'mycelix-business-core'}
+          assert qdeps['mycelix-business-core'].get('path') == '../mycelix-business-core'
+          assert not qualification_manifest.get('dev-dependencies')
+          assert not qualification_manifest.get('build-dependencies')
+
+          terminal_manifest = tomllib.loads((root / terminal / 'Cargo.toml').read_text())
+          tdeps = terminal_manifest.get('dependencies', {})
+          assert set(tdeps) == {'mycelix-business-core', 'mycelix-business-qualification'}
+          assert tdeps['mycelix-business-core'].get('path') == '../mycelix-business-core'
+          assert tdeps['mycelix-business-qualification'].get('path') == '../mycelix-business-qualification'
+          assert not terminal_manifest.get('dev-dependencies')
+          assert not terminal_manifest.get('build-dependencies')
+
+          expectation_manifest = tomllib.loads((root / expectation / 'Cargo.toml').read_text())
+          edeps = expectation_manifest.get('dependencies', {})
+          assert set(edeps) == {
+              'mycelix-business-core',
+              'mycelix-business-qualification',
+              'mycelix-business-terminal-qualification',
+          }
+          assert edeps['mycelix-business-core'].get('path') == '../mycelix-business-core'
+          assert edeps['mycelix-business-qualification'].get('path') == '../mycelix-business-qualification'
+          assert edeps['mycelix-business-terminal-qualification'].get('path') == '../mycelix-business-terminal-qualification'
+          assert not expectation_manifest.get('dev-dependencies')
+          assert not expectation_manifest.get('build-dependencies')
+          PY
+
+      - name: Verify no ambient runtime authority surface
+        run: |
+          for crate in \
+            mycelix-workspace/crates/mycelix-business-core/src \
+            mycelix-workspace/crates/mycelix-business-qualification/src \
+            mycelix-workspace/crates/mycelix-business-terminal-qualification/src \
+            mycelix-workspace/crates/mycelix-business-terminal-expectation/src
+          do
+            if grep -R -n -E 'std::time|std::net|std::fs|std::process|std::env|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$crate"; then
+              echo "$crate gained ambient clock/environment/network/filesystem/process authority" >&2
+              exit 1
+            fi
+          done
+
+      - name: Isolate transport-neutral core
+        run: |
+          rm -rf /tmp/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-core
+
+      - name: rustfmt core
+        run: cargo fmt --manifest-path /tmp/mycelix-business-core/Cargo.toml --all -- --check
+      - name: unit, integration, and compile-fail core qualification
+        run: cargo test --manifest-path /tmp/mycelix-business-core/Cargo.toml
+      - name: clippy core
+        run: cargo clippy --manifest-path /tmp/mycelix-business-core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Isolate closure qualification algebra
+        run: |
+          rm -rf /tmp/mycelix-business-qualification-suite
+          mkdir -p /tmp/mycelix-business-qualification-suite
+          cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-qualification-suite/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-qualification /tmp/mycelix-business-qualification-suite/mycelix-business-qualification
+      - name: rustfmt closure qualification algebra
+        run: cargo fmt --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml --all -- --check
+      - name: closure qualification algebra tests offline
+        run: cargo test --offline --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml
+      - name: clippy closure qualification algebra offline
+        run: cargo clippy --offline --manifest-path /tmp/mycelix-business-qualification-suite/mycelix-business-qualification/Cargo.toml --all-targets -- -D warnings
+
+      - name: Isolate terminal-role qualification
+        run: |
+          rm -rf /tmp/mycelix-business-terminal-qualification-suite
+          mkdir -p /tmp/mycelix-business-terminal-qualification-suite
+          cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-qualification /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-qualification
+          cp -R mycelix-workspace/crates/mycelix-business-terminal-qualification /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification
+      - name: rustfmt terminal-role qualification
+        run: cargo fmt --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml --all -- --check
+      - name: terminal-role qualification tests offline
+        run: cargo test --offline --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml
+      - name: clippy terminal-role qualification offline
+        run: cargo clippy --offline --manifest-path /tmp/mycelix-business-terminal-qualification-suite/mycelix-business-terminal-qualification/Cargo.toml --all-targets -- -D warnings
+
+      - name: Isolate terminal-expectation qualification
+        run: |
+          rm -rf /tmp/mycelix-business-terminal-expectation-suite
+          mkdir -p /tmp/mycelix-business-terminal-expectation-suite
+          cp -R mycelix-workspace/crates/mycelix-business-core /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-core
+          cp -R mycelix-workspace/crates/mycelix-business-qualification /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-qualification
+          cp -R mycelix-workspace/crates/mycelix-business-terminal-qualification /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-terminal-qualification
+          cp -R mycelix-workspace/crates/mycelix-business-terminal-expectation /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-terminal-expectation
+      - name: rustfmt terminal-expectation qualification
+        run: cargo fmt --manifest-path /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-terminal-expectation/Cargo.toml --all -- --check
+      - name: terminal-expectation qualification tests offline
+        run: cargo test --offline --manifest-path /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-terminal-expectation/Cargo.toml
+      - name: clippy terminal-expectation qualification offline
+        run: cargo clippy --offline --manifest-path /tmp/mycelix-business-terminal-expectation-suite/mycelix-business-terminal-expectation/Cargo.toml --all-targets -- -D warnings

@@ -3,14 +3,20 @@ resolver = "2"
 members = [
     # Shared crates
     "crates/civic-types",
+    "crates/justice-resolution-types",
+    "crates/justice-resolution-verifier",
+    "crates/justice-adjudication-reducer",
+    "crates/justice-finality-qualification",
 
-    # Justice domain (5 zomes)
+    # Justice domain (6 zomes)
     "zomes/justice-cases/integrity",
     "zomes/justice-cases/coordinator",
     "zomes/justice-evidence/integrity",
     "zomes/justice-evidence/coordinator",
     "zomes/justice-arbitration/integrity",
     "zomes/justice-arbitration/coordinator",
+    "zomes/justice-adjudication-evidence/integrity",
+    "zomes/justice-adjudication-evidence/coordinator",
     "zomes/justice-restorative/integrity",
     "zomes/justice-restorative/coordinator",
     "zomes/justice-enforcement/integrity",
@@ -85,6 +91,10 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 
 # Internal shared crates
 civic-types = { path = "crates/civic-types" }
+justice-resolution-types = { path = "crates/justice-resolution-types" }
+justice-resolution-verifier = { path = "crates/justice-resolution-verifier" }
+justice-adjudication-reducer = { path = "crates/justice-adjudication-reducer" }
+justice-finality-qualification = { path = "crates/justice-finality-qualification" }
 mycelix-bridge-common = { path = "../crates/mycelix-bridge-common", features = ["infrastructure"] }
 mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
 mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
