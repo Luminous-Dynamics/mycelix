@@ -548,19 +548,22 @@ model RoyaltyDeductionRecord {
 }
 
 model SettlementAttemptObservationRecord {
-  id                  String   @id
-  attemptId           String
-  batchId             String
-  obligationSetRoot   String
-  state               String
-  observedAt          DateTime
-  railReceiptRef      String?
-  supersedesAttemptId String?
-  observationRoot     String   @unique
-  createdAt           DateTime @default(now())
+  id                      String   @id
+  attemptId               String
+  batchId                 String
+  obligationSetRoot       String
+  eligibilityAsOf         DateTime
+  eligibilityEvidenceRoot String
+  state                   String
+  observedAt              DateTime
+  railReceiptRef          String?
+  supersedesAttemptId     String?
+  observationRoot         String   @unique
+  createdAt               DateTime @default(now())
 
   @@index([batchId, observedAt])
   @@index([attemptId, observedAt])
+  @@index([eligibilityEvidenceRoot, observedAt])
 }
 
 model RoyaltyStatementSnapshotRecord {
