@@ -56,6 +56,7 @@ jobs:
           set -euo pipefail
           constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
           manifest="$RUNTIME_MANIFEST"
+          boundary='crates/mycelix-integration-runtime/src/runtime.rs'
           facade='crates/mycelix-integration-runtime/src/v31.rs'
           legacy='crates/mycelix-integration-runtime/src/lib.rs'
 
@@ -70,21 +71,26 @@ jobs:
           grep -Fq 'Storage schema evolution MUST preserve causal meaning' "$constitution"
           grep -Fq 'Execution history and admission MUST be bounded' "$constitution"
 
-          grep -Fq 'path = "src/v31.rs"' "$manifest"
+          grep -Fq 'path = "src/runtime.rs"' "$manifest"
+          test -f "$boundary"
           test -f "$facade"
           test -f "$legacy"
 
+          grep -Fq 'mod v31' "$boundary"
+          grep -Fq 'ensure_atomic_causal_fences' "$boundary"
+          grep -Fq 'integration_causal_outbox_update_before' "$boundary"
+          grep -Fq 'integration_causal_execution_observation_before' "$boundary"
+          grep -Fq 'integration_causal_reconciliation_before' "$boundary"
+          grep -Fq 'require_fresh_causal_time' "$boundary"
+          grep -Fq 'require_fresh_operation_binding' "$boundary"
+
           grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
           grep -Fq 'integration_runtime_operation_binding' "$facade"
-          grep -Fq 'provider_operation_bindings' "$facade"
           grep -Fq 'preflight_semantic_identity' "$facade"
-          grep -Fq 'require_operation_compatible' "$facade"
-          grep -Fq 'require_causal_time' "$facade"
           grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
           grep -Fq 'quarantine_reason' "$facade"
-          grep -Fq 'now_ms >= deadline' "$facade"
 
-          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$facade" "$legacy"; then
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$facade" "$legacy"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
             exit 1
           fi
@@ -124,10 +130,12 @@ jobs:
         run: |
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_binding
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test provider_operation_history_binding
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test cross_handle_consistency
 
       - name: Run causal-time and failure-isolation qualification
         run: |
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test causal_time_ordering
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test atomic_causal_fence
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test recovery_poison_isolation
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test execution_observation_budget
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test post_resolution_evidence
