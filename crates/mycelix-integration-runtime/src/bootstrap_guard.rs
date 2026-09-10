@@ -146,7 +146,7 @@ fn ensure_expected_semantic_profile(
 }
 
 fn required_structural_tables_exist(tx: &Transaction<'_>) -> Result<bool, RuntimeError> {
-    for table in REQUIRED_STRUCTURAL_TABLES {
+    for &table in REQUIRED_STRUCTURAL_TABLES {
         if !transaction_table_exists(tx, table)? {
             return Ok(false);
         }
@@ -157,7 +157,7 @@ fn required_structural_tables_exist(tx: &Transaction<'_>) -> Result<bool, Runtim
 fn first_nonempty_durable_table(
     tx: &Transaction<'_>,
 ) -> Result<Option<&'static str>, RuntimeError> {
-    for table in DURABLE_RECORD_TABLES {
+    for &table in DURABLE_RECORD_TABLES {
         if !transaction_table_exists(tx, table)? {
             continue;
         }
