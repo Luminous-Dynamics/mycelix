@@ -66,6 +66,7 @@ jobs:
           guard='crates/mycelix-integration-runtime/src/storage_guard.rs'
           facade='crates/mycelix-integration-runtime/src/v31.rs'
           legacy='crates/mycelix-integration-runtime/src/lib.rs'
+          bootstrap_test='crates/mycelix-integration-runtime/tests/fresh_bootstrap_concurrency.rs'
           atomic_hardening='crates/mycelix-integration-runtime/tests/hardening_transaction_atomicity.rs'
 
           test -f "$constitution"
@@ -86,14 +87,17 @@ jobs:
           test -f "$guard"
           test -f "$facade"
           test -f "$legacy"
+          test -f "$bootstrap_test"
           test -f "$atomic_hardening"
           test ! -f 'crates/mycelix-integration-runtime/src/schema_guard.rs'
 
           grep -Fq 'mod bootstrap_guard' "$boundary"
           grep -Fq 'mod schema_manifest' "$boundary"
           grep -Fq 'mod storage_guard' "$boundary"
+          grep -Fq 'pub use bootstrap_guard::RUNTIME_BOOTSTRAP_PROFILE_V1' "$boundary"
           grep -Fq 'pub use schema_manifest::RUNTIME_STRUCTURAL_MANIFEST_V2' "$boundary"
           grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V5' "$boundary"
+          grep -Fq 'bootstrap_guard::prepare_unversioned_file_store(&path)' "$boundary"
           grep -Fq 'storage_guard::prepare_and_classify_file_store(&path)' "$boundary"
           grep -Fq 'bootstrap_guard::qualify_file_store_bootstrap(' "$boundary"
           grep -Fq 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)' "$boundary"
@@ -107,14 +111,25 @@ jobs:
             exit 1
           fi
 
-          coarse_line="$(grep -nF 'let coarse = storage_guard::prepare_and_classify_file_store(&path)?;' "$boundary" | head -n1 | cut -d: -f1)"
+          unversioned_line="$(grep -nF 'let coarse = match bootstrap_guard::prepare_unversioned_file_store(&path)? {' "$boundary" | head -n1 | cut -d: -f1)"
+          legacy_coarse_line="$(grep -nF 'None => storage_guard::prepare_and_classify_file_store(&path)?,' "$boundary" | head -n1 | cut -d: -f1)"
           qualify_line="$(grep -nF 'let admission = bootstrap_guard::qualify_file_store_bootstrap(' "$boundary" | head -n1 | cut -d: -f1)"
           harden_line="$(grep -nF 'storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;' "$boundary" | head -n1 | cut -d: -f1)"
           cache_line="$(grep -nF 'let inner = v31::SqliteIntegrationStore::open(&path)?;' "$boundary" | head -n1 | cut -d: -f1)"
-          test "$coarse_line" -lt "$qualify_line"
+          test "$unversioned_line" -lt "$legacy_coarse_line"
+          test "$legacy_coarse_line" -lt "$qualify_line"
           test "$qualify_line" -lt "$harden_line"
           test "$harden_line" -lt "$cache_line"
 
+          grep -Fq 'RUNTIME_BOOTSTRAP_PROFILE_V1' "$bootstrap"
+          grep -Fq 'bootstrap-profile-v1' "$bootstrap"
+          grep -Fq 'prepare_unversioned_file_store' "$bootstrap"
+          grep -Fq "name NOT LIKE 'sqlite_%'" "$bootstrap"
+          grep -Fq "type IN ('table', 'index', 'trigger', 'view')" "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_TABLES' "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_INDEXES' "$bootstrap"
+          grep -Fq 'QUALIFIED_BOOTSTRAP_TRIGGERS' "$bootstrap"
+          grep -Fq 'first_unqualified_user_schema_object' "$bootstrap"
           grep -Fq 'EXPECTED_STRUCTURAL_SCHEMA_V2: i64 = 2' "$bootstrap"
           grep -Fq 'DURABLE_RECORD_TABLES' "$bootstrap"
           grep -Fq 'integration_runtime_enforcement' "$bootstrap"
@@ -123,6 +138,16 @@ jobs:
           grep -Fq 'ensure_expected_semantic_profile' "$bootstrap"
           grep -Fq 'TransactionBehavior::Immediate' "$bootstrap"
           grep -Fq 'durable_record_table.is_some() || prior_autoincrement_activity' "$bootstrap"
+
+          foreign_schema_line="$(grep -nF 'if first_unqualified_user_schema_object(&tx)?.is_some() {' "$bootstrap" | head -n1 | cut -d: -f1)"
+          semantic_write_line="$(grep -nF 'ensure_expected_semantic_profile(&tx, expected_semantic_profile)?;' "$bootstrap" | head -n1 | cut -d: -f1)"
+          test "$foreign_schema_line" -lt "$semantic_write_line"
+
+          grep -Fq 'unversioned_historical_mycelix_state_is_not_stamped_or_promoted' "$bootstrap_test"
+          grep -Fq 'unrelated_unversioned_schema_is_not_annexed_even_when_empty' "$bootstrap_test"
+          grep -Fq 'unrelated_structural_v2_schema_is_not_annexed_or_semantically_tagged' "$bootstrap_test"
+          grep -Fq 'assert_schema_version(&conn, 0)' "$bootstrap_test"
+          grep -Fq 'assert_semantic_table_absent(&conn)' "$bootstrap_test"
 
           grep -Fq 'RUNTIME_STRUCTURAL_MANIFEST_V2' "$schema"
           grep -Fq 'structural-manifest-v2' "$schema"
