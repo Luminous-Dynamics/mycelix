@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "component": "@mycelix/database creator-accounting authority persistence",
-  "authorityBoundary": "append-only storage of accounting authority/evidence emitted by @mycelix/accounting",
+  "authorityBoundary": "append-only accounting authority/evidence plus serialized source-completeness evidence for authenticated allocation-lineage checkpoints",
   "exactHeadRequired": true,
   "headResolution": {
     "pullRequest": "github.event.pull_request.head.sha",
@@ -18,39 +18,43 @@
     {
       "id": "accounting-authority",
       "command": "npm run type-check --workspace=@mycelix/accounting && npm test --workspace=@mycelix/accounting",
-      "purpose": "qualify the semantic authority that derives persistence records"
+      "purpose": "qualify semantic accounting authority, allocation lineage and checkpoint verification"
     },
     {
       "id": "prisma-schema",
       "command": "npm run db:generate --workspace=@mycelix/database && npm run db:validate --workspace=@mycelix/database",
-      "purpose": "generate and validate the committed authority schema"
+      "purpose": "generate and validate the committed economic-authority schema"
     },
     {
       "id": "postgres-deployment",
-      "command": "npm run db:push --workspace=@mycelix/database -- --skip-generate && npm run db:accounting-guards --workspace=@mycelix/database",
-      "purpose": "deploy the schema into ephemeral PostgreSQL and install append-only triggers"
+      "command": "npm run db:push --workspace=@mycelix/database -- --skip-generate && npm run db:accounting-guards --workspace=@mycelix/database && npm run db:accounting-lineage-source --workspace=@mycelix/database",
+      "purpose": "deploy economic authority plus append-only guards and the serialized allocation-lineage source registry"
     },
     {
-      "id": "postgres-mutation-proof",
+      "id": "postgres-runtime-proof",
       "command": "npm run test:accounting-guards --workspace=@mycelix/database",
-      "purpose": "prove every authority/evidence table accepts append but rejects UPDATE and DELETE at the database layer"
+      "purpose": "prove append-only mutation rejection, semantic successor-link enforcement, database-assigned monotonic ingestion cursors, serialized snapshot capture and privileged omission detection"
     },
     {
       "id": "source-invariants",
-      "command": "npm run check:invariants",
-      "purpose": "prevent legacy payment authority and append-only schema regressions"
+      "command": "npm run check:invariants && bash scripts/check-lineage-source-invariants.sh",
+      "purpose": "prevent legacy authority, direct allocation authority, free-running cursor, silent omission and serialized-source regressions"
     },
     {
       "id": "database-boundary",
       "command": "npm run type-check:accounting-authority --workspace=@mycelix/database && npm run test:accounting-authority --workspace=@mycelix/database",
-      "purpose": "qualify idempotent append/replay and statement conservation semantics"
+      "purpose": "qualify idempotent append/replay plus strict lineage source adapter typing"
     }
   ],
-  "promotionRule": "Every qualification item must succeed against the exact proposed head, including live PostgreSQL mutation rejection. Missing, queued, skipped, stale, synthetic-merge-only, schema-only, unit-only, or ancestor evidence is not PASS.",
+  "promotionRule": "Every qualification item must succeed against the exact proposed head, including live PostgreSQL append-only enforcement and serialized source-completeness proof. Missing, queued, skipped, stale, synthetic-merge-only, schema-only, unit-only, source-claim-only, or ancestor evidence is not PASS.",
   "forbiddenClaims": [
     "Prisma schema validation proves append-only runtime enforcement.",
     "Application code without database guards makes authority rows immutable.",
     "A caller-supplied digest is authoritative merely because it is 64 lowercase hexadecimal characters.",
+    "A caller-asserted complete lineage boundary proves source completeness.",
+    "A signed checkpoint proves PostgreSQL source completeness unless it was derived from the serialized source snapshot protocol.",
+    "An inner join over the lineage ingestion registry is sufficient to detect omitted source evidence.",
+    "A free-running database sequence proves commit-order lineage completeness.",
     "A RoyaltyPayment row is royalty debt authority.",
     "A deterministic netting batch is a second ledger.",
     "Queued or absent exact-head workflow evidence is PASS."
