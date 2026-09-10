@@ -16,6 +16,13 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod xenia_metadata;
+
+pub use xenia_metadata::{
+    XeniaAttestationObservation, XeniaBindingMismatch, validate_associated_key_use,
+    validate_xenia_attestation_observation,
+};
+
 /// Stable schema for [`KeyDidBindingArtifact`].
 pub const KEY_DID_BINDING_SCHEMA: &str = "mycelix-key-did-binding-v1";
 /// Domain separation used by this crate's canonical bytes.
