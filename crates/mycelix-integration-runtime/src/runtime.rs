@@ -2,17 +2,21 @@
 //!
 //! `v31` owns the v3.1 durable semantic/storage contract. This shell adds
 //! file-backed cross-handle freshness, atomic fresh-bootstrap classification,
-//! zero-history semantic bootstrap qualification, lock-first SQLite enforcement
-//! repair, and connector-checkpoint CAS semantics so process-local caches or
-//! check/write races cannot weaken durable causal meaning.
+//! zero-history semantic bootstrap qualification, concrete structural-manifest
+//! validation, lock-first SQLite enforcement repair, and connector-checkpoint
+//! CAS semantics so process-local caches or check/write races cannot weaken
+//! durable causal meaning.
 
 #[path = "bootstrap_guard.rs"]
 mod bootstrap_guard;
+#[path = "schema_guard.rs"]
+mod schema_guard;
 #[path = "storage_guard.rs"]
 mod storage_guard;
 #[path = "v31.rs"]
 mod v31;
 
+pub use schema_guard::RUNTIME_STRUCTURAL_MANIFEST_V1;
 pub use storage_guard::{
     ReconciliationCheckpointSnapshot, RUNTIME_ENFORCEMENT_PROFILE_V4,
 };
@@ -53,27 +57,37 @@ impl SqliteIntegrationStore {
             coarse,
         )?;
 
-        match admission {
-            storage_guard::FileStoreAdmission::Initialized => {
-                // Existing/non-bootstrapable stores are admitted lock-first:
-                // validate semantic + structural identity and repair enforcement
-                // before v3.1 can load process-local security caches.
-                storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
-            }
-            storage_guard::FileStoreAdmission::NeedsBootstrap => {
-                // Automatic bootstrap is now stronger than "outbox is empty":
-                // the bootstrap guard proved structural-v2, zero durable runtime
-                // records, no prior AUTOINCREMENT activity, and absent/exact
-                // semantic producer identity under an IMMEDIATE transaction.
-                // No public runtime is exposed until strict admission succeeds.
-                let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
-                drop(bootstrap);
-                storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
-            }
+        if admission == storage_guard::FileStoreAdmission::NeedsBootstrap {
+            // Automatic bootstrap is stronger than "outbox is empty": the
+            // bootstrap guard proved structural-v2, zero durable runtime records,
+            // no prior AUTOINCREMENT activity, and absent/exact semantic producer
+            // identity under an IMMEDIATE transaction. No public runtime is
+            // exposed until strict structural/semantic admission succeeds.
+            let bootstrap = v31::SqliteIntegrationStore::open(&path)?;
+            drop(bootstrap);
         }
 
-        // Load process-local caches only after the durable store has been
-        // validated/reconstructed under the storage guard transaction.
+        // `user_version = 2` is only a declared generation. Before any derived
+        // index/trigger repair, qualify the concrete non-reconstructable SQLite
+        // table/key/FK/index substrate and reject unknown triggers on managed
+        // tables. This is point-in-time startup qualification, not tamper-proofness.
+        schema_guard::validate_pre_repair_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+
+        // Repair/reconstruct only after the concrete substrate is qualified.
+        storage_guard::harden_file_store(&path, RUNTIME_SEMANTIC_PROFILE_V31)?;
+
+        // Re-qualify the fully hardened representation before loading process
+        // caches: complete derived tables/indexes/triggers, exact enforcement
+        // singleton, and foreign-key integrity must now match the manifest.
+        schema_guard::validate_hardened_file_store(
+            &path,
+            RUNTIME_SEMANTIC_PROFILE_V31,
+            RUNTIME_ENFORCEMENT_PROFILE_V4,
+        )?;
+
+        // Load process-local caches only after the durable store has passed
+        // bootstrap qualification, concrete structural qualification, repair,
+        // and post-repair structural qualification.
         let inner = v31::SqliteIntegrationStore::open(&path)?;
 
         Ok(Self {
