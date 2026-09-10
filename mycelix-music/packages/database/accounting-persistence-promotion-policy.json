@@ -55,6 +55,7 @@
     "A signed checkpoint proves PostgreSQL source completeness unless it was derived from the serialized source snapshot protocol.",
     "An inner join over the lineage ingestion registry is sufficient to detect omitted source evidence.",
     "A free-running database sequence proves commit-order lineage completeness.",
+    "A SQL-only operational source table is automatically part of the Prisma economic-authority schema.",
     "A RoyaltyPayment row is royalty debt authority.",
     "A deterministic netting batch is a second ledger.",
     "Queued or absent exact-head workflow evidence is PASS."
