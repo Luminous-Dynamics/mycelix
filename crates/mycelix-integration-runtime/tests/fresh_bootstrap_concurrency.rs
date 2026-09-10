@@ -105,6 +105,47 @@ fn unrelated_unversioned_schema_is_not_annexed_even_when_empty() {
 }
 
 #[test]
+fn unrelated_structural_v2_schema_is_not_annexed_or_semantically_tagged() {
+    let temp = tempfile::tempdir().expect("tempdir must be created");
+    let path = temp.path().join("unrelated-v2.sqlite");
+
+    {
+        let conn = Connection::open(&path).expect("fixture connection must open");
+        conn.execute_batch(
+            r#"
+            PRAGMA user_version = 2;
+            CREATE TABLE app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            "#,
+        )
+        .expect("unrelated v2 schema fixture must be created");
+        assert_schema_version(&conn, 2);
+    }
+
+    match SqliteIntegrationStore::open(&path) {
+        Err(RuntimeError::StoredIdentifier(message)) => {
+            assert!(message.contains("structural-manifest-v2"));
+        }
+        Err(other) => panic!("unexpected foreign-v2 error: {other:?}"),
+        Ok(_) => panic!("foreign structural-v2 database must not be annexed as Mycelix"),
+    }
+
+    let conn = Connection::open(&path).expect("verification connection must open");
+    assert_schema_version(&conn, 2);
+    let table_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("unrelated v2 schema must remain readable");
+    assert_eq!(table_count, 1);
+    assert_semantic_table_absent(&conn);
+}
+
+#[test]
 fn empty_partial_v2_bootstrap_with_empty_semantic_table_resumes() {
     let temp = tempfile::tempdir().expect("tempdir must be created");
     let path = temp.path().join("partial-v2-empty-semantic.sqlite");
