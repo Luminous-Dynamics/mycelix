@@ -51,13 +51,22 @@ if grep -Fq 'ingestSeq' <<<"$allocation_model"; then
   fail "ingestion cursor must not be embedded in SettlementAllocationRecord authority"
 fi
 
-# Snapshot capture must take the same lock, bind a source clock/high-water mark,
-# and detect eligible rows that are absent from the ingestion registry. An inner
-# join without this negative check could silently certify an omitted row.
-grep -Fq 'LINEAGE_LOCK_SQL' "$adapter" \
-  || fail "snapshot adapter must use the database lineage lock"
-grep -Fq '$queryRawUnsafe<void>(LINEAGE_LOCK_SQL)' "$adapter" \
-  || fail "snapshot adapter must acquire advisory lock through the query path"
+# Snapshot capture freezes all source tables before taking the advisory writer
+# lock. PostgreSQL obtains ROW EXCLUSIVE before firing INSERT triggers, so the
+# reverse order can deadlock with a writer already waiting inside its trigger.
+grep -Fq 'LINEAGE_SNAPSHOT_TABLE_LOCK_SQL' "$adapter" \
+  || fail "snapshot adapter must freeze lineage source tables"
+grep -Fq 'IN SHARE MODE' "$adapter" \
+  || fail "snapshot source table lock must use SHARE mode"
+grep -Fq 'LINEAGE_WRITER_LOCK_SQL' "$adapter" \
+  || fail "snapshot adapter must share the database writer lock"
+table_lock_line=$(grep -n -F 'await tx.$executeRawUnsafe(LINEAGE_SNAPSHOT_TABLE_LOCK_SQL);' "$adapter" | cut -d: -f1 | tail -1)
+advisory_lock_line=$(grep -n -F 'await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL);' "$adapter" | cut -d: -f1 | tail -1)
+[[ -n "$table_lock_line" && -n "$advisory_lock_line" ]] \
+  || fail "snapshot lock acquisition statements are missing"
+(( table_lock_line < advisory_lock_line )) \
+  || fail "snapshot must freeze tables before taking advisory writer lock"
+
 grep -Fq 'clock_timestamp() AS "observedThrough"' "$adapter" \
   || fail "snapshot must bind the serialized database observation time"
 grep -Fq 'MAX("ingestSeq")' "$adapter" \
