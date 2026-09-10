@@ -8,8 +8,10 @@ on:
       - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
       - 'mycelix-music/packages/database/src/accounting-authority.ts'
       - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
+      - 'mycelix-music/packages/database/src/accounting-append-only.integration.ts'
       - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
       - 'mycelix-music/packages/database/package.json'
+      - 'mycelix-music/packages/database/accounting-persistence-promotion-policy.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
       - '.github/workflows/music-accounting-persistence.yml'
   push:
@@ -20,8 +22,10 @@ on:
       - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
       - 'mycelix-music/packages/database/src/accounting-authority.ts'
       - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
+      - 'mycelix-music/packages/database/src/accounting-append-only.integration.ts'
       - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
       - 'mycelix-music/packages/database/package.json'
+      - 'mycelix-music/packages/database/accounting-persistence-promotion-policy.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
       - '.github/workflows/music-accounting-persistence.yml'
 
@@ -39,6 +43,21 @@ jobs:
     timeout-minutes: 15
     env:
       QUALIFIED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      DATABASE_URL: postgresql://mycelix:mycelix@localhost:5432/mycelix_accounting
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mycelix
+          POSTGRES_PASSWORD: mycelix
+          POSTGRES_DB: mycelix_accounting
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mycelix -d mycelix_accounting"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout exact proposed head
         uses: actions/checkout@v4
@@ -76,6 +95,18 @@ jobs:
         working-directory: mycelix-music
         run: npm run db:validate --workspace=@mycelix/database
 
+      - name: Deploy authority schema to ephemeral PostgreSQL
+        working-directory: mycelix-music
+        run: npm run db:push --workspace=@mycelix/database -- --skip-generate
+
+      - name: Install append-only PostgreSQL guards
+        working-directory: mycelix-music
+        run: npm run db:accounting-guards --workspace=@mycelix/database
+
+      - name: Prove append-only PostgreSQL enforcement
+        working-directory: mycelix-music
+        run: npm run test:accounting-guards --workspace=@mycelix/database
+
       - name: Enforce source invariants
         working-directory: mycelix-music
         run: npm run check:invariants
@@ -93,3 +124,4 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD_SHA"
           echo "qualified_head=$QUALIFIED_HEAD_SHA"
+          echo "qualification_policy=mycelix-music/packages/database/accounting-persistence-promotion-policy.json"

@@ -67,6 +67,12 @@ do
 done
 grep -Fq 'BEFORE UPDATE OR DELETE' packages/database/prisma/accounting-append-only.sql \
   || fail "accounting append-only database trigger must reject UPDATE and DELETE"
+grep -Fq 'test:accounting-guards' packages/database/package.json \
+  || fail "database package must expose the live append-only guard regression"
+grep -Fq 'postgres:16' ../.github/workflows/music-accounting-persistence.yml \
+  || fail "persistence qualification must exercise PostgreSQL"
+grep -Fq 'test:accounting-guards' ../.github/workflows/music-accounting-persistence.yml \
+  || fail "persistence qualification must prove runtime mutation rejection"
 
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
