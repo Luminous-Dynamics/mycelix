@@ -32,6 +32,34 @@ ALTER TABLE "RoyaltyEligibilityObservation"
     'dormant_beneficiary'
   ));
 
+-- Settlement observations are rail evidence with a closed state vocabulary.
+ALTER TABLE "SettlementAttemptObservationRecord"
+  DROP CONSTRAINT IF EXISTS settlement_observation_state_code;
+ALTER TABLE "SettlementAttemptObservationRecord"
+  ADD CONSTRAINT settlement_observation_state_code
+  CHECK ("state" IN (
+    'authorized',
+    'submitted',
+    'accepted',
+    'confirmed',
+    'finalized',
+    'failed',
+    'rejected',
+    'reversed',
+    'disputed'
+  ));
+
+-- Finality is never inferred from a status string alone: every finalized rail
+-- observation must retain a non-empty durable receipt reference.
+ALTER TABLE "SettlementAttemptObservationRecord"
+  DROP CONSTRAINT IF EXISTS settlement_finalized_requires_receipt;
+ALTER TABLE "SettlementAttemptObservationRecord"
+  ADD CONSTRAINT settlement_finalized_requires_receipt
+  CHECK (
+    "state" <> 'finalized'
+    OR ("railReceiptRef" IS NOT NULL AND btrim("railReceiptRef") <> '')
+  );
+
 -- A settlement attempt cannot rely on an eligibility snapshot that did not yet
 -- exist when the attempt observation was emitted.
 ALTER TABLE "SettlementAttemptObservationRecord"

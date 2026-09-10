@@ -14,6 +14,7 @@ const ROOT = {
   obligation: '1'.repeat(64), eligibility: '2'.repeat(64), deduction: '3'.repeat(64),
   settlement: '4'.repeat(64), settlementEligibility: '9'.repeat(64),
   invalidEligibility: 'a'.repeat(64), invalidSettlement: 'b'.repeat(64),
+  invalidState: 'c'.repeat(64), invalidFinality: 'd'.repeat(64), validFinality: 'e'.repeat(64),
   statementObligation: '5'.repeat(64), statementAdjustment: '6'.repeat(64),
   statementSettlement: '7'.repeat(64), statementSnapshot: '8'.repeat(64),
 } as const;
@@ -38,13 +39,17 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
       FROM pg_constraint
       WHERE conname IN (
         'royalty_eligibility_observable_code',
-        'settlement_observation_after_eligibility'
+        'settlement_finalized_requires_receipt',
+        'settlement_observation_after_eligibility',
+        'settlement_observation_state_code'
       )
       ORDER BY conname
     `);
     assert.deepEqual(constraints.map(row => row.constraintName), [
       'royalty_eligibility_observable_code',
+      'settlement_finalized_requires_receipt',
       'settlement_observation_after_eligibility',
+      'settlement_observation_state_code',
     ]);
 
     await prisma.$executeRawUnsafe(`
@@ -107,6 +112,44 @@ test('PostgreSQL enforces creator accounting authority as append-only and causal
       /settlement_observation_after_eligibility/,
       'direct SQL must not persist settlement evidence before its eligibility snapshot',
     );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:unknown-state', 'attempt:3', 'batch:3', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'teleported',
+           '2026-09-10T00:03:30Z', '${ROOT.invalidState}')
+      `),
+      /settlement_observation_state_code/,
+      'direct SQL must not invent settlement states',
+    );
+
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`
+        INSERT INTO "SettlementAttemptObservationRecord"
+          ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+           "eligibilityEvidenceRoot", "state", "observedAt", "observationRoot")
+        VALUES
+          ('guard:settlement:no-receipt', 'attempt:4', 'batch:4', '${ROOT.obligation}',
+           '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+           '2026-09-10T00:04:00Z', '${ROOT.invalidFinality}')
+      `),
+      /settlement_finalized_requires_receipt/,
+      'direct SQL must not claim finality without durable receipt identity',
+    );
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "SettlementAttemptObservationRecord"
+        ("id", "attemptId", "batchId", "obligationSetRoot", "eligibilityAsOf",
+         "eligibilityEvidenceRoot", "state", "observedAt", "railReceiptRef", "observationRoot")
+      VALUES
+        ('guard:settlement:finalized', 'attempt:5', 'batch:5', '${ROOT.obligation}',
+         '2026-09-10T00:02:30Z', '${ROOT.settlementEligibility}', 'finalized',
+         '2026-09-10T00:04:30Z', 'rail:receipt:final', '${ROOT.validFinality}')
+    `);
 
     const settlementSnapshot = await prisma.$queryRawUnsafe<Array<{ eligibilityAsOf: Date; eligibilityEvidenceRoot: string }>>(`
       SELECT "eligibilityAsOf", "eligibilityEvidenceRoot"
