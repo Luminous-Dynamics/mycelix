@@ -61,6 +61,7 @@ jobs:
           constitution='docs/rfcs/integration-plane-v1-execution-safety.md'
           manifest="$RUNTIME_MANIFEST"
           boundary='crates/mycelix-integration-runtime/src/runtime.rs'
+          guard='crates/mycelix-integration-runtime/src/storage_guard.rs'
           facade='crates/mycelix-integration-runtime/src/v31.rs'
           legacy='crates/mycelix-integration-runtime/src/lib.rs'
 
@@ -77,16 +78,22 @@ jobs:
 
           grep -Fq 'path = "src/runtime.rs"' "$manifest"
           test -f "$boundary"
+          test -f "$guard"
           test -f "$facade"
           test -f "$legacy"
 
-          grep -Fq 'mod v31' "$boundary"
-          grep -Fq 'ensure_atomic_causal_fences' "$boundary"
-          grep -Fq 'integration_causal_outbox_update_before' "$boundary"
-          grep -Fq 'integration_causal_execution_observation_before' "$boundary"
-          grep -Fq 'integration_causal_reconciliation_before' "$boundary"
+          grep -Fq 'mod storage_guard' "$boundary"
+          grep -Fq 'storage_guard::harden_file_store' "$boundary"
+          grep -Fq 'load_reconciliation_checkpoint_snapshot' "$boundary"
           grep -Fq 'require_fresh_causal_time' "$boundary"
           grep -Fq 'require_fresh_operation_binding' "$boundary"
+
+          grep -Fq 'RUNTIME_ENFORCEMENT_PROFILE_V1' "$guard"
+          grep -Fq 'TransactionBehavior::Immediate' "$guard"
+          grep -Fq 'rebuild_provider_operation_bindings' "$guard"
+          grep -Fq 'DROP TRIGGER IF EXISTS integration_bind_execution_operation_before' "$guard"
+          grep -Fq 'DROP TRIGGER IF EXISTS integration_causal_outbox_update_before' "$guard"
+          grep -Fq 'checkpoint_file_cas' "$guard"
 
           grep -Fq 'RUNTIME_SEMANTIC_PROFILE_V31' "$facade"
           grep -Fq 'integration_runtime_operation_binding' "$facade"
@@ -94,7 +101,7 @@ jobs:
           grep -Fq 'isolate_poisoned_recovery_entries' "$facade"
           grep -Fq 'quarantine_reason' "$facade"
 
-          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$facade" "$legacy"; then
+          if grep -Eq 'pub (async )?fn (execute|send_payment|refund|transfer)\b' "$boundary" "$guard" "$facade" "$legacy"; then
             echo 'INT-03 must not expose provider execution before INT-04 authority composition.'
             exit 1
           fi
@@ -143,6 +150,12 @@ jobs:
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test recovery_poison_isolation
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test execution_observation_budget
           cargo test --manifest-path "$RUNTIME_MANIFEST" --test post_resolution_evidence
+
+      - name: Run checkpoint and storage-reconstruction qualification
+        run: |
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test reconciliation_checkpoint_monotonic
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test derived_index_reconstruction
+          cargo test --manifest-path "$RUNTIME_MANIFEST" --test enforcement_manifest_tamper
 
       - name: Clippy runtime and core dependency
         run: cargo clippy --manifest-path "$RUNTIME_MANIFEST" --all-targets -- -D warnings
