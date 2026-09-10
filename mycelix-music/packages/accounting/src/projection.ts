@@ -6,10 +6,8 @@ import {
   type DeterministicNettingBatch,
 } from './netting.js';
 import type { SettlementRecoveryState } from './recovery.js';
-import {
-  requireCanonicalSettlementAllocationHead,
-  type SettlementAllocationLineageResolution,
-} from './settlement-allocation-lineage.js';
+import { requireCheckpointBackedSettlementAllocationLineage } from './settlement-allocation-lineage-checkpoint.js';
+import type { SettlementAllocationLineageResolution } from './settlement-allocation-lineage.js';
 import {
   assertSettlementAllocationAuthority,
   type SettlementAllocationAuthority,
@@ -38,7 +36,7 @@ export type StatementDeduction = RoyaltyDeductionAuthority;
 export interface StatementSettlementEvidence {
   readonly batch: DeterministicNettingBatch;
   readonly recovery: SettlementRecoveryState;
-  /** Optional economic disposition. Only a resolver-minted canonical lineage may supply it. */
+  /** Optional economic disposition. Only a verified-checkpoint-backed canonical lineage may supply it. */
   readonly allocationLineage?: SettlementAllocationLineageResolution;
 }
 
@@ -55,6 +53,12 @@ export interface CompileRoyaltyStatementInput {
   readonly eligibilityObservations: readonly SettlementEligibilityObservation[];
   readonly deductions?: readonly StatementDeduction[];
   readonly settlements?: readonly StatementSettlementEvidence[];
+}
+
+interface ValidatedAllocationEvidence {
+  readonly allocation: SettlementAllocationAuthority;
+  readonly checkpointRoot: string;
+  readonly checkpointHighWaterMark: string;
 }
 
 function withinPeriod(observedAt: string, period: AccountingPeriod): boolean {
@@ -109,10 +113,10 @@ function validateSettlementEvidence(
   settlementEpochId: string,
   statementAsOf: number,
   deductionsByRoot: ReadonlyMap<string, RoyaltyDeductionAuthority>,
-): SettlementAllocationAuthority | undefined {
+): Readonly<ValidatedAllocationEvidence> | undefined {
   const untrustedEvidence = evidence as unknown as Readonly<Record<string, unknown>>;
   if ('allocation' in untrustedEvidence) {
-    throw new Error('direct settlement allocation evidence is forbidden; provide resolver-minted allocationLineage');
+    throw new Error('direct settlement allocation evidence is forbidden; provide checkpoint-backed allocationLineage');
   }
 
   const { batch, recovery } = evidence;
@@ -165,7 +169,11 @@ function validateSettlementEvidence(
   if (Date.parse(lineage.boundary.asOf) !== statementAsOf) {
     throw new Error('settlement allocation lineage boundary asOf must equal statement asOf');
   }
-  const allocation = requireCanonicalSettlementAllocationHead(lineage);
+  const checkpointBacked = requireCheckpointBackedSettlementAllocationLineage(lineage);
+  if (Date.parse(checkpointBacked.checkpoint.asOf) !== statementAsOf) {
+    throw new Error('settlement allocation checkpoint asOf must equal statement asOf');
+  }
+  const allocation = checkpointBacked.headAllocation;
   if (allocation.allocationRoot !== lineage.headAllocationRoot) {
     throw new Error('settlement allocation lineage head root mismatch');
   }
@@ -178,7 +186,11 @@ function validateSettlementEvidence(
     return deduction;
   });
   assertSettlementAllocationAuthority(allocation, { batch, recovery, deductions: allocationDeductions });
-  return allocation;
+  return Object.freeze({
+    allocation,
+    checkpointRoot: checkpointBacked.checkpoint.checkpointRoot,
+    checkpointHighWaterMark: checkpointBacked.checkpoint.highWaterMark,
+  });
 }
 
 export function compileRoyaltyStatement(
@@ -250,11 +262,11 @@ export function compileRoyaltyStatement(
   const seenBatches = new Set<string>();
   const receiptBackedObligationIds = new Set<string>();
   const allocatedDeductionRoots = new Set<string>();
-  const allocationsByBatch = new Map<string, SettlementAllocationAuthority>();
+  const allocationEvidenceByBatch = new Map<string, Readonly<ValidatedAllocationEvidence>>();
   let paid = money(0n, currency);
   for (const evidence of orderedSettlements) {
     assertDeterministicNettingBatch(evidence.batch, orderedObligations, input.settlementEpoch, input.eligibilityObservations);
-    const allocation = validateSettlementEvidence(
+    const validatedAllocation = validateSettlementEvidence(
       evidence,
       input.beneficiaryId,
       currency,
@@ -279,9 +291,9 @@ export function compileRoyaltyStatement(
     if (hasReceiptBackedFinality(evidence.recovery)) {
       paid = addMoney(paid, evidence.recovery.finalSettledAmount!);
     }
-    if (allocation !== undefined) {
-      allocationsByBatch.set(evidence.batch.batchId, allocation);
-      for (const root of allocation.deductionRoots) {
+    if (validatedAllocation !== undefined) {
+      allocationEvidenceByBatch.set(evidence.batch.batchId, validatedAllocation);
+      for (const root of validatedAllocation.allocation.deductionRoots) {
         if (allocatedDeductionRoots.has(root)) throw new Error(`deduction allocated to more than one settlement batch: ${root}`);
         allocatedDeductionRoots.add(root);
       }
@@ -304,9 +316,9 @@ export function compileRoyaltyStatement(
       eligibilityEvidenceRoot: eligibilityEvidence.root,
     },
     ...orderedSettlements.map(evidence => {
-      const allocation = allocationsByBatch.get(evidence.batch.batchId);
+      const validatedAllocation = allocationEvidenceByBatch.get(evidence.batch.batchId);
       return {
-        evidenceKind: 'settlement_execution_v5',
+        evidenceKind: 'settlement_execution_v6',
         batchId: evidence.batch.batchId,
         obligationSetRoot: evidence.batch.obligationSetRoot,
         eligibilityAsOf: evidence.batch.eligibilityAsOf,
@@ -319,8 +331,10 @@ export function compileRoyaltyStatement(
         currency: evidence.recovery.finalSettledAmount?.currency ?? evidence.batch.currency,
         allocationLineageRoot: evidence.allocationLineage?.lineageRoot ?? null,
         allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot ?? null,
-        allocationHeadRoot: allocation?.allocationRoot ?? null,
-        obligationSetDischarged: allocation?.obligationSetDischarged ?? false,
+        allocationCheckpointRoot: validatedAllocation?.checkpointRoot ?? null,
+        allocationCheckpointHighWaterMark: validatedAllocation?.checkpointHighWaterMark ?? null,
+        allocationHeadRoot: validatedAllocation?.allocation.allocationRoot ?? null,
+        obligationSetDischarged: validatedAllocation?.allocation.obligationSetDischarged ?? false,
       };
     }),
   ]).root;

@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { buildDeterministicNettingBatches, type DeterministicNettingBatch } from './netting.js';
@@ -6,12 +7,28 @@ import { money } from './money.js';
 import { compileRoyaltyStatement, type StatementDeduction } from './projection.js';
 import { SettlementAttemptState, reconstructSettlementRecovery, type SettlementAttemptObservation } from './recovery.js';
 import {
+  createSettlementAllocationLineageCheckpoint,
+  resolveCheckpointBackedSettlementAllocationLineage,
+  signSettlementAllocationLineageCheckpoint,
+  verifySettlementAllocationLineageCheckpoint,
+} from './settlement-allocation-lineage-checkpoint.js';
+import {
   createSettlementAllocationLineageBoundary,
   resolveSettlementAllocationLineage,
 } from './settlement-allocation-lineage.js';
 import { createSettlementAllocationAuthority, type SettlementAllocationAuthority } from './settlement-allocation.js';
 import { SettlementEligibilityCode, type RoyaltyObligation, type SettlementEligibilityObservation, type SettlementEpoch } from './settlement.js';
 import { StatementKind } from './statements.js';
+
+const keyPair = generateKeyPairSync('ed25519');
+const privateKeyPem = keyPair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
+const publicKeyPem = keyPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const checkpointTrust = {
+  sourceRef: 'postgres:projection-tests',
+  sourceInstanceId: 'cluster:test:projection',
+  signerKeyId: 'checkpoint-key:test',
+  publicKeyPem,
+} as const;
 
 const period = { startInclusive: '2026-09-01T00:00:00Z', endExclusive: '2026-10-01T00:00:00Z' };
 const complete = { kind: 'complete' as const, through: { usageObservedThrough: '2026-10-01T00:00:00Z', rightsResolvedThrough: '2026-10-01T00:00:00Z', settlementsObservedThrough: '2026-10-01T00:00:00Z' } };
@@ -39,13 +56,28 @@ function finalizedObservation(batch: DeterministicNettingBatch, observedAt: stri
   return settlementObservation(batch, SettlementAttemptState.Finalized, observedAt, { railReceiptRef: 'rail:receipt:1', settledAmount: money(amountMinor, batch.currency) });
 }
 function allocationLineage(allocation: SettlementAllocationAuthority, coverage: 'complete' | 'partial' = 'complete') {
-  const boundary = createSettlementAllocationLineageBoundary({
+  if (coverage === 'partial') {
+    return resolveSettlementAllocationLineage([allocation], [], createSettlementAllocationLineageBoundary({
+      asOf: '2026-10-02T00:00:00Z',
+      observedThrough: '2026-10-01T23:59:59Z',
+      coverage: 'partial',
+      sourceRef: `allocation-store:${allocation.allocationId}:partial`,
+    }));
+  }
+  const unsigned = createSettlementAllocationLineageCheckpoint({
+    checkpointId: `checkpoint:${allocation.allocationId}`,
+    sourceRef: checkpointTrust.sourceRef,
+    sourceInstanceId: checkpointTrust.sourceInstanceId,
+    batchId: allocation.batchId,
     asOf: '2026-10-02T00:00:00Z',
-    observedThrough: coverage === 'complete' ? '2026-10-02T00:00:00Z' : '2026-10-01T23:59:59Z',
-    coverage,
-    sourceRef: `allocation-store:${allocation.allocationId}`,
+    observedThrough: '2026-10-02T00:00:00Z',
+    highWaterMark: '1',
+    allocations: [allocation],
+    links: [],
   });
-  return resolveSettlementAllocationLineage([allocation], [], boundary);
+  const signed = signSettlementAllocationLineageCheckpoint(unsigned, checkpointTrust.signerKeyId, privateKeyPem);
+  const verified = verifySettlementAllocationLineageCheckpoint(signed, checkpointTrust);
+  return resolveCheckpointBackedSettlementAllocationLineage([allocation], [], verified);
 }
 
 describe('royalty statement compiler', () => {
@@ -107,7 +139,7 @@ describe('royalty statement compiler', () => {
     expect(finalized.railCoversBatchGross).toBe(true);
     expect(compile(obligations, { eligibilityObservations, settlements: [{ batch, recovery: finalized }] }).paid.amountMinor).toBe(500n);
   });
-  it('uses canonical allocation lineage to discharge a 450 creator receipt plus 50 withholding', () => {
+  it('uses checkpoint-backed allocation lineage to discharge a 450 creator receipt plus 50 withholding', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const withholding = deduction('deduction:1', 50n);
     const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
@@ -128,13 +160,13 @@ describe('royalty statement compiler', () => {
     expect(() => compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [directEvidence] }))
       .toThrow(/direct settlement allocation evidence is forbidden/);
   });
-  it('rejects provisional allocation lineage as discharge authority', () => {
+  it('rejects provisional allocation lineage because it lacks a verified source checkpoint', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const withholding = deduction('deduction:1', 50n); const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
     const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:partial-source', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });
     const lineage = allocationLineage(allocation, 'partial');
     expect(() => compile(obligations, { eligibilityObservations, deductions: [withholding], settlements: [{ batch, recovery, allocationLineage: lineage }] }))
-      .toThrow(/provisional/);
+      .toThrow(/verified source checkpoint/);
   });
   it('commits an authorized residual without claiming economic discharge', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
@@ -150,7 +182,7 @@ describe('royalty statement compiler', () => {
     const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 475n)]);
     expect(() => compile(obligations, { eligibilityObservations, deductions: [deduction('deduction:1', 50n)], settlements: [{ batch, recovery }] })).toThrow(/exceed statement net payable/);
   });
-  it('rejects an allocation lineage whose canonical head references a deduction outside the statement', () => {
+  it('rejects an allocation lineage whose checkpoint-backed head references a deduction outside the statement', () => {
     const obligations = [obligation('obl:1', 500n)]; const eligibilityObservations = defaultEligibility(obligations); const batch = buildDeterministicNettingBatches(obligations, epoch, eligibilityObservations)[0]!;
     const withholding = deduction('deduction:1', 50n); const recovery = reconstructSettlementRecovery(batch, [finalizedObservation(batch, '2026-10-01T00:02:00Z', 450n)]);
     const allocation = createSettlementAllocationAuthority({ allocationId: 'allocation:1', batch, recovery, deductions: [withholding], residualHeld: money(0n, 'USD'), allocatedAt: '2026-10-01T12:01:00Z' });

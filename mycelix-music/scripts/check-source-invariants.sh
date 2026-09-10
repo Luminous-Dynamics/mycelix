@@ -78,30 +78,37 @@ grep -Fq 'must conserve batch gross = creator paid + deductions + residual held'
 grep -Fq 'nonzero settlement residual requires residualAuthorityRef' packages/accounting/src/settlement-allocation.ts \
   || fail "nonzero settlement residual must retain authority provenance"
 
-# Statements may consume allocation semantics only through a resolver-minted,
-# complete allocation lineage for the exact statement asOf. Direct allocation
-# input is rejected at runtime even from structurally permissive JS callers.
+# Statements may consume allocation semantics only through a resolver-minted
+# lineage backed by a cryptographically verified source checkpoint for the exact
+# statement asOf. Direct allocation and caller-asserted complete lineage input
+# are both rejected as economic-discharge authority.
 if grep -Fq 'readonly allocation?:' <<<"$statement_settlement"; then
   fail "statement compiler must not accept direct allocation authority"
 fi
 grep -Fq 'readonly allocationLineage?: SettlementAllocationLineageResolution;' <<<"$statement_settlement" \
   || fail "statement settlement evidence must carry allocation lineage rather than direct allocation"
-grep -Fq 'direct settlement allocation evidence is forbidden; provide resolver-minted allocationLineage' packages/accounting/src/projection.ts \
+grep -Fq 'direct settlement allocation evidence is forbidden; provide checkpoint-backed allocationLineage' packages/accounting/src/projection.ts \
   || fail "statement compiler must reject legacy direct allocation evidence at runtime"
-grep -Fq 'requireCanonicalSettlementAllocationHead' packages/accounting/src/projection.ts \
-  || fail "statement compiler must require resolver-minted canonical allocation head"
+grep -Fq 'requireCheckpointBackedSettlementAllocationLineage' packages/accounting/src/projection.ts \
+  || fail "statement compiler must require cryptographically checkpoint-backed allocation lineage"
 grep -Fq 'settlement allocation lineage boundary asOf must equal statement asOf' packages/accounting/src/projection.ts \
   || fail "statement compiler must bind allocation lineage completeness to exact statement asOf"
-grep -Fq "evidenceKind: 'settlement_execution_v5'" packages/accounting/src/projection.ts \
-  || fail "statement settlement commitment must use lineage-aware v5 evidence domain"
+grep -Fq 'settlement allocation checkpoint asOf must equal statement asOf' packages/accounting/src/projection.ts \
+  || fail "statement compiler must bind authenticated checkpoint to exact statement asOf"
+grep -Fq "evidenceKind: 'settlement_execution_v6'" packages/accounting/src/projection.ts \
+  || fail "statement settlement commitment must use checkpoint-aware v6 evidence domain"
 grep -Fq 'allocationLineageRoot: evidence.allocationLineage?.lineageRoot' packages/accounting/src/projection.ts \
   || fail "statement settlement root must commit allocation lineage root"
 grep -Fq 'allocationBoundaryRoot: evidence.allocationLineage?.boundary.boundaryRoot' packages/accounting/src/projection.ts \
   || fail "statement settlement root must commit allocation completeness boundary"
-grep -Fq 'allocationHeadRoot: allocation?.allocationRoot' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must commit canonical allocation head"
-grep -Fq 'obligationSetDischarged: allocation?.obligationSetDischarged' packages/accounting/src/projection.ts \
-  || fail "statement settlement root must derive discharge only from canonical allocation head"
+grep -Fq 'allocationCheckpointRoot: validatedAllocation?.checkpointRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit authenticated source checkpoint root"
+grep -Fq 'allocationCheckpointHighWaterMark: validatedAllocation?.checkpointHighWaterMark' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit source ingestion high-water mark"
+grep -Fq 'allocationHeadRoot: validatedAllocation?.allocation.allocationRoot' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must commit checkpoint-backed canonical allocation head"
+grep -Fq 'obligationSetDischarged: validatedAllocation?.allocation.obligationSetDischarged' packages/accounting/src/projection.ts \
+  || fail "statement settlement root must derive discharge only from checkpoint-backed canonical head"
 
 # Allocation lineage must be explicit, monotonic, completeness-bound and sealed
 # against structurally fabricated TypeScript resolution objects.
@@ -127,6 +134,33 @@ grep -Fq 'VERIFIED_LINEAGE_RESOLUTIONS.has(resolution as object)' packages/accou
   || fail "canonical allocation head promotion must reject fabricated resolution objects"
 grep -Fq 'canonical head requires complete source coverage' packages/accounting/src/settlement-allocation-lineage.ts \
   || fail "provisional allocation lineage must never become canonical discharge authority"
+
+# A complete lineage used by statements must be backed by an authenticated source
+# checkpoint that binds the exact observed chain and source ingestion cursor.
+grep -Fq "CHECKPOINT_SIGNATURE_DOMAIN = 'mycelix-accounting-settlement-allocation-lineage-checkpoint-signature-v1" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "allocation lineage checkpoint signature domain missing"
+grep -Fq "recordType: 'settlement_allocation_lineage_checkpoint_v1'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "allocation lineage checkpoint commitment domain missing"
+grep -Fq 'const VERIFIED_CHECKPOINTS = new WeakSet<object>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "verified source checkpoints must carry private runtime provenance"
+grep -Fq 'const CHECKPOINT_BY_RESOLUTION = new WeakMap<object, SignedSettlementAllocationLineageCheckpoint>();' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint-backed lineage resolutions must retain private checkpoint provenance"
+grep -Fq "privateKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint signing must require Ed25519"
+grep -Fq "publicKey.asymmetricKeyType !== 'ed25519'" packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint verification must require Ed25519"
+grep -Fq 'checkpoint allocation roots do not match observed lineage' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint replay must reject omitted or extra allocation authority"
+grep -Fq 'checkpoint link roots do not match observed lineage' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint replay must reject omitted or extra successor-link authority"
+grep -Fq 'highWaterMark must be a canonical unsigned integer' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "checkpoint source cursor must use canonical monotonic representation"
+grep -Fq 'cryptographically verified before lineage resolution' packages/accounting/src/settlement-allocation-lineage-checkpoint.ts \
+  || fail "unverified checkpoint objects must not mint lineage authority"
+grep -Fq 'rejects the omission attack' packages/accounting/src/settlement-allocation-lineage-checkpoint.test.ts \
+  || fail "checkpoint regression suite must exercise lineage omission attack"
+grep -Fq 'does not promote a direct caller-asserted complete lineage' packages/accounting/src/projection-allocation-lineage.test.ts \
+  || fail "statement regressions must reject uncheckpointed completeness claims"
 
 # Deductions are canonical root-bearing accounting authorities before persistence.
 grep -Fq "export type StatementDeduction = RoyaltyDeductionAuthority;" packages/accounting/src/projection.ts \
