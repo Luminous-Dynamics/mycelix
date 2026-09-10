@@ -5,28 +5,26 @@ on:
     paths:
       - 'mycelix-music/packages/accounting/**'
       - 'mycelix-music/packages/database/prisma/schema.prisma'
-      - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
-      - 'mycelix-music/packages/database/src/accounting-authority.ts'
-      - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
-      - 'mycelix-music/packages/database/src/accounting-append-only.integration.ts'
+      - 'mycelix-music/packages/database/prisma/accounting-*.sql'
+      - 'mycelix-music/packages/database/src/accounting-*.ts'
       - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
       - 'mycelix-music/packages/database/package.json'
       - 'mycelix-music/packages/database/accounting-persistence-promotion-policy.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
+      - 'mycelix-music/scripts/check-lineage-source-invariants.sh'
       - '.github/workflows/music-accounting-persistence.yml'
   push:
     branches: [main]
     paths:
       - 'mycelix-music/packages/accounting/**'
       - 'mycelix-music/packages/database/prisma/schema.prisma'
-      - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
-      - 'mycelix-music/packages/database/src/accounting-authority.ts'
-      - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
-      - 'mycelix-music/packages/database/src/accounting-append-only.integration.ts'
+      - 'mycelix-music/packages/database/prisma/accounting-*.sql'
+      - 'mycelix-music/packages/database/src/accounting-*.ts'
       - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
       - 'mycelix-music/packages/database/package.json'
       - 'mycelix-music/packages/database/accounting-persistence-promotion-policy.json'
       - 'mycelix-music/scripts/check-source-invariants.sh'
+      - 'mycelix-music/scripts/check-lineage-source-invariants.sh'
       - '.github/workflows/music-accounting-persistence.yml'
 
 permissions:
@@ -103,15 +101,21 @@ jobs:
         working-directory: mycelix-music
         run: npm run db:accounting-guards --workspace=@mycelix/database
 
-      - name: Prove append-only PostgreSQL enforcement
+      - name: Install serialized allocation-lineage source
+        working-directory: mycelix-music
+        run: npm run db:accounting-lineage-source --workspace=@mycelix/database
+
+      - name: Prove append-only and serialized-source PostgreSQL enforcement
         working-directory: mycelix-music
         run: npm run test:accounting-guards --workspace=@mycelix/database
 
       - name: Enforce source invariants
         working-directory: mycelix-music
-        run: npm run check:invariants
+        run: |
+          npm run check:invariants
+          bash scripts/check-lineage-source-invariants.sh
 
-      - name: Type-check append-only store
+      - name: Type-check append-only store and lineage source adapter
         working-directory: mycelix-music
         run: npm run type-check:accounting-authority --workspace=@mycelix/database
 

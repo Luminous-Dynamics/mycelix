@@ -10,5 +10,8 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/accounting-authority.ts"]
+  "include": [
+    "src/accounting-authority.ts",
+    "src/accounting-lineage-source.ts"
+  ]
 }
