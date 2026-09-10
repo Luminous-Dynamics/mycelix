@@ -95,6 +95,18 @@ done
 grep -Fq 'isObservableSettlementEligibilityCode' packages/accounting/src/persistence-projection.ts \
   || fail "accounting persistence projection must reject compiler-only eligibility states"
 
+# Direct SQL must enforce the same source/causality boundary as application code.
+for constraint in royalty_eligibility_observable_code settlement_observation_after_eligibility; do
+  grep -Fq "$constraint" packages/database/prisma/accounting-append-only.sql \
+    || fail "creator accounting database constraint missing: $constraint"
+done
+grep -Fq 'CHECK ("observedAt" >= "eligibilityAsOf")' packages/database/prisma/accounting-append-only.sql \
+  || fail "settlement persistence must reject evidence that predates eligibilityAsOf"
+grep -Fq "'below_threshold'" packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must attempt a compiler-only eligibility insert"
+grep -Fq 'settlement_observation_after_eligibility' packages/database/src/accounting-append-only.integration.ts \
+  || fail "live database regression must prove settlement causality enforcement"
+
 if grep -Fq 'git+ssh://' package-lock.json; then
   fail "package lock contains an SSH-only dependency"
 fi
