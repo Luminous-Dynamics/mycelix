@@ -75,21 +75,40 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::Query(query) => validate_query_for_author(&query, &action.author),
-            EntryTypes::Event(event) => validate_event_for_author(&event, &action.author),
-            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
-        },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::Query(query) => validate_query_for_author(&query, &action.author),
-            EntryTypes::Event(event) => validate_event_for_author(&event, &action.author),
-            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
-        },
+        // The same public-entry validation must run for both entry-hash and action-hash
+        // authorities. Holochain validates these DHT op views independently.
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => {
+            validate_public_entry_for_author(app_entry, &action.author)
+        }
+        FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, action }) => {
+            validate_public_entry_for_author(app_entry, &action.author)
+        }
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::StoreRecord(OpRecord::CreateEntry { app_entry, action }) => {
+            validate_public_entry_for_author(app_entry, &action.author)
+        }
+        FlatOp::StoreRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => {
+            validate_public_entry_for_author(app_entry, &action.author)
+        }
+        FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
+        // RegisterUpdate is a third authority view with the updated public entry available.
+        // Enforce both original-author continuity and the same new-entry provenance rules.
+        FlatOp::RegisterUpdate(OpUpdate::Entry {
+            app_entry, action, ..
+        }) => {
+            let original = must_get_action(action.original_action_address.clone())?;
+            let author_match = check_author_match(
+                original.action().author(),
+                &action.author,
+                "update",
+            );
+            match author_match {
+                ValidateCallbackResult::Valid => {
+                    validate_public_entry_for_author(app_entry, &action.author)
+                }
+                invalid => Ok(invalid),
+            }
+        }
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
@@ -129,6 +148,23 @@ const VALID_DOMAINS: &[&str] = &[
     "space",
     "governance_gate",
 ];
+
+/// Canonical public-entry validation shared by every DHT op view that carries entry data.
+///
+/// Keeping one dispatcher prevents StoreEntry, StoreRecord and RegisterUpdate authorities from
+/// reaching different application-validity conclusions for the same query/event content.
+fn validate_public_entry_for_author(
+    app_entry: EntryTypes,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    match app_entry {
+        EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+        EntryTypes::Query(query) => validate_query_for_author(&query, author),
+        EntryTypes::Event(event) => validate_event_for_author(&event, author),
+        EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+        EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
 
 fn validate_query(query: &BridgeQueryEntry) -> ExternResult<ValidateCallbackResult> {
     match validate_query_fields(query, VALID_DOMAINS) {
@@ -291,6 +327,45 @@ mod tests {
         event.source_agent = fake_agent_with_byte(3);
         assert!(matches!(
             validate_event_for_author(&event, &update_author).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn shared_public_entry_dispatcher_enforces_query_and_event_provenance() {
+        let author = fake_agent();
+        assert!(matches!(
+            validate_public_entry_for_author(
+                EntryTypes::Query(make_query("property", "{}")),
+                &author,
+            )
+            .unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+        assert!(matches!(
+            validate_public_entry_for_author(
+                EntryTypes::Event(make_event("transport", "{}")),
+                &author,
+            )
+            .unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let forged_author = fake_agent_with_byte(9);
+        assert!(matches!(
+            validate_public_entry_for_author(
+                EntryTypes::Query(make_query("property", "{}")),
+                &forged_author,
+            )
+            .unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+        assert!(matches!(
+            validate_public_entry_for_author(
+                EntryTypes::Event(make_event("transport", "{}")),
+                &forged_author,
+            )
+            .unwrap(),
             ValidateCallbackResult::Invalid(_)
         ));
     }
