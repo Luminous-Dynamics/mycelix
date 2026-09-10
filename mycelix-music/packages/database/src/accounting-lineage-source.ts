@@ -12,7 +12,12 @@
 
 const DIGEST_RE = /^[0-9a-f]{64}$/;
 const UINT_RE = /^(0|[1-9][0-9]*)$/;
-const LINEAGE_LOCK_SQL = "SELECT lock_music_accounting_allocation_lineage_source()";
+const LINEAGE_WRITER_LOCK_SQL = "SELECT lock_music_accounting_allocation_lineage_source()";
+const LINEAGE_SNAPSHOT_TABLE_LOCK_SQL = `LOCK TABLE
+  "SettlementAllocationRecord",
+  "SettlementAllocationSuccessorLinkRecord",
+  "SettlementAllocationLineageIngestRecord"
+IN SHARE MODE`;
 
 export interface SettlementAllocationSuccessorLinkRecordInput {
   readonly linkId: string;
@@ -161,7 +166,7 @@ export class AccountingAllocationLineageSource {
   async appendSuccessorLink(input: SettlementAllocationSuccessorLinkRecordInput): Promise<void> {
     const expected = normalizeLink(input);
     await this.client.$transaction(async tx => {
-      await tx.$queryRawUnsafe(LINEAGE_LOCK_SQL);
+      await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL);
       await tx.$executeRawUnsafe(
         `INSERT INTO "SettlementAllocationSuccessorLinkRecord"
           ("linkId", "batchId", "predecessorAllocationId", "predecessorAllocationRoot",
@@ -192,7 +197,13 @@ export class AccountingAllocationLineageSource {
     const asOf = timestamp('allocation lineage snapshot asOf', input.asOf);
 
     return this.client.$transaction(async tx => {
-      await tx.$queryRawUnsafe(LINEAGE_LOCK_SQL);
+      // PostgreSQL acquires ROW EXCLUSIVE before firing INSERT triggers. Snapshot
+      // capture therefore freezes all source tables *before* waiting on the
+      // advisory writer lock; reversing this order can deadlock with a writer
+      // that already owns ROW EXCLUSIVE and is waiting inside its trigger.
+      await tx.$executeRawUnsafe(LINEAGE_SNAPSHOT_TABLE_LOCK_SQL);
+      await tx.$queryRawUnsafe(LINEAGE_WRITER_LOCK_SQL);
+
       const clockRows = await tx.$queryRawUnsafe<Array<{ observedThrough: Date }>>(
         `SELECT clock_timestamp() AS "observedThrough"`,
       );
