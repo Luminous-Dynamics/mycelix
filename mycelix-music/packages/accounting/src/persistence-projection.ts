@@ -1,7 +1,7 @@
+import { assertRoyaltyDeductionAuthority, type RoyaltyDeductionAuthority } from './deduction-authority.js';
 import { buildMerkleCommitment, type Digest } from './merkle.js';
 import { money } from './money.js';
 import { assertRoyaltyObligationAuthority, type RoyaltyObligationAuthority } from './obligation-authority.js';
-import type { StatementDeduction } from './projection.js';
 import { SettlementAttemptState, type SettlementAttemptObservation } from './recovery.js';
 import {
   isObservableSettlementEligibilityCode,
@@ -149,33 +149,18 @@ export function projectEligibilityObservationRecord(
 }
 
 export function projectDeductionRecord(
-  deduction: StatementDeduction,
-  authorityRef: string,
+  deduction: RoyaltyDeductionAuthority,
 ): Readonly<PersistedDeductionRecord> {
-  const id = required('deduction id', deduction.id);
-  const beneficiaryId = required('deduction beneficiaryId', deduction.beneficiaryId);
-  const basis = required('deduction basis', deduction.basis);
-  const normalizedAuthorityRef = required('deduction authorityRef', authorityRef);
-  const observedAt = timestamp('deduction observedAt', deduction.observedAt);
-  if (deduction.amount.amountMinor < 0n) throw new Error('deduction amount must be non-negative');
-  const committed = Object.freeze({
-    id,
-    beneficiaryId,
-    amountMinor: deduction.amount.amountMinor,
-    currency: deduction.amount.currency,
-    basis,
-    authorityRef: normalizedAuthorityRef,
-    observedAt,
-  });
+  assertRoyaltyDeductionAuthority(deduction);
   return Object.freeze({
-    id,
-    beneficiaryId,
+    id: deduction.id,
+    beneficiaryId: deduction.beneficiaryId,
     amountMinor: deduction.amount.amountMinor.toString(10),
     currency: deduction.amount.currency,
-    basis,
-    authorityRef: normalizedAuthorityRef,
-    observedAt,
-    deductionRoot: singleRecordRoot('royalty_deduction_v1', committed),
+    basis: deduction.basis,
+    authorityRef: deduction.authorityRef,
+    observedAt: deduction.observedAt,
+    deductionRoot: deduction.deductionRoot,
   });
 }
 

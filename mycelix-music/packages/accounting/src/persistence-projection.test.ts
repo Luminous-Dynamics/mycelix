@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createRoyaltyDeductionAuthority } from './deduction-authority.js';
 import { money } from './money.js';
 import { createRoyaltyObligationAuthority } from './obligation-authority.js';
 import {
@@ -61,83 +62,85 @@ describe('canonical accounting persistence projections', () => {
     expect(() => projectEligibilityObservationRecord(forged)).toThrow(/compiler-only code/);
   });
 
-  it('derives deduction roots from both basis and authority reference', () => {
-    const deduction = {
-      id: 'deduction:1',
-      beneficiaryId: 'creator:alice',
-      amount: money(50n, 'USD'),
-      basis: 'tax:withholding:v1',
-      observedAt: '2026-09-10T00:00:00Z',
-    } as const;
-    const first = projectDeductionRecord(deduction, 'tax-authority:notice:1');
-    const second = projectDeductionRecord(deduction, 'tax-authority:notice:2');
+  it('serializes a deduction root already derived from embedded authority evidence', () => {
+    const firstAuthority = createRoyaltyDeductionAuthority({
+      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
+      basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:1', observedAt: '2026-09-10T00:00:00Z',
+    });
+    const secondAuthority = createRoyaltyDeductionAuthority({
+      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
+      basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:2', observedAt: '2026-09-10T00:00:00Z',
+    });
+    const first = projectDeductionRecord(firstAuthority);
+    const second = projectDeductionRecord(secondAuthority);
+    expect(first.authorityRef).toBe('tax-authority:notice:1');
+    expect(first.deductionRoot).toBe(firstAuthority.deductionRoot);
     expect(first.deductionRoot).not.toBe(second.deductionRoot);
+  });
+
+  it('canonicalizes deduction authority before root derivation', () => {
+    const first = createRoyaltyDeductionAuthority({
+      id: ' deduction:1 ', beneficiaryId: ' creator:alice ', amount: money(50n, 'usd'),
+      basis: ' tax:withholding:v1 ', authorityRef: ' tax-authority:notice:1 ', observedAt: '2026-09-10T00:00:00+00:00',
+    });
+    const second = createRoyaltyDeductionAuthority({
+      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
+      basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:1', observedAt: '2026-09-10T00:00:00.000Z',
+    });
+    expect(first).toEqual(second);
+  });
+
+  it('refuses missing authority and a forged deduction root', () => {
+    expect(() => createRoyaltyDeductionAuthority({
+      id: 'deduction:no-authority', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
+      basis: 'tax:withholding:v1', authorityRef: '   ', observedAt: '2026-09-10T00:00:00Z',
+    })).toThrow(/authorityRef must be non-empty/);
+    const authority = createRoyaltyDeductionAuthority({
+      id: 'deduction:1', beneficiaryId: 'creator:alice', amount: money(50n, 'USD'),
+      basis: 'tax:withholding:v1', authorityRef: 'tax-authority:notice:1', observedAt: '2026-09-10T00:00:00Z',
+    });
+    expect(() => projectDeductionRecord({ ...authority, deductionRoot: 'f'.repeat(64) }))
+      .toThrow(/deductionRoot does not match/);
   });
 
   it('binds persisted settlement evidence to the exact eligibility snapshot', () => {
     const base = {
-      attemptId: 'attempt:1',
-      batchId: 'batch:1',
-      obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:00:00Z',
-      eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Submitted,
-      observedAt: '2026-09-10T00:01:00Z',
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Submitted, observedAt: '2026-09-10T00:01:00Z',
     } as const;
     const first = projectSettlementObservationRecord('settlement-observation:1', base);
-    const second = projectSettlementObservationRecord('settlement-observation:1', {
-      ...base,
-      eligibilityEvidenceRoot: 'c'.repeat(64),
-    });
+    const second = projectSettlementObservationRecord('settlement-observation:1', { ...base, eligibilityEvidenceRoot: 'c'.repeat(64) });
     expect(first.observationRoot).not.toBe(second.observationRoot);
     expect(first.eligibilityAsOf).toBe('2026-09-10T00:00:00.000Z');
   });
 
   it('refuses to project settlement evidence from before its eligibility snapshot', () => {
     expect(() => projectSettlementObservationRecord('settlement-observation:early', {
-      attemptId: 'attempt:1',
-      batchId: 'batch:1',
-      obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:01:00Z',
-      eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Submitted,
-      observedAt: '2026-09-10T00:00:59Z',
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:01:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Submitted, observedAt: '2026-09-10T00:00:59Z',
     })).toThrow(/predate its eligibility snapshot/);
   });
 
   it('requires finalized rail observations to retain receipt and exact amount identity', () => {
     expect(() => projectSettlementObservationRecord('settlement-observation:no-receipt', {
-      attemptId: 'attempt:1',
-      batchId: 'batch:1',
-      obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:00:00Z',
-      eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Finalized,
-      observedAt: '2026-09-10T00:00:00Z',
-      settledAmount: money(500n, 'USD'),
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:00:00Z', settledAmount: money(500n, 'USD'),
     })).toThrow(/requires railReceiptRef/);
     expect(() => projectSettlementObservationRecord('settlement-observation:no-amount', {
-      attemptId: 'attempt:1',
-      batchId: 'batch:1',
-      obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:00:00Z',
-      eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Finalized,
-      observedAt: '2026-09-10T00:00:00Z',
-      railReceiptRef: 'rail:receipt:1',
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:00:00Z', railReceiptRef: 'rail:receipt:1',
     })).toThrow(/requires settledAmount/);
   });
 
   it('commits finalized amount and currency into settlement observation root', () => {
     const base = {
-      attemptId: 'attempt:1',
-      batchId: 'batch:1',
-      obligationSetRoot: 'a'.repeat(64),
-      eligibilityAsOf: '2026-09-10T00:00:00Z',
-      eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Finalized,
-      observedAt: '2026-09-10T00:01:00Z',
-      railReceiptRef: 'rail:receipt:1',
+      attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
+      eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
+      state: SettlementAttemptState.Finalized, observedAt: '2026-09-10T00:01:00Z', railReceiptRef: 'rail:receipt:1',
     } as const;
     const first = projectSettlementObservationRecord('settlement-observation:1', { ...base, settledAmount: money(500n, 'USD') });
     const second = projectSettlementObservationRecord('settlement-observation:1', { ...base, settledAmount: money(499n, 'USD') });
@@ -150,37 +153,17 @@ describe('canonical accounting persistence projections', () => {
     expect(() => projectSettlementObservationRecord('settlement-observation:confirmed', {
       attemptId: 'attempt:1', batchId: 'batch:1', obligationSetRoot: 'a'.repeat(64),
       eligibilityAsOf: '2026-09-10T00:00:00Z', eligibilityEvidenceRoot: 'b'.repeat(64),
-      state: SettlementAttemptState.Confirmed, observedAt: '2026-09-10T00:01:00Z',
-      settledAmount: money(500n, 'USD'),
+      state: SettlementAttemptState.Confirmed, observedAt: '2026-09-10T00:01:00Z', settledAmount: money(500n, 'USD'),
     })).toThrow(/only on finalized/);
   });
 
   it('derives a stable statement snapshot root from the immutable projection', () => {
     const statement = createStatementSnapshot({
-      statementId: 'statement:1',
-      kind: StatementKind.Periodic,
-      beneficiaryId: 'creator:alice',
-      period: {
-        startInclusive: '2026-09-01T00:00:00Z',
-        endExclusive: '2026-10-01T00:00:00Z',
-      },
-      asOf: '2026-10-02T00:00:00Z',
-      obligationRoot: 'a'.repeat(64),
-      adjustmentRoot: 'b'.repeat(64),
-      settlementRoot: 'c'.repeat(64),
-      gross: money(500n, 'USD'),
-      held: money(100n, 'USD'),
-      deductions: money(50n, 'USD'),
-      netPayable: money(350n, 'USD'),
-      paid: money(300n, 'USD'),
-      completeness: {
-        kind: 'complete',
-        through: {
-          usageObservedThrough: '2026-10-01T00:00:00Z',
-          rightsResolvedThrough: '2026-10-01T00:00:00Z',
-          settlementsObservedThrough: '2026-10-01T00:00:00Z',
-        },
-      },
+      statementId: 'statement:1', kind: StatementKind.Periodic, beneficiaryId: 'creator:alice',
+      period: { startInclusive: '2026-09-01T00:00:00Z', endExclusive: '2026-10-01T00:00:00Z' },
+      asOf: '2026-10-02T00:00:00Z', obligationRoot: 'a'.repeat(64), adjustmentRoot: 'b'.repeat(64), settlementRoot: 'c'.repeat(64),
+      gross: money(500n, 'USD'), held: money(100n, 'USD'), deductions: money(50n, 'USD'), netPayable: money(350n, 'USD'), paid: money(300n, 'USD'),
+      completeness: { kind: 'complete', through: { usageObservedThrough: '2026-10-01T00:00:00Z', rightsResolvedThrough: '2026-10-01T00:00:00Z', settlementsObservedThrough: '2026-10-01T00:00:00Z' } },
     });
     const first = projectStatementSnapshotRecord(statement);
     const second = projectStatementSnapshotRecord(statement);
