@@ -17,6 +17,8 @@
 use crate::MaritimeEvidenceEnvelope;
 use serde::{Deserialize, Serialize};
 
+const MAX_PLATFORM_ID_BYTES: usize = 256;
+
 /// Compact content-addressed head of one platform event stream.
 ///
 /// `generation` is retained alongside sequence/digest so a restarted receiver
@@ -82,10 +84,9 @@ impl MaritimeStreamHead {
         let platform_id = platform_id.into();
         let digest = digest.into();
         if !canonical_platform_id(&platform_id) {
-            return Err(
-                "retained maritime stream platform_id must be non-empty, unpadded, and control-free"
-                    .into(),
-            );
+            return Err(format!(
+                "retained maritime stream platform_id must be non-empty, <= {MAX_PLATFORM_ID_BYTES} bytes, unpadded, and control-free"
+            ));
         }
         if !is_canonical_blake3_hex(&digest) {
             return Err(
@@ -166,7 +167,10 @@ impl MaritimeStreamHead {
 }
 
 fn canonical_platform_id(value: &str) -> bool {
-    !value.is_empty() && value.trim() == value && !value.chars().any(char::is_control)
+    !value.is_empty()
+        && value.len() <= MAX_PLATFORM_ID_BYTES
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
 }
 
 fn is_canonical_blake3_hex(value: &str) -> bool {
@@ -291,6 +295,10 @@ mod tests {
         assert!(MaritimeStreamHead::from_retained("", 7, 1, "11".repeat(32)).is_err());
         assert!(
             MaritimeStreamHead::from_retained(" auv-01", 7, 1, "11".repeat(32)).is_err()
+        );
+        assert!(
+            MaritimeStreamHead::from_retained("x".repeat(MAX_PLATFORM_ID_BYTES + 1), 7, 1, "11".repeat(32))
+                .is_err()
         );
         assert!(MaritimeStreamHead::from_retained("auv-01", 7, 1, "xyz").is_err());
         assert!(
