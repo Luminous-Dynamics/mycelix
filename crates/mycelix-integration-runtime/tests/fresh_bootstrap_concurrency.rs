@@ -2,7 +2,7 @@ use mycelix_integration_runtime::{
     RuntimeError, SqliteIntegrationStore, RUNTIME_ENFORCEMENT_PROFILE_V4,
     RUNTIME_SEMANTIC_PROFILE_V31,
 };
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use std::sync::{Arc, Barrier};
 use std::thread;
 
@@ -83,7 +83,7 @@ fn empty_partial_v2_bootstrap_with_exact_semantic_profile_resumes() {
         .expect("semantic table fixture must be created");
         conn.execute(
             "INSERT INTO integration_runtime_semantics (singleton, semantic_profile) VALUES (1, ?1)",
-            [RUNTIME_SEMANTIC_PROFILE_V31],
+            params![RUNTIME_SEMANTIC_PROFILE_V31],
         )
         .expect("exact semantic bootstrap identity must be installed");
     }
