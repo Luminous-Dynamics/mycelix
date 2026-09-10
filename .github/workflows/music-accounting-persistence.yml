@@ -1,0 +1,85 @@
+name: Music Accounting Persistence Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-music/packages/database/prisma/schema.prisma'
+      - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
+      - 'mycelix-music/packages/database/src/accounting-authority.ts'
+      - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
+      - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
+      - 'mycelix-music/packages/database/package.json'
+      - 'mycelix-music/scripts/check-source-invariants.sh'
+      - '.github/workflows/music-accounting-persistence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-music/packages/database/prisma/schema.prisma'
+      - 'mycelix-music/packages/database/prisma/accounting-append-only.sql'
+      - 'mycelix-music/packages/database/src/accounting-authority.ts'
+      - 'mycelix-music/packages/database/src/accounting-authority.test.ts'
+      - 'mycelix-music/packages/database/tsconfig.accounting-authority.json'
+      - 'mycelix-music/packages/database/package.json'
+      - 'mycelix-music/scripts/check-source-invariants.sh'
+      - '.github/workflows/music-accounting-persistence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: music-accounting-persistence-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Accounting Persistence Exact-Head Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      QUALIFIED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact proposed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact proposed head checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mycelix-music/package-lock.json
+
+      - name: Install committed dependency graph
+        working-directory: mycelix-music
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma authority client
+        working-directory: mycelix-music
+        run: npm run db:generate --workspace=@mycelix/database
+
+      - name: Validate Prisma authority schema
+        working-directory: mycelix-music
+        run: npm run db:validate --workspace=@mycelix/database
+
+      - name: Enforce source invariants
+        working-directory: mycelix-music
+        run: npm run check:invariants
+
+      - name: Type-check append-only store
+        working-directory: mycelix-music
+        run: npm run type-check:accounting-authority --workspace=@mycelix/database
+
+      - name: Test idempotent append boundary
+        working-directory: mycelix-music
+        run: npm run test:accounting-authority --workspace=@mycelix/database
+
+      - name: Record exact qualified head
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD_SHA"
+          echo "qualified_head=$QUALIFIED_HEAD_SHA"

@@ -15,7 +15,9 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:accounting-guards": "prisma db execute --file prisma/accounting-append-only.sql --schema prisma/schema.prisma",
     "db:seed": "tsx src/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "type-check:accounting-authority": "tsc -p tsconfig.accounting-authority.json",
+    "test:accounting-authority": "tsx --test src/accounting-authority.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0"
