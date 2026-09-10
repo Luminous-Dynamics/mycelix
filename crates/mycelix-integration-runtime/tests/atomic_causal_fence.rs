@@ -58,7 +58,12 @@ fn sqlite_write_boundary_rejects_runtime_time_rollback() {
             "INSERT INTO integration_execution_observation (\n\
                 entry_id, attempt_id, outcome_json, observed_at_ms, applied_to_current\n\
              ) VALUES (?1, ?2, ?3, ?4, 0)",
-            params![entry_id, claim.attempt_id.as_str(), b"{}".as_slice(), 110_i64],
+            params![
+                entry_id,
+                claim.attempt_id.as_str(),
+                b"{}".as_slice(),
+                110_i64
+            ],
         )
         .is_err(),
         "the database must atomically reject a backdated execution observation"
